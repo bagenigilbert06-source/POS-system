@@ -17,8 +17,8 @@ function MiniChart() {
   return (
     <div className="flex h-40 items-end gap-2">
       {[36, 48, 42, 66, 58, 76, 70, 88, 78, 96, 86, 104].map((height, index) => (
-        <div key={index} className="flex flex-1 items-end rounded-t-md bg-blue-50 dark:bg-blue-950/50" style={{ height: `${Math.max(height - 18, 24)}%` }}>
-          <div className="w-full rounded-t-md bg-primary/85" style={{ height: `${height}%` }} />
+        <div key={index} className="flex flex-1 items-end rounded-t-md bg-blue-100 dark:bg-blue-900/40" style={{ height: `${Math.max(height - 18, 24)}%` }}>
+          <div className="w-full rounded-t-md bg-blue-600 dark:bg-blue-400" style={{ height: `${height}%` }} />
         </div>
       ))}
     </div>

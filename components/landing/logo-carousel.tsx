@@ -146,9 +146,10 @@ export function LogoCarousel() {
           inset-block: 0;
           z-index: 10;
           width: 72px;
+          pointer-events: none;
         }
-        .fade-left  { left: 0;  background: linear-gradient(to right, hsl(var(--background)) 40%, transparent); }
-        .fade-right { right: 0; background: linear-gradient(to left,  hsl(var(--background)) 40%, transparent); }
+        .fade-left  { left: 0;  background: linear-gradient(to right, hsl(var(--background)) 0%, hsl(var(--background)) 60%, transparent 100%); }
+        .fade-right { right: 0; background: linear-gradient(to left, hsl(var(--background)) 0%, hsl(var(--background)) 60%, transparent 100%); }
 
         /* ── Scrolling list ────────────────────────────────────────── */
         .carousel-track {
@@ -201,12 +202,12 @@ export function LogoCarousel() {
         .logo-label {
           font-size: 13.5px;
           font-weight: 600;
-          color: #1e293b;
+          color: hsl(var(--foreground));
           line-height: 1;
           letter-spacing: -0.005em;
         }
 
-        /* ── Animation ─────────────────────────────────────────────── */
+        /* ── Animation ────────────────────────────────────────��────── */
         @keyframes logo-scroll {
           from { transform: translateX(0); }
           to   { transform: translateX(calc(-100% / 3)); }
