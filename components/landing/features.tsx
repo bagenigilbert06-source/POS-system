@@ -47,42 +47,47 @@ export function LandingFeatures() {
   ]
 
   return (
-    <section id="features" className="py-24 md:py-36 bg-gradient-to-b from-background via-background to-primary/2">
+    <section id="features" className="py-28 md:py-40 bg-gradient-to-b from-background via-background to-primary/2">
       <div className="mx-auto max-w-7xl px-6">
-        {/* Section header */}
-        <div className="text-center mb-20 md:mb-28">
-          <p className="text-xs font-semibold uppercase tracking-widest text-primary mb-4 opacity-80">
-            Powerful Features
+        {/* Section header - MD3 Typography */}
+        <div className="text-center mb-24 md:mb-32">
+          <p className="text-md3-label-small text-primary mb-6 opacity-90">
+            POWERFUL FEATURES
           </p>
-          <h2 className="text-4xl md:text-5xl lg:text-5xl font-bold mb-6 tracking-tight">
+          <h2 className="text-md3-headline-large md:text-md3-display-small mb-8 text-foreground">
             Everything you need to run your business
           </h2>
-          <p className="text-base md:text-lg text-muted-foreground max-w-3xl mx-auto font-light">
+          <p className="text-md3-body-large text-on-surface-variant max-w-3xl mx-auto">
             Powerful features designed specifically for Kenyan entrepreneurs, 
             from single kiosks to large retail chains
           </p>
         </div>
 
-        {/* Features grid */}
+        {/* Features grid - MD3 Cards */}
         <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
           {features.map((feature, idx) => {
             const Icon = feature.icon
             return (
               <div
                 key={idx}
-                className="group relative rounded-2xl border border-border bg-card/50 backdrop-blur-sm p-8 hover:shadow-xl hover:border-primary/40 transition-all duration-300 overflow-hidden"
+                className="group md3-card-elevated rounded-3xl border border-border overflow-hidden hover:elevation-3 transition-all duration-200"
               >
-                {/* Hover background effect */}
-                <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
+                {/* MD3 Tonal background for hover state */}
+                <div className="absolute inset-0 bg-gradient-to-br from-primary/3 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none" />
                 
-                <div className="relative z-10">
-                  <div className="h-14 w-14 rounded-xl bg-primary/12 flex items-center justify-center mb-5 group-hover:bg-primary/20 group-hover:scale-110 transition-all duration-300">
-                    <Icon className="h-7 w-7 text-primary" />
+                <div className="relative z-10 p-8">
+                  {/* MD3 Icon container with tonal background */}
+                  <div className="h-16 w-16 rounded-2xl bg-primary/15 flex items-center justify-center mb-6 group-hover:bg-primary/25 group-hover:scale-110 transition-all duration-200">
+                    <Icon className="h-8 w-8 text-primary" />
                   </div>
-                  <h3 className="font-semibold text-lg mb-3 text-foreground group-hover:text-primary transition-colors">
+                  
+                  {/* MD3 Title - Headline Small */}
+                  <h3 className="text-md3-headline-small mb-3 text-foreground group-hover:text-primary transition-colors duration-200">
                     {feature.title}
                   </h3>
-                  <p className="text-sm text-muted-foreground leading-relaxed group-hover:text-muted-foreground/80 transition-colors">
+                  
+                  {/* MD3 Description - Body Small */}
+                  <p className="text-md3-body-medium text-on-surface-variant leading-relaxed">
                     {feature.description}
                   </p>
                 </div>

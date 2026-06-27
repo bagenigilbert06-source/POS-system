@@ -35,40 +35,40 @@ export function LandingFAQ() {
   ]
 
   return (
-    <section id="faq" className="py-20 md:py-32">
+    <section id="faq" className="py-24 md:py-36 bg-gradient-to-b from-background via-background to-primary/2">
       <div className="mx-auto max-w-3xl px-6">
-        {/* Section header */}
-        <div className="text-center mb-16 md:mb-24">
-          <p className="text-sm font-semibold uppercase tracking-wider text-primary mb-4">
+        {/* Section header - MD3 Typography */}
+        <div className="text-center mb-20 md:mb-28">
+          <p className="text-md3-label-small text-primary mb-6">
             FAQ
           </p>
-          <h2 className="text-4xl md:text-5xl font-bold">
+          <h2 className="text-md3-headline-large md:text-md3-display-small text-foreground">
             Common questions
           </h2>
         </div>
 
-        {/* FAQ items */}
+        {/* FAQ items - MD3 Expandable Cards */}
         <div className="space-y-4">
           {faqs.map((faq, idx) => (
             <div
               key={idx}
-              className="border border-border rounded-lg overflow-hidden hover:border-border/50 transition-colors"
+              className="group border border-border rounded-2xl overflow-hidden elevation-1 hover:elevation-2 transition-all duration-200 md3-card"
             >
               <button
                 onClick={() => setOpenIdx(openIdx === idx ? null : idx)}
-                className="w-full p-6 flex items-center justify-between bg-background hover:bg-card/50 transition-colors text-left"
+                className="w-full p-6 md:p-8 flex items-center justify-between bg-card hover:bg-secondary/20 transition-colors text-left"
               >
-                <h3 className="font-semibold text-foreground pr-4">{faq.question}</h3>
+                <h3 className="text-md3-headline-small text-foreground pr-4">{faq.question}</h3>
                 <ChevronDown
                   className={cn(
-                    'h-5 w-5 text-muted-foreground flex-shrink-0 transition-transform',
+                    'h-6 w-6 text-primary flex-shrink-0 transition-transform duration-200 group-hover:scale-110',
                     openIdx === idx && 'rotate-180'
                   )}
                 />
               </button>
               {openIdx === idx && (
-                <div className="bg-card/50 px-6 py-4 border-t border-border">
-                  <p className="text-muted-foreground leading-relaxed">{faq.answer}</p>
+                <div className="bg-secondary/10 px-6 md:px-8 py-6 border-t border-border">
+                  <p className="text-md3-body-large text-muted-foreground leading-relaxed">{faq.answer}</p>
                 </div>
               )}
             </div>

@@ -110,14 +110,40 @@
     @apply bg-background text-foreground font-sans antialiased;
   }
 
-  /* Refined typography hierarchy - elegant and professional */
-  h1 { @apply text-2xl md:text-3xl font-semibold tracking-tight leading-snug; }
-  h2 { @apply text-xl md:text-2xl font-semibold tracking-tight leading-snug; }
-  h3 { @apply text-lg md:text-xl font-semibold; }
-  h4 { @apply text-base font-semibold; }
-  h5 { @apply text-sm font-semibold; }
-  h6 { @apply text-xs font-semibold uppercase tracking-widest; }
-  p { @apply text-sm md:text-base leading-relaxed text-foreground/85; }
+  /* Material Design 3 Typography Scale */
+  /* Display Styles */
+  .text-md3-display-large { @apply text-5xl font-light leading-tight tracking-normal; }
+  .text-md3-display-medium { @apply text-4xl font-light leading-tight tracking-normal; }
+  .text-md3-display-small { @apply text-3xl font-light leading-tight tracking-normal; }
+
+  /* Headline Styles */
+  .text-md3-headline-large { @apply text-3xl font-semibold leading-snug tracking-normal; }
+  .text-md3-headline-medium { @apply text-2xl font-semibold leading-snug tracking-normal; }
+  .text-md3-headline-small { @apply text-xl font-semibold leading-snug tracking-normal; }
+
+  /* Title Styles */
+  .text-md3-title-large { @apply text-lg font-bold leading-normal tracking-wider; }
+  .text-md3-title-medium { @apply text-base font-bold leading-normal tracking-wider; }
+  .text-md3-title-small { @apply text-sm font-bold leading-normal tracking-wider; }
+
+  /* Body Styles */
+  .text-md3-body-large { @apply text-base font-normal leading-relaxed tracking-wider; }
+  .text-md3-body-medium { @apply text-sm font-normal leading-relaxed tracking-wider; }
+  .text-md3-body-small { @apply text-xs font-normal leading-relaxed tracking-wider; }
+
+  /* Label Styles */
+  .text-md3-label-large { @apply text-sm font-bold leading-normal tracking-wider; }
+  .text-md3-label-medium { @apply text-xs font-bold leading-normal tracking-wider; }
+  .text-md3-label-small { @apply text-xs font-bold leading-normal tracking-widest; }
+
+  /* Refined typography hierarchy - Material Design 3 Compliant */
+  h1 { @apply text-md3-display-large; }
+  h2 { @apply text-md3-headline-large; }
+  h3 { @apply text-md3-headline-medium; }
+  h4 { @apply text-md3-headline-small; }
+  h5 { @apply text-md3-title-large; }
+  h6 { @apply text-md3-label-large uppercase; }
+  p { @apply text-md3-body-large leading-relaxed text-foreground/85; }
   
   /* Selection */
   ::selection {
@@ -126,6 +152,87 @@
 }
 
 @layer utilities {
+  /* Material Design 3 - Elevation/Shadow System (240ms transitions) */
+  .elevation-0 {
+    @apply shadow-none transition-shadow duration-300;
+  }
+  .elevation-1 {
+    @apply shadow-md transition-shadow duration-300;
+    box-shadow: 0 1px 3px 1px rgba(0, 0, 0, 0.15), 0 1px 2px 0 rgba(0, 0, 0, 0.3);
+  }
+  .elevation-2 {
+    @apply shadow-lg transition-shadow duration-300;
+    box-shadow: 0 2px 6px 2px rgba(0, 0, 0, 0.15), 0 1px 2px 0 rgba(0, 0, 0, 0.3);
+  }
+  .elevation-3 {
+    @apply shadow-xl transition-shadow duration-300;
+    box-shadow: 0 4px 8px 3px rgba(0, 0, 0, 0.15), 0 1px 3px 0 rgba(0, 0, 0, 0.3);
+  }
+  .elevation-4 {
+    @apply shadow-2xl transition-shadow duration-300;
+    box-shadow: 0 6px 10px 4px rgba(0, 0, 0, 0.15), 0 2px 3px 0 rgba(0, 0, 0, 0.3);
+  }
+  .elevation-5 {
+    box-shadow: 0 8px 12px 6px rgba(0, 0, 0, 0.15), 0 4px 4px 0 rgba(0, 0, 0, 0.3);
+    @apply transition-shadow duration-300;
+  }
+
+  /* Material Design 3 - Rounded Corners (Tonal variants) */
+  .rounded-md3-xs { @apply rounded-xs; }
+  .rounded-md3-sm { @apply rounded-sm; }
+  .rounded-md3-md { @apply rounded-md; }
+  .rounded-md3-lg { @apply rounded-lg; }
+  .rounded-md3-xl { @apply rounded-xl; }
+  .rounded-md3-full { @apply rounded-full; }
+
+  /* Material Design 3 - Buttons with Proper States */
+  .md3-btn-filled {
+    @apply inline-flex items-center justify-center px-6 py-3 rounded-full bg-primary text-primary-foreground text-md3-label-large font-semibold transition-all duration-200 hover:shadow-md hover:elevation-1 active:shadow-none active:elevation-0 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  .md3-btn-filled-tonal {
+    @apply inline-flex items-center justify-center px-6 py-3 rounded-full bg-secondary/40 text-primary text-md3-label-large font-semibold transition-all duration-200 hover:shadow-sm hover:elevation-0 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  .md3-btn-outlined {
+    @apply inline-flex items-center justify-center px-6 py-3 rounded-full border-2 border-primary text-primary text-md3-label-large font-semibold transition-all duration-200 hover:bg-secondary/30 active:bg-secondary active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  .md3-btn-text {
+    @apply inline-flex items-center justify-center px-6 py-3 rounded-full text-primary text-md3-label-large font-semibold transition-all duration-200 hover:bg-secondary/50 active:bg-secondary active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  .md3-btn-elevated {
+    @apply inline-flex items-center justify-center px-6 py-3 rounded-full bg-card text-primary text-md3-label-large font-semibold transition-all duration-200 shadow-md hover:shadow-lg hover:elevation-2 active:shadow-sm active:elevation-1 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  /* Material Design 3 - Surfaces & Cards */
+  .md3-surface {
+    @apply bg-background text-foreground rounded-lg elevation-0;
+  }
+  .md3-surface-dim {
+    @apply bg-secondary/40 text-foreground rounded-lg elevation-0;
+  }
+  .md3-surface-bright {
+    @apply bg-white text-foreground rounded-lg elevation-0;
+  }
+  .md3-surface-container {
+    @apply bg-card rounded-lg elevation-1;
+  }
+  .md3-surface-container-high {
+    @apply bg-card rounded-lg elevation-2;
+  }
+  .md3-surface-container-highest {
+    @apply bg-card rounded-lg elevation-3;
+  }
+
+  /* Material Design 3 - Cards with proper tonal backgrounds */
+  .md3-card {
+    @apply rounded-xl border border-border p-6 elevation-0 transition-all duration-200 hover:elevation-1;
+  }
+  .md3-card-filled {
+    @apply rounded-xl bg-secondary/40 p-6 elevation-0 transition-all duration-200 hover:elevation-1;
+  }
+  .md3-card-elevated {
+    @apply rounded-xl bg-card p-6 elevation-1 transition-all duration-200 hover:elevation-2;
+  }
+
   /* Sidebar Navigation */
   .sidebar-item {
     @apply flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-150 ease-in-out;
@@ -162,7 +269,7 @@
     @apply text-xs font-semibold uppercase tracking-widest text-muted-foreground;
   }
   
-  /* Buttons */
+  /* Legacy Buttons - Kept for compatibility */
   .btn-primary {
     @apply inline-flex items-center justify-center rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90 active:bg-primary/80 transition-all disabled:opacity-50 disabled:cursor-not-allowed;
   }

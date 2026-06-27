@@ -20,40 +20,44 @@ export function LogoCarousel() {
   ]
 
   return (
-    <section className="py-20 md:py-28 bg-gradient-to-br from-background via-background to-primary/5">
+    <section className="py-24 md:py-36 bg-gradient-to-b from-background via-background to-primary/3">
       <div className="mx-auto max-w-7xl px-6">
-        {/* Section header */}
-        <div className="text-center mb-16">
-          <p className="text-sm font-semibold uppercase tracking-widest text-primary mb-4">
-            Trusted Integrations
+        {/* Section header - MD3 Typography */}
+        <div className="text-center mb-20 md:mb-28">
+          <p className="text-md3-label-small text-primary mb-6">
+            TRUSTED INTEGRATIONS
           </p>
-          <h2 className="text-3xl md:text-4xl font-bold mb-4">
+          <h2 className="text-md3-headline-large md:text-md3-display-small mb-6 text-foreground">
             Powerful Partnerships
           </h2>
-          <p className="text-base text-muted-foreground max-w-2xl mx-auto">
+          <p className="text-md3-body-large text-on-surface-variant max-w-3xl mx-auto">
             Seamlessly integrated with Kenya&apos;s leading financial and telecom providers
           </p>
         </div>
 
-        {/* Carousel */}
+        {/* Carousel - MD3 Cards */}
         <div className="relative">
-          <div className="overflow-hidden rounded-2xl" ref={emblaRef}>
-            <div className="flex gap-8 md:gap-12 px-4">
+          <div className="overflow-hidden rounded-3xl" ref={emblaRef}>
+            <div className="flex gap-6 md:gap-8 px-4">
               {companies.map((company, idx) => (
                 <div
                   key={idx}
-                  className="flex-shrink-0 w-48 md:w-64 flex flex-col items-center justify-center gap-3 p-8 rounded-xl border border-border bg-card hover:border-primary/50 hover:shadow-lg transition-all duration-300 group cursor-pointer"
+                  className="flex-shrink-0 w-56 md:w-72 flex flex-col items-center justify-center gap-4 p-8 rounded-2xl md3-card-elevated border border-border elevation-1 hover:elevation-3 transition-all duration-200 group cursor-pointer"
                 >
-                  {/* Logo placeholder - Material UI style */}
-                  <div className="h-16 w-16 rounded-lg bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center group-hover:from-primary/30 group-hover:to-primary/20 transition-all duration-300">
-                    <div className="text-lg font-bold text-primary">
+                  {/* Logo placeholder - MD3 Style with tonal background */}
+                  <div className="h-20 w-20 rounded-2xl bg-primary/15 flex items-center justify-center group-hover:bg-primary/25 group-hover:scale-110 transition-all duration-200">
+                    <div className="text-2xl font-bold text-primary">
                       {company.name.substring(0, 2).toUpperCase()}
                     </div>
                   </div>
-                  <h3 className="text-center font-semibold text-foreground text-sm">
+                  
+                  {/* Company name - MD3 Headline Small */}
+                  <h3 className="text-center text-md3-headline-small text-foreground">
                     {company.name}
                   </h3>
-                  <p className="text-xs text-muted-foreground text-center">
+                  
+                  {/* Description - MD3 Body Small */}
+                  <p className="text-md3-body-small text-on-surface-variant text-center">
                     {company.description}
                   </p>
                 </div>
@@ -61,17 +65,19 @@ export function LogoCarousel() {
             </div>
           </div>
 
-          {/* Gradient overlays */}
-          <div className="absolute left-0 top-0 bottom-0 w-12 bg-gradient-to-r from-background to-transparent pointer-events-none z-10" />
-          <div className="absolute right-0 top-0 bottom-0 w-12 bg-gradient-to-l from-background to-transparent pointer-events-none z-10" />
+          {/* MD3 Gradient overlays - more refined */}
+          <div className="absolute left-0 top-0 bottom-0 w-16 bg-gradient-to-r from-background to-transparent pointer-events-none z-10" />
+          <div className="absolute right-0 top-0 bottom-0 w-16 bg-gradient-to-l from-background to-transparent pointer-events-none z-10" />
         </div>
 
-        {/* Trust statement */}
-        <div className="mt-12 text-center">
-          <p className="text-sm text-muted-foreground inline-flex items-center gap-2 bg-primary/5 border border-primary/20 rounded-full px-4 py-2">
-            <span className="inline-block h-2 w-2 rounded-full bg-primary" />
-            Trusted by 5000+ Kenyan businesses nationwide
-          </p>
+        {/* Trust statement - MD3 Assist Chip */}
+        <div className="mt-16 text-center">
+          <div className="inline-flex items-center gap-2 bg-secondary/40 border border-border rounded-full px-5 py-3 elevation-1 hover:elevation-2 transition-all duration-200">
+            <span className="inline-block h-2.5 w-2.5 rounded-full bg-primary animate-pulse" />
+            <span className="text-md3-label-medium text-muted-foreground">
+              Trusted by 5000+ Kenyan businesses nationwide
+            </span>
+          </div>
         </div>
       </div>
     </section>
