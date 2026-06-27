@@ -57,10 +57,10 @@ const secondary = [
 
 export function LandingFeatures() {
   return (
-    <section id="features" className="section-padding bg-background">
+    <section id="features" className="section-padding-premium bg-background">
       <div className="container-wide">
         {/* Header */}
-        <div className="text-center max-w-2xl mx-auto mb-14">
+        <div className="text-center max-w-2xl mx-auto mb-20">
           <p className="section-eyebrow mb-3">Platform Features</p>
           <h2 className="section-heading mb-4">
             Replace every tool with one platform.

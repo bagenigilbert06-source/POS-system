@@ -24,7 +24,7 @@ const stats = [
 export function LandingStats() {
   return (
     <section className="section-dark border-y border-[hsl(var(--section-dark-border))]">
-      <div className="container-wide py-14 md:py-16">
+      <div className="container-wide py-16 md:py-24">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-px">
           {stats.map((stat, i) => (
             <div

@@ -97,10 +97,10 @@ export function LandingIndustries() {
   const active = industries.find((i) => i.id === activeId) ?? industries[0]
 
   return (
-    <section id="industries" className="section-padding bg-secondary/20">
+    <section id="industries" className="section-padding-premium bg-secondary/20">
       <div className="container-wide">
         {/* Header */}
-        <div className="text-center max-w-2xl mx-auto mb-12">
+        <div className="text-center max-w-2xl mx-auto mb-16">
           <p className="section-eyebrow mb-3">Industries</p>
           <h2 className="section-heading mb-4">
             Built for every type of business.

@@ -221,6 +221,14 @@
     @apply text-base md:text-lg text-muted-foreground leading-relaxed;
   }
 
+  /* Premium section spacing — more generous breathing room */
+  .section-padding-premium {
+    @apply py-24 md:py-32 lg:py-40;
+  }
+  .section-padding-lg {
+    @apply py-20 md:py-28;
+  }
+
   /* Section divider decorative */
   .section-title-decorated {
     @apply flex items-center justify-center gap-4 text-center;

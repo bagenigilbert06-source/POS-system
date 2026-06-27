@@ -10,7 +10,7 @@ const reasons = [
 
 export function LandingCTA() {
   return (
-    <section className="section-padding section-dark">
+    <section className="section-padding-premium section-dark">
       <div className="container-wide">
         <div className="max-w-3xl mx-auto text-center">
           {/* Eyebrow */}

@@ -112,8 +112,8 @@ function MarqueeRow({ items, reverse = false }: { items: typeof testimonials; re
 
 export function LandingTestimonials() {
   return (
-    <section className="section-padding bg-secondary/20 overflow-hidden">
-      <div className="container-wide mb-12">
+    <section className="section-padding-premium bg-secondary/20 overflow-hidden">
+      <div className="container-wide mb-16">
         <div className="text-center max-w-xl mx-auto">
           <p className="section-eyebrow mb-3">Customer Stories</p>
           <h2 className="section-heading mb-4">

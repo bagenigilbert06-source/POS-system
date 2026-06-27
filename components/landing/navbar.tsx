@@ -29,7 +29,7 @@ export function LandingNavbar() {
           : 'bg-background border-b border-transparent'
       }`}
     >
-      <div className="container-wide flex h-16 items-center justify-between">
+      <div className="container-wide flex h-14 items-center justify-between">
         {/* Logo */}
         <Link href="/" className="flex items-center gap-2.5 group">
           <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center group-hover:bg-primary/90 transition-colors">

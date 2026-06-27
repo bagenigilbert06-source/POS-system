@@ -34,7 +34,7 @@ export function LandingFAQ() {
   const [openIdx, setOpenIdx] = useState<number | null>(0)
 
   return (
-    <section id="faq" className="section-padding bg-background">
+    <section id="faq" className="section-padding-premium bg-background">
       <div className="container-wide">
         <div className="grid lg:grid-cols-[1fr_2fr] gap-16 items-start">
           {/* Left — sticky heading */}

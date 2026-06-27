@@ -130,8 +130,8 @@ export function LandingHero() {
         }}
       />
 
-      <div className="container-wide relative pt-12 pb-0 md:pt-20">
-        <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center pb-16 md:pb-20">
+      <div className="container-wide relative pt-16 pb-12 md:pt-24 md:pb-16">
+        <div className="grid lg:grid-cols-2 gap-12 lg:gap-20 items-center">
 
           {/* Left — copy */}
           <div className="flex flex-col">
