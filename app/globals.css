@@ -4,49 +4,56 @@
 
 @layer base {
   :root {
-    /* Fluent 2 — Light Theme */
+    /* Light Theme */
     --background: 0 0% 100%;
-    --foreground: 217 33% 9%;
+    --foreground: 222 47% 11%;
 
-    --card: 210 40% 98%;
-    --card-foreground: 217 33% 9%;
+    --card: 0 0% 99%;
+    --card-foreground: 222 47% 11%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 217 33% 9%;
+    --popover-foreground: 222 47% 11%;
 
-    --primary: 217 91% 54%;
+    --primary: 221 83% 53%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 210 40% 96%;
-    --secondary-foreground: 217 33% 20%;
+    --secondary: 220 14% 96%;
+    --secondary-foreground: 222 47% 20%;
 
-    --muted: 210 40% 96%;
-    --muted-foreground: 215 16% 47%;
+    --muted: 220 14% 96%;
+    --muted-foreground: 220 9% 46%;
 
-    --accent: 217 91% 96%;
-    --accent-foreground: 217 91% 40%;
+    --accent: 221 83% 95%;
+    --accent-foreground: 221 83% 38%;
 
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 214 32% 91%;
-    --input: 214 32% 91%;
-    --ring: 217 91% 54%;
+    --border: 220 13% 91%;
+    --input: 220 13% 91%;
+    --ring: 221 83% 53%;
     --radius: 0.625rem;
+
+    /* Dark section — used for stats, CTA, hero gradient */
+    /* In light mode: deep navy. In dark mode: even darker navy. */
+    --section-dark-bg: 222 47% 11%;
+    --section-dark-fg: 0 0% 100%;
+    --section-dark-muted: 222 47% 65%;
+    --section-dark-border: 222 47% 20%;
 
     --success: 142 71% 39%;
     --success-foreground: 0 0% 100%;
     --warning: 38 92% 50%;
     --warning-foreground: 0 0% 100%;
 
-    --sidebar-bg: 217 33% 11%;
-    --sidebar-fg: 217 12% 65%;
-    --sidebar-active: 217 91% 54%;
+    --sidebar-bg: 222 47% 9%;
+    --sidebar-fg: 220 9% 55%;
+    --sidebar-active: 221 83% 53%;
     --sidebar-active-fg: 0 0% 100%;
-    --sidebar-hover: 217 33% 18%;
-    --sidebar-border: 217 33% 16%;
+    --sidebar-hover: 222 47% 16%;
+    --sidebar-border: 222 47% 16%;
 
-    --chart-1: 217 91% 54%;
+    --chart-1: 221 83% 53%;
     --chart-2: 142 71% 45%;
     --chart-3: 38 92% 50%;
     --chart-4: 0 84% 60%;
@@ -54,34 +61,39 @@
   }
 
   .dark {
-    /* Fluent 2 — Dark Theme (no pure black, layered surfaces) */
-    --background: 222 47% 8%;
-    --foreground: 210 40% 97%;
+    --background: 222 47% 7%;
+    --foreground: 210 40% 96%;
 
-    --card: 222 47% 11%;
-    --card-foreground: 210 40% 97%;
+    --card: 222 47% 10%;
+    --card-foreground: 210 40% 96%;
 
-    --popover: 222 47% 11%;
-    --popover-foreground: 210 40% 97%;
+    --popover: 222 47% 10%;
+    --popover-foreground: 210 40% 96%;
 
-    --primary: 217 91% 60%;
+    --primary: 221 83% 62%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 222 47% 16%;
-    --secondary-foreground: 210 40% 90%;
+    --secondary: 222 47% 15%;
+    --secondary-foreground: 210 40% 85%;
 
-    --muted: 222 47% 16%;
-    --muted-foreground: 215 20% 55%;
+    --muted: 222 47% 15%;
+    --muted-foreground: 215 16% 50%;
 
-    --accent: 217 91% 18%;
-    --accent-foreground: 217 91% 75%;
+    --accent: 221 83% 17%;
+    --accent-foreground: 221 83% 75%;
 
     --destructive: 0 72% 55%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 222 47% 18%;
-    --input: 222 47% 16%;
-    --ring: 217 91% 60%;
+    --border: 222 47% 17%;
+    --input: 222 47% 15%;
+    --ring: 221 83% 62%;
+
+    /* Dark section — even deeper in dark mode */
+    --section-dark-bg: 222 47% 4%;
+    --section-dark-fg: 0 0% 100%;
+    --section-dark-muted: 222 20% 55%;
+    --section-dark-border: 222 47% 12%;
 
     --success: 142 71% 50%;
     --success-foreground: 0 0% 100%;
@@ -89,13 +101,13 @@
     --warning-foreground: 0 0% 100%;
 
     --sidebar-bg: 222 47% 5%;
-    --sidebar-fg: 210 40% 60%;
-    --sidebar-active: 217 91% 60%;
+    --sidebar-fg: 210 10% 55%;
+    --sidebar-active: 221 83% 62%;
     --sidebar-active-fg: 0 0% 100%;
-    --sidebar-hover: 222 47% 14%;
-    --sidebar-border: 222 47% 14%;
+    --sidebar-hover: 222 47% 13%;
+    --sidebar-border: 222 47% 13%;
 
-    --chart-1: 217 91% 65%;
+    --chart-1: 221 83% 65%;
     --chart-2: 142 71% 55%;
     --chart-3: 38 92% 60%;
     --chart-4: 0 84% 65%;
@@ -110,11 +122,14 @@
 
   html {
     @apply bg-background scroll-smooth;
-    color-scheme: light;
   }
 
-  .dark {
+  html.dark {
     color-scheme: dark;
+  }
+
+  html:not(.dark) {
+    color-scheme: light;
   }
 
   body {
@@ -122,9 +137,8 @@
     font-feature-settings: "rlig" 1, "calt" 1;
   }
 
-  /* Fluent 2 — Typography Scale (Geist font) */
   h1, h2, h3, h4, h5, h6 {
-    @apply text-foreground font-semibold tracking-tight;
+    @apply text-foreground tracking-tight;
   }
 
   ::selection {
@@ -133,57 +147,86 @@
 }
 
 @layer utilities {
-  /* Fluent 2 — Shadow / Elevation System */
-  .fluent-shadow-2 {
-    box-shadow: 0 1px 2px rgba(0,0,0,0.07), 0 2px 4px rgba(0,0,0,0.05);
+  /* Shadow system */
+  .shadow-sm-soft {
+    box-shadow: 0 1px 2px rgba(0,0,0,0.06), 0 2px 4px rgba(0,0,0,0.04);
   }
-  .fluent-shadow-4 {
-    box-shadow: 0 2px 4px rgba(0,0,0,0.08), 0 4px 8px rgba(0,0,0,0.06);
+  .shadow-md-soft {
+    box-shadow: 0 4px 8px rgba(0,0,0,0.08), 0 8px 16px rgba(0,0,0,0.05);
   }
-  .fluent-shadow-8 {
-    box-shadow: 0 4px 8px rgba(0,0,0,0.09), 0 8px 16px rgba(0,0,0,0.06);
+  .shadow-lg-soft {
+    box-shadow: 0 8px 24px rgba(0,0,0,0.10), 0 16px 48px rgba(0,0,0,0.06);
   }
-  .fluent-shadow-16 {
-    box-shadow: 0 8px 16px rgba(0,0,0,0.10), 0 16px 32px rgba(0,0,0,0.07);
-  }
-  .fluent-shadow-64 {
-    box-shadow: 0 16px 32px rgba(0,0,0,0.12), 0 32px 64px rgba(0,0,0,0.08);
+  .shadow-xl-soft {
+    box-shadow: 0 16px 48px rgba(0,0,0,0.12), 0 32px 80px rgba(0,0,0,0.08);
   }
 
-  /* Fluent 2 — Button Styles */
+  /* Legacy compat */
+  .fluent-shadow-2  { @apply shadow-sm-soft; }
+  .fluent-shadow-4  { @apply shadow-sm-soft; }
+  .fluent-shadow-8  { @apply shadow-md-soft; }
+  .fluent-shadow-16 { @apply shadow-lg-soft; }
+  .fluent-shadow-64 { @apply shadow-xl-soft; }
+
+  /* Dark section utility — correct in both light and dark mode */
+  .section-dark {
+    background-color: hsl(var(--section-dark-bg));
+    color: hsl(var(--section-dark-fg));
+  }
+  .section-dark-text {
+    color: hsl(var(--section-dark-fg));
+  }
+  .section-dark-muted {
+    color: hsl(var(--section-dark-muted));
+  }
+  .section-dark-border {
+    border-color: hsl(var(--section-dark-border));
+  }
+
+  /* Buttons */
   .fluent-btn-primary {
-    @apply inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-semibold transition-all duration-150 hover:bg-primary/90 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed fluent-shadow-2;
+    @apply inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-semibold transition-all duration-150 hover:opacity-90 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed shadow-sm-soft;
   }
   .fluent-btn-secondary {
-    @apply inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg border border-border bg-background text-foreground text-sm font-semibold transition-all duration-150 hover:bg-secondary active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed fluent-shadow-2;
+    @apply inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg border border-border bg-background text-foreground text-sm font-semibold transition-all duration-150 hover:bg-secondary active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed shadow-sm-soft;
   }
   .fluent-btn-ghost {
     @apply inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg text-foreground text-sm font-medium transition-all duration-150 hover:bg-secondary active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed;
   }
 
-  /* Fluent 2 — Card Styles */
+  /* Cards */
   .fluent-card {
-    @apply rounded-xl border border-border bg-card fluent-shadow-2 transition-all duration-200;
+    @apply rounded-xl border border-border bg-card shadow-sm-soft transition-all duration-200;
   }
   .fluent-card-hover {
-    @apply fluent-card hover:fluent-shadow-8 hover:-translate-y-0.5;
+    @apply fluent-card hover:shadow-md-soft hover:-translate-y-0.5;
   }
 
-  /* Page layout helpers */
+  /* Layout */
   .section-padding {
     @apply py-20 md:py-28;
   }
   .container-wide {
     @apply mx-auto max-w-7xl px-6 lg:px-8;
   }
+
+  /* Typography */
   .section-eyebrow {
-    @apply text-xs font-semibold uppercase tracking-widest text-primary;
+    @apply text-xs font-bold uppercase tracking-widest text-primary;
   }
   .section-heading {
-    @apply text-3xl md:text-4xl font-bold tracking-tight text-foreground;
+    @apply text-3xl md:text-4xl font-bold tracking-tight text-foreground leading-tight;
   }
   .section-subheading {
-    @apply text-base md:text-lg text-muted-foreground leading-relaxed max-w-2xl;
+    @apply text-base md:text-lg text-muted-foreground leading-relaxed;
+  }
+
+  /* Section divider decorative */
+  .section-title-decorated {
+    @apply flex items-center justify-center gap-4 text-center;
+  }
+  .section-title-line {
+    @apply flex-1 h-px bg-border;
   }
 
   /* Sidebar */
@@ -197,83 +240,62 @@
     @apply text-[hsl(var(--sidebar-fg))] hover:bg-[hsl(var(--sidebar-hover))] hover:text-foreground;
   }
 
-  /* Legacy compat */
-  .metric-card {
-    @apply fluent-card p-6;
-  }
-  .badge-success {
-    @apply inline-flex items-center rounded-full bg-green-50 text-green-700 px-2.5 py-0.5 text-xs font-medium;
-  }
-  .badge-warning {
-    @apply inline-flex items-center rounded-full bg-amber-50 text-amber-700 px-2.5 py-0.5 text-xs font-medium;
-  }
-  .badge-destructive {
-    @apply inline-flex items-center rounded-full bg-red-50 text-red-700 px-2.5 py-0.5 text-xs font-medium;
-  }
-  .badge-info {
-    @apply inline-flex items-center rounded-full bg-blue-50 text-blue-700 px-2.5 py-0.5 text-xs font-medium;
-  }
-  .btn-primary { @apply fluent-btn-primary; }
-  .btn-secondary { @apply fluent-btn-secondary; }
-  .glass-morphism {
-    @apply bg-card/80 backdrop-blur-sm border border-border rounded-xl;
-  }
-  .page-header {
-    @apply mb-8 flex flex-col gap-2 md:flex-row md:items-center md:justify-between;
-  }
-  .page-title {
-    @apply text-2xl md:text-3xl font-bold tracking-tight;
-  }
-  .page-subtitle {
-    @apply text-sm md:text-base text-muted-foreground;
-  }
-  .section-label {
-    @apply text-xs font-semibold uppercase tracking-widest text-muted-foreground;
-  }
-  .input-base {
-    @apply rounded-lg border border-border bg-background px-4 py-2.5 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all;
-  }
-  .divider {
-    @apply border-b border-border;
-  }
-  .gradient-bg {
-    @apply bg-gradient-to-br from-background to-card;
-  }
+  /* Dashboard / app utilities */
+  .metric-card    { @apply fluent-card p-6; }
+  .badge-success  { @apply inline-flex items-center rounded-full bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 px-2.5 py-0.5 text-xs font-medium; }
+  .badge-warning  { @apply inline-flex items-center rounded-full bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 px-2.5 py-0.5 text-xs font-medium; }
+  .badge-destructive { @apply inline-flex items-center rounded-full bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 px-2.5 py-0.5 text-xs font-medium; }
+  .badge-info     { @apply inline-flex items-center rounded-full bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 px-2.5 py-0.5 text-xs font-medium; }
+  .btn-primary    { @apply fluent-btn-primary; }
+  .btn-secondary  { @apply fluent-btn-secondary; }
+  .glass-morphism { @apply bg-card/80 backdrop-blur-sm border border-border rounded-xl; }
+  .page-header    { @apply mb-8 flex flex-col gap-2 md:flex-row md:items-center md:justify-between; }
+  .page-title     { @apply text-2xl md:text-3xl font-bold tracking-tight; }
+  .page-subtitle  { @apply text-sm md:text-base text-muted-foreground; }
+  .section-label  { @apply text-xs font-semibold uppercase tracking-widest text-muted-foreground; }
+  .input-base     { @apply rounded-lg border border-border bg-background px-4 py-2.5 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all; }
+  .divider        { @apply border-b border-border; }
+  .gradient-bg    { @apply bg-gradient-to-br from-background to-card; }
 }
+
+/* ── Animations ─────────────────────────────────────────── */
 
 @keyframes carousel-scroll {
   0%   { transform: translateX(0); }
   100% { transform: translateX(-50%); }
 }
-
 .animate-carousel {
-  animation: carousel-scroll 28s linear infinite;
+  animation: carousel-scroll 30s linear infinite;
 }
 
 @keyframes marquee {
   0%   { transform: translateX(0); }
   100% { transform: translateX(-50%); }
 }
-
 @keyframes marquee-reverse {
   0%   { transform: translateX(-50%); }
   100% { transform: translateX(0); }
 }
-
 .animate-marquee {
-  animation: marquee 40s linear infinite;
+  animation: marquee 45s linear infinite;
 }
-
 .animate-marquee-reverse {
-  animation: marquee-reverse 40s linear infinite;
+  animation: marquee-reverse 45s linear infinite;
 }
-
 .animate-marquee:hover,
 .animate-marquee-reverse:hover {
   animation-play-state: paused;
 }
 
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.animate-fade-up {
+  animation: fade-up 0.5s ease-out forwards;
+}
+
 @media print {
-  .no-print { display: none !important; }
+  .no-print   { display: none !important; }
   .print-only { display: block !important; }
 }
