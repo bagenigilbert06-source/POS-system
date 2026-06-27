@@ -61,23 +61,23 @@
   }
 
   .dark {
-    --background: 222 47% 6%;
+    --background: 221 80% 12%;
     --foreground: 0 0% 98%;
 
-    --card: 222 47% 12%;
+    --card: 221 80% 16%;
     --card-foreground: 0 0% 98%;
 
-    --popover: 222 47% 12%;
+    --popover: 221 80% 16%;
     --popover-foreground: 0 0% 98%;
 
     --primary: 221 83% 62%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 222 47% 18%;
+    --secondary: 221 80% 22%;
     --secondary-foreground: 0 0% 88%;
 
-    --muted: 222 47% 20%;
-    --muted-foreground: 222 47% 65%;
+    --muted: 221 80% 26%;
+    --muted-foreground: 221 80% 65%;
 
     --accent: 221 83% 22%;
     --accent-foreground: 221 83% 75%;
@@ -85,27 +85,27 @@
     --destructive: 0 72% 55%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 222 47% 18%;
-    --input: 222 47% 16%;
+    --border: 221 80% 22%;
+    --input: 221 80% 20%;
     --ring: 221 83% 62%;
 
-    /* Dark section — aligned with auth design */
-    --section-dark-bg: 222 47% 8%;
+    /* Dark section — matches auth gradient blue */
+    --section-dark-bg: 221 80% 10%;
     --section-dark-fg: 0 0% 100%;
-    --section-dark-muted: 222 47% 65%;
-    --section-dark-border: 222 47% 20%;
+    --section-dark-muted: 221 80% 65%;
+    --section-dark-border: 221 80% 24%;
 
     --success: 142 71% 50%;
     --success-foreground: 0 0% 100%;
     --warning: 38 92% 55%;
     --warning-foreground: 0 0% 100%;
 
-    --sidebar-bg: 222 47% 7%;
-    --sidebar-fg: 222 47% 60%;
+    --sidebar-bg: 221 80% 9%;
+    --sidebar-fg: 221 80% 60%;
     --sidebar-active: 221 83% 62%;
     --sidebar-active-fg: 0 0% 100%;
-    --sidebar-hover: 222 47% 16%;
-    --sidebar-border: 222 47% 18%;
+    --sidebar-hover: 221 80% 20%;
+    --sidebar-border: 221 80% 22%;
 
     --chart-1: 221 83% 65%;
     --chart-2: 142 71% 55%;
