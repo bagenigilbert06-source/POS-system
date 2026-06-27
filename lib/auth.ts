@@ -1,4 +1,5 @@
 import { betterAuth } from 'better-auth'
+import { google } from 'better-auth/social'
 import { pool } from '@/lib/db'
 
 export const auth = betterAuth({
@@ -10,6 +11,13 @@ export const auth = betterAuth({
       : process.env.VERCEL_URL
         ? `https://${process.env.VERCEL_URL}`
         : process.env.V0_RUNTIME_URL),
+  socialProviders: {
+    google: {
+      clientId: process.env.GOOGLE_CLIENT_ID || '',
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET || '',
+      redirectURI: process.env.GOOGLE_REDIRECT_URI,
+    },
+  },
   emailAndPassword: {
     enabled: true,
     autoSignIn: true,
