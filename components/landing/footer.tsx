@@ -1,62 +1,68 @@
-'use client'
-
 import Link from 'next/link'
-import { Building2 } from 'lucide-react'
+import { Zap } from 'lucide-react'
+
+const footerLinks = {
+  Product: [
+    { label: 'Features',   href: '#features' },
+    { label: 'Industries', href: '#industries' },
+    { label: 'Pricing',    href: '#pricing' },
+    { label: 'Security',   href: '#' },
+    { label: 'Changelog',  href: '#' },
+  ],
+  Company: [
+    { label: 'About',    href: '#' },
+    { label: 'Blog',     href: '#' },
+    { label: 'Careers',  href: '#' },
+    { label: 'Contact',  href: 'mailto:hello@imara.co' },
+  ],
+  Support: [
+    { label: 'Documentation',   href: '#' },
+    { label: 'Help Center',     href: '#' },
+    { label: 'Status',          href: '#' },
+    { label: 'Contact Support', href: '#' },
+  ],
+  Legal: [
+    { label: 'Terms',   href: '#' },
+    { label: 'Privacy', href: '#' },
+    { label: 'Cookies', href: '#' },
+  ],
+}
 
 export function LandingFooter() {
-  const currentYear = new Date().getFullYear()
-
-  const links = {
-    Product: [
-      { label: 'Features', href: '#features' },
-      { label: 'Pricing', href: '#pricing' },
-      { label: 'Industries', href: '#industries' },
-      { label: 'FAQ', href: '#faq' },
-    ],
-    Company: [
-      { label: 'About', href: '#' },
-      { label: 'Blog', href: '#' },
-      { label: 'Careers', href: '#' },
-      { label: 'Contact', href: 'mailto:support@bizos.ke' },
-    ],
-    Legal: [
-      { label: 'Privacy', href: '#' },
-      { label: 'Terms', href: '#' },
-      { label: 'Security', href: '#' },
-      { label: 'Compliance', href: '#' },
-    ],
-  }
+  const year = new Date().getFullYear()
 
   return (
-    <footer className="border-t border-border bg-card/50">
-      <div className="mx-auto max-w-7xl px-6 py-14 md:py-18">
-        <div className="grid md:grid-cols-5 gap-10 md:gap-12 mb-14">
-          {/* Brand - MD3 Typography */}
-          <div>
-            <Link href="/" className="flex items-center gap-2 mb-6 font-bold group hover:opacity-80 transition-opacity">
-              <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center">
-                <Building2 className="h-4 w-4 text-primary-foreground" />
+    <footer className="border-t border-border bg-background">
+      <div className="container-wide py-16">
+        {/* Top grid */}
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-10 mb-14">
+          {/* Brand */}
+          <div className="col-span-2 md:col-span-1">
+            <Link href="/" className="inline-flex items-center gap-2 mb-5 group">
+              <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center">
+                <Zap className="h-4 w-4 text-white fill-white" />
               </div>
-              <span className="text-md3-title-large">IMARA</span>
+              <span className="text-base font-bold tracking-tight">Imara</span>
             </Link>
-            <p className="text-md3-body-medium text-on-surface-variant">
-              Business OS for African entrepreneurs
+            <p className="text-sm text-muted-foreground leading-relaxed max-w-[200px]">
+              Business operating system built for African entrepreneurs.
             </p>
           </div>
 
-          {/* Links - MD3 Link style */}
-          {Object.entries(links).map(([category, items]) => (
-            <div key={category}>
-              <h4 className="text-md3-title-medium text-foreground mb-5">{category}</h4>
+          {/* Link columns */}
+          {Object.entries(footerLinks).map(([group, items]) => (
+            <div key={group}>
+              <p className="text-[11px] font-semibold text-foreground mb-4 uppercase tracking-widest">
+                {group}
+              </p>
               <ul className="space-y-3">
                 {items.map((item) => (
                   <li key={item.label}>
                     <Link
                       href={item.href}
-                      className="text-md3-body-medium text-on-surface-variant hover:text-foreground transition-colors duration-200 relative group"
+                      className="text-sm text-muted-foreground hover:text-foreground transition-colors duration-150"
                     >
                       {item.label}
-                      <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-primary transition-all duration-200 group-hover:w-full" />
                     </Link>
                   </li>
                 ))}
@@ -65,21 +71,21 @@ export function LandingFooter() {
           ))}
         </div>
 
-        {/* Bottom - MD3 Divider and typography */}
-        <div className="border-t border-border pt-10 flex flex-col md:flex-row items-center justify-between gap-6">
-          <p className="text-md3-body-small text-on-surface-variant">
-            &copy; {currentYear} IMARA. All rights reserved.
+        {/* Bottom bar */}
+        <div className="border-t border-border pt-8 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <p className="text-xs text-muted-foreground">
+            &copy; {year} Imara Technologies Ltd. All rights reserved.
           </p>
-          <div className="flex items-center gap-8">
-            <Link href="#" className="text-md3-body-medium text-on-surface-variant hover:text-foreground transition-colors duration-200">
-              Twitter
-            </Link>
-            <Link href="#" className="text-md3-body-medium text-on-surface-variant hover:text-foreground transition-colors duration-200">
-              Facebook
-            </Link>
-            <Link href="#" className="text-md3-body-medium text-on-surface-variant hover:text-foreground transition-colors duration-200">
-              LinkedIn
-            </Link>
+          <div className="flex items-center gap-6">
+            {['X (Twitter)', 'LinkedIn', 'Facebook'].map((social) => (
+              <Link
+                key={social}
+                href="#"
+                className="text-xs text-muted-foreground hover:text-foreground transition-colors duration-150"
+              >
+                {social}
+              </Link>
+            ))}
           </div>
         </div>
       </div>

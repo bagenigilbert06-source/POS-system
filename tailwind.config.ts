@@ -27,6 +27,10 @@ module.exports = {
       },
     },
     extend: {
+      fontFamily: {
+        sans: ['var(--font-geist-sans)', ...defaultTheme.fontFamily.sans],
+        mono: ['var(--font-geist-mono)', ...defaultTheme.fontFamily.mono],
+      },
       colors: {
         chartbody: '#0F0F0F',
         bodydark1: '#DEE4EE',

@@ -7,6 +7,8 @@ import { LandingStats } from '@/components/landing/stats'
 import { LandingFeatures } from '@/components/landing/features'
 import { LandingIndustries } from '@/components/landing/industries'
 import { LogoCarousel } from '@/components/landing/logo-carousel'
+import { LandingPricing } from '@/components/landing/pricing'
+import { LandingTestimonials } from '@/components/landing/testimonials'
 import { LandingFAQ } from '@/components/landing/faq'
 import { LandingCTA } from '@/components/landing/cta'
 import { LandingFooter } from '@/components/landing/footer'
@@ -24,6 +26,8 @@ export default async function RootPage() {
         <LandingFeatures />
         <LandingIndustries />
         <LogoCarousel />
+        <LandingPricing />
+        <LandingTestimonials />
         <LandingFAQ />
         <LandingCTA />
       </main>

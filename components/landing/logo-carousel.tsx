@@ -13,7 +13,7 @@ export function LogoCarousel() {
         Integrated with Kenya&apos;s leading payment & banking platforms
       </p>
       <div className="relative">
-        <div className="flex gap-8 animate-[scroll_28s_linear_infinite] w-max">
+        <div className="flex gap-8 animate-carousel w-max">
           {items.map((name, i) => (
             <div
               key={`${name}-${i}`}
@@ -27,12 +27,6 @@ export function LogoCarousel() {
         <div className="absolute right-0 top-0 bottom-0 w-20 bg-gradient-to-l from-card/20 to-transparent pointer-events-none" />
       </div>
 
-      <style jsx>{`
-        @keyframes scroll {
-          0%   { transform: translateX(0); }
-          100% { transform: translateX(-50%); }
-        }
-      `}</style>
     </section>
   )
 }
