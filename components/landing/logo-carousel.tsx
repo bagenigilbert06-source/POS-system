@@ -179,6 +179,18 @@ export function LogoCarousel() {
           cursor: default;
           pointer-events: none;
         }
+        @media (prefers-color-scheme: dark) {
+          .logo-card {
+            background: hsl(0 0% 15%);
+            border-color: hsl(0 0% 25%);
+            box-shadow:
+              0 1px 3px rgba(0,0,0,0.3),
+              0 1px 2px rgba(0,0,0,0.2);
+          }
+          .logo-label {
+            color: hsl(0 0% 95%);
+          }
+        }
 
         /* ── Logo icon ─────────────────────────────────────────────── */
         .logo-icon {
@@ -207,7 +219,7 @@ export function LogoCarousel() {
           letter-spacing: -0.005em;
         }
 
-        /* ── Animation ────────────────────────────────────────��────── */
+        /* ── Animation ───��────────────────────────────────────��────── */
         @keyframes logo-scroll {
           from { transform: translateX(0); }
           to   { transform: translateX(calc(-100% / 3)); }
