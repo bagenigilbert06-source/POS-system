@@ -169,13 +169,12 @@ export function LogoCarousel() {
           gap: 11px;
           padding: 11px 18px;
           border-radius: 14px;
-          border: 1px solid hsl(0 0% 90%);
-          background: hsl(0 0% 97%);
+          border: 1px solid hsl(0 0% 85%);
+          background: hsl(0 0% 100%);
           box-shadow:
-            0 1px 3px rgba(0,0,0,0.06),
-            0 1px 2px rgba(0,0,0,0.04);
+            0 1px 3px rgba(0,0,0,0.08),
+            0 1px 2px rgba(0,0,0,0.06);
           white-space: nowrap;
-          /* Hard read-only: no cursor change, no selection, no hover feedback */
           cursor: default;
           pointer-events: none;
         }
@@ -186,9 +185,6 @@ export function LogoCarousel() {
             box-shadow:
               0 1px 3px rgba(0,0,0,0.3),
               0 1px 2px rgba(0,0,0,0.2);
-          }
-          .logo-label {
-            color: hsl(0 0% 95%);
           }
         }
 
@@ -210,16 +206,21 @@ export function LogoCarousel() {
           display: block;
         }
 
-        /* ── Label ─────────────────────────────────────────────────── */
+        /* ── Label ──────────────────────────────────────────────────── */
         .logo-label {
           font-size: 13.5px;
           font-weight: 600;
-          color: hsl(var(--foreground));
+          color: hsl(0 0% 20%);
           line-height: 1;
           letter-spacing: -0.005em;
         }
+        @media (prefers-color-scheme: dark) {
+          .logo-label {
+            color: hsl(0 0% 90%);
+          }
+        }
 
-        /* ── Animation ───��────────────────────────────────────��────── */
+        /* ── Animation ────────────────────────────────────────────────── */
         @keyframes logo-scroll {
           from { transform: translateX(0); }
           to   { transform: translateX(calc(-100% / 3)); }
