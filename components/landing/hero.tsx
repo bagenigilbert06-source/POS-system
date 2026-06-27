@@ -74,29 +74,29 @@ export function LandingHero() {
         <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
           {/* Left — copy */}
           <div className="flex flex-col">
-            <div className="inline-flex self-start items-center gap-2 rounded-full border border-cyan-500/30 bg-cyan-500/8 px-4 py-2 mb-8">
-              <span className="h-1.5 w-1.5 rounded-full bg-cyan-500" />
-              <span className="text-xs font-semibold text-cyan-700 dark:text-cyan-400 tracking-wide">
-                Trusted by 10,000+ businesses
+            <div className="inline-flex self-start items-center gap-2 rounded-full border border-primary/30 bg-primary/8 px-4 py-2 mb-8">
+              <span className="h-1.5 w-1.5 rounded-full bg-primary" />
+              <span className="text-xs font-semibold text-primary tracking-wide">
+                Trusted by 5,000+ businesses
               </span>
             </div>
 
             <h1 className="text-5xl sm:text-6xl lg:text-[3.5rem] font-bold tracking-tight leading-[1.15] text-balance mb-6 text-foreground">
-              The complete platform for{' '}
-              <span className="bg-gradient-to-r from-cyan-500 to-blue-500 bg-clip-text text-transparent">
-                modern businesses
+              Your complete business platform for{' '}
+              <span className="text-primary">
+                sales &amp; management
               </span>
             </h1>
 
             <p className="text-lg text-muted-foreground leading-relaxed mb-4 text-pretty">
-              Manage orders, inventory, customers, and analytics in one beautifully simple system. Connect with all your sales channels and grow without limits.
+              Manage orders, inventory, customers, and analytics in one beautifully simple system. From checkout to fulfillment, everything you need to run and grow your business.
             </p>
 
             <div className="flex flex-col sm:flex-row items-start gap-3 mb-10">
-              <Link href="/sign-up" className="fluent-btn-primary px-8 py-3.5 text-base font-semibold rounded-lg">
+              <Link href="/sign-up" className="fluent-btn-primary px-8 py-3.5 text-base font-semibold rounded-full">
                 Start for free
               </Link>
-              <Link href="#features" className="px-8 py-3.5 text-base font-semibold text-cyan-600 dark:text-cyan-400 border-2 border-cyan-500/30 rounded-lg hover:bg-cyan-500/5 transition-colors">
+              <Link href="#features" className="px-8 py-3.5 text-base font-semibold text-primary border-2 border-primary/40 rounded-full hover:bg-primary/5 transition-colors">
                 Talk to an expert
               </Link>
             </div>
@@ -109,7 +109,7 @@ export function LandingHero() {
                 'Cancel anytime',
               ].map((t) => (
                 <div key={t} className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Check className="h-4 w-4 text-cyan-500 shrink-0 stroke-[3]" />
+                  <Check className="h-4 w-4 text-primary shrink-0 stroke-[3]" />
                   {t}
                 </div>
               ))}
@@ -125,18 +125,18 @@ export function LandingHero() {
 
         {/* Trust section */}
         <div className="mt-20 pt-12 border-t border-border">
-          <p className="text-center text-muted-foreground mb-8">
-            <span className="font-semibold text-foreground">30,000+ businesses</span> use our platform to grow
+          <p className="text-center text-foreground mb-8">
+            Trusted by <span className="font-semibold text-primary">5,000+ businesses</span> across Kenya
           </p>
           <div className="flex flex-wrap items-center justify-center gap-6 md:gap-8">
             {[
-              { emoji: '🛍️', name: 'Shopify' },
-              { emoji: '🟠', name: 'Amazon' },
-              { emoji: '🔵', name: 'eBay' },
-              { emoji: '📦', name: 'WooCommerce' },
-              { emoji: '⭐', name: '100+ more' },
+              { emoji: '🏪', name: 'Supermarkets' },
+              { emoji: '💇', name: 'Salons' },
+              { emoji: '🍽️', name: 'Restaurants' },
+              { emoji: '💊', name: 'Pharmacies' },
+              { emoji: '🔧', name: 'Hardware' },
             ].map((brand, i) => (
-              <div key={i} className="flex items-center gap-3 px-4 py-2 rounded-lg bg-secondary/40 border border-border/50 hover:border-border transition-colors">
+              <div key={i} className="flex items-center gap-3 px-4 py-2 rounded-lg bg-secondary border border-border hover:border-border/80 transition-colors">
                 <span className="text-2xl">{brand.emoji}</span>
                 <span className="text-sm font-medium text-muted-foreground">{brand.name}</span>
               </div>
