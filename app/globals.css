@@ -4,129 +4,208 @@
 
 @layer base {
   :root {
-    /* Brand: deep forest green — Kenyan identity */
-    --background: 0 0% 98%;
-    --foreground: 220 15% 10%;
-    --card: 0 0% 100%;
-    --card-foreground: 220 15% 10%;
+    /* Modern SaaS Light Theme — Clean, Professional, Premium */
+    --background: 0 0% 100%;
+    --foreground: 220 15% 9%;
+    --card: 220 13% 97%;
+    --card-foreground: 220 15% 9%;
     --popover: 0 0% 100%;
-    --popover-foreground: 220 15% 10%;
-    --primary: 155 60% 28%;
-    --primary-foreground: 0 0% 98%;
-    --secondary: 220 10% 94%;
-    --secondary-foreground: 220 15% 22%;
-    --muted: 220 10% 96%;
-    --muted-foreground: 220 8% 50%;
-    --accent: 155 40% 92%;
-    --accent-foreground: 155 60% 22%;
-    --destructive: 0 72% 51%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 220 13% 90%;
-    --input: 220 13% 90%;
-    --ring: 155 60% 28%;
-    --radius: 0.5rem;
+    --popover-foreground: 220 15% 9%;
+    --primary: 155 70% 35%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 220 15% 92%;
+    --secondary-foreground: 220 15% 15%;
+    --muted: 220 14% 96%;
+    --muted-foreground: 220 12% 48%;
+    --accent: 155 70% 35%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 220 13% 92%;
+    --input: 220 13% 96%;
+    --ring: 155 70% 35%;
+    --radius: 0.625rem;
 
-    /* Custom semantic tokens */
-    --sidebar-bg: 220 20% 10%;
-    --sidebar-fg: 220 10% 70%;
-    --sidebar-active: 155 60% 28%;
-    --sidebar-active-fg: 0 0% 98%;
-    --sidebar-hover: 220 15% 16%;
-    --sidebar-border: 220 15% 16%;
+    /* Semantic tokens */
+    --sidebar-bg: 220 14% 11%;
+    --sidebar-fg: 220 12% 68%;
+    --sidebar-active: 155 70% 35%;
+    --sidebar-active-fg: 0 0% 100%;
+    --sidebar-hover: 220 14% 18%;
+    --sidebar-border: 220 14% 16%;
 
-    --success: 142 71% 45%;
-    --success-foreground: 0 0% 98%;
+    --success: 142 80% 38%;
+    --success-foreground: 0 0% 100%;
     --warning: 38 92% 50%;
-    --warning-foreground: 0 0% 10%;
+    --warning-foreground: 0 0% 100%;
     --info: 217 91% 60%;
-    --info-foreground: 0 0% 98%;
+    --info-foreground: 0 0% 100%;
 
-    --chart-1: 155 60% 30%;
+    --chart-1: 155 70% 35%;
     --chart-2: 217 91% 60%;
     --chart-3: 38 92% 50%;
-    --chart-4: 0 72% 51%;
+    --chart-4: 0 84% 60%;
     --chart-5: 280 65% 60%;
   }
 
   .dark {
-    --background: 222 20% 8%;
-    --foreground: 210 20% 92%;
-    --card: 222 18% 11%;
-    --card-foreground: 210 20% 92%;
-    --popover: 222 18% 11%;
-    --popover-foreground: 210 20% 92%;
-    --primary: 155 55% 42%;
-    --primary-foreground: 0 0% 5%;
-    --secondary: 222 15% 18%;
-    --secondary-foreground: 210 20% 80%;
-    --muted: 222 15% 15%;
-    --muted-foreground: 220 10% 55%;
-    --accent: 155 30% 18%;
-    --accent-foreground: 155 55% 60%;
-    --destructive: 0 62% 42%;
-    --destructive-foreground: 0 0% 95%;
-    --border: 222 15% 18%;
-    --input: 222 15% 18%;
-    --ring: 155 55% 42%;
+    /* Modern SaaS Dark Theme — Premium, Sophisticated */
+    --background: 220 17% 7%;
+    --foreground: 220 13% 93%;
+    --card: 220 17% 11%;
+    --card-foreground: 220 13% 93%;
+    --popover: 220 17% 11%;
+    --popover-foreground: 220 13% 93%;
+    --primary: 155 75% 42%;
+    --primary-foreground: 220 17% 7%;
+    --secondary: 220 17% 18%;
+    --secondary-foreground: 220 13% 85%;
+    --muted: 220 17% 20%;
+    --muted-foreground: 220 12% 58%;
+    --accent: 155 75% 42%;
+    --accent-foreground: 220 17% 7%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 220 17% 7%;
+    --border: 220 17% 18%;
+    --input: 220 17% 15%;
+    --ring: 155 75% 42%;
 
-    --sidebar-bg: 222 22% 7%;
-    --sidebar-fg: 220 10% 60%;
-    --sidebar-active: 155 55% 42%;
-    --sidebar-active-fg: 0 0% 5%;
-    --sidebar-hover: 222 18% 13%;
-    --sidebar-border: 222 18% 14%;
+    --sidebar-bg: 220 18% 5%;
+    --sidebar-fg: 220 13% 62%;
+    --sidebar-active: 155 75% 42%;
+    --sidebar-active-fg: 220 17% 7%;
+    --sidebar-hover: 220 17% 14%;
+    --sidebar-border: 220 17% 15%;
 
-    --success: 142 71% 45%;
-    --success-foreground: 0 0% 5%;
-    --warning: 38 92% 50%;
-    --warning-foreground: 0 0% 5%;
-    --info: 217 91% 60%;
-    --info-foreground: 0 0% 5%;
+    --success: 142 80% 48%;
+    --success-foreground: 220 17% 7%;
+    --warning: 38 92% 60%;
+    --warning-foreground: 220 17% 7%;
+    --info: 217 91% 68%;
+    --info-foreground: 220 17% 7%;
 
-    --chart-1: 155 55% 42%;
-    --chart-2: 217 91% 60%;
-    --chart-3: 38 92% 50%;
-    --chart-4: 0 72% 51%;
+    --chart-1: 155 75% 42%;
+    --chart-2: 217 91% 68%;
+    --chart-3: 38 92% 60%;
+    --chart-4: 0 84% 60%;
     --chart-5: 280 65% 60%;
   }
 }
 
 @layer base {
   * {
-    @apply border-border;
+    @apply border-border transition-colors duration-200;
   }
+  
   html {
     @apply bg-background;
+    color-scheme: light;
   }
+  
+  .dark html {
+    color-scheme: dark;
+  }
+  
   body {
     @apply bg-background text-foreground font-sans antialiased;
   }
 
-  /* Typography scale */
-  h1 { @apply text-3xl font-semibold tracking-tight; }
-  h2 { @apply text-2xl font-semibold tracking-tight; }
-  h3 { @apply text-xl font-semibold tracking-tight; }
-  h4 { @apply text-lg font-medium; }
+  /* Modern typography hierarchy */
+  h1 { @apply text-4xl font-bold tracking-tight leading-tight; }
+  h2 { @apply text-3xl font-bold tracking-tight leading-snug; }
+  h3 { @apply text-2xl font-bold tracking-tight; }
+  h4 { @apply text-xl font-semibold tracking-tight; }
+  h5 { @apply text-lg font-semibold; }
+  h6 { @apply text-base font-semibold; }
+  p { @apply leading-relaxed text-foreground/90; }
+  
+  /* Selection */
+  ::selection {
+    @apply bg-primary text-primary-foreground;
+  }
 }
 
 @layer utilities {
+  /* Sidebar Navigation */
   .sidebar-item {
-    @apply flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors;
+    @apply flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-150 ease-in-out;
   }
   .sidebar-item-active {
-    @apply bg-[hsl(var(--sidebar-active))] text-[hsl(var(--sidebar-active-fg))];
+    @apply bg-[hsl(var(--sidebar-active))] text-[hsl(var(--sidebar-active-fg))] shadow-sm;
   }
   .sidebar-item-inactive {
     @apply text-[hsl(var(--sidebar-fg))] hover:bg-[hsl(var(--sidebar-hover))] hover:text-foreground;
   }
+  
+  /* Cards & Containers */
   .metric-card {
-    @apply rounded-lg border bg-card p-5 shadow-sm;
+    @apply rounded-xl border bg-card p-6 shadow-sm hover:shadow-md transition-shadow;
   }
+  .card-premium {
+    @apply rounded-xl border border-border/50 bg-card p-6 shadow-sm hover:shadow-lg transition-all;
+  }
+  .glass-morphism {
+    @apply bg-card/80 backdrop-blur-sm border border-border/50 rounded-xl;
+  }
+  
+  /* Page Structure */
   .page-header {
-    @apply mb-6 flex items-center justify-between;
+    @apply mb-8 flex flex-col gap-2 md:flex-row md:items-center md:justify-between;
+  }
+  .page-title {
+    @apply text-4xl font-bold tracking-tight;
+  }
+  .page-subtitle {
+    @apply text-base text-muted-foreground;
   }
   .section-label {
-    @apply text-xs font-medium uppercase tracking-widest text-muted-foreground;
+    @apply text-xs font-semibold uppercase tracking-wider text-muted-foreground;
+  }
+  
+  /* Buttons */
+  .btn-primary {
+    @apply inline-flex items-center justify-center rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90 active:bg-primary/80 transition-all disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  .btn-secondary {
+    @apply inline-flex items-center justify-center rounded-lg border border-border bg-secondary px-5 py-2.5 text-sm font-semibold text-foreground hover:bg-muted transition-all;
+  }
+  .btn-ghost {
+    @apply inline-flex items-center justify-center rounded-lg px-5 py-2.5 text-sm font-semibold text-foreground hover:bg-secondary transition-all;
+  }
+  .btn-outline {
+    @apply inline-flex items-center justify-center rounded-lg border-2 border-primary px-5 py-2.5 text-sm font-semibold text-primary hover:bg-primary/5 transition-all;
+  }
+  
+  /* Forms */
+  .input-base {
+    @apply rounded-lg border border-border bg-background px-4 py-2.5 text-sm placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:border-transparent transition-all;
+  }
+  .dark .input-base {
+    @apply focus:ring-offset-background;
+  }
+  
+  /* Badges */
+  .badge-success {
+    @apply inline-flex items-center rounded-full bg-success/15 px-3 py-1 text-xs font-semibold text-success;
+  }
+  .badge-warning {
+    @apply inline-flex items-center rounded-full bg-warning/15 px-3 py-1 text-xs font-semibold text-warning;
+  }
+  .badge-destructive {
+    @apply inline-flex items-center rounded-full bg-destructive/15 px-3 py-1 text-xs font-semibold text-destructive;
+  }
+  .badge-info {
+    @apply inline-flex items-center rounded-full bg-info/15 px-3 py-1 text-xs font-semibold text-info;
+  }
+  
+  /* Dividers */
+  .divider {
+    @apply border-b border-border;
+  }
+  
+  /* Gradients */
+  .gradient-bg {
+    @apply bg-gradient-to-br from-background to-card;
   }
 }
 
