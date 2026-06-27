@@ -2,14 +2,13 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { Menu, X, Cloud } from 'lucide-react'
+import { Menu, X, Zap } from 'lucide-react'
 import { ThemeSwitcher } from '@/components/theme-switcher'
 
 const navLinks = [
   { href: '#features', label: 'Features' },
-  { href: '#integrations', label: 'Integrations' },
-  { href: '#pricing', label: 'Pricing' },
-  { href: '#resources', label: 'Resources' },
+  { href: '#industries', label: 'Industries' },
+  { href: '#faq', label: 'FAQ' },
 ]
 
 export function LandingNavbar() {
@@ -30,22 +29,22 @@ export function LandingNavbar() {
           : 'bg-background border-b border-transparent'
       }`}
     >
-      <div className="container-wide flex h-16 items-center justify-between">
+      <div className="container-wide flex h-14 items-center justify-between">
         {/* Logo */}
-        <Link href="/" className="flex items-center gap-2.5 group shrink-0">
-          <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center group-hover:shadow-md transition-all">
-            <Cloud className="h-5 w-5 text-white" />
+        <Link href="/" className="flex items-center gap-2.5 group">
+          <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center group-hover:bg-primary/90 transition-colors">
+            <Zap className="h-4 w-4 text-white fill-white" />
           </div>
-          <span className="text-lg font-bold tracking-tight text-foreground hidden sm:inline">POSSystem</span>
+          <span className="text-base font-bold tracking-tight">Imara</span>
         </Link>
 
         {/* Desktop nav */}
-        <nav className="hidden lg:flex items-center gap-1 ml-12">
+        <nav className="hidden md:flex items-center gap-0.5">
           {navLinks.map((link) => (
             <a
               key={link.href}
               href={link.href}
-              className="px-3.5 py-2 text-sm font-medium text-muted-foreground rounded-lg hover:text-foreground transition-colors duration-150"
+              className="px-4 py-2 text-sm font-medium text-muted-foreground rounded-lg hover:text-foreground hover:bg-secondary transition-all duration-150"
             >
               {link.label}
             </a>
@@ -53,18 +52,18 @@ export function LandingNavbar() {
         </nav>
 
         {/* Desktop actions */}
-        <div className="hidden md:flex items-center gap-3 ml-auto shrink-0">
+        <div className="hidden md:flex items-center gap-2">
           <ThemeSwitcher />
-          <Link href="/sign-in" className="px-4 py-2.5 text-sm font-medium text-foreground rounded-lg hover:bg-secondary transition-colors">
-            Login
+          <Link href="/sign-in" className="fluent-btn-ghost">
+            Sign in
           </Link>
-          <Link href="/sign-up" className="fluent-btn-primary px-6 py-2.5">
-            Start for free
+          <Link href="/sign-up" className="fluent-btn-primary">
+            Get Started
           </Link>
         </div>
 
         {/* Mobile toggle */}
-        <div className="flex md:hidden items-center gap-2 ml-auto shrink-0">
+        <div className="flex md:hidden items-center gap-2">
           <ThemeSwitcher />
           <button
             onClick={() => setMobileOpen(!mobileOpen)}
@@ -79,7 +78,7 @@ export function LandingNavbar() {
       {/* Mobile menu */}
       {mobileOpen && (
         <div className="md:hidden border-t border-border bg-background">
-          <div className="container-wide py-4 flex flex-col gap-2">
+          <div className="container-wide py-4 flex flex-col gap-1">
             {navLinks.map((link) => (
               <a
                 key={link.href}
@@ -90,12 +89,12 @@ export function LandingNavbar() {
                 {link.label}
               </a>
             ))}
-            <div className="pt-4 mt-2 border-t border-border flex flex-col gap-2">
-              <Link href="/sign-in" onClick={() => setMobileOpen(false)} className="px-4 py-2.5 text-sm font-medium text-center rounded-lg hover:bg-secondary transition-colors">
-                Login
+            <div className="pt-3 mt-2 border-t border-border flex flex-col gap-2">
+              <Link href="/sign-in" onClick={() => setMobileOpen(false)} className="fluent-btn-secondary justify-center">
+                Sign in
               </Link>
               <Link href="/sign-up" onClick={() => setMobileOpen(false)} className="fluent-btn-primary justify-center">
-                Start for free
+                Get Started
               </Link>
             </div>
           </div>
