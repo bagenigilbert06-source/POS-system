@@ -2,8 +2,9 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { Building2, Menu, X } from 'lucide-react'
+import { Menu, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { ThemeSwitcher } from '@/components/theme-switcher'
 
 export function LandingNavbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
@@ -41,6 +42,7 @@ export function LandingNavbar() {
 
         {/* CTA buttons */}
         <div className="hidden md:flex items-center gap-3">
+          <ThemeSwitcher />
           <Link
             href="/sign-in"
             className="text-sm font-semibold text-foreground hover:text-primary transition-colors"
@@ -77,7 +79,11 @@ export function LandingNavbar() {
                 {link.label}
               </a>
             ))}
-            <div className="pt-2 space-y-2">
+            <div className="pt-4 border-t border-border space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium text-muted-foreground">Theme</span>
+                <ThemeSwitcher />
+              </div>
               <Link
                 href="/sign-in"
                 className="block text-sm font-semibold text-center text-foreground hover:text-primary transition-colors"
