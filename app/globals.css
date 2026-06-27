@@ -61,50 +61,50 @@
   }
 
   .dark {
-    --background: 0 0% 5%;
-    --foreground: 0 0% 95%;
+    --background: 0 0% 6%;
+    --foreground: 0 0% 98%;
 
-    --card: 0 0% 10%;
-    --card-foreground: 0 0% 95%;
+    --card: 0 0% 11%;
+    --card-foreground: 0 0% 98%;
 
-    --popover: 0 0% 10%;
-    --popover-foreground: 0 0% 95%;
+    --popover: 0 0% 11%;
+    --popover-foreground: 0 0% 98%;
 
     --primary: 221 83% 62%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 0 0% 15%;
-    --secondary-foreground: 0 0% 85%;
+    --secondary: 0 0% 16%;
+    --secondary-foreground: 0 0% 88%;
 
-    --muted: 0 0% 15%;
-    --muted-foreground: 0 0% 50%;
+    --muted: 0 0% 20%;
+    --muted-foreground: 0 0% 65%;
 
-    --accent: 221 83% 17%;
+    --accent: 221 83% 22%;
     --accent-foreground: 221 83% 75%;
 
     --destructive: 0 72% 55%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 0 0% 20%;
-    --input: 0 0% 15%;
+    --border: 0 0% 18%;
+    --input: 0 0% 14%;
     --ring: 221 83% 62%;
 
-    /* Dark section — even deeper in dark mode */
-    --section-dark-bg: 0 0% 3%;
+    /* Dark section — deep black */
+    --section-dark-bg: 0 0% 4%;
     --section-dark-fg: 0 0% 100%;
-    --section-dark-muted: 0 0% 55%;
-    --section-dark-border: 0 0% 18%;
+    --section-dark-muted: 0 0% 65%;
+    --section-dark-border: 0 0% 20%;
 
     --success: 142 71% 50%;
     --success-foreground: 0 0% 100%;
     --warning: 38 92% 55%;
     --warning-foreground: 0 0% 100%;
 
-    --sidebar-bg: 0 0% 6%;
-    --sidebar-fg: 0 0% 55%;
+    --sidebar-bg: 0 0% 5%;
+    --sidebar-fg: 0 0% 60%;
     --sidebar-active: 221 83% 62%;
     --sidebar-active-fg: 0 0% 100%;
-    --sidebar-hover: 0 0% 15%;
+    --sidebar-hover: 0 0% 14%;
     --sidebar-border: 0 0% 18%;
 
     --chart-1: 221 83% 65%;
@@ -121,11 +121,21 @@
   }
 
   html {
-    @apply bg-background scroll-smooth;
+    @apply scroll-smooth;
+    background: hsl(var(--background));
   }
 
   html.dark {
     color-scheme: dark;
+    background: linear-gradient(
+      135deg,
+      hsl(0 0% 5%) 0%,
+      hsl(0 0% 7%) 25%,
+      hsl(0 0% 8%) 50%,
+      hsl(0 0% 7%) 75%,
+      hsl(0 0% 5%) 100%
+    );
+    background-attachment: fixed;
   }
 
   html:not(.dark) {
@@ -133,7 +143,8 @@
   }
 
   body {
-    @apply bg-background text-foreground antialiased;
+    @apply text-foreground antialiased;
+    background: transparent;
     font-feature-settings: "rlig" 1, "calt" 1;
   }
 
