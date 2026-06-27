@@ -12,7 +12,6 @@ export function LandingNavbar() {
   const navLinks = [
     { href: '#features', label: 'Features' },
     { href: '#industries', label: 'Industries' },
-    { href: '#pricing', label: 'Pricing' },
     { href: '#faq', label: 'FAQ' },
   ]
 
