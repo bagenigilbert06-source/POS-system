@@ -3,7 +3,7 @@ import {
   Package,
   Users,
   CreditCard,
-  BarChart3,
+  MessageCircle,
   UserCheck,
   Truck,
   GitBranch,
@@ -33,13 +33,13 @@ const featured = [
     iconClass: 'bg-primary/10 text-primary',
   },
   {
-    icon: BarChart3,
-    title: 'Actionable Business Analytics',
+    icon: MessageCircle,
+    title: 'WhatsApp Integration',
     description:
-      'Understand revenue, margins, slow movers, peak hours, staff performance and branch health without building spreadsheets.',
-    tag: 'Insights',
-    tagClass: 'text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20',
-    iconClass: 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400',
+      'Send receipts, order confirmations, and payment updates directly to customers via WhatsApp. Built-in messaging for customer engagement.',
+    tag: 'Engagement',
+    tagClass: 'text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-900/20',
+    iconClass: 'bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400',
   },
 ]
 

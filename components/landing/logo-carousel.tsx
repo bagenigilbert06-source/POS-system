@@ -146,9 +146,10 @@ export function LogoCarousel() {
           inset-block: 0;
           z-index: 10;
           width: 72px;
+          pointer-events: none;
         }
-        .fade-left  { left: 0;  background: linear-gradient(to right, hsl(var(--background)) 40%, transparent); }
-        .fade-right { right: 0; background: linear-gradient(to left,  hsl(var(--background)) 40%, transparent); }
+        .fade-left  { left: 0;  background: linear-gradient(to right, hsl(var(--background)) 0%, hsl(var(--background)) 60%, transparent 100%); }
+        .fade-right { right: 0; background: linear-gradient(to left, hsl(var(--background)) 0%, hsl(var(--background)) 60%, transparent 100%); }
 
         /* ── Scrolling list ────────────────────────────────────────── */
         .carousel-track {
@@ -178,6 +179,18 @@ export function LogoCarousel() {
           cursor: default;
           pointer-events: none;
         }
+        @media (prefers-color-scheme: dark) {
+          .logo-card {
+            background: hsl(0 0% 15%);
+            border-color: hsl(0 0% 25%);
+            box-shadow:
+              0 1px 3px rgba(0,0,0,0.3),
+              0 1px 2px rgba(0,0,0,0.2);
+          }
+          .logo-label {
+            color: hsl(0 0% 95%);
+          }
+        }
 
         /* ── Logo icon ─────────────────────────────────────────────── */
         .logo-icon {
@@ -201,12 +214,12 @@ export function LogoCarousel() {
         .logo-label {
           font-size: 13.5px;
           font-weight: 600;
-          color: #1e293b;
+          color: hsl(var(--foreground));
           line-height: 1;
           letter-spacing: -0.005em;
         }
 
-        /* ── Animation ─────────────────────────────────────────────── */
+        /* ── Animation ───��────────────────────────────────────��────── */
         @keyframes logo-scroll {
           from { transform: translateX(0); }
           to   { transform: translateX(calc(-100% / 3)); }
