@@ -27,48 +27,48 @@ function MiniChart() {
 
 export function DashboardPreview({ compact = false }: { compact?: boolean }) {
   return (
-    <div className="overflow-hidden rounded-[1.75rem] border border-slate-200 bg-white shadow-[0_24px_80px_rgba(15,23,42,0.12)] dark:border-slate-800 dark:bg-slate-950">
-      <div className="flex items-center justify-between border-b border-slate-200 bg-white px-5 py-4 dark:border-slate-800 dark:bg-slate-950">
+    <div className="overflow-hidden rounded-[1.75rem] border border-border bg-card shadow-[0_24px_80px_rgba(0,0,0,0.12)]">
+      <div className="flex items-center justify-between border-b border-border bg-card px-5 py-4">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-white">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-primary-foreground">
             <Building2 className="h-5 w-5" aria-hidden="true" />
           </div>
           <div>
-            <p className="text-sm font-semibold text-slate-950 dark:text-white">Imara Command Center</p>
-            <p className="text-xs text-slate-500 dark:text-slate-400">Live business overview</p>
+            <p className="text-sm font-semibold text-foreground">Imara Command Center</p>
+            <p className="text-xs text-muted-foreground">Live business overview</p>
           </div>
         </div>
-        <div className="hidden items-center gap-2 rounded-full border border-green-200 bg-green-50 px-3 py-1.5 text-xs font-semibold text-green-700 sm:flex dark:border-green-900/60 dark:bg-green-950 dark:text-green-300">
+        <div className="hidden items-center gap-2 rounded-full border border-green-200/50 dark:border-green-900/40 bg-green-50 dark:bg-green-950/30 px-3 py-1.5 text-xs font-semibold text-green-700 dark:text-green-300 sm:flex">
           <span className="h-2 w-2 rounded-full bg-green-500" />
           Synced
         </div>
       </div>
 
-      <div className="bg-slate-50 p-4 sm:p-6 dark:bg-slate-900/50">
+      <div className="bg-secondary p-4 sm:p-6">
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {metrics.map((metric) => {
             const Icon = metric.icon
             return (
-              <div key={metric.label} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-950">
+              <div key={metric.label} className="fluent-card p-4">
                 <div className="mb-5 flex items-center justify-between">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-primary dark:bg-blue-950">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
                     <Icon className="h-4 w-4" aria-hidden="true" />
                   </div>
-                  <span className="rounded-full bg-green-50 px-2 py-1 text-xs font-semibold text-green-700 dark:bg-green-950 dark:text-green-300">{metric.trend}</span>
+                  <span className="rounded-full badge-success">{metric.trend}</span>
                 </div>
-                <p className="text-xs font-medium text-slate-500 dark:text-slate-400">{metric.label}</p>
-                <p className="mt-1 text-2xl font-semibold tracking-tight text-slate-950 dark:text-white">{metric.value}</p>
+                <p className="text-xs font-medium text-muted-foreground">{metric.label}</p>
+                <p className="mt-1 text-2xl font-semibold tracking-tight text-foreground">{metric.value}</p>
               </div>
             )
           })}
         </div>
 
         <div className="mt-4 grid gap-4 lg:grid-cols-[1.4fr_0.6fr]">
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-950">
+          <div className="fluent-card p-5">
             <div className="mb-5 flex items-center justify-between">
               <div>
-                <p className="text-sm font-semibold text-slate-950 dark:text-white">Revenue Momentum</p>
-                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Sales, invoices and branch performance</p>
+                <p className="text-sm font-semibold text-foreground">Revenue Momentum</p>
+                <p className="mt-1 text-xs text-muted-foreground">Sales, invoices and branch performance</p>
               </div>
               <ArrowUpRight className="h-4 w-4 text-green-600" aria-hidden="true" />
             </div>
@@ -76,32 +76,32 @@ export function DashboardPreview({ compact = false }: { compact?: boolean }) {
           </div>
 
           <div className="grid gap-4">
-            <div className="rounded-2xl border border-amber-200 bg-amber-50 p-5 dark:border-amber-900/60 dark:bg-amber-950/40">
-              <div className="mb-4 flex items-center gap-2 text-amber-700 dark:text-amber-300">
+            <div className="badge-warning rounded-2xl p-5">
+              <div className="mb-4 flex items-center gap-2">
                 <AlertTriangle className="h-4 w-4" aria-hidden="true" />
                 <p className="text-sm font-semibold">Low Stock</p>
               </div>
-              <p className="text-3xl font-semibold tracking-tight text-slate-950 dark:text-white">12</p>
-              <p className="mt-2 text-xs leading-relaxed text-slate-600 dark:text-slate-400">Supplier reorder suggestions are ready.</p>
+              <p className="text-3xl font-semibold tracking-tight text-foreground">12</p>
+              <p className="mt-2 text-xs leading-relaxed">Supplier reorder suggestions are ready.</p>
             </div>
 
-            <div className="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-950">
+            <div className="fluent-card p-5">
               <div className="mb-3 flex items-center gap-2">
                 <CreditCard className="h-4 w-4 text-primary" aria-hidden="true" />
-                <p className="text-sm font-semibold text-slate-950 dark:text-white">Payments</p>
+                <p className="text-sm font-semibold text-foreground">Payments</p>
               </div>
-              <p className="text-xs leading-relaxed text-slate-500 dark:text-slate-400">Mobile money, card, cash and invoice payments reconciled in one place.</p>
+              <p className="text-xs leading-relaxed text-muted-foreground">Mobile money, card, cash and invoice payments reconciled in one place.</p>
             </div>
           </div>
         </div>
 
         {!compact && (
-          <div className="mt-4 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-950">
+          <div className="mt-4 overflow-hidden fluent-card">
             {transactions.map(([branch, method, amount, status]) => (
-              <div key={`${branch}-${amount}`} className="grid grid-cols-4 gap-3 border-b border-slate-100 px-5 py-4 text-xs last:border-b-0 dark:border-slate-800">
-                <span className="font-semibold text-slate-950 dark:text-white">{branch}</span>
-                <span className="text-slate-500">{method}</span>
-                <span className="font-semibold text-slate-950 dark:text-white">{amount}</span>
+              <div key={`${branch}-${amount}`} className="grid grid-cols-4 gap-3 border-b border-border px-5 py-4 text-xs last:border-b-0">
+                <span className="font-semibold text-foreground">{branch}</span>
+                <span className="text-muted-foreground">{method}</span>
+                <span className="font-semibold text-foreground">{amount}</span>
                 <span className={status === 'Paid' ? 'text-green-600' : 'text-amber-600'}>{status}</span>
               </div>
             ))}
@@ -114,7 +114,7 @@ export function DashboardPreview({ compact = false }: { compact?: boolean }) {
 
 export function DashboardPreviewSection() {
   return (
-    <section className="section-padding-premium bg-white dark:bg-background">
+    <section className="section-padding-premium bg-background">
       <div className="container-wide">
         <div className="mx-auto mb-14 max-w-2xl text-center">
           <p className="section-eyebrow mb-3">Dashboard Preview</p>

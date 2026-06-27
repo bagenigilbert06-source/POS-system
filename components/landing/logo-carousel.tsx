@@ -116,17 +116,17 @@ export function LogoCarousel() {
           margin: 0;
           font-size: 1.45rem;
           font-weight: 650;
-          color: #0f172a;
+          color: hsl(var(--foreground));
           line-height: 1.35;
           letter-spacing: -0.015em;
         }
         .carousel-title .accent {
-          color: #2563eb;
+          color: hsl(var(--primary));
         }
         .carousel-sub {
           margin: 8px 0 0;
           font-size: 0.875rem;
-          color: #64748b;
+          color: hsl(var(--muted-foreground));
           line-height: 1.6;
         }
 
@@ -147,8 +147,8 @@ export function LogoCarousel() {
           z-index: 10;
           width: 72px;
         }
-        .fade-left  { left: 0;  background: linear-gradient(to right, #fff 40%, transparent); }
-        .fade-right { right: 0; background: linear-gradient(to left,  #fff 40%, transparent); }
+        .fade-left  { left: 0;  background: linear-gradient(to right, hsl(var(--background)) 40%, transparent); }
+        .fade-right { right: 0; background: linear-gradient(to left,  hsl(var(--background)) 40%, transparent); }
 
         /* ── Scrolling list ────────────────────────────────────────── */
         .carousel-track {
@@ -168,8 +168,8 @@ export function LogoCarousel() {
           gap: 11px;
           padding: 11px 18px;
           border-radius: 14px;
-          border: 1px solid #e2e8f0;
-          background: #fff;
+          border: 1px solid hsl(var(--border));
+          background: hsl(var(--card));
           box-shadow:
             0 1px 3px rgba(0,0,0,0.06),
             0 1px 2px rgba(0,0,0,0.04);

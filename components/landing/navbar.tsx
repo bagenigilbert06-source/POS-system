@@ -43,7 +43,7 @@ function ImaraLogo() {
 
 export function LandingNavbar() {
   return (
-    <header className="sticky top-0 z-50 border-b border-slate-200/70 bg-white/90 backdrop-blur-xl dark:border-slate-800/70 dark:bg-slate-950/90">
+    <header className="sticky top-0 z-50 border-b border-border bg-background/90 backdrop-blur-xl">
       <div className="container-wide flex h-16 items-center justify-between">
         <ImaraLogo />
 
@@ -56,7 +56,7 @@ export function LandingNavbar() {
             <Link
               key={link.label}
               href={link.href}
-              className="rounded-lg px-3.5 py-2 text-sm font-medium text-slate-600 transition-colors duration-150 hover:bg-slate-100 hover:text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 dark:text-slate-400 dark:hover:bg-slate-900 dark:hover:text-white"
+              className="rounded-lg px-3.5 py-2 text-sm font-medium text-muted-foreground transition-colors duration-150 hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
             >
               {link.label}
             </Link>
@@ -83,12 +83,12 @@ export function LandingNavbar() {
           <ThemeSwitcher />
           <Sheet>
             <SheetTrigger asChild>
-              <Button
-                variant="outline"
-                size="icon"
-                className="h-9 w-9 rounded-lg border-slate-200 dark:border-slate-800"
-                aria-label="Open navigation menu"
-              >
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-9 w-9 rounded-lg"
+              aria-label="Open navigation menu"
+            >
                 <Menu className="h-4 w-4" aria-hidden="true" />
               </Button>
             </SheetTrigger>
@@ -102,7 +102,7 @@ export function LandingNavbar() {
                   <SheetClose asChild key={link.label}>
                     <Link
                       href={link.href}
-                      className="rounded-lg px-3 py-2.5 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-950 dark:text-slate-400 dark:hover:bg-slate-900 dark:hover:text-white"
+                      className="rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
                     >
                       {link.label}
                     </Link>
