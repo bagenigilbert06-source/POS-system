@@ -178,6 +178,19 @@ export function LogoCarousel() {
           /* Hard read-only: no cursor change, no selection, no hover feedback */
           cursor: default;
           pointer-events: none;
+          color: hsl(var(--foreground));
+        }
+        @media (prefers-color-scheme: light) {
+          .logo-card {
+            background: #f8f9fa;
+            border-color: #e0e0e0;
+            box-shadow:
+              0 1px 3px rgba(0,0,0,0.08),
+              0 1px 2px rgba(0,0,0,0.05);
+          }
+          .logo-label {
+            color: #1a1a1a;
+          }
         }
         @media (prefers-color-scheme: dark) {
           .logo-card {
