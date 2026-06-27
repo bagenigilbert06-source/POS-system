@@ -11,56 +11,88 @@ export default async function SignInPage() {
   if (session?.user) redirect('/dashboard')
 
   return (
-    <main className="flex min-h-screen bg-gradient-to-br from-background via-background to-card">
-      {/* Left panel — Premium brand showcase */}
-      <div className="hidden w-1/2 flex-col justify-between bg-[hsl(var(--sidebar-bg))] p-12 lg:flex">
-        {/* Header */}
-        <div>
-          <div className="flex items-center gap-3 mb-16">
-            <img src="/imara-logo.png" alt="IMARA" className="h-10 w-auto" />
-          </div>
+    <main className="flex min-h-screen bg-background">
+      {/* Left panel — Brand showcase with gradient */}
+      <div className="hidden w-1/2 flex-col justify-between bg-gradient-to-br from-[hsl(var(--section-dark-bg))] via-[hsl(221,80%,25%)] to-[hsl(var(--section-dark-bg))] p-12 lg:flex relative overflow-hidden">
+        {/* Gradient glow decoration */}
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 flex items-center justify-center"
+        >
+          <div className="h-[600px] w-[600px] rounded-full bg-blue-500/10 dark:bg-blue-400/5" />
         </div>
 
-        {/* Main content */}
-        <div className="space-y-12">
+        <div className="relative z-10">
+          {/* Header */}
           <div>
-            <p className="text-xs text-primary font-semibold uppercase tracking-widest mb-4">Trusted by 5,000+ Businesses</p>
-            <h2 className="text-3xl md:text-4xl font-semibold leading-snug text-white mb-4">
-              Strong business, better future
-            </h2>
-            <p className="text-sm md:text-base text-[hsl(var(--sidebar-fg))] leading-relaxed">
-              IMARA is the all-in-one POS and business management platform for Kenyan enterprises. Simple, powerful, and built for strength.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-2 gap-6">
-            {[
-              { icon: '💳', label: 'Smart POS', desc: 'Modern checkout' },
-              { icon: '📦', label: 'Inventory', desc: 'Real-time tracking' },
-              { icon: '💰', label: 'Payments', desc: 'All methods' },
-              { icon: '📊', label: 'Analytics', desc: 'Smart insights' },
-            ].map((feature) => (
-              <div key={feature.label} className="rounded-lg bg-white/5 backdrop-blur-sm border border-white/10 p-4">
-                <div className="text-3xl mb-2">{feature.icon}</div>
-                <h4 className="font-semibold text-white text-sm">{feature.label}</h4>
-                <p className="text-xs text-[hsl(var(--sidebar-fg))]">{feature.desc}</p>
+            <div className="flex items-center gap-2.5 mb-16">
+              <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center shadow-lg shadow-blue-500/20">
+                <span className="text-sm font-bold text-white">I</span>
               </div>
-            ))}
+              <span className="text-xl font-bold text-white">IMARA</span>
+            </div>
           </div>
-        </div>
 
-        {/* Footer */}
-        <p className="text-xs text-[hsl(var(--sidebar-fg))] font-medium">
-          &copy; {new Date().getFullYear()} IMARA. Strong. Reliable. Local.
-        </p>
+          {/* Main content */}
+          <div className="space-y-10">
+            <div>
+              <p className="text-xs text-blue-300/70 font-medium uppercase tracking-widest mb-4">Welcome back</p>
+              <h2 className="text-5xl font-semibold leading-tight text-white mb-6">
+                Manage your business effortlessly
+              </h2>
+              <p className="text-base text-blue-100/70 leading-relaxed max-w-md">
+                Access your POS, inventory, payments, and analytics all in one unified platform.
+              </p>
+            </div>
+
+            <div className="space-y-3">
+              {[
+                { icon: '✓', title: 'Fast Access', desc: 'Instant sign-in' },
+                { icon: '✓', title: 'Secure Login', desc: 'Enterprise-grade security' },
+                { icon: '✓', title: 'Your Data Protected', desc: 'End-to-end encrypted' },
+              ].map((feature) => (
+                <div key={feature.title} className="flex items-start gap-3">
+                  <span className="text-blue-300 text-sm font-semibold flex-shrink-0">{feature.icon}</span>
+                  <div>
+                    <span className="text-white text-sm font-medium">{feature.title}</span>
+                    <p className="text-blue-200/60 text-xs">{feature.desc}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Footer */}
+          <p className="text-xs text-blue-300/50 font-medium">
+            &copy; {new Date().getFullYear()} IMARA. All rights reserved.
+          </p>
+        </div>
       </div>
 
       {/* Right panel — Clean form */}
-      <div className="flex flex-1 items-center justify-center p-6 md:p-12">
-        <div className="w-full max-w-sm">
+      <div className="flex flex-1 items-center justify-center p-6 md:p-12 bg-background relative overflow-hidden">
+        {/* Subtle gradient glow */}
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 flex items-start justify-end"
+        >
+          <div className="h-[500px] w-[500px] rounded-full bg-blue-600/[0.06] dark:bg-blue-500/[0.08]" />
+        </div>
+
+        <div className="w-full max-w-sm relative z-10">
+          {/* Mobile logo */}
+          <div className="mb-8 lg:hidden">
+            <div className="flex items-center gap-2.5 mb-8">
+              <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center shadow-lg shadow-blue-500/20">
+                <span className="text-sm font-bold text-white">I</span>
+              </div>
+              <span className="text-lg font-semibold text-foreground">IMARA</span>
+            </div>
+          </div>
+
           <div className="mb-8">
-            <h2 className="text-2xl font-bold tracking-tight mb-1">Welcome back</h2>
-            <p className="text-sm text-muted-foreground">Sign in to your BizOS account</p>
+            <h1 className="text-3xl font-semibold text-foreground mb-2">Sign in</h1>
+            <p className="text-sm text-muted-foreground">Enter your credentials to access your account</p>
           </div>
           <AuthForm mode="sign-in" />
         </div>

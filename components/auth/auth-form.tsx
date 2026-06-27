@@ -62,11 +62,10 @@ export function AuthForm({ mode }: AuthFormProps) {
   }
 
   return (
-    <div className="w-full space-y-6">
+    <div className="w-full space-y-5">
       {error && (
-        <div className="rounded-lg bg-destructive/10 border border-destructive/20 px-4 py-3 text-sm">
-          <p className="font-semibold text-destructive">Error</p>
-          <p className="text-xs text-destructive/80 mt-1">{error}</p>
+        <div className="rounded-md bg-destructive/10 border border-destructive/20 px-3 py-2.5 text-sm">
+          <p className="font-semibold text-destructive">{error}</p>
         </div>
       )}
 
@@ -76,35 +75,36 @@ export function AuthForm({ mode }: AuthFormProps) {
         onClick={handleGoogleSignIn}
         disabled={googleLoading}
         className={cn(
-          'w-full flex items-center justify-center gap-3 rounded-lg px-4 py-3',
-          'border border-border bg-background text-foreground text-sm font-semibold',
-          'hover:bg-secondary transition-all duration-200',
-          'disabled:opacity-50 disabled:cursor-not-allowed'
+          'w-full flex items-center justify-center gap-2.5 rounded-lg px-4 py-2.5',
+          'bg-white border border-gray-300 text-gray-700 text-sm font-medium',
+          'hover:bg-gray-50 active:bg-gray-100 transition-all duration-150 shadow-sm',
+          'disabled:opacity-50 disabled:cursor-not-allowed',
+          'dark:bg-white dark:border-gray-300 dark:text-gray-700 dark:hover:bg-gray-50'
         )}
       >
         {googleLoading ? (
-          <Loader2 className="h-4 w-4 animate-spin" />
+          <Loader2 className="h-4 w-4 animate-spin text-gray-700" />
         ) : (
           <svg className="h-4 w-4" viewBox="0 0 24 24">
             <path
-              fill="currentColor"
+              fill="#4285F4"
               d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
             />
             <path
-              fill="currentColor"
+              fill="#34A853"
               d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
             />
             <path
-              fill="currentColor"
+              fill="#FBBC04"
               d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
             />
             <path
-              fill="currentColor"
+              fill="#EA4335"
               d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
             />
           </svg>
         )}
-        {googleLoading ? 'Signing in...' : 'Continue with Google'}
+        {googleLoading ? 'Connecting...' : 'Continue with Google'}
       </button>
 
       {/* Divider */}
@@ -116,8 +116,8 @@ export function AuthForm({ mode }: AuthFormProps) {
 
       <form onSubmit={handleSubmit} className="space-y-4">
         {mode === 'sign-up' && (
-          <div className="space-y-2">
-            <label htmlFor="name" className="block text-sm font-semibold text-foreground">
+          <div>
+            <label htmlFor="name" className="block text-sm font-medium text-foreground mb-2">
               Full name
             </label>
             <input
@@ -128,17 +128,17 @@ export function AuthForm({ mode }: AuthFormProps) {
               value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
               className={cn(
-                'w-full rounded-lg border border-border bg-background px-4 py-2.5 text-sm outline-none',
+                'w-full rounded-lg border border-border bg-card px-4 py-2.5 text-sm outline-none',
                 'placeholder:text-muted-foreground',
                 'focus:border-primary focus:ring-2 focus:ring-primary/20',
-                'transition-all duration-200'
+                'transition-all duration-150'
               )}
             />
           </div>
         )}
 
-        <div className="space-y-2">
-          <label htmlFor="email" className="block text-sm font-semibold text-foreground">
+        <div>
+          <label htmlFor="email" className="block text-sm font-medium text-foreground mb-2">
             Email
           </label>
           <input
@@ -149,21 +149,21 @@ export function AuthForm({ mode }: AuthFormProps) {
             value={form.email}
             onChange={(e) => setForm({ ...form, email: e.target.value })}
             className={cn(
-              'w-full rounded-lg border border-border bg-background px-4 py-2.5 text-sm outline-none',
+              'w-full rounded-lg border border-border bg-card px-4 py-2.5 text-sm outline-none',
               'placeholder:text-muted-foreground',
               'focus:border-primary focus:ring-2 focus:ring-primary/20',
-              'transition-all duration-200'
+              'transition-all duration-150'
             )}
           />
         </div>
 
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <label htmlFor="password" className="block text-sm font-semibold text-foreground">
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <label htmlFor="password" className="block text-sm font-medium text-foreground">
               Password
             </label>
             {mode === 'sign-in' && (
-              <a href="#" className="text-xs font-semibold text-primary hover:text-primary/80 transition-colors">
+              <a href="#" className="text-xs font-medium text-primary hover:text-primary/80 transition-colors">
                 Forgot?
               </a>
             )}
@@ -178,10 +178,10 @@ export function AuthForm({ mode }: AuthFormProps) {
               value={form.password}
               onChange={(e) => setForm({ ...form, password: e.target.value })}
               className={cn(
-                'w-full rounded-lg border border-border bg-background px-4 py-2.5 pr-10 text-sm outline-none',
+                'w-full rounded-lg border border-border bg-card px-4 py-2.5 pr-10 text-sm outline-none',
                 'placeholder:text-muted-foreground',
                 'focus:border-primary focus:ring-2 focus:ring-primary/20',
-                'transition-all duration-200'
+                'transition-all duration-150'
               )}
             />
             <button
@@ -200,8 +200,9 @@ export function AuthForm({ mode }: AuthFormProps) {
           className={cn(
             'w-full flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 mt-6',
             'bg-primary text-primary-foreground text-sm font-semibold',
-            'hover:bg-primary/90 active:bg-primary/80 focus:outline-none focus:ring-2 focus:ring-primary/40',
-            'disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200'
+            'hover:bg-primary/90 active:bg-primary/80 focus:outline-none',
+            'disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-150',
+            'shadow-md shadow-primary/20'
           )}
         >
           {loading && <Loader2 className="h-4 w-4 animate-spin" />}
@@ -213,14 +214,14 @@ export function AuthForm({ mode }: AuthFormProps) {
         {mode === 'sign-in' ? (
           <>
             Don&apos;t have an account?{' '}
-            <a href="/sign-up" className="font-semibold text-primary hover:text-primary/80 transition-colors">
+            <a href="/sign-up" className="font-medium text-primary hover:text-primary/80 transition-colors">
               Sign up
             </a>
           </>
         ) : (
           <>
             Already have an account?{' '}
-            <a href="/sign-in" className="font-semibold text-primary hover:text-primary/80 transition-colors">
+            <a href="/sign-in" className="font-medium text-primary hover:text-primary/80 transition-colors">
               Sign in
             </a>
           </>
@@ -229,7 +230,14 @@ export function AuthForm({ mode }: AuthFormProps) {
 
       {mode === 'sign-up' && (
         <p className="text-center text-xs text-muted-foreground leading-relaxed">
-          By signing up, you agree to our <a href="#" className="text-primary hover:underline">Terms of Service</a> and <a href="#" className="text-primary hover:underline">Privacy Policy</a>
+          By signing up, you agree to our{' '}
+          <a href="#" className="font-medium text-foreground hover:text-primary transition-colors">
+            Terms of Service
+          </a>{' '}
+          and{' '}
+          <a href="#" className="font-medium text-foreground hover:text-primary transition-colors">
+            Privacy Policy
+          </a>
         </p>
       )}
     </div>
