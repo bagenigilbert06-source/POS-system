@@ -3,7 +3,7 @@ import {
   Package,
   Users,
   CreditCard,
-  Wifi,
+  MessageCircle,
   UserCheck,
   Truck,
   GitBranch,
@@ -33,13 +33,13 @@ const featured = [
     iconClass: 'bg-primary/10 text-primary',
   },
   {
-    icon: Wifi,
-    title: 'Offline Mode & Smart Sync',
+    icon: MessageCircle,
+    title: 'WhatsApp Integration',
     description:
-      'Work without internet. All sales, inventory, and customer data sync automatically when you&apos;re back online. Zero data loss.',
-    tag: 'Resilience',
-    tagClass: 'text-blue-700 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20',
-    iconClass: 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400',
+      'Send receipts, order confirmations, and payment updates directly to customers via WhatsApp. Built-in messaging for customer engagement.',
+    tag: 'Engagement',
+    tagClass: 'text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-900/20',
+    iconClass: 'bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400',
   },
 ]
 
