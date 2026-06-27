@@ -20,20 +20,20 @@ const fadeUp = (delay = 0) => ({
 
 export function LandingHero() {
   return (
-    <section className="relative overflow-hidden border-b border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950">
+    <section className="relative overflow-hidden border-b border-border bg-background">
       {/* Subtle radial glow behind the content */}
       <div
         aria-hidden="true"
         className="pointer-events-none absolute inset-0 flex items-start justify-center"
       >
-        <div className="h-[560px] w-[900px] rounded-full bg-blue-600/[0.06] blur-3xl dark:bg-blue-500/[0.08]" />
+        <div className="h-[560px] w-[900px] rounded-full bg-blue-600/[0.06] dark:bg-blue-500/[0.08]" />
       </div>
 
-      <div className="container-wide relative py-20 sm:py-24 lg:py-28">
+      <div className="container-wide relative section-padding-premium">
         <div className="mx-auto max-w-3xl text-center">
           {/* Badge */}
           <motion.div {...fadeUp(0)}>
-            <span className="mx-auto mb-6 inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-4 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-600 shadow-sm dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400">
+            <span className="mx-auto mb-6 inline-flex items-center gap-2 rounded-full border border-border bg-secondary px-4 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-secondary-foreground shadow-sm">
               <span className="h-1.5 w-1.5 rounded-full bg-primary" aria-hidden="true" />
               Business OS for African Commerce
             </span>
@@ -42,7 +42,7 @@ export function LandingHero() {
           {/* Headline */}
           <motion.h1
             {...fadeUp(0.06)}
-            className="text-[2.6rem] font-semibold leading-[1.1] tracking-tight text-slate-950 sm:text-5xl lg:text-6xl dark:text-white"
+            className="text-[2.6rem] font-semibold leading-[1.1] tracking-tight text-foreground sm:text-5xl lg:text-6xl"
           >
             Run Your Entire Business{' '}
             <span className="text-primary">From One Platform</span>
@@ -51,7 +51,7 @@ export function LandingHero() {
           {/* Sub-headline */}
           <motion.p
             {...fadeUp(0.12)}
-            className="mx-auto mt-5 max-w-xl text-base leading-relaxed text-slate-500 sm:text-lg dark:text-slate-400"
+            className="mx-auto mt-5 max-w-xl text-base leading-relaxed text-muted-foreground sm:text-lg"
           >
             Imara unifies POS, inventory, customers, suppliers, payments,
             employees, and multi-branch operations in one reliable cloud
@@ -77,7 +77,7 @@ export function LandingHero() {
               asChild
               size="lg"
               variant="outline"
-              className="h-11 rounded-xl border-slate-200 px-6 font-medium transition-colors hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-900"
+              className="h-11 rounded-xl px-6 font-medium"
             >
               <Link href="mailto:hello@imara.co">
                 <CalendarCheck2 className="mr-2 h-4 w-4" aria-hidden="true" />
@@ -89,7 +89,7 @@ export function LandingHero() {
           {/* Assurances */}
           <motion.div
             {...fadeUp(0.24)}
-            className="mt-6 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-[13px] font-medium text-slate-500 dark:text-slate-500"
+            className="mt-6 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-[13px] font-medium text-muted-foreground"
           >
             {assurances.map((item) => (
               <span key={item} className="inline-flex items-center gap-1.5">

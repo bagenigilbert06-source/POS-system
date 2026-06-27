@@ -57,7 +57,7 @@ const secondary = [
 
 export function LandingFeatures() {
   return (
-    <section id="features" className="section-padding-premium bg-slate-50 dark:bg-slate-950">
+    <section id="features" className="section-padding-premium bg-secondary">
       <div className="container-wide">
         {/* Header */}
         <div className="text-center max-w-2xl mx-auto mb-20">
@@ -77,7 +77,7 @@ export function LandingFeatures() {
             return (
               <div
                 key={f.title}
-                className="flex flex-col gap-5 rounded-2xl border border-slate-200 bg-white p-7 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg dark:border-slate-800 dark:bg-slate-900"
+                className="fluent-card-hover flex flex-col gap-5 p-7"
               >
                 <div className="flex items-start justify-between">
                   <div className={`h-11 w-11 rounded-xl flex items-center justify-center ${f.iconClass}`}>
@@ -97,13 +97,13 @@ export function LandingFeatures() {
         </div>
 
         {/* 9-cell secondary grid */}
-        <div className="grid overflow-hidden rounded-2xl border border-slate-200 bg-slate-200 shadow-sm sm:grid-cols-2 md:grid-cols-3 dark:border-slate-800 dark:bg-slate-800">
+        <div className="grid overflow-hidden rounded-2xl border border-border bg-border shadow-sm sm:grid-cols-2 md:grid-cols-3">
           {secondary.map((f) => {
             const Icon = f.icon
             return (
               <div
                 key={f.title}
-                className="group flex items-start gap-4 bg-white p-6 transition-colors duration-150 hover:bg-blue-50/50 dark:bg-slate-900 dark:hover:bg-slate-800"
+                className="group flex items-start gap-4 bg-card p-6 transition-colors duration-150 hover:bg-card/70"
               >
                 <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0 group-hover:bg-primary/15 transition-colors duration-150 mt-0.5">
                   <Icon className="h-4 w-4 text-primary" />

@@ -23,19 +23,19 @@ const stats = [
 
 export function LandingStats() {
   return (
-    <section className="border-y border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950">
-      <div className="container-wide py-16 md:py-24">
-        <div className="grid gap-px overflow-hidden rounded-2xl border border-slate-200 bg-slate-200 shadow-sm md:grid-cols-4 dark:border-slate-800 dark:bg-slate-800">
+    <section className="border-y border-border bg-background">
+      <div className="container-wide section-padding-lg">
+        <div className="grid gap-px overflow-hidden rounded-2xl border border-border bg-border shadow-sm md:grid-cols-4">
           {stats.map((stat, i) => (
             <div
               key={stat.number}
-              className="flex flex-col bg-white p-6 dark:bg-slate-950"
+              className="flex flex-col bg-card p-6"
             >
-              <span className="mb-1 text-3xl font-semibold tracking-tight text-slate-950 md:text-4xl dark:text-white">
+              <span className="mb-1 text-3xl font-semibold tracking-tight text-foreground md:text-4xl">
                 {stat.number}
               </span>
-              <span className="mb-1 text-sm font-semibold text-slate-700 dark:text-slate-200">{stat.label}</span>
-              <span className="text-xs leading-relaxed text-slate-500 dark:text-slate-400">{stat.description}</span>
+              <span className="mb-1 text-sm font-semibold text-foreground">{stat.label}</span>
+              <span className="text-xs leading-relaxed text-muted-foreground">{stat.description}</span>
             </div>
           ))}
         </div>

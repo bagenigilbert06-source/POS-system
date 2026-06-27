@@ -184,10 +184,10 @@ export function LandingTestimonials() {
         /* ── Section ───────────────────────────────────────────── */
         .t-section {
           width: 100%;
-          background: #f8fafc;
-          border-top: 1px solid #e2e8f0;
-          border-bottom: 1px solid #e2e8f0;
-          padding: 80px 0;
+          background: hsl(var(--secondary));
+          border-top: 1px solid hsl(var(--border));
+          border-bottom: 1px solid hsl(var(--border));
+          padding: 96px 0;
           overflow: hidden;
           box-sizing: border-box;
         }
@@ -206,7 +206,7 @@ export function LandingTestimonials() {
           font-weight: 700;
           letter-spacing: 0.1em;
           text-transform: uppercase;
-          color: #2563eb;
+          color: hsl(var(--primary));
           margin-bottom: 12px;
         }
 
@@ -214,7 +214,7 @@ export function LandingTestimonials() {
           margin: 0 0 14px;
           font-size: clamp(1.6rem, 3.5vw, 2.2rem);
           font-weight: 750;
-          color: #0f172a;
+          color: hsl(var(--foreground));
           letter-spacing: -0.03em;
           line-height: 1.15;
         }
@@ -222,7 +222,7 @@ export function LandingTestimonials() {
         .t-sub {
           margin: 0;
           font-size: 0.9375rem;
-          color: #64748b;
+          color: hsl(var(--muted-foreground));
           line-height: 1.65;
         }
 
@@ -238,8 +238,8 @@ export function LandingTestimonials() {
           z-index: 10;
           width: 96px;
         }
-        .t-fade-left  { left: 0;  background: linear-gradient(to right, #f8fafc 30%, transparent); }
-        .t-fade-right { right: 0; background: linear-gradient(to left,  #f8fafc 30%, transparent); }
+        .t-fade-left  { left: 0;  background: linear-gradient(to right, hsl(var(--secondary)) 30%, transparent); }
+        .t-fade-right { right: 0; background: linear-gradient(to left,  hsl(var(--secondary)) 30%, transparent); }
 
         .t-rows {
           display: flex;
@@ -274,8 +274,8 @@ export function LandingTestimonials() {
         .t-card {
           width: 340px;
           flex-shrink: 0;
-          background: #ffffff;
-          border: 1px solid #e2e8f0;
+          background: hsl(var(--card));
+          border: 1px solid hsl(var(--border));
           border-radius: 16px;
           padding: 24px;
           display: flex;
@@ -297,7 +297,7 @@ export function LandingTestimonials() {
         .t-quote {
           margin: 0;
           font-size: 0.875rem;
-          color: #334155;
+          color: hsl(var(--foreground));
           line-height: 1.7;
           font-style: normal;
           flex: 1;
@@ -309,7 +309,7 @@ export function LandingTestimonials() {
           align-items: center;
           gap: 12px;
           padding-top: 16px;
-          border-top: 1px solid #f1f5f9;
+          border-top: 1px solid hsl(var(--border));
           margin-top: auto;
         }
 
@@ -355,7 +355,7 @@ export function LandingTestimonials() {
           margin: 0 0 2px;
           font-size: 0.8125rem;
           font-weight: 700;
-          color: #0f172a;
+          color: hsl(var(--foreground));
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
@@ -364,7 +364,7 @@ export function LandingTestimonials() {
         .t-role {
           margin: 0;
           font-size: 0.6875rem;
-          color: #94a3b8;
+          color: hsl(var(--muted-foreground));
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;

@@ -196,10 +196,10 @@ export function LandingIndustries() {
         /* ── Section ───────────────────────────────────────────── */
         .ind-section {
           width: 100%;
-          background: #f8fafc;
-          border-top: 1px solid #e2e8f0;
-          border-bottom: 1px solid #e2e8f0;
-          padding: 80px 24px;
+          background: hsl(var(--secondary));
+          border-top: 1px solid hsl(var(--border));
+          border-bottom: 1px solid hsl(var(--border));
+          padding: 96px 24px;
           box-sizing: border-box;
         }
 
@@ -221,7 +221,7 @@ export function LandingIndustries() {
           font-weight: 700;
           letter-spacing: 0.1em;
           text-transform: uppercase;
-          color: #2563eb;
+          color: hsl(var(--primary));
           margin-bottom: 12px;
         }
 
@@ -229,7 +229,7 @@ export function LandingIndustries() {
           margin: 0 0 14px;
           font-size: clamp(1.6rem, 3vw, 2.2rem);
           font-weight: 800;
-          color: #0f172a;
+          color: hsl(var(--foreground));
           letter-spacing: -0.03em;
           line-height: 1.15;
         }
@@ -237,7 +237,7 @@ export function LandingIndustries() {
         .ind-sub {
           margin: 0;
           font-size: 0.9375rem;
-          color: #64748b;
+          color: hsl(var(--muted-foreground));
           line-height: 1.65;
         }
 
@@ -253,11 +253,11 @@ export function LandingIndustries() {
         .ind-tab {
           padding: 8px 18px;
           border-radius: 999px;
-          border: 1px solid #e2e8f0;
-          background: #ffffff;
+          border: 1px solid hsl(var(--border));
+          background: hsl(var(--card));
           font-size: 12.5px;
           font-weight: 600;
-          color: #64748b;
+          color: hsl(var(--muted-foreground));
           cursor: pointer;
           transition: all 0.15s ease;
           white-space: nowrap;
@@ -265,19 +265,19 @@ export function LandingIndustries() {
         }
 
         .ind-tab:hover {
-          border-color: #2563eb;
-          color: #2563eb;
+          border-color: hsl(var(--primary));
+          color: hsl(var(--primary));
         }
 
         .ind-tab-active {
-          background: #2563eb;
-          border-color: #2563eb;
-          color: #ffffff;
-          box-shadow: 0 2px 8px rgba(37,99,235,0.25);
+          background: hsl(var(--primary));
+          border-color: hsl(var(--primary));
+          color: hsl(var(--primary-foreground));
+          box-shadow: 0 2px 8px hsla(221, 83%, 53%, 0.25);
         }
 
         .ind-tab-active:hover {
-          color: #ffffff;
+          color: hsl(var(--primary-foreground));
         }
 
         /* ── Panel ─────────────────────────────────────────────── */
@@ -286,8 +286,8 @@ export function LandingIndustries() {
           grid-template-columns: 1fr 1fr;
           gap: 48px;
           align-items: center;
-          background: #ffffff;
-          border: 1px solid #e2e8f0;
+          background: hsl(var(--card));
+          border: 1px solid hsl(var(--border));
           border-radius: 20px;
           overflow: hidden;
           box-shadow:
@@ -307,7 +307,7 @@ export function LandingIndustries() {
           position: relative;
           aspect-ratio: 4 / 3;
           overflow: hidden;
-          background: #e2e8f0;
+          background: hsl(var(--border));
         }
 
         @media (max-width: 820px) {
@@ -372,7 +372,7 @@ export function LandingIndustries() {
           margin: 0 0 2px;
           font-size: 1rem;
           font-weight: 800;
-          color: #0f172a;
+          color: hsl(var(--foreground));
           letter-spacing: -0.02em;
           line-height: 1;
         }
@@ -380,7 +380,7 @@ export function LandingIndustries() {
         .ind-badge-label {
           margin: 0;
           font-size: 11px;
-          color: #64748b;
+          color: hsl(var(--muted-foreground));
           line-height: 1.3;
         }
 
@@ -408,7 +408,7 @@ export function LandingIndustries() {
           margin: 0;
           font-size: 1.375rem;
           font-weight: 800;
-          color: #0f172a;
+          color: hsl(var(--foreground));
           letter-spacing: -0.025em;
           line-height: 1.2;
         }
@@ -416,7 +416,7 @@ export function LandingIndustries() {
         .ind-copy-sub {
           margin: 0;
           font-size: 0.875rem;
-          color: #64748b;
+          color: hsl(var(--muted-foreground));
           line-height: 1.5;
         }
 
@@ -435,12 +435,12 @@ export function LandingIndustries() {
           align-items: center;
           gap: 10px;
           font-size: 0.875rem;
-          color: #1e293b;
+          color: hsl(var(--foreground));
           line-height: 1.4;
         }
 
         .ind-check {
-          color: #2563eb;
+          color: hsl(var(--primary));
           flex-shrink: 0;
         }
 
@@ -454,19 +454,19 @@ export function LandingIndustries() {
           align-items: center;
           gap: 8px;
           padding: 11px 22px;
-          background: #2563eb;
-          color: #ffffff;
+          background: hsl(var(--primary));
+          color: hsl(var(--primary-foreground));
           font-size: 0.875rem;
           font-weight: 600;
           border-radius: 10px;
           text-decoration: none;
           transition: background 0.15s ease, box-shadow 0.15s ease;
-          box-shadow: 0 2px 8px rgba(37,99,235,0.25);
+          box-shadow: 0 2px 8px hsla(221, 83%, 53%, 0.25);
         }
 
         .ind-cta:hover {
-          background: #1d4ed8;
-          box-shadow: 0 4px 16px rgba(37,99,235,0.35);
+          opacity: 0.9;
+          box-shadow: 0 4px 16px hsla(221, 83%, 53%, 0.35);
         }
 
         /* ── Footer note ───────────────────────────────────────── */
@@ -474,11 +474,11 @@ export function LandingIndustries() {
           text-align: center;
           margin-top: 28px;
           font-size: 0.8125rem;
-          color: #94a3b8;
+          color: hsl(var(--muted-foreground));
         }
 
         .ind-footer-link {
-          color: #2563eb;
+          color: hsl(var(--primary));
           font-weight: 600;
           text-decoration: none;
         }
