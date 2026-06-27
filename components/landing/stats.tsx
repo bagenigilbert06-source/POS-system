@@ -1,35 +1,41 @@
-export function LandingStats() {
-  const stats = [
-    {
-      number: '5,000+',
-      description: 'Kenyan businesses using Nexora',
-    },
-    {
-      number: '99.9%',
-      description: 'Uptime guarantee',
-    },
-    {
-      number: '50M+',
-      description: 'Transactions processed monthly',
-    },
-    {
-      number: 'KES 2B+',
-      description: 'Processed annually',
-    },
-  ]
+const stats = [
+  {
+    number: '5,000+',
+    label: 'Active Businesses',
+    description: 'Across Kenya — from Nairobi to Mombasa to Kisumu',
+  },
+  {
+    number: 'KES 2B+',
+    label: 'Revenue Processed',
+    description: 'Every month through the Imara platform',
+  },
+  {
+    number: '50M+',
+    label: 'Transactions',
+    description: 'Sales, payments and stock movements monthly',
+  },
+  {
+    number: '99.9%',
+    label: 'Uptime',
+    description: 'Always on, always reliable — even offline',
+  },
+]
 
+export function LandingStats() {
   return (
-    <section className="py-16 md:py-24 border-y border-border">
-      <div className="mx-auto max-w-7xl px-6">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-8 md:gap-12">
-          {stats.map((stat, idx) => (
-            <div key={idx} className="text-center md:text-left">
-              <div className="text-3xl md:text-4xl font-bold text-foreground mb-2">
+    <section className="section-dark border-y border-[hsl(var(--section-dark-border))]">
+      <div className="container-wide py-16 md:py-24">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-px">
+          {stats.map((stat, i) => (
+            <div
+              key={stat.number}
+              className={`flex flex-col px-6 py-6 md:py-2 ${i !== 0 ? 'border-l border-[hsl(var(--section-dark-border))] border-opacity-50' : ''} ${i >= 2 ? 'border-t border-[hsl(var(--section-dark-border))] border-opacity-50 md:border-t-0' : ''}`}
+            >
+              <span className="text-3xl md:text-4xl font-bold tracking-tight text-white mb-1">
                 {stat.number}
-              </div>
-              <p className="text-sm md:text-base text-muted-foreground">
-                {stat.description}
-              </p>
+              </span>
+              <span className="text-sm font-semibold text-white/80 mb-1">{stat.label}</span>
+              <span className="text-xs text-white/40 leading-relaxed">{stat.description}</span>
             </div>
           ))}
         </div>

@@ -1,78 +1,74 @@
 'use client'
 
 import { useState } from 'react'
-import { ChevronDown } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { Plus, Minus } from 'lucide-react'
+
+const faqs = [
+  {
+    question: 'How long is the free trial?',
+    answer: 'You get 30 days of full access to every feature on the Growth plan. No credit card is required to get started.',
+  },
+  {
+    question: 'Does Imara work on my existing hardware?',
+    answer: 'Yes. Imara runs in any modern browser on any device — computer, tablet or smartphone. No special hardware needed, though we do have recommended receipt printers and barcode scanners.',
+  },
+  {
+    question: 'Can I manage multiple branches?',
+    answer: 'Absolutely. Growth and Enterprise plans support unlimited locations with centralised inventory, reporting and staff management across all branches.',
+  },
+  {
+    question: 'How secure is my data?',
+    answer: 'We use end-to-end encryption at rest and in transit, role-based access controls, automatic daily backups and full audit logs. Your data never leaves Kenyan servers.',
+  },
+  {
+    question: 'How long does setup take?',
+    answer: 'Most businesses are live in under two hours. You can import your existing product catalogue, and our onboarding team walks you through everything step by step.',
+  },
+  {
+    question: 'What payment methods does Imara accept?',
+    answer: 'Imara integrates with M-Pesa (Lipa Na M-Pesa and M-Pesa Express), Visa/Mastercard, Airtel Money, and cash. All transactions reconcile automatically at end of day.',
+  },
+]
 
 export function LandingFAQ() {
   const [openIdx, setOpenIdx] = useState<number | null>(0)
 
-  const faqs = [
-    {
-      question: 'How long is the free trial?',
-      answer: 'You get 30 days of full access to all features in the Pro plan. No credit card required to get started.',
-    },
-    {
-      question: 'Can I use BizOS with my existing hardware?',
-      answer: 'Yes! BizOS works on any device - computers, tablets, and smartphones. You can use your existing hardware or our recommended devices.',
-    },
-    {
-      question: 'What if I have multiple locations?',
-      answer: 'On the Pro and Enterprise plans, you can manage multiple locations from one dashboard. Get unified reports across all your branches.',
-    },
-    {
-      question: 'Is my data secure?',
-      answer: 'Absolutely. We use bank-level encryption, automatic backups, and comply with international security standards. Your business data is always protected.',
-    },
-    {
-      question: 'How long does onboarding take?',
-      answer: 'Most businesses are set up and running in under 2 hours. Our support team will guide you through everything, and we provide training for your staff.',
-    },
-    {
-      question: 'Do you have customer support?',
-      answer: 'Yes! All plans include support. Starter plan has email support, Pro gets priority support, and Enterprise gets a dedicated account manager.',
-    },
-  ]
-
   return (
-    <section id="faq" className="py-20 md:py-32">
-      <div className="mx-auto max-w-3xl px-6">
-        {/* Section header */}
-        <div className="text-center mb-16 md:mb-24">
-          <p className="text-sm font-semibold uppercase tracking-wider text-primary mb-4">
-            FAQ
-          </p>
-          <h2 className="text-4xl md:text-5xl font-bold">
-            Common questions
-          </h2>
-        </div>
+    <section id="faq" className="section-padding-premium bg-background">
+      <div className="container-wide">
+        <div className="grid lg:grid-cols-[1fr_2fr] gap-16 items-start">
+          {/* Left — sticky heading */}
+          <div className="lg:sticky lg:top-24">
+            <p className="section-eyebrow mb-3">FAQ</p>
+            <h2 className="section-heading mb-4">Common questions.</h2>
+            <p className="section-subheading">
+              Anything else? Reach us at{' '}
+              <a href="mailto:hello@imara.co" className="text-primary hover:underline">
+                hello@imara.co
+              </a>
+            </p>
+          </div>
 
-        {/* FAQ items */}
-        <div className="space-y-4">
-          {faqs.map((faq, idx) => (
-            <div
-              key={idx}
-              className="border border-border rounded-lg overflow-hidden hover:border-border/50 transition-colors"
-            >
-              <button
-                onClick={() => setOpenIdx(openIdx === idx ? null : idx)}
-                className="w-full p-6 flex items-center justify-between bg-background hover:bg-card/50 transition-colors text-left"
-              >
-                <h3 className="font-semibold text-foreground pr-4">{faq.question}</h3>
-                <ChevronDown
-                  className={cn(
-                    'h-5 w-5 text-muted-foreground flex-shrink-0 transition-transform',
-                    openIdx === idx && 'rotate-180'
-                  )}
-                />
-              </button>
-              {openIdx === idx && (
-                <div className="bg-card/50 px-6 py-4 border-t border-border">
-                  <p className="text-muted-foreground leading-relaxed">{faq.answer}</p>
-                </div>
-              )}
-            </div>
-          ))}
+          {/* Right — accordion */}
+          <div className="divide-y divide-border">
+            {faqs.map((faq, idx) => (
+              <div key={idx}>
+                <button
+                  onClick={() => setOpenIdx(openIdx === idx ? null : idx)}
+                  className="w-full flex items-center justify-between gap-4 py-5 text-left"
+                >
+                  <span className="text-sm font-semibold text-foreground">{faq.question}</span>
+                  {openIdx === idx
+                    ? <Minus className="h-4 w-4 text-primary shrink-0" />
+                    : <Plus className="h-4 w-4 text-muted-foreground shrink-0" />
+                  }
+                </button>
+                {openIdx === idx && (
+                  <p className="pb-5 text-sm text-muted-foreground leading-relaxed">{faq.answer}</p>
+                )}
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </section>

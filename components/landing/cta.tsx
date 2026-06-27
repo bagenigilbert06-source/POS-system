@@ -1,42 +1,64 @@
-'use client'
-
 import Link from 'next/link'
-import { ArrowRight } from 'lucide-react'
+import { ArrowRight, CheckCircle2 } from 'lucide-react'
+
+const reasons = [
+  'No technical knowledge required',
+  'Import your existing products in minutes',
+  'M-Pesa ready out of the box',
+  'Free onboarding support included',
+]
 
 export function LandingCTA() {
   return (
-    <section className="py-20 md:py-32">
-      <div className="mx-auto max-w-4xl px-6">
-        {/* Background elements */}
-        <div className="absolute inset-0 overflow-hidden pointer-events-none -z-10">
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-primary/5 rounded-full blur-3xl" />
-        </div>
-
-        <div className="rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/5 to-primary/10 p-12 md:p-16 text-center">
-          <h2 className="text-4xl md:text-5xl font-bold mb-6">
-            Ready to grow your business?
-          </h2>
-          <p className="text-lg text-muted-foreground max-w-2xl mx-auto mb-10">
-            Join hundreds of Kenyan businesses already using BizOS to streamline operations, 
-            increase sales, and serve customers better.
+    <section className="section-padding-premium section-dark">
+      <div className="container-wide">
+        <div className="max-w-3xl mx-auto text-center">
+          {/* Eyebrow */}
+          <p className="text-xs font-semibold uppercase tracking-widest text-white/50 mb-6">
+            Get started today
           </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+
+          {/* Headline */}
+          <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-white tracking-tight text-balance mb-6 leading-[1.1]">
+            Your business deserves better tools.
+            <br />
+            <span className="text-primary">Imara is built for you.</span>
+          </h2>
+
+          {/* Subheadline */}
+          <p className="text-base text-white/60 leading-relaxed mb-10 max-w-xl mx-auto">
+            Join 5,000+ Kenyan businesses who replaced messy notebooks, WhatsApp groups, and disconnected apps with Imara. Start free — be live in under 2 hours.
+          </p>
+
+          {/* Reasons grid */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-10">
+            {reasons.map((r) => (
+              <div key={r} className="flex items-start gap-2 text-left">
+                <CheckCircle2 className="h-4 w-4 text-primary shrink-0 mt-0.5" />
+                <span className="text-xs text-white/70 leading-relaxed">{r}</span>
+              </div>
+            ))}
+          </div>
+
+          {/* CTA buttons */}
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mb-8">
             <Link
               href="/sign-up"
-              className="inline-flex items-center gap-2 px-8 py-3 rounded-lg bg-primary text-primary-foreground font-semibold hover:bg-primary/90 transition-all hover:shadow-lg"
+              className="inline-flex items-center gap-2 bg-primary text-white font-semibold text-sm px-8 py-3.5 rounded-lg hover:bg-primary/90 transition-colors duration-150 fluent-shadow-8"
             >
-              Start free trial
+              Start Free — No Card Required
               <ArrowRight className="h-4 w-4" />
             </Link>
             <Link
-              href="mailto:support@bizos.ke"
-              className="inline-flex items-center gap-2 px-8 py-3 rounded-lg border border-foreground text-foreground font-semibold hover:bg-foreground/5 transition-all"
+              href="mailto:hello@imara.co"
+              className="inline-flex items-center gap-2 border border-white/20 text-white/80 font-medium text-sm px-8 py-3.5 rounded-lg hover:bg-white/5 hover:text-white transition-all duration-150"
             >
-              Get a demo
+              Talk to Sales
             </Link>
           </div>
-          <p className="text-sm text-muted-foreground mt-8">
-            No credit card required. 30 days free. Cancel anytime.
+
+          <p className="text-xs text-white/30">
+            30-day free trial &middot; No credit card &middot; Full access to all features &middot; Cancel anytime
           </p>
         </div>
       </div>

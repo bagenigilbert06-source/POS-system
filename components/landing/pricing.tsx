@@ -1,121 +1,127 @@
-'use client'
-
 import Link from 'next/link'
 import { Check } from 'lucide-react'
 
-export function LandingPricing() {
-  const plans = [
-    {
-      name: 'Starter',
-      description: 'Perfect for kiosks and small shops',
-      price: 'Free',
-      period: 'first 30 days',
-      features: [
-        'Single POS terminal',
-        'Basic inventory',
-        'Daily reports',
-        'M-Pesa integration',
-        'Up to 500 products',
-        'Email support',
-      ],
-    },
-    {
-      name: 'Professional',
-      description: 'For retailers and restaurants',
-      price: 'KES 2,999',
-      period: 'per month',
-      popular: true,
-      features: [
-        'Multi-terminal support',
-        'Advanced inventory tracking',
-        'Real-time analytics',
-        'M-Pesa, Card, Cash payments',
-        'Unlimited products',
-        'Phone + email support',
-        'Customer loyalty program',
-        'Staff management',
-      ],
-    },
-    {
-      name: 'Enterprise',
-      description: 'For large retail chains',
-      price: 'Custom pricing',
-      period: 'talk to sales',
-      features: [
-        'Everything in Professional',
-        'Dedicated account manager',
-        'Custom integrations',
-        'REST API access',
-        '99.9% SLA guarantee',
-        'Multi-location management',
-        'Advanced security & compliance',
-        'Premium onboarding',
-      ],
-    },
-  ]
+const plans = [
+  {
+    name: 'Starter',
+    description: 'For kiosks and small shops just getting started.',
+    price: 'Free',
+    period: '30-day trial',
+    cta: 'Start for free',
+    features: [
+      '1 POS terminal',
+      'Up to 500 products',
+      'Basic inventory tracking',
+      'Daily sales reports',
+      'M-Pesa integration',
+      'Email support',
+    ],
+  },
+  {
+    name: 'Growth',
+    description: 'For retailers and restaurants ready to scale.',
+    price: 'KES 2,999',
+    period: '/ month',
+    popular: true,
+    cta: 'Get started',
+    features: [
+      'Unlimited terminals',
+      'Unlimited products',
+      'Advanced inventory & reorder',
+      'Real-time analytics',
+      'M-Pesa + card + cash',
+      'Customer loyalty program',
+      'Staff management & shifts',
+      'Phone + email support',
+    ],
+  },
+  {
+    name: 'Enterprise',
+    description: 'For large retail chains and franchise operations.',
+    price: 'Custom',
+    period: 'talk to us',
+    cta: 'Contact sales',
+    features: [
+      'Everything in Growth',
+      'Multi-branch management',
+      'Dedicated account manager',
+      'REST API access',
+      'Custom integrations',
+      'Advanced security & audit logs',
+      '99.9% SLA guarantee',
+      'Priority onboarding',
+    ],
+  },
+]
 
+export function LandingPricing() {
   return (
-    <section id="pricing" className="py-20 md:py-32 bg-card/30">
-      <div className="mx-auto max-w-7xl px-6">
-        {/* Section header */}
-        <div className="text-center mb-16 md:mb-24">
-          <p className="text-sm font-semibold uppercase tracking-wider text-primary mb-4">
-            Pricing
-          </p>
-          <h2 className="text-4xl md:text-5xl font-bold mb-6">
-            Plans for every business size
-          </h2>
-          <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            Start free, upgrade when you&apos;re ready. No hidden fees.
+    <section id="pricing" className="section-padding bg-card/30">
+      <div className="container-wide">
+        {/* Header */}
+        <div className="text-center max-w-2xl mx-auto mb-14">
+          <p className="section-eyebrow mb-3">Pricing</p>
+          <h2 className="section-heading mb-4">Plans for every stage of growth.</h2>
+          <p className="section-subheading mx-auto">
+            Start free. Upgrade when you&apos;re ready. No hidden fees, ever.
           </p>
         </div>
 
-        {/* Pricing cards */}
-        <div className="grid md:grid-cols-3 gap-8">
-          {plans.map((plan, idx) => (
+        {/* Cards */}
+        <div className="grid md:grid-cols-3 gap-6 items-start">
+          {plans.map((plan) => (
             <div
-              key={idx}
-              className={`rounded-xl border p-8 transition-all duration-300 ${
+              key={plan.name}
+              className={`relative rounded-2xl border p-8 flex flex-col gap-7 transition-all duration-200 ${
                 plan.popular
-                  ? 'border-primary bg-background shadow-xl md:scale-105 relative'
-                  : 'border-border bg-background hover:border-border/50 hover:shadow-lg'
+                  ? 'border-primary bg-primary text-primary-foreground fluent-shadow-16 md:-mt-4 md:mb-0'
+                  : 'border-border bg-background fluent-shadow-2 hover:fluent-shadow-8'
               }`}
             >
               {plan.popular && (
-                <div className="absolute -top-4 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-primary text-primary-foreground text-xs font-semibold">
+                <span className="absolute -top-3 left-6 inline-flex items-center rounded-full bg-foreground text-background text-[11px] font-bold px-3 py-1 tracking-wide">
                   Most popular
-                </div>
+                </span>
               )}
 
-              <h3 className="text-2xl font-bold mb-2">{plan.name}</h3>
-              <p className="text-muted-foreground text-sm mb-6">{plan.description}</p>
+              {/* Plan header */}
+              <div>
+                <h3 className={`text-lg font-bold mb-1 ${plan.popular ? 'text-primary-foreground' : 'text-foreground'}`}>
+                  {plan.name}
+                </h3>
+                <p className={`text-sm ${plan.popular ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
+                  {plan.description}
+                </p>
+              </div>
 
               {/* Price */}
-              <div className="mb-6">
-                <div className="flex items-baseline gap-1">
-                  <span className="text-4xl font-bold">KES {plan.price}</span>
-                  <span className="text-muted-foreground text-sm">{plan.period}</span>
+              <div>
+                <div className={`flex items-baseline gap-1.5 ${plan.popular ? 'text-primary-foreground' : 'text-foreground'}`}>
+                  <span className="text-4xl font-bold tracking-tight">{plan.price}</span>
+                  <span className={`text-sm ${plan.popular ? 'text-primary-foreground/60' : 'text-muted-foreground'}`}>
+                    {plan.period}
+                  </span>
                 </div>
               </div>
 
               {/* CTA */}
               <Link
                 href="/sign-up"
-                className={`block w-full text-center py-3 rounded-lg font-semibold mb-8 transition-all ${
+                className={`w-full text-center py-2.5 rounded-lg text-sm font-semibold transition-all duration-150 border ${
                   plan.popular
-                    ? 'bg-primary text-primary-foreground hover:bg-primary/90'
-                    : 'border border-border text-foreground hover:bg-secondary'
+                    ? 'bg-primary-foreground text-primary hover:bg-primary-foreground/90 border-transparent'
+                    : 'border-border hover:bg-secondary text-foreground'
                 }`}
               >
-                Get started
+                {plan.cta}
               </Link>
 
               {/* Features */}
-              <ul className="space-y-4">
-                {plan.features.map((feature, fidx) => (
-                  <li key={fidx} className="flex items-start gap-3">
-                    <Check className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
-                    <span className="text-foreground text-sm">{feature}</span>
+              <ul className="space-y-3">
+                {plan.features.map((f) => (
+                  <li key={f} className="flex items-start gap-3">
+                    <Check className={`h-4 w-4 shrink-0 mt-0.5 ${plan.popular ? 'text-primary-foreground' : 'text-primary'}`} />
+                    <span className={`text-sm ${plan.popular ? 'text-primary-foreground/85' : 'text-muted-foreground'}`}>{f}</span>
                   </li>
                 ))}
               </ul>
@@ -123,9 +129,8 @@ export function LandingPricing() {
           ))}
         </div>
 
-        {/* Footer note */}
-        <p className="text-center text-sm text-muted-foreground mt-12">
-          All plans include 30 days free trial. No credit card required.
+        <p className="text-center text-xs text-muted-foreground mt-10">
+          All plans include a 30-day free trial. No credit card required to start.
         </p>
       </div>
     </section>
