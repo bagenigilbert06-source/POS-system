@@ -20,6 +20,8 @@ const featured = [
     description:
       'Process sales in under 3 seconds. Accept M-Pesa, Airtel Money, card, and cash from one screen. Works offline and syncs automatically when back online.',
     tag: 'Core',
+    tagClass: 'text-primary bg-primary/8',
+    iconClass: 'bg-primary/10 text-primary',
   },
   {
     icon: Package,
@@ -27,6 +29,8 @@ const featured = [
     description:
       'Know exactly what you have, where it is, and when to reorder. Set low-stock alerts, track expiry dates, and manage multiple warehouses from one dashboard.',
     tag: 'Core',
+    tagClass: 'text-primary bg-primary/8',
+    iconClass: 'bg-primary/10 text-primary',
   },
   {
     icon: BarChart3,
@@ -34,6 +38,8 @@ const featured = [
     description:
       'Revenue trends, top-selling products, slow movers, peak hours, and staff performance — all auto-generated. No spreadsheets, no manual calculations.',
     tag: 'Insights',
+    tagClass: 'text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20',
+    iconClass: 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400',
   },
 ]
 
@@ -74,10 +80,10 @@ export function LandingFeatures() {
                 className="fluent-card p-7 flex flex-col gap-5 hover:shadow-md-soft hover:-translate-y-0.5 transition-all duration-200"
               >
                 <div className="flex items-start justify-between">
-                  <div className="h-11 w-11 rounded-xl bg-primary/10 flex items-center justify-center">
-                    <Icon className="h-5 w-5 text-primary" />
+                  <div className={`h-11 w-11 rounded-xl flex items-center justify-center ${f.iconClass}`}>
+                    <Icon className="h-5 w-5" />
                   </div>
-                  <span className="text-[10px] font-bold uppercase tracking-widest text-primary bg-primary/8 rounded-full px-2.5 py-1">
+                  <span className={`text-[10px] font-bold uppercase tracking-widest rounded-full px-2.5 py-1 ${f.tagClass}`}>
                     {f.tag}
                   </span>
                 </div>
