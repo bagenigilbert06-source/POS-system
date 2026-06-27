@@ -4,56 +4,56 @@
 
 @layer base {
   :root {
-    /* Light Theme - SendCloud Design */
+    /* Light Theme */
     --background: 0 0% 100%;
-    --foreground: 220 13% 20%;
+    --foreground: 222 47% 11%;
 
     --card: 0 0% 99%;
-    --card-foreground: 220 13% 20%;
+    --card-foreground: 222 47% 11%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 220 13% 20%;
+    --popover-foreground: 222 47% 11%;
 
-    --primary: 186 100% 50%;
+    --primary: 221 83% 53%;
     --primary-foreground: 0 0% 100%;
 
     --secondary: 220 14% 96%;
-    --secondary-foreground: 220 13% 30%;
+    --secondary-foreground: 222 47% 20%;
 
     --muted: 220 14% 96%;
-    --muted-foreground: 220 8% 50%;
+    --muted-foreground: 220 9% 46%;
 
-    --accent: 186 100% 92%;
-    --accent-foreground: 186 100% 35%;
+    --accent: 221 83% 95%;
+    --accent-foreground: 221 83% 38%;
 
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
 
     --border: 220 13% 91%;
     --input: 220 13% 91%;
-    --ring: 186 100% 50%;
+    --ring: 221 83% 53%;
     --radius: 0.625rem;
 
     /* Dark section — used for stats, CTA, hero gradient */
     /* In light mode: deep navy. In dark mode: even darker navy. */
-    --section-dark-bg: 220 13% 15%;
+    --section-dark-bg: 222 47% 11%;
     --section-dark-fg: 0 0% 100%;
-    --section-dark-muted: 220 8% 65%;
-    --section-dark-border: 220 13% 25%;
+    --section-dark-muted: 222 47% 65%;
+    --section-dark-border: 222 47% 20%;
 
     --success: 142 71% 39%;
     --success-foreground: 0 0% 100%;
     --warning: 38 92% 50%;
     --warning-foreground: 0 0% 100%;
 
-    --sidebar-bg: 220 13% 12%;
-    --sidebar-fg: 220 8% 60%;
-    --sidebar-active: 186 100% 50%;
+    --sidebar-bg: 222 47% 9%;
+    --sidebar-fg: 220 9% 55%;
+    --sidebar-active: 221 83% 53%;
     --sidebar-active-fg: 0 0% 100%;
-    --sidebar-hover: 220 13% 22%;
-    --sidebar-border: 220 13% 22%;
+    --sidebar-hover: 222 47% 16%;
+    --sidebar-border: 222 47% 16%;
 
-    --chart-1: 186 100% 50%;
+    --chart-1: 221 83% 53%;
     --chart-2: 142 71% 45%;
     --chart-3: 38 92% 50%;
     --chart-4: 0 84% 60%;
@@ -61,57 +61,57 @@
   }
 
   .dark {
-    --background: 220 13% 9%;
-    --foreground: 0 0% 95%;
+    --background: 222 47% 7%;
+    --foreground: 210 40% 96%;
 
-    --card: 220 13% 13%;
-    --card-foreground: 0 0% 95%;
+    --card: 222 47% 10%;
+    --card-foreground: 210 40% 96%;
 
-    --popover: 220 13% 13%;
-    --popover-foreground: 0 0% 95%;
+    --popover: 222 47% 10%;
+    --popover-foreground: 210 40% 96%;
 
-    --primary: 186 100% 55%;
+    --primary: 221 83% 62%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 220 13% 18%;
-    --secondary-foreground: 0 0% 85%;
+    --secondary: 222 47% 15%;
+    --secondary-foreground: 210 40% 85%;
 
-    --muted: 220 13% 18%;
-    --muted-foreground: 220 8% 50%;
+    --muted: 222 47% 15%;
+    --muted-foreground: 215 16% 50%;
 
-    --accent: 186 100% 20%;
-    --accent-foreground: 186 100% 60%;
+    --accent: 221 83% 17%;
+    --accent-foreground: 221 83% 75%;
 
-    --destructive: 0 72% 60%;
+    --destructive: 0 72% 55%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 220 13% 20%;
-    --input: 220 13% 18%;
-    --ring: 186 100% 55%;
+    --border: 222 47% 17%;
+    --input: 222 47% 15%;
+    --ring: 221 83% 62%;
 
     /* Dark section — even deeper in dark mode */
-    --section-dark-bg: 220 13% 6%;
+    --section-dark-bg: 222 47% 4%;
     --section-dark-fg: 0 0% 100%;
-    --section-dark-muted: 220 8% 55%;
-    --section-dark-border: 220 13% 16%;
+    --section-dark-muted: 222 20% 55%;
+    --section-dark-border: 222 47% 12%;
 
-    --success: 142 71% 55%;
+    --success: 142 71% 50%;
     --success-foreground: 0 0% 100%;
-    --warning: 38 92% 60%;
+    --warning: 38 92% 55%;
     --warning-foreground: 0 0% 100%;
 
-    --sidebar-bg: 220 13% 7%;
-    --sidebar-fg: 220 8% 60%;
-    --sidebar-active: 186 100% 55%;
+    --sidebar-bg: 222 47% 5%;
+    --sidebar-fg: 210 10% 55%;
+    --sidebar-active: 221 83% 62%;
     --sidebar-active-fg: 0 0% 100%;
-    --sidebar-hover: 220 13% 17%;
-    --sidebar-border: 220 13% 17%;
+    --sidebar-hover: 222 47% 13%;
+    --sidebar-border: 222 47% 13%;
 
-    --chart-1: 186 100% 55%;
-    --chart-2: 142 71% 60%;
-    --chart-3: 38 92% 65%;
-    --chart-4: 0 84% 70%;
-    --chart-5: 280 65% 70%;
+    --chart-1: 221 83% 65%;
+    --chart-2: 142 71% 55%;
+    --chart-3: 38 92% 60%;
+    --chart-4: 0 84% 65%;
+    --chart-5: 280 65% 65%;
   }
 }
 
