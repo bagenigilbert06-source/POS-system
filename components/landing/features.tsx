@@ -3,7 +3,7 @@ import {
   Package,
   Users,
   CreditCard,
-  BarChart3,
+  Wifi,
   UserCheck,
   Truck,
   GitBranch,
@@ -33,13 +33,13 @@ const featured = [
     iconClass: 'bg-primary/10 text-primary',
   },
   {
-    icon: BarChart3,
-    title: 'Actionable Business Analytics',
+    icon: Wifi,
+    title: 'Offline Mode & Smart Sync',
     description:
-      'Understand revenue, margins, slow movers, peak hours, staff performance and branch health without building spreadsheets.',
-    tag: 'Insights',
-    tagClass: 'text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20',
-    iconClass: 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400',
+      'Work without internet. All sales, inventory, and customer data sync automatically when you&apos;re back online. Zero data loss.',
+    tag: 'Resilience',
+    tagClass: 'text-blue-700 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20',
+    iconClass: 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400',
   },
 ]
 
