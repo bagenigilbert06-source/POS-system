@@ -18,10 +18,15 @@ export function LandingNavbar() {
 
   return (
     <nav className="sticky top-0 z-50 bg-background/80 backdrop-blur-md border-b border-border">
-      <div className="mx-auto max-w-7xl px-6 py-4 flex items-center justify-between">
-        {/* Logo */}
-        <Link href="/" className="flex items-center gap-2 font-semibold text-sm group">
-          <img src="/imara-logo.png" alt="IMARA" className="h-8 w-auto" />
+      <div className="mx-auto max-w-7xl px-6 py-3 flex items-center justify-between">
+        {/* Logo & Brand Name */}
+        <Link href="/" className="flex items-center gap-3 group">
+          <div className="flex items-center gap-2">
+            <img src="/imara-logo.png" alt="IMARA" className="h-10 w-auto" />
+            <span className="text-2xl md:text-3xl font-bold tracking-tight bg-gradient-to-r from-primary to-primary/80 bg-clip-text text-transparent dark:from-primary dark:to-primary/70">
+              IMARA
+            </span>
+          </div>
         </Link>
 
         {/* Desktop nav */}
