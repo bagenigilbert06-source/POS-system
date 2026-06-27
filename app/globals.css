@@ -4,48 +4,90 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 240 10% 3.9%;
+    /* Brand: deep forest green — Kenyan identity */
+    --background: 0 0% 98%;
+    --foreground: 220 15% 10%;
     --card: 0 0% 100%;
-    --card-foreground: 240 10% 3.9%;
+    --card-foreground: 220 15% 10%;
     --popover: 0 0% 100%;
-    --popover-foreground: 240 10% 3.9%;
-    --primary: 142.1 76.2% 36.3%;
-    --primary-foreground: 355.7 100% 97.3%;
-    --secondary: 240 4.8% 95.9%;
-    --secondary-foreground: 240 5.9% 10%;
-    --muted: 240 4.8% 95.9%;
-    --muted-foreground: 240 3.8% 46.1%;
-    --accent: 240 4.8% 95.9%;
-    --accent-foreground: 240 5.9% 10%;
-    --destructive: 0 84.2% 60.2%;
+    --popover-foreground: 220 15% 10%;
+    --primary: 155 60% 28%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 220 10% 94%;
+    --secondary-foreground: 220 15% 22%;
+    --muted: 220 10% 96%;
+    --muted-foreground: 220 8% 50%;
+    --accent: 155 40% 92%;
+    --accent-foreground: 155 60% 22%;
+    --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 98%;
-    --border: 240 5.9% 90%;
-    --input: 240 5.9% 90%;
-    --ring: 142.1 76.2% 36.3%;
-    --radius: 1rem;
+    --border: 220 13% 90%;
+    --input: 220 13% 90%;
+    --ring: 155 60% 28%;
+    --radius: 0.5rem;
+
+    /* Custom semantic tokens */
+    --sidebar-bg: 220 20% 10%;
+    --sidebar-fg: 220 10% 70%;
+    --sidebar-active: 155 60% 28%;
+    --sidebar-active-fg: 0 0% 98%;
+    --sidebar-hover: 220 15% 16%;
+    --sidebar-border: 220 15% 16%;
+
+    --success: 142 71% 45%;
+    --success-foreground: 0 0% 98%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 10%;
+    --info: 217 91% 60%;
+    --info-foreground: 0 0% 98%;
+
+    --chart-1: 155 60% 30%;
+    --chart-2: 217 91% 60%;
+    --chart-3: 38 92% 50%;
+    --chart-4: 0 72% 51%;
+    --chart-5: 280 65% 60%;
   }
 
   .dark {
-    --background: 20 14.3% 4.1%;
-    --foreground: 0 0% 95%;
-    --card: 24 9.8% 10%;
-    --card-foreground: 0 0% 95%;
-    --popover: 0 0% 9%;
-    --popover-foreground: 0 0% 95%;
-    --primary: 142.1 70.6% 45.3%;
-    --primary-foreground: 144.9 80.4% 10%;
-    --secondary: 240 3.7% 15.9%;
-    --secondary-foreground: 0 0% 98%;
-    --muted: 0 0% 15%;
-    --muted-foreground: 240 5% 64.9%;
-    --accent: 12 6.5% 15.1%;
-    --accent-foreground: 0 0% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 0 85.7% 97.3%;
-    --border: 240 3.7% 15.9%;
-    --input: 240 3.7% 15.9%;
-    --ring: 142.4 71.8% 29.2%;
+    --background: 222 20% 8%;
+    --foreground: 210 20% 92%;
+    --card: 222 18% 11%;
+    --card-foreground: 210 20% 92%;
+    --popover: 222 18% 11%;
+    --popover-foreground: 210 20% 92%;
+    --primary: 155 55% 42%;
+    --primary-foreground: 0 0% 5%;
+    --secondary: 222 15% 18%;
+    --secondary-foreground: 210 20% 80%;
+    --muted: 222 15% 15%;
+    --muted-foreground: 220 10% 55%;
+    --accent: 155 30% 18%;
+    --accent-foreground: 155 55% 60%;
+    --destructive: 0 62% 42%;
+    --destructive-foreground: 0 0% 95%;
+    --border: 222 15% 18%;
+    --input: 222 15% 18%;
+    --ring: 155 55% 42%;
+
+    --sidebar-bg: 222 22% 7%;
+    --sidebar-fg: 220 10% 60%;
+    --sidebar-active: 155 55% 42%;
+    --sidebar-active-fg: 0 0% 5%;
+    --sidebar-hover: 222 18% 13%;
+    --sidebar-border: 222 18% 14%;
+
+    --success: 142 71% 45%;
+    --success-foreground: 0 0% 5%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 5%;
+    --info: 217 91% 60%;
+    --info-foreground: 0 0% 5%;
+
+    --chart-1: 155 55% 42%;
+    --chart-2: 217 91% 60%;
+    --chart-3: 38 92% 50%;
+    --chart-4: 0 72% 51%;
+    --chart-5: 280 65% 60%;
   }
 }
 
@@ -53,113 +95,42 @@
   * {
     @apply border-border;
   }
+  html {
+    @apply bg-background;
+  }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground font-sans antialiased;
+  }
+
+  /* Typography scale */
+  h1 { @apply text-3xl font-semibold tracking-tight; }
+  h2 { @apply text-2xl font-semibold tracking-tight; }
+  h3 { @apply text-xl font-semibold tracking-tight; }
+  h4 { @apply text-lg font-medium; }
+}
+
+@layer utilities {
+  .sidebar-item {
+    @apply flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors;
+  }
+  .sidebar-item-active {
+    @apply bg-[hsl(var(--sidebar-active))] text-[hsl(var(--sidebar-active-fg))];
+  }
+  .sidebar-item-inactive {
+    @apply text-[hsl(var(--sidebar-fg))] hover:bg-[hsl(var(--sidebar-hover))] hover:text-foreground;
+  }
+  .metric-card {
+    @apply rounded-lg border bg-card p-5 shadow-sm;
+  }
+  .page-header {
+    @apply mb-6 flex items-center justify-between;
+  }
+  .section-label {
+    @apply text-xs font-medium uppercase tracking-widest text-muted-foreground;
   }
 }
 
 @media print {
-  .print\:w-full {
-    width: 100%;
-  }
-  .print\:max-w-\[80mm\] {
-    max-width: 80mm;
-  }
-  .print\:p-4 {
-    padding: 1rem;
-  }
-  .print\:border {
-    border: 1px solid #000;
-  }
-  .print\:text-\[12px\] {
-    font-size: 12px;
-  }
-  .print\:font-mono {
-    font-family: 'Courier New', Courier, monospace;
-  }
-  .print\:text-center {
-    text-align: center;
-  }
-  .print\:font-bold {
-    font-weight: bold;
-  }
-  .print\:border-dashed {
-    border-style: dashed;
-  }
-  .print\:py-2 {
-    padding-top: 0.5rem;
-    padding-bottom: 0.5rem;
-  }
-  .print\:mt-2 {
-    margin-top: 0.5rem;
-  }
-  .print\:flex {
-    display: flex;
-  }
-  .print\:justify-between {
-    justify-content: space-between;
-  }
-  .print\:border-t {
-    border-top-width: 1px;
-  }
-  .print\:border-b {
-    border-bottom-width: 1px;
-  }
-  .print\:my-2 {
-    margin-top: 0.5rem;
-    margin-bottom: 0.5rem;
-  }
-}
-
-.apexcharts-legend-text {
-  @apply !text-body dark:!text-bodydark;
-}
-
-.apexcharts-text {
-  @apply !fill-body dark:!fill-bodydark;
-}
-
-.apexcharts-xcrosshairs {
-  @apply !fill-stroke dark:!fill-strokedark;
-}
-
-.apexcharts-gridline {
-  @apply !stroke-stroke dark:!stroke-strokedark;
-}
-
-.apexcharts-series.apexcharts-pie-series path {
-  @apply dark:!stroke-transparent;
-}
-
-.apexcharts-legend-series {
-  @apply !inline-flex gap-1.5;
-}
-
-.apexcharts-tooltip.apexcharts-theme-light {
-  @apply dark:!border-strokedark dark:!bg-boxdark;
-}
-
-.apexcharts-tooltip.apexcharts-theme-light .apexcharts-tooltip-title {
-  @apply dark:!border-strokedark dark:!bg-meta-4;
-}
-
-.apexcharts-xaxistooltip,
-.apexcharts-yaxistooltip {
-  @apply dark:!border-meta-4 dark:!bg-meta-4 dark:!text-bodydark1;
-}
-
-.apexcharts-xaxistooltip-bottom:after {
-  @apply !border-b-gr dark:!border-b-meta-4;
-}
-
-.apexcharts-xaxistooltip-bottom:before {
-  @apply !border-b-gr dark:!border-b-meta-4;
-}
-
-.apexcharts-xaxistooltip-bottom {
-  @apply !rounded !border-none !bg-gr !text-xs !font-medium !text-black dark:!text-white;
-}
-
-.apexcharts-tooltip-series-group {
-  @apply !pl-1.5;
+  .no-print { display: none !important; }
+  .print-only { display: block !important; }
 }
