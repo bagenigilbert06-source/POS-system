@@ -112,7 +112,7 @@ function Card({ t }: { t: typeof testimonials[0] }) {
   return (
     <article className="t-card" aria-label={`Testimonial from ${t.name}`}>
       <Stars />
-      <blockquote className="t-quote">"{t.quote}"</blockquote>
+      <blockquote className="t-quote">&quot;{t.quote}&quot;</blockquote>
       <footer className="t-footer">
         <div className="t-avatar-wrap">
           <Avatar src={t.avatar} name={t.name} initials={t.initials} color={t.color} />

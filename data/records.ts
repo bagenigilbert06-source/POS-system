@@ -1,5 +1,8 @@
 import { db } from '@/lib/db';
+import { sale, saleItem } from '@/lib/db/schema';
+import { ilike } from 'drizzle-orm';
 import isOnline from 'is-online';
+
 export const fetchRecords = async ({
   take = 5,
   skip = 0,
@@ -15,54 +18,61 @@ export const fetchRecords = async ({
     throw new Error('No internet connection');
     return;
   }
-  ('use server');
+
+  'use server';
   try {
-    const results = await db.transaction.findMany({
-      where: {
-        id: { contains: query, mode: 'insensitive' },
-      },
-      skip,
-      take,
-      select: {
-        id: true,
-        totalAmount: true,
-        createdAt: true,
-        isComplete: true,
-        products: {
-          select: {
-            id: true,
-            productId: true,
-            quantity: true,
-          },
-        },
-      },
-      orderBy: {
-        createdAt: 'asc',
-      },
-    });
+    const whereCondition = query ? ilike(sale.id, `%${query}%`) : undefined;
 
-    // Hitung total quantity untuk setiap transaksi
-    const resultsWithTotalQuantity = results.map((transaction) => {
-      const totalQuantity = transaction.products.reduce(
-        (sum, product) => sum + product.quantity,
-        0
-      );
-      return {
-        ...transaction,
-        totalQuantity,
-      };
-    });
+    const results = await db
+      .select({
+        id: sale.id,
+        totalAmount: sale.total,
+        createdAt: sale.createdAt,
+        isComplete: sale.status,
+      })
+      .from(sale)
+      .where(whereCondition)
+      .limit(take)
+      .offset(skip)
+      .orderBy(sale.createdAt);
 
-    const totalTransactions = await db.transaction.count();
+    // Get sale items for total quantity calculation
+    const resultsWithItems = await Promise.all(
+      results.map(async (transaction) => {
+        const items = await db
+          .select({
+            id: saleItem.id,
+            productId: saleItem.productId,
+            quantity: saleItem.quantity,
+          })
+          .from(saleItem)
+          .where(ilike(saleItem.saleId, transaction.id));
+
+        const totalQuantity = items.reduce(
+          (sum, item) => sum + item.quantity,
+          0
+        );
+
+        return {
+          ...transaction,
+          totalQuantity,
+          products: items,
+        };
+      })
+    );
+
+    const totalRecordsResult = await db.select({ id: sale.id }).from(sale).where(whereCondition);
+    const totalTransactions = totalRecordsResult.length;
 
     return {
-      data: resultsWithTotalQuantity,
+      data: resultsWithItems,
       metadata: {
         hasNextPage: skip + take < totalTransactions,
         totalPages: Math.ceil(totalTransactions / take),
       },
     };
-  } finally {
-    await db.$disconnect();
+  } catch (error) {
+    console.error('Error fetching records:', error);
+    throw error;
   }
 };

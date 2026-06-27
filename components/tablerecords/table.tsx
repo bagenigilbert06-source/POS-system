@@ -45,7 +45,7 @@ export async function Records(props: PageProps) {
     return;
   }
   const { data, metadata } = result;
-  const convertedData: Recordsdata[] = data.map((item) => ({
+  const convertedData: Recordsdata[] = data.map((item: any) => ({
     totalQuantity: item.totalQuantity,
     id: item.id,
     totalAmount: item.totalAmount ? item.totalAmount.toString() : null,

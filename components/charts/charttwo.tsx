@@ -90,28 +90,27 @@ const ChartTwo: React.FC = () => {
     }));
   }, [startDate, endDate]);
 
-  const fetchData = async () => {
-    try {
-      const response = await axios.get(
-        `/api/chart/income?start=${startDate}&end=${endDate}`
-      );
-      const { combinedResult } = response.data;
-
-      // Assuming combinedResult is an array of objects with totalQuantity field
-      const chartData = combinedResult.map(
-        (item: { totalIncome: number }) => item.totalIncome
-      );
-
-      // Update dataChart with the processed data
-      setDataChart(chartData);
-    } catch (error) {
-      console.error('Error fetching data', error);
-    }
-  };
-
   // Fetch data when startDate or endDate changes
   useEffect(() => {
-    fetchData();
+    const handleFetch = async () => {
+      try {
+        const response = await axios.get(
+          `/api/chart/income?start=${startDate}&end=${endDate}`
+        );
+        const { combinedResult } = response.data;
+
+        // Assuming combinedResult is an array of objects with totalQuantity field
+        const chartData = combinedResult.map(
+          (item: { totalIncome: number }) => item.totalIncome
+        );
+
+        // Update dataChart with the processed data
+        setDataChart(chartData);
+      } catch (error) {
+        console.error('Error fetching data', error);
+      }
+    };
+    handleFetch();
   }, [startDate, endDate]);
 
   // Update state when dataChart changes

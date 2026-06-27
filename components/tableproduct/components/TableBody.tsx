@@ -9,14 +9,22 @@ import { useState, useEffect } from 'react';
 // Define the shape of product data
 interface ProductData {
   id: string;
-  sellprice: number;
-  productstock: {
-    id: string;
-    name: string;
-    cat: CatProduct;
-    stock: number;
-    price: number;
-  };
+  name: string;
+  sku: string | null;
+  barcode: string | null;
+  description: string | null;
+  categoryId: string | null;
+  buyingPrice: string;
+  sellingPrice: string;
+  stock: number;
+  minStock: number;
+  unit: string;
+  imageUrl: string | null;
+  isActive: boolean;
+  userId: string;
+  orgId: string;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 // Define the props for the TableBodyProduct component
@@ -50,24 +58,23 @@ const TableBodyProduct: React.FC<TableBodyProductProps> = ({ data }) => {
             <TableRow key={item.id}>
               {/* Render product name */}
               <TableCell className="font-medium pl-4">
-                {item.productstock.name}
+                {item.name}
               </TableCell>
-              {/* Render product category */}
+              {/* Render product SKU */}
               <TableCell className="pl-4">
                 <Badge variant="outline">
-                  {item.productstock.cat.charAt(0).toUpperCase() +
-                    item.productstock.cat.slice(1).toLowerCase()}
+                  {item.sku || 'N/A'}
                 </Badge>
               </TableCell>
               {/* Render product sell price */}
-              <TableCell className="pl-5">$ {item.sellprice}</TableCell>
+              <TableCell className="pl-5">KES {item.sellingPrice}</TableCell>
               {/* Render product stock */}
               <TableCell className="hidden md:table-cell pl-6">
-                {item.productstock.stock}
+                {item.stock}
               </TableCell>
-              {/* Render product price */}
+              {/* Render product buying price */}
               <TableCell className="hidden md:table-cell pl-4">
-                $ {item.productstock.price}
+                KES {item.buyingPrice}
               </TableCell>
               {/* Render dropdown for product actions */}
               <TableCell>

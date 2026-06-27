@@ -64,7 +64,7 @@ export function ReportsCharts({ monthlyData, paymentData }: ReportsChartsProps) 
                   borderRadius: '8px',
                   fontSize: '12px',
                 }}
-                formatter={(value: number) => [formatCurrency(value), 'Revenue']}
+                formatter={(value: any) => [formatCurrency(value as number), 'Revenue']}
               />
               <Bar dataKey="revenue" fill="hsl(155,60%,28%)" radius={[4, 4, 0, 0]} />
             </BarChart>
@@ -110,7 +110,7 @@ export function ReportsCharts({ monthlyData, paymentData }: ReportsChartsProps) 
                   borderRadius: '8px',
                   fontSize: '12px',
                 }}
-                formatter={(value: number) => [formatCurrency(value), 'Revenue']}
+                formatter={(value: any) => [formatCurrency(value as number), 'Revenue']}
               />
               <Legend
                 iconType="circle"
