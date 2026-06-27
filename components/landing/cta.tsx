@@ -1,42 +1,66 @@
 import Link from 'next/link'
-import { ArrowRight } from 'lucide-react'
+import { ArrowRight, CheckCircle2 } from 'lucide-react'
+
+const reasons = [
+  'No technical knowledge required',
+  'Import your existing products in minutes',
+  'M-Pesa ready out of the box',
+  'Free onboarding support included',
+]
 
 export function LandingCTA() {
   return (
-    <section className="section-padding bg-primary">
+    <section className="section-padding bg-foreground">
       <div className="container-wide">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-10">
-          {/* Text */}
-          <div className="max-w-xl">
-            <h2 className="text-3xl md:text-4xl font-bold text-primary-foreground tracking-tight text-balance mb-4">
-              Start running your business smarter.
-            </h2>
-            <p className="text-base text-primary-foreground/75 leading-relaxed">
-              Join 5,000+ businesses across Kenya already using Imara. Set up in under two hours, cancel anytime.
-            </p>
+        <div className="max-w-3xl mx-auto text-center">
+          {/* Eyebrow */}
+          <p className="text-xs font-semibold uppercase tracking-widest text-white/50 mb-6">
+            Get started today
+          </p>
+
+          {/* Headline */}
+          <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-white tracking-tight text-balance mb-6 leading-[1.1]">
+            Your business deserves better tools.
+            <br />
+            <span className="text-primary">Imara is built for you.</span>
+          </h2>
+
+          {/* Subheadline */}
+          <p className="text-base text-white/60 leading-relaxed mb-10 max-w-xl mx-auto">
+            Join 5,000+ Kenyan businesses who replaced messy notebooks, WhatsApp groups, and disconnected apps with Imara. Start free — be live in under 2 hours.
+          </p>
+
+          {/* Reasons grid */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-10">
+            {reasons.map((r) => (
+              <div key={r} className="flex items-start gap-2 text-left">
+                <CheckCircle2 className="h-4 w-4 text-primary shrink-0 mt-0.5" />
+                <span className="text-xs text-white/70 leading-relaxed">{r}</span>
+              </div>
+            ))}
           </div>
 
-          {/* Actions */}
-          <div className="flex flex-col sm:flex-row items-start md:items-center gap-3 shrink-0">
+          {/* CTA buttons */}
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mb-8">
             <Link
               href="/sign-up"
-              className="inline-flex items-center gap-2 bg-primary-foreground text-primary font-semibold text-sm px-6 py-3 rounded-lg hover:bg-primary-foreground/90 transition-colors duration-150"
+              className="inline-flex items-center gap-2 bg-primary text-white font-semibold text-sm px-8 py-3.5 rounded-lg hover:bg-primary/90 transition-colors duration-150 fluent-shadow-8"
             >
-              Start Free Trial
+              Start Free — No Card Required
               <ArrowRight className="h-4 w-4" />
             </Link>
             <Link
               href="mailto:hello@imara.co"
-              className="inline-flex items-center gap-2 border border-primary-foreground/30 text-primary-foreground font-semibold text-sm px-6 py-3 rounded-lg hover:bg-primary-foreground/10 transition-colors duration-150"
+              className="inline-flex items-center gap-2 border border-white/20 text-white/80 font-medium text-sm px-8 py-3.5 rounded-lg hover:bg-white/5 hover:text-white transition-all duration-150"
             >
-              Schedule a Demo
+              Talk to Sales
             </Link>
           </div>
-        </div>
 
-        <p className="mt-8 text-xs text-primary-foreground/50">
-          No credit card required &middot; 30-day free trial &middot; Cancel anytime
-        </p>
+          <p className="text-xs text-white/30">
+            30-day free trial &middot; No credit card &middot; Full access to all features &middot; Cancel anytime
+          </p>
+        </div>
       </div>
     </section>
   )
