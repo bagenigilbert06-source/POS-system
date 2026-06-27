@@ -1,15 +1,24 @@
-'use client';
+'use client'
 
-import { useEffect } from 'react';
-import { useRouter } from 'next/router';
-import { toast } from 'react-toastify';
+import { useEffect } from 'react'
+import { Button } from '@/components/ui/button'
 
-const ErrorPage = ({ error }: { error: Error }) => {
+export default function ErrorPage({
+  error,
+  reset,
+}: {
+  error: Error & { digest?: string }
+  reset: () => void
+}) {
   useEffect(() => {
-    toast.error(`An error occurred: ${error.message}`);
-  }, [error]);
+    console.error('[BizOS] Error:', error)
+  }, [error])
 
-  return <div>An error occurred: {error.message}</div>;
-};
-
-export default ErrorPage;
+  return (
+    <div className="flex min-h-screen flex-col items-center justify-center gap-4">
+      <h2 className="text-xl font-semibold">Something went wrong</h2>
+      <p className="text-sm text-muted-foreground max-w-md text-center">{error.message}</p>
+      <Button onClick={reset}>Try again</Button>
+    </div>
+  )
+}
