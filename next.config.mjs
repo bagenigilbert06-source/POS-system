@@ -1,15 +1,9 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   images: {
-    domains: [
-      'images.unsplash.com',
-      'openweathermap.org',
-      'pbs.twimg.com',
-      'via.placeholder.com',
+    remotePatterns: [
+      { protocol: 'https', hostname: 'images.unsplash.com' },
     ],
-  },
-  env: {
-    WEATHER_API: process.env.WEATHER_API,
   },
 };
 

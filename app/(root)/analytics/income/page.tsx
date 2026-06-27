@@ -1,11 +1,2 @@
-import React from 'react';
-import ChartFour from '@/components/charts/chartfour';
-const page = () => {
-  return (
-    <div className="w-full h-full">
-      <ChartFour />
-    </div>
-  );
-};
-
-export default page;
+import { redirect } from "next/navigation"
+export default function Page() { redirect("/dashboard") }

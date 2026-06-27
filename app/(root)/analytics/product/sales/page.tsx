@@ -1,11 +1,2 @@
-import React from 'react';
-import ChartOne from '@/components/charts/chartone';
-const page = () => {
-  return (
-    <div className="w-full h-full">
-      <ChartOne />
-    </div>
-  );
-};
-
-export default page;
+import { redirect } from "next/navigation"
+export default function Page() { redirect("/dashboard") }
