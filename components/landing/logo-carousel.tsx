@@ -169,8 +169,8 @@ export function LogoCarousel() {
           gap: 11px;
           padding: 11px 18px;
           border-radius: 14px;
-          border: 1px solid hsl(var(--border));
-          background: hsl(var(--card));
+          border: 1px solid hsl(0 0% 90%);
+          background: hsl(0 0% 97%);
           box-shadow:
             0 1px 3px rgba(0,0,0,0.06),
             0 1px 2px rgba(0,0,0,0.04);
