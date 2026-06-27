@@ -1,20 +1,20 @@
 export function LandingStats() {
   const stats = [
     {
-      number: '500+',
-      description: 'Businesses growing with BizOS',
+      number: '5,000+',
+      description: 'Kenyan businesses using Nexora',
     },
     {
-      number: '98%',
-      description: 'Uptime SLA guarantee',
+      number: '99.9%',
+      description: 'Uptime guarantee',
     },
     {
-      number: '2M+',
+      number: '50M+',
       description: 'Transactions processed monthly',
     },
     {
-      number: '24/7',
-      description: 'Customer support',
+      number: 'KES 2B+',
+      description: 'Processed annually',
     },
   ]
 

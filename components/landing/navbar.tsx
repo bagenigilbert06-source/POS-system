@@ -20,10 +20,10 @@ export function LandingNavbar() {
       <div className="mx-auto max-w-7xl px-6 py-4 flex items-center justify-between">
         {/* Logo */}
         <Link href="/" className="flex items-center gap-2 font-bold text-xl group">
-          <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center shadow-sm group-hover:shadow-md transition-shadow">
-            <Building2 className="h-4 w-4 text-primary-foreground" />
+          <div className="h-8 w-8 rounded-md bg-primary flex items-center justify-center shadow-sm group-hover:shadow-md transition-shadow">
+            <span className="text-xs font-bold text-primary-foreground">N</span>
           </div>
-          <span className="text-foreground">BizOS Kenya</span>
+          <span className="text-foreground">Nexora</span>
         </Link>
 
         {/* Desktop nav */}

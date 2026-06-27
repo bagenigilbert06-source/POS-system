@@ -58,18 +58,18 @@ export function AppSidebar() {
       >
         {!collapsed && (
           <div className="flex items-center gap-3 flex-1">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-primary/80 flex-shrink-0 shadow-sm">
-              <Building2 className="h-4 w-4 text-primary-foreground" />
+            <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary flex-shrink-0 shadow-sm">
+              <span className="text-xs font-bold text-primary-foreground">N</span>
             </div>
             <div>
-              <p className="font-bold text-white text-sm leading-tight">BizOS Kenya</p>
-              <p className="text-xs text-[hsl(var(--sidebar-fg))]">Business OS</p>
+              <p className="font-bold text-white text-sm leading-tight">Nexora</p>
+              <p className="text-xs text-[hsl(var(--sidebar-fg))]">Business Platform</p>
             </div>
           </div>
         )}
         {collapsed && (
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-primary/80 shadow-sm">
-            <Building2 className="h-4 w-4 text-primary-foreground" />
+          <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary shadow-sm">
+            <span className="text-xs font-bold text-primary-foreground">N</span>
           </div>
         )}
         <button

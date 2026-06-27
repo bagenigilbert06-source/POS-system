@@ -43,19 +43,19 @@ export function RevenueChart({ data }: RevenueChartProps) {
           <AreaChart data={chartData}>
             <defs>
               <linearGradient id="revenueGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="hsl(155,60%,28%)" stopOpacity={0.15} />
-                <stop offset="95%" stopColor="hsl(155,60%,28%)" stopOpacity={0} />
+                <stop offset="5%" stopColor="hsl(217,91%,60%)" stopOpacity={0.15} />
+                <stop offset="95%" stopColor="hsl(217,91%,60%)" stopOpacity={0} />
               </linearGradient>
             </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke="hsl(220,13%,90%)" vertical={false} />
+            <CartesianGrid strokeDasharray="3 3" stroke="hsl(210,40%,92%)" vertical={false} />
             <XAxis
               dataKey="date"
-              tick={{ fontSize: 11, fill: 'hsl(220,8%,50%)' }}
+              tick={{ fontSize: 11, fill: 'hsl(217,12%,43%)' }}
               axisLine={false}
               tickLine={false}
             />
             <YAxis
-              tick={{ fontSize: 11, fill: 'hsl(220,8%,50%)' }}
+              tick={{ fontSize: 11, fill: 'hsl(217,12%,43%)' }}
               axisLine={false}
               tickLine={false}
               tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`}
@@ -63,7 +63,7 @@ export function RevenueChart({ data }: RevenueChartProps) {
             <Tooltip
               contentStyle={{
                 background: 'hsl(0,0%,100%)',
-                border: '1px solid hsl(220,13%,90%)',
+                border: '1px solid hsl(210,40%,92%)',
                 borderRadius: '8px',
                 fontSize: '12px',
               }}
@@ -72,7 +72,7 @@ export function RevenueChart({ data }: RevenueChartProps) {
             <Area
               type="monotone"
               dataKey="revenue"
-              stroke="hsl(155,60%,28%)"
+              stroke="hsl(217,91%,60%)"
               strokeWidth={2}
               fill="url(#revenueGradient)"
             />
