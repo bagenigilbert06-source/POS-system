@@ -9,6 +9,7 @@ import {
   ShieldCheck,
   TrendingUp,
 } from 'lucide-react'
+import { Typewriter } from './typewriter'
 
 export function LandingHero() {
   const benefits = [
@@ -31,7 +32,7 @@ export function LandingHero() {
         }}
       />
 
-      <div className="container-wide relative py-24 md:py-32 lg:py-40">
+      <div className="container-wide relative py-16 md:py-20 lg:py-24">
         <div className="max-w-3xl mx-auto text-center flex flex-col items-center">
           {/* Eyebrow badge */}
           <div className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-4 py-1.5 mb-8 backdrop-blur-sm">
@@ -42,24 +43,29 @@ export function LandingHero() {
           </div>
 
           {/* Main headline */}
-          <h1 className="text-5xl sm:text-6xl lg:text-7xl font-bold tracking-tight leading-[1.0] text-balance mb-6 text-white">
+          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight leading-[1.1] text-balance mb-4 text-white">
             Your business{' '}
             <span className="text-primary">deserves</span>
             {' '}better tools.
           </h1>
 
-          {/* Subheading with brand highlight */}
-          <p className="text-2xl sm:text-3xl font-bold text-primary text-balance mb-6">
-            Imara is built for you.
+          {/* Subheading with typewriter animation */}
+          <p className="text-xl sm:text-2xl font-bold text-primary text-balance mb-5 h-8 md:h-10">
+            <Typewriter
+              text="Imara is built for you."
+              speed={60}
+              delay={300}
+              cursor
+            />
           </p>
 
           {/* Description */}
-          <p className="text-base md:text-lg text-white/70 leading-relaxed mb-8 text-pretty max-w-2xl">
+          <p className="text-base md:text-lg text-white/70 leading-relaxed mb-6 text-pretty max-w-2xl">
             Join 5,000+ Kenyan businesses who replaced messy notebooks, WhatsApp groups, and disconnected apps with Imara. Start free — be live in under 2 hours.
           </p>
 
           {/* CTA Buttons */}
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-12">
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-8">
             <Link
               href="/sign-up"
               className="group relative inline-flex items-center justify-center gap-2 rounded-lg bg-primary hover:bg-primary/90 text-white font-semibold px-8 py-3.5 transition-all duration-200 text-base"
@@ -76,7 +82,7 @@ export function LandingHero() {
           </div>
 
           {/* Trust benefits grid */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 max-w-2xl">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6 max-w-2xl">
             {benefits.map((benefit) => {
               const Icon = benefit.icon
               return (
