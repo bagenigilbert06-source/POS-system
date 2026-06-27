@@ -62,11 +62,10 @@ export function AuthForm({ mode }: AuthFormProps) {
   }
 
   return (
-    <div className="w-full space-y-6">
+    <div className="w-full space-y-5">
       {error && (
-        <div className="rounded-lg bg-destructive/10 border border-destructive/20 px-4 py-3 text-sm">
-          <p className="font-semibold text-destructive">Error</p>
-          <p className="text-xs text-destructive/80 mt-1">{error}</p>
+        <div className="rounded-md bg-red-50 border border-red-200 px-3 py-2.5 text-sm">
+          <p className="text-red-900 font-medium">{error}</p>
         </div>
       )}
 
@@ -76,10 +75,11 @@ export function AuthForm({ mode }: AuthFormProps) {
         onClick={handleGoogleSignIn}
         disabled={googleLoading}
         className={cn(
-          'w-full flex items-center justify-center gap-3 rounded-lg px-4 py-3',
-          'border border-border bg-background text-foreground text-sm font-semibold',
-          'hover:bg-secondary transition-all duration-200',
-          'disabled:opacity-50 disabled:cursor-not-allowed'
+          'w-full flex items-center justify-center gap-2.5 rounded-md px-4 py-2.5',
+          'border border-neutral-200 bg-white text-neutral-900 text-sm font-medium',
+          'hover:bg-neutral-50 transition-colors duration-150',
+          'disabled:opacity-50 disabled:cursor-not-allowed',
+          'dark:bg-neutral-900 dark:border-neutral-700 dark:text-neutral-50 dark:hover:bg-neutral-800'
         )}
       >
         {googleLoading ? (
@@ -104,20 +104,20 @@ export function AuthForm({ mode }: AuthFormProps) {
             />
           </svg>
         )}
-        {googleLoading ? 'Signing in...' : 'Continue with Google'}
+        {googleLoading ? 'Connecting...' : 'Continue with Google'}
       </button>
 
       {/* Divider */}
       <div className="flex items-center gap-3">
-        <div className="flex-1 border-t border-border" />
-        <span className="text-xs text-muted-foreground font-medium">or</span>
-        <div className="flex-1 border-t border-border" />
+        <div className="flex-1 border-t border-neutral-200 dark:border-neutral-700" />
+        <span className="text-xs text-neutral-500 dark:text-neutral-400 font-medium">or</span>
+        <div className="flex-1 border-t border-neutral-200 dark:border-neutral-700" />
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
         {mode === 'sign-up' && (
-          <div className="space-y-2">
-            <label htmlFor="name" className="block text-sm font-semibold text-foreground">
+          <div>
+            <label htmlFor="name" className="block text-sm font-medium text-neutral-900 dark:text-neutral-50 mb-1.5">
               Full name
             </label>
             <input
@@ -128,17 +128,19 @@ export function AuthForm({ mode }: AuthFormProps) {
               value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
               className={cn(
-                'w-full rounded-lg border border-border bg-background px-4 py-2.5 text-sm outline-none',
-                'placeholder:text-muted-foreground',
-                'focus:border-primary focus:ring-2 focus:ring-primary/20',
-                'transition-all duration-200'
+                'w-full rounded-md border border-neutral-200 bg-white px-3.5 py-2.5 text-sm outline-none',
+                'placeholder:text-neutral-400',
+                'focus:border-neutral-900 focus:ring-1 focus:ring-neutral-900',
+                'transition-all duration-150',
+                'dark:bg-neutral-900 dark:border-neutral-700 dark:text-neutral-50 dark:placeholder:text-neutral-500',
+                'dark:focus:border-neutral-50 dark:focus:ring-neutral-50'
               )}
             />
           </div>
         )}
 
-        <div className="space-y-2">
-          <label htmlFor="email" className="block text-sm font-semibold text-foreground">
+        <div>
+          <label htmlFor="email" className="block text-sm font-medium text-neutral-900 dark:text-neutral-50 mb-1.5">
             Email
           </label>
           <input
@@ -149,21 +151,23 @@ export function AuthForm({ mode }: AuthFormProps) {
             value={form.email}
             onChange={(e) => setForm({ ...form, email: e.target.value })}
             className={cn(
-              'w-full rounded-lg border border-border bg-background px-4 py-2.5 text-sm outline-none',
-              'placeholder:text-muted-foreground',
-              'focus:border-primary focus:ring-2 focus:ring-primary/20',
-              'transition-all duration-200'
+              'w-full rounded-md border border-neutral-200 bg-white px-3.5 py-2.5 text-sm outline-none',
+              'placeholder:text-neutral-400',
+              'focus:border-neutral-900 focus:ring-1 focus:ring-neutral-900',
+              'transition-all duration-150',
+              'dark:bg-neutral-900 dark:border-neutral-700 dark:text-neutral-50 dark:placeholder:text-neutral-500',
+              'dark:focus:border-neutral-50 dark:focus:ring-neutral-50'
             )}
           />
         </div>
 
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <label htmlFor="password" className="block text-sm font-semibold text-foreground">
+        <div>
+          <div className="flex items-center justify-between mb-1.5">
+            <label htmlFor="password" className="block text-sm font-medium text-neutral-900 dark:text-neutral-50">
               Password
             </label>
             {mode === 'sign-in' && (
-              <a href="#" className="text-xs font-semibold text-primary hover:text-primary/80 transition-colors">
+              <a href="#" className="text-xs font-medium text-neutral-600 hover:text-neutral-900 transition-colors dark:text-neutral-400 dark:hover:text-neutral-50">
                 Forgot?
               </a>
             )}
@@ -178,16 +182,18 @@ export function AuthForm({ mode }: AuthFormProps) {
               value={form.password}
               onChange={(e) => setForm({ ...form, password: e.target.value })}
               className={cn(
-                'w-full rounded-lg border border-border bg-background px-4 py-2.5 pr-10 text-sm outline-none',
-                'placeholder:text-muted-foreground',
-                'focus:border-primary focus:ring-2 focus:ring-primary/20',
-                'transition-all duration-200'
+                'w-full rounded-md border border-neutral-200 bg-white px-3.5 py-2.5 pr-10 text-sm outline-none',
+                'placeholder:text-neutral-400',
+                'focus:border-neutral-900 focus:ring-1 focus:ring-neutral-900',
+                'transition-all duration-150',
+                'dark:bg-neutral-900 dark:border-neutral-700 dark:text-neutral-50 dark:placeholder:text-neutral-500',
+                'dark:focus:border-neutral-50 dark:focus:ring-neutral-50'
               )}
             />
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600 transition-colors dark:text-neutral-500 dark:hover:text-neutral-300"
             >
               {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
             </button>
@@ -198,10 +204,11 @@ export function AuthForm({ mode }: AuthFormProps) {
           type="submit"
           disabled={loading}
           className={cn(
-            'w-full flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 mt-6',
-            'bg-primary text-primary-foreground text-sm font-semibold',
-            'hover:bg-primary/90 active:bg-primary/80 focus:outline-none focus:ring-2 focus:ring-primary/40',
-            'disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200'
+            'w-full flex items-center justify-center gap-2 rounded-md px-4 py-2.5 mt-6',
+            'bg-neutral-900 text-white text-sm font-medium',
+            'hover:bg-neutral-800 active:bg-neutral-700 focus:outline-none',
+            'disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-150',
+            'dark:bg-neutral-50 dark:text-neutral-900 dark:hover:bg-neutral-200'
           )}
         >
           {loading && <Loader2 className="h-4 w-4 animate-spin" />}
@@ -209,18 +216,18 @@ export function AuthForm({ mode }: AuthFormProps) {
         </button>
       </form>
 
-      <p className="text-center text-sm text-muted-foreground">
+      <p className="text-center text-sm text-neutral-600 dark:text-neutral-400">
         {mode === 'sign-in' ? (
           <>
             Don&apos;t have an account?{' '}
-            <a href="/sign-up" className="font-semibold text-primary hover:text-primary/80 transition-colors">
+            <a href="/sign-up" className="font-medium text-neutral-900 hover:underline dark:text-neutral-50">
               Sign up
             </a>
           </>
         ) : (
           <>
             Already have an account?{' '}
-            <a href="/sign-in" className="font-semibold text-primary hover:text-primary/80 transition-colors">
+            <a href="/sign-in" className="font-medium text-neutral-900 hover:underline dark:text-neutral-50">
               Sign in
             </a>
           </>
@@ -228,8 +235,8 @@ export function AuthForm({ mode }: AuthFormProps) {
       </p>
 
       {mode === 'sign-up' && (
-        <p className="text-center text-xs text-muted-foreground leading-relaxed">
-          By signing up, you agree to our <a href="#" className="text-primary hover:underline">Terms of Service</a> and <a href="#" className="text-primary hover:underline">Privacy Policy</a>
+        <p className="text-center text-xs text-neutral-500 dark:text-neutral-400 leading-relaxed">
+          By signing up, you agree to our <a href="#" className="font-medium text-neutral-900 hover:underline dark:text-neutral-50">Terms of Service</a> and <a href="#" className="font-medium text-neutral-900 hover:underline dark:text-neutral-50">Privacy Policy</a>
         </p>
       )}
     </div>
