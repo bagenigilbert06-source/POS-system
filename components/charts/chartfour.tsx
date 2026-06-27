@@ -120,48 +120,46 @@ const ChartFour: React.FC = () => {
     }));
   }, [startDate, endDate]);
 
-  // Fetch data from the API
-  const fetchData = async () => {
-    try {
-      const response = await axios.get(
-        `/api/profit?start=${startDate}&end=${endDate}`
-      );
-      // Convert array data to object format
-      const formattedData = response.data.groupedData.reduce(
-        (
-          acc: {
-            [date: string]: {
+  // Fetch data when startDate or endDate changes
+  useEffect(() => {
+    const handleFetch = async () => {
+      try {
+        const response = await axios.get(
+          `/api/profit?start=${startDate}&end=${endDate}`
+        );
+        // Convert array data to object format
+        const formattedData = response.data.groupedData.reduce(
+          (
+            acc: {
+              [date: string]: {
+                netIncome: number;
+                taxIncome: number;
+                grossIncomeWithTax: number;
+              };
+            },
+            curr: {
+              date: string;
               netIncome: number;
               taxIncome: number;
               grossIncomeWithTax: number;
+            }
+          ) => {
+            acc[curr.date] = {
+              netIncome: curr.netIncome,
+              taxIncome: curr.taxIncome,
+              grossIncomeWithTax: curr.grossIncomeWithTax,
             };
+            return acc;
           },
-          curr: {
-            date: string;
-            netIncome: number;
-            taxIncome: number;
-            grossIncomeWithTax: number;
-          }
-        ) => {
-          acc[curr.date] = {
-            netIncome: curr.netIncome,
-            taxIncome: curr.taxIncome,
-            grossIncomeWithTax: curr.grossIncomeWithTax,
-          };
-          return acc;
-        },
-        {}
-      );
+          {}
+        );
 
-      setDataChart(formattedData);
-    } catch (error) {
-      console.error('Error fetching data', error);
-    }
-  };
-
-  // Fetch data when startDate or endDate changes
-  useEffect(() => {
-    fetchData();
+        setDataChart(formattedData);
+      } catch (error) {
+        console.error('Error fetching data', error);
+      }
+    };
+    handleFetch();
   }, [startDate, endDate]);
 
   // Update state when dataChart changes

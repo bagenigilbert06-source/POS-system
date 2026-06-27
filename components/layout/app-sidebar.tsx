@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import Image from 'next/image'
 import { cn } from '@/lib/utils'
 import {
   LayoutDashboard,
@@ -58,7 +59,7 @@ export function AppSidebar() {
       >
         {!collapsed && (
           <div className="flex items-center gap-2 flex-1">
-            <img src="/imara-logo.png" alt="IMARA" className="h-8 w-auto flex-shrink-0" />
+            <Image src="/imara-logo.png" alt="IMARA" width={32} height={32} className="h-8 w-auto flex-shrink-0" />
             <div>
               <p className="font-semibold text-white text-xs leading-tight">IMARA</p>
               <p className="text-xs text-[hsl(var(--sidebar-fg))]">Business</p>
@@ -66,7 +67,7 @@ export function AppSidebar() {
           </div>
         )}
         {collapsed && (
-          <img src="/imara-logo.png" alt="IMARA" className="h-8 w-auto" />
+          <Image src="/imara-logo.png" alt="IMARA" width={32} height={32} className="h-8 w-auto" />
         )}
         <button
           onClick={() => setCollapsed(!collapsed)}

@@ -11,18 +11,24 @@ import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import { DeleteAlertDialog } from "./alertDelete";
 import { SheetEdit } from "./sheetEdit";
-import { CatProduct } from "@prisma/client";
-
 type Product = {
   id: string;
-  sellprice: number;
-  productstock: {
-    id: string;
-    name: string;
-    cat: CatProduct;
-    stock: number;
-    price: number;
-  };
+  name: string;
+  sku: string | null;
+  barcode: string | null;
+  description: string | null;
+  categoryId: string | null;
+  buyingPrice: string;
+  sellingPrice: string;
+  stock: number;
+  minStock: number;
+  unit: string;
+  imageUrl: string | null;
+  isActive: boolean;
+  userId: string;
+  orgId: string;
+  createdAt: Date;
+  updatedAt: Date;
 };
 
 const Dropdown = ({ product }: { product: Product }) => {
@@ -59,9 +65,9 @@ const Dropdown = ({ product }: { product: Product }) => {
       <DeleteAlertDialog
         open={deleteOpen}
         onClose={handleDeleteClose}
-        data={product}
+        data={product as any}
       />
-      <SheetEdit open={editOpen} onClose={handleEditClose} data={product} />
+      <SheetEdit open={editOpen} onClose={handleEditClose} data={product as any} />
     </>
   );
 };

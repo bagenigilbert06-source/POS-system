@@ -108,29 +108,27 @@ const ChartOne: React.FC = () => {
     }));
   }, [startDate, endDate]);
 
-  // Function to fetch data from the API
-  const fetchData = async () => {
-    try {
-      const response = await axios.get(
-        `/api/productsale?start=${startDate}&end=${endDate}`
-      );
-      const { combinedResult } = response.data;
-
-      // Assuming combinedResult is an array of objects with totalQuantity field
-      const chartData = combinedResult.map(
-        (item: { totalQuantity: number }) => item.totalQuantity
-      );
-
-      // Update dataChart with the processed data
-      setDataChart(chartData);
-    } catch (error) {
-      console.error('Error fetching data', error);
-    }
-  };
-
   // Fetch data when startDate or endDate changes
   useEffect(() => {
-    fetchData();
+    const handleFetch = async () => {
+      try {
+        const response = await axios.get(
+          `/api/productsale?start=${startDate}&end=${endDate}`
+        );
+        const { combinedResult } = response.data;
+
+        // Assuming combinedResult is an array of objects with totalQuantity field
+        const chartData = combinedResult.map(
+          (item: { totalQuantity: number }) => item.totalQuantity
+        );
+
+        // Update dataChart with the processed data
+        setDataChart(chartData);
+      } catch (error) {
+        console.error('Error fetching data', error);
+      }
+    };
+    handleFetch();
   }, [startDate, endDate]);
 
   // Update chart series data when dataChart changes

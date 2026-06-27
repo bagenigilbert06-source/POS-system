@@ -1,4 +1,6 @@
 import { db } from '@/lib/db';
+import { product } from '@/lib/db/schema';
+import { ilike } from 'drizzle-orm';
 import isOnline from 'is-online';
 
 export const fetchProduct = async ({
@@ -17,38 +19,24 @@ export const fetchProduct = async ({
     return;
   }
 
-  ('use server');
+  'use server';
   try {
-    const results = await db.product.findMany({
-      where: {
-        productstock: {
-          name: { contains: query, mode: 'insensitive' },
-        },
-      },
-      skip,
-      take,
-      select: {
-        id: true,
-        productId: true,
-        sellprice: true,
-        productstock: {
-          select: {
-            id: true,
-            name: true,
-            cat: true,
-            stock: true,
-            price: true,
-          },
-        },
-      },
-      orderBy: {
-        productstock: {
-          name: 'asc',
-        },
-      },
-    });
+    const whereCondition = query ? ilike(product.name, `%${query}%`) : undefined;
+    
+    const results = await db
+      .select()
+      .from(product)
+      .where(whereCondition)
+      .limit(take)
+      .offset(skip)
+      .orderBy(product.name);
 
-    const total = await db.product.count();
+    const totalResult = await db
+      .select({ count: product.id })
+      .from(product)
+      .where(whereCondition);
+
+    const total = totalResult.length;
 
     return {
       data: results,
@@ -57,7 +45,8 @@ export const fetchProduct = async ({
         totalPages: Math.ceil(total / take),
       },
     };
-  } finally {
-    await db.$disconnect();
+  } catch (error) {
+    console.error('Error fetching products:', error);
+    throw error;
   }
 };
