@@ -17,39 +17,35 @@ export default async function SignUpPage() {
         {/* Header */}
         <div>
           <div className="flex items-center gap-3 mb-16">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-primary/80 shadow-lg">
-              <span className="text-sm font-bold text-primary-foreground">B</span>
-            </div>
-            <div>
-              <h1 className="text-xl font-bold text-white">BizOS Kenya</h1>
-              <p className="text-xs text-[hsl(var(--sidebar-fg))] font-medium">Business OS for Africa</p>
-            </div>
+            <img src="/imara-logo.png" alt="IMARA" className="h-10 w-auto" />
           </div>
         </div>
 
         {/* Main content */}
         <div className="space-y-12">
           <div>
-            <p className="text-sm text-primary font-semibold uppercase tracking-wide mb-4">No credit card required</p>
-            <h2 className="text-4xl font-bold leading-tight text-white mb-4">
-              Start free for 30 days
+            <p className="text-xs text-primary font-semibold uppercase tracking-widest mb-4">Start Free • 30-Day Trial</p>
+            <h2 className="text-3xl md:text-4xl font-semibold leading-snug text-white mb-4">
+              Build stronger business
             </h2>
-            <p className="text-base text-[hsl(var(--sidebar-fg))] leading-relaxed">
-              Join thousands of Kenyan businesses. Manage sales, inventory, and customers all in one powerful platform.
+            <p className="text-sm md:text-base text-[hsl(var(--sidebar-fg))] leading-relaxed">
+              Join thousands of Kenyan businesses using IMARA to manage sales, inventory, and payments effortlessly.
             </p>
           </div>
 
           <div className="space-y-4">
             {[
-              { emoji: '✨', title: 'Full POS Terminal', desc: 'With M-Pesa support' },
-              { emoji: '📊', title: 'Real-time Inventory', desc: 'Track stock instantly' },
-              { emoji: '💚', title: 'M-Pesa Integrated', desc: 'Accept payments seamlessly' },
-              { emoji: '📈', title: 'Powerful Reports', desc: 'Understand your business' },
-              { emoji: '👥', title: 'Customer Profiles', desc: 'Build loyalty programs' },
-              { emoji: '🔐', title: 'Secure & Fast', desc: 'Enterprise-grade security' },
+              { icon: '✓', title: 'Smart POS System', desc: 'Accept all payment methods' },
+              { icon: '✓', title: 'Live Inventory', desc: 'Never run out of stock' },
+              { icon: '✓', title: 'Sales Analytics', desc: 'Data-driven decisions' },
+              { icon: '✓', title: 'Customer CRM', desc: 'Build lasting relationships' },
+              { icon: '✓', title: 'Mobile App', desc: 'Manage on the go' },
+              { icon: '✓', title: '24/7 Support', desc: 'Local support team' },
             ].map((feature, idx) => (
-              <div key={idx} className="flex items-start gap-3">
-                <span className="text-2xl mt-1">{feature.emoji}</span>
+              <div key={idx} className="flex items-center gap-3">
+                <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/20 flex-shrink-0">
+                  <span className="text-sm font-bold text-primary">{feature.icon}</span>
+                </div>
                 <div>
                   <p className="font-semibold text-white text-sm">{feature.title}</p>
                   <p className="text-xs text-[hsl(var(--sidebar-fg))]">{feature.desc}</p>
@@ -61,7 +57,7 @@ export default async function SignUpPage() {
 
         {/* Footer */}
         <p className="text-xs text-[hsl(var(--sidebar-fg))] font-medium">
-          &copy; {new Date().getFullYear()} BizOS Kenya. Built for Kenya, trusted across Africa.
+          &copy; {new Date().getFullYear()} IMARA. Strong. Reliable. Local.
         </p>
       </div>
 

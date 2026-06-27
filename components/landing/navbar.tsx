@@ -2,8 +2,9 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { Building2, Menu, X } from 'lucide-react'
+import { Menu, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { ThemeSwitcher } from '@/components/theme-switcher'
 
 export function LandingNavbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
@@ -19,11 +20,8 @@ export function LandingNavbar() {
     <nav className="sticky top-0 z-50 bg-background/80 backdrop-blur-md border-b border-border">
       <div className="mx-auto max-w-7xl px-6 py-4 flex items-center justify-between">
         {/* Logo */}
-        <Link href="/" className="flex items-center gap-2 font-bold text-xl group">
-          <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center shadow-sm group-hover:shadow-md transition-shadow">
-            <Building2 className="h-4 w-4 text-primary-foreground" />
-          </div>
-          <span className="text-foreground">BizOS Kenya</span>
+        <Link href="/" className="flex items-center gap-2 font-semibold text-sm group">
+          <img src="/imara-logo.png" alt="IMARA" className="h-8 w-auto" />
         </Link>
 
         {/* Desktop nav */}
@@ -41,6 +39,7 @@ export function LandingNavbar() {
 
         {/* CTA buttons */}
         <div className="hidden md:flex items-center gap-3">
+          <ThemeSwitcher />
           <Link
             href="/sign-in"
             className="text-sm font-semibold text-foreground hover:text-primary transition-colors"
@@ -77,7 +76,11 @@ export function LandingNavbar() {
                 {link.label}
               </a>
             ))}
-            <div className="pt-2 space-y-2">
+            <div className="pt-4 border-t border-border space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium text-muted-foreground">Theme</span>
+                <ThemeSwitcher />
+              </div>
               <Link
                 href="/sign-in"
                 className="block text-sm font-semibold text-center text-foreground hover:text-primary transition-colors"

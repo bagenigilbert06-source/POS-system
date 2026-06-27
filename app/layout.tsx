@@ -1,19 +1,20 @@
 import type { Metadata, Viewport } from 'next'
-import { Inter } from 'next/font/google'
+import { Inter, JetBrains_Mono } from 'next/font/google'
 import './globals.css'
 import { ThemeProvider } from '@/components/providers/theme-provider'
 import { Toaster } from 'sonner'
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-sans' })
+const jetbrains = JetBrains_Mono({ subsets: ['latin'], variable: '--font-mono' })
 
 export const metadata: Metadata = {
   title: {
-    default: 'BizOS Kenya — Business Operating System',
-    template: '%s | BizOS Kenya',
+    default: 'IMARA — Strong Business, Better Future',
+    template: '%s | IMARA',
   },
   description:
-    'The all-in-one Business Operating System for Kenyan businesses. POS, inventory, sales, customers, and reports in one platform.',
-  keywords: ['POS', 'Kenya', 'business', 'inventory', 'sales', 'KES', 'M-Pesa'],
+    'IMARA: The all-in-one POS and business management platform for Kenyan enterprises. Smart checkout, inventory management, M-Pesa integration, and powerful analytics.',
+  keywords: ['POS', 'Kenya', 'business', 'inventory', 'sales', 'KES', 'M-Pesa', 'IMARA'],
 }
 
 export const viewport: Viewport = {
@@ -28,7 +29,7 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning className="bg-background">
-      <body className={`${inter.variable} font-sans`}>
+      <body className={`${inter.variable} ${jetbrains.variable} font-sans`}>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
           {children}
           <Toaster richColors position="top-right" />

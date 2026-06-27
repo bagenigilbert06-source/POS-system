@@ -17,34 +17,31 @@ export default async function SignInPage() {
         {/* Header */}
         <div>
           <div className="flex items-center gap-3 mb-16">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-primary/80 shadow-lg">
-              <span className="text-sm font-bold text-primary-foreground">B</span>
-            </div>
-            <div>
-              <h1 className="text-xl font-bold text-white">BizOS Kenya</h1>
-              <p className="text-xs text-[hsl(var(--sidebar-fg))] font-medium">Business OS for Africa</p>
-            </div>
+            <img src="/imara-logo.png" alt="IMARA" className="h-10 w-auto" />
           </div>
         </div>
 
         {/* Main content */}
         <div className="space-y-12">
           <div>
-            <p className="text-sm text-[hsl(var(--sidebar-fg))] font-semibold uppercase tracking-wide mb-4">Trusted by businesses across Kenya</p>
-            <blockquote className="text-4xl font-bold leading-tight text-white">
-              The complete business platform for Kenyan entrepreneurs
-            </blockquote>
+            <p className="text-xs text-primary font-semibold uppercase tracking-widest mb-4">Trusted by 5,000+ Businesses</p>
+            <h2 className="text-3xl md:text-4xl font-semibold leading-snug text-white mb-4">
+              Strong business, better future
+            </h2>
+            <p className="text-sm md:text-base text-[hsl(var(--sidebar-fg))] leading-relaxed">
+              IMARA is the all-in-one POS and business management platform for Kenyan enterprises. Simple, powerful, and built for strength.
+            </p>
           </div>
 
           <div className="grid grid-cols-2 gap-6">
             {[
-              { icon: '📦', label: 'POS Terminal', desc: 'Fast checkout' },
-              { icon: '📊', label: 'Inventory', desc: 'Real-time stock' },
-              { icon: '💚', label: 'M-Pesa Ready', desc: 'Local payments' },
-              { icon: '📈', label: 'Reports', desc: 'Analytics' },
+              { icon: '💳', label: 'Smart POS', desc: 'Modern checkout' },
+              { icon: '📦', label: 'Inventory', desc: 'Real-time tracking' },
+              { icon: '💰', label: 'Payments', desc: 'All methods' },
+              { icon: '📊', label: 'Analytics', desc: 'Smart insights' },
             ].map((feature) => (
               <div key={feature.label} className="rounded-lg bg-white/5 backdrop-blur-sm border border-white/10 p-4">
-                <div className="text-2xl mb-2">{feature.icon}</div>
+                <div className="text-3xl mb-2">{feature.icon}</div>
                 <h4 className="font-semibold text-white text-sm">{feature.label}</h4>
                 <p className="text-xs text-[hsl(var(--sidebar-fg))]">{feature.desc}</p>
               </div>
@@ -54,7 +51,7 @@ export default async function SignInPage() {
 
         {/* Footer */}
         <p className="text-xs text-[hsl(var(--sidebar-fg))] font-medium">
-          &copy; {new Date().getFullYear()} BizOS Kenya. Built for Kenya, used across Africa.
+          &copy; {new Date().getFullYear()} IMARA. Strong. Reliable. Local.
         </p>
       </div>
 

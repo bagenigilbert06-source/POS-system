@@ -18,24 +18,23 @@ export function LandingHero() {
           <div className="inline-flex items-center gap-2 rounded-full border border-border px-4 py-2 bg-background/50 backdrop-blur-sm">
             <Sparkles className="h-4 w-4 text-primary" />
             <span className="text-sm font-medium text-muted-foreground">
-              Trusted by 500+ businesses across Kenya
+              Trusted by 5000+ Kenyan businesses
             </span>
           </div>
         </div>
 
         {/* Headline */}
-        <h1 className="text-5xl md:text-7xl font-bold text-center leading-tight mb-6">
-          Run Your Entire
+        <h1 className="text-3xl md:text-5xl font-semibold text-center leading-snug mb-6">
+          Strong business,
           <br />
           <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary via-primary to-primary/60">
-            Business From One Platform
+            better future
           </span>
         </h1>
 
         {/* Subheading */}
-        <p className="text-lg md:text-xl text-center text-muted-foreground max-w-2xl mx-auto mb-10 leading-relaxed">
-          From POS to inventory, payments to reports. Everything Kenyan businesses need to thrive, 
-          all in one unified platform with M-Pesa integration.
+        <p className="text-sm md:text-base text-center text-muted-foreground max-w-2xl mx-auto mb-10 leading-relaxed">
+          IMARA is the all-in-one POS and business platform built for Kenyan enterprises. Smart checkout, real-time inventory, M-Pesa integration, and powerful insights.
         </p>
 
         {/* CTA buttons */}
