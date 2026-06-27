@@ -179,6 +179,50 @@ export function LogoCarousel() {
           cursor: default;
           pointer-events: none;
         }
+
+        @media (prefers-color-scheme: dark) {
+          .logo-card {
+            background: #1f1f1f;
+            border-color: #333333;
+            box-shadow:
+              0 1px 3px rgba(0,0,0,0.3),
+              0 1px 2px rgba(0,0,0,0.2);
+          }
+        }
+
+        /* ── Logo icon ─────────────────────────────────────────────── */
+        .logo-icon {
+          width: 36px;
+          height: 36px;
+          border-radius: 9px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          overflow: hidden;
+          flex-shrink: 0;
+        }
+
+        .logo-img {
+          width: 26px;
+          height: 26px;
+          object-fit: contain;
+          display: block;
+        }
+
+        /* ── Label ─────────────────────────────────────────────────── */
+        .logo-label {
+          font-size: 13.5px;
+          font-weight: 600;
+          color: #000000;
+          line-height: 1;
+          letter-spacing: -0.005em;
+        }
+
+        @media (prefers-color-scheme: dark) {
+          .logo-label {
+            color: #ffffff;
+          }
+        }
         @media (prefers-color-scheme: dark) {
           .logo-card {
             background: hsl(0 0% 15%);
