@@ -52,27 +52,30 @@ export function AppSidebar() {
       {/* Logo */}
       <div
         className={cn(
-          'flex h-14 items-center border-b border-[hsl(var(--sidebar-border))] px-3',
+          'flex h-16 items-center border-b border-[hsl(var(--sidebar-border))] px-4 gap-3',
           collapsed ? 'justify-center' : 'justify-between'
         )}
       >
         {!collapsed && (
-          <div className="flex items-center gap-2">
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary flex-shrink-0">
+          <div className="flex items-center gap-3 flex-1">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-primary/80 flex-shrink-0 shadow-sm">
               <Building2 className="h-4 w-4 text-primary-foreground" />
             </div>
-            <span className="font-semibold text-white text-sm">BizOS Kenya</span>
+            <div>
+              <p className="font-bold text-white text-sm leading-tight">BizOS Kenya</p>
+              <p className="text-xs text-[hsl(var(--sidebar-fg))]">Business OS</p>
+            </div>
           </div>
         )}
         {collapsed && (
-          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-primary/80 shadow-sm">
             <Building2 className="h-4 w-4 text-primary-foreground" />
           </div>
         )}
         <button
           onClick={() => setCollapsed(!collapsed)}
           className={cn(
-            'rounded p-1 text-[hsl(var(--sidebar-fg))] hover:bg-[hsl(var(--sidebar-hover))] hover:text-white transition-colors',
+            'rounded-lg p-1.5 text-[hsl(var(--sidebar-fg))] hover:bg-[hsl(var(--sidebar-hover))] hover:text-white transition-colors',
             collapsed && 'hidden'
           )}
           aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
@@ -93,11 +96,11 @@ export function AppSidebar() {
       )}
 
       {/* Main nav */}
-      <nav className="flex-1 overflow-y-auto py-3 px-2">
+      <nav className="flex-1 overflow-y-auto py-4 px-2.5">
         {!collapsed && (
-          <p className="section-label mb-2 px-3 text-[hsl(var(--sidebar-fg))]">Main</p>
+          <p className="section-label mb-3 px-3 text-[hsl(var(--sidebar-fg))]">Navigation</p>
         )}
-        <ul className="space-y-0.5">
+        <ul className="space-y-1">
           {navItems.map((item) => {
             const active = isActive(item.href)
             return (
@@ -107,12 +110,12 @@ export function AppSidebar() {
                   title={collapsed ? item.label : undefined}
                   className={cn(
                     'sidebar-item',
-                    collapsed ? 'justify-center px-0 py-2.5' : '',
+                    collapsed ? 'justify-center px-0 py-3' : '',
                     active ? 'sidebar-item-active' : 'sidebar-item-inactive'
                   )}
                 >
-                  <item.icon className="h-4 w-4 flex-shrink-0" />
-                  {!collapsed && <span>{item.label}</span>}
+                  <item.icon className="h-4.5 w-4.5 flex-shrink-0" />
+                  {!collapsed && <span className="text-sm">{item.label}</span>}
                 </Link>
               </li>
             )
