@@ -1,9 +1,3 @@
-import { PrismaClient } from "@prisma/client";
-
-declare global {
-  var prisma: PrismaClient | undefined;
-}
-
-export const db = globalThis.prisma || new PrismaClient();
-
-if (process.env.NODE_ENV !== "production") globalThis.prisma = db;
+// Re-export from the db folder to ensure all imports work correctly
+export { db, pool } from './db/index'
+export * from './db/schema'

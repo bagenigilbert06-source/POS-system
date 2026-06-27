@@ -63,9 +63,8 @@ export async function updateOrganization(data: Partial<{
     .update(organization)
     .set({
       ...data,
-      ...(data.taxRate !== undefined ? { taxRate: String(data.taxRate) } : {}),
       updatedAt: new Date(),
-    })
+    } as any)
     .where(eq(organization.id, org.id))
   revalidatePath('/dashboard/settings')
 }

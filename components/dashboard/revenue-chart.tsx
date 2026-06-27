@@ -67,7 +67,7 @@ export function RevenueChart({ data }: RevenueChartProps) {
                 borderRadius: '8px',
                 fontSize: '12px',
               }}
-              formatter={(value: number) => [formatCurrency(value), 'Revenue']}
+              formatter={(value: any) => [value !== undefined ? formatCurrency(value) : '0', 'Revenue'] as any}
             />
             <Area
               type="monotone"

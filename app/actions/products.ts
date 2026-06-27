@@ -113,7 +113,7 @@ export async function updateProduct(
       ...(data.buyingPrice !== undefined ? { buyingPrice: String(data.buyingPrice) } : {}),
       ...(data.sellingPrice !== undefined ? { sellingPrice: String(data.sellingPrice) } : {}),
       updatedAt: new Date(),
-    })
+    } as any)
     .where(and(eq(product.id, id), eq(product.orgId, orgId)))
   revalidatePath('/dashboard/products')
 }
