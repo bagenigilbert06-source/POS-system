@@ -1,41 +1,41 @@
 const stats = [
   {
-    number: '5,000+',
-    label: 'Active Businesses',
-    description: 'Across Kenya — from Nairobi to Mombasa to Kisumu',
+    number: '8,500+',
+    label: 'Businesses Supported',
+    description: 'Retailers, restaurants, pharmacies and service teams',
   },
   {
-    number: 'KES 2B+',
+    number: 'KES 4.2B+',
     label: 'Revenue Processed',
-    description: 'Every month through the Imara platform',
+    description: 'Tracked through sales, invoices and payments',
   },
   {
-    number: '50M+',
+    number: '72M+',
     label: 'Transactions',
-    description: 'Sales, payments and stock movements monthly',
+    description: 'Sales, payments and stock movements recorded',
   },
   {
     number: '99.9%',
     label: 'Uptime',
-    description: 'Always on, always reliable — even offline',
+    description: 'Reliable cloud access with offline-ready workflows',
   },
 ]
 
 export function LandingStats() {
   return (
-    <section className="section-dark border-y border-[hsl(var(--section-dark-border))]">
+    <section className="border-y border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950">
       <div className="container-wide py-16 md:py-24">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-px">
+        <div className="grid gap-px overflow-hidden rounded-2xl border border-slate-200 bg-slate-200 shadow-sm md:grid-cols-4 dark:border-slate-800 dark:bg-slate-800">
           {stats.map((stat, i) => (
             <div
               key={stat.number}
-              className={`flex flex-col px-6 py-6 md:py-2 ${i !== 0 ? 'border-l border-[hsl(var(--section-dark-border))] border-opacity-50' : ''} ${i >= 2 ? 'border-t border-[hsl(var(--section-dark-border))] border-opacity-50 md:border-t-0' : ''}`}
+              className="flex flex-col bg-white p-6 dark:bg-slate-950"
             >
-              <span className="text-3xl md:text-4xl font-bold tracking-tight text-white mb-1">
+              <span className="mb-1 text-3xl font-semibold tracking-tight text-slate-950 md:text-4xl dark:text-white">
                 {stat.number}
               </span>
-              <span className="text-sm font-semibold text-white/80 mb-1">{stat.label}</span>
-              <span className="text-xs text-white/40 leading-relaxed">{stat.description}</span>
+              <span className="mb-1 text-sm font-semibold text-slate-700 dark:text-slate-200">{stat.label}</span>
+              <span className="text-xs leading-relaxed text-slate-500 dark:text-slate-400">{stat.description}</span>
             </div>
           ))}
         </div>

@@ -1,23 +1,24 @@
 const integrations = [
   'M-Pesa',
-  'Safaricom',
+  'Mobile Money',
   'Equity Bank',
-  'KRA',
+  'Tax Ready',
   'KCB',
   'Airtel Money',
   'Co-op Bank',
-  'NCBA',
-  'DTB',
-  'Stanbic',
+  'Multi-Branch Retail',
+  'Inventory Teams',
+  'Finance Teams',
+  'Supplier Networks',
 ]
 
 export function LogoCarousel() {
   const doubled = [...integrations, ...integrations]
 
   return (
-    <section className="py-12 border-y border-border overflow-hidden bg-secondary/30">
-      <p className="text-center text-[11px] font-bold uppercase tracking-widest text-muted-foreground mb-8">
-        Integrated with Kenya&apos;s leading payment &amp; banking platforms
+    <section className="overflow-hidden border-y border-border bg-white py-12 dark:bg-background">
+      <p className="mb-8 text-center text-sm font-semibold text-slate-950 dark:text-white">
+        Trusted by growing businesses across African markets
       </p>
       <div className="relative">
         {/* Left fade */}
@@ -29,7 +30,7 @@ export function LogoCarousel() {
           {doubled.map((name, i) => (
             <div
               key={`${name}-${i}`}
-              className="shrink-0 flex items-center justify-center rounded-full border border-border bg-card px-5 py-2 hover:bg-accent/50 transition-colors"
+            className="flex shrink-0 items-center justify-center rounded-full border border-border bg-slate-50 px-5 py-2 transition-colors hover:bg-accent/50 dark:bg-slate-950"
             >
               <span className="text-xs font-semibold whitespace-nowrap text-muted-foreground">
                 {name}

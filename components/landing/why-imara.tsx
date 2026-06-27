@@ -35,7 +35,7 @@ const reasons = [
 
 export function LandingWhyImara() {
   return (
-    <section className="section-padding bg-background">
+    <section id="why-imara" className="section-padding-premium bg-slate-50 dark:bg-slate-950">
       <div className="container-wide">
         {/* Header */}
         <div className="text-center max-w-2xl mx-auto mb-16">

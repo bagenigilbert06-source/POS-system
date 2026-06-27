@@ -4,13 +4,13 @@ import { ArrowRight, CheckCircle2 } from 'lucide-react'
 const reasons = [
   'No technical knowledge required',
   'Import your existing products in minutes',
-  'M-Pesa ready out of the box',
+  'Payments ready out of the box',
   'Free onboarding support included',
 ]
 
 export function LandingCTA() {
   return (
-    <section className="section-padding-premium section-dark">
+    <section className="section-padding-premium bg-[#0f172a]">
       <div className="container-wide">
         <div className="max-w-3xl mx-auto text-center">
           {/* Eyebrow */}
@@ -20,14 +20,14 @@ export function LandingCTA() {
 
           {/* Headline */}
           <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-white tracking-tight text-balance mb-6 leading-[1.1]">
-            Your business deserves better tools.
+            Build a stronger operating rhythm.
             <br />
-            <span className="text-primary">Imara is built for you.</span>
+            <span className="text-blue-300">Run it on Imara.</span>
           </h2>
 
           {/* Subheadline */}
           <p className="text-base text-white/60 leading-relaxed mb-10 max-w-xl mx-auto">
-            Join 5,000+ Kenyan businesses who replaced messy notebooks, WhatsApp groups, and disconnected apps with Imara. Start free — be live in under 2 hours.
+            Replace disconnected tools with one reliable platform for sales, inventory, payments, teams and reporting.
           </p>
 
           {/* Reasons grid */}

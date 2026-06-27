@@ -4,7 +4,7 @@ import { Check } from 'lucide-react'
 const plans = [
   {
     name: 'Starter',
-    description: 'For kiosks and small shops just getting started.',
+    description: 'For small teams getting organized.',
     price: 'Free',
     period: '30-day trial',
     cta: 'Start for free',
@@ -13,13 +13,13 @@ const plans = [
       'Up to 500 products',
       'Basic inventory tracking',
       'Daily sales reports',
-      'M-Pesa integration',
+      'Mobile money integration',
       'Email support',
     ],
   },
   {
     name: 'Growth',
-    description: 'For retailers and restaurants ready to scale.',
+    description: 'For growing businesses with teams, stock and branches.',
     price: 'KES 2,999',
     period: '/ month',
     popular: true,
@@ -29,7 +29,7 @@ const plans = [
       'Unlimited products',
       'Advanced inventory & reorder',
       'Real-time analytics',
-      'M-Pesa + card + cash',
+      'Mobile money + card + cash',
       'Customer loyalty program',
       'Staff management & shifts',
       'Phone + email support',
@@ -37,7 +37,7 @@ const plans = [
   },
   {
     name: 'Enterprise',
-    description: 'For large retail chains and franchise operations.',
+    description: 'For multi-location teams and enterprise operations.',
     price: 'Custom',
     period: 'talk to us',
     cta: 'Contact sales',
@@ -56,12 +56,12 @@ const plans = [
 
 export function LandingPricing() {
   return (
-    <section id="pricing" className="section-padding bg-card/30">
+    <section id="pricing" className="section-padding-premium bg-white dark:bg-background">
       <div className="container-wide">
         {/* Header */}
         <div className="text-center max-w-2xl mx-auto mb-14">
           <p className="section-eyebrow mb-3">Pricing</p>
-          <h2 className="section-heading mb-4">Plans for every stage of growth.</h2>
+          <h2 className="section-heading mb-4">Simple plans for every stage of growth.</h2>
           <p className="section-subheading mx-auto">
             Start free. Upgrade when you&apos;re ready. No hidden fees, ever.
           </p>
@@ -74,8 +74,8 @@ export function LandingPricing() {
               key={plan.name}
               className={`relative rounded-2xl border p-8 flex flex-col gap-7 transition-all duration-200 ${
                 plan.popular
-                  ? 'border-primary bg-primary text-primary-foreground fluent-shadow-16 md:-mt-4 md:mb-0'
-                  : 'border-border bg-background fluent-shadow-2 hover:fluent-shadow-8'
+                  ? 'border-primary bg-primary text-primary-foreground shadow-2xl shadow-blue-600/20 md:-mt-4 md:mb-0'
+                  : 'border-border bg-background shadow-sm hover:shadow-lg'
               }`}
             >
               {plan.popular && (

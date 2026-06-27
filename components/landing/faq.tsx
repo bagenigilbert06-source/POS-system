@@ -6,19 +6,19 @@ import { Plus, Minus } from 'lucide-react'
 const faqs = [
   {
     question: 'How long is the free trial?',
-    answer: 'You get 30 days of full access to every feature on the Growth plan. No credit card is required to get started.',
+    answer: 'You get 30 days of access to the Growth plan. No credit card is required to get started.',
   },
   {
     question: 'Does Imara work on my existing hardware?',
-    answer: 'Yes. Imara runs in any modern browser on any device — computer, tablet or smartphone. No special hardware needed, though we do have recommended receipt printers and barcode scanners.',
+    answer: 'Yes. Imara runs in any modern browser on a computer, tablet or smartphone. You can also connect common receipt printers and barcode scanners.',
   },
   {
     question: 'Can I manage multiple branches?',
-    answer: 'Absolutely. Growth and Enterprise plans support unlimited locations with centralised inventory, reporting and staff management across all branches.',
+    answer: 'Yes. Growth and Enterprise plans support multiple locations with centralized inventory, reporting and staff management across branches.',
   },
   {
     question: 'How secure is my data?',
-    answer: 'We use end-to-end encryption at rest and in transit, role-based access controls, automatic daily backups and full audit logs. Your data never leaves Kenyan servers.',
+    answer: 'We use encryption at rest and in transit, role-based access controls, automatic backups and audit logs so teams can operate with confidence.',
   },
   {
     question: 'How long does setup take?',
@@ -26,7 +26,7 @@ const faqs = [
   },
   {
     question: 'What payment methods does Imara accept?',
-    answer: 'Imara integrates with M-Pesa (Lipa Na M-Pesa and M-Pesa Express), Visa/Mastercard, Airtel Money, and cash. All transactions reconcile automatically at end of day.',
+    answer: 'Imara supports mobile money, card, invoice and cash workflows, with clean reconciliation for finance and operations teams.',
   },
 ]
 
@@ -55,6 +55,8 @@ export function LandingFAQ() {
               <div key={idx}>
                 <button
                   onClick={() => setOpenIdx(openIdx === idx ? null : idx)}
+                  aria-expanded={openIdx === idx}
+                  aria-controls={`faq-answer-${idx}`}
                   className="w-full flex items-center justify-between gap-4 py-5 text-left"
                 >
                   <span className="text-sm font-semibold text-foreground">{faq.question}</span>
@@ -64,7 +66,7 @@ export function LandingFAQ() {
                   }
                 </button>
                 {openIdx === idx && (
-                  <p className="pb-5 text-sm text-muted-foreground leading-relaxed">{faq.answer}</p>
+                  <p id={`faq-answer-${idx}`} className="pb-5 text-sm text-muted-foreground leading-relaxed">{faq.answer}</p>
                 )}
               </div>
             ))}

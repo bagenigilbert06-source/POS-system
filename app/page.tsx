@@ -5,7 +5,9 @@ import { LandingNavbar } from '@/components/landing/navbar'
 import { LandingHero } from '@/components/landing/hero'
 import { LandingStats } from '@/components/landing/stats'
 import { LandingFeatures } from '@/components/landing/features'
+import { DashboardPreviewSection } from '@/components/landing/dashboard-preview'
 import { LandingIndustries } from '@/components/landing/industries'
+import { LandingWhyImara } from '@/components/landing/why-imara'
 import { LogoCarousel } from '@/components/landing/logo-carousel'
 import { LandingTestimonials } from '@/components/landing/testimonials'
 import { LandingFAQ } from '@/components/landing/faq'
@@ -21,10 +23,12 @@ export default async function RootPage() {
       <LandingNavbar />
       <main>
         <LandingHero />
+        <LogoCarousel />
         <LandingStats />
         <LandingFeatures />
+        <DashboardPreviewSection />
         <LandingIndustries />
-        <LogoCarousel />
+        <LandingWhyImara />
         <LandingTestimonials />
         <LandingFAQ />
         <LandingCTA />
