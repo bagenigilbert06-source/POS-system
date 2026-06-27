@@ -31,14 +31,15 @@ export function AuthForm({ mode }: AuthFormProps) {
           password: form.password,
         })
         if (result.error) throw new Error(result.error.message)
+        router.push('/onboarding')
       } else {
         const result = await authClient.signIn.email({
           email: form.email,
           password: form.password,
         })
         if (result.error) throw new Error(result.error.message)
+        router.push('/dashboard')
       }
-      router.push('/dashboard')
       router.refresh()
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Something went wrong')

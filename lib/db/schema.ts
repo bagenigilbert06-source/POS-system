@@ -56,6 +56,17 @@ export const organization = pgTable('organization', {
   currency: text('currency').notNull().default('KES'),
   taxRate: numeric('taxRate', { precision: 5, scale: 2 }).notNull().default('16'),
   userId: text('userId').notNull(),
+  
+  // Onboarding fields
+  onboardingCompleted: boolean('onboardingCompleted').notNull().default(false),
+  onboardingStep: integer('onboardingStep').notNull().default(0),
+  businessEmail: text('businessEmail'),
+  country: text('country'),
+  timezone: text('timezone').default('Africa/Nairobi'),
+  businessSize: text('businessSize'), // solo, small, medium, large
+  businessDescription: text('businessDescription'),
+  phone: text('phone'),
+  
   createdAt: timestamp('createdAt').notNull().defaultNow(),
   updatedAt: timestamp('updatedAt').notNull().defaultNow(),
 })
