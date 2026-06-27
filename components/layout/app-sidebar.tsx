@@ -57,20 +57,16 @@ export function AppSidebar() {
         )}
       >
         {!collapsed && (
-          <div className="flex items-center gap-3 flex-1">
-            <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary flex-shrink-0 shadow-sm">
-              <span className="text-xs font-bold text-primary-foreground">H</span>
-            </div>
+          <div className="flex items-center gap-2 flex-1">
+            <img src="/imara-logo.png" alt="IMARA" className="h-8 w-auto flex-shrink-0" />
             <div>
-              <p className="font-bold text-white text-sm leading-tight">HaraKa</p>
-              <p className="text-xs text-[hsl(var(--sidebar-fg))]">Business Platform</p>
+              <p className="font-semibold text-white text-xs leading-tight">IMARA</p>
+              <p className="text-xs text-[hsl(var(--sidebar-fg))]">Business</p>
             </div>
           </div>
         )}
         {collapsed && (
-          <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary shadow-sm">
-            <span className="text-xs font-bold text-primary-foreground">H</span>
-          </div>
+          <img src="/imara-logo.png" alt="IMARA" className="h-8 w-auto" />
         )}
         <button
           onClick={() => setCollapsed(!collapsed)}

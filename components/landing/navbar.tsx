@@ -20,11 +20,8 @@ export function LandingNavbar() {
     <nav className="sticky top-0 z-50 bg-background/80 backdrop-blur-md border-b border-border">
       <div className="mx-auto max-w-7xl px-6 py-4 flex items-center justify-between">
         {/* Logo */}
-        <Link href="/" className="flex items-center gap-2 font-bold text-xl group">
-          <div className="h-8 w-8 rounded-md bg-primary flex items-center justify-center shadow-sm group-hover:shadow-md transition-shadow">
-            <span className="text-xs font-bold text-primary-foreground">H</span>
-          </div>
-          <span className="text-foreground">HaraKa</span>
+        <Link href="/" className="flex items-center gap-2 font-semibold text-sm group">
+          <img src="/imara-logo.png" alt="IMARA" className="h-8 w-auto" />
         </Link>
 
         {/* Desktop nav */}

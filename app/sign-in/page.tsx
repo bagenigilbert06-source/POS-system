@@ -17,13 +17,7 @@ export default async function SignInPage() {
         {/* Header */}
         <div>
           <div className="flex items-center gap-3 mb-16">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary shadow-lg">
-              <span className="text-sm font-bold text-primary-foreground">H</span>
-            </div>
-            <div>
-              <h1 className="text-xl font-bold text-white">HaraKa</h1>
-              <p className="text-xs text-[hsl(var(--sidebar-fg))] font-medium">Business Platform</p>
-            </div>
+            <img src="/imara-logo.png" alt="IMARA" className="h-10 w-auto" />
           </div>
         </div>
 
@@ -31,11 +25,11 @@ export default async function SignInPage() {
         <div className="space-y-12">
           <div>
             <p className="text-xs text-primary font-semibold uppercase tracking-widest mb-4">Trusted by 5,000+ Businesses</p>
-            <h2 className="text-5xl font-bold leading-tight text-white mb-4">
-              Speed up your business growth
+            <h2 className="text-3xl md:text-4xl font-semibold leading-snug text-white mb-4">
+              Strong business, better future
             </h2>
-            <p className="text-base text-[hsl(var(--sidebar-fg))] leading-relaxed">
-              HaraKa is the all-in-one POS and business management platform for Kenyan enterprises. Fast, powerful, and built for growth.
+            <p className="text-sm md:text-base text-[hsl(var(--sidebar-fg))] leading-relaxed">
+              IMARA is the all-in-one POS and business management platform for Kenyan enterprises. Simple, powerful, and built for strength.
             </p>
           </div>
 
@@ -57,7 +51,7 @@ export default async function SignInPage() {
 
         {/* Footer */}
         <p className="text-xs text-[hsl(var(--sidebar-fg))] font-medium">
-          &copy; {new Date().getFullYear()} HaraKa. Fast. Reliable. Local.
+          &copy; {new Date().getFullYear()} IMARA. Strong. Reliable. Local.
         </p>
       </div>
 

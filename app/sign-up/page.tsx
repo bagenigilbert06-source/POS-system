@@ -17,13 +17,7 @@ export default async function SignUpPage() {
         {/* Header */}
         <div>
           <div className="flex items-center gap-3 mb-16">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary shadow-lg">
-              <span className="text-sm font-bold text-primary-foreground">H</span>
-            </div>
-            <div>
-              <h1 className="text-xl font-bold text-white">HaraKa</h1>
-              <p className="text-xs text-[hsl(var(--sidebar-fg))] font-medium">Business Platform</p>
-            </div>
+            <img src="/imara-logo.png" alt="IMARA" className="h-10 w-auto" />
           </div>
         </div>
 
@@ -31,11 +25,11 @@ export default async function SignUpPage() {
         <div className="space-y-12">
           <div>
             <p className="text-xs text-primary font-semibold uppercase tracking-widest mb-4">Start Free • 30-Day Trial</p>
-            <h2 className="text-5xl font-bold leading-tight text-white mb-4">
-              Built for speed, built for Kenya
+            <h2 className="text-3xl md:text-4xl font-semibold leading-snug text-white mb-4">
+              Build stronger business
             </h2>
-            <p className="text-base text-[hsl(var(--sidebar-fg))] leading-relaxed">
-              Join thousands of Kenyan businesses using HaraKa to manage sales, inventory, and payments with unprecedented speed.
+            <p className="text-sm md:text-base text-[hsl(var(--sidebar-fg))] leading-relaxed">
+              Join thousands of Kenyan businesses using IMARA to manage sales, inventory, and payments effortlessly.
             </p>
           </div>
 
@@ -63,7 +57,7 @@ export default async function SignUpPage() {
 
         {/* Footer */}
         <p className="text-xs text-[hsl(var(--sidebar-fg))] font-medium">
-          &copy; {new Date().getFullYear()} HaraKa. Fast. Reliable. Local.
+          &copy; {new Date().getFullYear()} IMARA. Strong. Reliable. Local.
         </p>
       </div>
 
