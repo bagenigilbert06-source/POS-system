@@ -126,8 +126,8 @@ export function LandingTestimonials() {
       </div>
 
       <div className="flex flex-col gap-4 relative">
-        <div className="absolute left-0 top-0 bottom-0 w-20 bg-gradient-to-r from-secondary/20 to-transparent z-10 pointer-events-none" />
-        <div className="absolute right-0 top-0 bottom-0 w-20 bg-gradient-to-l from-secondary/20 to-transparent z-10 pointer-events-none" />
+        <div className="absolute left-0 top-0 bottom-0 w-20 bg-gradient-to-r from-secondary/20 via-secondary/10 to-transparent z-10 pointer-events-none" />
+        <div className="absolute right-0 top-0 bottom-0 w-20 bg-gradient-to-l from-secondary/20 via-secondary/10 to-transparent z-10 pointer-events-none" />
         <MarqueeRow items={row1} />
         <MarqueeRow items={row2} reverse />
       </div>

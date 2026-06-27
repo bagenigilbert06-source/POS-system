@@ -5,7 +5,6 @@ const footerLinks = {
   Product: [
     { label: 'Features',   href: '#features' },
     { label: 'Industries', href: '#industries' },
-    { label: 'Pricing',    href: '#pricing' },
     { label: 'Security',   href: '#' },
     { label: 'Changelog',  href: '#' },
   ],
