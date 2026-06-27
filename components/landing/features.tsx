@@ -1,95 +1,48 @@
-'use client'
+import { CreditCard, Zap, BarChart3, Users, Package, GitBranch, Lock, Smartphone, Truck, TrendingUp } from 'lucide-react'
 
-import { CreditCard, Zap, BarChart3, Users, Package, TrendingUp, Lock, Smartphone } from 'lucide-react'
+const features = [
+  { icon: Zap,         title: 'Point of Sale',      description: 'Fast, reliable checkout that works offline. Process every sale in seconds.' },
+  { icon: Package,     title: 'Inventory',           description: 'Real-time stock tracking, low-stock alerts and automated reorder points.' },
+  { icon: Users,       title: 'Customers',           description: 'CRM built in — loyalty points, purchase history and smart segments.' },
+  { icon: CreditCard,  title: 'Payments',            description: 'M-Pesa, cards and cash. All reconciled automatically at end of day.' },
+  { icon: BarChart3,   title: 'Reports',             description: 'Revenue, margin and sales trend reports that actually tell you something.' },
+  { icon: TrendingUp,  title: 'Employees',           description: 'Shifts, roles, commissions and performance — all in one place.' },
+  { icon: Truck,       title: 'Suppliers',           description: 'Purchase orders, supplier invoices and delivery tracking.' },
+  { icon: GitBranch,   title: 'Multi-Branch',        description: 'Manage every location from a single dashboard. No extra tools needed.' },
+  { icon: Lock,        title: 'Cloud & Secure',      description: 'Bank-level encryption with automatic daily backups and 99.9% uptime.' },
+  { icon: Smartphone,  title: 'Works Anywhere',      description: 'Desktop, tablet or phone — the same full experience on every device.' },
+]
 
 export function LandingFeatures() {
-  const features = [
-    {
-      icon: CreditCard,
-      title: 'M-Pesa Payments',
-      description: 'Accept M-Pesa payments instantly without middlemen',
-    },
-    {
-      icon: Zap,
-      title: 'Lightning Fast POS',
-      description: 'Process sales in milliseconds with our cloud-based terminal',
-    },
-    {
-      icon: Package,
-      title: 'Smart Inventory',
-      description: 'Real-time stock tracking and automated low-stock alerts',
-    },
-    {
-      icon: Users,
-      title: 'Customer Loyalty',
-      description: 'Build customer relationships with loyalty programs',
-    },
-    {
-      icon: BarChart3,
-      title: 'Advanced Reports',
-      description: 'Understand your business with deep analytics and insights',
-    },
-    {
-      icon: TrendingUp,
-      title: 'Sales Growth',
-      description: 'Proven tools to help your business grow faster',
-    },
-    {
-      icon: Lock,
-      title: 'Enterprise Security',
-      description: 'Bank-level encryption and compliance standards',
-    },
-    {
-      icon: Smartphone,
-      title: 'Works Everywhere',
-      description: 'Desktop, tablet, and mobile - seamless experience',
-    },
-  ]
-
   return (
-    <section id="features" className="py-28 md:py-40 bg-gradient-to-b from-background via-background to-primary/2">
-      <div className="mx-auto max-w-7xl px-6">
-        {/* Section header - MD3 Typography */}
-        <div className="text-center mb-24 md:mb-32">
-          <p className="text-md3-label-small text-primary mb-6 opacity-90">
-            POWERFUL FEATURES
-          </p>
-          <h2 className="text-md3-headline-large md:text-md3-display-small mb-8 text-foreground">
-            Everything you need to run your business
+    <section id="features" className="section-padding bg-background">
+      <div className="container-wide">
+        {/* Header */}
+        <div className="max-w-2xl mb-16">
+          <p className="section-eyebrow mb-3">Features</p>
+          <h2 className="section-heading mb-4">
+            Everything your business needs, nothing it does not.
           </h2>
-          <p className="text-md3-body-large text-on-surface-variant max-w-3xl mx-auto">
-            Powerful features designed specifically for Kenyan entrepreneurs, 
-            from single kiosks to large retail chains
+          <p className="section-subheading">
+            From first sale to enterprise scale — Imara grows with you.
           </p>
         </div>
 
-        {/* Features grid - MD3 Cards */}
-        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {features.map((feature, idx) => {
+        {/* Grid */}
+        <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-px bg-border rounded-2xl overflow-hidden fluent-shadow-4">
+          {features.map((feature) => {
             const Icon = feature.icon
             return (
               <div
-                key={idx}
-                className="group md3-card-elevated rounded-3xl border border-border overflow-hidden hover:elevation-3 transition-all duration-200"
+                key={feature.title}
+                className="group flex flex-col gap-4 p-6 bg-background hover:bg-card transition-colors duration-150"
               >
-                {/* MD3 Tonal background for hover state */}
-                <div className="absolute inset-0 bg-gradient-to-br from-primary/3 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none" />
-                
-                <div className="relative z-10 p-8">
-                  {/* MD3 Icon container with tonal background */}
-                  <div className="h-16 w-16 rounded-2xl bg-primary/15 flex items-center justify-center mb-6 group-hover:bg-primary/25 group-hover:scale-110 transition-all duration-200">
-                    <Icon className="h-8 w-8 text-primary" />
-                  </div>
-                  
-                  {/* MD3 Title - Headline Small */}
-                  <h3 className="text-md3-headline-small mb-3 text-foreground group-hover:text-primary transition-colors duration-200">
-                    {feature.title}
-                  </h3>
-                  
-                  {/* MD3 Description - Body Small */}
-                  <p className="text-md3-body-medium text-on-surface-variant leading-relaxed">
-                    {feature.description}
-                  </p>
+                <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center group-hover:bg-primary/15 transition-colors duration-150">
+                  <Icon className="h-5 w-5 text-primary" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-semibold text-foreground mb-1">{feature.title}</h3>
+                  <p className="text-xs text-muted-foreground leading-relaxed">{feature.description}</p>
                 </div>
               </div>
             )

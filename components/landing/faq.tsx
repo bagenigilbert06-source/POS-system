@@ -1,78 +1,74 @@
 'use client'
 
 import { useState } from 'react'
-import { ChevronDown } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { Plus, Minus } from 'lucide-react'
+
+const faqs = [
+  {
+    question: 'How long is the free trial?',
+    answer: 'You get 30 days of full access to every feature on the Growth plan. No credit card is required to get started.',
+  },
+  {
+    question: 'Does Imara work on my existing hardware?',
+    answer: 'Yes. Imara runs in any modern browser on any device — computer, tablet or smartphone. No special hardware needed, though we do have recommended receipt printers and barcode scanners.',
+  },
+  {
+    question: 'Can I manage multiple branches?',
+    answer: 'Absolutely. Growth and Enterprise plans support unlimited locations with centralised inventory, reporting and staff management across all branches.',
+  },
+  {
+    question: 'How secure is my data?',
+    answer: 'We use end-to-end encryption at rest and in transit, role-based access controls, automatic daily backups and full audit logs. Your data never leaves Kenyan servers.',
+  },
+  {
+    question: 'How long does setup take?',
+    answer: 'Most businesses are live in under two hours. You can import your existing product catalogue, and our onboarding team walks you through everything step by step.',
+  },
+  {
+    question: 'What payment methods does Imara accept?',
+    answer: 'Imara integrates with M-Pesa (Lipa Na M-Pesa and M-Pesa Express), Visa/Mastercard, Airtel Money, and cash. All transactions reconcile automatically at end of day.',
+  },
+]
 
 export function LandingFAQ() {
   const [openIdx, setOpenIdx] = useState<number | null>(0)
 
-  const faqs = [
-    {
-      question: 'How long is the free trial?',
-      answer: 'You get 30 days of full access to all features in the Pro plan. No credit card required to get started.',
-    },
-    {
-      question: 'Can I use BizOS with my existing hardware?',
-      answer: 'Yes! BizOS works on any device - computers, tablets, and smartphones. You can use your existing hardware or our recommended devices.',
-    },
-    {
-      question: 'What if I have multiple locations?',
-      answer: 'On the Pro and Enterprise plans, you can manage multiple locations from one dashboard. Get unified reports across all your branches.',
-    },
-    {
-      question: 'Is my data secure?',
-      answer: 'Absolutely. We use bank-level encryption, automatic backups, and comply with international security standards. Your business data is always protected.',
-    },
-    {
-      question: 'How long does onboarding take?',
-      answer: 'Most businesses are set up and running in under 2 hours. Our support team will guide you through everything, and we provide training for your staff.',
-    },
-    {
-      question: 'Do you have customer support?',
-      answer: 'Yes! All plans include support. Starter plan has email support, Pro gets priority support, and Enterprise gets a dedicated account manager.',
-    },
-  ]
-
   return (
-    <section id="faq" className="py-24 md:py-36 bg-gradient-to-b from-background via-background to-primary/2">
-      <div className="mx-auto max-w-3xl px-6">
-        {/* Section header - MD3 Typography */}
-        <div className="text-center mb-20 md:mb-28">
-          <p className="text-md3-label-small text-primary mb-6">
-            FAQ
-          </p>
-          <h2 className="text-md3-headline-large md:text-md3-display-small text-foreground">
-            Common questions
-          </h2>
-        </div>
+    <section id="faq" className="section-padding bg-background">
+      <div className="container-wide">
+        <div className="grid lg:grid-cols-[1fr_2fr] gap-16 items-start">
+          {/* Left — sticky heading */}
+          <div className="lg:sticky lg:top-24">
+            <p className="section-eyebrow mb-3">FAQ</p>
+            <h2 className="section-heading mb-4">Common questions.</h2>
+            <p className="section-subheading">
+              Anything else? Reach us at{' '}
+              <a href="mailto:hello@imara.co" className="text-primary hover:underline">
+                hello@imara.co
+              </a>
+            </p>
+          </div>
 
-        {/* FAQ items - MD3 Expandable Cards */}
-        <div className="space-y-4">
-          {faqs.map((faq, idx) => (
-            <div
-              key={idx}
-              className="group border border-border rounded-2xl overflow-hidden elevation-1 hover:elevation-2 transition-all duration-200 md3-card"
-            >
-              <button
-                onClick={() => setOpenIdx(openIdx === idx ? null : idx)}
-                className="w-full p-6 md:p-8 flex items-center justify-between bg-card hover:bg-secondary/20 transition-colors text-left"
-              >
-                <h3 className="text-md3-headline-small text-foreground pr-4">{faq.question}</h3>
-                <ChevronDown
-                  className={cn(
-                    'h-6 w-6 text-primary flex-shrink-0 transition-transform duration-200 group-hover:scale-110',
-                    openIdx === idx && 'rotate-180'
-                  )}
-                />
-              </button>
-              {openIdx === idx && (
-                <div className="bg-secondary/10 px-6 md:px-8 py-6 border-t border-border">
-                  <p className="text-md3-body-large text-muted-foreground leading-relaxed">{faq.answer}</p>
-                </div>
-              )}
-            </div>
-          ))}
+          {/* Right — accordion */}
+          <div className="divide-y divide-border">
+            {faqs.map((faq, idx) => (
+              <div key={idx}>
+                <button
+                  onClick={() => setOpenIdx(openIdx === idx ? null : idx)}
+                  className="w-full flex items-center justify-between gap-4 py-5 text-left"
+                >
+                  <span className="text-sm font-semibold text-foreground">{faq.question}</span>
+                  {openIdx === idx
+                    ? <Minus className="h-4 w-4 text-primary shrink-0" />
+                    : <Plus className="h-4 w-4 text-muted-foreground shrink-0" />
+                  }
+                </button>
+                {openIdx === idx && (
+                  <p className="pb-5 text-sm text-muted-foreground leading-relaxed">{faq.answer}</p>
+                )}
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </section>

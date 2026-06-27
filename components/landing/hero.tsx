@@ -1,67 +1,81 @@
-'use client'
-
 import Link from 'next/link'
-import { ArrowRight, Sparkles, CheckCircle2 } from 'lucide-react'
+import Image from 'next/image'
+import { ArrowRight, CheckCircle2 } from 'lucide-react'
 
 export function LandingHero() {
   return (
-    <section className="relative overflow-hidden pt-28 pb-36 md:pt-44 md:pb-52 bg-gradient-to-b from-background via-background to-primary/3">
-      {/* MD3 Subtle gradient blobs - softer, more elegant */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-0 left-1/4 -translate-x-1/2 -translate-y-1/3 w-96 h-96 bg-primary/6 rounded-full blur-3xl opacity-40" />
-        <div className="absolute bottom-0 right-1/4 translate-x-1/2 translate-y-1/3 w-80 h-80 bg-secondary/5 rounded-full blur-3xl opacity-30" />
-      </div>
+    <section className="relative overflow-hidden bg-background pt-16 pb-0 md:pt-24">
+      {/* Very subtle top tint */}
+      <div className="absolute inset-x-0 top-0 h-px bg-border" />
 
-      <div className="relative mx-auto max-w-5xl px-6">
-        {/* Material Design 3 - Premium Badge with proper elevation */}
-        <div className="flex justify-center mb-12">
-          <div className="inline-flex items-center gap-2 rounded-full border border-border px-4 py-2 bg-secondary/40 backdrop-blur-md elevation-1 hover:elevation-2 transition-all duration-200">
-            <Sparkles className="h-4 w-4 text-primary" />
-            <span className="text-md3-label-medium text-foreground">
-              Trusted by 5000+ Kenyan businesses
+      <div className="container-wide">
+        {/* Text + CTA centred above image */}
+        <div className="flex flex-col items-center text-center max-w-3xl mx-auto pb-16 md:pb-20">
+          {/* Eyebrow badge */}
+          <div className="inline-flex items-center gap-2 rounded-full border border-border bg-secondary px-4 py-1.5 mb-8 fluent-shadow-2">
+            <span className="h-1.5 w-1.5 rounded-full bg-primary" />
+            <span className="text-xs font-semibold text-muted-foreground tracking-wide">
+              Trusted by 5,000+ businesses across Kenya
             </span>
+          </div>
+
+          {/* Headline */}
+          <h1 className="text-4xl md:text-5xl lg:text-[3.5rem] font-bold tracking-tight text-foreground leading-[1.1] text-balance mb-6">
+            Run Your Entire Business{' '}
+            <span className="text-primary">From One Platform.</span>
+          </h1>
+
+          {/* Description */}
+          <p className="text-base md:text-lg text-muted-foreground leading-relaxed max-w-2xl mb-10 text-balance">
+            Imara helps businesses manage sales, inventory, payments, customers, suppliers, employees, analytics, and multi-branch operations from one modern cloud platform.
+          </p>
+
+          {/* CTA buttons */}
+          <div className="flex flex-col sm:flex-row items-center gap-3 mb-10">
+            <Link href="/sign-up" className="fluent-btn-primary text-sm px-6 py-3">
+              Get Started Free
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+            <Link href="#features" className="fluent-btn-secondary text-sm px-6 py-3">
+              Book a Demo
+            </Link>
+          </div>
+
+          {/* Trust chips */}
+          <div className="flex flex-wrap items-center justify-center gap-4">
+            {['30-day free trial', 'No credit card required', 'Cancel anytime'].map((t) => (
+              <div key={t} className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <CheckCircle2 className="h-3.5 w-3.5 text-primary shrink-0" />
+                {t}
+              </div>
+            ))}
           </div>
         </div>
 
-        {/* Main Headline - MD3 Display Scale */}
-        <h1 className="text-md3-display-large md:text-md3-display-medium text-center mb-8 bg-gradient-to-b from-foreground to-foreground/80 bg-clip-text text-transparent leading-tight">
-          Strong business, better future
-        </h1>
-
-        {/* Subheading - MD3 Body Style */}
-        <p className="text-md3-body-large text-center text-on-surface-variant max-w-3xl mx-auto mb-14 leading-relaxed">
-          IMARA is the all-in-one POS and business platform built for Kenyan enterprises. Smart checkout, real-time inventory, M-Pesa integration, and powerful insights—all in one place.
-        </p>
-
-        {/* CTA buttons - Material Design 3 Button Styles */}
-        <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-20">
-          <Link
-            href="/sign-up"
-            className="md3-btn-filled gap-2"
-          >
-            Start your free trial
-            <ArrowRight className="h-5 w-5" />
-          </Link>
-          <Link
-            href="#features"
-            className="md3-btn-outlined"
-          >
-            See how it works
-          </Link>
-        </div>
-
-        {/* Trust indicators - MD3 Chip/Assist Chip style */}
-        <div className="flex flex-wrap justify-center gap-3 md:gap-4">
-          {[
-            '30-day free trial',
-            'No credit card',
-            'Enterprise security',
-          ].map((indicator, idx) => (
-            <div key={idx} className="inline-flex items-center gap-2 bg-secondary/30 border border-border rounded-full px-4 py-2.5 elevation-0 hover:elevation-1 transition-all duration-200 group cursor-default">
-              <CheckCircle2 className="h-4 w-4 text-primary group-hover:scale-110 transition-transform duration-200" />
-              <span className="text-md3-label-medium text-muted-foreground">{indicator}</span>
+        {/* Dashboard preview — floats at the bottom, cut off to bleed into next section */}
+        <div className="relative mx-auto max-w-5xl">
+          {/* Glow under image */}
+          <div className="absolute -inset-x-8 bottom-0 h-40 bg-gradient-to-t from-background via-background/60 to-transparent z-10" />
+          <div className="rounded-t-2xl border border-border border-b-0 overflow-hidden fluent-shadow-64 ring-1 ring-border/40">
+            {/* Fake browser chrome */}
+            <div className="flex items-center gap-1.5 px-4 py-3 bg-card border-b border-border">
+              <span className="h-3 w-3 rounded-full bg-border" />
+              <span className="h-3 w-3 rounded-full bg-border" />
+              <span className="h-3 w-3 rounded-full bg-border" />
+              <div className="mx-auto flex items-center gap-2 rounded-md border border-border bg-background px-3 py-1 text-xs text-muted-foreground w-48">
+                <span className="h-2 w-2 rounded-full bg-green-500" />
+                app.imara.co
+              </div>
             </div>
-          ))}
+            <Image
+              src="/dashboard-preview.png"
+              alt="Imara dashboard — sales, inventory and analytics at a glance"
+              width={1200}
+              height={720}
+              className="w-full object-cover object-top"
+              priority
+            />
+          </div>
         </div>
       </div>
     </section>

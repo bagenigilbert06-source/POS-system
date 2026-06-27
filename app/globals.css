@@ -4,44 +4,49 @@
 
 @layer base {
   :root {
-    /* Professional Blue SaaS Light Theme — Enterprise Ready for Kenya */
+    /* Fluent 2 — Light Theme */
     --background: 0 0% 100%;
-    --foreground: 217 33% 17%;
+    --foreground: 217 33% 9%;
+
     --card: 210 40% 98%;
-    --card-foreground: 217 33% 17%;
+    --card-foreground: 217 33% 9%;
+
     --popover: 0 0% 100%;
-    --popover-foreground: 217 33% 17%;
-    --primary: 217 91% 60%;
+    --popover-foreground: 217 33% 9%;
+
+    --primary: 217 91% 54%;
     --primary-foreground: 0 0% 100%;
+
     --secondary: 210 40% 96%;
     --secondary-foreground: 217 33% 20%;
-    --muted: 210 40% 96%;
-    --muted-foreground: 217 12% 43%;
-    --accent: 217 91% 60%;
-    --accent-foreground: 0 0% 100%;
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 0 0% 100%;
-    --border: 210 40% 92%;
-    --input: 210 40% 96%;
-    --ring: 217 91% 60%;
-    --radius: 0.5rem;
 
-    /* Semantic tokens */
+    --muted: 210 40% 96%;
+    --muted-foreground: 215 16% 47%;
+
+    --accent: 217 91% 96%;
+    --accent-foreground: 217 91% 40%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 214 32% 91%;
+    --input: 214 32% 91%;
+    --ring: 217 91% 54%;
+    --radius: 0.625rem;
+
+    --success: 142 71% 39%;
+    --success-foreground: 0 0% 100%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 100%;
+
     --sidebar-bg: 217 33% 11%;
     --sidebar-fg: 217 12% 65%;
-    --sidebar-active: 217 91% 60%;
+    --sidebar-active: 217 91% 54%;
     --sidebar-active-fg: 0 0% 100%;
     --sidebar-hover: 217 33% 18%;
     --sidebar-border: 217 33% 16%;
 
-    --success: 142 71% 45%;
-    --success-foreground: 0 0% 100%;
-    --warning: 38 92% 50%;
-    --warning-foreground: 0 0% 100%;
-    --info: 217 91% 60%;
-    --info-foreground: 0 0% 100%;
-
-    --chart-1: 217 91% 60%;
+    --chart-1: 217 91% 54%;
     --chart-2: 142 71% 45%;
     --chart-3: 38 92% 50%;
     --chart-4: 0 84% 60%;
@@ -49,218 +54,175 @@
   }
 
   .dark {
-    /* Professional Blue SaaS Dark Theme — Premium Enterprise Experience */
-    --background: 217 33% 5%;
-    --foreground: 210 40% 98%;
-    --card: 217 33% 9%;
-    --card-foreground: 210 40% 98%;
-    --popover: 217 33% 9%;
-    --popover-foreground: 210 40% 98%;
+    /* Fluent 2 — Dark Theme (no pure black, layered surfaces) */
+    --background: 222 47% 8%;
+    --foreground: 210 40% 97%;
+
+    --card: 222 47% 11%;
+    --card-foreground: 210 40% 97%;
+
+    --popover: 222 47% 11%;
+    --popover-foreground: 210 40% 97%;
+
     --primary: 217 91% 60%;
-    --primary-foreground: 217 33% 5%;
-    --secondary: 217 33% 16%;
-    --secondary-foreground: 210 40% 92%;
-    --muted: 217 33% 18%;
-    --muted-foreground: 217 12% 55%;
-    --accent: 217 91% 60%;
-    --accent-foreground: 217 33% 5%;
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 217 33% 5%;
-    --border: 217 33% 16%;
-    --input: 217 33% 13%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 222 47% 16%;
+    --secondary-foreground: 210 40% 90%;
+
+    --muted: 222 47% 16%;
+    --muted-foreground: 215 20% 55%;
+
+    --accent: 217 91% 18%;
+    --accent-foreground: 217 91% 75%;
+
+    --destructive: 0 72% 55%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 222 47% 18%;
+    --input: 222 47% 16%;
     --ring: 217 91% 60%;
 
-    --sidebar-bg: 217 33% 3%;
-    --sidebar-fg: 210 40% 70%;
+    --success: 142 71% 50%;
+    --success-foreground: 0 0% 100%;
+    --warning: 38 92% 55%;
+    --warning-foreground: 0 0% 100%;
+
+    --sidebar-bg: 222 47% 5%;
+    --sidebar-fg: 210 40% 60%;
     --sidebar-active: 217 91% 60%;
-    --sidebar-active-fg: 217 33% 5%;
-    --sidebar-hover: 217 33% 12%;
-    --sidebar-border: 217 33% 13%;
+    --sidebar-active-fg: 0 0% 100%;
+    --sidebar-hover: 222 47% 14%;
+    --sidebar-border: 222 47% 14%;
 
-    --success: 142 71% 55%;
-    --success-foreground: 217 33% 5%;
-    --warning: 38 92% 60%;
-    --warning-foreground: 217 33% 5%;
-    --info: 217 91% 68%;
-    --info-foreground: 217 33% 5%;
-
-    --chart-1: 217 91% 60%;
+    --chart-1: 217 91% 65%;
     --chart-2: 142 71% 55%;
     --chart-3: 38 92% 60%;
-    --chart-4: 0 84% 60%;
-    --chart-5: 280 65% 60%;
+    --chart-4: 0 84% 65%;
+    --chart-5: 280 65% 65%;
   }
 }
 
 @layer base {
   * {
-    @apply border-border transition-colors duration-200;
+    @apply border-border;
   }
-  
+
   html {
-    @apply bg-background;
+    @apply bg-background scroll-smooth;
     color-scheme: light;
   }
-  
-  .dark html {
+
+  .dark {
     color-scheme: dark;
   }
-  
+
   body {
-    @apply bg-background text-foreground font-sans antialiased;
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: "rlig" 1, "calt" 1;
   }
 
-  /* Material Design 3 Typography Scale */
-  /* Display Styles */
-  .text-md3-display-large { @apply text-5xl font-light leading-tight tracking-normal; }
-  .text-md3-display-medium { @apply text-4xl font-light leading-tight tracking-normal; }
-  .text-md3-display-small { @apply text-3xl font-light leading-tight tracking-normal; }
+  /* Fluent 2 — Typography Scale (Geist font) */
+  h1, h2, h3, h4, h5, h6 {
+    @apply text-foreground font-semibold tracking-tight;
+  }
 
-  /* Headline Styles */
-  .text-md3-headline-large { @apply text-3xl font-semibold leading-snug tracking-normal; }
-  .text-md3-headline-medium { @apply text-2xl font-semibold leading-snug tracking-normal; }
-  .text-md3-headline-small { @apply text-xl font-semibold leading-snug tracking-normal; }
-
-  /* Title Styles */
-  .text-md3-title-large { @apply text-lg font-bold leading-normal tracking-wider; }
-  .text-md3-title-medium { @apply text-base font-bold leading-normal tracking-wider; }
-  .text-md3-title-small { @apply text-sm font-bold leading-normal tracking-wider; }
-
-  /* Body Styles */
-  .text-md3-body-large { @apply text-base font-normal leading-relaxed tracking-wider; }
-  .text-md3-body-medium { @apply text-sm font-normal leading-relaxed tracking-wider; }
-  .text-md3-body-small { @apply text-xs font-normal leading-relaxed tracking-wider; }
-
-  /* Label Styles */
-  .text-md3-label-large { @apply text-sm font-bold leading-normal tracking-wider; }
-  .text-md3-label-medium { @apply text-xs font-bold leading-normal tracking-wider; }
-  .text-md3-label-small { @apply text-xs font-bold leading-normal tracking-widest; }
-
-  /* Refined typography hierarchy - Material Design 3 Compliant */
-  h1 { @apply text-md3-display-large; }
-  h2 { @apply text-md3-headline-large; }
-  h3 { @apply text-md3-headline-medium; }
-  h4 { @apply text-md3-headline-small; }
-  h5 { @apply text-md3-title-large; }
-  h6 { @apply text-md3-label-large uppercase; }
-  p { @apply text-md3-body-large leading-relaxed text-foreground/85; }
-  
-  /* Selection */
   ::selection {
-    @apply bg-primary text-primary-foreground;
+    @apply bg-primary/20 text-foreground;
   }
 }
 
 @layer utilities {
-  /* Material Design 3 - Elevation/Shadow System (240ms transitions) */
-  .elevation-0 {
-    @apply shadow-none transition-shadow duration-300;
+  /* Fluent 2 — Shadow / Elevation System */
+  .fluent-shadow-2 {
+    box-shadow: 0 1px 2px rgba(0,0,0,0.07), 0 2px 4px rgba(0,0,0,0.05);
   }
-  .elevation-1 {
-    @apply shadow-md transition-shadow duration-300;
-    box-shadow: 0 1px 3px 1px rgba(0, 0, 0, 0.15), 0 1px 2px 0 rgba(0, 0, 0, 0.3);
+  .fluent-shadow-4 {
+    box-shadow: 0 2px 4px rgba(0,0,0,0.08), 0 4px 8px rgba(0,0,0,0.06);
   }
-  .elevation-2 {
-    @apply shadow-lg transition-shadow duration-300;
-    box-shadow: 0 2px 6px 2px rgba(0, 0, 0, 0.15), 0 1px 2px 0 rgba(0, 0, 0, 0.3);
+  .fluent-shadow-8 {
+    box-shadow: 0 4px 8px rgba(0,0,0,0.09), 0 8px 16px rgba(0,0,0,0.06);
   }
-  .elevation-3 {
-    @apply shadow-xl transition-shadow duration-300;
-    box-shadow: 0 4px 8px 3px rgba(0, 0, 0, 0.15), 0 1px 3px 0 rgba(0, 0, 0, 0.3);
+  .fluent-shadow-16 {
+    box-shadow: 0 8px 16px rgba(0,0,0,0.10), 0 16px 32px rgba(0,0,0,0.07);
   }
-  .elevation-4 {
-    @apply shadow-2xl transition-shadow duration-300;
-    box-shadow: 0 6px 10px 4px rgba(0, 0, 0, 0.15), 0 2px 3px 0 rgba(0, 0, 0, 0.3);
-  }
-  .elevation-5 {
-    box-shadow: 0 8px 12px 6px rgba(0, 0, 0, 0.15), 0 4px 4px 0 rgba(0, 0, 0, 0.3);
-    @apply transition-shadow duration-300;
+  .fluent-shadow-64 {
+    box-shadow: 0 16px 32px rgba(0,0,0,0.12), 0 32px 64px rgba(0,0,0,0.08);
   }
 
-  /* Material Design 3 - Rounded Corners (Tonal variants) */
-  .rounded-md3-xs { @apply rounded-xs; }
-  .rounded-md3-sm { @apply rounded-sm; }
-  .rounded-md3-md { @apply rounded-md; }
-  .rounded-md3-lg { @apply rounded-lg; }
-  .rounded-md3-xl { @apply rounded-xl; }
-  .rounded-md3-full { @apply rounded-full; }
-
-  /* Material Design 3 - Buttons with Proper States */
-  .md3-btn-filled {
-    @apply inline-flex items-center justify-center px-6 py-3 rounded-full bg-primary text-primary-foreground text-md3-label-large font-semibold transition-all duration-200 hover:shadow-md hover:elevation-1 active:shadow-none active:elevation-0 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed;
+  /* Fluent 2 — Button Styles */
+  .fluent-btn-primary {
+    @apply inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-semibold transition-all duration-150 hover:bg-primary/90 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed fluent-shadow-2;
   }
-  .md3-btn-filled-tonal {
-    @apply inline-flex items-center justify-center px-6 py-3 rounded-full bg-secondary/40 text-primary text-md3-label-large font-semibold transition-all duration-200 hover:shadow-sm hover:elevation-0 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed;
+  .fluent-btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg border border-border bg-background text-foreground text-sm font-semibold transition-all duration-150 hover:bg-secondary active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed fluent-shadow-2;
   }
-  .md3-btn-outlined {
-    @apply inline-flex items-center justify-center px-6 py-3 rounded-full border-2 border-primary text-primary text-md3-label-large font-semibold transition-all duration-200 hover:bg-secondary/30 active:bg-secondary active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed;
-  }
-  .md3-btn-text {
-    @apply inline-flex items-center justify-center px-6 py-3 rounded-full text-primary text-md3-label-large font-semibold transition-all duration-200 hover:bg-secondary/50 active:bg-secondary active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed;
-  }
-  .md3-btn-elevated {
-    @apply inline-flex items-center justify-center px-6 py-3 rounded-full bg-card text-primary text-md3-label-large font-semibold transition-all duration-200 shadow-md hover:shadow-lg hover:elevation-2 active:shadow-sm active:elevation-1 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed;
+  .fluent-btn-ghost {
+    @apply inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg text-foreground text-sm font-medium transition-all duration-150 hover:bg-secondary active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed;
   }
 
-  /* Material Design 3 - Surfaces & Cards */
-  .md3-surface {
-    @apply bg-background text-foreground rounded-lg elevation-0;
+  /* Fluent 2 — Card Styles */
+  .fluent-card {
+    @apply rounded-xl border border-border bg-card fluent-shadow-2 transition-all duration-200;
   }
-  .md3-surface-dim {
-    @apply bg-secondary/40 text-foreground rounded-lg elevation-0;
-  }
-  .md3-surface-bright {
-    @apply bg-white text-foreground rounded-lg elevation-0;
-  }
-  .md3-surface-container {
-    @apply bg-card rounded-lg elevation-1;
-  }
-  .md3-surface-container-high {
-    @apply bg-card rounded-lg elevation-2;
-  }
-  .md3-surface-container-highest {
-    @apply bg-card rounded-lg elevation-3;
+  .fluent-card-hover {
+    @apply fluent-card hover:fluent-shadow-8 hover:-translate-y-0.5;
   }
 
-  /* Material Design 3 - Cards with proper tonal backgrounds */
-  .md3-card {
-    @apply rounded-xl border border-border p-6 elevation-0 transition-all duration-200 hover:elevation-1;
+  /* Page layout helpers */
+  .section-padding {
+    @apply py-20 md:py-28;
   }
-  .md3-card-filled {
-    @apply rounded-xl bg-secondary/40 p-6 elevation-0 transition-all duration-200 hover:elevation-1;
+  .container-wide {
+    @apply mx-auto max-w-7xl px-6 lg:px-8;
   }
-  .md3-card-elevated {
-    @apply rounded-xl bg-card p-6 elevation-1 transition-all duration-200 hover:elevation-2;
+  .section-eyebrow {
+    @apply text-xs font-semibold uppercase tracking-widest text-primary;
+  }
+  .section-heading {
+    @apply text-3xl md:text-4xl font-bold tracking-tight text-foreground;
+  }
+  .section-subheading {
+    @apply text-base md:text-lg text-muted-foreground leading-relaxed max-w-2xl;
   }
 
-  /* Sidebar Navigation */
+  /* Sidebar */
   .sidebar-item {
-    @apply flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-150 ease-in-out;
+    @apply flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-150;
   }
   .sidebar-item-active {
-    @apply bg-[hsl(var(--sidebar-active))] text-[hsl(var(--sidebar-active-fg))] shadow-sm;
+    @apply bg-[hsl(var(--sidebar-active))] text-[hsl(var(--sidebar-active-fg))];
   }
   .sidebar-item-inactive {
     @apply text-[hsl(var(--sidebar-fg))] hover:bg-[hsl(var(--sidebar-hover))] hover:text-foreground;
   }
-  
-  /* Cards & Containers */
+
+  /* Legacy compat */
   .metric-card {
-    @apply rounded-xl border bg-card p-6 shadow-sm hover:shadow-md transition-shadow;
+    @apply fluent-card p-6;
   }
-  .card-premium {
-    @apply rounded-xl border border-border/50 bg-card p-6 shadow-sm hover:shadow-lg transition-all;
+  .badge-success {
+    @apply inline-flex items-center rounded-full bg-green-50 text-green-700 px-2.5 py-0.5 text-xs font-medium;
   }
+  .badge-warning {
+    @apply inline-flex items-center rounded-full bg-amber-50 text-amber-700 px-2.5 py-0.5 text-xs font-medium;
+  }
+  .badge-destructive {
+    @apply inline-flex items-center rounded-full bg-red-50 text-red-700 px-2.5 py-0.5 text-xs font-medium;
+  }
+  .badge-info {
+    @apply inline-flex items-center rounded-full bg-blue-50 text-blue-700 px-2.5 py-0.5 text-xs font-medium;
+  }
+  .btn-primary { @apply fluent-btn-primary; }
+  .btn-secondary { @apply fluent-btn-secondary; }
   .glass-morphism {
-    @apply bg-card/80 backdrop-blur-sm border border-border/50 rounded-xl;
+    @apply bg-card/80 backdrop-blur-sm border border-border rounded-xl;
   }
-  
-  /* Page Structure */
   .page-header {
     @apply mb-8 flex flex-col gap-2 md:flex-row md:items-center md:justify-between;
   }
   .page-title {
-    @apply text-2xl md:text-3xl font-semibold tracking-tight;
+    @apply text-2xl md:text-3xl font-bold tracking-tight;
   }
   .page-subtitle {
     @apply text-sm md:text-base text-muted-foreground;
@@ -268,49 +230,12 @@
   .section-label {
     @apply text-xs font-semibold uppercase tracking-widest text-muted-foreground;
   }
-  
-  /* Legacy Buttons - Kept for compatibility */
-  .btn-primary {
-    @apply inline-flex items-center justify-center rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90 active:bg-primary/80 transition-all disabled:opacity-50 disabled:cursor-not-allowed;
-  }
-  .btn-secondary {
-    @apply inline-flex items-center justify-center rounded-lg border border-border bg-secondary px-5 py-2.5 text-sm font-semibold text-foreground hover:bg-muted transition-all;
-  }
-  .btn-ghost {
-    @apply inline-flex items-center justify-center rounded-lg px-5 py-2.5 text-sm font-semibold text-foreground hover:bg-secondary transition-all;
-  }
-  .btn-outline {
-    @apply inline-flex items-center justify-center rounded-lg border-2 border-primary px-5 py-2.5 text-sm font-semibold text-primary hover:bg-primary/5 transition-all;
-  }
-  
-  /* Forms */
   .input-base {
-    @apply rounded-lg border border-border bg-background px-4 py-2.5 text-sm placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:border-transparent transition-all;
+    @apply rounded-lg border border-border bg-background px-4 py-2.5 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all;
   }
-  .dark .input-base {
-    @apply focus:ring-offset-background;
-  }
-  
-  /* Badges */
-  .badge-success {
-    @apply inline-flex items-center rounded-full bg-success/15 px-3 py-1 text-xs font-semibold text-success;
-  }
-  .badge-warning {
-    @apply inline-flex items-center rounded-full bg-warning/15 px-3 py-1 text-xs font-semibold text-warning;
-  }
-  .badge-destructive {
-    @apply inline-flex items-center rounded-full bg-destructive/15 px-3 py-1 text-xs font-semibold text-destructive;
-  }
-  .badge-info {
-    @apply inline-flex items-center rounded-full bg-info/15 px-3 py-1 text-xs font-semibold text-info;
-  }
-  
-  /* Dividers */
   .divider {
     @apply border-b border-border;
   }
-  
-  /* Gradients */
   .gradient-bg {
     @apply bg-gradient-to-br from-background to-card;
   }
