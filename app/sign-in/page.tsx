@@ -18,11 +18,11 @@ export default async function SignInPage() {
         <div>
           <div className="flex items-center gap-3 mb-16">
             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary shadow-lg">
-              <span className="text-sm font-bold text-primary-foreground">N</span>
+              <span className="text-sm font-bold text-primary-foreground">H</span>
             </div>
             <div>
-              <h1 className="text-xl font-bold text-white">Nexora</h1>
-              <p className="text-xs text-[hsl(var(--sidebar-fg))] font-medium">Business Management System</p>
+              <h1 className="text-xl font-bold text-white">HaraKa</h1>
+              <p className="text-xs text-[hsl(var(--sidebar-fg))] font-medium">Business Platform</p>
             </div>
           </div>
         </div>
@@ -32,10 +32,10 @@ export default async function SignInPage() {
           <div>
             <p className="text-xs text-primary font-semibold uppercase tracking-widest mb-4">Trusted by 5,000+ Businesses</p>
             <h2 className="text-5xl font-bold leading-tight text-white mb-4">
-              Manage your entire business in one platform
+              Speed up your business growth
             </h2>
             <p className="text-base text-[hsl(var(--sidebar-fg))] leading-relaxed">
-              Nexora is the all-in-one business management system for Kenyan enterprises. Streamline sales, inventory, and operations.
+              HaraKa is the all-in-one POS and business management platform for Kenyan enterprises. Fast, powerful, and built for growth.
             </p>
           </div>
 
@@ -57,7 +57,7 @@ export default async function SignInPage() {
 
         {/* Footer */}
         <p className="text-xs text-[hsl(var(--sidebar-fg))] font-medium">
-          &copy; {new Date().getFullYear()} Nexora. Enterprise. Secure. Local.
+          &copy; {new Date().getFullYear()} HaraKa. Fast. Reliable. Local.
         </p>
       </div>
 

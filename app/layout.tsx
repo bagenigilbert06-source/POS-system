@@ -9,12 +9,12 @@ const jetbrains = JetBrains_Mono({ subsets: ['latin'], variable: '--font-mono' }
 
 export const metadata: Metadata = {
   title: {
-    default: 'BizOS Kenya — Business Operating System',
-    template: '%s | BizOS Kenya',
+    default: 'HaraKa — POS Platform for Kenyan Businesses',
+    template: '%s | HaraKa',
   },
   description:
-    'The all-in-one Business Operating System for Kenyan businesses. POS, inventory, sales, customers, and reports in one platform.',
-  keywords: ['POS', 'Kenya', 'business', 'inventory', 'sales', 'KES', 'M-Pesa'],
+    'HaraKa: The fast, all-in-one POS and business management platform built for Kenya. Smart checkout, inventory, M-Pesa payments, and analytics.',
+  keywords: ['POS', 'Kenya', 'business', 'inventory', 'sales', 'KES', 'M-Pesa', 'HaraKa'],
 }
 
 export const viewport: Viewport = {

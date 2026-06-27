@@ -18,11 +18,11 @@ export default async function SignUpPage() {
         <div>
           <div className="flex items-center gap-3 mb-16">
             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary shadow-lg">
-              <span className="text-sm font-bold text-primary-foreground">N</span>
+              <span className="text-sm font-bold text-primary-foreground">H</span>
             </div>
             <div>
-              <h1 className="text-xl font-bold text-white">Nexora</h1>
-              <p className="text-xs text-[hsl(var(--sidebar-fg))] font-medium">Business Management System</p>
+              <h1 className="text-xl font-bold text-white">HaraKa</h1>
+              <p className="text-xs text-[hsl(var(--sidebar-fg))] font-medium">Business Platform</p>
             </div>
           </div>
         </div>
@@ -32,10 +32,10 @@ export default async function SignUpPage() {
           <div>
             <p className="text-xs text-primary font-semibold uppercase tracking-widest mb-4">Start Free • 30-Day Trial</p>
             <h2 className="text-5xl font-bold leading-tight text-white mb-4">
-              Your business deserves better
+              Built for speed, built for Kenya
             </h2>
             <p className="text-base text-[hsl(var(--sidebar-fg))] leading-relaxed">
-              Join thousands of Kenyan businesses using Nexora to streamline operations, boost sales, and grow faster.
+              Join thousands of Kenyan businesses using HaraKa to manage sales, inventory, and payments with unprecedented speed.
             </p>
           </div>
 
@@ -63,7 +63,7 @@ export default async function SignUpPage() {
 
         {/* Footer */}
         <p className="text-xs text-[hsl(var(--sidebar-fg))] font-medium">
-          &copy; {new Date().getFullYear()} Nexora. Enterprise. Secure. Local.
+          &copy; {new Date().getFullYear()} HaraKa. Fast. Reliable. Local.
         </p>
       </div>
 

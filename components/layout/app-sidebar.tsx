@@ -59,17 +59,17 @@ export function AppSidebar() {
         {!collapsed && (
           <div className="flex items-center gap-3 flex-1">
             <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary flex-shrink-0 shadow-sm">
-              <span className="text-xs font-bold text-primary-foreground">N</span>
+              <span className="text-xs font-bold text-primary-foreground">H</span>
             </div>
             <div>
-              <p className="font-bold text-white text-sm leading-tight">Nexora</p>
+              <p className="font-bold text-white text-sm leading-tight">HaraKa</p>
               <p className="text-xs text-[hsl(var(--sidebar-fg))]">Business Platform</p>
             </div>
           </div>
         )}
         {collapsed && (
           <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary shadow-sm">
-            <span className="text-xs font-bold text-primary-foreground">N</span>
+            <span className="text-xs font-bold text-primary-foreground">H</span>
           </div>
         )}
         <button

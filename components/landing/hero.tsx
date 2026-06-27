@@ -25,17 +25,16 @@ export function LandingHero() {
 
         {/* Headline */}
         <h1 className="text-5xl md:text-7xl font-bold text-center leading-tight mb-6">
-          Enterprise POS
+          Speed up your
           <br />
           <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary via-primary to-primary/60">
-            For Kenyan Businesses
+            business growth
           </span>
         </h1>
 
         {/* Subheading */}
         <p className="text-lg md:text-xl text-center text-muted-foreground max-w-2xl mx-auto mb-10 leading-relaxed">
-          All-in-one business management system. POS terminal, inventory management, real-time analytics, and M-Pesa payments. 
-          Built for Kenya's businesses, trusted by enterprises across East Africa.
+          HaraKa is the all-in-one POS and business platform built for Kenya. Fast checkout, real-time inventory, M-Pesa payments, and powerful analytics—all in one place.
         </p>
 
         {/* CTA buttons */}

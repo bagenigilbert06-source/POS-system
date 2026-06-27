@@ -22,9 +22,9 @@ export function LandingNavbar() {
         {/* Logo */}
         <Link href="/" className="flex items-center gap-2 font-bold text-xl group">
           <div className="h-8 w-8 rounded-md bg-primary flex items-center justify-center shadow-sm group-hover:shadow-md transition-shadow">
-            <span className="text-xs font-bold text-primary-foreground">N</span>
+            <span className="text-xs font-bold text-primary-foreground">H</span>
           </div>
-          <span className="text-foreground">Nexora</span>
+          <span className="text-foreground">HaraKa</span>
         </Link>
 
         {/* Desktop nav */}
