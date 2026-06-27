@@ -59,11 +59,11 @@ export default async function SignInPage() {
       </div>
 
       {/* Right panel — Clean form */}
-      <div className="flex flex-1 items-center justify-center p-8 md:p-12">
-        <div className="w-full max-w-md">
+      <div className="flex flex-1 items-center justify-center p-6 md:p-12">
+        <div className="w-full max-w-sm">
           <div className="mb-8">
-            <h2 className="text-3xl font-bold mb-2">Welcome back</h2>
-            <p className="text-muted-foreground">Sign in to your BizOS account to continue</p>
+            <h2 className="text-2xl font-bold tracking-tight mb-1">Welcome back</h2>
+            <p className="text-sm text-muted-foreground">Sign in to your BizOS account</p>
           </div>
           <AuthForm mode="sign-in" />
         </div>
