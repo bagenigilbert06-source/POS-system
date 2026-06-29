@@ -1,14 +1,15 @@
-'use client';
+'use client'
 
-import { useMemo } from 'react';
-import { cn } from '@/lib/utils';
-import { getCategoryGroupsByType } from '@/lib/config/business-categories';
-import { BusinessTypeEnum, BusinessCategoryEnum } from '@/lib/types';
+import { useMemo } from 'react'
+import { getCategoriesForType } from '@/lib/types'
+import { BUSINESS_TYPE_METADATA, BusinessTypeEnum } from '@/lib/types'
+import { OnboardingHeader } from './onboarding-header'
+import { BusinessCategoryItem } from './business-category-item'
 
 interface StepBusinessCategoryProps {
-  businessType: string;
-  value: string;
-  onChange: (value: string) => void;
+  businessType: string
+  value: string
+  onChange: (value: string) => void
 }
 
 export function StepBusinessCategory({
@@ -16,77 +17,51 @@ export function StepBusinessCategory({
   value,
   onChange,
 }: StepBusinessCategoryProps) {
-  // Get categories for the selected business type
-  const categoryGroup = useMemo(() => {
-    if (!businessType) return null;
-    const groups = getCategoryGroupsByType();
-    return groups[businessType as BusinessTypeEnum] || null;
-  }, [businessType]);
+  const categories = useMemo(() => {
+    if (!businessType) return []
+    return getCategoriesForType(businessType as BusinessTypeEnum)
+  }, [businessType])
 
-  if (!categoryGroup) {
+  const businessTypeName = useMemo(() => {
+    if (!businessType) return ''
+    const metadata = BUSINESS_TYPE_METADATA[businessType as BusinessTypeEnum]
+    return metadata?.name || ''
+  }, [businessType])
+
+  if (!categories.length) {
     return (
-      <div className="text-center">
+      <div className="text-center py-12">
         <p className="text-muted-foreground">Please select a business type first</p>
       </div>
-    );
+    )
   }
 
   return (
     <div className="space-y-8">
-      <div className="text-center">
-        <h2 className="text-3xl font-bold text-gray-900">
-          What type of {categoryGroup.typeName.toLowerCase()} do you operate?
-        </h2>
-        <p className="mt-2 text-lg text-gray-600">
-          We&apos;ll customize features and defaults for your specific business
-        </p>
-      </div>
+      <OnboardingHeader
+        title={`Which ${businessTypeName.toLowerCase()} best fits your business?`}
+        description="We'll configure features and defaults tailored to your specific category"
+      />
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {categoryGroup.categories.map((category) => (
-          <button
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {categories.map((category) => (
+          <BusinessCategoryItem
             key={category.id}
+            id={category.id}
+            name={category.name}
+            selected={value === category.id}
             onClick={() => onChange(category.id)}
-            className={cn(
-              'p-4 rounded-lg border-2 transition-all duration-200 text-left',
-              'hover:border-primary/50 hover:bg-primary/5',
-              value === category.id
-                ? 'border-primary bg-primary/10 shadow-md'
-                : 'border-border'
-            )}
-          >
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="font-semibold text-foreground text-sm">
-                  {category.name}
-                </h3>
-              </div>
-              <div
-                className={cn(
-                  'h-5 w-5 rounded-full border-2 transition-all flex items-center justify-center',
-                  value === category.id
-                    ? 'border-primary bg-primary'
-                    : 'border-muted-foreground/30'
-                )}
-              >
-                {value === category.id && (
-                  <div className="h-2 w-2 bg-white rounded-full" />
-                )}
-              </div>
-            </div>
-          </button>
+          />
         ))}
       </div>
 
-      {/* Additional Info */}
-      <div className="rounded-lg bg-blue-50 border border-blue-200 p-4">
-        <p className="text-sm text-blue-900">
-          <span className="font-semibold">Why does this matter?</span> Your
-          category selection helps us configure default features, product
-          categories, and workflows that match your business. You can always
-          change these settings later.
+      <div className="rounded-lg bg-primary/5 border border-primary/20 p-5 space-y-2">
+        <p className="text-sm font-semibold text-foreground">Why does this matter?</p>
+        <p className="text-sm text-muted-foreground leading-relaxed">
+          Your category helps us set up the right features, default product categories, and workflows for your
+          specific business model. You can always customize these settings later from your account preferences.
         </p>
       </div>
     </div>
-  );
+  )
 }

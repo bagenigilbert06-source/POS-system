@@ -2,8 +2,7 @@
 
 import { useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { ChevronLeft, Loader2 } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { Loader2 } from 'lucide-react'
 
 import { StepBusinessType } from './step-business-type'
 import { StepBusinessCategory } from './step-business-category'
@@ -12,6 +11,8 @@ import { StepLocation } from './step-location'
 import { StepBusinessSize } from './step-business-size'
 import { StepWorkspaceSetup } from './step-workspace-setup'
 import { StepWelcome } from './step-welcome'
+import { StepIndicator } from './step-indicator'
+import { StepFooter } from './step-footer'
 
 const STEPS = [
   { id: 'business-type', title: 'Business Type', component: StepBusinessType },
@@ -201,80 +202,41 @@ export function OnboardingContainer({ organizationId, userId }: OnboardingContai
   }
 
   return (
-    <div className="w-full max-w-2xl mx-auto">
+    <div className="w-full max-w-2xl mx-auto px-4 md:px-0">
       {/* Progress indicator */}
-      <div className="mb-8">
-        <div className="flex items-center gap-2 mb-4">
-          <button
-            onClick={handlePrevious}
-            disabled={currentStep === 0}
-            className="p-2 rounded-lg hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            <ChevronLeft className="h-5 w-5" />
-          </button>
-          <div className="flex-1">
-            <div className="flex justify-between items-center mb-2">
-              <span className="text-sm font-medium text-foreground">
-                {isWelcomeStep ? 'Done!' : `Step ${currentStep + 1} of ${STEPS.length - 1}`}
-              </span>
-            </div>
-            <div className="w-full bg-muted rounded-full h-2">
-              <div
-                className="bg-primary h-2 rounded-full transition-all duration-300"
-                style={{
-                  width: `${isWelcomeStep ? 100 : ((currentStep + 1) / (STEPS.length - 1)) * 100}%`,
-                }}
-              />
-            </div>
-          </div>
-        </div>
-      </div>
+      <StepIndicator
+        currentStep={currentStep}
+        totalSteps={STEPS.length}
+        stepTitle={step.title}
+        isComplete={isWelcomeStep}
+      />
 
       {/* Error message */}
       {error && (
-        <div className="rounded-lg bg-destructive/10 border border-destructive/20 px-4 py-3 mb-6 text-sm">
+        <div className="rounded-lg bg-destructive/10 border border-destructive/20 px-5 py-4 mb-8 text-sm animate-fade-up">
           <p className="font-medium text-destructive">{error}</p>
         </div>
       )}
 
       {/* Step content */}
-      <div className="mb-8">{renderStep()}</div>
+      <div className="mb-12 animate-fade-up">{renderStep()}</div>
 
       {/* Action buttons */}
-      <div className="flex gap-4">
-        <button
-          onClick={handlePrevious}
-          disabled={currentStep === 0}
-          className={cn(
-            'flex-1 rounded-lg px-4 py-2.5 text-sm font-medium transition-all duration-150',
-            'border border-border text-foreground',
-            'hover:bg-muted active:bg-muted/80',
-            'disabled:opacity-50 disabled:cursor-not-allowed'
-          )}
-        >
-          Back
-        </button>
-        <button
-          onClick={handleNext}
-          disabled={loading}
-          className={cn(
-            'flex-1 flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold',
-            'bg-primary text-primary-foreground',
-            'hover:bg-primary/90 active:bg-primary/80',
-            'disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-150',
-            'shadow-md shadow-primary/20'
-          )}
-        >
-          {loading && <Loader2 className="h-4 w-4 animate-spin" />}
-          {isLastStep ? 'Complete Setup' : 'Continue'}
-        </button>
-      </div>
+      <StepFooter
+        onBack={handlePrevious}
+        onNext={handleNext}
+        backDisabled={currentStep === 0}
+        nextDisabled={!validateStep() && !isWelcomeStep}
+        loading={loading}
+        nextLabel={isLastStep ? 'Complete Setup' : 'Continue'}
+        showBack={!isWelcomeStep}
+      />
 
       {isWelcomeStep && (
-        <div className="text-center mt-6">
+        <div className="text-center mt-8">
           <button
             onClick={() => router.push('/dashboard')}
-            className="text-sm font-medium text-primary hover:text-primary/80 transition-colors"
+            className="text-sm font-semibold text-primary hover:text-primary/80 transition-colors duration-200"
           >
             Go to Dashboard
           </button>

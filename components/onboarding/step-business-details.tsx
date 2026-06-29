@@ -1,6 +1,7 @@
 'use client'
 
 import { cn } from '@/lib/utils'
+import { OnboardingHeader } from './onboarding-header'
 
 interface StepBusinessDetailsProps {
   data: {
@@ -20,15 +21,16 @@ export function StepBusinessDetails({ data, onChange }: StepBusinessDetailsProps
   }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold text-foreground mb-2">Tell us about your business</h2>
-        <p className="text-muted-foreground">We&apos;ll use this to personalize your experience</p>
-      </div>
+    <div className="space-y-8">
+      <OnboardingHeader
+        title="Tell us about your business"
+        description="We&apos;ll use this information to personalize your experience and set up defaults"
+        centered={true}
+      />
 
-      <div className="space-y-4">
+      <div className="space-y-5">
         <div>
-          <label htmlFor="businessName" className="block text-sm font-medium text-foreground mb-2">
+          <label htmlFor="businessName" className="block text-sm font-semibold text-foreground mb-2">
             Business name
           </label>
           <input
@@ -39,16 +41,16 @@ export function StepBusinessDetails({ data, onChange }: StepBusinessDetailsProps
             value={data.businessName}
             onChange={(e) => handleChange('businessName', e.target.value)}
             className={cn(
-              'w-full rounded-lg border border-border bg-card px-4 py-2.5 text-sm outline-none',
-              'placeholder:text-muted-foreground',
+              'w-full rounded-lg border border-border bg-card px-4 py-3 text-sm outline-none',
+              'placeholder:text-muted-foreground/70',
               'focus:border-primary focus:ring-2 focus:ring-primary/20',
-              'transition-all duration-150'
+              'transition-all duration-150 shadow-sm-soft'
             )}
           />
         </div>
 
         <div>
-          <label htmlFor="businessEmail" className="block text-sm font-medium text-foreground mb-2">
+          <label htmlFor="businessEmail" className="block text-sm font-semibold text-foreground mb-2">
             Business email
           </label>
           <input
@@ -58,16 +60,16 @@ export function StepBusinessDetails({ data, onChange }: StepBusinessDetailsProps
             value={data.businessEmail}
             onChange={(e) => handleChange('businessEmail', e.target.value)}
             className={cn(
-              'w-full rounded-lg border border-border bg-card px-4 py-2.5 text-sm outline-none',
-              'placeholder:text-muted-foreground',
+              'w-full rounded-lg border border-border bg-card px-4 py-3 text-sm outline-none',
+              'placeholder:text-muted-foreground/70',
               'focus:border-primary focus:ring-2 focus:ring-primary/20',
-              'transition-all duration-150'
+              'transition-all duration-150 shadow-sm-soft'
             )}
           />
         </div>
 
         <div>
-          <label htmlFor="phone" className="block text-sm font-medium text-foreground mb-2">
+          <label htmlFor="phone" className="block text-sm font-semibold text-foreground mb-2">
             Phone number
           </label>
           <input
@@ -77,10 +79,10 @@ export function StepBusinessDetails({ data, onChange }: StepBusinessDetailsProps
             value={data.phone}
             onChange={(e) => handleChange('phone', e.target.value)}
             className={cn(
-              'w-full rounded-lg border border-border bg-card px-4 py-2.5 text-sm outline-none',
-              'placeholder:text-muted-foreground',
+              'w-full rounded-lg border border-border bg-card px-4 py-3 text-sm outline-none',
+              'placeholder:text-muted-foreground/70',
               'focus:border-primary focus:ring-2 focus:ring-primary/20',
-              'transition-all duration-150'
+              'transition-all duration-150 shadow-sm-soft'
             )}
           />
         </div>
