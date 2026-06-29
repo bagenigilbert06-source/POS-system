@@ -25,10 +25,20 @@ export function AppNavbar({ userName, userEmail }: AppNavbarProps) {
   const { theme, setTheme } = useTheme()
   const [profileOpen, setProfileOpen] = useState(false)
 
+  const clearStoredAuthState = () => {
+    if (typeof window !== 'undefined') {
+      sessionStorage.removeItem('accessToken')
+    }
+  }
+
   const handleSignOut = async () => {
-    await authClient.signOut()
-    router.push('/sign-in')
-    router.refresh()
+    try {
+      await authClient.signOut()
+    } finally {
+      clearStoredAuthState()
+      router.replace('/sign-in')
+      router.refresh()
+    }
   }
 
   const themeOptions = [

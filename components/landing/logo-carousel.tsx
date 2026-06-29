@@ -178,14 +178,12 @@ export function LogoCarousel() {
           cursor: default;
           pointer-events: none;
         }
-        @media (prefers-color-scheme: dark) {
-          .logo-card {
-            background: hsl(0 0% 15%);
-            border-color: hsl(0 0% 25%);
-            box-shadow:
-              0 1px 3px rgba(0,0,0,0.3),
-              0 1px 2px rgba(0,0,0,0.2);
-          }
+        .dark .logo-card {
+          background: hsl(0 0% 15%);
+          border-color: hsl(0 0% 25%);
+          box-shadow:
+            0 1px 3px rgba(0,0,0,0.3),
+            0 1px 2px rgba(0,0,0,0.2);
         }
 
         /* ── Logo icon ─────────────────────────────────────────────── */
@@ -214,10 +212,8 @@ export function LogoCarousel() {
           line-height: 1;
           letter-spacing: -0.005em;
         }
-        @media (prefers-color-scheme: dark) {
-          .logo-label {
-            color: hsl(0 0% 90%);
-          }
+        .dark .logo-label {
+          color: hsl(0 0% 90%);
         }
 
         /* ── Animation ────────────────────────────────────────────────── */

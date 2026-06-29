@@ -47,6 +47,14 @@ export const verification = pgTable('verification', {
   updatedAt: timestamp('updatedAt').defaultNow(),
 })
 
+export const jwks = pgTable('jwks', {
+  id: text('id').primaryKey(),
+  publicKey: text('publicKey').notNull(),
+  privateKey: text('privateKey').notNull(),
+  createdAt: timestamp('createdAt').notNull().defaultNow(),
+  expiresAt: timestamp('expiresAt'),
+})
+
 // --- App tables ------------------------------------------------------------
 export const organization = pgTable('organization', {
   id: text('id').primaryKey(),

@@ -18,10 +18,33 @@ export function AuthForm({ mode }: AuthFormProps) {
   const [showPassword, setShowPassword] = useState(false)
   const [form, setForm] = useState({ name: '', email: '', password: '' })
 
+  const clearStoredAuthState = () => {
+    if (typeof window !== 'undefined') {
+      sessionStorage.removeItem('accessToken')
+    }
+  }
+
+  const loadAccessToken = async () => {
+    const response = await fetch('/api/auth-tokens', {
+      method: 'POST',
+      cache: 'no-store',
+      credentials: 'include',
+    })
+
+    if (!response.ok) {
+      throw new Error('Signed in, but failed to create an access token')
+    }
+
+    const tokens = await response.json()
+    sessionStorage.setItem('accessToken', tokens.accessToken)
+    return tokens
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
     setError('')
+    clearStoredAuthState()
 
     try {
       if (mode === 'sign-up') {
@@ -31,6 +54,7 @@ export function AuthForm({ mode }: AuthFormProps) {
           password: form.password,
         })
         if (result.error) throw new Error(result.error.message)
+        await loadAccessToken()
         router.push('/onboarding')
       } else {
         const result = await authClient.signIn.email({
@@ -38,10 +62,12 @@ export function AuthForm({ mode }: AuthFormProps) {
           password: form.password,
         })
         if (result.error) throw new Error(result.error.message)
+        await loadAccessToken()
         router.push('/dashboard')
       }
       router.refresh()
     } catch (err: unknown) {
+      clearStoredAuthState()
       setError(err instanceof Error ? err.message : 'Something went wrong')
     } finally {
       setLoading(false)
@@ -51,6 +77,7 @@ export function AuthForm({ mode }: AuthFormProps) {
   const handleGoogleSignIn = async () => {
     setGoogleLoading(true)
     setError('')
+    clearStoredAuthState()
     try {
       await authClient.signIn.social({
         provider: 'google',
