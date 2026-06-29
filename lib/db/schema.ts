@@ -61,6 +61,7 @@ export const organization = pgTable('organization', {
   name: text('name').notNull(),
   slug: text('slug').notNull().unique(),
   businessType: text('businessType').notNull().default('retail'),
+  businessCategory: text('businessCategory').default('other_retail'), // Specific category within business type
   currency: text('currency').notNull().default('KES'),
   taxRate: numeric('taxRate', { precision: 5, scale: 2 }).notNull().default('16'),
   userId: text('userId').notNull(),
