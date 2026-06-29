@@ -49,6 +49,7 @@ export interface BusinessTypeMetadata {
   color: string;
   modules: string[];
   features: string[];
+  examples?: string[];
 }
 
 export interface BusinessCategoryConfig {
@@ -68,6 +69,7 @@ export const BUSINESS_TYPE_METADATA: Record<BusinessTypeEnum, BusinessTypeMetada
     color: '#3B82F6',
     modules: ['inventory', 'sales', 'products', 'customers', 'reports', 'analytics'],
     features: ['low-stock-alerts', 'barcode-scanning', 'loyalty-points', 'inventory-transfer'],
+    examples: ['Electronics', 'Fashion', 'Grocery', 'Cosmetics', 'Hardware'],
   },
   [BusinessTypeEnum.RESTAURANT]: {
     id: BusinessTypeEnum.RESTAURANT,
@@ -77,6 +79,7 @@ export const BUSINESS_TYPE_METADATA: Record<BusinessTypeEnum, BusinessTypeMetada
     color: '#F59E0B',
     modules: ['kitchen', 'tables', 'orders', 'inventory', 'sales', 'customers', 'reports', 'analytics'],
     features: ['table-management', 'kitchen-queue', 'menu-categories', 'order-modifications', 'staff-management'],
+    examples: ['Restaurant', 'Café', 'Fast Food', 'Bakery', 'Bar & Lounge'],
   },
   [BusinessTypeEnum.PHARMACY]: {
     id: BusinessTypeEnum.PHARMACY,
@@ -86,6 +89,7 @@ export const BUSINESS_TYPE_METADATA: Record<BusinessTypeEnum, BusinessTypeMetada
     color: '#10B981',
     modules: ['prescriptions', 'inventory', 'batch-tracking', 'sales', 'products', 'customers', 'reports', 'analytics'],
     features: ['expiry-tracking', 'batch-numbers', 'prescription-management', 'drug-interactions', 'low-stock-alerts'],
+    examples: ['Community Pharmacy', 'Hospital Pharmacy', 'Chemist', 'Clinic Pharmacy'],
   },
 };
 

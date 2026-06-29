@@ -2,6 +2,7 @@
 
 import { CheckCircle2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { OnboardingHeader } from './onboarding-header'
 
 const SETUP_ITEMS = [
   {
@@ -33,11 +34,12 @@ interface StepWorkspaceSetupProps {
 
 export function StepWorkspaceSetup({ completed, onToggle }: StepWorkspaceSetupProps) {
   return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold text-foreground mb-2">Almost there! Let&apos;s set up your workspace</h2>
-        <p className="text-muted-foreground">You can complete these tasks now or skip and come back later</p>
-      </div>
+    <div className="space-y-8">
+      <OnboardingHeader
+        title="Almost there! Let&apos;s set up your workspace"
+        description="You can complete these tasks now or skip and come back later"
+        centered={true}
+      />
 
       <div className="space-y-3">
         {SETUP_ITEMS.map((item) => (
@@ -45,35 +47,34 @@ export function StepWorkspaceSetup({ completed, onToggle }: StepWorkspaceSetupPr
             key={item.id}
             onClick={() => onToggle(item.id)}
             className={cn(
-              'w-full p-4 rounded-lg border-2 transition-all duration-200 text-left',
-              'hover:border-primary/50 hover:bg-primary/5',
+              'w-full group p-5 rounded-lg border-2 transition-all duration-300 text-left',
+              'flex items-start gap-4',
+              'hover:border-primary/30 hover:shadow-md-soft',
               completed.includes(item.id)
                 ? 'border-primary/30 bg-primary/5'
                 : 'border-border'
             )}
           >
-            <div className="flex items-start gap-3">
-              <div className={cn(
-                'h-5 w-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 mt-0.5 transition-all',
+            <div className={cn(
+              'h-6 w-6 rounded-full border-2 flex items-center justify-center flex-shrink-0 mt-1 transition-all duration-300',
+              completed.includes(item.id)
+                ? 'border-primary bg-primary shadow-md-soft'
+                : 'border-border group-hover:border-primary/50'
+            )}>
+              {completed.includes(item.id) && (
+                <CheckCircle2 className="h-4 w-4 text-primary-foreground" />
+              )}
+            </div>
+            <div className="flex-1">
+              <h3 className={cn(
+                'font-semibold text-sm transition-all duration-300',
                 completed.includes(item.id)
-                  ? 'border-primary bg-primary'
-                  : 'border-border'
+                  ? 'text-muted-foreground line-through'
+                  : 'text-foreground'
               )}>
-                {completed.includes(item.id) && (
-                  <CheckCircle2 className="h-4 w-4 text-primary-foreground" />
-                )}
-              </div>
-              <div className="flex-1">
-                <h3 className={cn(
-                  'font-semibold text-sm transition-colors',
-                  completed.includes(item.id)
-                    ? 'text-muted-foreground line-through'
-                    : 'text-foreground'
-                )}>
-                  {item.title}
-                </h3>
-                <p className="text-xs text-muted-foreground mt-0.5">{item.description}</p>
-              </div>
+                {item.title}
+              </h3>
+              <p className="text-xs text-muted-foreground mt-2">{item.description}</p>
             </div>
           </button>
         ))}

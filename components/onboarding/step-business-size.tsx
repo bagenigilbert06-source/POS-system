@@ -2,6 +2,7 @@
 
 import { Users } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { OnboardingHeader } from './onboarding-header'
 
 const BUSINESS_SIZES = [
   {
@@ -33,34 +34,39 @@ interface StepBusinessSizeProps {
 
 export function StepBusinessSize({ value, onChange }: StepBusinessSizeProps) {
   return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold text-foreground mb-2">How many people work in your business?</h2>
-        <p className="text-muted-foreground">This helps us recommend features you might need</p>
-      </div>
+    <div className="space-y-8">
+      <OnboardingHeader
+        title="How many people work in your business?"
+        description="This helps us recommend features and settings for your team size"
+        centered={true}
+      />
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {BUSINESS_SIZES.map((size) => (
           <button
             key={size.id}
             onClick={() => onChange(size.id)}
             className={cn(
-              'p-4 rounded-lg border-2 transition-all duration-200 text-left',
-              'hover:border-primary/50 hover:bg-primary/5',
+              'group p-5 rounded-lg border-2 transition-all duration-300 text-left',
+              'flex items-start gap-3',
               value === size.id
-                ? 'border-primary bg-primary/10'
-                : 'border-border'
+                ? 'border-primary bg-primary/5 shadow-md-soft'
+                : 'border-border hover:border-primary/30 hover:shadow-md-soft hover:-translate-y-1'
             )}
           >
-            <div className="flex items-start gap-3">
-              <Users className={cn(
-                'h-5 w-5 mt-0.5 flex-shrink-0 transition-colors',
-                value === size.id ? 'text-primary' : 'text-muted-foreground'
-              )} />
-              <div>
-                <h3 className="font-semibold text-foreground text-sm">{size.label}</h3>
-                <p className="text-xs text-muted-foreground mt-0.5">{size.description}</p>
-              </div>
+            <div
+              className={cn(
+                'h-10 w-10 rounded-lg flex items-center justify-center flex-shrink-0 transition-all duration-300',
+                value === size.id
+                  ? 'bg-primary text-primary-foreground'
+                  : 'bg-primary/10 text-primary group-hover:bg-primary/20'
+              )}
+            >
+              <Users className="h-5 w-5" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-foreground text-sm">{size.label}</h3>
+              <p className="text-xs text-muted-foreground mt-1">{size.description}</p>
             </div>
           </button>
         ))}
