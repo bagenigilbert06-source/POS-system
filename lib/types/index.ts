@@ -4,8 +4,8 @@
  */
 
 // Business Types
-export type { BusinessType } from './business';
-export { BusinessTypeEnum, BUSINESS_TYPE_METADATA, BUSINESS_TYPES } from './business';
+export type { BusinessType, BusinessCategory, BusinessCategoryConfig } from './business';
+export { BusinessTypeEnum, BusinessCategoryEnum, BUSINESS_TYPE_METADATA, BUSINESS_CATEGORY_CONFIG, BUSINESS_TYPES, getCategoriesForType } from './business';
 
 // Domain Entities
 export type {

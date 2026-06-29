@@ -6,6 +6,7 @@ import { ChevronLeft, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 import { StepBusinessType } from './step-business-type'
+import { StepBusinessCategory } from './step-business-category'
 import { StepBusinessDetails } from './step-business-details'
 import { StepLocation } from './step-location'
 import { StepBusinessSize } from './step-business-size'
@@ -14,6 +15,7 @@ import { StepWelcome } from './step-welcome'
 
 const STEPS = [
   { id: 'business-type', title: 'Business Type', component: StepBusinessType },
+  { id: 'business-category', title: 'Business Category', component: StepBusinessCategory },
   { id: 'business-details', title: 'Business Details', component: StepBusinessDetails },
   { id: 'location', title: 'Location', component: StepLocation },
   { id: 'business-size', title: 'Business Size', component: StepBusinessSize },
@@ -23,6 +25,7 @@ const STEPS = [
 
 interface OnboardingData {
   businessType: string
+  businessCategory: string
   businessName: string
   businessEmail: string
   phone: string
@@ -44,6 +47,7 @@ export function OnboardingContainer({ organizationId, userId }: OnboardingContai
   const [error, setError] = useState('')
   const [data, setData] = useState<OnboardingData>({
     businessType: '',
+    businessCategory: '',
     businessName: '',
     businessEmail: '',
     phone: '',
@@ -108,6 +112,8 @@ export function OnboardingContainer({ organizationId, userId }: OnboardingContai
     switch (step.id) {
       case 'business-type':
         return !!data.businessType
+      case 'business-category':
+        return !!data.businessCategory
       case 'business-details':
         return !!data.businessName && !!data.businessEmail && !!data.phone
       case 'location':
@@ -142,6 +148,14 @@ export function OnboardingContainer({ organizationId, userId }: OnboardingContai
           <StepBusinessType
             value={data.businessType}
             onChange={(value) => handleUpdate({ businessType: value })}
+          />
+        )
+      case 'business-category':
+        return (
+          <StepBusinessCategory
+            businessType={data.businessType}
+            value={data.businessCategory}
+            onChange={(value) => handleUpdate({ businessCategory: value })}
           />
         )
       case 'business-details':
