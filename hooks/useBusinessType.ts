@@ -9,7 +9,8 @@ import { useMemo } from 'react';
 import { useOrganization } from './useOrganization';
 import { getBusinessConfig, supportsModule, hasFeature } from '@/lib/config/business-types';
 import { BUSINESS_TYPE_METADATA } from '@/lib/types';
-import type { BusinessTypeEnum, BusinessTypeMetadata } from '@/lib/types';
+import type { BusinessTypeEnum } from '@/lib/types';
+import type { BusinessTypeMetadata } from '@/lib/types/business';
 import type { BusinessTypeConfig } from '@/lib/config/business-types';
 
 export function useBusinessType() {

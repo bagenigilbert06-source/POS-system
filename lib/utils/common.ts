@@ -88,11 +88,12 @@ export function deepMerge<T extends Record<string, any>>(target: T, ...sources: 
 
   if (isObject(target) && isObject(source)) {
     for (const key in source) {
-      if (isObject(source[key])) {
+      const sourceValue = source[key];
+      if (isObject(sourceValue)) {
         if (!target[key]) Object.assign(target, { [key]: {} });
-        deepMerge(target[key], source[key]);
+        deepMerge(target[key], sourceValue as Partial<T[Extract<keyof T, string>]>);
       } else {
-        Object.assign(target, { [key]: source[key] });
+        Object.assign(target, { [key]: sourceValue });
       }
     }
   }
@@ -146,8 +147,10 @@ export function groupBy<T, K extends keyof any>(array: T[], getKey: (item: T) =>
 /**
  * Flatten array
  */
-export function flatten<T>(array: (T | T[])[]): T[] {
-  return array.reduce((result, item) => {
+type NestedArray<T> = T | NestedArray<T>[];
+
+export function flatten<T>(array: NestedArray<T>[]): T[] {
+  return array.reduce<T[]>((result, item) => {
     if (Array.isArray(item)) {
       return [...result, ...flatten(item)];
     }

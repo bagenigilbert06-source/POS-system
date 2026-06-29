@@ -6,7 +6,7 @@ import { Maximize2, Minimize2 } from 'lucide-react';
 
 // Define the props for the FullscreenButton component
 interface FullscreenButtonProps {
-  targetRef: React.RefObject<HTMLDivElement>; // Ref object for the element to toggle fullscreen
+  targetRef: React.RefObject<HTMLDivElement | null>; // Ref object for the element to toggle fullscreen
 }
 
 // FullscreenButton component definition

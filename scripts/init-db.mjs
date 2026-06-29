@@ -86,6 +86,10 @@ create table if not exists "organization" (
   "updatedAt" timestamp not null default now()
 );
 
+-- Ensure businessCategory column exists for older installations
+alter table "organization"
+  add column if not exists "businessCategory" text default 'other_retail';
+
 create table if not exists "category" (
   "id" text primary key,
   "name" text not null,

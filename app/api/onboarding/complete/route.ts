@@ -4,6 +4,7 @@ import { auth } from '@/lib/auth'
 import { db } from '@/lib/db'
 import { organization } from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
+import { appendFileSync } from 'node:fs'
 
 export const dynamic = 'force-dynamic'
 
@@ -56,6 +57,12 @@ export async function POST(req: NextRequest) {
     })
   } catch (error) {
     console.error('Onboarding error:', error)
+    try {
+      const errMsg = typeof error === 'object' ? JSON.stringify(error, Object.getOwnPropertyNames(error), 2) : String(error)
+      appendFileSync('onboarding-error.log', `${new Date().toISOString()} - ${errMsg}\n\n`)
+    } catch (e) {
+      console.error('Failed to write onboarding-error.log', e)
+    }
     return NextResponse.json(
       { message: 'Internal server error' },
       { status: 500 }

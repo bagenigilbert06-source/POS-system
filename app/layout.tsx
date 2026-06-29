@@ -1,6 +1,4 @@
 import type { Metadata, Viewport } from 'next'
-import { GeistSans } from 'geist/font/sans'
-import { GeistMono } from 'geist/font/mono'
 import './globals.css'
 import { ThemeProvider } from '@/components/providers/theme-provider'
 import { Toaster } from 'sonner'
@@ -26,8 +24,8 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" suppressHydrationWarning className={`${GeistSans.variable} ${GeistMono.variable} bg-background`}>
-      <body className="font-sans antialiased">
+    <html lang="en" suppressHydrationWarning className="bg-background">
+      <body className="font-sans antialiased" suppressHydrationWarning>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
           {children}
           <Toaster richColors position="top-right" />

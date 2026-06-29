@@ -5,4 +5,5 @@ allowBuilds:
   '@prisma/client': false
   '@prisma/engines': false
   prisma: false
+  sharp: true
   unrs-resolver: false

@@ -1,6 +1,8 @@
+import type { ReactElement } from 'react';
+
 export type NavItem = {
   title: string;
   path: string;
-  icon?: JSX.Element;
+  icon?: ReactElement;
 
 };

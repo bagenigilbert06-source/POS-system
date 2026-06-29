@@ -108,7 +108,7 @@ export async function getChartData(
  */
 export async function revalidateDashboard(orgId: string): Promise<void> {
   try {
-    revalidateTag(`dashboard-${orgId}`);
+    revalidateTag(`dashboard-${orgId}`, 'max');
   } catch (error) {
     console.error('Failed to revalidate dashboard:', error);
   }

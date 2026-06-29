@@ -4,6 +4,9 @@
 
 @layer base {
   :root {
+    --font-geist-sans: Arial, Helvetica, sans-serif;
+    --font-geist-mono: "Courier New", Courier, monospace;
+
     /* Light Theme */
     --background: 0 0% 100%;
     --foreground: 222 47% 11%;

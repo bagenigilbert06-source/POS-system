@@ -1,3 +1,5 @@
+"use client";
+
 /**
  * AlertCard Component
  * Reusable alert/notification card for dashboard alerts
