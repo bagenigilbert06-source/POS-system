@@ -192,8 +192,7 @@ export class WorkspaceFactory {
   // ── Step 5: Mark onboarding complete on the org row ──────────────────────
 
   private static async markOnboardingComplete(
-    input: OnboardingInput,
-    templateId: string
+    input: OnboardingInput
   ): Promise<void> {
     await OrganizationService.updateOrganization(
       input.organizationId,
@@ -202,7 +201,6 @@ export class WorkspaceFactory {
         name: input.businessName,
         businessType: input.businessType.toLowerCase(),
         businessCategory: (input.customCategory || input.businessCategory).toLowerCase(),
-        templateId,
         businessEmail: input.businessEmail,
         phone: input.phone,
         country: input.country,
@@ -251,7 +249,7 @@ export class WorkspaceFactory {
     }
 
     // 5. Mark onboarding complete
-    await WorkspaceFactory.markOnboardingComplete(input, templateId)
+    await WorkspaceFactory.markOnboardingComplete(input)
 
     return {
       success: true,
