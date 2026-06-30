@@ -8,7 +8,7 @@ import Autoplay from 'embla-carousel-autoplay'
 
 const testimonials = [
   {
-    quote: 'Imara replaced three different tools we were running — POS, stock, and M-Pesa. End-of-day reconciliation dropped from 2 hours to under 15 minutes.',
+    quote: 'KashNest replaced three different tools we were running — POS, stock, and M-Pesa. End-of-day reconciliation dropped from 2 hours to under 15 minutes.',
     name: 'Wanjiku Kamau',
     role: 'Owner',
     business: 'Kamau Supermarket, Thika',
@@ -140,7 +140,7 @@ export function LandingTestimonials() {
             Real businesses. Real results.
           </h2>
           <p className="text-base text-muted-foreground max-w-2xl mx-auto">
-            From corner shops in Thika to multi-branch pharmacies in Mombasa — thousands of Kenyan businesses trust Imara every day.
+            From corner shops in Thika to multi-branch pharmacies in Mombasa — thousands of Kenyan businesses trust KashNest every day.
           </p>
         </div>
 

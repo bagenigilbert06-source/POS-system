@@ -1,7 +1,8 @@
 'use client'
 
 import Link from 'next/link'
-import { Menu, ShieldCheck } from 'lucide-react'
+import Image from 'next/image'
+import { Menu } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Sheet,
@@ -15,23 +16,28 @@ import { ThemeSwitcher } from '@/components/theme-switcher'
 const navLinks = [
   { href: '/features', label: 'Features' },
   { href: '/industries', label: 'Industries' },
-  { href: '/why-imara', label: 'Why Imara' },
+  { href: '/why-kashnest', label: 'Why KashNest' },
   { href: '/resources', label: 'Resources' },
-  { href: 'mailto:hello@imara.co', label: 'Contact' },
+  { href: 'mailto:hello@kashnest.com', label: 'Contact' },
 ]
 
-function ImaraLogo() {
+function KashNestLogo() {
   return (
     <Link
       href="/"
       className="group flex items-center gap-2.5 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
     >
-      <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary text-white shadow-sm transition-transform duration-200 group-hover:scale-105">
-        <ShieldCheck className="h-[18px] w-[18px]" aria-hidden="true" />
-      </span>
+      <Image
+        src="/logo.png"
+        alt="KashNest"
+        width={36}
+        height={36}
+        className="h-9 w-9 rounded-xl shadow-sm transition-transform duration-200 group-hover:scale-105"
+        priority
+      />
       <span className="flex flex-col leading-none">
         <span className="text-[17px] font-semibold tracking-tight text-foreground">
-          Imara
+          KashNest
         </span>
         <span className="hidden text-[9px] font-semibold uppercase tracking-[0.18em] text-muted-foreground sm:block">
           Business OS
@@ -45,7 +51,7 @@ export function LandingNavbar() {
   return (
     <header className="sticky top-0 z-50 border-b border-border bg-background/90 backdrop-blur-xl">
       <div className="container-wide flex h-16 items-center justify-between">
-        <ImaraLogo />
+        <KashNestLogo />
 
         {/* Desktop nav */}
         <nav
@@ -95,7 +101,7 @@ export function LandingNavbar() {
             <SheetContent className="w-[85vw] max-w-[340px]">
               <SheetTitle className="sr-only">Navigation menu</SheetTitle>
               <div className="mb-8 pt-1">
-                <ImaraLogo />
+                <KashNestLogo />
               </div>
               <nav aria-label="Mobile navigation" className="flex flex-col gap-0.5">
                 {navLinks.map((link) => (

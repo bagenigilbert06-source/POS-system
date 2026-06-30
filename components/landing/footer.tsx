@@ -28,7 +28,7 @@ const footerLinks = {
     { label: 'Help center',   href: '#' },
     { label: 'Developer docs',     href: '#' },
     { label: 'Service status',          href: '#' },
-    { label: 'Contact', href: 'mailto:hello@imara.co' },
+    { label: 'Contact', href: 'mailto:hello@kashnest.com' },
   ],
   Resources: [
     { label: 'Blog',   href: '#' },
@@ -55,10 +55,10 @@ export function LandingFooter() {
         <div className="flex flex-col md:flex-row md:items-start md:justify-between mb-8 sm:mb-10 md:mb-12 gap-5 sm:gap-6 px-3 sm:px-0">
           <div>
             <Link href="/" className="inline-flex items-center gap-2 mb-3 sm:mb-4 group">
-              <div className="h-7 sm:h-8 w-7 sm:w-8 rounded-lg bg-primary flex items-center justify-center">
-                <Zap className="h-3.5 sm:h-4 w-3.5 sm:w-4 text-white fill-white" />
+              <div className="h-7 sm:h-8 w-7 sm:w-8 rounded-lg bg-primary flex items-center justify-center flex-shrink-0">
+                <span className="text-xs sm:text-sm font-bold text-white">K</span>
               </div>
-              <span className="text-sm sm:text-base font-bold tracking-tight">Imara</span>
+              <span className="text-sm sm:text-base font-bold tracking-tight">KashNest</span>
             </Link>
             <div className="hidden md:block">
               <Link
@@ -205,7 +205,7 @@ export function LandingFooter() {
           {/* Footer bottom bar */}
           <div className="border-t border-border pt-6 sm:pt-8 flex flex-col md:flex-row md:items-center md:justify-between gap-4 sm:gap-6">
             <p className="text-xs text-muted-foreground leading-relaxed">
-              &copy; {year} Imara Technologies Ltd. All rights reserved.
+              &copy; {year} KashNest Technologies Ltd. All rights reserved.
               <span className="mx-2 sm:mx-3 inline-block w-px h-2.5 sm:h-3 bg-border"></span>
               <Link href="#" className="hover:text-foreground transition-colors">Terms</Link>
               <span className="mx-2 sm:mx-3 inline-block w-px h-2.5 sm:h-3 bg-border"></span>

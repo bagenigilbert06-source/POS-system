@@ -18,7 +18,7 @@ const industries = [
       'M-Pesa & card payments',
       'Customer loyalty programme',
     ],
-    stat: { number: '2,100+', label: 'retail stores using Imara' },
+    stat: { number: '2,100+', label: 'retail stores using KashNest' },
   },
   {
     id: 'restaurant',
@@ -184,8 +184,8 @@ export function LandingIndustries() {
         {/* ── Footer note ────────────────────────────────────────── */}
         <p className="ind-footer-note">
           Don&apos;t see your industry?{' '}
-          <a href="mailto:hello@imara.co" className="ind-footer-link">
-            Talk to us — Imara works for any product or service business.
+          <a href="mailto:hello@kashnest.com" className="ind-footer-link">
+            Talk to us — KashNest works for any product or service business.
           </a>
         </p>
 
