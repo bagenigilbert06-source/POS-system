@@ -64,15 +64,15 @@ export function LandingNavbar() {
         </nav>
 
         {/* Desktop actions */}
-        <div className="hidden items-center gap-2 lg:flex">
+        <div className="hidden items-center gap-2.5 lg:flex">
           <ThemeSwitcher />
-          <Button asChild variant="ghost" size="sm" className="font-medium">
+          <Button asChild variant="ghost" size="sm" className="font-semibold hover:bg-secondary">
             <Link href="/sign-in">Sign In</Link>
           </Button>
           <Button
             asChild
             size="sm"
-            className="rounded-lg px-4 font-semibold shadow-sm shadow-blue-600/20"
+            className="rounded-xl px-5 font-bold shadow-md shadow-blue-600/20 hover:shadow-lg hover:shadow-blue-600/30 transition-all duration-150"
           >
             <Link href="/sign-up">Get Started</Link>
           </Button>
@@ -109,14 +109,14 @@ export function LandingNavbar() {
                   </SheetClose>
                 ))}
               </nav>
-              <div className="mt-8 grid gap-2.5 border-t border-border pt-6">
+              <div className="mt-8 grid gap-3 border-t border-border pt-6">
                 <SheetClose asChild>
-                  <Button asChild variant="outline" className="h-11 rounded-xl font-medium">
+                  <Button asChild variant="outline" className="h-12 rounded-xl font-semibold border-2">
                     <Link href="/sign-in">Sign In</Link>
                   </Button>
                 </SheetClose>
                 <SheetClose asChild>
-                  <Button asChild className="h-11 rounded-xl font-semibold">
+                  <Button asChild className="h-12 rounded-xl font-bold shadow-md shadow-blue-600/20">
                     <Link href="/sign-up">Get Started</Link>
                   </Button>
                 </SheetClose>
