@@ -1,7 +1,7 @@
 import type { WorkspaceTemplate, NavigationConfig, DashboardWidget, QuickAction, GettingStartedTask, StarterCategory, StarterProduct } from '../../types'
 import { RESTAURANT_PERMISSIONS, RESTAURANT_REPORTS, RESTAURANT_SETTINGS } from '../../_shared/defaults'
 
-const navigation: NavigationConfig = {
+export const navigation: NavigationConfig = {
   primaryNav: [
     { id: 'dashboard', label: 'Dashboard', icon: 'LayoutDashboard', route: '/dashboard/restaurant' },
     { id: 'orders', label: 'Orders', icon: 'ClipboardList', route: '/dashboard/orders' },

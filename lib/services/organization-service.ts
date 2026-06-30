@@ -53,11 +53,24 @@ export class OrganizationService {
     }
 
     try {
+      // Use ON CONFLICT DO NOTHING to avoid duplicate slug errors on re-renders.
+      // If the row already exists for this user, fetch it instead.
       await db.insert(organization).values({
         ...org,
         taxRate: '16',
-      } as any)
-      console.log('[v0] Created organization in database:', { userId, orgId, name })
+      } as any).onConflictDoNothing()
+
+      // Check if a row already exists for this user (e.g. slug conflict)
+      const existing = await db
+        .select()
+        .from(organization)
+        .where(eq(organization.userId, userId))
+        .limit(1)
+
+      if (existing[0]) {
+        userOrgCache.set(userId, existing[0])
+        return existing[0]
+      }
     } catch (err) {
       console.warn('[v0] Failed to persist organization to DB, falling back to cache:', err)
     }
@@ -198,7 +211,7 @@ export class OrganizationService {
    * Check if user can access organization
    */
   static async canUserAccess(orgId: string, userId: string): Promise<boolean> {
-    // Try database first
+    // Try database first — look up by orgId
     try {
       const result = await db
         .select()
@@ -208,13 +221,33 @@ export class OrganizationService {
 
       const org = result[0]
       if (org && org.userId === userId) {
+        // Refresh cache so subsequent requests hit the fast path
+        userOrgCache.set(userId, org)
         return true
       }
     } catch (err) {
       console.warn('[v0] Failed to query organization table in canUserAccess:', err)
     }
 
-    // Fallback to cache
+    // Fallback: query by userId (handles cases where orgId in the request is
+    // the one that was just created and cached but the cache was cleared)
+    try {
+      const byUser = await db
+        .select()
+        .from(organization)
+        .where(eq(organization.userId, userId))
+        .limit(1)
+
+      const org = byUser[0]
+      if (org && org.id === orgId) {
+        userOrgCache.set(userId, org)
+        return true
+      }
+    } catch (err) {
+      console.warn('[v0] Failed to query organization by userId in canUserAccess:', err)
+    }
+
+    // Final fallback to in-memory cache
     const cached = userOrgCache.get(userId)
     if (cached && cached.id === orgId && cached.userId === userId) {
       return true
