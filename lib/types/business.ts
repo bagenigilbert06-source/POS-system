@@ -20,6 +20,9 @@ export enum BusinessCategoryEnum {
   GIFT_SHOP = 'gift_shop',
   COSMETICS_STORE = 'cosmetics_store',
   CONVENIENCE_STORE = 'convenience_store',
+  HARDWARE_STORE = 'hardware_store',
+  PET_SHOP = 'pet_shop',
+  FURNITURE_STORE = 'furniture_store',
   OTHER_RETAIL = 'other_retail',
 
   // Restaurant
@@ -35,6 +38,7 @@ export enum BusinessCategoryEnum {
   COMMUNITY_PHARMACY = 'community_pharmacy',
   HOSPITAL_PHARMACY = 'hospital_pharmacy',
   CHEMIST = 'chemist',
+  WHOLESALE_PHARMACY = 'wholesale_pharmacy',
   OTHER_PHARMACY = 'other_pharmacy',
 }
 
@@ -155,6 +159,27 @@ export const BUSINESS_CATEGORY_CONFIG: Record<BusinessCategoryEnum, BusinessCate
     defaultFeatures: ['quick-checkout', 'barcode-scanning'],
     defaultSettings: { productCategories: ['beverages', 'snacks', 'daily-essentials'] },
   },
+  [BusinessCategoryEnum.HARDWARE_STORE]: {
+    id: BusinessCategoryEnum.HARDWARE_STORE,
+    name: 'Hardware Store',
+    type: BusinessTypeEnum.RETAIL,
+    defaultFeatures: ['barcode-scanning', 'bulk-pricing'],
+    defaultSettings: { productCategories: ['tools', 'building-materials', 'plumbing', 'electrical'] },
+  },
+  [BusinessCategoryEnum.PET_SHOP]: {
+    id: BusinessCategoryEnum.PET_SHOP,
+    name: 'Pet Shop',
+    type: BusinessTypeEnum.RETAIL,
+    defaultFeatures: ['expiry-tracking', 'barcode-scanning'],
+    defaultSettings: { productCategories: ['pet-food', 'accessories', 'grooming', 'toys'] },
+  },
+  [BusinessCategoryEnum.FURNITURE_STORE]: {
+    id: BusinessCategoryEnum.FURNITURE_STORE,
+    name: 'Furniture Store',
+    type: BusinessTypeEnum.RETAIL,
+    defaultFeatures: ['serial-numbers', 'custom-orders'],
+    defaultSettings: { productCategories: ['living-room', 'bedroom', 'office', 'outdoor'] },
+  },
   [BusinessCategoryEnum.OTHER_RETAIL]: {
     id: BusinessCategoryEnum.OTHER_RETAIL,
     name: 'Other Retail',
@@ -235,6 +260,13 @@ export const BUSINESS_CATEGORY_CONFIG: Record<BusinessCategoryEnum, BusinessCate
     type: BusinessTypeEnum.PHARMACY,
     defaultFeatures: ['prescription-management', 'expiry-tracking'],
     defaultSettings: { medicineCategories: ['prescription', 'otc'], enablePrescriptionTracking: true },
+  },
+  [BusinessCategoryEnum.WHOLESALE_PHARMACY]: {
+    id: BusinessCategoryEnum.WHOLESALE_PHARMACY,
+    name: 'Wholesale Pharmacy',
+    type: BusinessTypeEnum.PHARMACY,
+    defaultFeatures: ['bulk-pricing', 'batch-tracking', 'expiry-tracking'],
+    defaultSettings: { medicineCategories: ['bulk-medicines', 'otc', 'generics'], enableBulkPricing: true },
   },
   [BusinessCategoryEnum.OTHER_PHARMACY]: {
     id: BusinessCategoryEnum.OTHER_PHARMACY,
