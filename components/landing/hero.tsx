@@ -31,7 +31,7 @@ export function LandingHero() {
         aria-hidden="true"
         className="pointer-events-none absolute inset-0 flex items-start justify-center overflow-hidden"
       >
-        <div className="h-[320px] w-[320px] sm:h-[560px] sm:w-[900px] rounded-full bg-blue-600/[0.06] dark:bg-blue-500/[0.08]" />
+        <div className="h-[450px] w-[450px] sm:h-[560px] sm:w-[900px] rounded-full bg-blue-600/[0.06] dark:bg-blue-500/[0.08]" />
       </div>
 
       <div className="container-wide relative section-padding-premium">
