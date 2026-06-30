@@ -20,9 +20,9 @@ export function PremiumStepHeader({
   maxWidth = 'max-w-lg',
 }: PremiumStepHeaderProps) {
   return (
-    <div className={`${ONBOARDING_PRESETS.stepHeader} mb-10 md:mb-12 ${maxWidth}`}>
+    <div className={`${ONBOARDING_PRESETS.stepHeader} mb-8 md:mb-10 ${maxWidth}`}>
       {/* Step indicator */}
-      <p className={`${ONBOARDING_TOKENS.typography.stepIndicator} ${ONBOARDING_TOKENS.typography.stepIndicatorColor}`}>
+      <p className={`${ONBOARDING_TOKENS.typography.stepIndicator} ${ONBOARDING_TOKENS.typography.stepIndicatorColor} mb-2`}>
         Step {stepNumber} of {totalSteps}
       </p>
 
@@ -31,7 +31,7 @@ export function PremiumStepHeader({
 
       {/* Description */}
       {description && (
-        <p className={`${ONBOARDING_PRESETS.stepDescription} pt-2`}>{description}</p>
+        <p className={`${ONBOARDING_PRESETS.stepDescription} mt-3`}>{description}</p>
       )}
     </div>
   )

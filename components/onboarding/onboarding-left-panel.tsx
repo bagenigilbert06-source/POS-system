@@ -52,17 +52,17 @@ export function OnboardingLeftPanel({
         </div>
 
         {/* Key benefits */}
-        <div className="space-y-3 pt-2">
+        <div className="space-y-2">
           {[
             { title: benefit1, desc: 'Tailored to your business type' },
             { title: benefit2, desc: 'Just a few simple steps' },
             { title: benefit3, desc: 'Start managing immediately' },
           ].map((feature) => (
-            <div key={feature.title} className="flex items-start gap-3">
-              <span className="text-blue-300 text-sm font-semibold flex-shrink-0">✓</span>
+            <div key={feature.title} className="flex items-start gap-2">
+              <span className="text-blue-300 text-xs font-bold flex-shrink-0 mt-0.5">✓</span>
               <div>
-                <span className="text-white text-sm font-medium">{feature.title}</span>
-                <p className="text-blue-200/60 text-xs">{feature.desc}</p>
+                <span className="text-white text-xs font-medium">{feature.title}</span>
+                <p className="text-blue-200/50 text-xs">{feature.desc}</p>
               </div>
             </div>
           ))}

@@ -47,6 +47,7 @@ export const PremiumInput = React.forwardRef<HTMLInputElement, PremiumInputProps
             className={cn(
               ONBOARDING_PRESETS.premiumInput,
               Icon && 'pl-11',
+              'hover:border-primary/40',
               error && 'border-destructive focus:ring-destructive/30 focus:border-destructive',
               className
             )}

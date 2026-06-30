@@ -38,6 +38,7 @@ export function PremiumSelectionCard({
       onClick={onClick}
       className={cn(
         ONBOARDING_PRESETS.selectionCard,
+        'group',
         selected
           ? `bg-primary/8 ${ONBOARDING_TOKENS.elevation.large} shadow-primary/20 scale-[1.02]`
           : `bg-card ${ONBOARDING_TOKENS.elevation.small} ${ONBOARDING_TOKENS.states.hover.shadow} ${ONBOARDING_TOKENS.states.hover.translate}`
