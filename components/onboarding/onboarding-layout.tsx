@@ -7,8 +7,8 @@ interface OnboardingLayoutProps {
 }
 
 /**
- * Modern clean centered layout for onboarding
- * Full-width centered design with max-width constraint
+ * Premium clean centered layout for onboarding
+ * Features subtle background, centered content with generous padding
  */
 export function OnboardingLayout({
   children,
@@ -20,10 +20,16 @@ export function OnboardingLayout({
   }
 
   return (
-    <div className="flex min-h-screen bg-background">
+    <div className="flex min-h-screen flex-col bg-gradient-to-br from-background via-background to-primary/2">
+      {/* Decorative background elements */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute -top-40 -right-40 h-80 w-80 rounded-full bg-primary/5 blur-3xl" />
+        <div className="absolute -bottom-40 -left-40 h-80 w-80 rounded-full bg-primary/5 blur-3xl" />
+      </div>
+
       {/* Main content - Centered */}
-      <div className="flex flex-1 items-center justify-center relative overflow-hidden w-full p-6 md:p-8 lg:p-12">
-        <div className="w-full max-w-3xl relative z-10">
+      <div className="flex flex-1 items-center justify-center relative w-full px-4 py-8 md:px-6 md:py-12 lg:px-8 lg:py-16">
+        <div className="w-full max-w-2xl relative z-10">
           {children}
         </div>
       </div>

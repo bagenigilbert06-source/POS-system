@@ -8,12 +8,12 @@ interface OnboardingHeaderProps {
 
 export function OnboardingHeader({ title, description, centered = true }: OnboardingHeaderProps) {
   return (
-    <div className={`mb-10 ${centered ? 'text-center' : ''}`}>
-      <h2 className="text-3xl md:text-4xl font-bold text-foreground tracking-tight leading-tight">
+    <div className={`mb-12 ${centered ? 'text-center' : ''}`}>
+      <h1 className="text-4xl md:text-5xl font-bold text-foreground tracking-tight leading-tight text-balance">
         {title}
-      </h2>
+      </h1>
       {description && (
-        <p className="mt-3 text-base md:text-lg text-muted-foreground leading-relaxed">
+        <p className="mt-4 text-lg md:text-xl text-muted-foreground leading-relaxed text-balance">
           {description}
         </p>
       )}

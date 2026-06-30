@@ -16,38 +16,38 @@ export function StepIndicator({
   const progressPercentage = isComplete ? 100 : ((currentStep + 1) / totalSteps) * 100
 
   return (
-    <div className="mb-10 space-y-3">
+    <div className="mb-12 space-y-4">
       {/* Step counter + title */}
       <div className="flex items-center justify-between">
-        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-          Step {currentStep + 1} of {totalSteps}
-        </p>
-        <p className="text-xs font-medium text-muted-foreground">{stepTitle}</p>
+        <div>
+          <p className="text-xs font-semibold text-primary uppercase tracking-widest">
+            Step {currentStep + 1} of {totalSteps}
+          </p>
+          <p className="text-sm font-medium text-muted-foreground mt-1">{stepTitle}</p>
+        </div>
       </div>
 
-      {/* Progress bar */}
-      <div className="w-full bg-muted rounded-full h-1 overflow-hidden">
-        <div
-          className="bg-primary h-1 rounded-full transition-all duration-500 ease-out"
-          style={{ width: `${progressPercentage}%` }}
-        />
-      </div>
-
-      {/* Dot track */}
-      <div className="flex gap-1.5">
+      {/* Visual progress indicator */}
+      <div className="flex gap-2 pt-2">
         {Array.from({ length: totalSteps }).map((_, i) => (
           <div
             key={i}
-            className={[
-              'h-1 flex-1 rounded-full transition-all duration-300',
+            className={`h-1.5 flex-1 rounded-full transition-all duration-300 ${
               i < currentStep
                 ? 'bg-primary'
                 : i === currentStep
-                  ? 'bg-primary/60'
-                  : 'bg-muted',
-            ].join(' ')}
+                  ? 'bg-primary/50'
+                  : 'bg-border'
+            }`}
           />
         ))}
+      </div>
+
+      {/* Percentage indicator */}
+      <div className="flex justify-end">
+        <span className="text-xs font-medium text-muted-foreground">
+          {progressPercentage.toFixed(0)}% complete
+        </span>
       </div>
     </div>
   )

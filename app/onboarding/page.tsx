@@ -51,13 +51,13 @@ export default async function OnboardingPage() {
 
   return (
     <OnboardingLayout>
-      {/* Logo */}
-      <div className="mb-12">
-        <div className="flex items-center gap-2">
-          <div className="h-9 w-9 rounded-lg bg-primary flex items-center justify-center">
-            <span className="text-xs font-bold text-primary-foreground">I</span>
+      {/* Logo & Branding */}
+      <div className="mb-16 flex justify-center">
+        <div className="flex items-center gap-3 px-4 py-2 rounded-full bg-card border border-border shadow-sm-soft">
+          <div className="h-8 w-8 rounded-md bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center flex-shrink-0">
+            <span className="text-sm font-bold text-primary-foreground">I</span>
           </div>
-          <span className="text-lg font-semibold text-foreground">IMARA</span>
+          <span className="text-base font-bold tracking-tight text-foreground">IMARA</span>
         </div>
       </div>
 
