@@ -33,7 +33,7 @@ const itemVariants = {
 
 export function LandingCTA() {
   return (
-    <section className="py-16 sm:py-20 md:py-24 px-4 bg-background">
+    <section className="py-12 sm:py-16 md:py-24 px-3 sm:px-4 bg-background">
       <div className="mx-auto max-w-4xl">
         {/* Card container */}
         <motion.div
@@ -41,7 +41,7 @@ export function LandingCTA() {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.6 }}
-          className="rounded-2xl border border-primary/20 bg-white/50 dark:bg-slate-950/50 backdrop-blur-sm p-8 sm:p-10 md:p-12"
+          className="rounded-xl sm:rounded-2xl border border-primary/20 bg-white/50 dark:bg-slate-950/50 backdrop-blur-sm p-5 sm:p-8 md:p-10 lg:p-12"
         >
           <div className="text-center">
             {/* Headline */}
@@ -50,7 +50,7 @@ export function LandingCTA() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.5 }}
-              className="text-2xl sm:text-3xl md:text-4xl font-bold text-foreground tracking-tight text-balance mb-4 sm:mb-6 leading-[1.2]"
+              className="text-xl sm:text-3xl md:text-4xl font-bold text-foreground tracking-tight text-balance mb-3 sm:mb-5 md:mb-6 leading-tight px-2"
             >
               Build a stronger operating rhythm.
               <br />
@@ -63,7 +63,7 @@ export function LandingCTA() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.5, delay: 0.1 }}
-              className="text-base text-muted-foreground leading-relaxed mb-8 sm:mb-10 max-w-2xl mx-auto"
+              className="text-xs sm:text-base text-muted-foreground leading-relaxed mb-6 sm:mb-8 md:mb-10 max-w-2xl mx-auto px-2"
             >
               Replace disconnected tools with one reliable platform for sales, inventory, payments, teams and reporting.
             </motion.p>
@@ -74,15 +74,15 @@ export function LandingCTA() {
               initial="hidden"
               whileInView="visible"
               viewport={{ once: true }}
-              className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mb-10 sm:mb-12 max-w-2xl mx-auto"
+              className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 mb-6 sm:mb-10 md:mb-12 max-w-2xl mx-auto px-2"
             >
               {reasons.map((r) => (
                 <motion.div
                   key={r}
                   variants={itemVariants}
-                  className="flex items-start gap-2 text-left text-sm"
+                  className="flex items-start gap-2 text-left text-xs sm:text-sm"
                 >
-                  <CheckCircle2 className="h-5 w-5 text-primary shrink-0 mt-0.5" aria-hidden="true" />
+                  <CheckCircle2 className="h-4 sm:h-5 w-4 sm:w-5 text-primary shrink-0 mt-0.5" aria-hidden="true" />
                   <span className="text-muted-foreground">{r}</span>
                 </motion.div>
               ))}
@@ -94,18 +94,18 @@ export function LandingCTA() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.5, delay: 0.2 }}
-              className="flex flex-col sm:flex-row items-center justify-center gap-3 mb-6 sm:mb-8"
+              className="flex flex-col sm:flex-row items-center justify-center gap-2.5 sm:gap-3 mb-4 sm:mb-6 px-2"
             >
               <Link
                 href="/sign-up"
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-primary text-primary-foreground font-semibold text-base px-7 py-3 rounded-lg hover:shadow-lg hover:shadow-primary/40 transition-all duration-200 min-h-[44px] group"
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-primary text-primary-foreground font-semibold text-sm sm:text-base px-5 sm:px-7 py-2.5 sm:py-3 rounded-lg hover:shadow-lg hover:shadow-primary/40 transition-all duration-200 min-h-[44px] group"
               >
                 Start Free — No Card Required
                 <ArrowRight className="h-4 w-4 group-hover:translate-x-0.5 transition-transform" aria-hidden="true" />
               </Link>
               <Link
                 href="mailto:hello@imara.co"
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 border border-primary/40 text-foreground font-semibold text-base px-7 py-3 rounded-lg hover:border-primary/60 hover:bg-primary/5 transition-all duration-200 min-h-[44px]"
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 border border-primary/40 text-foreground font-semibold text-sm sm:text-base px-5 sm:px-7 py-2.5 sm:py-3 rounded-lg hover:border-primary/60 hover:bg-primary/5 transition-all duration-200 min-h-[44px]"
               >
                 Schedule a Demo
               </Link>
@@ -117,7 +117,7 @@ export function LandingCTA() {
               whileInView={{ opacity: 1 }}
               viewport={{ once: true }}
               transition={{ duration: 0.5, delay: 0.3 }}
-              className="text-xs text-muted-foreground"
+              className="text-[10px] sm:text-xs text-muted-foreground"
             >
               30-day free trial · No credit card · Full access · Cancel anytime
             </motion.p>
