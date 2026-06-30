@@ -5,7 +5,7 @@ import { OrganizationService } from '@/lib/services/organization-service'
 import { WorkspaceService } from '@/lib/services/workspace-service'
 import { DashboardLayoutClient } from '@/components/layout/dashboard-layout-client'
 
-export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
+export default async function DashboardRouteLayout({ children }: { children: React.ReactNode }) {
   const session = await auth.api.getSession({ headers: await headers() })
   if (!session?.user) redirect('/sign-in')
 
