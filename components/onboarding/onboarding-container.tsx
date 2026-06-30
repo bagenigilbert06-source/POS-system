@@ -249,21 +249,15 @@ export function OnboardingContainer({
   return (
     <div className="w-full">
       {/* Page-level heading */}
-      <div className="mb-10">
-        <p
-          className="text-[11px] font-bold uppercase tracking-[0.14em] mb-2"
-          style={{ color: '#1a56db' }}
-        >
-          Getting started
-        </p>
+      <div className="mb-8 pb-8 border-b border-gray-100">
         <h1
-          className="text-[30px] font-bold tracking-tight leading-tight"
+          className="text-[24px] font-bold tracking-tight leading-tight"
           style={{ color: '#0f172a' }}
         >
           Set up your workspace
         </h1>
-        <p className="text-[14px] mt-1.5" style={{ color: '#64748b' }}>
-          Takes about 2 minutes — you can change everything later.
+        <p className="text-[13px] mt-1" style={{ color: '#94a3b8' }}>
+          Takes about 2 minutes &mdash; you can change everything later.
         </p>
       </div>
 
