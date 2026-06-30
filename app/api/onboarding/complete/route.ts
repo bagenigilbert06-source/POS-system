@@ -75,15 +75,13 @@ export async function POST(req: NextRequest) {
       console.warn('[onboarding/complete] Starter data seeding partially failed — continuing')
     }
 
-    // ── 5. Mark onboarding complete, persist all fields + templateId ──────────
+    // ── 5. Mark onboarding complete, persist all fields ─────────────────────
     let updatedOrg
     try {
       updatedOrg = await OrganizationService.updateOrganization(organizationId, session.user.id, {
         name: onboardingData.businessName,
         businessType,
         businessCategory,
-        // templateId is the dot-namespaced id resolved by the template registry
-        templateId: workspaceConfig.templateId,
         businessEmail: onboardingData.businessEmail,
         phone: onboardingData.phone,
         country: onboardingData.country,

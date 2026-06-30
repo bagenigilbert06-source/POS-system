@@ -75,13 +75,6 @@ export const organization = pgTable('organization', {
   businessSize: text('businessSize'), // solo, small, medium, large
   businessDescription: text('businessDescription'),
   phone: text('phone'),
-  /**
-   * Dot-namespaced template identifier, e.g. "retail.supermarket".
-   * Resolved from businessCategory during onboarding and stored so
-   * the dashboard can load the correct WorkspaceTemplate without any
-   * if/else chains.
-   */
-  templateId: text('templateId'),
   
   createdAt: timestamp('createdAt').notNull().defaultNow(),
   updatedAt: timestamp('updatedAt').notNull().defaultNow(),
