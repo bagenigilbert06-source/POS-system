@@ -1,7 +1,7 @@
 'use client'
 
 import { ShoppingCart, UtensilsCrossed, Pill } from 'lucide-react'
-import { BUSINESS_TYPES } from '@/lib/types'
+import { BUSINESS_TYPES, BusinessTypeEnum } from '@/lib/types'
 import { PremiumStepHeader } from './premium-step-header'
 import { PremiumSelectionCard } from './premium-selection-card'
 
@@ -18,6 +18,12 @@ const iconMap: Record<string, React.ComponentType<any>> = {
   Pill,
 }
 
+// Most popular business types get the "Recommended" badge
+const recommendedTypes = new Set([
+  BusinessTypeEnum.RETAIL,
+  BusinessTypeEnum.RESTAURANT,
+])
+
 export function StepBusinessType({
   value,
   onChange,
@@ -25,7 +31,7 @@ export function StepBusinessType({
   totalSteps = 7,
 }: StepBusinessTypeProps) {
   return (
-    <div className="space-y-12">
+    <div className="space-y-10">
       {/* Premium step header */}
       <PremiumStepHeader
         stepNumber={stepNumber}
@@ -34,8 +40,8 @@ export function StepBusinessType({
         description="Choose your business model to unlock tailored features and workflows designed for your success."
       />
 
-      {/* Selection cards with improved spacing */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
+      {/* Selection cards - clean grid with better spacing */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
         {BUSINESS_TYPES.map((type) => {
           const Icon = iconMap[type.icon] || ShoppingCart
           const examples = type.examples || []
@@ -49,6 +55,7 @@ export function StepBusinessType({
               examples={examples}
               selected={value === type.id}
               onClick={() => onChange(type.id)}
+              recommended={recommendedTypes.has(type.id as BusinessTypeEnum)}
             />
           )
         })}
