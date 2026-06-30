@@ -10,7 +10,7 @@ const industries = [
     id: 'retail',
     name: 'Retail & Supermarkets',
     subtitle: 'From corner shops to multi-aisle supermarkets',
-    img: 'https://images.unsplash.com/photo-1534723452862-4c874018d66d?w=900&q=80&auto=format&fit=crop',
+    img: '/images/industries/retail.png',
     features: [
       'Barcode scanning & receipt printing',
       'Bulk product import via spreadsheet',
@@ -24,7 +24,7 @@ const industries = [
     id: 'restaurant',
     name: 'Restaurants & Cafes',
     subtitle: 'Table service, takeaway & delivery',
-    img: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=900&q=80&auto=format&fit=crop',
+    img: '/images/industries/restaurant.png',
     features: [
       'Table & order management',
       'Kitchen display system',
@@ -38,7 +38,7 @@ const industries = [
     id: 'salon',
     name: 'Salons & Beauty',
     subtitle: 'Hair, nails, spa & wellness services',
-    img: 'https://images.unsplash.com/photo-1560066984-138dadb4c035?w=900&q=80&auto=format&fit=crop',
+    img: '/images/industries/salon.png',
     features: [
       'Appointment booking & calendar',
       'Stylist performance tracking',
@@ -52,7 +52,7 @@ const industries = [
     id: 'pharmacy',
     name: 'Pharmacies',
     subtitle: 'Retail clinics, drugstores & dispensaries',
-    img: 'https://images.unsplash.com/photo-1585435557343-3b092031a831?w=900&q=80&auto=format&fit=crop',
+    img: '/images/industries/pharmacy.png',
     features: [
       'Expiry date tracking & alerts',
       'Prescription & patient records',
@@ -66,7 +66,7 @@ const industries = [
     id: 'hardware',
     name: 'Hardware Stores',
     subtitle: 'Tools, building materials & supplies',
-    img: 'https://images.unsplash.com/photo-1581783898377-1c85bf937427?w=900&q=80&auto=format&fit=crop',
+    img: '/images/industries/hardware.png',
     features: [
       'Bulk & per-unit sales',
       'Customer credit accounts',
@@ -80,7 +80,7 @@ const industries = [
     id: 'wholesale',
     name: 'Wholesale & Distribution',
     subtitle: 'Bulk goods, depots & national delivery',
-    img: 'https://images.unsplash.com/photo-1553413077-190dd305871c?w=900&q=80&auto=format&fit=crop',
+    img: '/images/industries/wholesale.png',
     features: [
       'Tiered pricing by customer',
       'Delivery & route management',
@@ -142,7 +142,6 @@ export function LandingIndustries() {
               sizes="(max-width: 900px) 100vw, 50vw"
               className="ind-img"
               priority
-              unoptimized
             />
             {/* Gradient at bottom for badge legibility */}
             <div className="ind-img-gradient" aria-hidden="true" />
