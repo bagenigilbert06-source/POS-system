@@ -77,505 +77,84 @@ const testimonials = [
   },
 ]
 
-const row1 = testimonials.slice(0, 4)
-const row2 = testimonials.slice(4)
-
-function Stars() {
-  return (
-    <div className="t-stars" aria-label="5 stars">
-      {Array.from({ length: 5 }).map((_, i) => (
-        <svg key={i} width="13" height="13" viewBox="0 0 20 20" aria-hidden="true">
-          <path fill="#f59e0b" d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
-        </svg>
-      ))}
-    </div>
-  )
-}
-
-function Avatar({ src, name, initials, color }: { src: string; name: string; initials: string; color: string }) {
-  return (
-    <div className="t-avatar" style={{ background: color }}>
-      <Image
-        src={src}
-        alt={name}
-        fill
-        className="t-avatar-img"
-        sizes="40px"
-        onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
-      />
-      <span className="t-avatar-fallback">{initials}</span>
-    </div>
-  )
-}
-
-function Card({ t }: { t: typeof testimonials[0] }) {
-  return (
-    <article className="t-card" aria-label={`Testimonial from ${t.name}`}>
-      <Stars />
-      <blockquote className="t-quote">&quot;{t.quote}&quot;</blockquote>
-      <footer className="t-footer">
-        <div className="t-avatar-wrap">
-          <Avatar src={t.avatar} name={t.name} initials={t.initials} color={t.color} />
-        </div>
-        <div className="t-meta">
-          <p className="t-name">{t.name}</p>
-          <p className="t-role">{t.role} &mdash; {t.business}</p>
-        </div>
-      </footer>
-    </article>
-  )
-}
-
-function MarqueeRow({ items, reverse = false }: { items: typeof testimonials; reverse?: boolean }) {
-  const doubled = [...items, ...items]
-  return (
-    <div className="t-row-wrap">
-      <div
-        className="t-row"
-        style={{ animationName: reverse ? 't-scroll-reverse' : 't-scroll', willChange: 'transform' }}
-      >
-        {doubled.map((t, i) => (
-          <Card key={`${t.name}-${i}`} t={t} />
-        ))}
-      </div>
-    </div>
-  )
-}
 
 export function LandingTestimonials() {
   return (
-    <section className="t-section">
-
-      {/* Header */}
-      <div className="t-header">
-        <span className="t-eyebrow">Customer Stories</span>
-        <h2 className="t-headline">Real businesses. Real results.</h2>
-        <p className="t-sub">
-          From corner shops in Thika to multi-branch pharmacies in Mombasa —
-          thousands of Kenyan businesses trust Imara every day.
-        </p>
-      </div>
-
-      {/* Marquee rows */}
-      <div className="t-marquee-area">
-        <div className="t-fade t-fade-left"  aria-hidden="true" />
-        <div className="t-fade t-fade-right" aria-hidden="true" />
-        <div className="t-rows">
-          <MarqueeRow items={row1} />
-          <MarqueeRow items={row2} reverse />
+    <section className="py-16 sm:py-20 md:py-24 px-4 bg-background">
+      <div className="mx-auto max-w-6xl">
+        {/* Header */}
+        <div className="text-center mb-12 sm:mb-16">
+          <p className="text-xs sm:text-sm font-bold uppercase tracking-widest text-primary mb-3">Customer Stories</p>
+          <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold text-foreground mb-4 leading-tight">
+            Real businesses. Real results.
+          </h2>
+          <p className="text-base text-muted-foreground max-w-2xl mx-auto">
+            From corner shops in Thika to multi-branch pharmacies in Mombasa — thousands of Kenyan businesses trust Imara every day.
+          </p>
         </div>
-      </div>
 
-      {/* Rating footer */}
-      <div className="t-rating">
-        <div className="t-rating-stars">
-          {Array.from({ length: 5 }).map((_, i) => (
-            <svg key={i} width="18" height="18" viewBox="0 0 20 20" aria-hidden="true">
-              <path fill="#f59e0b" d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
-            </svg>
+        {/* Testimonials Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8 mb-12 sm:mb-16">
+          {testimonials.map((t, i) => (
+            <div
+              key={i}
+              className="rounded-xl border border-border bg-white/50 dark:bg-slate-950/50 backdrop-blur-sm p-6 hover:border-primary/30 hover:bg-white/70 dark:hover:bg-slate-950/70 transition-all duration-300 flex flex-col"
+            >
+              {/* Stars */}
+              <div className="flex gap-1 mb-4">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <svg key={i} width="16" height="16" viewBox="0 0 20 20" className="text-amber-400">
+                    <path fill="currentColor" d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+                  </svg>
+                ))}
+              </div>
+
+              {/* Quote */}
+              <p className="text-sm text-foreground leading-relaxed mb-6 flex-1">
+                &quot;{t.quote}&quot;
+              </p>
+
+              {/* Footer */}
+              <div className="pt-4 border-t border-border flex items-center gap-3">
+                <div
+                  className="h-10 w-10 rounded-full flex items-center justify-center flex-shrink-0"
+                  style={{ background: t.color }}
+                >
+                  <Image
+                    src={t.avatar}
+                    alt={t.name}
+                    width={40}
+                    height={40}
+                    className="rounded-full w-full h-full object-cover"
+                    onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
+                  />
+                  <span className="text-white font-bold text-xs" style={{ display: 'none' }}>
+                    {t.initials}
+                  </span>
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-foreground truncate">{t.name}</p>
+                  <p className="text-xs text-muted-foreground truncate">{t.role} — {t.business}</p>
+                </div>
+              </div>
+            </div>
           ))}
         </div>
-        <p className="t-rating-text">
-          <strong>4.9 out of 5</strong> &mdash; rated by 5,000+ businesses across Kenya
-        </p>
+
+        {/* Rating footer */}
+        <div className="text-center border-t border-border pt-8 sm:pt-12">
+          <div className="flex justify-center gap-1 mb-3">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <svg key={i} width="20" height="20" viewBox="0 0 20 20" className="text-amber-400">
+                <path fill="currentColor" d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+              </svg>
+            ))}
+          </div>
+          <p className="text-sm text-muted-foreground">
+            <strong className="text-foreground">4.9 out of 5</strong> — rated by 5,000+ businesses across Kenya
+          </p>
+        </div>
       </div>
-
-      <style>{`
-        /* ── Section ───────────────────────────────────────────── */
-        .t-section {
-          width: 100%;
-          background: hsl(var(--secondary));
-          border-top: 1px solid hsl(var(--border));
-          border-bottom: 1px solid hsl(var(--border));
-          padding: 48px 0;
-          overflow: hidden;
-          box-sizing: border-box;
-        }
-
-        @media (min-width: 640px) {
-          .t-section {
-            padding: 64px 0;
-          }
-        }
-
-        @media (min-width: 1024px) {
-          .t-section {
-            padding: 96px 0;
-          }
-        }
-
-        /* ── Header ────────────────────────────────────────────── */
-        .t-header {
-          text-align: center;
-          max-width: 560px;
-          margin: 0 auto 32px;
-          padding: 0 16px;
-        }
-
-        @media (min-width: 640px) {
-          .t-header {
-            margin-bottom: 40px;
-            padding: 0 24px;
-          }
-        }
-
-        @media (min-width: 1024px) {
-          .t-header {
-            margin-bottom: 56px;
-          }
-        }
-
-        .t-eyebrow {
-          display: inline-block;
-          font-size: 10px;
-          font-weight: 700;
-          letter-spacing: 0.1em;
-          text-transform: uppercase;
-          color: hsl(var(--primary));
-          margin-bottom: 8px;
-        }
-
-        @media (min-width: 640px) {
-          .t-eyebrow {
-            font-size: 11px;
-            margin-bottom: 12px;
-          }
-        }
-
-        .t-headline {
-          margin: 0 0 8px;
-          font-size: clamp(1.3rem, 4vw, 2.2rem);
-          font-weight: 750;
-          color: hsl(var(--foreground));
-          letter-spacing: -0.03em;
-          line-height: 1.15;
-        }
-
-        @media (min-width: 640px) {
-          .t-headline {
-            margin-bottom: 14px;
-          }
-        }
-
-        .t-sub {
-          margin: 0;
-          font-size: 0.8125rem;
-          color: hsl(var(--muted-foreground));
-          line-height: 1.6;
-        }
-
-        @media (min-width: 640px) {
-          .t-sub {
-            font-size: 0.9375rem;
-            line-height: 1.65;
-          }
-        }
-
-        /* ── Marquee area ──────────────────────────────────────── */
-        .t-marquee-area {
-          position: relative;
-        }
-
-        .t-fade {
-          pointer-events: none;
-          position: absolute;
-          inset-block: 0;
-          z-index: 10;
-          width: 96px;
-        }
-        .t-fade-left  { left: 0;  background: linear-gradient(to right, hsl(var(--secondary)) 30%, transparent); }
-        .t-fade-right { right: 0; background: linear-gradient(to left,  hsl(var(--secondary)) 30%, transparent); }
-
-        .t-rows {
-          display: flex;
-          flex-direction: column;
-          gap: 12px;
-        }
-
-        @media (min-width: 640px) {
-          .t-rows {
-            gap: 16px;
-          }
-        }
-
-        /* ── Marquee row ───────────────────────────────────────── */
-        .t-row-wrap {
-          overflow: hidden;
-        }
-
-        .t-row {
-          display: flex;
-          gap: 12px;
-          width: max-content;
-          animation-duration: 38s;
-          animation-timing-function: linear;
-          animation-iteration-count: infinite;
-          pointer-events: none;
-          user-select: none;
-        }
-
-        @media (min-width: 640px) {
-          .t-row {
-            gap: 16px;
-          }
-        }
-
-        @keyframes t-scroll         { from { transform: translateX(0); } to { transform: translateX(-50%); } }
-        @keyframes t-scroll-reverse { from { transform: translateX(-50%); } to { transform: translateX(0); } }
-
-        @media (prefers-reduced-motion: reduce) {
-          .t-row { animation: none !important; }
-        }
-
-        /* ── Card ──────────────────────────────────────────────── */
-        .t-card {
-          width: 280px;
-          flex-shrink: 0;
-          background: hsl(var(--card));
-          border: 1px solid hsl(var(--border));
-          border-radius: 12px;
-          padding: 18px;
-          display: flex;
-          flex-direction: column;
-          gap: 12px;
-          box-shadow:
-            0 1px 2px rgba(0,0,0,0.04),
-            0 4px 12px rgba(0,0,0,0.04);
-          box-sizing: border-box;
-        }
-
-        @media (min-width: 640px) {
-          .t-card {
-            width: 320px;
-            border-radius: 14px;
-            padding: 20px;
-            gap: 13px;
-          }
-        }
-
-        @media (min-width: 1024px) {
-          .t-card {
-            width: 340px;
-            border-radius: 16px;
-            padding: 24px;
-            gap: 14px;
-          }
-        }
-
-        /* ── Stars ─────────────────────────────────────────────── */
-        .t-stars {
-          display: flex;
-          gap: 2px;
-        }
-
-        /* ── Quote ─────────────────────────────────────────────── */
-        .t-quote {
-          margin: 0;
-          font-size: 0.75rem;
-          color: hsl(var(--foreground));
-          line-height: 1.6;
-          font-style: normal;
-          flex: 1;
-        }
-
-        @media (min-width: 640px) {
-          .t-quote {
-            font-size: 0.8125rem;
-            line-height: 1.65;
-          }
-        }
-
-        @media (min-width: 1024px) {
-          .t-quote {
-            font-size: 0.875rem;
-            line-height: 1.7;
-          }
-        }
-
-        /* ── Footer ────────────────────────────────────────────── */
-        .t-footer {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          padding-top: 12px;
-          border-top: 1px solid hsl(var(--border));
-          margin-top: auto;
-        }
-
-        @media (min-width: 640px) {
-          .t-footer {
-            gap: 12px;
-            padding-top: 14px;
-          }
-        }
-
-        @media (min-width: 1024px) {
-          .t-footer {
-            gap: 12px;
-            padding-top: 16px;
-          }
-        }
-
-        /* ── Avatar ────────────────────────────────────────────── */
-        .t-avatar-wrap {
-          flex-shrink: 0;
-        }
-
-        .t-avatar {
-          position: relative;
-          width: 36px;
-          height: 36px;
-          border-radius: 50%;
-          overflow: hidden;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        }
-
-        @media (min-width: 640px) {
-          .t-avatar {
-            width: 38px;
-            height: 38px;
-          }
-        }
-
-        @media (min-width: 1024px) {
-          .t-avatar {
-            width: 40px;
-            height: 40px;
-          }
-        }
-
-        .t-avatar-img {
-          object-fit: cover;
-        }
-
-        .t-avatar-fallback {
-          position: absolute;
-          inset: 0;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-size: 12px;
-          font-weight: 700;
-          color: #fff;
-          letter-spacing: 0.02em;
-          z-index: 0;
-        }
-
-        @media (min-width: 1024px) {
-          .t-avatar-fallback {
-            font-size: 13px;
-          }
-        }
-
-        /* ── Meta ──────────────────────────────────────────────── */
-        .t-meta {
-          min-width: 0;
-        }
-
-        .t-name {
-          margin: 0 0 1px;
-          font-size: 0.75rem;
-          font-weight: 700;
-          color: hsl(var(--foreground));
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-        }
-
-        @media (min-width: 640px) {
-          .t-name {
-            font-size: 0.8rem;
-            margin-bottom: 2px;
-          }
-        }
-
-        @media (min-width: 1024px) {
-          .t-name {
-            font-size: 0.8125rem;
-          }
-        }
-
-        .t-role {
-          margin: 0;
-          font-size: 0.625rem;
-          color: hsl(var(--muted-foreground));
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-        }
-
-        @media (min-width: 640px) {
-          .t-role {
-            font-size: 0.65rem;
-          }
-        }
-
-        @media (min-width: 1024px) {
-          .t-role {
-            font-size: 0.6875rem;
-          }
-        }
-
-        /* ── Rating footer ─────────────────────────────────────── */
-        .t-rating {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          gap: 6px;
-          margin-top: 32px;
-          padding: 0 16px;
-        }
-
-        @media (min-width: 640px) {
-          .t-rating {
-            margin-top: 40px;
-            padding: 0 24px;
-          }
-        }
-
-        @media (min-width: 1024px) {
-          .t-rating {
-            margin-top: 52px;
-          }
-        }
-
-        .t-rating-stars {
-          display: flex;
-          gap: 2px;
-        }
-
-        @media (min-width: 640px) {
-          .t-rating-stars {
-            gap: 3px;
-          }
-        }
-
-        .t-rating-text {
-          margin: 0;
-          font-size: 0.75rem;
-          color: #64748b;
-          text-align: center;
-        }
-
-        @media (min-width: 640px) {
-          .t-rating-text {
-            font-size: 0.8125rem;
-          }
-        }
-
-        @media (min-width: 1024px) {
-          .t-rating-text {
-            font-size: 0.875rem;
-          }
-        }
-
-        .t-rating-text strong {
-          color: #0f172a;
-          font-weight: 700;
-        }
-      `}</style>
     </section>
   )
 }
