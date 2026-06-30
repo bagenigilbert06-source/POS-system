@@ -50,20 +50,20 @@ export function LandingFooter() {
 
   return (
     <footer className="border-t border-border bg-background">
-      <div className="container-wide py-20">
+      <div className="container-wide py-12 sm:py-16 md:py-20">
         {/* Top section with logo and CTA */}
-        <div className="flex flex-col md:flex-row md:items-start md:justify-between mb-16 gap-8">
+        <div className="flex flex-col md:flex-row md:items-start md:justify-between mb-12 sm:mb-14 md:mb-16 gap-6 sm:gap-8 px-2 sm:px-0">
           <div>
-            <Link href="/" className="inline-flex items-center gap-2 mb-6 group">
-              <div className="h-9 w-9 rounded-lg bg-primary flex items-center justify-center">
-                <Zap className="h-5 w-5 text-white fill-white" />
+            <Link href="/" className="inline-flex items-center gap-2 mb-4 sm:mb-6 group">
+              <div className="h-8 sm:h-9 w-8 sm:w-9 rounded-lg bg-primary flex items-center justify-center">
+                <Zap className="h-4 sm:h-5 w-4 sm:w-5 text-white fill-white" />
               </div>
-              <span className="text-lg font-bold tracking-tight">Imara</span>
+              <span className="text-base sm:text-lg font-bold tracking-tight">Imara</span>
             </Link>
             <div className="hidden md:block">
               <Link
                 href="/sign-up"
-                className="inline-flex items-center gap-2 text-primary font-semibold hover:opacity-80 transition-opacity"
+                className="inline-flex items-center gap-2 text-primary font-semibold hover:opacity-80 transition-opacity text-sm"
               >
                 Start for free →
               </Link>
@@ -74,7 +74,7 @@ export function LandingFooter() {
           <div className="md:hidden">
             <Link
               href="/sign-up"
-              className="inline-block mb-6 px-6 py-2.5 bg-primary text-primary-foreground font-semibold rounded-lg hover:opacity-90 transition-opacity"
+              className="inline-block mb-6 px-5 sm:px-6 py-2 sm:py-2.5 bg-primary text-primary-foreground font-semibold rounded-lg hover:opacity-90 transition-opacity text-sm min-h-[40px] flex items-center"
             >
               Start for free
             </Link>
@@ -82,16 +82,16 @@ export function LandingFooter() {
         </div>
 
         {/* Main grid */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-8 md:gap-12 mb-16">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6 sm:gap-8 md:gap-12 mb-12 sm:mb-14 md:mb-16 px-2 sm:px-0">
           {/* Product column */}
           <div>
-            <h3 className="text-sm font-semibold text-foreground mb-6 uppercase tracking-wider">Product</h3>
-            <ul className="space-y-4">
+            <h3 className="text-xs sm:text-sm font-semibold text-foreground mb-4 sm:mb-6 uppercase tracking-wider">Product</h3>
+            <ul className="space-y-3 sm:space-y-4">
               {footerLinks.Product.map((item) => (
                 <li key={item.label}>
                   <Link
                     href={item.href}
-                    className="text-sm text-muted-foreground hover:text-foreground transition-colors duration-150"
+                    className="text-xs sm:text-sm text-muted-foreground hover:text-foreground transition-colors duration-150"
                   >
                     {item.label}
                   </Link>
@@ -102,13 +102,13 @@ export function LandingFooter() {
 
           {/* Integrations column */}
           <div>
-            <h3 className="text-sm font-semibold text-foreground mb-6 uppercase tracking-wider">Integrations</h3>
-            <ul className="space-y-4">
+            <h3 className="text-xs sm:text-sm font-semibold text-foreground mb-4 sm:mb-6 uppercase tracking-wider">Integrations</h3>
+            <ul className="space-y-3 sm:space-y-4">
               {footerLinks.Integrations.map((item) => (
                 <li key={item.label}>
                   <Link
                     href={item.href}
-                    className="text-sm text-muted-foreground hover:text-foreground transition-colors duration-150"
+                    className="text-xs sm:text-sm text-muted-foreground hover:text-foreground transition-colors duration-150"
                   >
                     {item.label}
                   </Link>
@@ -119,13 +119,13 @@ export function LandingFooter() {
 
           {/* Company column */}
           <div>
-            <h3 className="text-sm font-semibold text-foreground mb-6 uppercase tracking-wider">Company</h3>
-            <ul className="space-y-4">
+            <h3 className="text-xs sm:text-sm font-semibold text-foreground mb-4 sm:mb-6 uppercase tracking-wider">Company</h3>
+            <ul className="space-y-3 sm:space-y-4">
               {footerLinks.Company.map((item) => (
                 <li key={item.label}>
                   <Link
                     href={item.href}
-                    className="text-sm text-muted-foreground hover:text-foreground transition-colors duration-150"
+                    className="text-xs sm:text-sm text-muted-foreground hover:text-foreground transition-colors duration-150"
                   >
                     {item.label}
                   </Link>
@@ -136,16 +136,16 @@ export function LandingFooter() {
 
           {/* Find us on - Social Media */}
           <div className="col-span-2 md:col-span-1">
-            <h3 className="text-sm font-semibold text-foreground mb-6 uppercase tracking-wider">Find us on</h3>
-            <div className="flex gap-3 mb-8">
+            <h3 className="text-xs sm:text-sm font-semibold text-foreground mb-4 sm:mb-6 uppercase tracking-wider">Find us on</h3>
+            <div className="flex gap-2 sm:gap-3 mb-6 sm:mb-8">
               {socialLinks.map(({ icon: Icon, href, label }) => (
                 <Link
                   key={label}
                   href={href}
-                  className="h-10 w-10 rounded-lg bg-primary text-primary-foreground flex items-center justify-center hover:opacity-80 transition-opacity"
+                  className="h-9 sm:h-10 w-9 sm:w-10 rounded-lg bg-primary text-primary-foreground flex items-center justify-center hover:opacity-80 transition-opacity"
                   aria-label={label}
                 >
-                  <Icon className="h-5 w-5" />
+                  <Icon className="h-4 sm:h-5 w-4 sm:w-5" />
                 </Link>
               ))}
             </div>
@@ -153,13 +153,13 @@ export function LandingFooter() {
 
           {/* Support section */}
           <div className="col-span-2 md:col-span-1">
-            <h3 className="text-sm font-semibold text-foreground mb-6 uppercase tracking-wider">Support</h3>
-            <ul className="space-y-4 mb-8">
+            <h3 className="text-xs sm:text-sm font-semibold text-foreground mb-4 sm:mb-6 uppercase tracking-wider">Support</h3>
+            <ul className="space-y-3 sm:space-y-4 mb-6 sm:mb-8">
               {footerLinks.Support.map((item) => (
                 <li key={item.label}>
                   <Link
                     href={item.href}
-                    className="text-sm text-muted-foreground hover:text-foreground transition-colors duration-150"
+                    className="text-xs sm:text-sm text-muted-foreground hover:text-foreground transition-colors duration-150"
                   >
                     {item.label}
                   </Link>
@@ -170,17 +170,17 @@ export function LandingFooter() {
         </div>
 
         {/* Bottom Section - Resources and Footer Info */}
-        <div className="border-t border-border pt-12">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 md:gap-12 mb-12">
+        <div className="border-t border-border pt-8 sm:pt-10 md:pt-12 px-2 sm:px-0">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 sm:gap-8 md:gap-12 mb-8 sm:mb-10 md:mb-12">
             {/* Resources column */}
             <div className="col-span-2 md:col-span-1">
-              <h3 className="text-sm font-semibold text-foreground mb-6 uppercase tracking-wider">Resources</h3>
-              <ul className="space-y-4">
+              <h3 className="text-xs sm:text-sm font-semibold text-foreground mb-4 sm:mb-6 uppercase tracking-wider">Resources</h3>
+              <ul className="space-y-3 sm:space-y-4">
                 {footerLinks.Resources.map((item) => (
                   <li key={item.label}>
                     <Link
                       href={item.href}
-                      className="text-sm text-muted-foreground hover:text-foreground transition-colors duration-150"
+                      className="text-xs sm:text-sm text-muted-foreground hover:text-foreground transition-colors duration-150"
                     >
                       {item.label}
                     </Link>
@@ -190,27 +190,27 @@ export function LandingFooter() {
             </div>
 
             {/* Spacer for grid alignment */}
-            <div></div>
-            <div></div>
+            <div className="hidden md:block"></div>
+            <div className="hidden md:block"></div>
 
             {/* Language selector and bottom info */}
             <div className="col-span-2 md:col-span-1 flex md:flex-col items-end md:items-start justify-between md:justify-start gap-4">
               <div className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors cursor-pointer">
-                <Globe className="h-4 w-4" />
-                <span className="text-sm">English</span>
+                <Globe className="h-3.5 sm:h-4 w-3.5 sm:w-4" />
+                <span className="text-xs sm:text-sm">English</span>
               </div>
             </div>
           </div>
 
           {/* Footer bottom bar */}
-          <div className="border-t border-border pt-8 flex flex-col md:flex-row md:items-center md:justify-between gap-6">
-            <p className="text-xs text-muted-foreground">
+          <div className="border-t border-border pt-6 sm:pt-8 flex flex-col md:flex-row md:items-center md:justify-between gap-4 sm:gap-6">
+            <p className="text-xs text-muted-foreground leading-relaxed">
               &copy; {year} Imara Technologies Ltd. All rights reserved.
-              <span className="mx-3 inline-block w-px h-3 bg-border"></span>
+              <span className="mx-2 sm:mx-3 inline-block w-px h-2.5 sm:h-3 bg-border"></span>
               <Link href="#" className="hover:text-foreground transition-colors">Terms</Link>
-              <span className="mx-3 inline-block w-px h-3 bg-border"></span>
+              <span className="mx-2 sm:mx-3 inline-block w-px h-2.5 sm:h-3 bg-border"></span>
               <Link href="#" className="hover:text-foreground transition-colors">Privacy</Link>
-              <span className="mx-3 inline-block w-px h-3 bg-border"></span>
+              <span className="mx-2 sm:mx-3 inline-block w-px h-2.5 sm:h-3 bg-border"></span>
               <Link href="#" className="hover:text-foreground transition-colors">Cookies</Link>
             </p>
           </div>

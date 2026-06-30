@@ -187,43 +187,88 @@ export function LandingTestimonials() {
           background: hsl(var(--secondary));
           border-top: 1px solid hsl(var(--border));
           border-bottom: 1px solid hsl(var(--border));
-          padding: 96px 0;
+          padding: 48px 0;
           overflow: hidden;
           box-sizing: border-box;
+        }
+
+        @media (min-width: 640px) {
+          .t-section {
+            padding: 64px 0;
+          }
+        }
+
+        @media (min-width: 1024px) {
+          .t-section {
+            padding: 96px 0;
+          }
         }
 
         /* ── Header ────────────────────────────────────────────── */
         .t-header {
           text-align: center;
           max-width: 560px;
-          margin: 0 auto 56px;
-          padding: 0 24px;
+          margin: 0 auto 32px;
+          padding: 0 16px;
+        }
+
+        @media (min-width: 640px) {
+          .t-header {
+            margin-bottom: 40px;
+            padding: 0 24px;
+          }
+        }
+
+        @media (min-width: 1024px) {
+          .t-header {
+            margin-bottom: 56px;
+          }
         }
 
         .t-eyebrow {
           display: inline-block;
-          font-size: 11px;
+          font-size: 10px;
           font-weight: 700;
           letter-spacing: 0.1em;
           text-transform: uppercase;
           color: hsl(var(--primary));
-          margin-bottom: 12px;
+          margin-bottom: 8px;
+        }
+
+        @media (min-width: 640px) {
+          .t-eyebrow {
+            font-size: 11px;
+            margin-bottom: 12px;
+          }
         }
 
         .t-headline {
-          margin: 0 0 14px;
-          font-size: clamp(1.6rem, 3.5vw, 2.2rem);
+          margin: 0 0 8px;
+          font-size: clamp(1.3rem, 4vw, 2.2rem);
           font-weight: 750;
           color: hsl(var(--foreground));
           letter-spacing: -0.03em;
           line-height: 1.15;
         }
 
+        @media (min-width: 640px) {
+          .t-headline {
+            margin-bottom: 14px;
+          }
+        }
+
         .t-sub {
           margin: 0;
-          font-size: 0.9375rem;
+          font-size: 0.8125rem;
           color: hsl(var(--muted-foreground));
-          line-height: 1.65;
+          line-height: 1.6;
+        }
+
+        @media (min-width: 640px) {
+          .t-sub {
+            font-size: 0.9375rem;
+            line-height: 1.65;
+          }
         }
 
         /* ── Marquee area ──────────────────────────────────────── */
@@ -244,7 +289,13 @@ export function LandingTestimonials() {
         .t-rows {
           display: flex;
           flex-direction: column;
-          gap: 16px;
+          gap: 12px;
+        }
+
+        @media (min-width: 640px) {
+          .t-rows {
+            gap: 16px;
+          }
         }
 
         /* ── Marquee row ───────────────────────────────────────── */
@@ -254,13 +305,19 @@ export function LandingTestimonials() {
 
         .t-row {
           display: flex;
-          gap: 16px;
+          gap: 12px;
           width: max-content;
           animation-duration: 38s;
           animation-timing-function: linear;
           animation-iteration-count: infinite;
           pointer-events: none;
           user-select: none;
+        }
+
+        @media (min-width: 640px) {
+          .t-row {
+            gap: 16px;
+          }
         }
 
         @keyframes t-scroll         { from { transform: translateX(0); } to { transform: translateX(-50%); } }
@@ -272,19 +329,37 @@ export function LandingTestimonials() {
 
         /* ── Card ──────────────────────────────────────────────── */
         .t-card {
-          width: 340px;
+          width: 280px;
           flex-shrink: 0;
           background: hsl(var(--card));
           border: 1px solid hsl(var(--border));
-          border-radius: 16px;
-          padding: 24px;
+          border-radius: 12px;
+          padding: 18px;
           display: flex;
           flex-direction: column;
-          gap: 14px;
+          gap: 12px;
           box-shadow:
             0 1px 2px rgba(0,0,0,0.04),
             0 4px 12px rgba(0,0,0,0.04);
           box-sizing: border-box;
+        }
+
+        @media (min-width: 640px) {
+          .t-card {
+            width: 320px;
+            border-radius: 14px;
+            padding: 20px;
+            gap: 13px;
+          }
+        }
+
+        @media (min-width: 1024px) {
+          .t-card {
+            width: 340px;
+            border-radius: 16px;
+            padding: 24px;
+            gap: 14px;
+          }
         }
 
         /* ── Stars ─────────────────────────────────────────────── */
@@ -296,21 +371,49 @@ export function LandingTestimonials() {
         /* ── Quote ─────────────────────────────────────────────── */
         .t-quote {
           margin: 0;
-          font-size: 0.875rem;
+          font-size: 0.75rem;
           color: hsl(var(--foreground));
-          line-height: 1.7;
+          line-height: 1.6;
           font-style: normal;
           flex: 1;
+        }
+
+        @media (min-width: 640px) {
+          .t-quote {
+            font-size: 0.8125rem;
+            line-height: 1.65;
+          }
+        }
+
+        @media (min-width: 1024px) {
+          .t-quote {
+            font-size: 0.875rem;
+            line-height: 1.7;
+          }
         }
 
         /* ── Footer ────────────────────────────────────────────── */
         .t-footer {
           display: flex;
           align-items: center;
-          gap: 12px;
-          padding-top: 16px;
+          gap: 10px;
+          padding-top: 12px;
           border-top: 1px solid hsl(var(--border));
           margin-top: auto;
+        }
+
+        @media (min-width: 640px) {
+          .t-footer {
+            gap: 12px;
+            padding-top: 14px;
+          }
+        }
+
+        @media (min-width: 1024px) {
+          .t-footer {
+            gap: 12px;
+            padding-top: 16px;
+          }
         }
 
         /* ── Avatar ────────────────────────────────────────────── */
@@ -320,13 +423,27 @@ export function LandingTestimonials() {
 
         .t-avatar {
           position: relative;
-          width: 40px;
-          height: 40px;
+          width: 36px;
+          height: 36px;
           border-radius: 50%;
           overflow: hidden;
           display: flex;
           align-items: center;
           justify-content: center;
+        }
+
+        @media (min-width: 640px) {
+          .t-avatar {
+            width: 38px;
+            height: 38px;
+          }
+        }
+
+        @media (min-width: 1024px) {
+          .t-avatar {
+            width: 40px;
+            height: 40px;
+          }
         }
 
         .t-avatar-img {
@@ -339,11 +456,17 @@ export function LandingTestimonials() {
           display: flex;
           align-items: center;
           justify-content: center;
-          font-size: 13px;
+          font-size: 12px;
           font-weight: 700;
           color: #fff;
           letter-spacing: 0.02em;
           z-index: 0;
+        }
+
+        @media (min-width: 1024px) {
+          .t-avatar-fallback {
+            font-size: 13px;
+          }
         }
 
         /* ── Meta ──────────────────────────────────────────────── */
@@ -352,8 +475,8 @@ export function LandingTestimonials() {
         }
 
         .t-name {
-          margin: 0 0 2px;
-          font-size: 0.8125rem;
+          margin: 0 0 1px;
+          font-size: 0.75rem;
           font-weight: 700;
           color: hsl(var(--foreground));
           white-space: nowrap;
@@ -361,13 +484,38 @@ export function LandingTestimonials() {
           text-overflow: ellipsis;
         }
 
+        @media (min-width: 640px) {
+          .t-name {
+            font-size: 0.8rem;
+            margin-bottom: 2px;
+          }
+        }
+
+        @media (min-width: 1024px) {
+          .t-name {
+            font-size: 0.8125rem;
+          }
+        }
+
         .t-role {
           margin: 0;
-          font-size: 0.6875rem;
+          font-size: 0.625rem;
           color: hsl(var(--muted-foreground));
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
+        }
+
+        @media (min-width: 640px) {
+          .t-role {
+            font-size: 0.65rem;
+          }
+        }
+
+        @media (min-width: 1024px) {
+          .t-role {
+            font-size: 0.6875rem;
+          }
         }
 
         /* ── Rating footer ─────────────────────────────────────── */
@@ -375,20 +523,52 @@ export function LandingTestimonials() {
           display: flex;
           flex-direction: column;
           align-items: center;
-          gap: 8px;
-          margin-top: 52px;
-          padding: 0 24px;
+          gap: 6px;
+          margin-top: 32px;
+          padding: 0 16px;
+        }
+
+        @media (min-width: 640px) {
+          .t-rating {
+            margin-top: 40px;
+            padding: 0 24px;
+          }
+        }
+
+        @media (min-width: 1024px) {
+          .t-rating {
+            margin-top: 52px;
+          }
         }
 
         .t-rating-stars {
           display: flex;
-          gap: 3px;
+          gap: 2px;
+        }
+
+        @media (min-width: 640px) {
+          .t-rating-stars {
+            gap: 3px;
+          }
         }
 
         .t-rating-text {
           margin: 0;
-          font-size: 0.875rem;
+          font-size: 0.75rem;
           color: #64748b;
+          text-align: center;
+        }
+
+        @media (min-width: 640px) {
+          .t-rating-text {
+            font-size: 0.8125rem;
+          }
+        }
+
+        @media (min-width: 1024px) {
+          .t-rating-text {
+            font-size: 0.875rem;
+          }
         }
 
         .t-rating-text strong {
