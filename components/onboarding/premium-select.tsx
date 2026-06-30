@@ -25,14 +25,17 @@ export const PremiumSelect = React.forwardRef<HTMLSelectElement, PremiumSelectPr
     return (
       <div className="space-y-2">
         {label && (
-          <label className={ONBOARDING_PRESETS.formLabel}>
+          <label
+            className="block text-[13px] font-semibold mb-1"
+            style={{ color: '#374151' }}
+          >
             {label}
-            {props.required && <span className="text-destructive ml-1">*</span>}
+            {props.required && <span className="ml-0.5" style={{ color: '#dc2626' }}>*</span>}
           </label>
         )}
 
         {description && (
-          <p className={ONBOARDING_TOKENS.typography.helperText}>
+          <p className="text-[12px] mb-1.5" style={{ color: '#94a3b8' }}>
             {description}
           </p>
         )}
@@ -41,10 +44,11 @@ export const PremiumSelect = React.forwardRef<HTMLSelectElement, PremiumSelectPr
           <select
             ref={ref}
             className={cn(
-              'w-full h-12 px-4 py-3 pr-10 rounded-lg border border-border bg-background text-foreground text-sm appearance-none cursor-pointer transition-all duration-200',
-              'focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary',
+              'w-full h-11 px-4 pr-10 rounded-lg text-[14px] text-gray-900 appearance-none cursor-pointer transition-all duration-150 outline-none',
+              'bg-white border border-gray-200',
+              'focus:border-blue-500 focus:ring-2 focus:ring-blue-100',
               'disabled:opacity-50 disabled:cursor-not-allowed',
-              error && 'border-destructive focus:ring-destructive/30 focus:border-destructive',
+              error && 'border-red-400 focus:ring-red-100 focus:border-red-500',
               className
             )}
             {...props}

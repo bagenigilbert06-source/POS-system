@@ -249,10 +249,21 @@ export function OnboardingContainer({
   return (
     <div className="w-full">
       {/* Page-level heading */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-foreground tracking-tight">Set up your workspace</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Takes about 2 minutes &mdash; you can change everything later.
+      <div className="mb-10">
+        <p
+          className="text-[11px] font-bold uppercase tracking-[0.14em] mb-2"
+          style={{ color: '#1a56db' }}
+        >
+          Getting started
+        </p>
+        <h1
+          className="text-[30px] font-bold tracking-tight leading-tight"
+          style={{ color: '#0f172a' }}
+        >
+          Set up your workspace
+        </h1>
+        <p className="text-[14px] mt-1.5" style={{ color: '#64748b' }}>
+          Takes about 2 minutes — you can change everything later.
         </p>
       </div>
 
@@ -264,12 +275,15 @@ export function OnboardingContainer({
       />
 
       {error && (
-        <div className="rounded-lg bg-destructive/10 border border-destructive/20 px-5 py-4 mb-8 text-sm animate-fade-up">
-          <p className="font-medium text-destructive">{error}</p>
+        <div
+          className="rounded-lg px-4 py-3 mb-6 text-[13px]"
+          style={{ background: '#fef2f2', border: '1px solid #fecaca', color: '#dc2626' }}
+        >
+          {error}
         </div>
       )}
 
-      <div className="mb-16 animate-fade-up">{renderStep()}</div>
+      <div className="mb-12 animate-fade-up">{renderStep()}</div>
 
       <StepFooter
         onBack={handlePrevious}
