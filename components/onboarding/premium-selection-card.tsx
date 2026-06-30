@@ -37,11 +37,10 @@ export function PremiumSelectionCard({
     <button
       onClick={onClick}
       className={cn(
-        ONBOARDING_PRESETS.selectionCard,
-        'group',
+        'group relative w-full rounded-xl p-5 text-left transition-all duration-200 flex flex-col gap-6 min-h-[160px]',
         selected
-          ? `bg-primary/8 ${ONBOARDING_TOKENS.elevation.large} shadow-primary/20 scale-[1.02]`
-          : `bg-card ${ONBOARDING_TOKENS.elevation.small} ${ONBOARDING_TOKENS.states.hover.shadow} ${ONBOARDING_TOKENS.states.hover.translate}`
+          ? 'bg-primary/8 shadow-md scale-[1.02]'
+          : 'bg-card shadow-sm hover:shadow-md hover:-translate-y-0.5'
       )}
       aria-pressed={selected}
     >
@@ -52,17 +51,17 @@ export function PremiumSelectionCard({
         </div>
       )}
 
-      {/* Icon - Large and prominent */}
+      {/* Icon */}
       <div className="flex items-start">
         <div
           className={cn(
-            'flex h-14 w-14 items-center justify-center rounded-lg transition-all duration-200 flex-shrink-0',
+            'flex h-12 w-12 items-center justify-center rounded-lg transition-all duration-200 flex-shrink-0',
             selected
               ? 'bg-primary text-primary-foreground'
               : 'bg-primary/10 text-primary group-hover:bg-primary/15'
           )}
         >
-          <Icon className="h-7 w-7" />
+          <Icon className="h-6 w-6" />
         </div>
       </div>
 
@@ -89,36 +88,7 @@ export function PremiumSelectionCard({
         </p>
       </div>
 
-      {/* Example pills */}
-      {examples.length > 0 && (
-        <div className="flex flex-wrap gap-2 pt-2">
-          {examples.slice(0, 2).map((example) => (
-            <span
-              key={example}
-              className={cn(
-                'inline-block rounded-lg px-3 py-1.5 text-xs font-medium transition-all duration-200',
-                selected
-                  ? 'bg-primary/15 text-primary'
-                  : 'bg-muted text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary'
-              )}
-            >
-              {example}
-            </span>
-          ))}
-          {examples.length > 2 && (
-            <span
-              className={cn(
-                'inline-block rounded-lg px-3 py-1.5 text-xs font-medium transition-all duration-200',
-                selected
-                  ? 'bg-primary/15 text-primary'
-                  : 'bg-muted text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary'
-              )}
-            >
-              +{examples.length - 2}
-            </span>
-          )}
-        </div>
-      )}
+
     </button>
   )
 }

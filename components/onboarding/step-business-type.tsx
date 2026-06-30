@@ -30,15 +30,15 @@ export function StepBusinessType({
   totalSteps = 7,
 }: StepBusinessTypeProps) {
   return (
-    <div className="space-y-12">
+    <div className="space-y-8">
       <PremiumStepHeader
         stepNumber={stepNumber}
         totalSteps={totalSteps}
-        title="How will you use IMARA?"
-        description="Choose your business model to unlock tailored features and workflows designed for your success."
+        title="Select your business type"
+        description="Choose the option that best matches your business."
       />
 
-      <div className="grid gap-6 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-3">
         {BUSINESS_TYPES.map(({ id, name, description, examples = [] }) => {
           const Icon = iconMap[id] ?? ShoppingCart
 
