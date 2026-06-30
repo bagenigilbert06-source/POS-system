@@ -22,9 +22,9 @@ export function AnnouncementBanner() {
           {/* Message - Centered */}
           <div className="flex-1 flex items-center justify-center gap-3 text-center min-w-0">
             <p className="text-sm font-medium text-foreground">
-              🎉 Join 5,000+ businesses on{' '}
-              <span className="text-primary font-semibold">Imara</span>
-              <span className="hidden sm:inline text-muted-foreground"> — Free for 30 days</span>
+              Join 8,500+ businesses running on{' '}
+              <span className="text-primary font-semibold">IMARA</span>
+              <span className="hidden sm:inline text-muted-foreground"> — Free for 30 days, no card required</span>
             </p>
           </div>
 

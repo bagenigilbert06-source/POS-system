@@ -5,12 +5,12 @@ import { Toaster } from 'sonner'
 
 export const metadata: Metadata = {
   title: {
-    default: 'IMARA — Strong Business, Better Future',
+    default: 'IMARA — Business OS for Growing Businesses',
     template: '%s | IMARA',
   },
   description:
-    'IMARA: The all-in-one POS and business management platform for Kenyan enterprises. Smart checkout, inventory management, M-Pesa integration, and powerful analytics.',
-  keywords: ['POS', 'Kenya', 'business', 'inventory', 'sales', 'KES', 'M-Pesa', 'IMARA'],
+    'IMARA is a complete Business Operating System — POS, inventory, customers, purchasing, finance, employees, multi-branch, and analytics in one platform. Built for African commerce.',
+  keywords: ['Business OS', 'POS', 'Kenya', 'business management', 'inventory', 'sales', 'M-Pesa', 'IMARA', 'ERP', 'retail', 'restaurant'],
 }
 
 export const viewport: Viewport = {

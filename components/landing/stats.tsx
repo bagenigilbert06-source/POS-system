@@ -1,13 +1,13 @@
 const stats = [
   {
     number: '8,500+',
-    label: 'Businesses Supported',
-    description: 'Retailers, restaurants, pharmacies and service teams',
+    label: 'Businesses',
+    description: 'Retailers, restaurants, pharmacies and services across Africa',
   },
   {
     number: 'KES 4.2B+',
     label: 'Revenue Processed',
-    description: 'Tracked through sales, invoices and payments',
+    description: 'Tracked through sales, invoices and payments on the platform',
   },
   {
     number: '72M+',
@@ -24,18 +24,15 @@ const stats = [
 export function LandingStats() {
   return (
     <section className="border-y border-border bg-background">
-      <div className="container-wide section-padding-lg">
-        <div className="grid gap-px overflow-hidden rounded-lg sm:rounded-2xl border border-border bg-border shadow-sm grid-cols-2 sm:grid-cols-2 lg:grid-cols-4">
-          {stats.map((stat, i) => (
-            <div
-              key={stat.number}
-              className="flex flex-col bg-card p-3 sm:p-4 md:p-5 lg:p-6"
-            >
-              <span className="mb-1 text-lg sm:text-2xl md:text-3xl lg:text-4xl font-semibold tracking-tight text-foreground leading-tight">
+      <div className="container-wide py-16 md:py-20">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-px bg-border rounded-2xl overflow-hidden border border-border shadow-sm-soft">
+          {stats.map((stat) => (
+            <div key={stat.number} className="flex flex-col bg-card p-6 md:p-8">
+              <span className="mb-2 text-3xl md:text-4xl lg:text-5xl font-bold tracking-tight text-foreground leading-none">
                 {stat.number}
               </span>
-              <span className="mb-1 text-xs sm:text-xs md:text-sm font-semibold text-foreground line-clamp-2 leading-snug">{stat.label}</span>
-              <span className="text-[10px] sm:text-xs leading-relaxed text-muted-foreground">{stat.description}</span>
+              <span className="mb-2 text-sm font-semibold text-foreground">{stat.label}</span>
+              <span className="text-xs leading-relaxed text-muted-foreground">{stat.description}</span>
             </div>
           ))}
         </div>

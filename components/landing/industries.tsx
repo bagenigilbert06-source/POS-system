@@ -1,6 +1,5 @@
 'use client'
 
-import Image from 'next/image'
 import { useState } from 'react'
 import { CheckCircle2, ArrowRight } from 'lucide-react'
 import Link from 'next/link'
@@ -10,21 +9,20 @@ const industries = [
     id: 'retail',
     name: 'Retail & Supermarkets',
     subtitle: 'From corner shops to multi-aisle supermarkets',
-    img: '/images/industries/retail.png',
+    color: 'bg-blue-500',
     features: [
       'Barcode scanning & receipt printing',
       'Bulk product import via spreadsheet',
       'Daily stock reconciliation',
-      'M-Pesa & card payments',
+      'Mobile money & card payments',
       'Customer loyalty programme',
     ],
-    stat: { number: '2,100+', label: 'retail stores using KashNest' },
   },
   {
     id: 'restaurant',
     name: 'Restaurants & Cafes',
     subtitle: 'Table service, takeaway & delivery',
-    img: '/images/industries/restaurant.png',
+    color: 'bg-orange-500',
     features: [
       'Table & order management',
       'Kitchen display system',
@@ -32,27 +30,12 @@ const industries = [
       'Split-bill & tip tracking',
       'Daily sales & void reports',
     ],
-    stat: { number: '800+', label: 'restaurants & cafes' },
-  },
-  {
-    id: 'salon',
-    name: 'Salons & Beauty',
-    subtitle: 'Hair, nails, spa & wellness services',
-    img: '/images/industries/salon.png',
-    features: [
-      'Appointment booking & calendar',
-      'Stylist performance tracking',
-      'Product & service sales',
-      'Client history & notes',
-      'Commission management',
-    ],
-    stat: { number: '650+', label: 'salons & spas' },
   },
   {
     id: 'pharmacy',
     name: 'Pharmacies',
     subtitle: 'Retail clinics, drugstores & dispensaries',
-    img: '/images/industries/pharmacy.png',
+    color: 'bg-green-500',
     features: [
       'Expiry date tracking & alerts',
       'Prescription & patient records',
@@ -60,13 +43,25 @@ const industries = [
       'NHIF billing support',
       'Supplier reorder management',
     ],
-    stat: { number: '420+', label: 'pharmacies & clinics' },
+  },
+  {
+    id: 'salon',
+    name: 'Salons & Beauty',
+    subtitle: 'Hair, nails, spa & wellness services',
+    color: 'bg-pink-500',
+    features: [
+      'Appointment booking & calendar',
+      'Stylist performance tracking',
+      'Product & service sales',
+      'Client history & notes',
+      'Commission management',
+    ],
   },
   {
     id: 'hardware',
     name: 'Hardware Stores',
     subtitle: 'Tools, building materials & supplies',
-    img: '/images/industries/hardware.png',
+    color: 'bg-amber-500',
     features: [
       'Bulk & per-unit sales',
       'Customer credit accounts',
@@ -74,13 +69,12 @@ const industries = [
       'Stock by warehouse location',
       'LPO & invoice generation',
     ],
-    stat: { number: '380+', label: 'hardware stores' },
   },
   {
     id: 'wholesale',
     name: 'Wholesale & Distribution',
-    subtitle: 'Bulk goods, depots & national delivery',
-    img: '/images/industries/wholesale.png',
+    subtitle: 'Bulk goods, depots & delivery routes',
+    color: 'bg-violet-500',
     features: [
       'Tiered pricing by customer',
       'Delivery & route management',
@@ -88,577 +82,249 @@ const industries = [
       'Credit & debt management',
       'Volume discount automation',
     ],
-    stat: { number: '650+', label: 'wholesalers & distributors' },
   },
 ]
+
+// Mini dashboard mockups per industry
+const industryMockups: Record<string, React.ReactNode> = {
+  retail: (
+    <div className="space-y-2">
+      <div className="flex gap-2">
+        <div className="flex-1 rounded-lg bg-secondary p-3 border border-border">
+          <p className="text-[10px] text-muted-foreground mb-0.5">Daily Sales</p>
+          <p className="text-base font-bold text-foreground">KES 84,320</p>
+          <p className="text-[10px] text-green-500 font-medium">+12.4% vs yesterday</p>
+        </div>
+        <div className="flex-1 rounded-lg bg-secondary p-3 border border-border">
+          <p className="text-[10px] text-muted-foreground mb-0.5">Items Sold</p>
+          <p className="text-base font-bold text-foreground">1,204</p>
+          <p className="text-[10px] text-green-500 font-medium">247 transactions</p>
+        </div>
+      </div>
+      <div className="rounded-lg border border-border bg-background p-3">
+        <p className="text-[10px] font-semibold text-foreground mb-2">Top Products Today</p>
+        {[['Unga 2kg', 'KES 12,400'], ['Cooking Oil 1L', 'KES 9,800'], ['Sugar 1kg', 'KES 7,200']].map(([name, val]) => (
+          <div key={name} className="flex justify-between items-center py-1 border-b border-border last:border-0">
+            <span className="text-[10px] text-muted-foreground">{name}</span>
+            <span className="text-[10px] font-semibold text-foreground">{val}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  ),
+  restaurant: (
+    <div className="space-y-2">
+      <div className="rounded-lg border border-border bg-background p-3">
+        <p className="text-[10px] font-semibold text-foreground mb-2">Active Tables</p>
+        <div className="grid grid-cols-5 gap-1.5">
+          {[1,2,3,4,5,6,7,8,9,10].map((t) => (
+            <div key={t} className={`rounded-md p-1.5 text-center text-[9px] font-bold ${t <= 6 ? 'bg-primary text-primary-foreground' : 'bg-secondary text-muted-foreground border border-border'}`}>
+              T{t}
+            </div>
+          ))}
+        </div>
+        <p className="text-[10px] text-muted-foreground mt-2">6 tables occupied · 4 available</p>
+      </div>
+      <div className="flex gap-2">
+        <div className="flex-1 rounded-lg bg-secondary p-3 border border-border">
+          <p className="text-[10px] text-muted-foreground mb-0.5">Orders Today</p>
+          <p className="text-base font-bold text-foreground">89</p>
+        </div>
+        <div className="flex-1 rounded-lg bg-secondary p-3 border border-border">
+          <p className="text-[10px] text-muted-foreground mb-0.5">Avg Bill</p>
+          <p className="text-base font-bold text-foreground">KES 1,240</p>
+        </div>
+      </div>
+    </div>
+  ),
+  pharmacy: (
+    <div className="space-y-2">
+      <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3">
+        <div className="flex items-center gap-2 mb-1">
+          <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+          <p className="text-[10px] font-semibold text-amber-600 dark:text-amber-400">3 items expiring in 30 days</p>
+        </div>
+        <p className="text-[10px] text-muted-foreground">Amoxicillin 500mg, Metformin 1g, Paracetamol 500mg</p>
+      </div>
+      <div className="rounded-lg border border-border bg-background p-3">
+        <p className="text-[10px] font-semibold text-foreground mb-2">Today&apos;s Dispensing</p>
+        {[['Prescriptions', '42'], ['OTC Sales', '118'], ['NHIF Claims', '14']].map(([label, val]) => (
+          <div key={label} className="flex justify-between py-1 border-b border-border last:border-0">
+            <span className="text-[10px] text-muted-foreground">{label}</span>
+            <span className="text-[10px] font-bold text-foreground">{val}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  ),
+  salon: (
+    <div className="space-y-2">
+      <div className="rounded-lg border border-border bg-background p-3">
+        <p className="text-[10px] font-semibold text-foreground mb-2">Today&apos;s Appointments</p>
+        {[['09:00', 'Mary W. — Cut & Colour', 'Grace'], ['11:30', 'Alice N. — Braids', 'Fatuma'], ['14:00', 'Njeri M. — Nails', 'Aisha']].map(([time, client, stylist]) => (
+          <div key={time} className="flex items-center gap-2 py-1.5 border-b border-border last:border-0">
+            <span className="text-[9px] text-muted-foreground w-8 flex-shrink-0">{time}</span>
+            <div className="min-w-0 flex-1">
+              <p className="text-[10px] font-medium text-foreground truncate">{client}</p>
+              <p className="text-[9px] text-muted-foreground">{stylist}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  ),
+  hardware: (
+    <div className="space-y-2">
+      <div className="flex gap-2">
+        <div className="flex-1 rounded-lg bg-secondary p-3 border border-border">
+          <p className="text-[10px] text-muted-foreground mb-0.5">Open LPOs</p>
+          <p className="text-base font-bold text-foreground">7</p>
+          <p className="text-[10px] text-amber-500 font-medium">KES 420K pending</p>
+        </div>
+        <div className="flex-1 rounded-lg bg-secondary p-3 border border-border">
+          <p className="text-[10px] text-muted-foreground mb-0.5">Credit Accounts</p>
+          <p className="text-base font-bold text-foreground">34</p>
+          <p className="text-[10px] text-muted-foreground">Active customers</p>
+        </div>
+      </div>
+      <div className="rounded-lg border border-border bg-background p-3">
+        <p className="text-[10px] font-semibold text-foreground mb-1.5">Low Stock Alert</p>
+        {[['Cement 50kg', '12 bags left'], ['Wire 2.5mm', '2 rolls left']].map(([item, stock]) => (
+          <div key={item} className="flex justify-between py-1 border-b border-border last:border-0">
+            <span className="text-[10px] text-muted-foreground">{item}</span>
+            <span className="text-[10px] font-medium text-red-500">{stock}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  ),
+  wholesale: (
+    <div className="space-y-2">
+      <div className="rounded-lg border border-border bg-background p-3">
+        <p className="text-[10px] font-semibold text-foreground mb-2">Active Routes Today</p>
+        {[['Route A — Nairobi CBD', '14 stops', 'KES 280K'], ['Route B — Westlands', '9 stops', 'KES 190K']].map(([route, stops, val]) => (
+          <div key={route} className="py-1.5 border-b border-border last:border-0">
+            <div className="flex justify-between">
+              <span className="text-[10px] font-medium text-foreground">{route}</span>
+              <span className="text-[10px] font-bold text-foreground">{val}</span>
+            </div>
+            <span className="text-[9px] text-muted-foreground">{stops}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  ),
+}
 
 export function LandingIndustries() {
   const [activeId, setActiveId] = useState('retail')
   const active = industries.find((i) => i.id === activeId) ?? industries[0]
 
   return (
-    <section id="industries" className="ind-section">
-      <div className="ind-inner">
-
-        {/* ── Header ─────────────────────────────────────────────── */}
-        <div className="ind-header">
-          <span className="ind-eyebrow">Industries</span>
-          <h2 className="ind-headline">Built for every type of business.</h2>
-          <p className="ind-sub">
-            One platform, tailored to how your specific type of business actually works —
-            not a generic tool that forces you to adapt.
+    <section id="industries" className="section-padding-premium bg-secondary border-b border-border">
+      <div className="container-wide">
+        {/* Header */}
+        <div className="max-w-2xl mb-14 md:mb-16">
+          <p className="section-eyebrow mb-3">Industry Workspaces</p>
+          <h2 className="section-heading mb-5 text-3xl md:text-4xl lg:text-5xl leading-tight">
+            IMARA adapts to how <br className="hidden md:block" />
+            <span className="text-muted-foreground">your business works.</span>
+          </h2>
+          <p className="section-subheading">
+            Sign up, choose your industry, and IMARA builds your workspace automatically —
+            with the right modules, templates, and defaults for your type of business.
           </p>
         </div>
 
-        {/* ── Tab pills ──────────────────────────────────────────── */}
-        <div className="ind-tabs" role="tablist" aria-label="Industry selector">
+        {/* Setup flow */}
+        <div className="flex items-center gap-2 flex-wrap mb-12 text-sm">
+          {['Sign Up', 'Choose Industry', 'Choose Category', 'Workspace Built Automatically', 'Start Working'].map((step, i, arr) => (
+            <div key={step} className="flex items-center gap-2">
+              <div className="flex items-center gap-2 rounded-full border border-border bg-card px-3.5 py-1.5">
+                <span className="h-4 w-4 rounded-full bg-primary flex items-center justify-center flex-shrink-0">
+                  <span className="text-[9px] font-bold text-white">{i + 1}</span>
+                </span>
+                <span className="text-xs font-medium text-foreground whitespace-nowrap">{step}</span>
+              </div>
+              {i < arr.length - 1 && <ArrowRight className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" aria-hidden="true" />}
+            </div>
+          ))}
+        </div>
+
+        {/* Tab pills */}
+        <div className="flex flex-wrap gap-2 mb-8" role="tablist" aria-label="Industry selector">
           {industries.map((ind) => (
             <button
               key={ind.id}
               role="tab"
               aria-selected={activeId === ind.id}
-              aria-controls={`ind-panel-${ind.id}`}
               onClick={() => setActiveId(ind.id)}
-              className={`ind-tab ${activeId === ind.id ? 'ind-tab-active' : ''}`}
+              className={`rounded-full border px-4 py-2 text-sm font-semibold transition-all duration-150 ${
+                activeId === ind.id
+                  ? 'bg-primary border-primary text-primary-foreground shadow-sm'
+                  : 'border-border bg-card text-muted-foreground hover:border-primary/40 hover:text-foreground'
+              }`}
             >
               {ind.name}
             </button>
           ))}
         </div>
 
-        {/* ── Detail panel ───────────────────────────────────────── */}
-        <div
-          id={`ind-panel-${active.id}`}
-          role="tabpanel"
-          aria-label={active.name}
-          className="ind-panel"
-        >
-          {/* Image */}
-          <div className="ind-img-wrap">
-            <Image
-              src={active.img}
-              alt={active.name}
-              fill
-              sizes="(max-width: 900px) 100vw, 50vw"
-              className="ind-img"
-              priority
-            />
-            {/* Gradient at bottom for badge legibility */}
-            <div className="ind-img-gradient" aria-hidden="true" />
-
-            {/* Stat badge */}
-            <div className="ind-badge">
-              <div className="ind-badge-dot" />
-              <div>
-                <p className="ind-badge-number">{active.stat.number}</p>
-                <p className="ind-badge-label">{active.stat.label}</p>
+        {/* Detail panel */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-px bg-border rounded-2xl overflow-hidden border border-border shadow-sm-soft">
+          {/* Left: mockup */}
+          <div className="bg-card p-6 md:p-8 flex flex-col">
+            <div className="flex items-center justify-between mb-5">
+              <div className="flex items-center gap-2">
+                <div className={`h-2.5 w-2.5 rounded-full ${active.color}`} />
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">{active.name} Dashboard</p>
               </div>
+              <div className="flex gap-1">
+                <span className="h-2 w-2 rounded-full bg-muted" />
+                <span className="h-2 w-2 rounded-full bg-muted" />
+                <span className="h-2 w-2 rounded-full bg-muted" />
+              </div>
+            </div>
+            <div className="flex-1">
+              {industryMockups[active.id]}
             </div>
           </div>
 
-          {/* Copy */}
-          <div className="ind-copy">
-            <div className="ind-copy-header">
-              <h3 className="ind-copy-title">{active.name}</h3>
-              <p className="ind-copy-sub">{active.subtitle}</p>
+          {/* Right: copy */}
+          <div className="bg-card p-6 md:p-8 border-t md:border-t-0 md:border-l border-border flex flex-col gap-6">
+            <div>
+              <h3 className="text-xl md:text-2xl font-bold text-foreground mb-2">{active.name}</h3>
+              <p className="text-sm text-muted-foreground">{active.subtitle}</p>
             </div>
 
-            <ul className="ind-features" aria-label={`Features for ${active.name}`}>
+            <ul className="space-y-3" aria-label={`Features for ${active.name}`}>
               {active.features.map((f) => (
-                <li key={f} className="ind-feature">
-                  <CheckCircle2 size={16} className="ind-check" aria-hidden="true" />
-                  <span>{f}</span>
+                <li key={f} className="flex items-start gap-3 text-sm text-foreground">
+                  <CheckCircle2 className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" aria-hidden="true" />
+                  {f}
                 </li>
               ))}
             </ul>
 
-            <div className="ind-actions">
-              <Link href="/sign-up" className="ind-cta">
-                Get started — free
-                <ArrowRight size={15} aria-hidden="true" />
+            <div className="pt-2 mt-auto">
+              <Link
+                href="/sign-up"
+                className="inline-flex items-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-sm font-bold text-white transition-all duration-150 hover:opacity-90 shadow-sm"
+              >
+                Start with {active.name.split(' ')[0]}
+                <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
               </Link>
             </div>
           </div>
         </div>
 
-        {/* ── Footer note ────────────────────────────────────────── */}
-        <p className="ind-footer-note">
+        <p className="mt-6 text-sm text-muted-foreground">
           Don&apos;t see your industry?{' '}
-          <a href="mailto:hello@kashnest.com" className="ind-footer-link">
-            Talk to us — KashNest works for any product or service business.
+          <a href="mailto:hello@imara.co" className="text-primary font-semibold hover:underline">
+            Talk to us — IMARA works for any product or service business.
           </a>
         </p>
-
       </div>
-
-      <style>{`
-        /* ── Section ───────────────────────────────────────────── */
-        .ind-section {
-          width: 100%;
-          background: hsl(var(--secondary));
-          border-top: 1px solid hsl(var(--border));
-          border-bottom: 1px solid hsl(var(--border));
-          padding: 32px 12px;
-          box-sizing: border-box;
-        }
-
-        @media (min-width: 640px) {
-          .ind-section {
-            padding: 56px 24px;
-          }
-        }
-
-        @media (min-width: 1024px) {
-          .ind-section {
-            padding: 88px 24px;
-          }
-        }
-
-        .ind-inner {
-          max-width: 1040px;
-          margin: 0 auto;
-        }
-
-        /* ── Header ────────────────────────────────────────────── */
-        .ind-header {
-          text-align: center;
-          max-width: 560px;
-          margin: 0 auto 20px;
-          padding: 0 2px;
-        }
-
-        @media (min-width: 640px) {
-          .ind-header {
-            margin-bottom: 28px;
-          }
-        }
-
-        @media (min-width: 1024px) {
-          .ind-header {
-            margin-bottom: 40px;
-          }
-        }
-
-        .ind-eyebrow {
-          display: inline-block;
-          font-size: 10px;
-          font-weight: 700;
-          letter-spacing: 0.1em;
-          text-transform: uppercase;
-          color: hsl(var(--primary));
-          margin-bottom: 8px;
-        }
-
-        @media (min-width: 640px) {
-          .ind-eyebrow {
-            font-size: 11px;
-            margin-bottom: 12px;
-          }
-        }
-
-        .ind-headline {
-          margin: 0 0 8px;
-          font-size: clamp(1.4rem, 4vw, 2.2rem);
-          font-weight: 800;
-          color: hsl(var(--foreground));
-          letter-spacing: -0.03em;
-          line-height: 1.15;
-        }
-
-        @media (min-width: 640px) {
-          .ind-headline {
-            margin-bottom: 14px;
-          }
-        }
-
-        .ind-sub {
-          margin: 0;
-          font-size: 0.8125rem;
-          color: hsl(var(--muted-foreground));
-          line-height: 1.6;
-        }
-
-        @media (min-width: 640px) {
-          .ind-sub {
-            font-size: 0.9375rem;
-            line-height: 1.65;
-          }
-        }
-
-        /* ── Tabs ──────────────────────────────────────────────── */
-        .ind-tabs {
-          display: flex;
-          overflow-x: auto;
-          overflow-y: hidden;
-          scroll-snap-type: x mandatory;
-          -webkit-overflow-scrolling: touch;
-          gap: 6px;
-          margin-bottom: 20px;
-          padding: 0 0 4px 0;
-        }
-
-        @media (min-width: 640px) {
-          .ind-tabs {
-            flex-wrap: wrap;
-            justify-content: center;
-            gap: 7px;
-            margin-bottom: 24px;
-            padding: 0;
-          }
-        }
-
-        @media (min-width: 1024px) {
-          .ind-tabs {
-            margin-bottom: 36px;
-          }
-        }
-
-        .ind-tab {
-          padding: 6px 12px;
-          border-radius: 999px;
-          border: 1px solid hsl(var(--border));
-          background: hsl(var(--card));
-          font-size: 10px;
-          font-weight: 600;
-          color: hsl(var(--muted-foreground));
-          cursor: pointer;
-          transition: all 0.15s ease;
-          white-space: nowrap;
-          line-height: 1;
-          flex-shrink: 0;
-          scroll-snap-align: start;
-          min-height: 40px;
-          display: flex;
-          align-items: center;
-        }
-
-        @media (min-width: 640px) {
-          .ind-tab {
-            padding: 8px 16px;
-            font-size: 12px;
-            min-height: 44px;
-          }
-        }
-
-        .ind-tab:hover {
-          border-color: hsl(var(--primary));
-          color: hsl(var(--primary));
-        }
-
-        .ind-tab-active {
-          background: hsl(var(--primary));
-          border-color: hsl(var(--primary));
-          color: hsl(var(--primary-foreground));
-          box-shadow: 0 2px 8px hsla(221, 83%, 53%, 0.25);
-        }
-
-        .ind-tab-active:hover {
-          color: hsl(var(--primary-foreground));
-        }
-
-        /* ── Panel ─────────────────────────────────────────────── */
-        .ind-panel {
-          display: grid;
-          grid-template-columns: 1fr;
-          gap: 0;
-          align-items: center;
-          background: hsl(var(--card));
-          border: 1px solid hsl(var(--border));
-          border-radius: 16px;
-          overflow: hidden;
-          box-shadow:
-            0 1px 3px rgba(0,0,0,0.05),
-            0 8px 24px rgba(0,0,0,0.05);
-        }
-
-        @media (min-width: 821px) {
-          .ind-panel {
-            grid-template-columns: 1fr 1fr;
-            gap: 48px;
-            border-radius: 20px;
-          }
-        }
-
-        /* ── Image side ────────────────────────────────────────── */
-        .ind-img-wrap {
-          position: relative;
-          aspect-ratio: 16 / 9;
-          overflow: hidden;
-          background: hsl(var(--border));
-        }
-
-        @media (min-width: 821px) {
-          .ind-img-wrap {
-            aspect-ratio: 4 / 3;
-          }
-        }
-
-        .ind-img {
-          object-fit: cover;
-          transition: opacity 0.4s ease;
-        }
-
-        .ind-img-gradient {
-          position: absolute;
-          inset: 0;
-          background: linear-gradient(
-            to top,
-            rgba(15, 23, 42, 0.55) 0%,
-            rgba(15, 23, 42, 0.10) 50%,
-            transparent 100%
-          );
-        }
-
-        /* ── Stat badge ────────────────────────────────────────── */
-        .ind-badge {
-          position: absolute;
-          bottom: 12px;
-          left: 12px;
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          background: rgba(255, 255, 255, 0.95);
-          backdrop-filter: blur(10px);
-          -webkit-backdrop-filter: blur(10px);
-          border: 1px solid rgba(255,255,255,0.8);
-          border-radius: 10px;
-          padding: 10px 12px;
-          box-shadow: 0 4px 16px rgba(0,0,0,0.15);
-        }
-
-        @media (min-width: 640px) {
-          .ind-badge {
-            bottom: 16px;
-            left: 16px;
-            gap: 12px;
-            border-radius: 12px;
-            padding: 12px 14px;
-          }
-        }
-
-        @media (min-width: 1024px) {
-          .ind-badge {
-            bottom: 20px;
-            left: 20px;
-            padding: 12px 16px;
-          }
-        }
-
-        .ind-badge-dot {
-          width: 9px;
-          height: 9px;
-          border-radius: 50%;
-          background: #22c55e;
-          flex-shrink: 0;
-          box-shadow: 0 0 0 3px rgba(34,197,94,0.2);
-          animation: ind-pulse 2.2s ease-in-out infinite;
-        }
-
-        @keyframes ind-pulse {
-          0%, 100% { box-shadow: 0 0 0 3px rgba(34,197,94,0.2); }
-          50%       { box-shadow: 0 0 0 6px rgba(34,197,94,0.08); }
-        }
-
-        @media (prefers-reduced-motion: reduce) {
-          .ind-badge-dot { animation: none; }
-        }
-
-        .ind-badge-number {
-          margin: 0 0 1px;
-          font-size: 0.875rem;
-          font-weight: 800;
-          color: hsl(var(--foreground));
-          letter-spacing: -0.02em;
-          line-height: 1;
-        }
-
-        @media (min-width: 640px) {
-          .ind-badge-number {
-            font-size: 1rem;
-            margin-bottom: 2px;
-          }
-        }
-
-        .ind-badge-label {
-          margin: 0;
-          font-size: 10px;
-          color: hsl(var(--muted-foreground));
-          line-height: 1.2;
-        }
-
-        @media (min-width: 640px) {
-          .ind-badge-label {
-            font-size: 11px;
-            line-height: 1.3;
-          }
-        }
-
-        /* ── Copy side ─────────────────────────────────────���───── */
-        .ind-copy {
-          padding: 20px 14px;
-          display: flex;
-          flex-direction: column;
-          gap: 14px;
-        }
-
-        @media (min-width: 640px) {
-          .ind-copy {
-            padding: 24px 26px;
-            gap: 18px;
-          }
-        }
-
-        @media (min-width: 821px) {
-          .ind-copy {
-            padding: 36px 40px 36px 0;
-            gap: 24px;
-          }
-        }
-
-        .ind-copy-header {
-          display: flex;
-          flex-direction: column;
-          gap: 6px;
-        }
-
-        .ind-copy-title {
-          margin: 0;
-          font-size: 1.125rem;
-          font-weight: 800;
-          color: hsl(var(--foreground));
-          letter-spacing: -0.025em;
-          line-height: 1.2;
-        }
-
-        @media (min-width: 640px) {
-          .ind-copy-title {
-            font-size: 1.25rem;
-          }
-        }
-
-        @media (min-width: 821px) {
-          .ind-copy-title {
-            font-size: 1.375rem;
-          }
-        }
-
-        .ind-copy-sub {
-          margin: 0;
-          font-size: 0.8125rem;
-          color: hsl(var(--muted-foreground));
-          line-height: 1.5;
-        }
-
-        @media (min-width: 640px) {
-          .ind-copy-sub {
-            font-size: 0.875rem;
-          }
-        }
-
-        /* ── Feature list ──────────────────────────────────────── */
-        .ind-features {
-          list-style: none;
-          margin: 0;
-          padding: 0;
-          display: flex;
-          flex-direction: column;
-          gap: 10px;
-        }
-
-        @media (min-width: 640px) {
-          .ind-features {
-            gap: 12px;
-          }
-        }
-
-        .ind-feature {
-          display: flex;
-          align-items: flex-start;
-          gap: 8px;
-          font-size: 0.8125rem;
-          color: hsl(var(--foreground));
-          line-height: 1.4;
-        }
-
-        @media (min-width: 640px) {
-          .ind-feature {
-            gap: 10px;
-            font-size: 0.875rem;
-          }
-        }
-
-        .ind-check {
-          color: hsl(var(--primary));
-          flex-shrink: 0;
-        }
-
-        /* ── CTA ───────────────────────────────────────────────── */
-        .ind-actions {
-          padding-top: 2px;
-        }
-
-        .ind-cta {
-          display: inline-flex;
-          align-items: center;
-          gap: 8px;
-          padding: 10px 16px;
-          background: hsl(var(--primary));
-          color: hsl(var(--primary-foreground));
-          font-size: 0.8125rem;
-          font-weight: 600;
-          border-radius: 8px;
-          text-decoration: none;
-          transition: background 0.15s ease, box-shadow 0.15s ease;
-          box-shadow: 0 2px 8px hsla(221, 83%, 53%, 0.25);
-          min-height: 40px;
-          display: inline-flex;
-          align-items: center;
-        }
-
-        @media (min-width: 640px) {
-          .ind-cta {
-            padding: 11px 22px;
-            font-size: 0.875rem;
-            border-radius: 10px;
-          }
-        }
-
-        .ind-cta:hover {
-          opacity: 0.9;
-          box-shadow: 0 4px 16px hsla(221, 83%, 53%, 0.35);
-        }
-
-        /* ── Footer note ───────────────────────────────────────── */
-        .ind-footer-note {
-          text-align: center;
-          margin-top: 20px;
-          font-size: 0.75rem;
-          color: hsl(var(--muted-foreground));
-        }
-
-        @media (min-width: 640px) {
-          .ind-footer-note {
-            margin-top: 24px;
-            font-size: 0.8125rem;
-          }
-        }
-
-        @media (min-width: 1024px) {
-          .ind-footer-note {
-            margin-top: 28px;
-          }
-        }
-
-        .ind-footer-link {
-          color: hsl(var(--primary));
-          font-weight: 600;
-          text-decoration: none;
-        }
-
-        .ind-footer-link:hover {
-          text-decoration: underline;
-        }
-      `}</style>
     </section>
   )
 }

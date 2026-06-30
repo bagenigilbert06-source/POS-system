@@ -65,7 +65,7 @@ export function LogoCarousel() {
   const items = tripled(brands)
 
   return (
-    <section className="carousel-section" aria-label="Businesses powered by Imara">
+    <section className="carousel-section" aria-label="Businesses powered by IMARA">
 
       <div className="carousel-heading">
         <p className="carousel-title">

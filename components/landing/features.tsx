@@ -1,116 +1,153 @@
 import {
-  Zap,
+  ShoppingCart,
   Package,
   Users,
-  CreditCard,
-  MessageCircle,
-  UserCheck,
   Truck,
+  DollarSign,
+  BarChart2,
   GitBranch,
-  Lock,
-  Smartphone,
-  Bell,
-  RefreshCw,
+  UserCheck,
+  Zap,
 } from 'lucide-react'
 
-const featured = [
+const pillars = [
   {
-    icon: Zap,
-    title: 'Fast, Reliable Point of Sale',
+    icon: ShoppingCart,
+    title: 'Run Sales',
     description:
-      'Process sales quickly, accept cash, card and mobile money, and keep serving customers when connectivity is unstable.',
-    tag: 'Core',
-    tagClass: 'text-primary bg-primary/8',
-    iconClass: 'bg-primary/10 text-primary',
+      'Fast, reliable point of sale. Accept cash, card, and mobile money. Never slow down at the counter.',
+    outcomes: ['Complete a sale in under 5 seconds', 'Accept M-Pesa, card & cash', 'Works offline when needed'],
+    featured: true,
   },
   {
     icon: Package,
-    title: 'Real-Time Inventory',
+    title: 'Manage Inventory',
     description:
-      'Track stock across products, branches and stores. Set reorder levels, monitor low stock and keep purchasing decisions accurate.',
-    tag: 'Core',
-    tagClass: 'text-primary bg-primary/8',
-    iconClass: 'bg-primary/10 text-primary',
+      'Know exactly what you have, where it is, and when to reorder. Zero spreadsheets required.',
+    outcomes: ['Real-time stock across branches', 'Low stock alerts & reorder points', 'Expiry tracking for perishables'],
+    featured: true,
   },
   {
-    icon: MessageCircle,
-    title: 'WhatsApp Integration',
+    icon: Users,
+    title: 'Know Your Customers',
     description:
-      'Send receipts, order confirmations, and payment updates directly to customers via WhatsApp. Built-in messaging for customer engagement.',
-    tag: 'Engagement',
-    tagClass: 'text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-900/20',
-    iconClass: 'bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400',
+      'Build lasting relationships with a built-in CRM, loyalty points, and purchase history.',
+    outcomes: ['Full customer purchase history', 'Loyalty programme out of the box', 'Targeted promotions & offers'],
+    featured: true,
   },
-]
-
-const secondary = [
-  { icon: CreditCard,  title: 'Payments & Reconciliation',  description: 'Mobile money, card, invoice and cash payments reconciled into one clean record.' },
-  { icon: Users,       title: 'Customer CRM',               description: 'Purchase history, loyalty points, and targeted offers — built right in.' },
-  { icon: UserCheck,   title: 'Employees & Roles',          description: 'Shifts, permissions, commissions, and performance tracking for every employee.' },
-  { icon: Truck,       title: 'Supplier Management',        description: 'Purchase orders, delivery tracking, and supplier invoice management.' },
-  { icon: GitBranch,   title: 'Multi-Branch Control',       description: 'One dashboard for every location. Transfer stock, compare performance and standardize operations.' },
-  { icon: Bell,        title: 'Smart Alerts',               description: 'Low stock, expiring products, unusual transactions — notified before it matters.' },
-  { icon: Lock,        title: 'Bank-Level Security',        description: 'End-to-end encryption, automatic backups, and full audit trails.' },
-  { icon: RefreshCw,   title: 'Auto Reconciliation',        description: 'Every M-Pesa and card transaction matched automatically. Zero manual effort.' },
-  { icon: Smartphone,  title: 'Any Device, Anywhere',       description: 'Full experience on desktop, tablet, or mobile. No app installs needed.' },
+  {
+    icon: Truck,
+    title: 'Manage Purchasing',
+    description:
+      'Streamline your supply chain from purchase orders to supplier invoices.',
+    outcomes: ['Raise and track purchase orders', 'Supplier management & history', 'Automatic reorder triggers'],
+    featured: false,
+  },
+  {
+    icon: DollarSign,
+    title: 'Track Finances',
+    description:
+      'Automatic reconciliation. Know your revenue, costs, and margins at a glance.',
+    outcomes: ['Daily P&L automatically generated', 'M-Pesa & card auto-reconciliation', 'Invoice & payment tracking'],
+    featured: false,
+  },
+  {
+    icon: UserCheck,
+    title: 'Manage Employees',
+    description:
+      'Shifts, roles, commissions, and performance — all in one place for your whole team.',
+    outcomes: ['Role-based access controls', 'Shift scheduling & time tracking', 'Sales commission management'],
+    featured: false,
+  },
+  {
+    icon: GitBranch,
+    title: 'Multi-Branch Control',
+    description:
+      'Expand with confidence. One dashboard for every location, with centralized reporting.',
+    outcomes: ['Unified view of all branches', 'Stock transfers between locations', 'Per-branch performance reports'],
+    featured: false,
+  },
+  {
+    icon: BarChart2,
+    title: 'See Everything',
+    description:
+      'Analytics and reports that surface the numbers that matter — daily, weekly, and monthly.',
+    outcomes: ['Top products & slow movers', 'Peak hours & busy periods', 'Staff performance dashboards'],
+    featured: false,
+  },
+  {
+    icon: Zap,
+    title: 'Business Automation',
+    description:
+      'Set rules that run your business while you focus on growth. Automated alerts, actions, and workflows.',
+    outcomes: ['Low-stock auto-alerts', 'Reorder trigger automation', 'Scheduled reports via WhatsApp'],
+    featured: false,
+  },
 ]
 
 export function LandingFeatures() {
+  const featuredPillars = pillars.filter((p) => p.featured)
+  const restPillars = pillars.filter((p) => !p.featured)
+
   return (
-    <section id="features" className="section-padding-premium bg-secondary">
+    <section id="features" className="section-padding-premium bg-background border-b border-border">
       <div className="container-wide">
         {/* Header */}
-        <div className="text-center max-w-2xl mx-auto mb-8 sm:mb-16 md:mb-20 px-3 sm:px-4">
-          <p className="section-eyebrow mb-2 sm:mb-3 text-xs sm:text-sm">Platform Features</p>
-          <h2 className="section-heading mb-3 sm:mb-4 text-2xl sm:text-4xl md:text-5xl leading-tight">
-            Replace every tool with one platform.
+        <div className="max-w-2xl mb-16 md:mb-20">
+          <p className="section-eyebrow mb-3">The Platform</p>
+          <h2 className="section-heading mb-5 text-3xl md:text-4xl lg:text-5xl leading-tight">
+            Every tool your business needs.{' '}
+            <span className="text-muted-foreground">Nothing it doesn&apos;t.</span>
           </h2>
-          <p className="section-subheading mx-auto text-xs sm:text-base leading-relaxed">
-            Imara brings together the daily systems modern African businesses need to operate, grow, and stay in control.
+          <p className="section-subheading">
+            IMARA replaces the disconnected apps, spreadsheets, and manual processes holding your business back — with one unified Business OS.
           </p>
         </div>
 
-        {/* 3 featured cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-5 mb-3 sm:mb-5 px-3 sm:px-0">
-          {featured.map((f) => {
-            const Icon = f.icon
+        {/* 3 featured pillars — large cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-5">
+          {featuredPillars.map((pillar) => {
+            const Icon = pillar.icon
             return (
               <div
-                key={f.title}
-                className="fluent-card-hover flex flex-col gap-3 sm:gap-5 p-4 sm:p-6 md:p-7 rounded-lg sm:rounded-xl"
+                key={pillar.title}
+                className="fluent-card p-7 flex flex-col gap-6 hover:border-primary/30 transition-colors duration-200"
               >
-                <div className="flex items-start justify-between gap-3">
-                  <div className={`h-10 sm:h-11 w-10 sm:w-11 rounded-lg sm:rounded-xl flex items-center justify-center flex-shrink-0 ${f.iconClass}`}>
-                    <Icon className="h-4 sm:h-5 w-4 sm:w-5" />
-                  </div>
-                  <span className={`text-[8px] sm:text-[10px] font-bold uppercase tracking-widest rounded-full px-2 sm:px-2.5 py-0.5 sm:py-1 flex-shrink-0 ${f.tagClass}`}>
-                    {f.tag}
-                  </span>
+                <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center">
+                  <Icon className="h-6 w-6 text-primary" aria-hidden="true" />
                 </div>
                 <div>
-                  <h3 className="text-sm sm:text-base font-bold text-foreground mb-1 sm:mb-2 leading-snug">{f.title}</h3>
-                  <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">{f.description}</p>
+                  <h3 className="text-lg font-bold text-foreground mb-2">{pillar.title}</h3>
+                  <p className="text-sm text-muted-foreground leading-relaxed">{pillar.description}</p>
                 </div>
+                <ul className="mt-auto space-y-2">
+                  {pillar.outcomes.map((o) => (
+                    <li key={o} className="flex items-start gap-2 text-xs text-muted-foreground">
+                      <span className="mt-1.5 h-1 w-1 rounded-full bg-primary flex-shrink-0" aria-hidden="true" />
+                      {o}
+                    </li>
+                  ))}
+                </ul>
               </div>
             )
           })}
         </div>
 
-        {/* 9-cell secondary grid */}
-        <div className="grid gap-px overflow-hidden rounded-lg sm:rounded-2xl border border-border bg-border shadow-sm grid-cols-1 sm:grid-cols-2 md:grid-cols-3 px-3 sm:px-0">
-          {secondary.map((f) => {
-            const Icon = f.icon
+        {/* 6 remaining pillars — compact grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-px bg-border rounded-2xl overflow-hidden border border-border">
+          {restPillars.map((pillar) => {
+            const Icon = pillar.icon
             return (
               <div
-                key={f.title}
-                className="group flex items-start gap-3 bg-card p-3 sm:p-5 md:p-6 transition-colors duration-150 hover:bg-card/70"
+                key={pillar.title}
+                className="group flex items-start gap-4 bg-card p-6 hover:bg-secondary/50 transition-colors duration-150"
               >
-                <div className="h-8 sm:h-9 w-8 sm:w-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0 group-hover:bg-primary/15 transition-colors duration-150 mt-0.5">
-                  <Icon className="h-3.5 sm:h-4 w-3.5 sm:w-4 text-primary" />
+                <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0 group-hover:bg-primary/15 transition-colors duration-150 mt-0.5">
+                  <Icon className="h-5 w-5 text-primary" aria-hidden="true" />
                 </div>
                 <div className="min-w-0">
-                  <h3 className="text-xs sm:text-sm font-semibold text-foreground mb-0.5 sm:mb-1 leading-snug">{f.title}</h3>
-                  <p className="text-xs text-muted-foreground leading-relaxed">{f.description}</p>
+                  <h3 className="text-sm font-semibold text-foreground mb-1.5 leading-snug">{pillar.title}</h3>
+                  <p className="text-xs text-muted-foreground leading-relaxed">{pillar.description}</p>
                 </div>
               </div>
             )
