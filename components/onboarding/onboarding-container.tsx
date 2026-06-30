@@ -149,6 +149,8 @@ export function OnboardingContainer({ organizationId, userId }: OnboardingContai
           <StepBusinessType
             value={data.businessType}
             onChange={(value) => handleUpdate({ businessType: value })}
+            stepNumber={currentStep + 1}
+            totalSteps={STEPS.length}
           />
         )
       case 'business-category':
@@ -157,6 +159,8 @@ export function OnboardingContainer({ organizationId, userId }: OnboardingContai
             businessType={data.businessType}
             value={data.businessCategory}
             onChange={(value) => handleUpdate({ businessCategory: value })}
+            stepNumber={currentStep + 1}
+            totalSteps={STEPS.length}
           />
         )
       case 'business-details':
@@ -168,6 +172,8 @@ export function OnboardingContainer({ organizationId, userId }: OnboardingContai
               phone: data.phone,
             }}
             onChange={(updates) => handleUpdate(updates)}
+            stepNumber={currentStep + 1}
+            totalSteps={STEPS.length}
           />
         )
       case 'location':
@@ -178,6 +184,8 @@ export function OnboardingContainer({ organizationId, userId }: OnboardingContai
               timezone: data.timezone,
             }}
             onChange={(updates) => handleUpdate(updates)}
+            stepNumber={currentStep + 1}
+            totalSteps={STEPS.length}
           />
         )
       case 'business-size':
@@ -185,6 +193,8 @@ export function OnboardingContainer({ organizationId, userId }: OnboardingContai
           <StepBusinessSize
             value={data.businessSize}
             onChange={(value) => handleUpdate({ businessSize: value })}
+            stepNumber={currentStep + 1}
+            totalSteps={STEPS.length}
           />
         )
       case 'workspace-setup':
@@ -192,6 +202,8 @@ export function OnboardingContainer({ organizationId, userId }: OnboardingContai
           <StepWorkspaceSetup
             completed={data.workspaceCompleted}
             onToggle={handleWorkspaceToggle}
+            stepNumber={currentStep + 1}
+            totalSteps={STEPS.length}
           />
         )
       case 'welcome':
@@ -219,7 +231,7 @@ export function OnboardingContainer({ organizationId, userId }: OnboardingContai
       )}
 
       {/* Step content */}
-      <div className="mb-12 animate-fade-up">{renderStep()}</div>
+      <div className="mb-16 animate-fade-up">{renderStep()}</div>
 
       {/* Action buttons */}
       <StepFooter
