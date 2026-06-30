@@ -2,14 +2,19 @@
 
 import Link from 'next/link'
 import { motion } from 'framer-motion'
-import { ArrowRight, CalendarCheck2, CheckCircle2 } from 'lucide-react'
+import { ArrowRight, CalendarCheck2, CheckCircle2, TrendingUp, Lock, Zap } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { DashboardPreview } from '@/components/landing/dashboard-preview'
 
 const assurances = [
   'Start in minutes',
   'Works across branches',
   'Built for African commerce',
+]
+
+const benefits = [
+  { icon: TrendingUp, label: 'Real-time Analytics', description: 'Track sales and revenue instantly' },
+  { icon: Lock, label: 'Bank-grade Security', description: 'Your data is protected 24/7' },
+  { icon: Zap, label: 'Lightning Fast', description: 'Optimized for African connectivity' },
 ]
 
 const fadeUp = (delay = 0) => ({
@@ -20,7 +25,7 @@ const fadeUp = (delay = 0) => ({
 
 export function LandingHero() {
   return (
-    <section className="relative overflow-hidden border-b border-border bg-background">
+    <section className="relative overflow-hidden bg-background">
       {/* Subtle radial glow behind the content */}
       <div
         aria-hidden="true"
@@ -104,14 +109,35 @@ export function LandingHero() {
           </motion.div>
         </div>
 
-        {/* Dashboard preview */}
+        {/* Benefits Grid */}
         <motion.div
           initial={{ opacity: 0, y: 28 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.65, delay: 0.3, ease: [0.25, 0.1, 0.25, 1] }}
-          className="mx-auto mt-10 sm:mt-12 md:mt-14 max-w-5xl px-2 sm:px-0"
+          className="mx-auto mt-12 sm:mt-16 md:mt-20 max-w-4xl px-2 sm:px-0"
         >
-          <DashboardPreview compact />
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+            {benefits.map((benefit, index) => {
+              const Icon = benefit.icon
+              return (
+                <motion.div
+                  key={benefit.label}
+                  initial={{ opacity: 0, y: 16 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.5, delay: 0.4 + index * 0.1 }}
+                  className="group relative rounded-2xl border border-border bg-card p-6 hover:border-primary/50 hover:bg-secondary/50 transition-all duration-300"
+                >
+                  <div className="flex flex-col items-center text-center">
+                    <div className="mb-4 p-3 rounded-xl bg-primary/10 group-hover:bg-primary/20 transition-colors">
+                      <Icon className="h-6 w-6 text-primary" aria-hidden="true" />
+                    </div>
+                    <h3 className="font-semibold text-foreground mb-2">{benefit.label}</h3>
+                    <p className="text-sm text-muted-foreground">{benefit.description}</p>
+                  </div>
+                </motion.div>
+              )
+            })}
+          </div>
         </motion.div>
       </div>
     </section>
