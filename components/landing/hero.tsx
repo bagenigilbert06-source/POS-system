@@ -62,26 +62,26 @@ export function LandingHero() {
           {/* CTAs */}
           <motion.div
             {...fadeUp(0.18)}
-            className="mt-6 sm:mt-8 flex flex-col items-center justify-center gap-2.5 sm:gap-3 px-2"
+            className="mt-7 sm:mt-10 flex flex-col items-center justify-center gap-3 sm:gap-3.5 px-2"
           >
             <Button
               asChild
               size="lg"
-              className="w-full sm:w-auto h-11 sm:h-12 rounded-xl px-6 sm:px-8 font-semibold shadow-md shadow-blue-600/20 transition-transform duration-150 hover:scale-[1.02] active:scale-[0.99]"
+              className="w-full sm:w-auto h-12 sm:h-13 rounded-xl px-8 sm:px-10 font-bold text-base shadow-lg shadow-blue-600/30 transition-all duration-150 hover:shadow-xl hover:shadow-blue-600/40 hover:-translate-y-0.5 active:translate-y-0 active:shadow-md"
             >
-              <Link href="/sign-up">
+              <Link href="/sign-up" className="group inline-flex items-center gap-2.5">
                 Start Free Trial
-                <ArrowRight className="ml-2 h-4 w-4" aria-hidden="true" />
+                <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" aria-hidden="true" />
               </Link>
             </Button>
             <Button
               asChild
               size="lg"
               variant="outline"
-              className="w-full sm:w-auto h-11 sm:h-12 rounded-xl px-6 sm:px-8 font-medium"
+              className="w-full sm:w-auto h-12 sm:h-13 rounded-xl px-8 sm:px-10 font-semibold text-base border-2 hover:bg-secondary/80 transition-all duration-150"
             >
-              <Link href="mailto:hello@imara.co">
-                <CalendarCheck2 className="mr-2 h-4 w-4" aria-hidden="true" />
+              <Link href="mailto:hello@imara.co" className="inline-flex items-center gap-2.5">
+                <CalendarCheck2 className="h-4 w-4" aria-hidden="true" />
                 Book a Demo
               </Link>
             </Button>

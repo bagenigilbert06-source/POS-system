@@ -1,6 +1,7 @@
 import { auth } from '@/lib/auth'
 import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
+import { AnnouncementBanner } from '@/components/landing/announcement-banner'
 import { LandingNavbar } from '@/components/landing/navbar'
 import { LandingHero } from '@/components/landing/hero'
 import { LandingStats } from '@/components/landing/stats'
@@ -19,6 +20,7 @@ export default async function RootPage() {
 
   return (
     <div className="min-h-screen bg-background">
+      <AnnouncementBanner />
       <LandingNavbar />
       <main>
         <LandingHero />
