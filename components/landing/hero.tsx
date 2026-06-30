@@ -24,9 +24,9 @@ export function LandingHero() {
       {/* Subtle radial glow behind the content */}
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-0 flex items-start justify-center"
+        className="pointer-events-none absolute inset-0 flex items-start justify-center overflow-hidden"
       >
-        <div className="h-[560px] w-[900px] rounded-full bg-blue-600/[0.06] dark:bg-blue-500/[0.08]" />
+        <div className="h-[320px] w-[320px] sm:h-[560px] sm:w-[900px] rounded-full bg-blue-600/[0.06] dark:bg-blue-500/[0.08]" />
       </div>
 
       <div className="container-wide relative section-padding-premium">
@@ -42,7 +42,8 @@ export function LandingHero() {
           {/* Headline */}
           <motion.h1
             {...fadeUp(0.06)}
-            className="text-2xl font-semibold leading-tight tracking-tight text-foreground sm:text-4xl md:text-5xl lg:text-6xl"
+            className="font-semibold leading-tight tracking-tight text-foreground"
+            style={{ fontSize: 'clamp(1.5rem, 5vw, 3.5rem)' }}
           >
             Run Your Entire Business{' '}
             <span className="text-primary">From One Platform</span>
