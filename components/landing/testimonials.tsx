@@ -85,9 +85,9 @@ const testimonials = [
 export function LandingTestimonials() {
   const [selectedIndex, setSelectedIndex] = useState(0)
   const [autoplayRef] = useState(() => Autoplay({ 
-    delay: 5000, 
-    stopOnInteraction: true,
-    stopOnMouseEnter: true,
+    delay: 6000, 
+    stopOnInteraction: false,
+    stopOnMouseEnter: false,
     rootNode: (emblaRoot) => emblaRoot?.parentElement,
   }))
 
@@ -125,7 +125,6 @@ export function LandingTestimonials() {
   const handleDotClick = (index: number) => {
     if (emblaApi) {
       emblaApi.scrollTo(index)
-      autoplayRef.reset()
     }
   }
 
@@ -196,22 +195,23 @@ export function LandingTestimonials() {
             </div>
           </div>
 
-          {/* Carousel Controls */}
-          <div className="flex items-center justify-between mt-8 sm:mt-10">
-            <div className="flex gap-2">
+          {/* Carousel Controls - Hidden on mobile */}
+          <div className="hidden sm:flex items-center justify-between mt-8 sm:mt-10">
+            {/* Navigation Arrows */}
+            <div className="flex gap-3">
               <button
                 onClick={() => scroll('prev')}
-                className="inline-flex items-center justify-center h-10 w-10 rounded-lg border border-border hover:bg-primary/10 hover:border-primary/40 transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                className="inline-flex items-center justify-center h-11 w-11 rounded-full border border-primary/20 bg-primary/5 hover:bg-primary/10 hover:border-primary/40 transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary active:scale-95"
                 aria-label="Previous testimonial"
               >
-                <ChevronLeft className="h-5 w-5 text-foreground" />
+                <ChevronLeft className="h-5 w-5 text-primary" />
               </button>
               <button
                 onClick={() => scroll('next')}
-                className="inline-flex items-center justify-center h-10 w-10 rounded-lg border border-border hover:bg-primary/10 hover:border-primary/40 transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                className="inline-flex items-center justify-center h-11 w-11 rounded-full border border-primary/20 bg-primary/5 hover:bg-primary/10 hover:border-primary/40 transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary active:scale-95"
                 aria-label="Next testimonial"
               >
-                <ChevronRight className="h-5 w-5 text-foreground" />
+                <ChevronRight className="h-5 w-5 text-primary" />
               </button>
             </div>
 
@@ -221,10 +221,10 @@ export function LandingTestimonials() {
                 <button
                   key={i}
                   onClick={() => handleDotClick(i)}
-                  className={`h-2 rounded-full transition-all duration-400 ${
+                  className={`h-1.5 rounded-full transition-all duration-300 ${
                     i === selectedIndex
                       ? 'bg-primary w-6'
-                      : 'bg-border hover:bg-primary/60 w-2 hover:w-3'
+                      : 'bg-border/60 hover:bg-primary/40 w-2 hover:w-3'
                   }`}
                   aria-label={`Go to testimonial ${i + 1}`}
                   aria-current={i === selectedIndex ? 'true' : 'false'}
@@ -233,7 +233,7 @@ export function LandingTestimonials() {
             </div>
 
             {/* Rating on the right */}
-            <div className="hidden sm:flex flex-col items-end gap-2">
+            <div className="flex flex-col items-end gap-2">
               <div className="flex gap-1">
                 {Array.from({ length: 5 }).map((_, i) => (
                   <svg key={i} width="16" height="16" viewBox="0 0 20 20" className="text-amber-400">
@@ -247,9 +247,9 @@ export function LandingTestimonials() {
             </div>
           </div>
 
-          {/* Mobile rating */}
-          <div className="sm:hidden text-center mt-6 pt-6 border-t border-border">
-            <div className="flex justify-center gap-1 mb-2">
+          {/* Mobile rating - shown on mobile only */}
+          <div className="sm:hidden text-center mt-8">
+            <div className="flex justify-center gap-1 mb-3">
               {Array.from({ length: 5 }).map((_, i) => (
                 <svg key={i} width="16" height="16" viewBox="0 0 20 20" className="text-amber-400">
                   <path fill="currentColor" d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
