@@ -1,7 +1,9 @@
 'use client'
 
-import { cn } from '@/lib/utils'
 import { OnboardingHeader } from './onboarding-header'
+import { FormField } from './form-field'
+import { PremiumInput } from './premium-input'
+import { Building2, Mail, Phone } from 'lucide-react'
 
 interface StepBusinessDetailsProps {
   data: {
@@ -28,64 +30,39 @@ export function StepBusinessDetails({ data, onChange }: StepBusinessDetailsProps
         centered={true}
       />
 
-      <div className="space-y-5">
-        <div>
-          <label htmlFor="businessName" className="block text-sm font-semibold text-foreground mb-2">
-            Business name
-          </label>
-          <input
+      <div className="space-y-6">
+        <FormField label="Business name" required>
+          <PremiumInput
             id="businessName"
             type="text"
-            required
             placeholder="My Awesome Business"
             value={data.businessName}
             onChange={(e) => handleChange('businessName', e.target.value)}
-            className={cn(
-              'w-full rounded-lg border border-border bg-card px-4 py-3 text-sm outline-none',
-              'placeholder:text-muted-foreground/70',
-              'focus:border-primary focus:ring-2 focus:ring-primary/20',
-              'transition-all duration-150 shadow-sm-soft'
-            )}
+            icon={<Building2 className="h-4 w-4" />}
           />
-        </div>
+        </FormField>
 
-        <div>
-          <label htmlFor="businessEmail" className="block text-sm font-semibold text-foreground mb-2">
-            Business email
-          </label>
-          <input
+        <FormField label="Business email" required>
+          <PremiumInput
             id="businessEmail"
             type="email"
             placeholder="business@example.com"
             value={data.businessEmail}
             onChange={(e) => handleChange('businessEmail', e.target.value)}
-            className={cn(
-              'w-full rounded-lg border border-border bg-card px-4 py-3 text-sm outline-none',
-              'placeholder:text-muted-foreground/70',
-              'focus:border-primary focus:ring-2 focus:ring-primary/20',
-              'transition-all duration-150 shadow-sm-soft'
-            )}
+            icon={<Mail className="h-4 w-4" />}
           />
-        </div>
+        </FormField>
 
-        <div>
-          <label htmlFor="phone" className="block text-sm font-semibold text-foreground mb-2">
-            Phone number
-          </label>
-          <input
+        <FormField label="Phone number" required>
+          <PremiumInput
             id="phone"
             type="tel"
             placeholder="+254 712 345 678"
             value={data.phone}
             onChange={(e) => handleChange('phone', e.target.value)}
-            className={cn(
-              'w-full rounded-lg border border-border bg-card px-4 py-3 text-sm outline-none',
-              'placeholder:text-muted-foreground/70',
-              'focus:border-primary focus:ring-2 focus:ring-primary/20',
-              'transition-all duration-150 shadow-sm-soft'
-            )}
+            icon={<Phone className="h-4 w-4" />}
           />
-        </div>
+        </FormField>
       </div>
     </div>
   )

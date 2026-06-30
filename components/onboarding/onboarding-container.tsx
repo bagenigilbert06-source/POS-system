@@ -13,6 +13,7 @@ import { StepWorkspaceSetup } from './step-workspace-setup'
 import { StepWelcome } from './step-welcome'
 import { StepIndicator } from './step-indicator'
 import { StepFooter } from './step-footer'
+import { OnboardingLeftPanel } from './onboarding-left-panel'
 
 const STEPS = [
   { id: 'business-type', title: 'Business Type', component: StepBusinessType },
@@ -202,46 +203,60 @@ export function OnboardingContainer({ organizationId, userId }: OnboardingContai
   }
 
   return (
-    <div className="w-full max-w-2xl mx-auto px-4 md:px-0">
-      {/* Progress indicator */}
-      <StepIndicator
-        currentStep={currentStep}
-        totalSteps={STEPS.length}
-        stepTitle={step.title}
-        isComplete={isWelcomeStep}
-      />
+    <div className="flex min-h-screen w-full bg-background">
+      {/* Left panel with step progress and illustration */}
+      <OnboardingLeftPanel currentStep={currentStep} totalSteps={STEPS.length} />
 
-      {/* Error message */}
-      {error && (
-        <div className="rounded-lg bg-destructive/10 border border-destructive/20 px-5 py-4 mb-8 text-sm animate-fade-up">
-          <p className="font-medium text-destructive">{error}</p>
+      {/* Right side - Main content */}
+      <div className="flex-1 flex flex-col w-full md:w-auto">
+        <div className="flex-1 overflow-y-auto">
+          <div className="w-full max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-12 md:py-16">
+            {/* Progress indicator */}
+            <StepIndicator
+              currentStep={currentStep}
+              totalSteps={STEPS.length}
+              stepTitle={step.title}
+              isComplete={isWelcomeStep}
+            />
+
+            {/* Error message */}
+            {error && (
+              <div className="rounded-lg bg-destructive/10 border border-destructive/20 px-5 py-4 mb-8 text-sm animate-fade-up">
+                <p className="font-medium text-destructive">{error}</p>
+              </div>
+            )}
+
+            {/* Step content */}
+            <div className="mb-12 animate-fade-up">{renderStep()}</div>
+          </div>
         </div>
-      )}
 
-      {/* Step content */}
-      <div className="mb-12 animate-fade-up">{renderStep()}</div>
+        {/* Footer with action buttons - sticky on mobile */}
+        <div className="sticky bottom-0 md:relative w-full bg-background border-t border-border md:border-0 px-4 sm:px-6 lg:px-8 py-6 md:py-8">
+          <div className="w-full max-w-2xl mx-auto">
+            <StepFooter
+              onBack={handlePrevious}
+              onNext={handleNext}
+              backDisabled={currentStep === 0}
+              nextDisabled={!validateStep() && !isWelcomeStep}
+              loading={loading}
+              nextLabel={isLastStep ? 'Complete Setup' : 'Continue'}
+              showBack={!isWelcomeStep}
+            />
 
-      {/* Action buttons */}
-      <StepFooter
-        onBack={handlePrevious}
-        onNext={handleNext}
-        backDisabled={currentStep === 0}
-        nextDisabled={!validateStep() && !isWelcomeStep}
-        loading={loading}
-        nextLabel={isLastStep ? 'Complete Setup' : 'Continue'}
-        showBack={!isWelcomeStep}
-      />
-
-      {isWelcomeStep && (
-        <div className="text-center mt-8">
-          <button
-            onClick={() => router.push('/dashboard')}
-            className="text-sm font-semibold text-primary hover:text-primary/80 transition-colors duration-200"
-          >
-            Go to Dashboard
-          </button>
+            {isWelcomeStep && (
+              <div className="text-center mt-8">
+                <button
+                  onClick={() => router.push('/dashboard')}
+                  className="text-sm font-semibold text-primary hover:text-primary/80 transition-colors duration-200"
+                >
+                  Go to Dashboard
+                </button>
+              </div>
+            )}
+          </div>
         </div>
-      )}
+      </div>
     </div>
   )
 }
