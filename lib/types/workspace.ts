@@ -10,6 +10,13 @@ export interface SidebarConfig {
   secondaryNav: SidebarNavItem[]
 }
 
+export interface GettingStartedTask {
+  id: string
+  title: string
+  description: string
+  action: string
+}
+
 export interface BusinessTemplate {
   id: string
   name: string
@@ -22,6 +29,7 @@ export interface BusinessTemplate {
     price: number
     category: string
   }>
+  gettingStartedTasks: GettingStartedTask[]
   sidebarConfig: SidebarConfig
 }
 
