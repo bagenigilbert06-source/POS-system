@@ -14,7 +14,6 @@ const testimonials = [
     business: 'Kamau Supermarket, Thika',
     avatar: '/avatars/wanjiku.png',
     initials: 'WK',
-    color: '#2563eb',
   },
   {
     quote: 'M-Pesa integration is completely seamless. Customer pays, it hits our account, the system reconciles it automatically. I used to dread end-of-day.',
@@ -23,7 +22,6 @@ const testimonials = [
     business: 'Otieno Hardware, Kisumu',
     avatar: '/avatars/brian.png',
     initials: 'BO',
-    color: '#0891b2',
   },
   {
     quote: 'Managing inventory across three pharmacy branches was a nightmare before Imara. Now I see every location from my phone in real time.',
@@ -32,7 +30,6 @@ const testimonials = [
     business: 'Hassan Pharmacy Group, Mombasa',
     avatar: '/avatars/amina.png',
     initials: 'AH',
-    color: '#7c3aed',
   },
   {
     quote: 'The POS and client records combo is everything for us. Clients earn loyalty points and I can see exactly which stylist is generating the most revenue per shift.',
@@ -41,7 +38,6 @@ const testimonials = [
     business: 'Glow Beauty Studio, Nairobi',
     avatar: '/avatars/njeri.png',
     initials: 'NM',
-    color: '#db2777',
   },
   {
     quote: 'The analytics are genuinely useful. Top-selling categories, slow movers, peak hours — all there without building a single spreadsheet.',
@@ -50,7 +46,6 @@ const testimonials = [
     business: 'Kimani Wholesale, Nakuru',
     avatar: '/avatars/david.png',
     initials: 'DK',
-    color: '#059669',
   },
   {
     quote: 'Setup was faster than I expected. We were live on day one with all our inventory imported. Support answered every question the same day.',
@@ -59,7 +54,6 @@ const testimonials = [
     business: 'Achieng Restaurant, Eldoret',
     avatar: '/avatars/grace.png',
     initials: 'GA',
-    color: '#d97706',
   },
   {
     quote: 'Before Imara I was running inventory on a notebook and WhatsApp. Now everything is digital, tracked, and accurate. I know my margins on every product.',
@@ -68,7 +62,6 @@ const testimonials = [
     business: 'Mwangi General Store, Nyeri',
     avatar: '/avatars/james.png',
     initials: 'JM',
-    color: '#0f766e',
   },
   {
     quote: 'The multi-branch feature alone is worth every shilling. I open one screen each morning and see how all four of my salons are doing — staff, stock, revenue.',
@@ -77,15 +70,13 @@ const testimonials = [
     business: 'Ali Beauty Centers, Nairobi',
     avatar: '/avatars/fatuma.png',
     initials: 'FA',
-    color: '#be185d',
   },
 ]
-
 
 export function LandingTestimonials() {
   const [selectedIndex, setSelectedIndex] = useState(0)
   const [autoplayRef] = useState(() => Autoplay({ 
-    delay: 5000, 
+    delay: 6000, 
     stopOnInteraction: true,
     stopOnMouseEnter: true,
     rootNode: (emblaRoot) => emblaRoot?.parentElement,
@@ -130,85 +121,74 @@ export function LandingTestimonials() {
   }
 
   return (
-    <section className="py-16 sm:py-20 md:py-24 px-4 bg-background">
-      <div className="mx-auto max-w-5xl">
+    <section className="py-16 sm:py-24 md:py-28 px-4 bg-background border-t border-border">
+      <div className="mx-auto max-w-6xl">
         {/* Header */}
-        <div className="text-center mb-12 sm:mb-16">
-          <p className="text-xs sm:text-sm font-bold uppercase tracking-widest text-primary mb-3">Customer Stories</p>
-          <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold text-foreground mb-4 leading-tight">
-            Real businesses. Real results.
+        <div className="text-center mb-16 sm:mb-20">
+          <p className="text-xs sm:text-sm font-semibold uppercase tracking-widest text-primary mb-4">Trusted by thousands</p>
+          <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold text-foreground mb-5 leading-tight">
+            Loved by business owners across Kenya
           </h2>
-          <p className="text-base text-muted-foreground max-w-2xl mx-auto">
-            From corner shops in Thika to multi-branch pharmacies in Mombasa — thousands of Kenyan businesses trust Imara every day.
+          <p className="text-base text-muted-foreground max-w-2xl mx-auto leading-relaxed">
+            See how real businesses are transforming their operations with Imara
           </p>
         </div>
 
-        {/* Carousel */}
-        <div className="mb-10 sm:mb-12">
-          <div className="overflow-hidden rounded-xl" ref={emblaRef}>
-            <div className="flex gap-4 sm:gap-6 lg:gap-8">
-              {testimonials.map((t, i) => (
-                <div
-                  key={i}
-                  className="flex-[0_0_100%] sm:flex-[0_0_calc(50%-12px)] lg:flex-[0_0_calc(33.333%-16px)] min-w-0"
-                >
-                  <div className="h-full rounded-xl border border-border/60 bg-white/40 dark:bg-slate-950/40 backdrop-blur-md p-6 flex flex-col hover:border-primary/40 hover:bg-white/60 dark:hover:bg-slate-950/60 transition-all duration-500 ease-out">
-                    {/* Stars */}
-                    <div className="flex gap-1 mb-4">
-                      {Array.from({ length: 5 }).map((_, i) => (
-                        <svg key={i} width="16" height="16" viewBox="0 0 20 20" className="text-amber-400">
-                          <path fill="currentColor" d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
-                        </svg>
-                      ))}
-                    </div>
+        {/* Testimonial Display */}
+        <div className="relative">
+          {/* Current Testimonial Card */}
+          <div className="mb-10 sm:mb-14">
+            <div className="rounded-2xl border border-border bg-card p-8 sm:p-10 lg:p-12 shadow-sm hover:shadow-md transition-shadow duration-300 min-h-[280px] sm:min-h-[300px] flex flex-col justify-between">
+              {/* Quote Mark */}
+              <div className="inline-flex w-fit mb-6">
+                <svg className="h-8 w-8 text-primary/20" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M3 21c3 0 7-1 7-8V5c0-1.25-4.716-2-6.142-2.642C2.337 2.4 1 3.667 1 5v10c0 1 0 7 8 7h8c1 0 1-1 1-1v-5.5c0-.5 0-1-1-1-1 0-4 .5-4-2s4-5 4-6V5c0-.5-.5-1-1-1-1 0-3 .5-4-2s4-5 6-5 6 1 6 8v10" />
+                </svg>
+              </div>
 
-                    {/* Quote */}
-                    <p className="text-sm text-foreground leading-relaxed mb-6 flex-1">
-                      &quot;{t.quote}&quot;
-                    </p>
+              {/* Quote Text */}
+              <p className="text-lg sm:text-xl text-foreground leading-relaxed font-medium mb-8 flex-1">
+                {testimonials[selectedIndex].quote}
+              </p>
 
-                    {/* Footer */}
-                    <div className="pt-4 border-t border-border flex items-center gap-3">
-                      <div
-                        className="h-10 w-10 rounded-full flex items-center justify-center flex-shrink-0"
-                        style={{ background: t.color }}
-                      >
-                        <Image
-                          src={t.avatar}
-                          alt={t.name}
-                          width={40}
-                          height={40}
-                          className="rounded-full w-full h-full object-cover"
-                          onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
-                        />
-                        <span className="text-white font-bold text-xs" style={{ display: 'none' }}>
-                          {t.initials}
-                        </span>
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-sm font-semibold text-foreground truncate">{t.name}</p>
-                        <p className="text-xs text-muted-foreground truncate">{t.role} — {t.business}</p>
-                      </div>
-                    </div>
-                  </div>
+              {/* Author Info */}
+              <div className="flex items-center gap-4 pt-6 border-t border-border">
+                <div className="relative h-12 w-12 rounded-full overflow-hidden bg-gradient-to-br from-primary/40 to-primary/20 flex-shrink-0">
+                  <Image
+                    src={testimonials[selectedIndex].avatar}
+                    alt={testimonials[selectedIndex].name}
+                    width={48}
+                    height={48}
+                    className="w-full h-full object-cover"
+                    onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
+                  />
+                  {!testimonials[selectedIndex].avatar && (
+                    <span className="absolute inset-0 flex items-center justify-center text-white font-bold text-sm">
+                      {testimonials[selectedIndex].initials}
+                    </span>
+                  )}
                 </div>
-              ))}
+                <div>
+                  <p className="font-semibold text-foreground text-sm">{testimonials[selectedIndex].name}</p>
+                  <p className="text-xs text-muted-foreground">{testimonials[selectedIndex].role} • {testimonials[selectedIndex].business}</p>
+                </div>
+              </div>
             </div>
           </div>
 
-          {/* Carousel Controls */}
-          <div className="flex items-center justify-between mt-8 sm:mt-10">
+          {/* Navigation Controls */}
+          <div className="flex items-center justify-between">
             <div className="flex gap-2">
               <button
                 onClick={() => scroll('prev')}
-                className="inline-flex items-center justify-center h-10 w-10 rounded-lg border border-border hover:bg-primary/10 hover:border-primary/40 transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                className="inline-flex items-center justify-center h-10 w-10 rounded-lg border border-border hover:border-primary hover:bg-primary/5 transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary active:scale-95"
                 aria-label="Previous testimonial"
               >
                 <ChevronLeft className="h-5 w-5 text-foreground" />
               </button>
               <button
                 onClick={() => scroll('next')}
-                className="inline-flex items-center justify-center h-10 w-10 rounded-lg border border-border hover:bg-primary/10 hover:border-primary/40 transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                className="inline-flex items-center justify-center h-10 w-10 rounded-lg border border-border hover:border-primary hover:bg-primary/5 transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary active:scale-95"
                 aria-label="Next testimonial"
               >
                 <ChevronRight className="h-5 w-5 text-foreground" />
@@ -216,15 +196,15 @@ export function LandingTestimonials() {
             </div>
 
             {/* Dots indicator */}
-            <div className="flex gap-2">
+            <div className="flex gap-1.5 flex-wrap justify-center">
               {testimonials.map((_, i) => (
                 <button
                   key={i}
                   onClick={() => handleDotClick(i)}
-                  className={`h-2 rounded-full transition-all duration-400 ${
+                  className={`h-2 rounded-full transition-all duration-300 ${
                     i === selectedIndex
-                      ? 'bg-primary w-6'
-                      : 'bg-border hover:bg-primary/60 w-2 hover:w-3'
+                      ? 'bg-primary w-8'
+                      : 'bg-border hover:bg-primary/40 w-2 hover:w-3'
                   }`}
                   aria-label={`Go to testimonial ${i + 1}`}
                   aria-current={i === selectedIndex ? 'true' : 'false'}
@@ -232,33 +212,10 @@ export function LandingTestimonials() {
               ))}
             </div>
 
-            {/* Rating on the right */}
-            <div className="hidden sm:flex flex-col items-end gap-2">
-              <div className="flex gap-1">
-                {Array.from({ length: 5 }).map((_, i) => (
-                  <svg key={i} width="16" height="16" viewBox="0 0 20 20" className="text-amber-400">
-                    <path fill="currentColor" d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
-                  </svg>
-                ))}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                <strong className="text-foreground">4.9 out of 5</strong>
-              </p>
+            {/* Stats */}
+            <div className="text-right">
+              <p className="text-sm font-semibold text-foreground">{selectedIndex + 1} of {testimonials.length}</p>
             </div>
-          </div>
-
-          {/* Mobile rating */}
-          <div className="sm:hidden text-center mt-6 pt-6 border-t border-border">
-            <div className="flex justify-center gap-1 mb-2">
-              {Array.from({ length: 5 }).map((_, i) => (
-                <svg key={i} width="16" height="16" viewBox="0 0 20 20" className="text-amber-400">
-                  <path fill="currentColor" d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
-                </svg>
-              ))}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              <strong className="text-foreground">4.9 out of 5</strong> — rated by 5,000+ businesses across Kenya
-            </p>
           </div>
         </div>
       </div>
