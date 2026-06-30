@@ -34,20 +34,14 @@ export function OnboardingLayout({ children }: OnboardingLayoutProps) {
         <div className="relative z-10 flex flex-col h-full p-10 xl:p-12">
           {/* Logo */}
           <div className="flex items-center gap-3 mb-16">
-            <div className="h-10 w-10 rounded-xl overflow-hidden flex-shrink-0 shadow-lg">
+            <div className="h-10 w-10 rounded-xl overflow-hidden flex-shrink-0 shadow-lg bg-blue-500 flex items-center justify-center">
               <Image
                 src="/imara-logo.png"
                 alt="IMARA logo"
                 width={40}
                 height={40}
                 className="object-contain w-full h-full"
-                onError={(e) => {
-                  // Fallback to letter mark if image fails
-                  const target = e.currentTarget as HTMLImageElement
-                  target.style.display = 'none'
-                  target.parentElement!.innerHTML =
-                    '<div class="w-10 h-10 rounded-xl bg-blue-500 flex items-center justify-center text-white font-bold text-lg">I</div>'
-                }}
+                priority
               />
             </div>
             <span className="text-[22px] font-bold text-white tracking-tight">IMARA</span>
