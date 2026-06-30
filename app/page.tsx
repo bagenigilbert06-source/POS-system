@@ -3,13 +3,13 @@ import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { LandingNavbar } from '@/components/landing/navbar'
 import { LandingHero } from '@/components/landing/hero'
-import { LandingStats } from '@/components/landing/stats'
-import { LandingFeatures } from '@/components/landing/features'
-import { LandingIndustries } from '@/components/landing/industries'
-import { LandingWhyImara } from '@/components/landing/why-imara'
-import { LogoCarousel } from '@/components/landing/logo-carousel'
+import { TrustedBy } from '@/components/landing/trusted-by'
+import { ProblemsSolved } from '@/components/landing/problems-solved'
+import { BusinessTypesSection } from '@/components/landing/business-types-section'
+import { ProductPreview } from '@/components/landing/product-preview'
+import { WhyChooseImara } from '@/components/landing/why-choose-imara'
+import { HowItWorks } from '@/components/landing/how-it-works'
 import { LandingTestimonials } from '@/components/landing/testimonials'
-import { LandingFAQ } from '@/components/landing/faq'
 import { LandingCTA } from '@/components/landing/cta'
 import { LandingFooter } from '@/components/landing/footer'
 
@@ -22,13 +22,13 @@ export default async function RootPage() {
       <LandingNavbar />
       <main>
         <LandingHero />
-        <LogoCarousel />
-        <LandingStats />
-        <LandingFeatures />
-        <LandingIndustries />
-        <LandingWhyImara />
+        <TrustedBy />
+        <ProblemsSolved />
+        <BusinessTypesSection />
+        <ProductPreview />
+        <WhyChooseImara />
+        <HowItWorks />
         <LandingTestimonials />
-        <LandingFAQ />
         <LandingCTA />
       </main>
       <LandingFooter />
