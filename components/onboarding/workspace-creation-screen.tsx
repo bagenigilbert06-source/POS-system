@@ -167,8 +167,8 @@ export function WorkspaceCreationScreen({
       {/* Subheading */}
       <p className="text-base text-muted-foreground text-center mb-12 max-w-md">
         {isSuccess
-          ? `Welcome to IMARA, ${onboardingData.businessName}!`
-          : `Just a moment while we set up ${onboardingData.businessName || 'your business'}`}
+          ? `Welcome to IMARA! ${onboardingData.businessName} is ready.`
+          : `Just a moment while we set up ${onboardingData.businessName || 'your business'}.`}
       </p>
 
       {/* Step list */}

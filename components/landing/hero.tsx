@@ -59,7 +59,7 @@ export function LandingHero() {
             {...fadeUp(0.12)}
             className="mx-auto mt-3 sm:mt-5 max-w-xl px-3 text-sm leading-relaxed text-muted-foreground sm:text-base md:text-lg"
           >
-            KashNest unifies POS, inventory, customers, suppliers, payments,
+            IMARA unifies POS, inventory, customers, suppliers, payments,
             employees, and multi-branch operations in one reliable cloud
             workspace — purpose-built for African markets.
           </motion.p>
@@ -85,7 +85,7 @@ export function LandingHero() {
               variant="outline"
               className="w-full sm:w-auto h-12 sm:h-13 rounded-xl px-6 sm:px-10 font-semibold text-base border-2 hover:bg-secondary/80 transition-all duration-150"
             >
-              <Link href="mailto:hello@kashnest.com" className="inline-flex items-center justify-center gap-2.5">
+              <Link href="mailto:hello@imara.co.ke" className="inline-flex items-center justify-center gap-2.5">
                 <CalendarCheck2 className="h-4 w-4" aria-hidden="true" />
                 Book a Demo
               </Link>

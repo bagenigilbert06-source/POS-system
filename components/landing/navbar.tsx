@@ -16,28 +16,28 @@ import { ThemeSwitcher } from '@/components/theme-switcher'
 const navLinks = [
   { href: '/features', label: 'Features' },
   { href: '/industries', label: 'Industries' },
-  { href: '/why-kashnest', label: 'Why KashNest' },
+  { href: '/why-imara', label: 'Why IMARA' },
   { href: '/resources', label: 'Resources' },
-  { href: 'mailto:hello@kashnest.com', label: 'Contact' },
+  { href: 'mailto:hello@imara.co.ke', label: 'Contact' },
 ]
 
-function KashNestLogo() {
+function IMARALogo() {
   return (
     <Link
       href="/"
       className="group flex items-center gap-2.5 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
     >
       <Image
-        src="/logo.png"
-        alt="KashNest"
+        src="/imara-logo.png"
+        alt="IMARA"
         width={36}
         height={36}
-        className="h-9 w-9 rounded-xl shadow-sm transition-transform duration-200 group-hover:scale-105"
+        className="h-9 w-9 rounded-xl shadow-sm transition-transform duration-200 group-hover:scale-105 object-contain"
         priority
       />
       <span className="flex flex-col leading-none">
-        <span className="text-[17px] font-semibold tracking-tight text-foreground">
-          KashNest
+        <span className="text-[17px] font-bold tracking-tight text-foreground">
+          IMARA
         </span>
         <span className="hidden text-[9px] font-semibold uppercase tracking-[0.18em] text-muted-foreground sm:block">
           Business OS
@@ -51,7 +51,7 @@ export function LandingNavbar() {
   return (
     <header className="sticky top-0 z-50 border-b border-border bg-background/90 backdrop-blur-xl">
       <div className="container-wide flex h-16 items-center justify-between">
-        <KashNestLogo />
+        <IMARALogo />
 
         {/* Desktop nav */}
         <nav
@@ -101,7 +101,7 @@ export function LandingNavbar() {
             <SheetContent className="w-[85vw] max-w-[340px]">
               <SheetTitle className="sr-only">Navigation menu</SheetTitle>
               <div className="mb-8 pt-1">
-                <KashNestLogo />
+                <IMARALogo />
               </div>
               <nav aria-label="Mobile navigation" className="flex flex-col gap-0.5">
                 {navLinks.map((link) => (
