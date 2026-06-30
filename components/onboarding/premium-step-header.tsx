@@ -17,21 +17,21 @@ export function PremiumStepHeader({
   totalSteps,
   title,
   description,
-  maxWidth = 'max-w-lg',
+  maxWidth = 'max-w-2xl',
 }: PremiumStepHeaderProps) {
   return (
-    <div className={`${ONBOARDING_PRESETS.stepHeader} mb-8 md:mb-10 ${maxWidth}`}>
+    <div className={`space-y-4 mb-10 md:mb-12 ${maxWidth}`}>
       {/* Step indicator */}
-      <p className={`${ONBOARDING_TOKENS.typography.stepIndicator} ${ONBOARDING_TOKENS.typography.stepIndicatorColor} mb-2`}>
+      <p className={`${ONBOARDING_TOKENS.typography.stepIndicator} ${ONBOARDING_TOKENS.typography.stepIndicatorColor}`}>
         Step {stepNumber} of {totalSteps}
       </p>
 
       {/* Title */}
-      <h2 className={ONBOARDING_PRESETS.stepTitle}>{title}</h2>
+      <h2 className={`${ONBOARDING_TOKENS.typography.heading} ${ONBOARDING_TOKENS.typography.headingColor} leading-tight`}>{title}</h2>
 
       {/* Description */}
       {description && (
-        <p className={`${ONBOARDING_PRESETS.stepDescription} mt-3`}>{description}</p>
+        <p className={`${ONBOARDING_TOKENS.typography.description}`}>{description}</p>
       )}
     </div>
   )

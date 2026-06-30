@@ -30,7 +30,7 @@ export function StepBusinessType({
   totalSteps = 7,
 }: StepBusinessTypeProps) {
   return (
-    <div className="space-y-10">
+    <div className="space-y-12">
       <PremiumStepHeader
         stepNumber={stepNumber}
         totalSteps={totalSteps}
@@ -38,7 +38,7 @@ export function StepBusinessType({
         description="Choose your business model to unlock tailored features and workflows designed for your success."
       />
 
-      <div className="grid gap-5 md:grid-cols-3 md:gap-6">
+      <div className="grid gap-6 md:grid-cols-3">
         {BUSINESS_TYPES.map(({ id, name, description, examples = [] }) => {
           const Icon = iconMap[id] ?? ShoppingCart
 
@@ -51,7 +51,6 @@ export function StepBusinessType({
               examples={examples}
               selected={value === id}
               onClick={() => onChange(id)}
-              recommended={recommendedTypes.has(id)}
             />
           )
         })}

@@ -56,13 +56,13 @@ export function PremiumSelectionCard({
       <div className="flex items-start">
         <div
           className={cn(
-            'flex h-16 w-16 items-center justify-center rounded-xl transition-all duration-200 flex-shrink-0',
+            'flex h-14 w-14 items-center justify-center rounded-lg transition-all duration-200 flex-shrink-0',
             selected
-              ? 'bg-primary text-primary-foreground shadow-md'
-              : 'bg-primary/12 text-primary group-hover:bg-primary/18'
+              ? 'bg-primary text-primary-foreground'
+              : 'bg-primary/10 text-primary group-hover:bg-primary/15'
           )}
         >
-          <Icon className="h-8 w-8" />
+          <Icon className="h-7 w-7" />
         </div>
       </div>
 
