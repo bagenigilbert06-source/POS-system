@@ -1,7 +1,6 @@
 'use client'
 
 import { Check } from 'lucide-react'
-import { cn } from '@/lib/utils'
 import React from 'react'
 
 interface PremiumSelectionCardProps {
@@ -15,14 +14,13 @@ interface PremiumSelectionCardProps {
 }
 
 /**
- * Clean Zoho/Odoo-style selection card.
- * Subtle border, primary highlight on select, no heavy shadows.
+ * Zoho-style selection card — white background, crisp border,
+ * blue accent when selected, icon in a coloured square badge.
  */
 export function PremiumSelectionCard({
   icon: Icon,
   title,
   description,
-  examples = [],
   selected,
   onClick,
   badge,
@@ -30,52 +28,56 @@ export function PremiumSelectionCard({
   return (
     <button
       onClick={onClick}
-      className={cn(
-        'group relative w-full rounded-xl p-5 text-left transition-all duration-150 flex flex-col gap-4 min-h-[150px]',
-        selected
-          ? 'bg-primary/5 border-2 border-primary ring-0'
-          : 'bg-card border border-border hover:border-primary/40 hover:bg-primary/[0.02]',
-      )}
       aria-pressed={selected}
+      className="group relative w-full rounded-xl text-left transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+      style={{
+        background: selected ? '#eff6ff' : '#fff',
+        border: selected ? '2px solid #1a56db' : '1.5px solid #e2e8f0',
+        padding: '20px',
+        boxShadow: selected
+          ? '0 0 0 3px rgba(26,86,219,0.08)'
+          : '0 1px 3px rgba(0,0,0,0.04)',
+      }}
     >
-      {/* Selected checkmark */}
+      {/* Check badge */}
       {selected && (
-        <div className="absolute top-4 right-4 h-6 w-6 rounded-full bg-primary flex items-center justify-center">
-          <Check className="h-3.5 w-3.5 text-primary-foreground stroke-[2.5]" />
-        </div>
+        <span
+          className="absolute top-3.5 right-3.5 h-5 w-5 rounded-full flex items-center justify-center"
+          style={{ background: '#1a56db' }}
+        >
+          <Check className="h-3 w-3 text-white stroke-[3]" />
+        </span>
       )}
 
-      {/* Icon */}
+      {/* Icon square */}
       <div
-        className={cn(
-          'flex h-11 w-11 items-center justify-center rounded-lg transition-colors duration-150',
-          selected
-            ? 'bg-primary text-primary-foreground'
-            : 'bg-muted text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary',
-        )}
+        className="mb-4 h-11 w-11 rounded-lg flex items-center justify-center transition-colors duration-150"
+        style={{
+          background: selected ? '#1a56db' : '#f1f5f9',
+          color: selected ? '#fff' : '#475569',
+        }}
       >
         <Icon className="h-5 w-5" />
       </div>
 
-      {/* Content */}
-      <div className="space-y-1">
-        <div className="flex items-center gap-2">
-          <h3 className={cn(
-            'text-sm font-semibold leading-tight',
-            selected ? 'text-primary' : 'text-foreground',
-          )}>
-            {title}
-          </h3>
-          {badge && (
-            <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-md bg-primary/10 text-primary">
-              {badge}
-            </span>
-          )}
-        </div>
-        <p className="text-xs text-muted-foreground leading-relaxed line-clamp-2">
-          {description}
-        </p>
-      </div>
+      {/* Text */}
+      <p
+        className="text-[14px] font-semibold mb-1 leading-snug"
+        style={{ color: selected ? '#1a56db' : '#0f172a' }}
+      >
+        {title}
+        {badge && (
+          <span
+            className="ml-2 text-[10px] font-medium px-1.5 py-0.5 rounded"
+            style={{ background: '#dbeafe', color: '#1d4ed8' }}
+          >
+            {badge}
+          </span>
+        )}
+      </p>
+      <p className="text-[12px] leading-relaxed line-clamp-2" style={{ color: '#64748b' }}>
+        {description}
+      </p>
     </button>
   )
 }

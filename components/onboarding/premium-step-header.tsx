@@ -7,23 +7,23 @@ interface PremiumStepHeaderProps {
 }
 
 /**
- * Clean Zoho/Odoo-style step header.
- * Bold title, muted description — no decorative pill or badge.
+ * Zoho-style step heading — large bold title, calm muted description.
  */
 export function PremiumStepHeader({
-  stepNumber,
-  totalSteps,
   title,
   description,
-  maxWidth = 'max-w-lg',
+  maxWidth = 'max-w-xl',
 }: PremiumStepHeaderProps) {
   return (
-    <div className={`space-y-2 mb-8 ${maxWidth}`}>
-      <h2 className="text-2xl font-bold text-foreground tracking-tight leading-snug">
+    <div className={`${maxWidth} mb-8`}>
+      <h2
+        className="text-[26px] font-bold leading-tight tracking-tight mb-2"
+        style={{ color: '#0f172a' }}
+      >
         {title}
       </h2>
       {description && (
-        <p className="text-sm text-muted-foreground leading-relaxed">
+        <p className="text-[15px] leading-relaxed" style={{ color: '#64748b' }}>
           {description}
         </p>
       )}

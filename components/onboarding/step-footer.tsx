@@ -23,33 +23,37 @@ export function StepFooter({
   showBack = true,
 }: StepFooterProps) {
   return (
-    <div className={cn('flex gap-3 mt-10 pt-6 border-t border-border', showBack ? 'justify-between' : 'justify-end')}>
+    <div
+      className={cn(
+        'flex items-center pt-8 mt-10',
+        showBack ? 'justify-between' : 'justify-end',
+      )}
+      style={{ borderTop: '1px solid #e2e8f0' }}
+    >
       {showBack && (
         <button
           onClick={onBack}
           disabled={backDisabled || loading}
-          className={cn(
-            'inline-flex items-center gap-1.5 px-5 py-2.5 rounded-lg text-sm font-medium',
-            'border border-border text-foreground bg-background',
-            'hover:bg-muted transition-colors duration-150',
-            'disabled:opacity-40 disabled:cursor-not-allowed',
-          )}
+          className="inline-flex items-center gap-1.5 text-[14px] font-medium transition-colors duration-150 disabled:opacity-40 disabled:cursor-not-allowed"
+          style={{ color: backDisabled ? '#94a3b8' : '#475569' }}
         >
           <ChevronLeft className="h-4 w-4" />
           Back
         </button>
       )}
+
       <button
         onClick={onNext}
         disabled={nextDisabled || loading}
         className={cn(
-          'inline-flex items-center gap-1.5 px-6 py-2.5 rounded-lg text-sm font-semibold',
-          'bg-primary text-primary-foreground',
-          'hover:bg-primary/90 transition-colors duration-150',
+          'inline-flex items-center gap-2 px-7 py-2.5 rounded-lg text-[14px] font-semibold text-white transition-all duration-150',
           'disabled:opacity-40 disabled:cursor-not-allowed',
-          'shadow-sm',
           !showBack && 'ml-auto',
         )}
+        style={{
+          background: nextDisabled || loading ? '#93c5fd' : '#1a56db',
+          boxShadow: nextDisabled || loading ? 'none' : '0 1px 4px rgba(26,86,219,0.3)',
+        }}
       >
         {loading ? (
           <Loader2 className="h-4 w-4 animate-spin" />

@@ -26,14 +26,17 @@ export const PremiumInput = React.forwardRef<HTMLInputElement, PremiumInputProps
     return (
       <div className="space-y-2">
         {label && (
-          <label className={ONBOARDING_PRESETS.formLabel}>
+          <label
+            className="block text-[13px] font-semibold mb-1"
+            style={{ color: '#374151' }}
+          >
             {label}
-            {props.required && <span className="text-destructive ml-1">*</span>}
+            {props.required && <span className="ml-0.5" style={{ color: '#dc2626' }}>*</span>}
           </label>
         )}
 
         {description && (
-          <p className={ONBOARDING_TOKENS.typography.helperText}>
+          <p className="text-[12px] mb-1.5" style={{ color: '#94a3b8' }}>
             {description}
           </p>
         )}
@@ -45,10 +48,11 @@ export const PremiumInput = React.forwardRef<HTMLInputElement, PremiumInputProps
           <input
             ref={ref}
             className={cn(
-              ONBOARDING_PRESETS.premiumInput,
+              'w-full h-11 px-4 rounded-lg text-[14px] text-gray-900 placeholder:text-gray-400 transition-all duration-150 outline-none',
+              'bg-white border border-gray-200',
+              'focus:border-blue-500 focus:ring-2 focus:ring-blue-100',
               Icon && 'pl-11',
-              'hover:border-primary/40',
-              error && 'border-destructive focus:ring-destructive/30 focus:border-destructive',
+              error && 'border-red-400 focus:ring-red-100 focus:border-red-500',
               className
             )}
             {...props}
