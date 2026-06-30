@@ -13,10 +13,10 @@ import {
 import { ThemeSwitcher } from '@/components/theme-switcher'
 
 const navLinks = [
-  { href: '#features', label: 'Features' },
-  { href: '#industries', label: 'Industries' },
-  { href: '#why-imara', label: 'Why Imara' },
-  { href: '#faq', label: 'Resources' },
+  { href: '/features', label: 'Features' },
+  { href: '/industries', label: 'Industries' },
+  { href: '/why-imara', label: 'Why Imara' },
+  { href: '/resources', label: 'Resources' },
   { href: 'mailto:hello@imara.co', label: 'Contact' },
 ]
 
