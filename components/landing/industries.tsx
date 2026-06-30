@@ -199,19 +199,19 @@ export function LandingIndustries() {
           background: hsl(var(--secondary));
           border-top: 1px solid hsl(var(--border));
           border-bottom: 1px solid hsl(var(--border));
-          padding: 48px 16px;
+          padding: 32px 12px;
           box-sizing: border-box;
         }
 
         @media (min-width: 640px) {
           .ind-section {
-            padding: 64px 24px;
+            padding: 56px 24px;
           }
         }
 
         @media (min-width: 1024px) {
           .ind-section {
-            padding: 96px 24px;
+            padding: 88px 24px;
           }
         }
 
@@ -224,19 +224,19 @@ export function LandingIndustries() {
         .ind-header {
           text-align: center;
           max-width: 560px;
-          margin: 0 auto 28px;
-          padding: 0 4px;
+          margin: 0 auto 20px;
+          padding: 0 2px;
         }
 
         @media (min-width: 640px) {
           .ind-header {
-            margin-bottom: 32px;
+            margin-bottom: 28px;
           }
         }
 
         @media (min-width: 1024px) {
           .ind-header {
-            margin-bottom: 44px;
+            margin-bottom: 40px;
           }
         }
 
@@ -294,32 +294,32 @@ export function LandingIndustries() {
           scroll-snap-type: x mandatory;
           -webkit-overflow-scrolling: touch;
           gap: 6px;
-          margin-bottom: 24px;
-          padding: 0 0 8px 0;
+          margin-bottom: 20px;
+          padding: 0 0 4px 0;
         }
 
         @media (min-width: 640px) {
           .ind-tabs {
             flex-wrap: wrap;
             justify-content: center;
-            gap: 8px;
-            margin-bottom: 28px;
+            gap: 7px;
+            margin-bottom: 24px;
             padding: 0;
           }
         }
 
         @media (min-width: 1024px) {
           .ind-tabs {
-            margin-bottom: 40px;
+            margin-bottom: 36px;
           }
         }
 
         .ind-tab {
-          padding: 7px 14px;
+          padding: 6px 12px;
           border-radius: 999px;
           border: 1px solid hsl(var(--border));
           background: hsl(var(--card));
-          font-size: 11px;
+          font-size: 10px;
           font-weight: 600;
           color: hsl(var(--muted-foreground));
           cursor: pointer;
@@ -328,15 +328,16 @@ export function LandingIndustries() {
           line-height: 1;
           flex-shrink: 0;
           scroll-snap-align: start;
-          min-height: 44px;
+          min-height: 40px;
           display: flex;
           align-items: center;
         }
 
         @media (min-width: 640px) {
           .ind-tab {
-            padding: 8px 18px;
-            font-size: 12.5px;
+            padding: 8px 16px;
+            font-size: 12px;
+            min-height: 44px;
           }
         }
 
@@ -493,25 +494,25 @@ export function LandingIndustries() {
           }
         }
 
-        /* ── Copy side ─────────────────────────────────────────── */
+        /* ── Copy side ─────────────────────────────────────���───── */
         .ind-copy {
-          padding: 24px 16px;
+          padding: 20px 14px;
           display: flex;
           flex-direction: column;
-          gap: 16px;
+          gap: 14px;
         }
 
         @media (min-width: 640px) {
           .ind-copy {
-            padding: 28px 28px;
-            gap: 20px;
+            padding: 24px 26px;
+            gap: 18px;
           }
         }
 
         @media (min-width: 821px) {
           .ind-copy {
-            padding: 40px 40px 40px 0;
-            gap: 28px;
+            padding: 36px 40px 36px 0;
+            gap: 24px;
           }
         }
 

@@ -50,20 +50,20 @@ export function LandingFooter() {
 
   return (
     <footer className="border-t border-border bg-background">
-      <div className="container-wide py-12 sm:py-16 md:py-20">
+      <div className="container-wide py-8 sm:py-12 md:py-16 lg:py-20">
         {/* Top section with logo and CTA */}
-        <div className="flex flex-col md:flex-row md:items-start md:justify-between mb-12 sm:mb-14 md:mb-16 gap-6 sm:gap-8 px-2 sm:px-0">
+        <div className="flex flex-col md:flex-row md:items-start md:justify-between mb-8 sm:mb-10 md:mb-12 gap-5 sm:gap-6 px-3 sm:px-0">
           <div>
-            <Link href="/" className="inline-flex items-center gap-2 mb-4 sm:mb-6 group">
-              <div className="h-8 sm:h-9 w-8 sm:w-9 rounded-lg bg-primary flex items-center justify-center">
-                <Zap className="h-4 sm:h-5 w-4 sm:w-5 text-white fill-white" />
+            <Link href="/" className="inline-flex items-center gap-2 mb-3 sm:mb-4 group">
+              <div className="h-7 sm:h-8 w-7 sm:w-8 rounded-lg bg-primary flex items-center justify-center">
+                <Zap className="h-3.5 sm:h-4 w-3.5 sm:w-4 text-white fill-white" />
               </div>
-              <span className="text-base sm:text-lg font-bold tracking-tight">Imara</span>
+              <span className="text-sm sm:text-base font-bold tracking-tight">Imara</span>
             </Link>
             <div className="hidden md:block">
               <Link
                 href="/sign-up"
-                className="inline-flex items-center gap-2 text-primary font-semibold hover:opacity-80 transition-opacity text-sm"
+                className="inline-flex items-center gap-2 text-primary font-semibold hover:opacity-80 transition-opacity text-xs sm:text-sm"
               >
                 Start for free →
               </Link>
@@ -74,7 +74,7 @@ export function LandingFooter() {
           <div className="md:hidden">
             <Link
               href="/sign-up"
-              className="inline-block mb-6 px-5 sm:px-6 py-2 sm:py-2.5 bg-primary text-primary-foreground font-semibold rounded-lg hover:opacity-90 transition-opacity text-sm min-h-[40px] flex items-center"
+              className="inline-flex items-center mb-4 px-4 sm:px-5 py-2 sm:py-2.5 bg-primary text-primary-foreground font-semibold rounded-lg hover:opacity-90 transition-opacity text-xs sm:text-sm min-h-[40px]"
             >
               Start for free
             </Link>
@@ -82,16 +82,16 @@ export function LandingFooter() {
         </div>
 
         {/* Main grid */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6 sm:gap-8 md:gap-12 mb-12 sm:mb-14 md:mb-16 px-2 sm:px-0">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 sm:gap-6 md:gap-10 lg:gap-12 mb-8 sm:mb-10 md:mb-12 px-3 sm:px-0">
           {/* Product column */}
           <div>
-            <h3 className="text-xs sm:text-sm font-semibold text-foreground mb-4 sm:mb-6 uppercase tracking-wider">Product</h3>
-            <ul className="space-y-3 sm:space-y-4">
+            <h3 className="text-[10px] sm:text-xs font-semibold text-foreground mb-3 sm:mb-4 uppercase tracking-wider">Product</h3>
+            <ul className="space-y-2 sm:space-y-3">
               {footerLinks.Product.map((item) => (
                 <li key={item.label}>
                   <Link
                     href={item.href}
-                    className="text-xs sm:text-sm text-muted-foreground hover:text-foreground transition-colors duration-150"
+                    className="text-[11px] sm:text-xs text-muted-foreground hover:text-foreground transition-colors duration-150"
                   >
                     {item.label}
                   </Link>
