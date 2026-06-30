@@ -13,42 +13,48 @@ export function StepIndicator({
   stepTitle,
   isComplete = false,
 }: StepIndicatorProps) {
-  const progressPercentage = isComplete ? 100 : ((currentStep + 1) / totalSteps) * 100
-
   return (
-    <div className="mb-10 space-y-3">
-      {/* Step counter + title */}
-      <div className="flex items-center justify-between">
-        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-          Step {currentStep + 1} of {totalSteps}
-        </p>
-        <p className="text-xs font-medium text-muted-foreground">{stepTitle}</p>
+    <div className="mb-8">
+      {/* Step dots */}
+      <div className="flex items-center gap-2 mb-6">
+        {Array.from({ length: totalSteps }).map((_, i) => {
+          const done = isComplete || i < currentStep
+          const active = !isComplete && i === currentStep
+          return (
+            <div key={i} className="flex items-center gap-2">
+              <div
+                className={[
+                  'flex items-center justify-center rounded-full text-[11px] font-semibold transition-all duration-300',
+                  done
+                    ? 'h-7 w-7 bg-primary text-primary-foreground'
+                    : active
+                      ? 'h-7 w-7 bg-primary/10 text-primary ring-2 ring-primary/40 ring-offset-1'
+                      : 'h-7 w-7 bg-muted text-muted-foreground',
+                ].join(' ')}
+              >
+                {done && !active ? (
+                  <svg viewBox="0 0 12 12" fill="none" className="h-3.5 w-3.5">
+                    <path d="M2.5 6L5 8.5L9.5 3.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                ) : (
+                  i + 1
+                )}
+              </div>
+              {i < totalSteps - 1 && (
+                <div className={[
+                  'h-px w-6 transition-all duration-500',
+                  i < currentStep ? 'bg-primary' : 'bg-border',
+                ].join(' ')} />
+              )}
+            </div>
+          )
+        })}
       </div>
 
-      {/* Progress bar */}
-      <div className="w-full bg-muted rounded-full h-1 overflow-hidden">
-        <div
-          className="bg-primary h-1 rounded-full transition-all duration-500 ease-out"
-          style={{ width: `${progressPercentage}%` }}
-        />
-      </div>
-
-      {/* Dot track */}
-      <div className="flex gap-1.5">
-        {Array.from({ length: totalSteps }).map((_, i) => (
-          <div
-            key={i}
-            className={[
-              'h-1 flex-1 rounded-full transition-all duration-300',
-              i < currentStep
-                ? 'bg-primary'
-                : i === currentStep
-                  ? 'bg-primary/60'
-                  : 'bg-muted',
-            ].join(' ')}
-          />
-        ))}
-      </div>
+      {/* Step label */}
+      <p className="text-xs font-medium text-muted-foreground uppercase tracking-widest">
+        Step {currentStep + 1} of {totalSteps} &mdash; {stepTitle}
+      </p>
     </div>
   )
 }

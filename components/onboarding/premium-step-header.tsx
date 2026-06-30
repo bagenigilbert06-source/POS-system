@@ -1,5 +1,3 @@
-import { ONBOARDING_TOKENS, ONBOARDING_PRESETS } from '@/lib/onboarding/tokens'
-
 interface PremiumStepHeaderProps {
   stepNumber: number
   totalSteps: number
@@ -9,29 +7,25 @@ interface PremiumStepHeaderProps {
 }
 
 /**
- * Premium step header with step indicator, title, and description
- * Provides consistent heading hierarchy across all onboarding steps
+ * Clean Zoho/Odoo-style step header.
+ * Bold title, muted description — no decorative pill or badge.
  */
 export function PremiumStepHeader({
   stepNumber,
   totalSteps,
   title,
   description,
-  maxWidth = 'max-w-2xl',
+  maxWidth = 'max-w-lg',
 }: PremiumStepHeaderProps) {
   return (
-    <div className={`space-y-3 mb-8 ${maxWidth}`}>
-      {/* Step indicator */}
-      <p className={`${ONBOARDING_TOKENS.typography.stepIndicator} ${ONBOARDING_TOKENS.typography.stepIndicatorColor}`}>
-        Step {stepNumber} of {totalSteps}
-      </p>
-
-      {/* Title */}
-      <h2 className={`${ONBOARDING_TOKENS.typography.heading} ${ONBOARDING_TOKENS.typography.headingColor} leading-tight`}>{title}</h2>
-
-      {/* Description */}
+    <div className={`space-y-2 mb-8 ${maxWidth}`}>
+      <h2 className="text-2xl font-bold text-foreground tracking-tight leading-snug">
+        {title}
+      </h2>
       {description && (
-        <p className={`${ONBOARDING_TOKENS.typography.description}`}>{description}</p>
+        <p className="text-sm text-muted-foreground leading-relaxed">
+          {description}
+        </p>
       )}
     </div>
   )

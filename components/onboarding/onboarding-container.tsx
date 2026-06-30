@@ -247,7 +247,15 @@ export function OnboardingContainer({
   }
 
   return (
-    <div className="w-full max-w-2xl mx-auto px-4 md:px-0">
+    <div className="w-full">
+      {/* Page-level heading */}
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold text-foreground tracking-tight">Set up your workspace</h1>
+        <p className="text-sm text-muted-foreground mt-1">
+          Takes about 2 minutes &mdash; you can change everything later.
+        </p>
+      </div>
+
       <StepIndicator
         currentStep={currentStep}
         totalSteps={WIZARD_STEPS.length}

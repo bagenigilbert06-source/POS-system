@@ -28,8 +28,8 @@ module.exports = {
     },
     extend: {
       fontFamily: {
-        sans: ['var(--font-geist-sans)', ...defaultTheme.fontFamily.sans],
-        mono: ['var(--font-geist-mono)', ...defaultTheme.fontFamily.mono],
+        sans: ['var(--font-inter)', 'Inter', ...defaultTheme.fontFamily.sans],
+        mono: ['var(--font-mono)', 'ui-monospace', ...defaultTheme.fontFamily.mono],
       },
       colors: {
         chartbody: '#0F0F0F',

@@ -3,7 +3,6 @@
 import { Check } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import React from 'react'
-import { ONBOARDING_TOKENS, ONBOARDING_PRESETS } from '@/lib/onboarding/tokens'
 
 interface PremiumSelectionCardProps {
   icon: React.ComponentType<{ className?: string }>
@@ -16,13 +15,8 @@ interface PremiumSelectionCardProps {
 }
 
 /**
- * Premium selection card for business type, category, etc.
- * Features:
- * - Larger icon (64px) with better proportions
- * - Smooth hover and selection animations
- * - Elegant selected state with shadow elevation
- * - No borders, uses whitespace and shadows for depth
- * - Minimum 280px height for comfortable interaction
+ * Clean Zoho/Odoo-style selection card.
+ * Subtle border, primary highlight on select, no heavy shadows.
  */
 export function PremiumSelectionCard({
   icon: Icon,
@@ -37,58 +31,51 @@ export function PremiumSelectionCard({
     <button
       onClick={onClick}
       className={cn(
-        'group relative w-full rounded-xl p-5 text-left transition-all duration-200 flex flex-col gap-6 min-h-[160px]',
+        'group relative w-full rounded-xl p-5 text-left transition-all duration-150 flex flex-col gap-4 min-h-[150px]',
         selected
-          ? 'bg-primary/8 shadow-md scale-[1.02]'
-          : 'bg-card shadow-sm hover:shadow-md hover:-translate-y-0.5'
+          ? 'bg-primary/5 border-2 border-primary ring-0'
+          : 'bg-card border border-border hover:border-primary/40 hover:bg-primary/[0.02]',
       )}
       aria-pressed={selected}
     >
-      {/* Selection indicator */}
+      {/* Selected checkmark */}
       {selected && (
-        <div className="absolute top-6 right-6 flex h-7 w-7 items-center justify-center rounded-full bg-primary/90 shadow-md">
-          <Check className="h-4 w-4 text-primary-foreground stroke-[3]" />
+        <div className="absolute top-4 right-4 h-6 w-6 rounded-full bg-primary flex items-center justify-center">
+          <Check className="h-3.5 w-3.5 text-primary-foreground stroke-[2.5]" />
         </div>
       )}
 
       {/* Icon */}
-      <div className="flex items-start">
-        <div
-          className={cn(
-            'flex h-12 w-12 items-center justify-center rounded-lg transition-all duration-200 flex-shrink-0',
-            selected
-              ? 'bg-primary text-primary-foreground'
-              : 'bg-primary/10 text-primary group-hover:bg-primary/15'
-          )}
-        >
-          <Icon className="h-6 w-6" />
-        </div>
+      <div
+        className={cn(
+          'flex h-11 w-11 items-center justify-center rounded-lg transition-colors duration-150',
+          selected
+            ? 'bg-primary text-primary-foreground'
+            : 'bg-muted text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary',
+        )}
+      >
+        <Icon className="h-5 w-5" />
       </div>
 
       {/* Content */}
-      <div className="flex-1 space-y-2">
-        <div className="flex items-start justify-between gap-2">
+      <div className="space-y-1">
+        <div className="flex items-center gap-2">
           <h3 className={cn(
-            ONBOARDING_TOKENS.typography.cardTitle,
-            ONBOARDING_TOKENS.typography.cardTitleColor
+            'text-sm font-semibold leading-tight',
+            selected ? 'text-primary' : 'text-foreground',
           )}>
             {title}
           </h3>
           {badge && (
-            <span className="flex-shrink-0 text-xs font-medium px-2 py-1 rounded-lg bg-accent/20 text-accent-foreground">
+            <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-md bg-primary/10 text-primary">
               {badge}
             </span>
           )}
         </div>
-        <p className={cn(
-          ONBOARDING_TOKENS.typography.cardDescription,
-          'line-clamp-2'
-        )}>
+        <p className="text-xs text-muted-foreground leading-relaxed line-clamp-2">
           {description}
         </p>
       </div>
-
-
     </button>
   )
 }
