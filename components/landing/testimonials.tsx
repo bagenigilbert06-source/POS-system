@@ -83,16 +83,25 @@ const testimonials = [
 
 
 export function LandingTestimonials() {
+  const [selectedIndex, setSelectedIndex] = useState(0)
+  const [autoplayRef] = useState(() => Autoplay({ 
+    delay: 5000, 
+    stopOnInteraction: true,
+    stopOnMouseEnter: true,
+    rootNode: (emblaRoot) => emblaRoot?.parentElement,
+  }))
+
   const [emblaRef, emblaApi] = useEmblaCarousel(
     {
       align: 'start',
       slidesToScroll: 1,
       loop: true,
       skipSnaps: false,
+      containScroll: 'trimSnaps',
+      dragFree: false,
     },
-    [Autoplay({ delay: 6000, stopOnInteraction: false })]
+    [autoplayRef]
   )
-  const [selectedIndex, setSelectedIndex] = useState(0)
 
   useEffect(() => {
     if (!emblaApi) return
@@ -102,12 +111,21 @@ export function LandingTestimonials() {
     }
 
     emblaApi.on('select', selectHandler)
+    selectHandler()
+
     return () => emblaApi.off('select', selectHandler)
   }, [emblaApi])
 
   const scroll = (direction: 'prev' | 'next') => {
     if (emblaApi) {
       direction === 'prev' ? emblaApi.scrollPrev() : emblaApi.scrollNext()
+    }
+  }
+
+  const handleDotClick = (index: number) => {
+    if (emblaApi) {
+      emblaApi.scrollTo(index)
+      autoplayRef.reset()
     }
   }
 
@@ -127,14 +145,14 @@ export function LandingTestimonials() {
 
         {/* Carousel */}
         <div className="mb-10 sm:mb-12">
-          <div className="overflow-hidden" ref={emblaRef}>
-            <div className="flex gap-6 sm:gap-8">
+          <div className="overflow-hidden rounded-xl" ref={emblaRef}>
+            <div className="flex gap-4 sm:gap-6 lg:gap-8">
               {testimonials.map((t, i) => (
                 <div
                   key={i}
-                  className="flex-[0_0_100%] sm:flex-[0_0_calc(50%-16px)] lg:flex-[0_0_calc(33.333%-16px)] min-w-0"
+                  className="flex-[0_0_100%] sm:flex-[0_0_calc(50%-12px)] lg:flex-[0_0_calc(33.333%-16px)] min-w-0"
                 >
-                  <div className="h-full rounded-xl border border-border bg-white/50 dark:bg-slate-950/50 backdrop-blur-sm p-6 flex flex-col hover:border-primary/30 hover:bg-white/70 dark:hover:bg-slate-950/70 transition-all duration-300">
+                  <div className="h-full rounded-xl border border-border/60 bg-white/40 dark:bg-slate-950/40 backdrop-blur-md p-6 flex flex-col hover:border-primary/40 hover:bg-white/60 dark:hover:bg-slate-950/60 transition-all duration-500 ease-out">
                     {/* Stars */}
                     <div className="flex gap-1 mb-4">
                       {Array.from({ length: 5 }).map((_, i) => (
@@ -202,11 +220,11 @@ export function LandingTestimonials() {
               {testimonials.map((_, i) => (
                 <button
                   key={i}
-                  onClick={() => emblaApi?.scrollTo(i)}
-                  className={`h-2 rounded-full transition-all duration-300 ${
+                  onClick={() => handleDotClick(i)}
+                  className={`h-2 rounded-full transition-all duration-400 ${
                     i === selectedIndex
                       ? 'bg-primary w-6'
-                      : 'bg-border hover:bg-primary/50 w-2'
+                      : 'bg-border hover:bg-primary/60 w-2 hover:w-3'
                   }`}
                   aria-label={`Go to testimonial ${i + 1}`}
                   aria-current={i === selectedIndex ? 'true' : 'false'}
