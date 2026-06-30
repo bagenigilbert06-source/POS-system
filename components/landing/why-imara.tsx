@@ -1,69 +1,93 @@
-import { Zap, Eye, CloudCog, ShieldCheck, BarChart2, GitBranch } from 'lucide-react'
+import { X, Check } from 'lucide-react'
 
-const reasons = [
-  {
-    icon: Zap,
-    title: 'Fast Checkout',
-    description: 'Complete a sale in under 5 seconds. Built for high-volume retail environments where every second counts.',
-  },
-  {
-    icon: Eye,
-    title: 'Real-Time Inventory',
-    description: 'Know exactly what is in stock at every branch the moment a sale happens. No spreadsheets needed.',
-  },
-  {
-    icon: BarChart2,
-    title: 'Business Insights',
-    description: 'Daily, weekly and monthly reports that surface the numbers that matter — automatically.',
-  },
-  {
-    icon: CloudCog,
-    title: 'Cloud-Based',
-    description: 'Access your business from anywhere. Auto-syncs across all devices with zero setup.',
-  },
-  {
-    icon: ShieldCheck,
-    title: 'Secure & Compliant',
-    description: 'End-to-end encryption, role-based access controls and full audit logs on every action.',
-  },
-  {
-    icon: GitBranch,
-    title: 'Multi-Branch Ready',
-    description: 'Open a new location in minutes. Centralized reporting, inventory and staff management.',
-  },
+const before = [
+  'Managing inventory on notebooks and spreadsheets',
+  'Spending 2+ hours on end-of-day reconciliation',
+  'No idea which products are actually profitable',
+  'Can\'t see what\'s happening at your other branches',
+  'Losing customers because loyalty programmes are manual',
+  'Making purchasing decisions on guesswork',
+]
+
+const after = [
+  'Real-time inventory across every product and branch',
+  'End-of-day closes automatically — in under 15 minutes',
+  'Instant P&L with margins on every product',
+  'All branches visible from one screen on your phone',
+  'Built-in loyalty programme that runs itself',
+  'Reorder alerts fire before you run out of stock',
+]
+
+const outcomes = [
+  { metric: 'Save', value: '10+ hrs', description: 'per week on admin and reconciliation' },
+  { metric: 'Know', value: '100%', description: 'of what\'s in stock at all times' },
+  { metric: 'Grow', value: '3×', description: 'faster with data-driven decisions' },
+  { metric: 'Manage', value: 'Any', description: 'number of branches from one dashboard' },
 ]
 
 export function LandingWhyImara() {
   return (
-    <section id="why-imara" className="section-padding-premium bg-secondary">
+    <section id="why-imara" className="section-padding-premium bg-background border-b border-border">
       <div className="container-wide">
         {/* Header */}
-        <div className="text-center max-w-2xl mx-auto mb-12 sm:mb-14 md:mb-16 px-4">
-          <p className="section-eyebrow mb-2 sm:mb-3">Why Imara</p>
-          <h2 className="section-heading mb-3 sm:mb-4 text-2xl sm:text-4xl md:text-5xl">
-            Built different. Built for Africa.
+        <div className="text-center max-w-2xl mx-auto mb-16 md:mb-20">
+          <p className="section-eyebrow mb-3">The Transformation</p>
+          <h2 className="section-heading mb-5 text-3xl md:text-4xl lg:text-5xl leading-tight text-balance">
+            Your business, before and after IMARA.
           </h2>
-          <p className="section-subheading mx-auto text-sm sm:text-base">
-            Other platforms were built elsewhere and retrofitted. Imara was designed from day one for the realities of African commerce.
+          <p className="section-subheading text-balance">
+            Every growing business reaches a point where chaos sets in. IMARA replaces that chaos with clarity.
           </p>
         </div>
 
-        {/* 3-col grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-7 md:gap-8 px-2 sm:px-0">
-          {reasons.map((reason) => {
-            const Icon = reason.icon
-            return (
-              <div key={reason.title} className="flex gap-4 sm:gap-5">
-                <div className="shrink-0 h-10 sm:h-11 w-10 sm:w-11 rounded-lg sm:rounded-xl bg-primary/10 flex items-center justify-center mt-0.5">
-                  <Icon className="h-4 sm:h-5 w-4 sm:w-5 text-primary" />
-                </div>
-                <div>
-                  <h3 className="text-sm font-semibold text-foreground mb-1 sm:mb-1.5">{reason.title}</h3>
-                  <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">{reason.description}</p>
-                </div>
+        {/* Before / After */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-14 md:mb-16">
+          {/* Before */}
+          <div className="rounded-2xl border border-border bg-secondary p-7 md:p-8">
+            <div className="flex items-center gap-2.5 mb-6">
+              <div className="h-7 w-7 rounded-full bg-destructive/10 flex items-center justify-center flex-shrink-0">
+                <X className="h-4 w-4 text-destructive" aria-hidden="true" />
               </div>
-            )
-          })}
+              <h3 className="text-base font-bold text-foreground">Before IMARA</h3>
+            </div>
+            <ul className="space-y-3.5">
+              {before.map((item) => (
+                <li key={item} className="flex items-start gap-3 text-sm text-muted-foreground">
+                  <X className="h-4 w-4 text-destructive/70 mt-0.5 flex-shrink-0" aria-hidden="true" />
+                  {item}
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {/* After */}
+          <div className="rounded-2xl border border-primary/20 bg-primary/5 p-7 md:p-8">
+            <div className="flex items-center gap-2.5 mb-6">
+              <div className="h-7 w-7 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                <Check className="h-4 w-4 text-primary" aria-hidden="true" />
+              </div>
+              <h3 className="text-base font-bold text-foreground">With IMARA</h3>
+            </div>
+            <ul className="space-y-3.5">
+              {after.map((item) => (
+                <li key={item} className="flex items-start gap-3 text-sm text-foreground">
+                  <Check className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" aria-hidden="true" />
+                  {item}
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+
+        {/* Outcome metrics */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-5">
+          {outcomes.map((o) => (
+            <div key={o.metric} className="text-center p-6 rounded-2xl border border-border bg-card">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-1">{o.metric}</p>
+              <p className="text-4xl md:text-5xl font-bold text-foreground tracking-tight mb-2">{o.value}</p>
+              <p className="text-sm text-muted-foreground leading-snug">{o.description}</p>
+            </div>
+          ))}
         </div>
       </div>
     </section>

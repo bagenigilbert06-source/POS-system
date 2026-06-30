@@ -1,128 +1,57 @@
-'use client'
-
 import Link from 'next/link'
-import { motion } from 'framer-motion'
-import { ArrowRight, CheckCircle2, Sparkles } from 'lucide-react'
+import { ArrowRight, Shield, Clock, Globe } from 'lucide-react'
 
-const reasons = [
-  'No technical knowledge required',
-  'Import your existing products in minutes',
-  'Payments ready out of the box',
-  'Free onboarding support included',
+const trust = [
+  { icon: Clock, text: '30-day free trial' },
+  { icon: Shield, text: 'No credit card required' },
+  { icon: Globe, text: 'Cancel anytime' },
 ]
-
-const containerVariants = {
-  hidden: { opacity: 0 },
-  visible: {
-    opacity: 1,
-    transition: {
-      staggerChildren: 0.1,
-      delayChildren: 0.2,
-    },
-  },
-}
-
-const itemVariants = {
-  hidden: { opacity: 0, y: 8 },
-  visible: {
-    opacity: 1,
-    y: 0,
-    transition: { duration: 0.5, ease: [0.25, 0.1, 0.25, 1] },
-  },
-}
 
 export function LandingCTA() {
   return (
-    <section className="py-12 sm:py-16 md:py-24 px-3 sm:px-4 bg-background">
-      <div className="mx-auto max-w-4xl">
-        {/* Card container */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.6 }}
-          className="rounded-xl sm:rounded-2xl border border-primary/15 bg-gradient-to-br from-white/40 to-white/20 dark:from-slate-900/60 dark:to-slate-950/80 backdrop-blur-xl p-5 sm:p-8 md:p-10 lg:p-12 shadow-lg shadow-primary/5"
-        >
-          <div className="text-center">
-            {/* Headline */}
-            <motion.h2
-              initial={{ opacity: 0, y: 16 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.5 }}
-              className="text-xl sm:text-3xl md:text-4xl font-bold text-foreground tracking-tight text-balance mb-3 sm:mb-5 md:mb-6 leading-tight px-2"
-            >
-              Build a stronger operating rhythm.
-              <br />
-              <span className="text-primary">Run it on Imara.</span>
-            </motion.h2>
+    <section className="section-padding-premium bg-secondary border-b border-border">
+      <div className="container-wide">
+        <div className="max-w-3xl mx-auto text-center">
+          <p className="section-eyebrow mb-5">Get Started</p>
 
-            {/* Subheadline */}
-            <motion.p
-              initial={{ opacity: 0, y: 12 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.5, delay: 0.1 }}
-              className="text-xs sm:text-base text-muted-foreground leading-relaxed mb-6 sm:mb-8 md:mb-10 max-w-2xl mx-auto px-2"
-            >
-              Replace disconnected tools with one reliable platform for sales, inventory, payments, teams and reporting.
-            </motion.p>
+          <h2 className="text-4xl md:text-5xl lg:text-6xl font-bold text-foreground tracking-tight leading-[1.05] mb-6 text-balance">
+            Start running your business with IMARA.
+          </h2>
 
-            {/* Reasons grid */}
-            <motion.div
-              variants={containerVariants}
-              initial="hidden"
-              whileInView="visible"
-              viewport={{ once: true }}
-              className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 mb-6 sm:mb-10 md:mb-12 max-w-2xl mx-auto px-2"
-            >
-              {reasons.map((r) => (
-                <motion.div
-                  key={r}
-                  variants={itemVariants}
-                  className="flex items-start gap-2 text-left text-xs sm:text-sm"
-                >
-                  <CheckCircle2 className="h-4 sm:h-5 w-4 sm:w-5 text-primary shrink-0 mt-0.5" aria-hidden="true" />
-                  <span className="text-muted-foreground">{r}</span>
-                </motion.div>
-              ))}
-            </motion.div>
+          <p className="text-lg text-muted-foreground leading-relaxed mb-10 text-balance">
+            Replace every disconnected tool with one reliable platform. Sales, inventory, customers, suppliers, employees, and reports — all connected, all working.
+          </p>
 
-            {/* CTA buttons */}
-            <motion.div
-              initial={{ opacity: 0, y: 12 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.5, delay: 0.2 }}
-              className="flex flex-col sm:flex-row items-center justify-center gap-2.5 sm:gap-3 mb-4 sm:mb-6 px-2"
+          {/* CTAs */}
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mb-8">
+            <Link
+              href="/sign-up"
+              className="group inline-flex items-center justify-center gap-2.5 rounded-xl bg-primary px-8 py-4 text-base font-bold text-white shadow-lg shadow-primary/25 transition-all duration-150 hover:shadow-xl hover:shadow-primary/35 hover:-translate-y-0.5 active:translate-y-0 w-full sm:w-auto"
             >
-              <Link
-                href="/sign-up"
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-primary text-primary-foreground font-semibold text-sm sm:text-base px-5 sm:px-7 py-2.5 sm:py-3 rounded-lg hover:shadow-lg hover:shadow-primary/40 transition-all duration-200 min-h-[44px] group"
-              >
-                Start Free — No Card Required
-                <ArrowRight className="h-4 w-4 group-hover:translate-x-0.5 transition-transform" aria-hidden="true" />
-              </Link>
-              <Link
-                href="mailto:hello@imara.co"
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 border border-primary/40 text-foreground font-semibold text-sm sm:text-base px-5 sm:px-7 py-2.5 sm:py-3 rounded-lg hover:border-primary/60 hover:bg-primary/5 transition-all duration-200 min-h-[44px]"
-              >
-                Schedule a Demo
-              </Link>
-            </motion.div>
-
-            {/* Trust indicators */}
-            <motion.p
-              initial={{ opacity: 0 }}
-              whileInView={{ opacity: 1 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.5, delay: 0.3 }}
-              className="text-[10px] sm:text-xs text-muted-foreground"
+              Start for Free — No Card Required
+              <ArrowRight className="h-4 w-4 group-hover:translate-x-0.5 transition-transform" aria-hidden="true" />
+            </Link>
+            <Link
+              href="mailto:hello@imara.co"
+              className="inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-background px-8 py-4 text-base font-semibold text-foreground transition-all duration-150 hover:bg-card w-full sm:w-auto"
             >
-              30-day free trial · No credit card · Full access · Cancel anytime
-            </motion.p>
+              Schedule a Demo
+            </Link>
           </div>
-        </motion.div>
+
+          {/* Trust indicators */}
+          <div className="flex flex-wrap items-center justify-center gap-6">
+            {trust.map((item) => {
+              const Icon = item.icon
+              return (
+                <div key={item.text} className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Icon className="h-4 w-4 text-primary flex-shrink-0" aria-hidden="true" />
+                  {item.text}
+                </div>
+              )
+            })}
+          </div>
+        </div>
       </div>
     </section>
   )
