@@ -4,7 +4,7 @@ import { OrganizationService } from '@/lib/services/organization-service'
 
 /**
  * POST /api/auth/post-signup
- * Called after successful signup to create initial organization and membership
+ * Called after successful signup to initialize user's workspace
  */
 export async function POST(req: Request) {
   try {
@@ -21,6 +21,7 @@ export async function POST(req: Request) {
     const existingOrgs = await OrganizationService.getOrganizationsForUser(session.user.id)
 
     if (existingOrgs.length > 0) {
+      console.log('[v0] Organization already exists for user:', session.user.id)
       return Response.json({
         success: true,
         message: 'Organization already exists',
@@ -35,6 +36,8 @@ export async function POST(req: Request) {
       'retail',
       'other_retail'
     )
+
+    console.log('[v0] Created organization for new user:', { userId: session.user.id, orgId: org.id })
 
     return Response.json({
       success: true,

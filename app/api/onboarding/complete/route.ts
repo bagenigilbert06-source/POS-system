@@ -2,13 +2,12 @@ import { NextRequest, NextResponse } from 'next/server'
 import { headers } from 'next/headers'
 import { auth } from '@/lib/auth'
 import { db } from '@/lib/db'
-import { organization } from '@/lib/db/schema'
+import { organization, workspace } from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
 import { appendFileSync } from 'node:fs'
 import { WorkspaceService } from '@/lib/services/workspace-service'
 import { StarterDataService } from '@/lib/services/starter-data-service'
 import { OrganizationService } from '@/lib/services/organization-service'
-import { MembershipService } from '@/lib/services/membership-service'
 
 export const dynamic = 'force-dynamic'
 
@@ -47,29 +46,43 @@ export async function POST(req: NextRequest) {
       onboardingData.customCategory
     )
 
+    // Update workspace with the config
+    try {
+      await db
+        .update(workspace)
+        .set({
+          config: workspaceConfig,
+          updatedAt: new Date(),
+        } as any)
+        .where(eq(workspace.organizationId, organizationId))
+    } catch (err) {
+      console.warn('[v0] Failed to update workspace config:', err)
+      // Continue anyway - workspace config is not critical
+    }
+
     // Seed starter data
     const seedingSuccess = await StarterDataService.seedStarterData(
       organizationId,
       workspaceConfig
     )
 
-    // Update organization with onboarding data and workspace config
+    // Update organization with onboarding data
     const result = await db
       .update(organization)
       .set({
         name: onboardingData.businessName,
         businessType: onboardingData.businessType,
+        businessCategory: onboardingData.customCategory,
         businessEmail: onboardingData.businessEmail,
         phone: onboardingData.phone,
         country: onboardingData.country,
         timezone: onboardingData.timezone,
         businessSize: onboardingData.businessSize,
-        // Store workspace config as JSON
-        workspaceConfig: JSON.stringify(workspaceConfig),
+        businessDescription: onboardingData.businessDescription,
         onboardingCompleted: true,
         onboardingStep: 6,
         updatedAt: new Date(),
-      })
+      } as any)
       .where(eq(organization.id, organizationId))
       .returning()
 

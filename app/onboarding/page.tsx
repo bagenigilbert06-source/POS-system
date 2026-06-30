@@ -13,12 +13,17 @@ export default async function OnboardingPage() {
   if (!session?.user) redirect('/sign-in')
 
   // Get user's primary organization
-  const organization = await OrganizationService.getPrimaryOrganization(session.user.id)
+  let organization = await OrganizationService.getPrimaryOrganization(session.user.id)
 
   if (!organization) {
-    // If no organization exists, redirect to sign-up or dashboard
-    // This shouldn't happen if post-signup properly created an org
-    redirect('/dashboard')
+    // If no organization exists, create one now
+    console.log('[v0] No organization found for user', session.user.id, '- creating now')
+    organization = await OrganizationService.createOrganizationForUser(
+      session.user.id,
+      session.user.name || `${session.user.email.split('@')[0]}'s Business`,
+      'retail',
+      'other_retail'
+    )
   }
 
   // If onboarding is already completed, redirect to dashboard
