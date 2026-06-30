@@ -2,7 +2,6 @@
 
 import { useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { Loader2 } from 'lucide-react'
 
 import { StepBusinessType } from './step-business-type'
 import { StepBusinessCategory } from './step-business-category'
@@ -12,17 +11,18 @@ import { StepBusinessSize } from './step-business-size'
 import { WorkspaceCreationScreen } from './workspace-creation-screen'
 import { StepIndicator } from './step-indicator'
 import { StepFooter } from './step-footer'
+import { getCategoriesForType } from '@/lib/types'
 
-const STEPS = [
-  { id: 'business-type', title: 'Business Type', component: StepBusinessType },
-  { id: 'business-category', title: 'Business Category', component: StepBusinessCategory },
-  { id: 'business-details', title: 'Business Details', component: StepBusinessDetails },
-  { id: 'location', title: 'Location', component: StepLocation },
-  { id: 'business-size', title: 'Business Size', component: StepBusinessSize },
-  { id: 'workspace-creation', title: 'Workspace Creation', component: WorkspaceCreationScreen },
+// Steps that are part of the visible wizard (not workspace creation)
+const WIZARD_STEPS = [
+  { id: 'business-type', title: 'Business Type' },
+  { id: 'business-category', title: 'Business Category' },
+  { id: 'business-details', title: 'Business Details' },
+  { id: 'location', title: 'Location' },
+  { id: 'business-size', title: 'Business Size' },
 ]
 
-interface OnboardingData {
+export interface OnboardingData {
   businessType: string
   businessCategory: string
   customCategory: string
@@ -32,98 +32,61 @@ interface OnboardingData {
   country: string
   timezone: string
   businessSize: string
-  workspaceCompleted: string[]
 }
 
 interface OnboardingContainerProps {
   organizationId: string
   userId: string
+  /** Step to resume from (0-based index into WIZARD_STEPS). Defaults to 0. */
+  initialStep?: number
+  /** Pre-filled data from the DB when resuming. */
+  initialData?: Partial<OnboardingData>
 }
 
-export function OnboardingContainer({ organizationId, userId }: OnboardingContainerProps) {
+export function OnboardingContainer({
+  organizationId,
+  userId,
+  initialStep = 0,
+  initialData = {},
+}: OnboardingContainerProps) {
   const router = useRouter()
-  const [currentStep, setCurrentStep] = useState(0)
-  const [loading, setLoading] = useState(false)
+
+  // Clamp so we never start beyond the last wizard step
+  const clampedInitial = Math.min(Math.max(0, initialStep), WIZARD_STEPS.length - 1)
+
+  const [currentStep, setCurrentStep] = useState(clampedInitial)
+  /** When true the workspace creation screen is shown */
+  const [showWorkspace, setShowWorkspace] = useState(false)
+  const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+
   const [data, setData] = useState<OnboardingData>({
-    businessType: '',
-    businessCategory: '',
-    customCategory: '',
-    businessName: '',
-    businessEmail: '',
-    phone: '',
-    country: '',
-    timezone: 'Africa/Nairobi',
-    businessSize: '',
-    workspaceCompleted: [],
+    businessType: initialData.businessType ?? '',
+    businessCategory: initialData.businessCategory ?? '',
+    customCategory: initialData.customCategory ?? '',
+    businessName: initialData.businessName ?? '',
+    businessEmail: initialData.businessEmail ?? '',
+    phone: initialData.phone ?? '',
+    country: initialData.country ?? '',
+    timezone: initialData.timezone ?? 'Africa/Nairobi',
+    businessSize: initialData.businessSize ?? '',
   })
 
-  const step = STEPS[currentStep]
-  const isLastStep = currentStep === STEPS.length - 1
-  const isWelcomeStep = step.id === 'welcome'
+  const step = WIZARD_STEPS[currentStep]
+  const isLastWizardStep = currentStep === WIZARD_STEPS.length - 1
 
-  const handleNext = useCallback(async () => {
-    if (isLastStep) {
-      // Complete onboarding
-      setLoading(true)
-      setError('')
-      try {
-        const response = await fetch('/api/onboarding/complete', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            organizationId,
-            onboardingData: data,
-          }),
-        })
-
-        if (!response.ok) {
-          const err = await response.json()
-          throw new Error(err.message || 'Failed to complete onboarding')
-        }
-
-        router.push('/dashboard')
-        router.refresh()
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Something went wrong')
-        setLoading(false)
-      }
-      return
-    }
-
-    // Validate current step
-    if (!validateStep()) {
-      setError('Please fill in all required fields')
-      return
-    }
-
-    // Move to next step
-    setCurrentStep(currentStep + 1)
-    setError('')
-  }, [currentStep, isLastStep, data, organizationId])
-
-  const handlePrevious = useCallback(() => {
-    if (currentStep > 0) {
-      setCurrentStep(currentStep - 1)
-      setError('')
-    }
-  }, [currentStep])
-
-  const validateStep = (): boolean => {
+  // -------------------------------------------------------------------------
+  // Validation
+  // -------------------------------------------------------------------------
+  const validateStep = useCallback((): boolean => {
     switch (step.id) {
       case 'business-type':
         return !!data.businessType
       case 'business-category': {
-        // Get the categories for the business type to find "Other"
-        const { getCategoriesForType } = require('@/lib/types')
-        const categories = getCategoriesForType(data.businessType)
-        const isOtherSelected = categories.length > 0 && data.businessCategory === categories[categories.length - 1]?.id
-        
-        // If "Other" is selected, require custom category
-        if (isOtherSelected) {
-          return !!data.businessCategory && !!data.customCategory
-        }
-        
+        const categories = getCategoriesForType(data.businessType as any)
+        const lastCatId = categories[categories.length - 1]?.id
+        const isOther = !!lastCatId && data.businessCategory === lastCatId
+        if (isOther) return !!data.businessCategory && !!data.customCategory
         return !!data.businessCategory
       }
       case 'business-details':
@@ -132,24 +95,94 @@ export function OnboardingContainer({ organizationId, userId }: OnboardingContai
         return !!data.country && !!data.timezone
       case 'business-size':
         return !!data.businessSize
-      case 'workspace-creation':
-        return true
       default:
         return false
     }
-  }
+  }, [step.id, data])
 
-  const handleUpdate = (updates: Partial<OnboardingData>) => {
+  // -------------------------------------------------------------------------
+  // Per-step persistence — fire and forget; never blocks the UI
+  // -------------------------------------------------------------------------
+  const persistStep = useCallback(
+    async (stepIndex: number, stepData: Record<string, any>) => {
+      try {
+        await fetch('/api/onboarding/save-step', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ organizationId, step: stepIndex, stepData }),
+        })
+      } catch {
+        // Non-critical — ignore silently
+      }
+    },
+    [organizationId]
+  )
+
+  // -------------------------------------------------------------------------
+  // Navigation
+  // -------------------------------------------------------------------------
+  const handleNext = useCallback(async () => {
+    setError('')
+
+    if (!validateStep()) {
+      setError('Please fill in all required fields')
+      return
+    }
+
+    setSaving(true)
+
+    // Persist current step to DB before advancing
+    await persistStep(currentStep, {
+      businessType: data.businessType,
+      businessCategory: data.businessCategory,
+      customCategory: data.customCategory,
+      name: data.businessName,
+      businessEmail: data.businessEmail,
+      phone: data.phone,
+      country: data.country,
+      timezone: data.timezone,
+      businessSize: data.businessSize,
+    })
+
+    setSaving(false)
+
+    if (isLastWizardStep) {
+      // All wizard steps done — hand off to WorkspaceCreationScreen
+      setShowWorkspace(true)
+    } else {
+      setCurrentStep((s) => s + 1)
+    }
+  }, [currentStep, isLastWizardStep, data, validateStep, persistStep])
+
+  const handlePrevious = useCallback(() => {
+    setError('')
+    if (currentStep > 0) setCurrentStep((s) => s - 1)
+  }, [currentStep])
+
+  const handleUpdate = useCallback((updates: Partial<OnboardingData>) => {
     setData((prev) => ({ ...prev, ...updates }))
-  }
+    setError('')
+  }, [])
 
-  const handleWorkspaceToggle = (id: string) => {
-    setData((prev) => ({
-      ...prev,
-      workspaceCompleted: prev.workspaceCompleted.includes(id)
-        ? prev.workspaceCompleted.filter((item) => item !== id)
-        : [...prev.workspaceCompleted, id],
-    }))
+  // -------------------------------------------------------------------------
+  // Workspace creation callback — called by WorkspaceCreationScreen on success
+  // -------------------------------------------------------------------------
+  const handleWorkspaceComplete = useCallback(() => {
+    router.push('/dashboard')
+    router.refresh()
+  }, [router])
+
+  // -------------------------------------------------------------------------
+  // Render
+  // -------------------------------------------------------------------------
+  if (showWorkspace) {
+    return (
+      <WorkspaceCreationScreen
+        organizationId={organizationId}
+        onboardingData={data}
+        onComplete={handleWorkspaceComplete}
+      />
+    )
   }
 
   const renderStep = () => {
@@ -158,9 +191,9 @@ export function OnboardingContainer({ organizationId, userId }: OnboardingContai
         return (
           <StepBusinessType
             value={data.businessType}
-            onChange={(value) => handleUpdate({ businessType: value })}
+            onChange={(value) => handleUpdate({ businessType: value, businessCategory: '', customCategory: '' })}
             stepNumber={currentStep + 1}
-            totalSteps={STEPS.length}
+            totalSteps={WIZARD_STEPS.length}
           />
         )
       case 'business-category':
@@ -172,7 +205,7 @@ export function OnboardingContainer({ organizationId, userId }: OnboardingContai
             onChange={(value) => handleUpdate({ businessCategory: value })}
             onCustomCategoryChange={(value) => handleUpdate({ customCategory: value })}
             stepNumber={currentStep + 1}
-            totalSteps={STEPS.length}
+            totalSteps={WIZARD_STEPS.length}
           />
         )
       case 'business-details':
@@ -185,19 +218,16 @@ export function OnboardingContainer({ organizationId, userId }: OnboardingContai
             }}
             onChange={(updates) => handleUpdate(updates)}
             stepNumber={currentStep + 1}
-            totalSteps={STEPS.length}
+            totalSteps={WIZARD_STEPS.length}
           />
         )
       case 'location':
         return (
           <StepLocation
-            data={{
-              country: data.country,
-              timezone: data.timezone,
-            }}
+            data={{ country: data.country, timezone: data.timezone }}
             onChange={(updates) => handleUpdate(updates)}
             stepNumber={currentStep + 1}
-            totalSteps={STEPS.length}
+            totalSteps={WIZARD_STEPS.length}
           />
         )
       case 'business-size':
@@ -206,14 +236,7 @@ export function OnboardingContainer({ organizationId, userId }: OnboardingContai
             value={data.businessSize}
             onChange={(value) => handleUpdate({ businessSize: value })}
             stepNumber={currentStep + 1}
-            totalSteps={STEPS.length}
-          />
-        )
-      case 'workspace-creation':
-        return (
-          <WorkspaceCreationScreen
-            organizationId={organizationId}
-            onboardingData={data}
+            totalSteps={WIZARD_STEPS.length}
           />
         )
       default:
@@ -221,42 +244,32 @@ export function OnboardingContainer({ organizationId, userId }: OnboardingContai
     }
   }
 
-  const isWorkspaceCreationStep = step.id === 'workspace-creation'
-
   return (
     <div className="w-full max-w-2xl mx-auto px-4 md:px-0">
-      {/* Progress indicator - hide for workspace creation */}
-      {!isWorkspaceCreationStep && (
-        <StepIndicator
-          currentStep={currentStep}
-          totalSteps={STEPS.length}
-          stepTitle={step.title}
-          isComplete={false}
-        />
-      )}
+      <StepIndicator
+        currentStep={currentStep}
+        totalSteps={WIZARD_STEPS.length}
+        stepTitle={step.title}
+        isComplete={false}
+      />
 
-      {/* Error message */}
       {error && (
         <div className="rounded-lg bg-destructive/10 border border-destructive/20 px-5 py-4 mb-8 text-sm animate-fade-up">
           <p className="font-medium text-destructive">{error}</p>
         </div>
       )}
 
-      {/* Step content */}
-      <div className={isWorkspaceCreationStep ? '' : 'mb-16 animate-fade-up'}>{renderStep()}</div>
+      <div className="mb-16 animate-fade-up">{renderStep()}</div>
 
-      {/* Action buttons - hide for workspace creation */}
-      {!isWorkspaceCreationStep && (
-        <StepFooter
-          onBack={handlePrevious}
-          onNext={handleNext}
-          backDisabled={currentStep === 0}
-          nextDisabled={!validateStep()}
-          loading={loading}
-          nextLabel={isLastStep ? 'Create Workspace' : 'Continue'}
-          showBack={true}
-        />
-      )}
+      <StepFooter
+        onBack={handlePrevious}
+        onNext={handleNext}
+        backDisabled={currentStep === 0}
+        nextDisabled={!validateStep()}
+        loading={saving}
+        nextLabel={isLastWizardStep ? 'Create Workspace' : 'Continue'}
+        showBack={true}
+      />
     </div>
   )
 }

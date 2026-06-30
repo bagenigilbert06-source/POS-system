@@ -2,9 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { headers } from 'next/headers'
 import { auth } from '@/lib/auth'
 import { db } from '@/lib/db'
-import { organization, workspace } from '@/lib/db/schema'
+import { workspace } from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
-import { appendFileSync } from 'node:fs'
 import { WorkspaceService } from '@/lib/services/workspace-service'
 import { StarterDataService } from '@/lib/services/starter-data-service'
 import { OrganizationService } from '@/lib/services/organization-service'
@@ -13,7 +12,9 @@ export const dynamic = 'force-dynamic'
 
 export async function POST(req: NextRequest) {
   try {
-    // Verify session
+    // ------------------------------------------------------------------
+    // Auth
+    // ------------------------------------------------------------------
     const session = await auth.api.getSession({ headers: await headers() })
     if (!session?.user) {
       return NextResponse.json({ message: 'Unauthorized' }, { status: 401 })
@@ -23,62 +24,66 @@ export async function POST(req: NextRequest) {
     const { organizationId, onboardingData } = body
 
     if (!organizationId || !onboardingData) {
-      return NextResponse.json(
-        { message: 'Missing required fields' },
-        { status: 400 }
-      )
+      return NextResponse.json({ message: 'Missing required fields' }, { status: 400 })
     }
 
-    // SECURITY: Verify that the user has access to this organization (is a member)
+    // SECURITY: Verify the authenticated user owns this org
     const canAccess = await OrganizationService.canUserAccess(organizationId, session.user.id)
     if (!canAccess) {
-      console.warn(`[v0] Unauthorized onboarding attempt by user ${session.user.id} for org ${organizationId}`)
-      return NextResponse.json(
-        { message: 'Forbidden: No access to this organization' },
-        { status: 403 }
-      )
+      return NextResponse.json({ message: 'Forbidden: No access to this organization' }, { status: 403 })
     }
 
-    // Create workspace configuration
+    // ------------------------------------------------------------------
+    // 1. Build workspace config from the chosen business type / category
+    // ------------------------------------------------------------------
     const workspaceConfig = WorkspaceService.createWorkspaceConfig(
       organizationId,
       onboardingData.businessType,
       onboardingData.customCategory
     )
 
-    // Update workspace with the config
+    // ------------------------------------------------------------------
+    // 2. Upsert workspace config row
+    // ------------------------------------------------------------------
     try {
       await db
         .update(workspace)
-        .set({
-          config: workspaceConfig,
-          updatedAt: new Date(),
-        } as any)
+        .set({ config: workspaceConfig, updatedAt: new Date() } as any)
         .where(eq(workspace.organizationId, organizationId))
     } catch (err) {
-      console.warn('[v0] Failed to update workspace config:', err)
-      // Continue anyway - workspace config is not critical
+      // Not fatal — workspace may not exist yet for this org
+      console.warn('[onboarding/complete] workspace config update skipped:', err)
     }
 
-    // Seed starter data
-    const seedingSuccess = await StarterDataService.seedStarterData(
+    // ------------------------------------------------------------------
+    // 3. Seed starter categories & products (real DB inserts)
+    // ------------------------------------------------------------------
+    const seedResult = await StarterDataService.seedStarterData(
       organizationId,
+      session.user.id,
       workspaceConfig
     )
 
-    // Update organization with onboarding data
-    let organizationRecord
+    if (!seedResult.success) {
+      console.warn('[onboarding/complete] Starter data seeding partially failed — continuing')
+    }
+
+    // ------------------------------------------------------------------
+    // 4. Mark onboarding complete and persist all collected fields
+    // ------------------------------------------------------------------
+    let updatedOrg
     try {
-      organizationRecord = await OrganizationService.updateOrganization(organizationId, session.user.id, {
+      updatedOrg = await OrganizationService.updateOrganization(organizationId, session.user.id, {
         name: onboardingData.businessName,
         businessType: onboardingData.businessType,
-        businessCategory: onboardingData.customCategory,
+        // Store the custom category name when "Other" was selected
+        businessCategory: onboardingData.customCategory || onboardingData.businessCategory,
         businessEmail: onboardingData.businessEmail,
         phone: onboardingData.phone,
         country: onboardingData.country,
         timezone: onboardingData.timezone,
         businessSize: onboardingData.businessSize,
-        businessDescription: onboardingData.businessDescription,
+        businessDescription: onboardingData.businessDescription ?? null,
         onboardingCompleted: true,
         onboardingStep: 6,
       })
@@ -87,31 +92,19 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ message }, { status: 500 })
     }
 
-    if (!organizationRecord) {
-      return NextResponse.json(
-        { message: 'Failed to update organization' },
-        { status: 500 }
-      )
+    if (!updatedOrg) {
+      return NextResponse.json({ message: 'Failed to update organization' }, { status: 500 })
     }
 
     return NextResponse.json({
       success: true,
-      organization: organizationRecord,
+      organization: updatedOrg,
       workspaceConfig,
-      dataSeedingSuccess: seedingSuccess,
+      seeding: seedResult,
     })
   } catch (error) {
-    console.error('Onboarding error:', error)
-    try {
-      const errMsg = typeof error === 'object' ? JSON.stringify(error, Object.getOwnPropertyNames(error), 2) : String(error)
-      appendFileSync('onboarding-error.log', `${new Date().toISOString()} - ${errMsg}\n\n`)
-    } catch (e) {
-      console.error('Failed to write onboarding-error.log', e)
-    }
+    console.error('[onboarding/complete] Unhandled error:', error)
     const message = error instanceof Error ? error.message : 'Internal server error'
-    return NextResponse.json(
-      { message },
-      { status: 500 }
-    )
+    return NextResponse.json({ message }, { status: 500 })
   }
 }
