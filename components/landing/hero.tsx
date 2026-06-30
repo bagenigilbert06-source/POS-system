@@ -33,8 +33,8 @@ export function LandingHero() {
         <div className="mx-auto max-w-3xl text-center">
           {/* Badge */}
           <motion.div {...fadeUp(0)}>
-            <span className="mx-auto mb-6 inline-flex items-center gap-2 rounded-full border border-border bg-secondary px-4 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-secondary-foreground shadow-sm">
-              <span className="h-1.5 w-1.5 rounded-full bg-primary" aria-hidden="true" />
+            <span className="mx-auto mb-4 sm:mb-6 inline-flex items-center gap-2 rounded-full border border-border bg-secondary px-3 sm:px-4 py-1 sm:py-1.5 text-[10px] sm:text-[11px] font-semibold uppercase tracking-wide text-secondary-foreground shadow-sm">
+              <span className="h-1 w-1 sm:h-1.5 sm:w-1.5 rounded-full bg-primary" aria-hidden="true" />
               Business OS for African Commerce
             </span>
           </motion.div>
@@ -42,7 +42,7 @@ export function LandingHero() {
           {/* Headline */}
           <motion.h1
             {...fadeUp(0.06)}
-            className="text-[2.6rem] font-semibold leading-[1.1] tracking-tight text-foreground sm:text-5xl lg:text-6xl"
+            className="text-2xl font-semibold leading-tight tracking-tight text-foreground sm:text-4xl md:text-5xl lg:text-6xl"
           >
             Run Your Entire Business{' '}
             <span className="text-primary">From One Platform</span>
@@ -51,7 +51,7 @@ export function LandingHero() {
           {/* Sub-headline */}
           <motion.p
             {...fadeUp(0.12)}
-            className="mx-auto mt-5 max-w-xl text-base leading-relaxed text-muted-foreground sm:text-lg"
+            className="mx-auto mt-3 sm:mt-5 max-w-xl px-2 text-sm leading-relaxed text-muted-foreground sm:text-base md:text-lg"
           >
             Imara unifies POS, inventory, customers, suppliers, payments,
             employees, and multi-branch operations in one reliable cloud
@@ -61,12 +61,12 @@ export function LandingHero() {
           {/* CTAs */}
           <motion.div
             {...fadeUp(0.18)}
-            className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row"
+            className="mt-6 sm:mt-8 flex flex-col items-center justify-center gap-2.5 sm:gap-3 px-2"
           >
             <Button
               asChild
               size="lg"
-              className="h-11 rounded-xl px-6 font-semibold shadow-md shadow-blue-600/20 transition-transform duration-150 hover:scale-[1.02] active:scale-[0.99]"
+              className="w-full sm:w-auto h-11 sm:h-12 rounded-xl px-6 sm:px-8 font-semibold shadow-md shadow-blue-600/20 transition-transform duration-150 hover:scale-[1.02] active:scale-[0.99]"
             >
               <Link href="/sign-up">
                 Start Free Trial
@@ -77,7 +77,7 @@ export function LandingHero() {
               asChild
               size="lg"
               variant="outline"
-              className="h-11 rounded-xl px-6 font-medium"
+              className="w-full sm:w-auto h-11 sm:h-12 rounded-xl px-6 sm:px-8 font-medium"
             >
               <Link href="mailto:hello@imara.co">
                 <CalendarCheck2 className="mr-2 h-4 w-4" aria-hidden="true" />
@@ -89,7 +89,7 @@ export function LandingHero() {
           {/* Assurances */}
           <motion.div
             {...fadeUp(0.24)}
-            className="mt-6 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-[13px] font-medium text-muted-foreground"
+            className="mt-4 sm:mt-6 flex flex-col sm:flex-row flex-wrap items-center justify-center gap-x-4 sm:gap-x-5 gap-y-2 text-xs sm:text-[13px] font-medium text-muted-foreground"
           >
             {assurances.map((item) => (
               <span key={item} className="inline-flex items-center gap-1.5">
@@ -108,7 +108,7 @@ export function LandingHero() {
           initial={{ opacity: 0, y: 28 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.65, delay: 0.3, ease: [0.25, 0.1, 0.25, 1] }}
-          className="mx-auto mt-14 max-w-5xl"
+          className="mx-auto mt-10 sm:mt-12 md:mt-14 max-w-5xl px-2 sm:px-0"
         >
           <DashboardPreview compact />
         </motion.div>

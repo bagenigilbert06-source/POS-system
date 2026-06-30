@@ -199,8 +199,20 @@ export function LandingIndustries() {
           background: hsl(var(--secondary));
           border-top: 1px solid hsl(var(--border));
           border-bottom: 1px solid hsl(var(--border));
-          padding: 96px 24px;
+          padding: 48px 16px;
           box-sizing: border-box;
+        }
+
+        @media (min-width: 640px) {
+          .ind-section {
+            padding: 64px 24px;
+          }
+        }
+
+        @media (min-width: 1024px) {
+          .ind-section {
+            padding: 96px 24px;
+          }
         }
 
         .ind-inner {
@@ -212,56 +224,120 @@ export function LandingIndustries() {
         .ind-header {
           text-align: center;
           max-width: 560px;
-          margin: 0 auto 44px;
+          margin: 0 auto 28px;
+          padding: 0 4px;
+        }
+
+        @media (min-width: 640px) {
+          .ind-header {
+            margin-bottom: 32px;
+          }
+        }
+
+        @media (min-width: 1024px) {
+          .ind-header {
+            margin-bottom: 44px;
+          }
         }
 
         .ind-eyebrow {
           display: inline-block;
-          font-size: 11px;
+          font-size: 10px;
           font-weight: 700;
           letter-spacing: 0.1em;
           text-transform: uppercase;
           color: hsl(var(--primary));
-          margin-bottom: 12px;
+          margin-bottom: 8px;
+        }
+
+        @media (min-width: 640px) {
+          .ind-eyebrow {
+            font-size: 11px;
+            margin-bottom: 12px;
+          }
         }
 
         .ind-headline {
-          margin: 0 0 14px;
-          font-size: clamp(1.6rem, 3vw, 2.2rem);
+          margin: 0 0 8px;
+          font-size: clamp(1.4rem, 4vw, 2.2rem);
           font-weight: 800;
           color: hsl(var(--foreground));
           letter-spacing: -0.03em;
           line-height: 1.15;
         }
 
+        @media (min-width: 640px) {
+          .ind-headline {
+            margin-bottom: 14px;
+          }
+        }
+
         .ind-sub {
           margin: 0;
-          font-size: 0.9375rem;
+          font-size: 0.8125rem;
           color: hsl(var(--muted-foreground));
-          line-height: 1.65;
+          line-height: 1.6;
+        }
+
+        @media (min-width: 640px) {
+          .ind-sub {
+            font-size: 0.9375rem;
+            line-height: 1.65;
+          }
         }
 
         /* ── Tabs ──────────────────────────────────────────────── */
         .ind-tabs {
           display: flex;
-          flex-wrap: wrap;
-          justify-content: center;
-          gap: 8px;
-          margin-bottom: 40px;
+          overflow-x: auto;
+          overflow-y: hidden;
+          scroll-snap-type: x mandatory;
+          -webkit-overflow-scrolling: touch;
+          gap: 6px;
+          margin-bottom: 24px;
+          padding: 0 0 8px 0;
+        }
+
+        @media (min-width: 640px) {
+          .ind-tabs {
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 8px;
+            margin-bottom: 28px;
+            padding: 0;
+          }
+        }
+
+        @media (min-width: 1024px) {
+          .ind-tabs {
+            margin-bottom: 40px;
+          }
         }
 
         .ind-tab {
-          padding: 8px 18px;
+          padding: 7px 14px;
           border-radius: 999px;
           border: 1px solid hsl(var(--border));
           background: hsl(var(--card));
-          font-size: 12.5px;
+          font-size: 11px;
           font-weight: 600;
           color: hsl(var(--muted-foreground));
           cursor: pointer;
           transition: all 0.15s ease;
           white-space: nowrap;
           line-height: 1;
+          flex-shrink: 0;
+          scroll-snap-align: start;
+          min-height: 44px;
+          display: flex;
+          align-items: center;
+        }
+
+        @media (min-width: 640px) {
+          .ind-tab {
+            padding: 8px 18px;
+            font-size: 12.5px;
+          }
         }
 
         .ind-tab:hover {
@@ -283,36 +359,37 @@ export function LandingIndustries() {
         /* ── Panel ─────────────────────────────────────────────── */
         .ind-panel {
           display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 48px;
+          grid-template-columns: 1fr;
+          gap: 0;
           align-items: center;
           background: hsl(var(--card));
           border: 1px solid hsl(var(--border));
-          border-radius: 20px;
+          border-radius: 16px;
           overflow: hidden;
           box-shadow:
             0 1px 3px rgba(0,0,0,0.05),
             0 8px 24px rgba(0,0,0,0.05);
         }
 
-        @media (max-width: 820px) {
+        @media (min-width: 821px) {
           .ind-panel {
-            grid-template-columns: 1fr;
-            gap: 0;
+            grid-template-columns: 1fr 1fr;
+            gap: 48px;
+            border-radius: 20px;
           }
         }
 
         /* ── Image side ────────────────────────────────────────── */
         .ind-img-wrap {
           position: relative;
-          aspect-ratio: 4 / 3;
+          aspect-ratio: 16 / 9;
           overflow: hidden;
           background: hsl(var(--border));
         }
 
-        @media (max-width: 820px) {
+        @media (min-width: 821px) {
           .ind-img-wrap {
-            aspect-ratio: 16 / 9;
+            aspect-ratio: 4 / 3;
           }
         }
 
@@ -335,18 +412,36 @@ export function LandingIndustries() {
         /* ── Stat badge ────────────────────────────────────────── */
         .ind-badge {
           position: absolute;
-          bottom: 20px;
-          left: 20px;
+          bottom: 12px;
+          left: 12px;
           display: flex;
           align-items: center;
-          gap: 12px;
+          gap: 10px;
           background: rgba(255, 255, 255, 0.95);
           backdrop-filter: blur(10px);
           -webkit-backdrop-filter: blur(10px);
           border: 1px solid rgba(255,255,255,0.8);
-          border-radius: 12px;
-          padding: 12px 16px;
+          border-radius: 10px;
+          padding: 10px 12px;
           box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+        }
+
+        @media (min-width: 640px) {
+          .ind-badge {
+            bottom: 16px;
+            left: 16px;
+            gap: 12px;
+            border-radius: 12px;
+            padding: 12px 14px;
+          }
+        }
+
+        @media (min-width: 1024px) {
+          .ind-badge {
+            bottom: 20px;
+            left: 20px;
+            padding: 12px 16px;
+          }
         }
 
         .ind-badge-dot {
@@ -369,32 +464,54 @@ export function LandingIndustries() {
         }
 
         .ind-badge-number {
-          margin: 0 0 2px;
-          font-size: 1rem;
+          margin: 0 0 1px;
+          font-size: 0.875rem;
           font-weight: 800;
           color: hsl(var(--foreground));
           letter-spacing: -0.02em;
           line-height: 1;
         }
 
+        @media (min-width: 640px) {
+          .ind-badge-number {
+            font-size: 1rem;
+            margin-bottom: 2px;
+          }
+        }
+
         .ind-badge-label {
           margin: 0;
-          font-size: 11px;
+          font-size: 10px;
           color: hsl(var(--muted-foreground));
-          line-height: 1.3;
+          line-height: 1.2;
+        }
+
+        @media (min-width: 640px) {
+          .ind-badge-label {
+            font-size: 11px;
+            line-height: 1.3;
+          }
         }
 
         /* ── Copy side ─────────────────────────────────────────── */
         .ind-copy {
-          padding: 40px 40px 40px 0;
+          padding: 24px 16px;
           display: flex;
           flex-direction: column;
-          gap: 28px;
+          gap: 16px;
         }
 
-        @media (max-width: 820px) {
+        @media (min-width: 640px) {
           .ind-copy {
-            padding: 32px 28px;
+            padding: 28px 28px;
+            gap: 20px;
+          }
+        }
+
+        @media (min-width: 821px) {
+          .ind-copy {
+            padding: 40px 40px 40px 0;
+            gap: 28px;
           }
         }
 
@@ -406,18 +523,36 @@ export function LandingIndustries() {
 
         .ind-copy-title {
           margin: 0;
-          font-size: 1.375rem;
+          font-size: 1.125rem;
           font-weight: 800;
           color: hsl(var(--foreground));
           letter-spacing: -0.025em;
           line-height: 1.2;
         }
 
+        @media (min-width: 640px) {
+          .ind-copy-title {
+            font-size: 1.25rem;
+          }
+        }
+
+        @media (min-width: 821px) {
+          .ind-copy-title {
+            font-size: 1.375rem;
+          }
+        }
+
         .ind-copy-sub {
           margin: 0;
-          font-size: 0.875rem;
+          font-size: 0.8125rem;
           color: hsl(var(--muted-foreground));
           line-height: 1.5;
+        }
+
+        @media (min-width: 640px) {
+          .ind-copy-sub {
+            font-size: 0.875rem;
+          }
         }
 
         /* ── Feature list ──────────────────────────────────────── */
@@ -427,16 +562,29 @@ export function LandingIndustries() {
           padding: 0;
           display: flex;
           flex-direction: column;
-          gap: 12px;
+          gap: 10px;
+        }
+
+        @media (min-width: 640px) {
+          .ind-features {
+            gap: 12px;
+          }
         }
 
         .ind-feature {
           display: flex;
-          align-items: center;
-          gap: 10px;
-          font-size: 0.875rem;
+          align-items: flex-start;
+          gap: 8px;
+          font-size: 0.8125rem;
           color: hsl(var(--foreground));
           line-height: 1.4;
+        }
+
+        @media (min-width: 640px) {
+          .ind-feature {
+            gap: 10px;
+            font-size: 0.875rem;
+          }
         }
 
         .ind-check {
@@ -446,22 +594,33 @@ export function LandingIndustries() {
 
         /* ── CTA ───────────────────────────────────────────────── */
         .ind-actions {
-          padding-top: 4px;
+          padding-top: 2px;
         }
 
         .ind-cta {
           display: inline-flex;
           align-items: center;
           gap: 8px;
-          padding: 11px 22px;
+          padding: 10px 16px;
           background: hsl(var(--primary));
           color: hsl(var(--primary-foreground));
-          font-size: 0.875rem;
+          font-size: 0.8125rem;
           font-weight: 600;
-          border-radius: 10px;
+          border-radius: 8px;
           text-decoration: none;
           transition: background 0.15s ease, box-shadow 0.15s ease;
           box-shadow: 0 2px 8px hsla(221, 83%, 53%, 0.25);
+          min-height: 40px;
+          display: inline-flex;
+          align-items: center;
+        }
+
+        @media (min-width: 640px) {
+          .ind-cta {
+            padding: 11px 22px;
+            font-size: 0.875rem;
+            border-radius: 10px;
+          }
         }
 
         .ind-cta:hover {
@@ -472,9 +631,22 @@ export function LandingIndustries() {
         /* ── Footer note ───────────────────────────────────────── */
         .ind-footer-note {
           text-align: center;
-          margin-top: 28px;
-          font-size: 0.8125rem;
+          margin-top: 20px;
+          font-size: 0.75rem;
           color: hsl(var(--muted-foreground));
+        }
+
+        @media (min-width: 640px) {
+          .ind-footer-note {
+            margin-top: 24px;
+            font-size: 0.8125rem;
+          }
+        }
+
+        @media (min-width: 1024px) {
+          .ind-footer-note {
+            margin-top: 28px;
+          }
         }
 
         .ind-footer-link {

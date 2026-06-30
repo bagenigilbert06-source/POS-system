@@ -38,28 +38,28 @@ export function LandingWhyImara() {
     <section id="why-imara" className="section-padding-premium bg-secondary">
       <div className="container-wide">
         {/* Header */}
-        <div className="text-center max-w-2xl mx-auto mb-16">
-          <p className="section-eyebrow mb-3">Why Imara</p>
-          <h2 className="section-heading mb-4">
+        <div className="text-center max-w-2xl mx-auto mb-12 sm:mb-14 md:mb-16 px-4">
+          <p className="section-eyebrow mb-2 sm:mb-3">Why Imara</p>
+          <h2 className="section-heading mb-3 sm:mb-4 text-2xl sm:text-4xl md:text-5xl">
             Built different. Built for Africa.
           </h2>
-          <p className="section-subheading mx-auto">
+          <p className="section-subheading mx-auto text-sm sm:text-base">
             Other platforms were built elsewhere and retrofitted. Imara was designed from day one for the realities of African commerce.
           </p>
         </div>
 
         {/* 3-col grid */}
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-7 md:gap-8 px-2 sm:px-0">
           {reasons.map((reason) => {
             const Icon = reason.icon
             return (
-              <div key={reason.title} className="flex gap-5">
-                <div className="shrink-0 h-11 w-11 rounded-xl bg-primary/10 flex items-center justify-center mt-0.5">
-                  <Icon className="h-5 w-5 text-primary" />
+              <div key={reason.title} className="flex gap-4 sm:gap-5">
+                <div className="shrink-0 h-10 sm:h-11 w-10 sm:w-11 rounded-lg sm:rounded-xl bg-primary/10 flex items-center justify-center mt-0.5">
+                  <Icon className="h-4 sm:h-5 w-4 sm:w-5 text-primary" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-semibold text-foreground mb-1.5">{reason.title}</h3>
-                  <p className="text-sm text-muted-foreground leading-relaxed">{reason.description}</p>
+                  <h3 className="text-sm font-semibold text-foreground mb-1 sm:mb-1.5">{reason.title}</h3>
+                  <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">{reason.description}</p>
                 </div>
               </div>
             )
