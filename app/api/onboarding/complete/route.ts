@@ -67,9 +67,9 @@ export async function POST(req: NextRequest) {
     )
 
     // Update organization with onboarding data
-    const result = await db
-      .update(organization)
-      .set({
+    let organizationRecord
+    try {
+      organizationRecord = await OrganizationService.updateOrganization(organizationId, session.user.id, {
         name: onboardingData.businessName,
         businessType: onboardingData.businessType,
         businessCategory: onboardingData.customCategory,
@@ -81,12 +81,13 @@ export async function POST(req: NextRequest) {
         businessDescription: onboardingData.businessDescription,
         onboardingCompleted: true,
         onboardingStep: 6,
-        updatedAt: new Date(),
-      } as any)
-      .where(eq(organization.id, organizationId))
-      .returning()
+      })
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to update organization'
+      return NextResponse.json({ message }, { status: 500 })
+    }
 
-    if (!result || result.length === 0) {
+    if (!organizationRecord) {
       return NextResponse.json(
         { message: 'Failed to update organization' },
         { status: 500 }
@@ -95,7 +96,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      organization: result[0],
+      organization: organizationRecord,
       workspaceConfig,
       dataSeedingSuccess: seedingSuccess,
     })
@@ -107,8 +108,9 @@ export async function POST(req: NextRequest) {
     } catch (e) {
       console.error('Failed to write onboarding-error.log', e)
     }
+    const message = error instanceof Error ? error.message : 'Internal server error'
     return NextResponse.json(
-      { message: 'Internal server error' },
+      { message },
       { status: 500 }
     )
   }

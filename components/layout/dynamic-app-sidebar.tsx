@@ -11,9 +11,9 @@ import { ChevronLeft, ChevronRight, Settings } from 'lucide-react'
 
 type IconName = keyof typeof Icons
 
-function getIcon(iconName: string) {
+function getIcon(iconName: string): React.ElementType {
   const icon = Icons[iconName as IconName]
-  return icon || Icons.LayoutDashboard
+  return (icon as React.ElementType) || (Icons.LayoutDashboard as React.ElementType)
 }
 
 export function DynamicAppSidebar() {
@@ -108,7 +108,7 @@ export function DynamicAppSidebar() {
             if (!item.route) return null
             
             const active = isActive(item.route)
-            const IconComponent = getIcon(item.icon)
+            const IconComponent = getIcon(item.icon) as React.ElementType
 
             return (
               <li key={item.id}>
@@ -134,7 +134,7 @@ export function DynamicAppSidebar() {
       <div className="border-t border-[hsl(var(--sidebar-border))] py-3 px-2">
         <ul className="space-y-0.5">
           {secondaryNav.map((item) => {
-            const IconComponent = getIcon(item.icon)
+            const IconComponent = getIcon(item.icon) as React.ElementType
 
             return (
               <li key={item.id}>

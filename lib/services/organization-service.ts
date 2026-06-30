@@ -52,10 +52,19 @@ export class OrganizationService {
       updatedAt: new Date(),
     }
 
-    // Store in cache
+    try {
+      await db.insert(organization).values({
+        ...org,
+        taxRate: '16',
+      } as any)
+      console.log('[v0] Created organization in database:', { userId, orgId, name })
+    } catch (err) {
+      console.warn('[v0] Failed to persist organization to DB, falling back to cache:', err)
+    }
+
+    // Store in cache regardless so the current request can continue
     userOrgCache.set(userId, org)
 
-    console.log('[v0] Created organization in cache:', { userId, orgId, name })
     return org
   }
 

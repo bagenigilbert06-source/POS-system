@@ -1,12 +1,26 @@
-'use client'
+"use client"
 
-import { useWorkspaceConfig } from '@/lib/context/workspace-context'
+import { useWorkspace } from '@/lib/context/workspace-context'
 import { getDashboardLayout } from '@/lib/config/dashboard-widgets'
 import { AdaptiveDashboard } from '@/components/dashboard/adaptive-dashboard'
 import { GettingStartedChecklist } from '@/components/dashboard/getting-started-checklist'
 
 export default function DashboardPage() {
-  const config = useWorkspaceConfig()
+  const { config, isLoading } = useWorkspace()
+
+  if (isLoading) {
+    return <div>Loading dashboard…</div>
+  }
+
+  if (!config) {
+    return (
+      <div className="space-y-4">
+        <h1 className="text-3xl font-bold">Dashboard</h1>
+        <p className="text-muted-foreground">Workspace configuration not found.</p>
+      </div>
+    )
+  }
+
   const layout = getDashboardLayout(config.template.id)
 
   if (!layout) {

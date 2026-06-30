@@ -2,15 +2,12 @@ import { NextRequest, NextResponse } from 'next/server'
 import { headers } from 'next/headers'
 import { auth } from '@/lib/auth'
 import { db } from '@/lib/db'
-import { organization } from '@/lib/db/schema'
+import { organization, workspace } from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
 
 export const dynamic = 'force-dynamic'
 
-export async function GET(
-  req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function GET(req: NextRequest, context: any) {
   try {
     // Verify session
     const session = await auth.api.getSession({ headers: await headers() })
@@ -18,6 +15,7 @@ export async function GET(
       return NextResponse.json({ message: 'Unauthorized' }, { status: 401 })
     }
 
+    const params = (context && context.params) || {}
     const { id } = params
 
     // Fetch organization
@@ -35,14 +33,20 @@ export async function GET(
 
     const org = orgs[0]
 
-    // Parse workspace config if it exists
+    // Fetch workspace config from workspace table (if present)
     let workspaceConfig = null
-    if (org.workspaceConfig) {
-      try {
-        workspaceConfig = JSON.parse(org.workspaceConfig)
-      } catch (e) {
-        console.error('Failed to parse workspace config:', e)
+    try {
+      const workspaces = await db
+        .select()
+        .from(workspace)
+        .where(eq(workspace.organizationId, org.id))
+
+      if (workspaces && workspaces.length > 0) {
+        // `config` is stored as JSON in the DB and inferred by Drizzle
+        workspaceConfig = workspaces[0].config ?? null
       }
+    } catch (e) {
+      console.error('Failed to fetch workspace config:', e)
     }
 
     return NextResponse.json({

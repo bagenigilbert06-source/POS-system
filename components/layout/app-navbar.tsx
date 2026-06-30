@@ -16,8 +16,8 @@ import {
 import { useState } from 'react'
 
 interface AppNavbarProps {
-  userName?: string
-  userEmail?: string
+  userName?: string | null
+  userEmail?: string | null
 }
 
 export function AppNavbar({ userName, userEmail }: AppNavbarProps) {

@@ -72,7 +72,8 @@ export function WorkspaceCreationScreen({
         })
 
         if (!response.ok) {
-          throw new Error('Failed to complete onboarding')
+          const errorPayload = await response.json().catch(() => null)
+          throw new Error(errorPayload?.message || 'Failed to complete onboarding')
         }
 
         if (isMounted) {

@@ -81,10 +81,7 @@ export function useWorkspace(): WorkspaceContextType {
   return context
 }
 
-export function useWorkspaceConfig(): WorkspaceConfig {
+export function useWorkspaceConfig(): WorkspaceConfig | null {
   const { config } = useWorkspace()
-  if (!config) {
-    throw new Error('Workspace config not loaded')
-  }
   return config
 }

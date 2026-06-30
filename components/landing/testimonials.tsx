@@ -113,7 +113,9 @@ export function LandingTestimonials() {
     emblaApi.on('select', selectHandler)
     selectHandler()
 
-    return () => emblaApi.off('select', selectHandler)
+    return () => {
+      emblaApi.off('select', selectHandler)
+    }
   }, [emblaApi])
 
   const scroll = (direction: 'prev' | 'next') => {
