@@ -41,7 +41,7 @@ export function LandingCTA() {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.6 }}
-          className="rounded-xl sm:rounded-2xl border border-primary/20 bg-white/50 dark:bg-slate-950/50 backdrop-blur-sm p-5 sm:p-8 md:p-10 lg:p-12"
+          className="rounded-xl sm:rounded-2xl border border-primary/15 bg-gradient-to-br from-white/40 to-white/20 dark:from-slate-900/60 dark:to-slate-950/80 backdrop-blur-xl p-5 sm:p-8 md:p-10 lg:p-12 shadow-lg shadow-primary/5"
         >
           <div className="text-center">
             {/* Headline */}
