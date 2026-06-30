@@ -1,53 +1,27 @@
-"use client"
+import { redirect } from 'next/navigation'
+import { headers } from 'next/headers'
+import { auth } from '@/lib/auth'
+import { OrganizationService } from '@/lib/services/organization-service'
+import { getDashboardRoute } from '@/lib/templates'
 
-import { useWorkspace } from '@/lib/context/workspace-context'
-import { getDashboardLayout } from '@/lib/config/dashboard-widgets'
-import { AdaptiveDashboard } from '@/components/dashboard/adaptive-dashboard'
-import { GettingStartedChecklist } from '@/components/dashboard/getting-started-checklist'
+/**
+ * /dashboard — server-side redirect to the correct business-type dashboard.
+ *
+ * Business Type → Dashboard Route (the ONLY mapping in the codebase):
+ *   retail      → /dashboard/retail
+ *   restaurant  → /dashboard/restaurant
+ *   pharmacy    → /dashboard/pharmacy
+ *
+ * No if/else chains — getDashboardRoute() reads from the template registry.
+ */
+export default async function DashboardPage() {
+  const session = await auth.api.getSession({ headers: await headers() })
+  if (!session?.user) redirect('/sign-in')
 
-export default function DashboardPage() {
-  const { config, isLoading } = useWorkspace()
+  const organization = await OrganizationService.getPrimaryOrganization(session.user.id)
+  if (!organization) redirect('/onboarding')
+  if (!organization.onboardingCompleted) redirect('/onboarding')
 
-  if (isLoading) {
-    return <div>Loading dashboard…</div>
-  }
-
-  if (!config) {
-    return (
-      <div className="space-y-4">
-        <h1 className="text-3xl font-bold">Dashboard</h1>
-        <p className="text-muted-foreground">Workspace configuration not found.</p>
-      </div>
-    )
-  }
-
-  const layout = getDashboardLayout(config.template.id)
-
-  if (!layout) {
-    return (
-      <div className="space-y-4">
-        <h1 className="text-3xl font-bold">Dashboard</h1>
-        <p className="text-muted-foreground">Dashboard configuration not found.</p>
-      </div>
-    )
-  }
-
-  return (
-    <div className="space-y-8">
-      {/* Getting Started Section */}
-      {config.template.gettingStartedTasks && (
-        <GettingStartedChecklist
-          businessName={config.name}
-          templateName={config.template.name}
-          tasks={config.template.gettingStartedTasks}
-        />
-      )}
-
-      {/* Main Dashboard */}
-      <div>
-        <h2 className="text-2xl font-bold mb-6">Dashboard</h2>
-        <AdaptiveDashboard layout={layout} />
-      </div>
-    </div>
-  )
+  const dashboardRoute = getDashboardRoute(organization.businessType ?? 'retail')
+  redirect(dashboardRoute)
 }

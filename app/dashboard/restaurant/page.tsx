@@ -1,42 +1,45 @@
 /**
  * Restaurant Dashboard
- * Business-specific dashboard for Restaurants & Cafés
- * Features: Table management, kitchen queue, orders, revenue
+ *
+ * One dashboard for ALL restaurant categories (restaurant, café, bakery,
+ * fast food, bar/lounge, coffee shop, other).
+ * The template drives quick actions and getting-started tasks.
  */
 
-import { Suspense } from 'react';
-import type { Metadata } from 'next';
-import Link from 'next/link';
-import { UtensilsCrossed, Clock, Users, TrendingUp } from 'lucide-react';
+import { Suspense } from 'react'
+import type { Metadata } from 'next'
+import { redirect } from 'next/navigation'
+import { headers } from 'next/headers'
+import { auth } from '@/lib/auth'
+import { UtensilsCrossed, Clock, Users, TrendingUp } from 'lucide-react'
 import {
   DashboardPage,
   DashboardGrid,
   GridItem,
   DashboardSection,
   StatCard,
-  AlertList,
-} from '@/components/dashboard/shared';
-import { getDashboardStats } from '@/app/actions/dashboard';
-import { formatCurrency } from '@/lib/utils/format';
+} from '@/components/dashboard/shared'
+import { getDashboardStats } from '@/app/actions/dashboard'
+import { OrganizationService } from '@/lib/services/organization-service'
+import { WorkspaceService } from '@/lib/services/workspace-service'
 
 export const metadata: Metadata = {
-  title: 'Restaurant Dashboard',
+  title: 'Dashboard — Restaurant',
   description: 'Manage your restaurant operations',
-};
+}
 
 function StatsSkeleton() {
   return (
     <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
       {[1, 2, 3, 4].map((i) => (
-        <div key={i} className="h-32 animate-pulse rounded-lg bg-gray-200" />
+        <div key={i} className="h-32 animate-pulse rounded-lg bg-muted" />
       ))}
     </div>
-  );
+  )
 }
 
-async function RestaurantStats() {
-  const stats = await getDashboardStats('org-id');
-
+async function RestaurantStats({ orgId }: { orgId: string }) {
+  const stats = await getDashboardStats(orgId)
   return (
     <DashboardGrid gap="md">
       <GridItem span={1}>
@@ -46,14 +49,9 @@ async function RestaurantStats() {
           format="number"
           icon={<UtensilsCrossed className="h-6 w-6" />}
           iconBg="bg-orange-100"
-          trend={{
-            value: 3,
-            direction: 'up',
-            label: 'vs 1h ago',
-          }}
+          trend={{ value: 3, direction: 'up', label: 'vs 1h ago' }}
         />
       </GridItem>
-
       <GridItem span={1}>
         <StatCard
           title="Pending Orders"
@@ -63,7 +61,6 @@ async function RestaurantStats() {
           iconBg="bg-red-100"
         />
       </GridItem>
-
       <GridItem span={1}>
         <StatCard
           title="Daily Revenue"
@@ -71,14 +68,9 @@ async function RestaurantStats() {
           format="currency"
           icon={<TrendingUp className="h-6 w-6" />}
           iconBg="bg-green-100"
-          trend={{
-            value: 15,
-            direction: 'up',
-            label: 'vs yesterday',
-          }}
+          trend={{ value: 15, direction: 'up', label: 'vs yesterday' }}
         />
       </GridItem>
-
       <GridItem span={1}>
         <StatCard
           title="Avg Order Value"
@@ -89,82 +81,45 @@ async function RestaurantStats() {
         />
       </GridItem>
     </DashboardGrid>
-  );
+  )
 }
 
-function QuickActions() {
-  return (
-    <div className="flex flex-wrap gap-3">
-      <Link
-        href="/orders"
-        className="inline-flex items-center gap-2 rounded-lg bg-orange-600 px-4 py-2 text-sm font-medium text-white hover:bg-orange-700 transition-colors"
-      >
-        <Clock className="h-4 w-4" />
-        New Order
-      </Link>
-      <Link
-        href="/kitchen"
-        className="inline-flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
-      >
-        <UtensilsCrossed className="h-4 w-4" />
-        Kitchen Queue
-      </Link>
-      <Link
-        href="/tables"
-        className="inline-flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
-      >
-        <Users className="h-4 w-4" />
-        Manage Tables
-      </Link>
-    </div>
-  );
-}
-
-async function KitchenQueueSection() {
-  // Mock data - replace with actual data fetching
-  const kitchenOrders = [
+function KitchenQueue() {
+  const orders = [
     { id: '1', tableNumber: 5, items: 'Pasta, Salad', time: '8m', status: 'cooking' },
     { id: '2', tableNumber: 3, items: 'Steak', time: '5m', status: 'ready' },
-  ];
-
+  ]
   return (
-    <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
-      <h3 className="mb-4 font-semibold text-gray-900">Kitchen Queue</h3>
-      {kitchenOrders.length === 0 ? (
-        <p className="text-center text-sm text-gray-500">No orders</p>
-      ) : (
-        <div className="space-y-3">
-          {kitchenOrders.map((order) => (
-            <div
-              key={order.id}
-              className={`flex items-center justify-between rounded-lg p-3 ${
-                order.status === 'ready'
-                  ? 'bg-green-50 border border-green-200'
-                  : 'bg-yellow-50 border border-yellow-200'
-              }`}
-            >
-              <div>
-                <p className="font-medium text-gray-900">Table {order.tableNumber}</p>
-                <p className="text-sm text-gray-600">{order.items}</p>
-              </div>
-              <div className="text-right">
-                <p className="text-sm font-semibold text-gray-900">{order.time}</p>
-                <p className={`text-xs font-medium capitalize ${
-                  order.status === 'ready' ? 'text-green-600' : 'text-orange-600'
-                }`}>
-                  {order.status}
-                </p>
-              </div>
+    <div className="rounded-lg border border-border bg-card p-6 shadow-sm">
+      <h3 className="mb-4 font-semibold text-card-foreground">Kitchen Queue</h3>
+      <div className="space-y-3">
+        {orders.map((o) => (
+          <div
+            key={o.id}
+            className={`flex items-center justify-between rounded-lg p-3 ${
+              o.status === 'ready'
+                ? 'bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800'
+                : 'bg-yellow-50 dark:bg-yellow-950 border border-yellow-200 dark:border-yellow-800'
+            }`}
+          >
+            <div>
+              <p className="font-medium text-card-foreground">Table {o.tableNumber}</p>
+              <p className="text-sm text-muted-foreground">{o.items}</p>
             </div>
-          ))}
-        </div>
-      )}
+            <div className="text-right">
+              <p className="text-sm font-semibold">{o.time}</p>
+              <p className={`text-xs font-medium capitalize ${o.status === 'ready' ? 'text-green-600' : 'text-orange-600'}`}>
+                {o.status}
+              </p>
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
-  );
+  )
 }
 
-async function TableStatusSection() {
-  // Mock data
+function TableStatus() {
   const tables = [
     { number: 1, status: 'available' },
     { number: 2, status: 'occupied' },
@@ -172,63 +127,58 @@ async function TableStatusSection() {
     { number: 4, status: 'available' },
     { number: 5, status: 'occupied' },
     { number: 6, status: 'dirty' },
-  ];
-
+  ]
+  const colors: Record<string, string> = {
+    available: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
+    occupied: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
+    dirty: 'bg-muted text-muted-foreground',
+  }
   return (
-    <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
-      <h3 className="mb-4 font-semibold text-gray-900">Table Status</h3>
+    <div className="rounded-lg border border-border bg-card p-6 shadow-sm">
+      <h3 className="mb-4 font-semibold text-card-foreground">Table Status</h3>
       <div className="grid grid-cols-3 gap-3">
-        {tables.map((table) => {
-          const statusColors = {
-            available: 'bg-green-100 text-green-800',
-            occupied: 'bg-blue-100 text-blue-800',
-            dirty: 'bg-gray-100 text-gray-800',
-          };
-
-          return (
-            <button
-              key={table.number}
-              className={`rounded-lg p-4 text-center font-semibold transition-all hover:shadow-md ${
-                statusColors[table.status as keyof typeof statusColors]
-              }`}
-            >
-              Table {table.number}
-            </button>
-          );
-        })}
+        {tables.map((t) => (
+          <button key={t.number} className={`rounded-lg p-4 text-center font-semibold transition-all hover:shadow-md ${colors[t.status] ?? ''}`}>
+            Table {t.number}
+          </button>
+        ))}
       </div>
     </div>
-  );
+  )
 }
 
-export default function RestaurantDashboard() {
+export default async function RestaurantDashboard() {
+  const session = await auth.api.getSession({ headers: await headers() })
+  if (!session?.user) redirect('/sign-in')
+
+  const organization = await OrganizationService.getPrimaryOrganization(session.user.id)
+  if (!organization) redirect('/onboarding')
+
+  const workspaceConfig = WorkspaceService.createWorkspaceConfig(
+    organization.id,
+    organization.businessType ?? 'restaurant',
+    organization.businessCategory ?? 'restaurant'
+  )
+
   return (
     <DashboardPage
-      title="Restaurant Dashboard"
+      title={`${organization.name} Dashboard`}
       description="Manage your restaurant operations and track orders"
-      action={<QuickActions />}
     >
-      {/* Main Stats */}
       <DashboardSection title="Key Metrics" description="Current service status">
         <Suspense fallback={<StatsSkeleton />}>
-          <RestaurantStats />
+          <RestaurantStats orgId={organization.id} />
         </Suspense>
       </DashboardSection>
 
-      {/* Operations Grid */}
       <DashboardGrid gap="md" className="mt-6">
         <GridItem span={2}>
-          <Suspense fallback={<div className="h-80 animate-pulse rounded-lg bg-gray-200" />}>
-            <KitchenQueueSection />
-          </Suspense>
+          <KitchenQueue />
         </GridItem>
-
         <GridItem span={2}>
-          <Suspense fallback={<div className="h-80 animate-pulse rounded-lg bg-gray-200" />}>
-            <TableStatusSection />
-          </Suspense>
+          <TableStatus />
         </GridItem>
       </DashboardGrid>
     </DashboardPage>
-  );
+  )
 }

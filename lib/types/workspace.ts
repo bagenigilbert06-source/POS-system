@@ -1,3 +1,14 @@
+/**
+ * lib/types/workspace.ts
+ *
+ * WorkspaceConfig is the runtime shape of a loaded workspace.
+ * WorkspaceTemplate (the configuration blueprint) lives in lib/templates/types.ts
+ * and is imported here so consumers can use a single import path.
+ */
+import type { WorkspaceTemplate, NavigationConfig } from '@/lib/templates/types'
+
+export type { WorkspaceTemplate }
+
 export interface SidebarNavItem {
   id: string
   label: string
@@ -10,36 +21,20 @@ export interface SidebarConfig {
   secondaryNav: SidebarNavItem[]
 }
 
-export interface GettingStartedTask {
-  id: string
-  title: string
-  description: string
-  action: string
-}
-
-export interface BusinessTemplate {
-  id: string
-  name: string
-  description: string
-  enabledModules: string[]
-  defaultCategories: string[]
-  defaultProducts: Array<{
-    name: string
-    sku: string
-    price: number
-    category: string
-  }>
-  gettingStartedTasks: GettingStartedTask[]
-  sidebarConfig: SidebarConfig
-}
-
 export interface WorkspaceConfig {
   id: string
   name: string
   businessType: string
-  customCategory?: string
-  template: BusinessTemplate
+  businessCategory: string
+  /**
+   * Stable dot-namespaced template id, e.g. "retail.supermarket".
+   * Stored on the organization row and used as the primary template key.
+   */
+  templateId: string
+  /** Full template resolved from the registry — never null after onboarding */
+  template: WorkspaceTemplate
   enabledModules: string[]
+  enabledFeatures: string[]
   sidebarConfig: SidebarConfig
   createdAt: Date
   updatedAt: Date

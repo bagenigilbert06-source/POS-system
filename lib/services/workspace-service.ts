@@ -1,98 +1,75 @@
-import { WorkspaceConfig } from '@/lib/types/workspace'
-import { BUSINESS_TEMPLATES, getBusinessTemplate, getTemplateByCustomCategory } from '@/lib/config/business-templates'
+/**
+ * lib/services/workspace-service.ts
+ *
+ * Thin helper surface for reading workspace configuration at runtime
+ * (e.g. in dashboard layouts and RSC pages).
+ *
+ * Workspace *creation* is handled entirely by WorkspaceFactory.
+ * This service is read-only: it never writes to the database.
+ */
+
+import { getWorkspaceTemplate, getDashboardRoute } from '@/lib/templates'
+import type { WorkspaceConfig } from '@/lib/types/workspace'
 
 export class WorkspaceService {
   /**
-   * Create workspace configuration based on onboarding data
+   * Build a WorkspaceConfig from data already stored on the organization row.
+   * Used by the dashboard layout to hydrate the WorkspaceProvider SSR.
+   *
+   * No database queries — config is assembled from the template registry.
    */
-  static createWorkspaceConfig(
-    workspaceId: string,
-    businessType: string,
-    customCategory?: string
-  ): WorkspaceConfig {
-    // Determine which template to use
-    let template = getBusinessTemplate(businessType)
-    
-    // If custom category provided, try to map to a specialized template
-    if (customCategory && !template) {
-      template = getTemplateByCustomCategory(customCategory)
+  static buildConfigFromOrg(org: {
+    id: string
+    name: string | null
+    businessType: string | null
+    businessCategory: string | null
+    templateId: string | null
+  }): WorkspaceConfig {
+    const businessType = (org.businessType ?? 'retail').toLowerCase()
+    const businessCategory = (org.businessCategory ?? 'other_retail').toLowerCase()
+
+    // templateId stored on org row is the primary key — fall back to general
+    const templateId = org.templateId ?? `${businessType}.general`
+    const template = getWorkspaceTemplate(templateId)
+
+    const sidebarConfig = {
+      primaryNav: template.navigation.primaryNav,
+      secondaryNav: template.navigation.secondaryNav,
     }
 
-    // Fallback to retail store template
-    if (!template) {
-      template = BUSINESS_TEMPLATES.retail_store
-    }
-
-    const config: WorkspaceConfig = {
-      id: workspaceId,
-      name: template.name,
+    return {
+      id: org.id,
+      name: org.name ?? template.name,
       businessType,
-      customCategory,
+      businessCategory,
+      templateId,
       template,
       enabledModules: template.enabledModules,
-      sidebarConfig: template.sidebarConfig,
+      enabledFeatures: template.enabledFeatures,
+      sidebarConfig,
       createdAt: new Date(),
       updatedAt: new Date(),
     }
-
-    return config
   }
 
   /**
-   * Get workspace configuration from database
+   * The correct dashboard route for a given business type.
    */
-  static async getWorkspaceConfig(workspaceId: string): Promise<WorkspaceConfig | null> {
-    try {
-      // Fetch from the organization record
-      const response = await fetch(`/api/workspace/${workspaceId}`, {
-        method: 'GET',
-        headers: { 'Content-Type': 'application/json' },
-      })
-
-      if (!response.ok) {
-        return null
-      }
-
-      const data = await response.json()
-      return data.workspaceConfig || null
-    } catch (error) {
-      console.error('Failed to fetch workspace config:', error)
-      return null
-    }
+  static getDashboardRoute(businessType: string): string {
+    return getDashboardRoute(businessType.toLowerCase())
   }
 
   /**
-   * Save workspace configuration to database
-   */
-  static async saveWorkspaceConfig(config: WorkspaceConfig): Promise<boolean> {
-    try {
-      // This would normally save to database
-      // TODO: Implement database save
-      console.log('[v0] Saving workspace config:', config)
-      return true
-    } catch (error) {
-      console.error('Failed to save workspace config:', error)
-      return false
-    }
-  }
-
-  /**
-   * Get sidebar navigation for workspace
-   */
-  static getSidebarNav(config: WorkspaceConfig) {
-    return {
-      primaryNav: config.sidebarConfig.primaryNav.map((item) => ({
-        ...item,
-        enabled: config.enabledModules.includes(item.id),
-      })),
-      secondaryNav: config.sidebarConfig.secondaryNav,
-    }
-  }
-
-  /**
-   * Check if module is enabled for workspace
+   * Check if a module is enabled for this workspace.
    */
   static isModuleEnabled(config: WorkspaceConfig, moduleId: string): boolean {
     return config.enabledModules.includes(moduleId)
+  }
+
+  /**
+   * Check if a feature is enabled for this workspace.
+   */
+  static isFeatureEnabled(config: WorkspaceConfig, featureId: string): boolean {
+    return config.enabledFeatures.includes(featureId)
   }
 }

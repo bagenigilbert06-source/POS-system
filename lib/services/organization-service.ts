@@ -169,6 +169,22 @@ export class OrganizationService {
   }
 
   /**
+   * Save progress for an individual onboarding step.
+   * Updates the org with partial step data and advances onboardingStep.
+   */
+  static async saveOnboardingStep(
+    orgId: string,
+    userId: string,
+    step: number,
+    stepData: Record<string, any>
+  ) {
+    return this.updateOrganization(orgId, userId, {
+      ...stepData,
+      onboardingStep: step,
+    })
+  }
+
+  /**
    * Mark onboarding as completed
    */
   static async completeOnboarding(orgId: string, userId: string) {
