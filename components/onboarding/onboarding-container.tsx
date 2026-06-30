@@ -249,14 +249,27 @@ export function OnboardingContainer({
   return (
     <div className="w-full">
       {/* Page-level heading */}
-      <div className="mb-8 pb-8 border-b border-gray-100">
+      <div className="mb-10">
         <h1
-          className="text-[24px] font-bold tracking-tight leading-tight"
-          style={{ color: '#0f172a' }}
+          style={{
+            fontSize: '32px',
+            fontWeight: 800,
+            letterSpacing: '-0.025em',
+            lineHeight: 1.15,
+            color: '#111827',
+            marginBottom: '6px',
+            fontFamily: 'var(--font-inter, Inter, sans-serif)',
+          }}
         >
           Set up your workspace
         </h1>
-        <p className="text-[13px] mt-1" style={{ color: '#94a3b8' }}>
+        <p
+          style={{
+            fontSize: '15px',
+            color: '#9ca3af',
+            fontFamily: 'var(--font-inter, Inter, sans-serif)',
+          }}
+        >
           Takes about 2 minutes &mdash; you can change everything later.
         </p>
       </div>
@@ -271,7 +284,12 @@ export function OnboardingContainer({
       {error && (
         <div
           className="rounded-lg px-4 py-3 mb-6 text-[13px]"
-          style={{ background: '#fef2f2', border: '1px solid #fecaca', color: '#dc2626' }}
+          style={{
+            background: '#fff5f5',
+            border: '1px solid #fecaca',
+            color: '#b91c1c',
+            fontFamily: 'var(--font-inter, Inter, sans-serif)',
+          }}
         >
           {error}
         </div>

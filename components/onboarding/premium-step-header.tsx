@@ -6,24 +6,31 @@ interface PremiumStepHeaderProps {
   maxWidth?: string
 }
 
-/**
- * Zoho-style step heading — large bold title, calm muted description.
- */
-export function PremiumStepHeader({
-  title,
-  description,
-  maxWidth = 'max-w-xl',
-}: PremiumStepHeaderProps) {
+export function PremiumStepHeader({ title, description }: PremiumStepHeaderProps) {
   return (
-    <div className={`${maxWidth} mb-8`}>
+    <div className="mb-8">
       <h2
-        className="text-[26px] font-bold leading-tight tracking-tight mb-2"
-        style={{ color: '#0f172a' }}
+        style={{
+          fontSize: '28px',
+          fontWeight: 800,
+          lineHeight: 1.2,
+          letterSpacing: '-0.02em',
+          color: '#111827',
+          fontFamily: 'var(--font-inter, Inter, sans-serif)',
+          marginBottom: description ? '8px' : 0,
+        }}
       >
         {title}
       </h2>
       {description && (
-        <p className="text-[15px] leading-relaxed" style={{ color: '#64748b' }}>
+        <p
+          style={{
+            fontSize: '15px',
+            lineHeight: 1.5,
+            color: '#6b7280',
+            fontFamily: 'var(--font-inter, Inter, sans-serif)',
+          }}
+        >
           {description}
         </p>
       )}
