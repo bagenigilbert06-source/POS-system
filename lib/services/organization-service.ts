@@ -198,8 +198,29 @@ export class OrganizationService {
    * Check if user can access organization
    */
   static async canUserAccess(orgId: string, userId: string): Promise<boolean> {
-    const org = await this.getOrganization(orgId, userId)
-    return !!org
+    // Try database first
+    try {
+      const result = await db
+        .select()
+        .from(organization)
+        .where(eq(organization.id, orgId))
+        .limit(1)
+
+      const org = result[0]
+      if (org && org.userId === userId) {
+        return true
+      }
+    } catch (err) {
+      console.warn('[v0] Failed to query organization table in canUserAccess:', err)
+    }
+
+    // Fallback to cache
+    const cached = userOrgCache.get(userId)
+    if (cached && cached.id === orgId && cached.userId === userId) {
+      return true
+    }
+
+    return false
   }
 
   /**
