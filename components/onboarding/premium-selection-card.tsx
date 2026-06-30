@@ -37,11 +37,10 @@ export function PremiumSelectionCard({
     <button
       onClick={onClick}
       className={cn(
-        ONBOARDING_PRESETS.selectionCard,
-        'group',
+        'group relative w-full rounded-xl p-5 text-left transition-all duration-200 flex flex-col gap-6 min-h-[160px]',
         selected
-          ? `bg-primary/8 ${ONBOARDING_TOKENS.elevation.large} shadow-primary/20 scale-[1.02]`
-          : `bg-card ${ONBOARDING_TOKENS.elevation.small} ${ONBOARDING_TOKENS.states.hover.shadow} ${ONBOARDING_TOKENS.states.hover.translate}`
+          ? 'bg-primary/8 shadow-md scale-[1.02]'
+          : 'bg-card shadow-sm hover:shadow-md hover:-translate-y-0.5'
       )}
       aria-pressed={selected}
     >
