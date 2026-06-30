@@ -13,10 +13,6 @@ interface PremiumSelectionCardProps {
   badge?: string
 }
 
-/**
- * Zoho-style selection card — white background, crisp border,
- * blue accent when selected, icon in a coloured square badge.
- */
 export function PremiumSelectionCard({
   icon: Icon,
   title,
@@ -29,53 +25,58 @@ export function PremiumSelectionCard({
     <button
       onClick={onClick}
       aria-pressed={selected}
-      className="group relative w-full rounded-xl text-left transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+      className="group relative w-full rounded-xl text-left transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
       style={{
-        background: selected ? '#eff6ff' : '#fff',
-        border: selected ? '2px solid #1a56db' : '1.5px solid #e2e8f0',
+        background: '#ffffff',
+        border: selected ? '2px solid #111827' : '1.5px solid #e5e7eb',
         padding: '20px',
-        boxShadow: selected
-          ? '0 0 0 3px rgba(26,86,219,0.08)'
-          : '0 1px 3px rgba(0,0,0,0.04)',
+        boxShadow: selected ? 'none' : '0 1px 2px rgba(0,0,0,0.04)',
+        fontFamily: 'var(--font-inter, Inter, sans-serif)',
+        outline: 'none',
       }}
     >
-      {/* Check badge */}
+      {/* Check mark in top-right */}
       {selected && (
         <span
-          className="absolute top-3.5 right-3.5 h-5 w-5 rounded-full flex items-center justify-center"
-          style={{ background: '#1a56db' }}
+          className="absolute top-3 right-3 h-[22px] w-[22px] rounded-full flex items-center justify-center"
+          style={{ background: '#111827' }}
         >
           <Check className="h-3 w-3 text-white stroke-[3]" />
         </span>
       )}
 
-      {/* Icon square */}
+      {/* Icon */}
       <div
-        className="mb-4 h-11 w-11 rounded-lg flex items-center justify-center transition-colors duration-150"
+        className="mb-4 h-10 w-10 rounded-lg flex items-center justify-center"
         style={{
-          background: selected ? '#1a56db' : '#f1f5f9',
-          color: selected ? '#fff' : '#475569',
+          background: selected ? '#111827' : '#f3f4f6',
+          color: selected ? '#ffffff' : '#374151',
         }}
       >
         <Icon className="h-5 w-5" />
       </div>
 
-      {/* Text */}
+      {/* Title */}
       <p
         className="text-[14px] font-semibold mb-1 leading-snug"
-        style={{ color: selected ? '#1a56db' : '#0f172a' }}
+        style={{ color: '#111827' }}
       >
         {title}
         {badge && (
           <span
             className="ml-2 text-[10px] font-medium px-1.5 py-0.5 rounded"
-            style={{ background: '#dbeafe', color: '#1d4ed8' }}
+            style={{ background: '#f3f4f6', color: '#374151' }}
           >
             {badge}
           </span>
         )}
       </p>
-      <p className="text-[12px] leading-relaxed line-clamp-2" style={{ color: '#64748b' }}>
+
+      {/* Description */}
+      <p
+        className="text-[12px] leading-relaxed line-clamp-2"
+        style={{ color: '#9ca3af' }}
+      >
         {description}
       </p>
     </button>

@@ -1,6 +1,6 @@
 'use client'
 
-import { ChevronLeft, ChevronRight, Loader2 } from 'lucide-react'
+import { Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface StepFooterProps {
@@ -24,20 +24,19 @@ export function StepFooter({
 }: StepFooterProps) {
   return (
     <div
-      className={cn(
-        'flex items-center pt-8 mt-10',
-        showBack ? 'justify-between' : 'justify-end',
-      )}
-      style={{ borderTop: '1px solid #e2e8f0' }}
+      className={cn('flex items-center pt-8 mt-8', showBack ? 'justify-between' : 'justify-end')}
+      style={{
+        borderTop: '1px solid #f3f4f6',
+        fontFamily: 'var(--font-inter, Inter, sans-serif)',
+      }}
     >
       {showBack && (
         <button
           onClick={onBack}
           disabled={backDisabled || loading}
-          className="inline-flex items-center gap-1.5 text-[14px] font-medium transition-colors duration-150 disabled:opacity-40 disabled:cursor-not-allowed"
-          style={{ color: backDisabled ? '#94a3b8' : '#475569' }}
+          className="text-[14px] font-medium transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+          style={{ color: '#6b7280' }}
         >
-          <ChevronLeft className="h-4 w-4" />
           Back
         </button>
       )}
@@ -46,20 +45,18 @@ export function StepFooter({
         onClick={onNext}
         disabled={nextDisabled || loading}
         className={cn(
-          'inline-flex items-center gap-2 px-7 py-2.5 rounded-lg text-[14px] font-semibold text-white transition-all duration-150',
+          'inline-flex items-center gap-2 px-6 py-2.5 rounded-full text-[14px] font-semibold text-white transition-all duration-150',
           'disabled:opacity-40 disabled:cursor-not-allowed',
           !showBack && 'ml-auto',
         )}
         style={{
-          background: nextDisabled || loading ? '#93c5fd' : '#1a56db',
-          boxShadow: nextDisabled || loading ? 'none' : '0 1px 4px rgba(26,86,219,0.3)',
+          background: nextDisabled || loading ? '#9ca3af' : '#111827',
+          minWidth: '120px',
+          justifyContent: 'center',
         }}
       >
-        {loading ? (
-          <Loader2 className="h-4 w-4 animate-spin" />
-        ) : null}
+        {loading && <Loader2 className="h-4 w-4 animate-spin" />}
         {nextLabel}
-        {!loading && <ChevronRight className="h-4 w-4" />}
       </button>
     </div>
   )
