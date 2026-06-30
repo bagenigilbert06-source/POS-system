@@ -1,7 +1,8 @@
 'use client'
 
-import { cn } from '@/lib/utils'
-import { OnboardingHeader } from './onboarding-header'
+import { PremiumStepHeader } from './premium-step-header'
+import { PremiumInput } from './premium-input'
+import { Building2, Mail, Phone } from 'lucide-react'
 
 interface StepBusinessDetailsProps {
   data: {
@@ -10,9 +11,16 @@ interface StepBusinessDetailsProps {
     phone: string
   }
   onChange: (data: any) => void
+  stepNumber?: number
+  totalSteps?: number
 }
 
-export function StepBusinessDetails({ data, onChange }: StepBusinessDetailsProps) {
+export function StepBusinessDetails({
+  data,
+  onChange,
+  stepNumber = 3,
+  totalSteps = 7,
+}: StepBusinessDetailsProps) {
   const handleChange = (field: string, value: string) => {
     onChange({
       ...data,
@@ -21,71 +29,47 @@ export function StepBusinessDetails({ data, onChange }: StepBusinessDetailsProps
   }
 
   return (
-    <div className="space-y-8">
-      <OnboardingHeader
+    <div className="space-y-12">
+      <PremiumStepHeader
+        stepNumber={stepNumber}
+        totalSteps={totalSteps}
         title="Tell us about your business"
-        description="We&apos;ll use this information to personalize your experience and set up defaults"
-        centered={true}
+        description="We'll use this information to personalize your experience and set up defaults"
       />
 
-      <div className="space-y-5">
-        <div>
-          <label htmlFor="businessName" className="block text-sm font-semibold text-foreground mb-2">
-            Business name
-          </label>
-          <input
-            id="businessName"
-            type="text"
-            required
-            placeholder="My Awesome Business"
-            value={data.businessName}
-            onChange={(e) => handleChange('businessName', e.target.value)}
-            className={cn(
-              'w-full rounded-lg border border-border bg-card px-4 py-3 text-sm outline-none',
-              'placeholder:text-muted-foreground/70',
-              'focus:border-primary focus:ring-2 focus:ring-primary/20',
-              'transition-all duration-150 shadow-sm-soft'
-            )}
-          />
-        </div>
+      <div className="space-y-6">
+        <PremiumInput
+          label="Business name"
+          icon={Building2}
+          type="text"
+          required
+          placeholder="My Awesome Business"
+          value={data.businessName}
+          onChange={(e) => handleChange('businessName', e.target.value)}
+          description="This will appear throughout your dashboard"
+        />
 
-        <div>
-          <label htmlFor="businessEmail" className="block text-sm font-semibold text-foreground mb-2">
-            Business email
-          </label>
-          <input
-            id="businessEmail"
-            type="email"
-            placeholder="business@example.com"
-            value={data.businessEmail}
-            onChange={(e) => handleChange('businessEmail', e.target.value)}
-            className={cn(
-              'w-full rounded-lg border border-border bg-card px-4 py-3 text-sm outline-none',
-              'placeholder:text-muted-foreground/70',
-              'focus:border-primary focus:ring-2 focus:ring-primary/20',
-              'transition-all duration-150 shadow-sm-soft'
-            )}
-          />
-        </div>
+        <PremiumInput
+          label="Business email"
+          icon={Mail}
+          type="email"
+          required
+          placeholder="business@example.com"
+          value={data.businessEmail}
+          onChange={(e) => handleChange('businessEmail', e.target.value)}
+          description="We'll use this for important notifications"
+        />
 
-        <div>
-          <label htmlFor="phone" className="block text-sm font-semibold text-foreground mb-2">
-            Phone number
-          </label>
-          <input
-            id="phone"
-            type="tel"
-            placeholder="+254 712 345 678"
-            value={data.phone}
-            onChange={(e) => handleChange('phone', e.target.value)}
-            className={cn(
-              'w-full rounded-lg border border-border bg-card px-4 py-3 text-sm outline-none',
-              'placeholder:text-muted-foreground/70',
-              'focus:border-primary focus:ring-2 focus:ring-primary/20',
-              'transition-all duration-150 shadow-sm-soft'
-            )}
-          />
-        </div>
+        <PremiumInput
+          label="Phone number"
+          icon={Phone}
+          type="tel"
+          required
+          placeholder="+254 712 345 678"
+          value={data.phone}
+          onChange={(e) => handleChange('phone', e.target.value)}
+          description="Used for backup contact information"
+        />
       </div>
     </div>
   )
