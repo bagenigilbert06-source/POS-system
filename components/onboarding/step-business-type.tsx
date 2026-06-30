@@ -12,14 +12,13 @@ interface StepBusinessTypeProps {
   totalSteps?: number
 }
 
-const iconMap: Record<string, React.ComponentType<any>> = {
-  ShoppingCart,
-  UtensilsCrossed,
-  Pill,
+const iconMap: Record<BusinessTypeEnum, React.ComponentType<{ className?: string }>> = {
+  [BusinessTypeEnum.RETAIL]: ShoppingCart,
+  [BusinessTypeEnum.RESTAURANT]: UtensilsCrossed,
+  [BusinessTypeEnum.PHARMACY]: Pill,
 }
 
-// Most popular business types get the "Recommended" badge
-const recommendedTypes = new Set([
+const recommendedTypes = new Set<BusinessTypeEnum>([
   BusinessTypeEnum.RETAIL,
   BusinessTypeEnum.RESTAURANT,
 ])
@@ -32,7 +31,6 @@ export function StepBusinessType({
 }: StepBusinessTypeProps) {
   return (
     <div className="space-y-10">
-      {/* Premium step header */}
       <PremiumStepHeader
         stepNumber={stepNumber}
         totalSteps={totalSteps}
@@ -40,22 +38,20 @@ export function StepBusinessType({
         description="Choose your business model to unlock tailored features and workflows designed for your success."
       />
 
-      {/* Selection cards - clean grid with better spacing */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
-        {BUSINESS_TYPES.map((type) => {
-          const Icon = iconMap[type.icon] || ShoppingCart
-          const examples = type.examples || []
+      <div className="grid gap-5 md:grid-cols-3 md:gap-6">
+        {BUSINESS_TYPES.map(({ id, name, description, examples = [] }) => {
+          const Icon = iconMap[id] ?? ShoppingCart
 
           return (
             <PremiumSelectionCard
-              key={type.id}
+              key={id}
               icon={Icon}
-              title={type.name}
-              description={type.description}
+              title={name}
+              description={description}
               examples={examples}
-              selected={value === type.id}
-              onClick={() => onChange(type.id)}
-              recommended={recommendedTypes.has(type.id as BusinessTypeEnum)}
+              selected={value === id}
+              onClick={() => onChange(id)}
+              recommended={recommendedTypes.has(id)}
             />
           )
         })}
