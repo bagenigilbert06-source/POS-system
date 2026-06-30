@@ -165,10 +165,12 @@ export function OnboardingContainer({
   }, [])
 
   // -------------------------------------------------------------------------
-  // Workspace creation callback — called by WorkspaceCreationScreen on success
+  // Workspace creation callback — called by WorkspaceCreationScreen on success.
+  // The dashboardRoute is returned by the API and is the correct business-type
+  // dashboard (e.g. /dashboard/retail, /dashboard/restaurant, /dashboard/pharmacy).
   // -------------------------------------------------------------------------
-  const handleWorkspaceComplete = useCallback(() => {
-    router.push('/dashboard')
+  const handleWorkspaceComplete = useCallback((dashboardRoute: string) => {
+    router.push(dashboardRoute)
     router.refresh()
   }, [router])
 

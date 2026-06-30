@@ -7,8 +7,12 @@ import type { OnboardingData } from './onboarding-container'
 interface WorkspaceCreationScreenProps {
   organizationId: string
   onboardingData: OnboardingData
-  /** Called after the API confirms success and the final animation plays. */
-  onComplete: () => void
+  /**
+   * Called after the API confirms success and the final animation plays.
+   * Receives the business-type dashboard route from the API response so the
+   * parent can redirect to the correct dashboard (e.g. /dashboard/retail).
+   */
+  onComplete: (dashboardRoute: string) => void
 }
 
 /**
@@ -76,13 +80,17 @@ export function WorkspaceCreationScreen({
         throw new Error(payload?.message || `Server error ${response.status}`)
       }
 
+      const payload = await response.json()
+
       // Complete the last step
       setCompletedSteps(CREATION_STEPS.map((s) => s.id))
       setPhase('success')
 
-      // Brief pause so the user sees the completed state, then hand off
+      // Brief pause so the user sees the completed state, then hand off.
+      // Pass the business-type dashboard route returned by the API so the
+      // container can redirect to the correct dashboard (retail/restaurant/pharmacy).
       await new Promise<void>((r) => setTimeout(r, 1200))
-      onComplete()
+      onComplete(payload?.dashboardRoute ?? '/dashboard')
     } catch (err) {
       hasRun.current = false // allow retry
       setPhase('error')

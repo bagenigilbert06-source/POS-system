@@ -1,98 +1,112 @@
-import { WorkspaceConfig } from '@/lib/types/workspace'
-import { BUSINESS_TEMPLATES, getBusinessTemplate, getTemplateByCustomCategory } from '@/lib/config/business-templates'
+import type { WorkspaceConfig } from '@/lib/types/workspace'
+import { getWorkspaceTemplate, getDashboardRoute } from '@/lib/templates'
+
+// Business-type → enabled modules (stable; does not change per category)
+const MODULES_BY_TYPE: Record<string, string[]> = {
+  retail: ['inventory', 'sales', 'products', 'customers', 'reports', 'analytics'],
+  restaurant: ['kitchen', 'tables', 'orders', 'inventory', 'sales', 'customers', 'reports', 'analytics'],
+  pharmacy: ['prescriptions', 'inventory', 'batch-tracking', 'sales', 'products', 'customers', 'reports', 'analytics'],
+}
+
+// Business-type → sidebar navigation
+const SIDEBAR_BY_TYPE: Record<string, WorkspaceConfig['sidebarConfig']> = {
+  retail: {
+    primaryNav: [
+      { id: 'dashboard', label: 'Dashboard', icon: 'LayoutDashboard', route: '/dashboard/retail' },
+      { id: 'sales', label: 'Sales', icon: 'ShoppingCart', route: '/dashboard/sales' },
+      { id: 'products', label: 'Products', icon: 'Package', route: '/dashboard/products' },
+      { id: 'inventory', label: 'Inventory', icon: 'PackageSearch', route: '/dashboard/inventory' },
+      { id: 'customers', label: 'Customers', icon: 'Users', route: '/dashboard/customers' },
+      { id: 'analytics', label: 'Analytics', icon: 'BarChart3', route: '/dashboard/analytics' },
+    ],
+    secondaryNav: [
+      { id: 'settings', label: 'Settings', icon: 'Settings', route: '/dashboard/settings' },
+    ],
+  },
+  restaurant: {
+    primaryNav: [
+      { id: 'dashboard', label: 'Dashboard', icon: 'LayoutDashboard', route: '/dashboard/restaurant' },
+      { id: 'orders', label: 'Orders', icon: 'ClipboardList', route: '/dashboard/orders' },
+      { id: 'kitchen', label: 'Kitchen', icon: 'ChefHat', route: '/dashboard/kitchen' },
+      { id: 'tables', label: 'Tables', icon: 'UtensilsCrossed', route: '/dashboard/tables' },
+      { id: 'products', label: 'Menu', icon: 'Package', route: '/dashboard/products' },
+      { id: 'customers', label: 'Customers', icon: 'Users', route: '/dashboard/customers' },
+      { id: 'analytics', label: 'Analytics', icon: 'BarChart3', route: '/dashboard/analytics' },
+    ],
+    secondaryNav: [
+      { id: 'settings', label: 'Settings', icon: 'Settings', route: '/dashboard/settings' },
+    ],
+  },
+  pharmacy: {
+    primaryNav: [
+      { id: 'dashboard', label: 'Dashboard', icon: 'LayoutDashboard', route: '/dashboard/pharmacy' },
+      { id: 'prescriptions', label: 'Prescriptions', icon: 'FileText', route: '/dashboard/prescriptions' },
+      { id: 'sales', label: 'Sales', icon: 'ShoppingCart', route: '/dashboard/sales' },
+      { id: 'products', label: 'Products', icon: 'Package', route: '/dashboard/products' },
+      { id: 'inventory', label: 'Inventory', icon: 'PackageSearch', route: '/dashboard/inventory' },
+      { id: 'customers', label: 'Customers', icon: 'Users', route: '/dashboard/customers' },
+      { id: 'analytics', label: 'Analytics', icon: 'BarChart3', route: '/dashboard/analytics' },
+    ],
+    secondaryNav: [
+      { id: 'settings', label: 'Settings', icon: 'Settings', route: '/dashboard/settings' },
+    ],
+  },
+}
 
 export class WorkspaceService {
   /**
-   * Create workspace configuration based on onboarding data
+   * Build a WorkspaceConfig from onboarding data.
+   *
+   * - businessType  determines: modules, sidebar, dashboard route
+   * - businessCategory determines: template (starter data, widgets, features, quick actions)
+   *
+   * No if/else chains — everything is driven by the registry.
    */
   static createWorkspaceConfig(
     workspaceId: string,
     businessType: string,
-    customCategory?: string
+    businessCategory: string
   ): WorkspaceConfig {
-    // Determine which template to use
-    let template = getBusinessTemplate(businessType)
-    
-    // If custom category provided, try to map to a specialized template
-    if (customCategory && !template) {
-      template = getTemplateByCustomCategory(customCategory)
-    }
+    const normalizedType = businessType.toLowerCase()
+    const normalizedCategory = businessCategory.toLowerCase()
 
-    // Fallback to retail store template
-    if (!template) {
-      template = BUSINESS_TEMPLATES.retail_store
-    }
+    const template = getWorkspaceTemplate(normalizedCategory, normalizedType)
+    const modules = MODULES_BY_TYPE[normalizedType] ?? MODULES_BY_TYPE.retail
+    const sidebarConfig = SIDEBAR_BY_TYPE[normalizedType] ?? SIDEBAR_BY_TYPE.retail
 
-    const config: WorkspaceConfig = {
+    return {
       id: workspaceId,
       name: template.name,
-      businessType,
-      customCategory,
+      businessType: normalizedType,
+      businessCategory: normalizedCategory,
+      templateId: template.id,
       template,
-      enabledModules: template.enabledModules,
-      sidebarConfig: template.sidebarConfig,
+      enabledModules: modules,
+      enabledFeatures: template.enabledFeatures,
+      sidebarConfig,
       createdAt: new Date(),
       updatedAt: new Date(),
     }
-
-    return config
   }
 
   /**
-   * Get workspace configuration from database
+   * The dashboard route for a given business type.
    */
-  static async getWorkspaceConfig(workspaceId: string): Promise<WorkspaceConfig | null> {
-    try {
-      // Fetch from the organization record
-      const response = await fetch(`/api/workspace/${workspaceId}`, {
-        method: 'GET',
-        headers: { 'Content-Type': 'application/json' },
-      })
-
-      if (!response.ok) {
-        return null
-      }
-
-      const data = await response.json()
-      return data.workspaceConfig || null
-    } catch (error) {
-      console.error('Failed to fetch workspace config:', error)
-      return null
-    }
+  static getDashboardRoute(businessType: string): string {
+    return getDashboardRoute(businessType.toLowerCase())
   }
 
   /**
-   * Save workspace configuration to database
-   */
-  static async saveWorkspaceConfig(config: WorkspaceConfig): Promise<boolean> {
-    try {
-      // This would normally save to database
-      // TODO: Implement database save
-      console.log('[v0] Saving workspace config:', config)
-      return true
-    } catch (error) {
-      console.error('Failed to save workspace config:', error)
-      return false
-    }
-  }
-
-  /**
-   * Get sidebar navigation for workspace
-   */
-  static getSidebarNav(config: WorkspaceConfig) {
-    return {
-      primaryNav: config.sidebarConfig.primaryNav.map((item) => ({
-        ...item,
-        enabled: config.enabledModules.includes(item.id),
-      })),
-      secondaryNav: config.sidebarConfig.secondaryNav,
-    }
-  }
-
-  /**
-   * Check if module is enabled for workspace
+   * Check if a module is enabled for this workspace.
    */
   static isModuleEnabled(config: WorkspaceConfig, moduleId: string): boolean {
     return config.enabledModules.includes(moduleId)
+  }
+
+  /**
+   * Check if a feature is enabled for this workspace.
+   */
+  static isFeatureEnabled(config: WorkspaceConfig, featureId: string): boolean {
+    return config.enabledFeatures.includes(featureId)
   }
 }

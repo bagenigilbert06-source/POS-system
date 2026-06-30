@@ -1,3 +1,7 @@
+import type { WorkspaceTemplate } from '@/lib/templates/types'
+
+export type { WorkspaceTemplate }
+
 export interface SidebarNavItem {
   id: string
   label: string
@@ -17,29 +21,19 @@ export interface GettingStartedTask {
   action: string
 }
 
-export interface BusinessTemplate {
-  id: string
-  name: string
-  description: string
-  enabledModules: string[]
-  defaultCategories: string[]
-  defaultProducts: Array<{
-    name: string
-    sku: string
-    price: number
-    category: string
-  }>
-  gettingStartedTasks: GettingStartedTask[]
-  sidebarConfig: SidebarConfig
-}
-
 export interface WorkspaceConfig {
   id: string
   name: string
   businessType: string
-  customCategory?: string
-  template: BusinessTemplate
+  businessCategory: string
+  /**
+   * Dot-namespaced template id, e.g. "retail.supermarket".
+   * Used by the dashboard to load the correct template without if/else.
+   */
+  templateId: string
+  template: WorkspaceTemplate
   enabledModules: string[]
+  enabledFeatures: string[]
   sidebarConfig: SidebarConfig
   createdAt: Date
   updatedAt: Date

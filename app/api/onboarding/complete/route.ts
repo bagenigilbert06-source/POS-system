@@ -12,9 +12,7 @@ export const dynamic = 'force-dynamic'
 
 export async function POST(req: NextRequest) {
   try {
-    // ------------------------------------------------------------------
-    // Auth
-    // ------------------------------------------------------------------
+    // ── Auth ────────────────────────────────────────────────────────────────
     const session = await auth.api.getSession({ headers: await headers() })
     if (!session?.user) {
       return NextResponse.json({ message: 'Unauthorized' }, { status: 401 })
@@ -33,31 +31,40 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ message: 'Forbidden: No access to this organization' }, { status: 403 })
     }
 
-    // ------------------------------------------------------------------
-    // 1. Build workspace config from the chosen business type / category
-    // ------------------------------------------------------------------
+    // ── 1. Resolve businessCategory (use customCategory when "Other" was chosen) ──
+    const businessCategory = onboardingData.customCategory || onboardingData.businessCategory || 'other_retail'
+    const businessType = onboardingData.businessType || 'retail'
+
+    // ── 2. Build workspace config from businessType + businessCategory ────────
+    //      WorkspaceService.createWorkspaceConfig looks up the template registry —
+    //      no if/else chains, no hardcoded catalogs.
     const workspaceConfig = WorkspaceService.createWorkspaceConfig(
       organizationId,
-      onboardingData.businessType,
-      onboardingData.customCategory
+      businessType,
+      businessCategory
     )
 
-    // ------------------------------------------------------------------
-    // 2. Upsert workspace config row
-    // ------------------------------------------------------------------
+    // ── 3. Upsert workspace config row ────────────────────────────────────────
     try {
-      await db
-        .update(workspace)
-        .set({ config: workspaceConfig, updatedAt: new Date() } as any)
+      const existing = await db
+        .select({ id: workspace.id })
+        .from(workspace)
         .where(eq(workspace.organizationId, organizationId))
+        .limit(1)
+
+      if (existing.length > 0) {
+        await db
+          .update(workspace)
+          .set({ config: workspaceConfig as any, updatedAt: new Date() })
+          .where(eq(workspace.organizationId, organizationId))
+      }
+      // If no workspace row exists yet it was never created — seeding still
+      // succeeds; the config is persisted on the org row via templateId.
     } catch (err) {
-      // Not fatal — workspace may not exist yet for this org
-      console.warn('[onboarding/complete] workspace config update skipped:', err)
+      console.warn('[onboarding/complete] workspace upsert skipped:', err)
     }
 
-    // ------------------------------------------------------------------
-    // 3. Seed starter categories & products (real DB inserts)
-    // ------------------------------------------------------------------
+    // ── 4. Seed starter categories & products (transactional) ─────────────────
     const seedResult = await StarterDataService.seedStarterData(
       organizationId,
       session.user.id,
@@ -68,16 +75,15 @@ export async function POST(req: NextRequest) {
       console.warn('[onboarding/complete] Starter data seeding partially failed — continuing')
     }
 
-    // ------------------------------------------------------------------
-    // 4. Mark onboarding complete and persist all collected fields
-    // ------------------------------------------------------------------
+    // ── 5. Mark onboarding complete, persist all fields + templateId ──────────
     let updatedOrg
     try {
       updatedOrg = await OrganizationService.updateOrganization(organizationId, session.user.id, {
         name: onboardingData.businessName,
-        businessType: onboardingData.businessType,
-        // Store the custom category name when "Other" was selected
-        businessCategory: onboardingData.customCategory || onboardingData.businessCategory,
+        businessType,
+        businessCategory,
+        // templateId is the dot-namespaced id resolved by the template registry
+        templateId: workspaceConfig.templateId,
         businessEmail: onboardingData.businessEmail,
         phone: onboardingData.phone,
         country: onboardingData.country,
@@ -96,10 +102,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ message: 'Failed to update organization' }, { status: 500 })
     }
 
+    // ── 6. Return the dashboard route so the client can redirect correctly ─────
+    const dashboardRoute = WorkspaceService.getDashboardRoute(businessType)
+
     return NextResponse.json({
       success: true,
       organization: updatedOrg,
-      workspaceConfig,
+      templateId: workspaceConfig.templateId,
+      dashboardRoute,
       seeding: seedResult,
     })
   } catch (error) {
