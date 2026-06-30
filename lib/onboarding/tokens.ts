@@ -11,14 +11,14 @@ export const ONBOARDING_TOKENS = {
     stepIndicatorColor: 'text-muted-foreground',
 
     // Main heading - "How will you use IMARA?"
-    heading: 'text-4xl md:text-5xl font-bold tracking-tight',
+    heading: 'text-2xl md:text-3xl font-semibold tracking-tight',
     headingColor: 'text-foreground',
 
     // Supporting text
-    description: 'text-lg text-muted-foreground leading-relaxed',
+    description: 'text-sm text-muted-foreground leading-relaxed',
 
     // Card titles
-    cardTitle: 'text-lg font-bold',
+    cardTitle: 'text-base font-semibold',
     cardTitleColor: 'text-foreground',
 
     // Card descriptions
@@ -78,21 +78,21 @@ export const ONBOARDING_TOKENS = {
   // Component-specific spacing patterns
   components: {
     // Card padding
-    cardPadding: 'p-6',
-    cardPaddingMobile: 'p-5',
+    cardPadding: 'p-5',
+    cardPaddingMobile: 'p-4',
 
     // Form input height
-    inputHeight: 'h-11',        // 44px - modern touch target
-    inputPadding: 'px-4 py-2.5',
+    inputHeight: 'h-10',        // 40px - modern touch target
+    inputPadding: 'px-3 py-2',
 
     // Selection card
-    selectionCardMinHeight: 'min-h-[220px]',
+    selectionCardMinHeight: 'min-h-[160px]',
 
     // Step header spacing
-    stepHeaderGap: 'gap-2',
+    stepHeaderGap: 'gap-1.5',
 
     // Layout max-width for centered content
-    contentMaxWidth: 'max-w-3xl',  // 768px - wider for better spacing
+    contentMaxWidth: 'max-w-2xl',  // 640px - optimal for content
 
     // Panel spacing
     panelPadding: 'p-12',

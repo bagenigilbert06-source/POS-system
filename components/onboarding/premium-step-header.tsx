@@ -20,7 +20,7 @@ export function PremiumStepHeader({
   maxWidth = 'max-w-2xl',
 }: PremiumStepHeaderProps) {
   return (
-    <div className={`space-y-4 mb-10 md:mb-12 ${maxWidth}`}>
+    <div className={`space-y-3 mb-8 ${maxWidth}`}>
       {/* Step indicator */}
       <p className={`${ONBOARDING_TOKENS.typography.stepIndicator} ${ONBOARDING_TOKENS.typography.stepIndicatorColor}`}>
         Step {stepNumber} of {totalSteps}
