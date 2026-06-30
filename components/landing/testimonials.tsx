@@ -1,6 +1,10 @@
 'use client'
 
 import Image from 'next/image'
+import { useState, useEffect } from 'react'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
+import useEmblaCarousel from 'embla-carousel-react'
+import Autoplay from 'embla-carousel-autoplay'
 
 const testimonials = [
   {
@@ -79,9 +83,37 @@ const testimonials = [
 
 
 export function LandingTestimonials() {
+  const [emblaRef, emblaApi] = useEmblaCarousel(
+    {
+      align: 'start',
+      slidesToScroll: 1,
+      loop: true,
+      skipSnaps: false,
+    },
+    [Autoplay({ delay: 6000, stopOnInteraction: false })]
+  )
+  const [selectedIndex, setSelectedIndex] = useState(0)
+
+  useEffect(() => {
+    if (!emblaApi) return
+
+    const selectHandler = () => {
+      setSelectedIndex(emblaApi.selectedScrollSnap())
+    }
+
+    emblaApi.on('select', selectHandler)
+    return () => emblaApi.off('select', selectHandler)
+  }, [emblaApi])
+
+  const scroll = (direction: 'prev' | 'next') => {
+    if (emblaApi) {
+      direction === 'prev' ? emblaApi.scrollPrev() : emblaApi.scrollNext()
+    }
+  }
+
   return (
     <section className="py-16 sm:py-20 md:py-24 px-4 bg-background">
-      <div className="mx-auto max-w-6xl">
+      <div className="mx-auto max-w-5xl">
         {/* Header */}
         <div className="text-center mb-12 sm:mb-16">
           <p className="text-xs sm:text-sm font-bold uppercase tracking-widest text-primary mb-3">Customer Stories</p>
@@ -93,66 +125,123 @@ export function LandingTestimonials() {
           </p>
         </div>
 
-        {/* Testimonials Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8 mb-12 sm:mb-16">
-          {testimonials.map((t, i) => (
-            <div
-              key={i}
-              className="rounded-xl border border-border bg-white/50 dark:bg-slate-950/50 backdrop-blur-sm p-6 hover:border-primary/30 hover:bg-white/70 dark:hover:bg-slate-950/70 transition-all duration-300 flex flex-col"
-            >
-              {/* Stars */}
-              <div className="flex gap-1 mb-4">
+        {/* Carousel */}
+        <div className="mb-10 sm:mb-12">
+          <div className="overflow-hidden" ref={emblaRef}>
+            <div className="flex gap-6 sm:gap-8">
+              {testimonials.map((t, i) => (
+                <div
+                  key={i}
+                  className="flex-[0_0_100%] sm:flex-[0_0_calc(50%-16px)] lg:flex-[0_0_calc(33.333%-16px)] min-w-0"
+                >
+                  <div className="h-full rounded-xl border border-border bg-white/50 dark:bg-slate-950/50 backdrop-blur-sm p-6 flex flex-col hover:border-primary/30 hover:bg-white/70 dark:hover:bg-slate-950/70 transition-all duration-300">
+                    {/* Stars */}
+                    <div className="flex gap-1 mb-4">
+                      {Array.from({ length: 5 }).map((_, i) => (
+                        <svg key={i} width="16" height="16" viewBox="0 0 20 20" className="text-amber-400">
+                          <path fill="currentColor" d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+                        </svg>
+                      ))}
+                    </div>
+
+                    {/* Quote */}
+                    <p className="text-sm text-foreground leading-relaxed mb-6 flex-1">
+                      &quot;{t.quote}&quot;
+                    </p>
+
+                    {/* Footer */}
+                    <div className="pt-4 border-t border-border flex items-center gap-3">
+                      <div
+                        className="h-10 w-10 rounded-full flex items-center justify-center flex-shrink-0"
+                        style={{ background: t.color }}
+                      >
+                        <Image
+                          src={t.avatar}
+                          alt={t.name}
+                          width={40}
+                          height={40}
+                          className="rounded-full w-full h-full object-cover"
+                          onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
+                        />
+                        <span className="text-white font-bold text-xs" style={{ display: 'none' }}>
+                          {t.initials}
+                        </span>
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-foreground truncate">{t.name}</p>
+                        <p className="text-xs text-muted-foreground truncate">{t.role} — {t.business}</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Carousel Controls */}
+          <div className="flex items-center justify-between mt-8 sm:mt-10">
+            <div className="flex gap-2">
+              <button
+                onClick={() => scroll('prev')}
+                className="inline-flex items-center justify-center h-10 w-10 rounded-lg border border-border hover:bg-primary/10 hover:border-primary/40 transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                aria-label="Previous testimonial"
+              >
+                <ChevronLeft className="h-5 w-5 text-foreground" />
+              </button>
+              <button
+                onClick={() => scroll('next')}
+                className="inline-flex items-center justify-center h-10 w-10 rounded-lg border border-border hover:bg-primary/10 hover:border-primary/40 transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                aria-label="Next testimonial"
+              >
+                <ChevronRight className="h-5 w-5 text-foreground" />
+              </button>
+            </div>
+
+            {/* Dots indicator */}
+            <div className="flex gap-2">
+              {testimonials.map((_, i) => (
+                <button
+                  key={i}
+                  onClick={() => emblaApi?.scrollTo(i)}
+                  className={`h-2 rounded-full transition-all duration-300 ${
+                    i === selectedIndex
+                      ? 'bg-primary w-6'
+                      : 'bg-border hover:bg-primary/50 w-2'
+                  }`}
+                  aria-label={`Go to testimonial ${i + 1}`}
+                  aria-current={i === selectedIndex ? 'true' : 'false'}
+                />
+              ))}
+            </div>
+
+            {/* Rating on the right */}
+            <div className="hidden sm:flex flex-col items-end gap-2">
+              <div className="flex gap-1">
                 {Array.from({ length: 5 }).map((_, i) => (
                   <svg key={i} width="16" height="16" viewBox="0 0 20 20" className="text-amber-400">
                     <path fill="currentColor" d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
                   </svg>
                 ))}
               </div>
-
-              {/* Quote */}
-              <p className="text-sm text-foreground leading-relaxed mb-6 flex-1">
-                &quot;{t.quote}&quot;
+              <p className="text-xs text-muted-foreground">
+                <strong className="text-foreground">4.9 out of 5</strong>
               </p>
-
-              {/* Footer */}
-              <div className="pt-4 border-t border-border flex items-center gap-3">
-                <div
-                  className="h-10 w-10 rounded-full flex items-center justify-center flex-shrink-0"
-                  style={{ background: t.color }}
-                >
-                  <Image
-                    src={t.avatar}
-                    alt={t.name}
-                    width={40}
-                    height={40}
-                    className="rounded-full w-full h-full object-cover"
-                    onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
-                  />
-                  <span className="text-white font-bold text-xs" style={{ display: 'none' }}>
-                    {t.initials}
-                  </span>
-                </div>
-                <div className="min-w-0">
-                  <p className="text-sm font-semibold text-foreground truncate">{t.name}</p>
-                  <p className="text-xs text-muted-foreground truncate">{t.role} — {t.business}</p>
-                </div>
-              </div>
             </div>
-          ))}
-        </div>
-
-        {/* Rating footer */}
-        <div className="text-center border-t border-border pt-8 sm:pt-12">
-          <div className="flex justify-center gap-1 mb-3">
-            {Array.from({ length: 5 }).map((_, i) => (
-              <svg key={i} width="20" height="20" viewBox="0 0 20 20" className="text-amber-400">
-                <path fill="currentColor" d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
-              </svg>
-            ))}
           </div>
-          <p className="text-sm text-muted-foreground">
-            <strong className="text-foreground">4.9 out of 5</strong> — rated by 5,000+ businesses across Kenya
-          </p>
+
+          {/* Mobile rating */}
+          <div className="sm:hidden text-center mt-6 pt-6 border-t border-border">
+            <div className="flex justify-center gap-1 mb-2">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <svg key={i} width="16" height="16" viewBox="0 0 20 20" className="text-amber-400">
+                  <path fill="currentColor" d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+                </svg>
+              ))}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              <strong className="text-foreground">4.9 out of 5</strong> — rated by 5,000+ businesses across Kenya
+            </p>
+          </div>
         </div>
       </div>
     </section>
