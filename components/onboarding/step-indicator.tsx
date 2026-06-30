@@ -18,13 +18,12 @@ const STEP_LABELS = [
 export function StepIndicator({
   currentStep,
   totalSteps,
-  stepTitle,
   isComplete = false,
 }: StepIndicatorProps) {
   return (
-    <div className="mb-10">
-      {/* Horizontal step track — Zoho / Odoo style */}
-      <div className="flex items-center gap-0 mb-6">
+    <div className="mb-8">
+      {/* Step track */}
+      <div className="flex items-center">
         {Array.from({ length: totalSteps }).map((_, i) => {
           const done   = isComplete || i < currentStep
           const active = !isComplete && i === currentStep
@@ -32,20 +31,20 @@ export function StepIndicator({
 
           return (
             <div key={i} className="flex items-center flex-1 min-w-0">
-              {/* Circle */}
-              <div className="flex flex-col items-center gap-1.5 flex-shrink-0">
+              {/* Circle + label */}
+              <div className="flex flex-col items-center gap-1 flex-shrink-0">
                 <div
-                  className="h-8 w-8 rounded-full flex items-center justify-center text-[12px] font-semibold transition-all duration-200"
+                  className="h-7 w-7 rounded-full flex items-center justify-center text-[11px] font-semibold transition-all duration-200"
                   style={
                     done
                       ? { background: '#1a56db', color: '#fff' }
                       : active
-                      ? { background: '#fff', color: '#1a56db', outline: '2px solid #1a56db', outlineOffset: '1px' }
-                      : { background: '#e2e8f0', color: '#94a3b8' }
+                      ? { background: '#fff', color: '#1a56db', border: '2px solid #1a56db' }
+                      : { background: '#f1f5f9', color: '#94a3b8', border: '1.5px solid #e2e8f0' }
                   }
                 >
                   {done ? (
-                    <svg viewBox="0 0 10 10" fill="none" className="h-3.5 w-3.5">
+                    <svg viewBox="0 0 10 10" fill="none" className="h-3 w-3">
                       <path d="M2 5l2 2 4-4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                     </svg>
                   ) : (
@@ -53,17 +52,17 @@ export function StepIndicator({
                   )}
                 </div>
                 <span
-                  className="hidden sm:block text-[10px] font-medium whitespace-nowrap tracking-wide"
-                  style={{ color: active ? '#1a56db' : done ? '#475569' : '#94a3b8' }}
+                  className="hidden sm:block text-[10px] font-medium whitespace-nowrap"
+                  style={{ color: active ? '#1a56db' : done ? '#64748b' : '#94a3b8' }}
                 >
                   {label}
                 </span>
               </div>
 
-              {/* Connector line (skip after last) */}
+              {/* Connector */}
               {i < totalSteps - 1 && (
                 <div
-                  className="flex-1 h-px mx-2 transition-all duration-300"
+                  className="flex-1 h-px mx-2 mb-4 transition-all duration-300"
                   style={{ background: i < currentStep ? '#1a56db' : '#e2e8f0' }}
                 />
               )}
@@ -72,9 +71,9 @@ export function StepIndicator({
         })}
       </div>
 
-      {/* Contextual label */}
-      <p className="text-[11px] font-semibold uppercase tracking-[0.12em]" style={{ color: '#94a3b8' }}>
-        Step {currentStep + 1} of {totalSteps}
+      {/* Current step label */}
+      <p className="mt-4 text-[11px] font-semibold uppercase tracking-[0.12em]" style={{ color: '#94a3b8' }}>
+        Step {currentStep + 1} of {totalSteps} &mdash; {STEP_LABELS[currentStep]}
       </p>
     </div>
   )
