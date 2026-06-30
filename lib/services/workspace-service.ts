@@ -1,87 +1,50 @@
-import type { WorkspaceConfig } from '@/lib/types/workspace'
+/**
+ * lib/services/workspace-service.ts
+ *
+ * Thin helper surface for reading workspace configuration at runtime
+ * (e.g. in dashboard layouts and RSC pages).
+ *
+ * Workspace *creation* is handled entirely by WorkspaceFactory.
+ * This service is read-only: it never writes to the database.
+ */
+
 import { getWorkspaceTemplate, getDashboardRoute } from '@/lib/templates'
-
-// Business-type → enabled modules (stable; does not change per category)
-const MODULES_BY_TYPE: Record<string, string[]> = {
-  retail: ['inventory', 'sales', 'products', 'customers', 'reports', 'analytics'],
-  restaurant: ['kitchen', 'tables', 'orders', 'inventory', 'sales', 'customers', 'reports', 'analytics'],
-  pharmacy: ['prescriptions', 'inventory', 'batch-tracking', 'sales', 'products', 'customers', 'reports', 'analytics'],
-}
-
-// Business-type → sidebar navigation
-const SIDEBAR_BY_TYPE: Record<string, WorkspaceConfig['sidebarConfig']> = {
-  retail: {
-    primaryNav: [
-      { id: 'dashboard', label: 'Dashboard', icon: 'LayoutDashboard', route: '/dashboard/retail' },
-      { id: 'sales', label: 'Sales', icon: 'ShoppingCart', route: '/dashboard/sales' },
-      { id: 'products', label: 'Products', icon: 'Package', route: '/dashboard/products' },
-      { id: 'inventory', label: 'Inventory', icon: 'PackageSearch', route: '/dashboard/inventory' },
-      { id: 'customers', label: 'Customers', icon: 'Users', route: '/dashboard/customers' },
-      { id: 'analytics', label: 'Analytics', icon: 'BarChart3', route: '/dashboard/analytics' },
-    ],
-    secondaryNav: [
-      { id: 'settings', label: 'Settings', icon: 'Settings', route: '/dashboard/settings' },
-    ],
-  },
-  restaurant: {
-    primaryNav: [
-      { id: 'dashboard', label: 'Dashboard', icon: 'LayoutDashboard', route: '/dashboard/restaurant' },
-      { id: 'orders', label: 'Orders', icon: 'ClipboardList', route: '/dashboard/orders' },
-      { id: 'kitchen', label: 'Kitchen', icon: 'ChefHat', route: '/dashboard/kitchen' },
-      { id: 'tables', label: 'Tables', icon: 'UtensilsCrossed', route: '/dashboard/tables' },
-      { id: 'products', label: 'Menu', icon: 'Package', route: '/dashboard/products' },
-      { id: 'customers', label: 'Customers', icon: 'Users', route: '/dashboard/customers' },
-      { id: 'analytics', label: 'Analytics', icon: 'BarChart3', route: '/dashboard/analytics' },
-    ],
-    secondaryNav: [
-      { id: 'settings', label: 'Settings', icon: 'Settings', route: '/dashboard/settings' },
-    ],
-  },
-  pharmacy: {
-    primaryNav: [
-      { id: 'dashboard', label: 'Dashboard', icon: 'LayoutDashboard', route: '/dashboard/pharmacy' },
-      { id: 'prescriptions', label: 'Prescriptions', icon: 'FileText', route: '/dashboard/prescriptions' },
-      { id: 'sales', label: 'Sales', icon: 'ShoppingCart', route: '/dashboard/sales' },
-      { id: 'products', label: 'Products', icon: 'Package', route: '/dashboard/products' },
-      { id: 'inventory', label: 'Inventory', icon: 'PackageSearch', route: '/dashboard/inventory' },
-      { id: 'customers', label: 'Customers', icon: 'Users', route: '/dashboard/customers' },
-      { id: 'analytics', label: 'Analytics', icon: 'BarChart3', route: '/dashboard/analytics' },
-    ],
-    secondaryNav: [
-      { id: 'settings', label: 'Settings', icon: 'Settings', route: '/dashboard/settings' },
-    ],
-  },
-}
+import type { WorkspaceConfig } from '@/lib/types/workspace'
 
 export class WorkspaceService {
   /**
-   * Build a WorkspaceConfig from onboarding data.
+   * Build a WorkspaceConfig from data already stored on the organization row.
+   * Used by the dashboard layout to hydrate the WorkspaceProvider SSR.
    *
-   * - businessType  determines: modules, sidebar, dashboard route
-   * - businessCategory determines: template (starter data, widgets, features, quick actions)
-   *
-   * No if/else chains — everything is driven by the registry.
+   * No database queries — config is assembled from the template registry.
    */
-  static createWorkspaceConfig(
-    workspaceId: string,
-    businessType: string,
-    businessCategory: string
-  ): WorkspaceConfig {
-    const normalizedType = businessType.toLowerCase()
-    const normalizedCategory = businessCategory.toLowerCase()
+  static buildConfigFromOrg(org: {
+    id: string
+    name: string | null
+    businessType: string | null
+    businessCategory: string | null
+    templateId: string | null
+  }): WorkspaceConfig {
+    const businessType = (org.businessType ?? 'retail').toLowerCase()
+    const businessCategory = (org.businessCategory ?? 'other_retail').toLowerCase()
 
-    const template = getWorkspaceTemplate(normalizedCategory, normalizedType)
-    const modules = MODULES_BY_TYPE[normalizedType] ?? MODULES_BY_TYPE.retail
-    const sidebarConfig = SIDEBAR_BY_TYPE[normalizedType] ?? SIDEBAR_BY_TYPE.retail
+    // templateId stored on org row is the primary key — fall back to general
+    const templateId = org.templateId ?? `${businessType}.general`
+    const template = getWorkspaceTemplate(templateId)
+
+    const sidebarConfig = {
+      primaryNav: template.navigation.primaryNav,
+      secondaryNav: template.navigation.secondaryNav,
+    }
 
     return {
-      id: workspaceId,
-      name: template.name,
-      businessType: normalizedType,
-      businessCategory: normalizedCategory,
-      templateId: template.id,
+      id: org.id,
+      name: org.name ?? template.name,
+      businessType,
+      businessCategory,
+      templateId,
       template,
-      enabledModules: modules,
+      enabledModules: template.enabledModules,
       enabledFeatures: template.enabledFeatures,
       sidebarConfig,
       createdAt: new Date(),
@@ -90,7 +53,7 @@ export class WorkspaceService {
   }
 
   /**
-   * The dashboard route for a given business type.
+   * The correct dashboard route for a given business type.
    */
   static getDashboardRoute(businessType: string): string {
     return getDashboardRoute(businessType.toLowerCase())

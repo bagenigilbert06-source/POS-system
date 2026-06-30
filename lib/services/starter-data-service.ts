@@ -1,24 +1,30 @@
+/**
+ * lib/services/starter-data-service.ts
+ *
+ * Kept for backward compatibility.
+ * All seeding logic has moved to WorkspaceFactory.seedStarterData (private).
+ *
+ * If you need to re-seed a workspace (e.g. admin tools), use this service
+ * which exposes the seeding step directly.
+ */
+
 import { db } from '@/lib/db'
 import { category, product } from '@/lib/db/schema'
 import { generateId } from '@/lib/utils'
-import type { WorkspaceConfig } from '@/lib/types/workspace'
+import type { WorkspaceTemplate } from '@/lib/templates/types'
 
 export class StarterDataService {
   /**
-   * Insert starter categories and products into the database for a new org.
-   *
-   * The catalog is read directly from the WorkspaceTemplate that was resolved
-   * during onboarding — no hardcoded catalogs or if/else chains here.
-   * All inserts are wrapped in a single transaction.
+   * Insert starter categories and products for an org.
+   * Wraps all inserts in a single DB transaction.
    */
-  static async seedStarterData(
+  static async seedFromTemplate(
     orgId: string,
     userId: string,
-    config: WorkspaceConfig
+    template: WorkspaceTemplate
   ): Promise<{ success: boolean; categoriesCreated: number; productsCreated: number }> {
-    const { starterCategories, starterProducts } = config.template
+    const { starterCategories, starterProducts } = template
 
-    // Nothing to seed (e.g. "Other Retail" general template)
     if (starterCategories.length === 0) {
       return { success: true, categoriesCreated: 0, productsCreated: 0 }
     }
@@ -28,7 +34,6 @@ export class StarterDataService {
       let productsCreated = 0
 
       await db.transaction(async (tx) => {
-        // ── 1. Insert categories ─────────────────────────────────────────
         const categoryIdMap: Record<string, string> = {}
 
         for (const cat of starterCategories) {
@@ -44,9 +49,7 @@ export class StarterDataService {
           categoriesCreated++
         }
 
-        // ── 2. Insert products ───────────────────────────────────────────
         for (const item of starterProducts) {
-          const catId = categoryIdMap[item.category] ?? null
           await tx.insert(product).values({
             id: generateId(),
             name: item.name,
@@ -56,7 +59,7 @@ export class StarterDataService {
             stock: item.stock,
             minStock: 5,
             unit: item.unit,
-            categoryId: catId,
+            categoryId: categoryIdMap[item.category] ?? null,
             isActive: true,
             userId,
             orgId,
