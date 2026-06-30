@@ -7,9 +7,8 @@ interface OnboardingLayoutProps {
 }
 
 /**
- * Premium split-panel layout for onboarding
- * Left panel: Persistent branding + illustrations
- * Right panel: Centered form content (max-width 560-620px)
+ * Modern clean centered layout for onboarding
+ * Full-width centered design with max-width constraint
  */
 export function OnboardingLayout({
   children,
@@ -22,16 +21,9 @@ export function OnboardingLayout({
 
   return (
     <div className="flex min-h-screen bg-background">
-      {/* Left Panel - Persistent branding and illustrations */}
-      {illustrationPanel && (
-        <div className="hidden w-1/2 flex-col justify-between bg-gradient-to-br from-[hsl(var(--section-dark-bg))] via-[hsl(221,80%,25%)] to-[hsl(var(--section-dark-bg))] p-12 lg:flex relative overflow-hidden">
-          <div className="relative z-10">{illustrationPanel}</div>
-        </div>
-      )}
-
-      {/* Right Panel - Main content */}
-      <div className={`flex flex-1 items-center justify-center relative overflow-hidden ${illustrationPanel ? 'p-6 md:p-12 bg-background' : 'w-full'}`}>
-        <div className="w-full max-w-2xl relative z-10">
+      {/* Main content - Centered */}
+      <div className="flex flex-1 items-center justify-center relative overflow-hidden w-full p-6 md:p-8 lg:p-12">
+        <div className="w-full max-w-3xl relative z-10">
           {children}
         </div>
       </div>

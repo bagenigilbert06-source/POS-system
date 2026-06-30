@@ -3,7 +3,6 @@ import { headers } from 'next/headers'
 import { auth } from '@/lib/auth'
 import { OnboardingContainer } from '@/components/onboarding/onboarding-container'
 import { OnboardingLayout } from '@/components/onboarding/onboarding-layout'
-import { OnboardingLeftPanel } from '@/components/onboarding/onboarding-left-panel'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = { title: 'Setup Your Business' }
@@ -18,20 +17,12 @@ export default async function OnboardingPage() {
   const userId = session.user.id
 
   return (
-    <OnboardingLayout
-      illustrationPanel={
-        <OnboardingLeftPanel
-          stepNumber={1}
-          stepTitle="Let's set up your business"
-          stepDescription="We'll ask you a few questions to customize IMARA for your unique business needs and get you started quickly."
-        />
-      }
-    >
-      {/* Mobile logo */}
-      <div className="mb-8 lg:hidden">
-        <div className="flex items-center gap-2.5 mb-8">
-          <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center shadow-lg shadow-blue-500/20">
-            <span className="text-sm font-bold text-white">I</span>
+    <OnboardingLayout>
+      {/* Logo */}
+      <div className="mb-12">
+        <div className="flex items-center gap-2">
+          <div className="h-9 w-9 rounded-lg bg-primary flex items-center justify-center">
+            <span className="text-xs font-bold text-primary-foreground">I</span>
           </div>
           <span className="text-lg font-semibold text-foreground">IMARA</span>
         </div>

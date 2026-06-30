@@ -7,18 +7,18 @@ export const ONBOARDING_TOKENS = {
   // Typography Scale
   typography: {
     // Step indicator - STEP X OF 7
-    stepIndicator: 'text-xs font-semibold uppercase tracking-widest',
+    stepIndicator: 'text-xs font-medium uppercase tracking-widest',
     stepIndicatorColor: 'text-muted-foreground',
 
     // Main heading - "How will you use IMARA?"
-    heading: 'text-3xl md:text-4xl font-bold tracking-tight',
+    heading: 'text-4xl md:text-5xl font-bold tracking-tight',
     headingColor: 'text-foreground',
 
     // Supporting text
-    description: 'text-base text-muted-foreground leading-relaxed',
+    description: 'text-lg text-muted-foreground leading-relaxed',
 
     // Card titles
-    cardTitle: 'text-xl font-bold',
+    cardTitle: 'text-lg font-bold',
     cardTitleColor: 'text-foreground',
 
     // Card descriptions
@@ -52,10 +52,10 @@ export const ONBOARDING_TOKENS = {
 
   // Border Radius
   borderRadius: {
-    card: 'rounded-2xl',      // 16px - premium card appearance
+    card: 'rounded-xl',       // 12px - clean card appearance
     input: 'rounded-lg',      // 8px - form inputs
     button: 'rounded-lg',     // 8px - buttons
-    icon: 'rounded-xl',       // 12px - icon containers
+    icon: 'rounded-lg',       // 8px - icon containers
     avatar: 'rounded-full',
   },
 
@@ -78,21 +78,21 @@ export const ONBOARDING_TOKENS = {
   // Component-specific spacing patterns
   components: {
     // Card padding
-    cardPadding: 'p-8',
-    cardPaddingMobile: 'p-6',
+    cardPadding: 'p-6',
+    cardPaddingMobile: 'p-5',
 
     // Form input height
-    inputHeight: 'h-12',        // 48px - premium touch target
-    inputPadding: 'px-4 py-3',
+    inputHeight: 'h-11',        // 44px - modern touch target
+    inputPadding: 'px-4 py-2.5',
 
     // Selection card
-    selectionCardMinHeight: 'min-h-[280px]',
+    selectionCardMinHeight: 'min-h-[220px]',
 
     // Step header spacing
-    stepHeaderGap: 'gap-3',
+    stepHeaderGap: 'gap-2',
 
     // Layout max-width for centered content
-    contentMaxWidth: 'max-w-2xl',  // 560-640px
+    contentMaxWidth: 'max-w-3xl',  // 768px - wider for better spacing
 
     // Panel spacing
     panelPadding: 'p-12',
