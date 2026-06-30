@@ -5,6 +5,8 @@ import { db } from '@/lib/db'
 import { organization } from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
 import { appendFileSync } from 'node:fs'
+import { WorkspaceService } from '@/lib/services/workspace-service'
+import { StarterDataService } from '@/lib/services/starter-data-service'
 
 export const dynamic = 'force-dynamic'
 
@@ -26,7 +28,20 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // Update organization with onboarding data
+    // Create workspace configuration
+    const workspaceConfig = WorkspaceService.createWorkspaceConfig(
+      organizationId,
+      onboardingData.businessType,
+      onboardingData.customCategory
+    )
+
+    // Seed starter data
+    const seedingSuccess = await StarterDataService.seedStarterData(
+      organizationId,
+      workspaceConfig
+    )
+
+    // Update organization with onboarding data and workspace config
     const result = await db
       .update(organization)
       .set({
@@ -37,6 +52,8 @@ export async function POST(req: NextRequest) {
         country: onboardingData.country,
         timezone: onboardingData.timezone,
         businessSize: onboardingData.businessSize,
+        // Store workspace config as JSON
+        workspaceConfig: JSON.stringify(workspaceConfig),
         onboardingCompleted: true,
         onboardingStep: 6,
         updatedAt: new Date(),
@@ -54,6 +71,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       success: true,
       organization: result[0],
+      workspaceConfig,
+      dataSeedingSuccess: seedingSuccess,
     })
   } catch (error) {
     console.error('Onboarding error:', error)
