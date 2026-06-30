@@ -55,6 +55,18 @@ export function AuthForm({ mode }: AuthFormProps) {
         })
         if (result.error) throw new Error(result.error.message)
         await loadAccessToken()
+
+        // Create organization for new user
+        try {
+          await fetch('/api/auth/post-signup', {
+            method: 'POST',
+            credentials: 'include',
+          })
+        } catch (orgError) {
+          console.warn('[v0] Failed to create organization:', orgError)
+          // Continue anyway, user can still access onboarding
+        }
+
         router.push('/onboarding')
       } else {
         const result = await authClient.signIn.email({
