@@ -27,6 +27,7 @@ const STEPS = [
 interface OnboardingData {
   businessType: string
   businessCategory: string
+  customCategory: string
   businessName: string
   businessEmail: string
   phone: string
@@ -49,6 +50,7 @@ export function OnboardingContainer({ organizationId, userId }: OnboardingContai
   const [data, setData] = useState<OnboardingData>({
     businessType: '',
     businessCategory: '',
+    customCategory: '',
     businessName: '',
     businessEmail: '',
     phone: '',
@@ -113,8 +115,19 @@ export function OnboardingContainer({ organizationId, userId }: OnboardingContai
     switch (step.id) {
       case 'business-type':
         return !!data.businessType
-      case 'business-category':
+      case 'business-category': {
+        // Get the categories for the business type to find "Other"
+        const { getCategoriesForType } = require('@/lib/types')
+        const categories = getCategoriesForType(data.businessType)
+        const isOtherSelected = categories.length > 0 && data.businessCategory === categories[categories.length - 1]?.id
+        
+        // If "Other" is selected, require custom category
+        if (isOtherSelected) {
+          return !!data.businessCategory && !!data.customCategory
+        }
+        
         return !!data.businessCategory
+      }
       case 'business-details':
         return !!data.businessName && !!data.businessEmail && !!data.phone
       case 'location':
@@ -158,7 +171,9 @@ export function OnboardingContainer({ organizationId, userId }: OnboardingContai
           <StepBusinessCategory
             businessType={data.businessType}
             value={data.businessCategory}
+            customCategory={data.customCategory}
             onChange={(value) => handleUpdate({ businessCategory: value })}
+            onCustomCategoryChange={(value) => handleUpdate({ customCategory: value })}
             stepNumber={currentStep + 1}
             totalSteps={STEPS.length}
           />
