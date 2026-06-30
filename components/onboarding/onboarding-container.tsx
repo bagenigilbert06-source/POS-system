@@ -9,8 +9,7 @@ import { StepBusinessCategory } from './step-business-category'
 import { StepBusinessDetails } from './step-business-details'
 import { StepLocation } from './step-location'
 import { StepBusinessSize } from './step-business-size'
-import { StepWorkspaceSetup } from './step-workspace-setup'
-import { StepWelcome } from './step-welcome'
+import { WorkspaceCreationScreen } from './workspace-creation-screen'
 import { StepIndicator } from './step-indicator'
 import { StepFooter } from './step-footer'
 
@@ -20,8 +19,7 @@ const STEPS = [
   { id: 'business-details', title: 'Business Details', component: StepBusinessDetails },
   { id: 'location', title: 'Location', component: StepLocation },
   { id: 'business-size', title: 'Business Size', component: StepBusinessSize },
-  { id: 'workspace-setup', title: 'Workspace Setup', component: StepWorkspaceSetup },
-  { id: 'welcome', title: 'Welcome', component: StepWelcome },
+  { id: 'workspace-creation', title: 'Workspace Creation', component: WorkspaceCreationScreen },
 ]
 
 interface OnboardingData {
@@ -134,8 +132,7 @@ export function OnboardingContainer({ organizationId, userId }: OnboardingContai
         return !!data.country && !!data.timezone
       case 'business-size':
         return !!data.businessSize
-      case 'workspace-setup':
-      case 'welcome':
+      case 'workspace-creation':
         return true
       default:
         return false
@@ -212,31 +209,31 @@ export function OnboardingContainer({ organizationId, userId }: OnboardingContai
             totalSteps={STEPS.length}
           />
         )
-      case 'workspace-setup':
+      case 'workspace-creation':
         return (
-          <StepWorkspaceSetup
-            completed={data.workspaceCompleted}
-            onToggle={handleWorkspaceToggle}
-            stepNumber={currentStep + 1}
-            totalSteps={STEPS.length}
+          <WorkspaceCreationScreen
+            organizationId={organizationId}
+            onboardingData={data}
           />
         )
-      case 'welcome':
-        return <StepWelcome businessName={data.businessName} />
       default:
         return null
     }
   }
 
+  const isWorkspaceCreationStep = step.id === 'workspace-creation'
+
   return (
     <div className="w-full max-w-2xl mx-auto px-4 md:px-0">
-      {/* Progress indicator */}
-      <StepIndicator
-        currentStep={currentStep}
-        totalSteps={STEPS.length}
-        stepTitle={step.title}
-        isComplete={isWelcomeStep}
-      />
+      {/* Progress indicator - hide for workspace creation */}
+      {!isWorkspaceCreationStep && (
+        <StepIndicator
+          currentStep={currentStep}
+          totalSteps={STEPS.length}
+          stepTitle={step.title}
+          isComplete={false}
+        />
+      )}
 
       {/* Error message */}
       {error && (
@@ -246,28 +243,19 @@ export function OnboardingContainer({ organizationId, userId }: OnboardingContai
       )}
 
       {/* Step content */}
-      <div className="mb-16 animate-fade-up">{renderStep()}</div>
+      <div className={isWorkspaceCreationStep ? '' : 'mb-16 animate-fade-up'}>{renderStep()}</div>
 
-      {/* Action buttons */}
-      <StepFooter
-        onBack={handlePrevious}
-        onNext={handleNext}
-        backDisabled={currentStep === 0}
-        nextDisabled={!validateStep() && !isWelcomeStep}
-        loading={loading}
-        nextLabel={isLastStep ? 'Complete Setup' : 'Continue'}
-        showBack={!isWelcomeStep}
-      />
-
-      {isWelcomeStep && (
-        <div className="text-center mt-8">
-          <button
-            onClick={() => router.push('/dashboard')}
-            className="text-sm font-semibold text-primary hover:text-primary/80 transition-colors duration-200"
-          >
-            Go to Dashboard
-          </button>
-        </div>
+      {/* Action buttons - hide for workspace creation */}
+      {!isWorkspaceCreationStep && (
+        <StepFooter
+          onBack={handlePrevious}
+          onNext={handleNext}
+          backDisabled={currentStep === 0}
+          nextDisabled={!validateStep()}
+          loading={loading}
+          nextLabel={isLastStep ? 'Create Workspace' : 'Continue'}
+          showBack={true}
+        />
       )}
     </div>
   )
