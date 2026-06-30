@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, boolean, integer, numeric } from 'drizzle-orm/pg-core'
+import { pgTable, text, timestamp, boolean, integer, numeric, json } from 'drizzle-orm/pg-core'
 
 // --- Better Auth required tables -------------------------------------------
 export const user = pgTable('user', {
@@ -64,7 +64,7 @@ export const organization = pgTable('organization', {
   businessCategory: text('businessCategory').default('other_retail'), // Specific category within business type
   currency: text('currency').notNull().default('KES'),
   taxRate: numeric('taxRate', { precision: 5, scale: 2 }).notNull().default('16'),
-  userId: text('userId').notNull(),
+  userId: text('userId').notNull().references(() => user.id, { onDelete: 'cascade' }),
   
   // Onboarding fields
   onboardingCompleted: boolean('onboardingCompleted').notNull().default(false),
@@ -76,6 +76,25 @@ export const organization = pgTable('organization', {
   businessDescription: text('businessDescription'),
   phone: text('phone'),
   
+  createdAt: timestamp('createdAt').notNull().defaultNow(),
+  updatedAt: timestamp('updatedAt').notNull().defaultNow(),
+})
+
+// Organization membership - tracks user roles in organizations
+export const organizationMembership = pgTable('organization_membership', {
+  id: text('id').primaryKey(),
+  organizationId: text('organizationId').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  userId: text('userId').notNull().references(() => user.id, { onDelete: 'cascade' }),
+  role: text('role').notNull().default('member'), // owner, admin, manager, staff, member
+  createdAt: timestamp('createdAt').notNull().defaultNow(),
+  updatedAt: timestamp('updatedAt').notNull().defaultNow(),
+})
+
+// Workspace configuration
+export const workspace = pgTable('workspace', {
+  id: text('id').primaryKey(),
+  organizationId: text('organizationId').notNull().unique().references(() => organization.id, { onDelete: 'cascade' }),
+  config: json('config').notNull(), // { enabledModules: [...], settings: {...} }
   createdAt: timestamp('createdAt').notNull().defaultNow(),
   updatedAt: timestamp('updatedAt').notNull().defaultNow(),
 })
@@ -164,6 +183,8 @@ export const expense = pgTable('expense', {
 // --- Type exports ----------------------------------------------------------
 export type User = typeof user.$inferSelect
 export type Organization = typeof organization.$inferSelect
+export type OrganizationMembership = typeof organizationMembership.$inferSelect
+export type Workspace = typeof workspace.$inferSelect
 export type Category = typeof category.$inferSelect
 export type Product = typeof product.$inferSelect
 export type Customer = typeof customer.$inferSelect

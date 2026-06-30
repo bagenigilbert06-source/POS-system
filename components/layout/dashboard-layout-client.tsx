@@ -8,6 +8,8 @@ interface DashboardLayoutClientProps {
   userId: string
   userName?: string | null
   userEmail?: string | null
+  organizationId: string
+  organizationName: string
   children: React.ReactNode
 }
 
@@ -15,10 +17,12 @@ export function DashboardLayoutClient({
   userId,
   userName,
   userEmail,
+  organizationId,
+  organizationName,
   children,
 }: DashboardLayoutClientProps) {
   return (
-    <WorkspaceProvider workspaceId={userId}>
+    <WorkspaceProvider workspaceId={organizationId}>
       <div className="flex h-screen overflow-hidden bg-background">
         <DynamicAppSidebar />
         <div className="flex flex-1 flex-col overflow-hidden">
