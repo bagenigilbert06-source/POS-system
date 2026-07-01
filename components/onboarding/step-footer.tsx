@@ -1,6 +1,6 @@
 'use client'
 
-import { Loader2 } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface StepFooterProps {
@@ -24,19 +24,18 @@ export function StepFooter({
 }: StepFooterProps) {
   return (
     <div
-      className={cn('flex items-center pt-8 mt-8', showBack ? 'justify-between' : 'justify-end')}
+      className={cn('mt-8 flex items-center pt-6', showBack ? 'justify-between' : 'justify-end')}
       style={{
-        borderTop: '1px solid #f3f4f6',
-        fontFamily: 'var(--font-inter, Inter, sans-serif)',
+        borderTop: '1px solid #e5e7eb',
       }}
     >
       {showBack && (
         <button
           onClick={onBack}
           disabled={backDisabled || loading}
-          className="text-[14px] font-medium transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-          style={{ color: '#6b7280' }}
+          className="inline-flex items-center gap-2 rounded-md px-3 py-2 text-[14px] font-semibold text-zinc-600 transition-colors hover:bg-zinc-50 hover:text-zinc-950 disabled:cursor-not-allowed disabled:opacity-30"
         >
+          <ArrowLeft className="h-4 w-4" aria-hidden="true" />
           Back
         </button>
       )}
@@ -45,18 +44,20 @@ export function StepFooter({
         onClick={onNext}
         disabled={nextDisabled || loading}
         className={cn(
-          'inline-flex items-center gap-2 px-6 py-2.5 rounded-full text-[14px] font-semibold text-white transition-all duration-150',
+          'inline-flex items-center gap-2 rounded-md px-6 py-3 text-[14px] font-extrabold text-white transition-all duration-150',
           'disabled:opacity-40 disabled:cursor-not-allowed',
           !showBack && 'ml-auto',
         )}
         style={{
-          background: nextDisabled || loading ? '#9ca3af' : '#111827',
-          minWidth: '120px',
+          background: nextDisabled || loading ? '#9ca3af' : '#005a43',
+          boxShadow: nextDisabled || loading ? 'none' : '0 12px 24px rgba(0, 90, 67, 0.18)',
+          minWidth: '132px',
           justifyContent: 'center',
         }}
       >
         {loading && <Loader2 className="h-4 w-4 animate-spin" />}
         {nextLabel}
+        {!loading && <ArrowRight className="h-4 w-4" aria-hidden="true" />}
       </button>
     </div>
   )

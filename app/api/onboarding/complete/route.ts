@@ -3,13 +3,25 @@ import { headers } from 'next/headers'
 import { auth } from '@/lib/auth'
 import { db } from '@/lib/db'
 import { workspace } from '@/lib/db/schema'
-import { eq } from 'drizzle-orm'
+import { eq, sql } from 'drizzle-orm'
 import { WorkspaceService } from '@/lib/services/workspace-service'
 import { StarterDataService } from '@/lib/services/starter-data-service'
 import { OrganizationService } from '@/lib/services/organization-service'
 import { generateId } from '@/lib/utils'
 
 export const dynamic = 'force-dynamic'
+
+async function ensureWorkspaceTable() {
+  await db.execute(sql`
+    create table if not exists "workspace" (
+      "id" text primary key,
+      "organizationId" text not null unique references "organization"("id") on delete cascade,
+      "config" json not null,
+      "createdAt" timestamp not null default now(),
+      "updatedAt" timestamp not null default now()
+    )
+  `)
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -47,6 +59,8 @@ export async function POST(req: NextRequest) {
 
     // ── 3. Upsert workspace config row ────────────────────────────────────────
     try {
+      await ensureWorkspaceTable()
+
       const existing = await db
         .select({ id: workspace.id })
         .from(workspace)

@@ -250,29 +250,12 @@ export function OnboardingContainer({
 
   return (
     <div className="w-full">
-      {/* Page-level heading */}
-      <div className="mb-10">
-        <h1
-          style={{
-            fontSize: '32px',
-            fontWeight: 800,
-            letterSpacing: '-0.025em',
-            lineHeight: 1.15,
-            color: '#111827',
-            marginBottom: '6px',
-            fontFamily: 'var(--font-inter, Inter, sans-serif)',
-          }}
-        >
-          Set up your workspace
+      <div className="mb-8 text-center">
+        <h1 className="text-2xl font-black tracking-tight text-zinc-950 sm:text-3xl">
+          Welcome to Pesaby
         </h1>
-        <p
-          style={{
-            fontSize: '15px',
-            color: '#9ca3af',
-            fontFamily: 'var(--font-inter, Inter, sans-serif)',
-          }}
-        >
-          Takes about 2 minutes &mdash; you can change everything later.
+        <p className="mt-2 text-sm leading-6 text-zinc-600">
+          Create your business workspace. Everything can be changed later.
         </p>
       </div>
 
@@ -284,20 +267,12 @@ export function OnboardingContainer({
       />
 
       {error && (
-        <div
-          className="rounded-lg px-4 py-3 mb-6 text-[13px]"
-          style={{
-            background: '#fff5f5',
-            border: '1px solid #fecaca',
-            color: '#b91c1c',
-            fontFamily: 'var(--font-inter, Inter, sans-serif)',
-          }}
-        >
+        <div className="mb-6 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-[13px] font-semibold text-red-700">
           {error}
         </div>
       )}
 
-      <div className="mb-12 animate-fade-up">{renderStep()}</div>
+      <div className="mb-10 animate-fade-up">{renderStep()}</div>
 
       <StepFooter
         onBack={handlePrevious}

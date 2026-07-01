@@ -25,13 +25,12 @@ export function PremiumSelectionCard({
     <button
       onClick={onClick}
       aria-pressed={selected}
-      className="group relative w-full rounded-xl text-left transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+      className="group relative w-full rounded-lg text-left transition-all duration-150 hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-800/30 focus-visible:ring-offset-2"
       style={{
         background: '#ffffff',
-        border: selected ? '2px solid #111827' : '1.5px solid #e5e7eb',
+        border: selected ? '2px solid #005a43' : '1px solid #e5e7eb',
         padding: '20px',
-        boxShadow: selected ? 'none' : '0 1px 2px rgba(0,0,0,0.04)',
-        fontFamily: 'var(--font-inter, Inter, sans-serif)',
+        boxShadow: selected ? '0 14px 30px rgba(0, 90, 67, 0.12)' : '0 1px 2px rgba(0,0,0,0.04)',
         outline: 'none',
       }}
     >
@@ -39,7 +38,7 @@ export function PremiumSelectionCard({
       {selected && (
         <span
           className="absolute top-3 right-3 h-[22px] w-[22px] rounded-full flex items-center justify-center"
-          style={{ background: '#111827' }}
+          style={{ background: '#005a43' }}
         >
           <Check className="h-3 w-3 text-white stroke-[3]" />
         </span>
@@ -49,7 +48,7 @@ export function PremiumSelectionCard({
       <div
         className="mb-4 h-10 w-10 rounded-lg flex items-center justify-center"
         style={{
-          background: selected ? '#111827' : '#f3f4f6',
+          background: selected ? '#005a43' : '#f3f4f6',
           color: selected ? '#ffffff' : '#374151',
         }}
       >

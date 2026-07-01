@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { authClient } from '@/lib/auth-client'
 import { cn } from '@/lib/utils'
-import { Loader2, Eye, EyeOff } from 'lucide-react'
+import { Loader2, Eye, EyeOff, Check } from 'lucide-react'
 
 interface AuthFormProps {
   mode: 'sign-in' | 'sign-up'
@@ -104,7 +104,7 @@ export function AuthForm({ mode }: AuthFormProps) {
   return (
     <div className="w-full space-y-5">
       {error && (
-        <div className="rounded-md bg-destructive/10 border border-destructive/20 px-3 py-2.5 text-sm">
+        <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2.5 text-sm">
           <p className="font-semibold text-destructive">{error}</p>
         </div>
       )}
@@ -116,10 +116,10 @@ export function AuthForm({ mode }: AuthFormProps) {
         disabled={googleLoading}
         className={cn(
           'w-full flex items-center justify-center gap-2.5 rounded-lg px-4 py-2.5',
-          'bg-white border border-gray-300 text-gray-700 text-sm font-medium',
-          'hover:bg-gray-50 active:bg-gray-100 transition-all duration-150 shadow-sm',
+          'bg-white border border-zinc-300 text-zinc-800 text-sm font-semibold',
+          'hover:bg-zinc-50 active:bg-zinc-100 transition-all duration-150 shadow-sm',
           'disabled:opacity-50 disabled:cursor-not-allowed',
-          'dark:bg-white dark:border-gray-300 dark:text-gray-700 dark:hover:bg-gray-50'
+          'dark:bg-white dark:border-zinc-300 dark:text-zinc-800 dark:hover:bg-zinc-50'
         )}
       >
         {googleLoading ? (
@@ -149,15 +149,15 @@ export function AuthForm({ mode }: AuthFormProps) {
 
       {/* Divider */}
       <div className="flex items-center gap-3">
-        <div className="flex-1 border-t border-border" />
-        <span className="text-xs text-muted-foreground font-medium">or</span>
-        <div className="flex-1 border-t border-border" />
+        <div className="flex-1 border-t border-zinc-200" />
+        <span className="text-xs font-medium text-zinc-500">or</span>
+        <div className="flex-1 border-t border-zinc-200" />
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
         {mode === 'sign-up' && (
           <div>
-            <label htmlFor="name" className="block text-sm font-medium text-foreground mb-2">
+            <label htmlFor="name" className="mb-2 block text-sm font-semibold text-zinc-800">
               Full name
             </label>
             <input
@@ -168,9 +168,9 @@ export function AuthForm({ mode }: AuthFormProps) {
               value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
               className={cn(
-                'w-full rounded-lg border border-border bg-card px-4 py-2.5 text-sm outline-none',
-                'placeholder:text-muted-foreground',
-                'focus:border-primary focus:ring-2 focus:ring-primary/20',
+                'w-full rounded-md border border-zinc-300 bg-white px-4 py-3 text-sm text-zinc-950 outline-none',
+                'placeholder:text-zinc-400',
+                'focus:border-[#005a43] focus:ring-2 focus:ring-emerald-900/10',
                 'transition-all duration-150'
               )}
             />
@@ -178,7 +178,7 @@ export function AuthForm({ mode }: AuthFormProps) {
         )}
 
         <div>
-          <label htmlFor="email" className="block text-sm font-medium text-foreground mb-2">
+          <label htmlFor="email" className="mb-2 block text-sm font-semibold text-zinc-800">
             Email
           </label>
           <input
@@ -189,9 +189,9 @@ export function AuthForm({ mode }: AuthFormProps) {
             value={form.email}
             onChange={(e) => setForm({ ...form, email: e.target.value })}
             className={cn(
-              'w-full rounded-lg border border-border bg-card px-4 py-2.5 text-sm outline-none',
-              'placeholder:text-muted-foreground',
-              'focus:border-primary focus:ring-2 focus:ring-primary/20',
+              'w-full rounded-md border border-zinc-300 bg-white px-4 py-3 text-sm text-zinc-950 outline-none',
+              'placeholder:text-zinc-400',
+              'focus:border-[#005a43] focus:ring-2 focus:ring-emerald-900/10',
               'transition-all duration-150'
             )}
           />
@@ -199,11 +199,11 @@ export function AuthForm({ mode }: AuthFormProps) {
 
         <div>
           <div className="flex items-center justify-between mb-2">
-            <label htmlFor="password" className="block text-sm font-medium text-foreground">
+            <label htmlFor="password" className="block text-sm font-semibold text-zinc-800">
               Password
             </label>
             {mode === 'sign-in' && (
-              <a href="#" className="text-xs font-medium text-primary hover:text-primary/80 transition-colors">
+              <a href="#" className="text-xs font-semibold text-[#005a43] transition-colors hover:text-emerald-800">
                 Forgot?
               </a>
             )}
@@ -218,16 +218,17 @@ export function AuthForm({ mode }: AuthFormProps) {
               value={form.password}
               onChange={(e) => setForm({ ...form, password: e.target.value })}
               className={cn(
-                'w-full rounded-lg border border-border bg-card px-4 py-2.5 pr-10 text-sm outline-none',
-                'placeholder:text-muted-foreground',
-                'focus:border-primary focus:ring-2 focus:ring-primary/20',
+                'w-full rounded-md border border-zinc-300 bg-white px-4 py-3 pr-10 text-sm text-zinc-950 outline-none',
+                'placeholder:text-zinc-400',
+                'focus:border-[#005a43] focus:ring-2 focus:ring-emerald-900/10',
                 'transition-all duration-150'
               )}
             />
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 transition-colors hover:text-zinc-950"
+              aria-label={showPassword ? 'Hide password' : 'Show password'}
             >
               {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
             </button>
@@ -238,11 +239,11 @@ export function AuthForm({ mode }: AuthFormProps) {
           type="submit"
           disabled={loading}
           className={cn(
-            'w-full flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 mt-6',
-            'bg-primary text-primary-foreground text-sm font-semibold',
-            'hover:bg-primary/90 active:bg-primary/80 focus:outline-none',
+            'mt-6 flex w-full items-center justify-center gap-2 rounded-md px-4 py-3',
+            'bg-[#005a43] text-white text-sm font-extrabold',
+            'hover:bg-emerald-800 active:bg-emerald-900 focus:outline-none',
             'disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-150',
-            'shadow-md shadow-primary/20'
+            'shadow-md shadow-emerald-950/15'
           )}
         >
           {loading && <Loader2 className="h-4 w-4 animate-spin" />}
@@ -250,18 +251,18 @@ export function AuthForm({ mode }: AuthFormProps) {
         </button>
       </form>
 
-      <p className="text-center text-sm text-muted-foreground">
+      <p className="text-center text-sm text-zinc-600">
         {mode === 'sign-in' ? (
           <>
             Don&apos;t have an account?{' '}
-            <a href="/sign-up" className="font-medium text-primary hover:text-primary/80 transition-colors">
+            <a href="/sign-up" className="font-semibold text-[#005a43] transition-colors hover:text-emerald-800">
               Sign up
             </a>
           </>
         ) : (
           <>
             Already have an account?{' '}
-            <a href="/sign-in" className="font-medium text-primary hover:text-primary/80 transition-colors">
+            <a href="/sign-in" className="font-semibold text-[#005a43] transition-colors hover:text-emerald-800">
               Sign in
             </a>
           </>
@@ -269,13 +270,14 @@ export function AuthForm({ mode }: AuthFormProps) {
       </p>
 
       {mode === 'sign-up' && (
-        <p className="text-center text-xs text-muted-foreground leading-relaxed">
+        <p className="text-center text-xs leading-relaxed text-zinc-500">
+          <Check className="mr-1 inline h-3.5 w-3.5 text-[#005a43]" aria-hidden="true" />
           By signing up, you agree to our{' '}
-          <a href="#" className="font-medium text-foreground hover:text-primary transition-colors">
+          <a href="#" className="font-semibold text-zinc-800 transition-colors hover:text-[#005a43]">
             Terms of Service
           </a>{' '}
           and{' '}
-          <a href="#" className="font-medium text-foreground hover:text-primary transition-colors">
+          <a href="#" className="font-semibold text-zinc-800 transition-colors hover:text-[#005a43]">
             Privacy Policy
           </a>
         </p>

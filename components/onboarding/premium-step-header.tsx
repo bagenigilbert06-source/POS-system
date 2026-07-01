@@ -8,29 +8,12 @@ interface PremiumStepHeaderProps {
 
 export function PremiumStepHeader({ title, description }: PremiumStepHeaderProps) {
   return (
-    <div className="mb-8">
-      <h2
-        style={{
-          fontSize: '28px',
-          fontWeight: 800,
-          lineHeight: 1.2,
-          letterSpacing: '-0.02em',
-          color: '#111827',
-          fontFamily: 'var(--font-inter, Inter, sans-serif)',
-          marginBottom: description ? '8px' : 0,
-        }}
-      >
+    <div className="mb-7 text-center">
+      <h2 className="text-2xl font-black leading-tight tracking-tight text-zinc-950">
         {title}
       </h2>
       {description && (
-        <p
-          style={{
-            fontSize: '15px',
-            lineHeight: 1.5,
-            color: '#6b7280',
-            fontFamily: 'var(--font-inter, Inter, sans-serif)',
-          }}
-        >
+        <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-zinc-600">
           {description}
         </p>
       )}

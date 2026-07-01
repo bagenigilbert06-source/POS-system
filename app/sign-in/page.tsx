@@ -3,6 +3,7 @@ import { headers } from 'next/headers'
 import { auth } from '@/lib/auth'
 import { AuthForm } from '@/components/auth/auth-form'
 import type { Metadata } from 'next'
+import { BarChart3, LockKeyhole, PackageCheck, ReceiptText, ShieldCheck } from 'lucide-react'
 
 export const metadata: Metadata = { title: 'Sign In' }
 
@@ -11,91 +12,85 @@ export default async function SignInPage() {
   if (session?.user) redirect('/dashboard')
 
   return (
-    <main className="flex min-h-screen bg-background">
-      {/* Left panel — Brand showcase with gradient */}
-      <div className="hidden w-1/2 flex-col justify-between bg-gradient-to-br from-[hsl(var(--section-dark-bg))] via-[hsl(221,80%,25%)] to-[hsl(var(--section-dark-bg))] p-12 lg:flex relative overflow-hidden">
-        {/* Gradient glow decoration */}
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-0 flex items-center justify-center"
-        >
-          <div className="h-[600px] w-[600px] rounded-full bg-blue-500/10 dark:bg-blue-400/5" />
-        </div>
+    <main className="min-h-screen bg-[#fbfaf6] text-zinc-950">
+      <div className="grid min-h-screen lg:grid-cols-[1.05fr_0.95fr]">
+        <section className="hidden bg-[#071f18] px-10 py-8 text-white lg:flex lg:flex-col">
+          <a href="/" className="flex items-center gap-3">
+            <span className="relative flex h-10 w-10 items-center justify-center rounded-xl bg-white shadow-sm">
+              <span className="absolute right-1.5 top-1.5 h-2.5 w-2.5 rounded-full bg-emerald-200" />
+              <span className="text-xl font-black tracking-tight text-[#005a43]">P</span>
+            </span>
+            <span className="leading-none">
+              <span className="block text-lg font-black tracking-tight text-white">Pesaby</span>
+              <span className="block text-[10px] font-bold uppercase tracking-[0.18em] text-emerald-100/60">Business OS</span>
+            </span>
+          </a>
 
-        <div className="relative z-10">
-          {/* Header */}
-          <div>
-            <div className="flex items-center gap-2.5 mb-16">
-              <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center shadow-lg shadow-blue-500/20">
-                <span className="text-sm font-bold text-white">I</span>
-              </div>
-              <span className="text-xl font-bold text-white">IMARA</span>
-            </div>
-          </div>
-
-          {/* Main content */}
-          <div className="space-y-10">
-            <div>
-              <p className="text-xs text-blue-300/70 font-medium uppercase tracking-widest mb-4">Welcome back</p>
-              <h2 className="text-5xl font-semibold leading-tight text-white mb-6">
-                Manage your business effortlessly
+          <div className="flex flex-1 items-center">
+            <div className="w-full max-w-xl">
+              <p className="mb-4 text-xs font-extrabold uppercase tracking-[0.18em] text-emerald-200">Secure workspace access</p>
+              <h2 className="max-w-lg text-5xl font-black leading-[1.03] tracking-tight text-white">
+                Welcome back to your commerce control room.
               </h2>
-              <p className="text-base text-blue-100/70 leading-relaxed max-w-md">
-                Access your POS, inventory, payments, and analytics all in one unified platform.
+              <p className="mt-5 max-w-md text-base leading-7 text-emerald-50/75">
+                Sign in to manage sales, stock, payments, staff, and branch performance from one calm workspace.
               </p>
-            </div>
 
-            <div className="space-y-3">
-              {[
-                { icon: '✓', title: 'Fast Access', desc: 'Instant sign-in' },
-                { icon: '✓', title: 'Secure Login', desc: 'Enterprise-grade security' },
-                { icon: '✓', title: 'Your Data Protected', desc: 'End-to-end encrypted' },
-              ].map((feature) => (
-                <div key={feature.title} className="flex items-start gap-3">
-                  <span className="text-blue-300 text-sm font-semibold flex-shrink-0">{feature.icon}</span>
+              <div className="mt-10 rounded-xl border border-white/10 bg-white/10 p-5 shadow-2xl shadow-black/20 backdrop-blur">
+                <div className="mb-5 flex items-center justify-between">
                   <div>
-                    <span className="text-white text-sm font-medium">{feature.title}</span>
-                    <p className="text-blue-200/60 text-xs">{feature.desc}</p>
+                    <p className="text-sm font-extrabold text-white">Nairobi CBD</p>
+                    <p className="text-xs text-emerald-100/60">Live operations</p>
                   </div>
+                  <span className="rounded-full bg-emerald-300/15 px-3 py-1 text-[11px] font-extrabold text-emerald-100">Synced</span>
                 </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Footer */}
-          <p className="text-xs text-blue-300/50 font-medium">
-            &copy; {new Date().getFullYear()} IMARA. All rights reserved.
-          </p>
-        </div>
-      </div>
-
-      {/* Right panel — Clean form */}
-      <div className="flex flex-1 items-center justify-center p-6 md:p-12 bg-background relative overflow-hidden">
-        {/* Subtle gradient glow */}
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-0 flex items-start justify-end"
-        >
-          <div className="h-[500px] w-[500px] rounded-full bg-blue-600/[0.06] dark:bg-blue-500/[0.08]" />
-        </div>
-
-        <div className="w-full max-w-sm relative z-10">
-          {/* Mobile logo */}
-          <div className="mb-8 lg:hidden">
-            <div className="flex items-center gap-2.5 mb-8">
-              <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center shadow-lg shadow-blue-500/20">
-                <span className="text-sm font-bold text-white">I</span>
+                <div className="grid gap-3 sm:grid-cols-3">
+                  {[
+                    [ReceiptText, 'Orders', '1,284'],
+                    [BarChart3, 'Revenue', 'KES 842K'],
+                    [PackageCheck, 'Stock risk', '18'],
+                  ].map(([Icon, label, value]) => (
+                    <div key={label as string} className="rounded-lg border border-white/10 bg-white/10 p-4">
+                      <Icon className="h-4 w-4 text-emerald-200" aria-hidden="true" />
+                      <p className="mt-3 text-[11px] font-bold text-emerald-100/60">{label as string}</p>
+                      <p className="mt-1 text-lg font-black text-white">{value as string}</p>
+                    </div>
+                  ))}
+                </div>
               </div>
-              <span className="text-lg font-semibold text-foreground">IMARA</span>
+
+              <div className="mt-6 flex items-center gap-3 text-sm font-semibold text-emerald-50/80">
+                <ShieldCheck className="h-4 w-4 text-emerald-200" aria-hidden="true" />
+                Encrypted sessions and protected business data.
+              </div>
             </div>
           </div>
 
-          <div className="mb-8">
-            <h1 className="text-3xl font-semibold text-foreground mb-2">Sign in</h1>
-            <p className="text-sm text-muted-foreground">Enter your credentials to access your account</p>
+          <p className="text-xs font-medium text-emerald-100/50">&copy; {new Date().getFullYear()} Pesaby. All rights reserved.</p>
+        </section>
+
+        <section className="flex items-center justify-center px-5 py-10 sm:px-8">
+          <div className="w-full max-w-[430px] rounded-xl border border-zinc-200 bg-white p-6 shadow-2xl shadow-zinc-950/5 sm:p-8">
+            <div className="mb-8 lg:hidden">
+              <a href="/" className="flex items-center gap-3">
+                <span className="relative flex h-10 w-10 items-center justify-center rounded-xl bg-[#005a43] shadow-sm">
+                  <span className="absolute right-1.5 top-1.5 h-2.5 w-2.5 rounded-full bg-emerald-200" />
+                  <span className="text-xl font-black tracking-tight text-white">P</span>
+                </span>
+                <span className="text-lg font-black tracking-tight text-zinc-950">Pesaby</span>
+              </a>
+            </div>
+
+            <div className="mb-8">
+              <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-lg bg-emerald-50 text-[#005a43]">
+                <LockKeyhole className="h-5 w-5" aria-hidden="true" />
+              </div>
+              <h1 className="mb-2 text-3xl font-black tracking-tight text-zinc-950">Sign in</h1>
+              <p className="text-sm leading-6 text-zinc-600">Enter your credentials to access your workspace.</p>
+            </div>
+            <AuthForm mode="sign-in" />
           </div>
-          <AuthForm mode="sign-in" />
-        </div>
+        </section>
       </div>
     </main>
   )

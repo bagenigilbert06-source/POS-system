@@ -12,12 +12,12 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: {
-    default: 'IMARA — Strong Business, Better Future',
-    template: '%s | IMARA',
+    default: 'Pesaby — Business OS for Modern Commerce',
+    template: '%s | Pesaby',
   },
   description:
-    'IMARA: The all-in-one POS and business management platform for Kenyan enterprises. Smart checkout, inventory management, M-Pesa integration, and powerful analytics.',
-  keywords: ['POS', 'Kenya', 'business', 'inventory', 'sales', 'KES', 'M-Pesa', 'IMARA'],
+    'Pesaby is an all-in-one POS and business operating system for modern commerce. Manage checkout, inventory, payments, customers, branches, and reports from one clean workspace.',
+  keywords: ['POS', 'Kenya', 'business', 'inventory', 'sales', 'KES', 'M-Pesa', 'Pesaby'],
 }
 
 export const viewport: Viewport = {

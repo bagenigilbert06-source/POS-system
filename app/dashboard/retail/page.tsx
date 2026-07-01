@@ -28,6 +28,7 @@ import {
 import { getDashboardStats, getTopProducts, getLowStockProducts } from '@/app/actions/dashboard'
 import { OrganizationService } from '@/lib/services/organization-service'
 import { WorkspaceService } from '@/lib/services/workspace-service'
+import { BosCommandCenter } from '@/components/dashboard/bos-command-center'
 
 export const metadata: Metadata = {
   title: 'Dashboard — Retail',
@@ -149,8 +150,6 @@ export default async function RetailDashboard() {
     organization.businessCategory ?? 'other_retail'
   )
 
-  const { quickActions, gettingStartedTasks } = workspaceConfig.template
-
   return (
     <DashboardPage
       title={`${organization.name} Dashboard`}
@@ -161,6 +160,8 @@ export default async function RetailDashboard() {
           <RetailStats orgId={organization.id} />
         </Suspense>
       </DashboardSection>
+
+      <BosCommandCenter workspaceConfig={workspaceConfig} />
 
       <DashboardGrid gap="md" className="mt-6">
         <GridItem span={2}>

@@ -15,7 +15,7 @@ import {
   Menu,
   Search,
 } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 
 interface AppNavbarProps {
   userName?: string | null
@@ -27,6 +27,11 @@ export function AppNavbar({ userName, userEmail, onOpenSidebar }: AppNavbarProps
   const router = useRouter()
   const { theme, setTheme } = useTheme()
   const [profileOpen, setProfileOpen] = useState(false)
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   const clearStoredAuthState = () => {
     if (typeof window !== 'undefined') {
@@ -72,22 +77,32 @@ export function AppNavbar({ userName, userEmail, onOpenSidebar }: AppNavbarProps
 
       <div className="flex items-center gap-2 sm:gap-3">
         {/* Theme toggle */}
-        <div className="hidden items-center rounded-md border border-border bg-[#f7f7f4] p-0.5 sm:flex dark:bg-background">
-          {themeOptions.map(({ value, icon: Icon }) => (
-            <button
-              key={value}
-              onClick={() => setTheme(value)}
-              className={cn(
-                'rounded p-2 transition-all duration-200',
-                theme === value
-                  ? 'bg-white text-foreground shadow-sm dark:bg-card'
-                  : 'text-muted-foreground hover:text-foreground'
-              )}
-              aria-label={`Switch to ${value} theme`}
-            >
-              <Icon className="h-4 w-4" />
-            </button>
-          ))}
+        <div className="hidden min-h-[38px] items-center rounded-md border border-border bg-[#f7f7f4] p-0.5 sm:flex dark:bg-background">
+          {mounted ? (
+            themeOptions.map(({ value, icon: Icon }) => (
+              <button
+                key={value}
+                onClick={() => setTheme(value)}
+                className={cn(
+                  'rounded p-2 transition-all duration-200',
+                  theme === value
+                    ? 'bg-white text-foreground shadow-sm dark:bg-card'
+                    : 'text-muted-foreground hover:text-foreground'
+                )}
+                aria-label={`Switch to ${value} theme`}
+              >
+                <Icon className="h-4 w-4" />
+              </button>
+            ))
+          ) : (
+            <div className="flex">
+              {themeOptions.map(({ value, icon: Icon }) => (
+                <span key={value} className="rounded p-2 text-muted-foreground" aria-hidden="true">
+                  <Icon className="h-4 w-4" />
+                </span>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Notifications */}

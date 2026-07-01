@@ -116,21 +116,21 @@ export function WorkspaceCreationScreen({
   // -------------------------------------------------------------------------
   if (phase === 'error') {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[500px] py-12 text-center">
-        <div className="mb-8 w-16 h-16 rounded-full bg-destructive/10 flex items-center justify-center">
+      <div className="flex min-h-[500px] flex-col items-center justify-center py-12 text-center">
+        <div className="mb-8 flex h-16 w-16 items-center justify-center rounded-full bg-red-50">
           <AlertCircle className="w-8 h-8 text-destructive" />
         </div>
-        <h1 className="text-2xl font-bold text-foreground mb-3">Setup failed</h1>
-        <p className="text-sm text-muted-foreground max-w-sm mb-2">
+        <h1 className="mb-3 text-2xl font-black tracking-tight text-zinc-950">Setup failed</h1>
+        <p className="mb-2 max-w-sm text-sm text-zinc-600">
           {errorMessage}
         </p>
-        <p className="text-xs text-muted-foreground/70 mb-10">
+        <p className="mb-10 text-xs text-zinc-500">
           Your progress is saved — only workspace creation needs to be retried.
         </p>
         <button
           onClick={handleRetry}
           disabled={retrying}
-          className="flex items-center gap-2 px-6 py-3 rounded-lg text-sm font-semibold bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+          className="flex items-center gap-2 rounded-md bg-[#005a43] px-6 py-3 text-sm font-extrabold text-white transition-all hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {retrying ? (
             <Loader2 className="w-4 h-4 animate-spin" />
@@ -149,61 +149,57 @@ export function WorkspaceCreationScreen({
   const isSuccess = phase === 'success'
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-[500px] py-12">
-      {/* Icon */}
+    <div className="flex min-h-[500px] flex-col items-center justify-center py-12">
       <div className="mb-12">
-        <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
+        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-emerald-50">
           {isSuccess ? (
-            <CheckCircle2 className="w-8 h-8 text-primary" />
+            <CheckCircle2 className="h-8 w-8 text-[#005a43]" />
           ) : (
-            <Loader2 className="w-8 h-8 text-primary animate-spin" />
+            <Loader2 className="h-8 w-8 animate-spin text-[#005a43]" />
           )}
         </div>
       </div>
 
-      {/* Heading */}
-      <h1 className="text-3xl md:text-4xl font-bold text-foreground text-center mb-3">
+      <h1 className="mb-3 text-center text-3xl font-black tracking-tight text-zinc-950 md:text-4xl">
         {isSuccess ? 'Your workspace is ready!' : 'Creating your workspace\u2026'}
       </h1>
 
-      {/* Subheading */}
-      <p className="text-base text-muted-foreground text-center mb-12 max-w-md">
+      <p className="mb-12 max-w-md text-center text-base leading-7 text-zinc-600">
         {isSuccess
           ? `Welcome to IMARA! ${onboardingData.businessName} is ready.`
           : `Just a moment while we set up ${onboardingData.businessName || 'your business'}.`}
       </p>
 
-      {/* Step list */}
       <div className="w-full max-w-md space-y-3">
         {CREATION_STEPS.map((step, index) => {
           const isDone = completedSteps.includes(step.id)
           const isActive = activeStep === index && !isDone
 
           return (
-            <div key={step.id} className="flex items-center gap-4 transition-all duration-300">
+            <div key={step.id} className="flex items-center gap-4 rounded-lg border border-zinc-100 bg-white px-4 py-3 transition-all duration-300">
               <div
                 className={[
-                  'flex-shrink-0 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all duration-300',
+                  'flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full border-2 transition-all duration-300',
                   isDone
-                    ? 'bg-primary border-primary'
+                    ? 'border-[#005a43] bg-[#005a43]'
                     : isActive
-                      ? 'border-primary bg-primary/10 animate-pulse'
-                      : 'border-muted-foreground/30',
+                      ? 'animate-pulse border-[#005a43] bg-emerald-50'
+                      : 'border-zinc-300',
                 ].join(' ')}
               >
                 {isDone ? (
-                  <CheckCircle2 className="w-4 h-4 text-primary-foreground" />
+                  <CheckCircle2 className="h-4 w-4 text-white" />
                 ) : isActive ? (
-                  <Loader2 className="w-3 h-3 text-primary animate-spin" />
+                  <Loader2 className="h-3 w-3 animate-spin text-[#005a43]" />
                 ) : (
-                  <div className="w-2 h-2 rounded-full bg-muted-foreground/30" />
+                  <div className="h-2 w-2 rounded-full bg-zinc-300" />
                 )}
               </div>
 
               <span
                 className={[
                   'text-sm font-medium transition-colors duration-300',
-                  isDone ? 'text-primary' : isActive ? 'text-foreground' : 'text-muted-foreground',
+                  isDone ? 'text-[#005a43]' : isActive ? 'text-zinc-950' : 'text-zinc-500',
                 ].join(' ')}
               >
                 {step.label}
@@ -213,12 +209,11 @@ export function WorkspaceCreationScreen({
         })}
       </div>
 
-      {/* Footer */}
       <div className="mt-12">
         {isSuccess ? (
-          <p className="text-sm text-muted-foreground text-center">Redirecting to dashboard&hellip;</p>
+          <p className="text-center text-sm text-zinc-500">Redirecting to dashboard&hellip;</p>
         ) : (
-          <p className="text-xs text-muted-foreground/70">Estimated time: 5&ndash;10 seconds</p>
+          <p className="text-xs text-zinc-500">Estimated time: 5&ndash;10 seconds</p>
         )}
       </div>
     </div>
