@@ -33,8 +33,8 @@ export function StatCard({
   currency = 'KES',
   trend,
   icon,
-  bgColor = 'bg-white',
-  iconBg = 'bg-blue-100',
+  bgColor = 'bg-white dark:bg-card',
+  iconBg = 'bg-[#e4efe7]',
   onClick,
   loading = false,
   suffix,
@@ -56,22 +56,22 @@ export function StatCard({
   const displayValue = `${prefix || ''}${formatValue(value)}${suffix || ''}`;
 
   const TrendIcon = trend?.direction === 'up' ? ArrowUp : trend?.direction === 'down' ? ArrowDown : Minus;
-  const trendColor = trend?.direction === 'up' ? 'text-green-600' : trend?.direction === 'down' ? 'text-red-600' : 'text-gray-600';
+  const trendColor = trend?.direction === 'up' ? 'text-[#1f7a3f]' : trend?.direction === 'down' ? 'text-red-600' : 'text-muted-foreground';
 
   return (
     <div
       onClick={onClick}
-      className={`${bgColor} rounded-lg border border-gray-200 p-6 shadow-sm transition-all hover:shadow-md ${
+      className={`${bgColor} rounded-lg border border-border p-4 shadow-sm transition-all hover:shadow-md sm:p-5 ${
         onClick ? 'cursor-pointer' : ''
       }`}
     >
-      <div className="flex items-start justify-between">
-        <div className="flex-1">
-          <p className="text-sm font-medium text-gray-600">{title}</p>
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-medium text-muted-foreground">{title}</p>
           {loading ? (
-            <div className="mt-2 h-8 w-24 animate-pulse rounded bg-gray-200" />
+            <div className="mt-2 h-8 w-24 animate-pulse rounded bg-muted" />
           ) : (
-            <p className="mt-2 text-3xl font-bold text-gray-900">{displayValue}</p>
+            <p className="mt-2 truncate text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">{displayValue}</p>
           )}
 
           {trend && (
@@ -81,12 +81,12 @@ export function StatCard({
                 {trend.value > 0 ? '+' : ''}
                 {trend.value}%
               </span>
-              {trend.label && <span className="text-xs text-gray-500">{trend.label}</span>}
+              {trend.label && <span className="text-xs text-muted-foreground">{trend.label}</span>}
             </div>
           )}
         </div>
 
-        {icon && <div className={`${iconBg} rounded-lg p-3 text-blue-600`}>{icon}</div>}
+        {icon && <div className={`${iconBg} rounded-md p-2.5 text-[#1f5132] dark:text-primary`}>{icon}</div>}
       </div>
     </div>
   );
@@ -95,11 +95,11 @@ export function StatCard({
 // Loading skeleton
 export function StatCardSkeleton() {
   return (
-    <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+    <div className="rounded-lg border border-border bg-card p-5 shadow-sm">
       <div className="animate-pulse space-y-4">
-        <div className="h-5 w-20 rounded bg-gray-200" />
-        <div className="h-8 w-32 rounded bg-gray-200" />
-        <div className="h-4 w-24 rounded bg-gray-200" />
+        <div className="h-5 w-20 rounded bg-muted" />
+        <div className="h-8 w-32 rounded bg-muted" />
+        <div className="h-4 w-24 rounded bg-muted" />
       </div>
     </div>
   );

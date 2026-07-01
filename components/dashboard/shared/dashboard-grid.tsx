@@ -92,22 +92,18 @@ interface DashboardPageProps {
 
 export function DashboardPage({ title, description, children, action }: DashboardPageProps) {
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="border-b border-gray-200 bg-white px-4 py-6 sm:px-6 lg:px-8">
-        <div className="flex flex-col justify-between sm:flex-row sm:items-center">
+    <div className="mx-auto w-full max-w-[1440px] space-y-6">
+      <div className="rounded-lg border border-border bg-white px-4 py-4 shadow-sm dark:bg-card sm:px-5">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">{title}</h1>
-            {description && <p className="mt-1 text-sm text-gray-600">{description}</p>}
+            <h1 className="text-xl font-semibold tracking-tight text-foreground sm:text-2xl">{title}</h1>
+            {description && <p className="mt-1 text-sm text-muted-foreground">{description}</p>}
           </div>
-          {action && <div className="mt-4 sm:mt-0">{action}</div>}
+          {action}
         </div>
       </div>
 
-      {/* Content */}
-      <div className="p-4 sm:p-6 lg:p-8">
-        {children}
-      </div>
+      {children}
     </div>
   );
 }
@@ -130,21 +126,19 @@ export function DashboardSection({
   children,
 }: DashboardSectionProps) {
   return (
-    <div className="mb-6">
-      {/* Section Header */}
+    <section className="space-y-4">
       {(title || action) && (
-        <div className="mb-4 flex flex-col justify-between sm:flex-row sm:items-center">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <h2 className="text-lg font-semibold text-gray-900">{title}</h2>
-            {description && <p className="mt-1 text-sm text-gray-600">{description}</p>}
+            <h2 className="text-base font-semibold text-foreground">{title}</h2>
+            {description && <p className="mt-1 text-sm text-muted-foreground">{description}</p>}
           </div>
-          {action && <div className="mt-2 sm:mt-0">{action}</div>}
+          {action}
         </div>
       )}
 
-      {/* Section Content */}
       {children}
-    </div>
+    </section>
   );
 }
 
@@ -171,30 +165,28 @@ export function DashboardCard({
 }: DashboardCardProps) {
   if (loading) {
     return (
-      <div className="animate-pulse rounded-lg border border-gray-200 bg-white">
+      <div className="animate-pulse rounded-lg border border-border bg-card">
         <div className="space-y-4 p-6">
-          <div className="h-6 w-24 rounded bg-gray-200" />
-          <div className="h-32 rounded bg-gray-200" />
+          <div className="h-6 w-24 rounded bg-muted" />
+          <div className="h-32 rounded bg-muted" />
         </div>
       </div>
     );
   }
 
   return (
-    <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
-      {/* Card Header */}
+    <div className="overflow-hidden rounded-lg border border-border bg-white shadow-sm dark:bg-card">
       {(title || action) && (
-        <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
+        <div className="flex items-center justify-between border-b border-border px-4 py-3 sm:px-5">
           <div>
-            <h3 className="font-semibold text-gray-900">{title}</h3>
-            {description && <p className="mt-1 text-sm text-gray-600">{description}</p>}
+            <h3 className="font-semibold text-foreground">{title}</h3>
+            {description && <p className="mt-1 text-sm text-muted-foreground">{description}</p>}
           </div>
           {action}
         </div>
       )}
 
-      {/* Card Content */}
-      <div className={!noPadding ? 'p-6' : ''}>
+      <div className={!noPadding ? 'p-4 sm:p-5' : ''}>
         {children}
       </div>
     </div>

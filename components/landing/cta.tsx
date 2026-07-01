@@ -9,7 +9,7 @@ const trust = [
 
 export function LandingCTA() {
   return (
-    <section className="section-padding-premium bg-secondary border-b border-border">
+    <section className="section-padding-premium border-b border-border bg-[#eef2e8]">
       <div className="container-wide">
         <div className="max-w-3xl mx-auto text-center">
           <p className="section-eyebrow mb-5">Get Started</p>
@@ -26,14 +26,14 @@ export function LandingCTA() {
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mb-8">
             <Link
               href="/sign-up"
-              className="group inline-flex items-center justify-center gap-2.5 rounded-xl bg-primary px-8 py-4 text-base font-bold text-white shadow-lg shadow-primary/25 transition-all duration-150 hover:shadow-xl hover:shadow-primary/35 hover:-translate-y-0.5 active:translate-y-0 w-full sm:w-auto"
+              className="group inline-flex items-center justify-center gap-2.5 rounded-md bg-[#1f5132] px-8 py-4 text-base font-bold text-white shadow-lg shadow-[#1f5132]/25 transition-all duration-150 hover:-translate-y-0.5 hover:bg-[#174327] hover:shadow-xl hover:shadow-[#1f5132]/30 active:translate-y-0 w-full sm:w-auto"
             >
               Start for Free — No Card Required
               <ArrowRight className="h-4 w-4 group-hover:translate-x-0.5 transition-transform" aria-hidden="true" />
             </Link>
             <Link
               href="mailto:hello@imara.co"
-              className="inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-background px-8 py-4 text-base font-semibold text-foreground transition-all duration-150 hover:bg-card w-full sm:w-auto"
+              className="inline-flex items-center justify-center gap-2 rounded-md border border-border bg-white px-8 py-4 text-base font-semibold text-foreground transition-all duration-150 hover:bg-card w-full sm:w-auto"
             >
               Schedule a Demo
             </Link>

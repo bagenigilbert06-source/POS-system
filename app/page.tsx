@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation'
 import { AnnouncementBanner } from '@/components/landing/announcement-banner'
 import { LandingNavbar } from '@/components/landing/navbar'
 import { LandingHero } from '@/components/landing/hero'
+import { DashboardPreviewSection } from '@/components/landing/dashboard-preview'
 import { LandingStats } from '@/components/landing/stats'
 import { LandingFeatures } from '@/components/landing/features'
 import { LandingIndustries } from '@/components/landing/industries'
@@ -19,11 +20,12 @@ export default async function RootPage() {
   if (session?.user) redirect('/dashboard')
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="landing-green min-h-screen bg-[#f6f6f3] text-foreground">
       <AnnouncementBanner />
       <LandingNavbar />
       <main>
         <LandingHero />
+        <DashboardPreviewSection />
         <LogoCarousel />
         <LandingStats />
         <LandingFeatures />

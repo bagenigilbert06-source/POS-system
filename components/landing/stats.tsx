@@ -23,9 +23,9 @@ const stats = [
 
 export function LandingStats() {
   return (
-    <section className="border-y border-border bg-background">
+    <section className="border-b border-border bg-[#f6f6f3]">
       <div className="container-wide section-padding-lg">
-        <div className="grid gap-px overflow-hidden rounded-lg sm:rounded-2xl border border-border bg-border shadow-sm grid-cols-2 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-px overflow-hidden rounded-lg border border-border bg-border shadow-sm grid-cols-2 sm:grid-cols-2 lg:grid-cols-4">
           {stats.map((stat, i) => (
             <div
               key={stat.number}

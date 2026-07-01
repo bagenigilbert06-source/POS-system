@@ -7,6 +7,7 @@ import { eq } from 'drizzle-orm'
 import { WorkspaceService } from '@/lib/services/workspace-service'
 import { StarterDataService } from '@/lib/services/starter-data-service'
 import { OrganizationService } from '@/lib/services/organization-service'
+import { generateId } from '@/lib/utils'
 
 export const dynamic = 'force-dynamic'
 
@@ -57,9 +58,15 @@ export async function POST(req: NextRequest) {
           .update(workspace)
           .set({ config: workspaceConfig as any, updatedAt: new Date() })
           .where(eq(workspace.organizationId, organizationId))
+      } else {
+        await db.insert(workspace).values({
+          id: generateId(),
+          organizationId,
+          config: workspaceConfig as any,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        })
       }
-      // If no workspace row exists yet it was never created — seeding still
-      // succeeds; the config is persisted on the org row via templateId.
     } catch (err) {
       console.warn('[onboarding/complete] workspace upsert skipped:', err)
     }

@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils'
 import * as Icons from 'lucide-react'
 import { useState } from 'react'
 import { useWorkspace } from '@/lib/context/workspace-context'
-import { ChevronLeft, ChevronRight, Settings } from 'lucide-react'
+import { ChevronLeft, ChevronRight, X } from 'lucide-react'
 
 type IconName = keyof typeof Icons
 
@@ -16,14 +16,19 @@ function getIcon(iconName: string): React.ElementType {
   return (icon as React.ElementType) || (Icons.LayoutDashboard as React.ElementType)
 }
 
-export function DynamicAppSidebar() {
+interface DynamicAppSidebarProps {
+  mobileOpen?: boolean
+  onMobileClose?: () => void
+}
+
+export function DynamicAppSidebar({ mobileOpen = false, onMobileClose }: DynamicAppSidebarProps) {
   const pathname = usePathname()
   const [collapsed, setCollapsed] = useState(false)
   const { config, isLoading } = useWorkspace()
 
   if (isLoading || !config) {
     return (
-      <aside className="flex flex-col bg-[hsl(var(--sidebar-bg))] border-r border-[hsl(var(--sidebar-border))] w-56">
+      <aside className="hidden w-64 flex-col border-r border-border bg-white lg:flex dark:bg-card">
         <div className="h-16 border-b border-[hsl(var(--sidebar-border))] animate-pulse bg-[hsl(var(--sidebar-hover))]" />
       </aside>
     )
@@ -34,19 +39,21 @@ export function DynamicAppSidebar() {
 
   const primaryNav = config.sidebarConfig.primaryNav
   const secondaryNav = config.sidebarConfig.secondaryNav
+  const sidebarWidth = collapsed ? 'lg:w-[72px]' : 'lg:w-64'
 
-  return (
+  const sidebar = (
     <aside
       className={cn(
-        'flex flex-col bg-[hsl(var(--sidebar-bg))] border-r border-[hsl(var(--sidebar-border))]',
+        'flex h-full flex-col border-r border-border bg-white shadow-sm dark:bg-card',
         'transition-all duration-200 ease-in-out',
-        collapsed ? 'w-14' : 'w-56'
+        'w-72 max-w-[85vw]',
+        sidebarWidth
       )}
     >
       {/* Logo */}
       <div
         className={cn(
-          'flex h-16 items-center border-b border-[hsl(var(--sidebar-border))] px-4 gap-3',
+          'flex h-16 items-center border-b border-border px-4 gap-3',
           collapsed ? 'justify-center' : 'justify-between'
         )}
       >
@@ -60,8 +67,8 @@ export function DynamicAppSidebar() {
               className="h-8 w-auto flex-shrink-0"
             />
             <div>
-              <p className="font-semibold text-white text-xs leading-tight">IMARA</p>
-              <p className="text-xs text-[hsl(var(--sidebar-fg))]">{config.name}</p>
+              <p className="font-semibold text-foreground text-sm leading-tight">IMARA</p>
+              <p className="max-w-36 truncate text-xs text-muted-foreground">{config.name}</p>
             </div>
           </div>
         )}
@@ -77,12 +84,19 @@ export function DynamicAppSidebar() {
         <button
           onClick={() => setCollapsed(!collapsed)}
           className={cn(
-            'rounded-lg p-1.5 text-[hsl(var(--sidebar-fg))] hover:bg-[hsl(var(--sidebar-hover))] hover:text-white transition-colors',
-            collapsed && 'hidden'
+            'hidden rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors lg:inline-flex',
+            collapsed && 'lg:hidden'
           )}
           aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
         >
           <ChevronLeft className="h-4 w-4" />
+        </button>
+        <button
+          onClick={onMobileClose}
+          className="rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground lg:hidden"
+          aria-label="Close navigation"
+        >
+          <X className="h-4 w-4" />
         </button>
       </div>
 
@@ -90,7 +104,7 @@ export function DynamicAppSidebar() {
       {collapsed && (
         <button
           onClick={() => setCollapsed(false)}
-          className="mx-auto mt-2 rounded p-1 text-[hsl(var(--sidebar-fg))] hover:bg-[hsl(var(--sidebar-hover))] hover:text-white transition-colors"
+          className="mx-auto mt-3 hidden rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors lg:inline-flex"
           aria-label="Expand sidebar"
         >
           <ChevronRight className="h-4 w-4" />
@@ -100,7 +114,7 @@ export function DynamicAppSidebar() {
       {/* Main nav */}
       <nav className="flex-1 overflow-y-auto py-4 px-2.5">
         {!collapsed && (
-          <p className="section-label mb-3 px-3 text-[hsl(var(--sidebar-fg))]">Navigation</p>
+          <p className="section-label mb-3 px-3 text-muted-foreground">Navigation</p>
         )}
         <ul className="space-y-1">
           {primaryNav.map((item) => {
@@ -114,15 +128,16 @@ export function DynamicAppSidebar() {
               <li key={item.id}>
                 <Link
                   href={item.route}
+                  onClick={onMobileClose}
                   title={collapsed ? item.label : undefined}
                   className={cn(
                     'sidebar-item',
-                    collapsed ? 'justify-center px-0 py-3' : '',
-                    active ? 'sidebar-item-active' : 'sidebar-item-inactive'
+                    collapsed ? 'lg:justify-center lg:px-0 lg:py-3' : '',
+                    active ? 'bg-[#1f5132] text-white shadow-sm hover:bg-[#1f5132]' : 'text-muted-foreground hover:bg-muted hover:text-foreground'
                   )}
                 >
-                  <IconComponent className="h-4.5 w-4.5 flex-shrink-0" />
-                  {!collapsed && <span className="text-sm">{item.label}</span>}
+                  <IconComponent className="h-5 w-5 flex-shrink-0" />
+                  <span className={cn('text-sm', collapsed && 'lg:hidden')}>{item.label}</span>
                 </Link>
               </li>
             )
@@ -131,7 +146,7 @@ export function DynamicAppSidebar() {
       </nav>
 
       {/* Bottom nav */}
-      <div className="border-t border-[hsl(var(--sidebar-border))] py-3 px-2">
+      <div className="border-t border-border py-3 px-2">
         <ul className="space-y-0.5">
           {secondaryNav.map((item) => {
             const IconComponent = getIcon(item.icon) as React.ElementType
@@ -140,15 +155,16 @@ export function DynamicAppSidebar() {
               <li key={item.id}>
                 <Link
                   href={item.route || '/dashboard/settings'}
+                  onClick={onMobileClose}
                   title={collapsed ? item.label : undefined}
                   className={cn(
                     'sidebar-item',
-                    collapsed ? 'justify-center px-0 py-2.5' : '',
-                    'sidebar-item-inactive'
+                    collapsed ? 'lg:justify-center lg:px-0 lg:py-2.5' : '',
+                    'text-muted-foreground hover:bg-muted hover:text-foreground'
                   )}
                 >
                   <IconComponent className="h-4 w-4 flex-shrink-0" />
-                  {!collapsed && <span className="text-sm">{item.label}</span>}
+                  <span className={cn('text-sm', collapsed && 'lg:hidden')}>{item.label}</span>
                 </Link>
               </li>
             )
@@ -156,5 +172,21 @@ export function DynamicAppSidebar() {
         </ul>
       </div>
     </aside>
+  )
+
+  return (
+    <>
+      <div className="hidden lg:block">{sidebar}</div>
+      {mobileOpen && (
+        <div className="fixed inset-0 z-50 lg:hidden">
+          <button
+            className="absolute inset-0 h-full w-full bg-black/35"
+            onClick={onMobileClose}
+            aria-label="Close navigation overlay"
+          />
+          <div className="relative h-full">{sidebar}</div>
+        </div>
+      )}
+    </>
   )
 }

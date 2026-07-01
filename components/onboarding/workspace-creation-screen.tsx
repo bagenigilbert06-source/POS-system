@@ -55,8 +55,10 @@ export function WorkspaceCreationScreen({
     try {
       // Fire the real API call immediately — timing of the UI steps is driven
       // by the actual promise, not by arbitrary setTimeout intervals.
+      // Include credentials so the session cookie is sent from the browser
       const apiPromise = fetch('/api/onboarding/complete', {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ organizationId, onboardingData }),
       })

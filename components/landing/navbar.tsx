@@ -49,7 +49,7 @@ function IMARALogo() {
 
 export function LandingNavbar() {
   return (
-    <header className="sticky top-0 z-50 border-b border-border bg-background/90 backdrop-blur-xl">
+    <header className="sticky top-0 z-50 border-b border-border bg-[#f6f6f3]/90 backdrop-blur-xl">
       <div className="container-wide flex h-16 items-center justify-between">
         <IMARALogo />
 
@@ -62,7 +62,7 @@ export function LandingNavbar() {
             <Link
               key={link.label}
               href={link.href}
-              className="rounded-lg px-3.5 py-2 text-sm font-medium text-muted-foreground transition-colors duration-150 hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+              className="rounded-md px-3.5 py-2 text-sm font-medium text-muted-foreground transition-colors duration-150 hover:bg-white hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
             >
               {link.label}
             </Link>
@@ -72,13 +72,13 @@ export function LandingNavbar() {
         {/* Desktop actions */}
         <div className="hidden items-center gap-2.5 lg:flex">
           <ThemeSwitcher />
-          <Button asChild variant="ghost" size="sm" className="font-semibold hover:bg-secondary">
+          <Button asChild variant="ghost" size="sm" className="font-semibold hover:bg-white">
             <Link href="/sign-in">Sign In</Link>
           </Button>
           <Button
             asChild
             size="sm"
-            className="rounded-xl px-5 font-bold shadow-md shadow-blue-600/20 hover:shadow-lg hover:shadow-blue-600/30 transition-all duration-150"
+            className="rounded-md bg-[#1f5132] px-5 font-bold text-white shadow-md shadow-[#1f5132]/20 hover:bg-[#174327] hover:shadow-lg hover:shadow-[#1f5132]/25 transition-all duration-150"
           >
             <Link href="/sign-up">Get Started</Link>
           </Button>
@@ -122,7 +122,7 @@ export function LandingNavbar() {
                   </Button>
                 </SheetClose>
                 <SheetClose asChild>
-                  <Button asChild className="h-12 rounded-xl font-bold shadow-md shadow-blue-600/20">
+                  <Button asChild className="h-12 rounded-md bg-[#1f5132] font-bold text-white shadow-md shadow-[#1f5132]/20 hover:bg-[#174327]">
                     <Link href="/sign-up">Get Started</Link>
                   </Button>
                 </SheetClose>

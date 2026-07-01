@@ -108,6 +108,8 @@ export function OnboardingContainer({
       try {
         await fetch('/api/onboarding/save-step', {
           method: 'POST',
+          // include credentials so the session cookie is sent from the browser
+          credentials: 'include',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ organizationId, step: stepIndex, stepData }),
         })

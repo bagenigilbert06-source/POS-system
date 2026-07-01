@@ -35,7 +35,7 @@ export class OrganizationService {
     businessCategory: string = 'other_retail'
   ) {
     const orgId = generateId()
-    const slug = slugify(name)
+    const slug = await this.generateUniqueSlug(slugify(name))
 
     const org = {
       id: orgId,
@@ -53,14 +53,42 @@ export class OrganizationService {
     }
 
     try {
-      // Use ON CONFLICT DO NOTHING to avoid duplicate slug errors on re-renders.
-      // If the row already exists for this user, fetch it instead.
+      console.debug('[createOrganizationForUser] attempting insert', { userId, orgId, slug })
       await db.insert(organization).values({
         ...org,
         taxRate: '16',
-      } as any).onConflictDoNothing()
+      } as any)
 
-      // Check if a row already exists for this user (e.g. slug conflict)
+      const existing = await db
+        .select()
+        .from(organization)
+        .where(eq(organization.userId, userId))
+        .limit(1)
+
+      console.debug('[createOrganizationForUser] db lookup after insert', {
+        userId,
+        found: !!existing[0],
+        orgId: existing[0]?.id,
+      })
+
+      if (existing[0]) {
+        userOrgCache.set(userId, existing[0])
+        return existing[0]
+      }
+
+      const bySlug = await db
+        .select()
+        .from(organization)
+        .where(eq(organization.slug, slug))
+        .limit(1)
+
+      if (bySlug[0]) {
+        userOrgCache.set(userId, bySlug[0])
+        return bySlug[0]
+      }
+    } catch (err) {
+      console.warn('[v0] Failed to persist organization to DB, retrying lookup by user', err)
+
       const existing = await db
         .select()
         .from(organization)
@@ -71,14 +99,38 @@ export class OrganizationService {
         userOrgCache.set(userId, existing[0])
         return existing[0]
       }
-    } catch (err) {
-      console.warn('[v0] Failed to persist organization to DB, falling back to cache:', err)
     }
 
     // Store in cache regardless so the current request can continue
+    console.debug('[createOrganizationForUser] falling back to cache', { userId, orgId })
     userOrgCache.set(userId, org)
 
     return org
+  }
+
+  private static async generateUniqueSlug(baseSlug: string) {
+    let slug = baseSlug
+    let counter = 1
+
+    while (true) {
+      try {
+        const existing = await db
+          .select()
+          .from(organization)
+          .where(eq(organization.slug, slug))
+          .limit(1)
+
+        if (!existing[0]) {
+          return slug
+        }
+
+        slug = `${baseSlug}-${counter}`
+        counter += 1
+      } catch (err) {
+        console.warn('[createOrganizationForUser] failed to verify slug uniqueness, falling back to random suffix:', err)
+        return `${baseSlug}-${generateId().slice(0, 8)}`
+      }
+    }
   }
 
   /**
@@ -220,6 +272,7 @@ export class OrganizationService {
         .limit(1)
 
       const org = result[0]
+      console.debug('[canUserAccess] db lookup by orgId', { orgId, userId, found: !!org })
       if (org && org.userId === userId) {
         // Refresh cache so subsequent requests hit the fast path
         userOrgCache.set(userId, org)
@@ -239,6 +292,7 @@ export class OrganizationService {
         .limit(1)
 
       const org = byUser[0]
+      console.debug('[canUserAccess] db lookup by userId', { orgId, userId, found: !!org, orgIdFound: org?.id })
       if (org && org.id === orgId) {
         userOrgCache.set(userId, org)
         return true
@@ -249,6 +303,7 @@ export class OrganizationService {
 
     // Final fallback to in-memory cache
     const cached = userOrgCache.get(userId)
+    console.debug('[canUserAccess] cache lookup', { orgId, userId, cached: !!cached, cachedId: cached?.id })
     if (cached && cached.id === orgId && cached.userId === userId) {
       return true
     }

@@ -12,15 +12,18 @@ import {
   Bell,
   ChevronDown,
   User,
+  Menu,
+  Search,
 } from 'lucide-react'
 import { useState } from 'react'
 
 interface AppNavbarProps {
   userName?: string | null
   userEmail?: string | null
+  onOpenSidebar?: () => void
 }
 
-export function AppNavbar({ userName, userEmail }: AppNavbarProps) {
+export function AppNavbar({ userName, userEmail, onOpenSidebar }: AppNavbarProps) {
   const router = useRouter()
   const { theme, setTheme } = useTheme()
   const [profileOpen, setProfileOpen] = useState(false)
@@ -48,27 +51,36 @@ export function AppNavbar({ userName, userEmail }: AppNavbarProps) {
   ]
 
   return (
-    <header className="flex h-16 items-center justify-between border-b border-border bg-card/50 backdrop-blur-sm px-6 gap-4">
-      {/* Left: Brand tagline */}
-      <div className="flex items-center gap-3 flex-1">
-        <div className="hidden md:block">
-          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Dashboard</p>
-          <p className="text-sm text-foreground font-medium">Business Operating System</p>
+    <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-border bg-white/90 px-4 backdrop-blur-md dark:bg-card/90 sm:px-6 lg:px-8">
+      <div className="flex min-w-0 flex-1 items-center gap-3">
+        <button
+          onClick={onOpenSidebar}
+          className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-border bg-background text-muted-foreground hover:bg-muted hover:text-foreground lg:hidden"
+          aria-label="Open navigation"
+        >
+          <Menu className="h-5 w-5" />
+        </button>
+        <div className="hidden min-w-0 max-w-md flex-1 items-center gap-2 rounded-md border border-border bg-[#f7f7f4] px-3 py-2 text-sm text-muted-foreground md:flex dark:bg-background">
+          <Search className="h-4 w-4" />
+          <span className="truncate">Search products, customers, orders</span>
+        </div>
+        <div className="min-w-0 md:hidden">
+          <p className="truncate text-sm font-semibold text-foreground">IMARA</p>
+          <p className="truncate text-xs text-muted-foreground">Business OS</p>
         </div>
       </div>
 
-      {/* Right: actions */}
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-2 sm:gap-3">
         {/* Theme toggle */}
-        <div className="hidden sm:flex items-center rounded-lg border border-border bg-secondary p-1">
+        <div className="hidden items-center rounded-md border border-border bg-[#f7f7f4] p-0.5 sm:flex dark:bg-background">
           {themeOptions.map(({ value, icon: Icon }) => (
             <button
               key={value}
               onClick={() => setTheme(value)}
               className={cn(
-                'rounded-md p-2 transition-all duration-200',
+                'rounded p-2 transition-all duration-200',
                 theme === value
-                  ? 'bg-primary text-primary-foreground shadow-sm'
+                  ? 'bg-white text-foreground shadow-sm dark:bg-card'
                   : 'text-muted-foreground hover:text-foreground'
               )}
               aria-label={`Switch to ${value} theme`}
@@ -79,7 +91,7 @@ export function AppNavbar({ userName, userEmail }: AppNavbarProps) {
         </div>
 
         {/* Notifications */}
-        <button className="relative rounded-lg p-2 text-muted-foreground hover:text-foreground hover:bg-secondary transition-all duration-200">
+        <button className="relative rounded-md p-2 text-muted-foreground hover:bg-muted hover:text-foreground transition-all duration-200">
           <Bell className="h-5 w-5" />
           <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-destructive shadow-sm" />
           <span className="sr-only">Notifications</span>
@@ -89,9 +101,9 @@ export function AppNavbar({ userName, userEmail }: AppNavbarProps) {
         <div className="relative">
           <button
             onClick={() => setProfileOpen(!profileOpen)}
-            className="flex items-center gap-2 rounded-lg border border-border bg-background px-3 py-2 text-sm hover:bg-secondary transition-all duration-200 group"
+            className="flex items-center gap-2 rounded-md border border-border bg-background px-2 py-1.5 text-sm hover:bg-muted transition-all duration-200 group sm:px-3"
           >
-            <div className="flex h-8 w-8 items-center justify-center rounded-md bg-gradient-to-br from-primary/20 to-primary/10 text-primary group-hover:from-primary/30 group-hover:to-primary/20 transition-all">
+            <div className="flex h-8 w-8 items-center justify-center rounded bg-[#e4efe7] text-[#1f5132] transition-all dark:bg-primary/15 dark:text-primary">
               <User className="h-4 w-4" />
             </div>
             <span className="hidden max-w-[140px] truncate font-medium md:block">
@@ -106,7 +118,7 @@ export function AppNavbar({ userName, userEmail }: AppNavbarProps) {
                 className="fixed inset-0 z-10"
                 onClick={() => setProfileOpen(false)}
               />
-              <div className="absolute right-0 top-full z-20 mt-2 w-64 rounded-lg border border-border bg-card shadow-lg divide-y divide-border overflow-hidden">
+              <div className="absolute right-0 top-full z-20 mt-2 w-64 overflow-hidden rounded-lg border border-border bg-card shadow-xl divide-y divide-border">
                 <div className="p-4">
                   <p className="text-sm font-semibold text-foreground truncate">{userName}</p>
                   <p className="text-xs text-muted-foreground truncate mt-1">{userEmail}</p>

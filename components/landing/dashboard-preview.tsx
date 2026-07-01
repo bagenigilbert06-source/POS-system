@@ -17,8 +17,8 @@ function MiniChart() {
   return (
     <div className="flex h-40 items-end gap-2">
       {[36, 48, 42, 66, 58, 76, 70, 88, 78, 96, 86, 104].map((height, index) => (
-        <div key={index} className="flex flex-1 items-end rounded-t-md bg-blue-100 dark:bg-blue-900/40" style={{ height: `${Math.max(height - 18, 24)}%` }}>
-          <div className="w-full rounded-t-md bg-blue-600 dark:bg-blue-400" style={{ height: `${height}%` }} />
+        <div key={index} className="flex flex-1 items-end rounded-t-md bg-[#e4efe7]" style={{ height: `${Math.max(height - 18, 24)}%` }}>
+          <div className="w-full rounded-t-md bg-[#1f5132]" style={{ height: `${height}%` }} />
         </div>
       ))}
     </div>
@@ -27,10 +27,10 @@ function MiniChart() {
 
 export function DashboardPreview({ compact = false }: { compact?: boolean }) {
   return (
-    <div className="overflow-hidden rounded-[1.75rem] border border-border bg-card shadow-[0_24px_80px_rgba(0,0,0,0.12)]">
+    <div className="overflow-hidden rounded-xl border border-border bg-card shadow-[0_24px_80px_rgba(31,81,50,0.14)]">
       <div className="flex items-center justify-between border-b border-border bg-card px-5 py-4">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-primary-foreground">
+          <div className="flex h-10 w-10 items-center justify-center rounded-md bg-[#1f5132] text-white">
             <Building2 className="h-5 w-5" aria-hidden="true" />
           </div>
           <div>
@@ -44,14 +44,14 @@ export function DashboardPreview({ compact = false }: { compact?: boolean }) {
         </div>
       </div>
 
-      <div className="bg-secondary p-4 sm:p-6">
+      <div className="bg-[#f6f6f3] p-4 sm:p-6">
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {metrics.map((metric) => {
             const Icon = metric.icon
             return (
               <div key={metric.label} className="fluent-card p-4">
                 <div className="mb-5 flex items-center justify-between">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-md bg-[#e4efe7] text-[#1f5132]">
                     <Icon className="h-4 w-4" aria-hidden="true" />
                   </div>
                   <span className="rounded-full badge-success">{metric.trend}</span>
@@ -114,7 +114,7 @@ export function DashboardPreview({ compact = false }: { compact?: boolean }) {
 
 export function DashboardPreviewSection() {
   return (
-    <section className="section-padding-premium bg-background">
+    <section className="border-b border-border bg-[#f6f6f3] py-16 sm:py-20 lg:py-24">
       <div className="container-wide">
         <div className="mx-auto mb-14 max-w-2xl text-center">
           <p className="section-eyebrow mb-3">Dashboard Preview</p>

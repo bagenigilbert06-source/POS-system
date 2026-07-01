@@ -1,10 +1,23 @@
 'use client'
 
 import React, { createContext, useContext, useState, useEffect } from 'react'
-import { WorkspaceConfig, WorkspaceContextType } from '@/lib/types/workspace'
-import { WorkspaceService } from '@/lib/services/workspace-service'
+import type { WorkspaceConfig, WorkspaceContextType } from '@/lib/types/workspace'
 
 const WorkspaceContext = createContext<WorkspaceContextType | undefined>(undefined)
+
+async function fetchWorkspaceConfig(workspaceId: string): Promise<WorkspaceConfig | null> {
+  const response = await fetch(`/api/workspace/${workspaceId}`, {
+    credentials: 'include',
+  })
+
+  if (!response.ok) {
+    const payload = await response.json().catch(() => null)
+    throw new Error(payload?.message ?? 'Failed to load workspace')
+  }
+
+  const payload = await response.json()
+  return payload.workspaceConfig ?? null
+}
 
 interface WorkspaceProviderProps {
   children: React.ReactNode
@@ -29,7 +42,7 @@ export function WorkspaceProvider({
     const loadConfig = async () => {
       try {
         setIsLoading(true)
-        const loadedConfig = await WorkspaceService.getWorkspaceConfig(workspaceId)
+        const loadedConfig = await fetchWorkspaceConfig(workspaceId)
         if (loadedConfig) {
           setConfig(loadedConfig)
         }
@@ -48,7 +61,7 @@ export function WorkspaceProvider({
 
     try {
       setIsLoading(true)
-      const loadedConfig = await WorkspaceService.getWorkspaceConfig(workspaceId)
+      const loadedConfig = await fetchWorkspaceConfig(workspaceId)
       if (loadedConfig) {
         setConfig(loadedConfig)
       }

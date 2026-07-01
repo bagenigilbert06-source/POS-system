@@ -5,9 +5,9 @@
  * WorkspaceTemplate (the configuration blueprint) lives in lib/templates/types.ts
  * and is imported here so consumers can use a single import path.
  */
-import type { WorkspaceTemplate, NavigationConfig } from '@/lib/templates/types'
+import type { WorkspaceTemplate, GettingStartedTask } from '@/lib/templates/types'
 
-export type { WorkspaceTemplate }
+export type { WorkspaceTemplate, GettingStartedTask }
 
 export interface SidebarNavItem {
   id: string
@@ -19,6 +19,25 @@ export interface SidebarNavItem {
 export interface SidebarConfig {
   primaryNav: SidebarNavItem[]
   secondaryNav: SidebarNavItem[]
+}
+
+export interface BusinessTemplate {
+  id: string
+  name: string
+  description: string
+  enabledModules: string[]
+  defaultCategories: string[]
+  defaultProducts: Array<{
+    name: string
+    sku: string
+    price: number
+    category: string
+  }>
+  gettingStartedTasks: GettingStartedTask[]
+  sidebarConfig: {
+    primaryNav: SidebarNavItem[]
+    secondaryNav: SidebarNavItem[]
+  }
 }
 
 export interface WorkspaceConfig {

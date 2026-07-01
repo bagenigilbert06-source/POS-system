@@ -12,8 +12,24 @@ import { db } from '@/lib/db'
 import { category, product } from '@/lib/db/schema'
 import { generateId } from '@/lib/utils'
 import type { WorkspaceTemplate } from '@/lib/templates/types'
+import type { WorkspaceConfig } from '@/lib/types/workspace'
 
 export class StarterDataService {
+  /**
+   * Backward-compatible wrapper used by the onboarding API.
+   */
+  static async seedStarterData(
+    orgId: string,
+    userId: string,
+    workspaceConfig: WorkspaceConfig
+  ): Promise<{ success: boolean; categoriesCreated: number; productsCreated: number }> {
+    if (!workspaceConfig?.template) {
+      return { success: false, categoriesCreated: 0, productsCreated: 0 }
+    }
+
+    return this.seedFromTemplate(orgId, userId, workspaceConfig.template)
+  }
+
   /**
    * Insert starter categories and products for an org.
    * Wraps all inserts in a single DB transaction.

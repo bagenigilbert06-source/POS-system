@@ -4,6 +4,7 @@ import { auth } from '@/lib/auth'
 import { db } from '@/lib/db'
 import { organization, workspace } from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
+import { WorkspaceService } from '@/lib/services/workspace-service'
 
 export const dynamic = 'force-dynamic'
 
@@ -15,7 +16,7 @@ export async function GET(req: NextRequest, context: any) {
       return NextResponse.json({ message: 'Unauthorized' }, { status: 401 })
     }
 
-    const params = (context && context.params) || {}
+    const params = await ((context && context.params) || {})
     const { id } = params
 
     // Fetch organization
@@ -33,8 +34,18 @@ export async function GET(req: NextRequest, context: any) {
 
     const org = orgs[0]
 
-    // Fetch workspace config from workspace table (if present)
-    let workspaceConfig = null
+    if (org.userId !== session.user.id) {
+      return NextResponse.json({ message: 'Forbidden' }, { status: 403 })
+    }
+
+    // Fetch workspace config from workspace table, falling back to org fields.
+    let workspaceConfig = WorkspaceService.buildConfigFromOrg({
+      id: org.id,
+      name: org.name,
+      businessType: org.businessType,
+      businessCategory: org.businessCategory,
+      templateId: null,
+    })
     try {
       const workspaces = await db
         .select()
@@ -43,7 +54,7 @@ export async function GET(req: NextRequest, context: any) {
 
       if (workspaces && workspaces.length > 0) {
         // `config` is stored as JSON in the DB and inferred by Drizzle
-        workspaceConfig = workspaces[0].config ?? null
+        workspaceConfig = (workspaces[0].config as any) ?? workspaceConfig
       }
     } catch (e) {
       console.error('Failed to fetch workspace config:', e)

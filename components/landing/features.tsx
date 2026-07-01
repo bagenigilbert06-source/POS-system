@@ -57,7 +57,7 @@ const secondary = [
 
 export function LandingFeatures() {
   return (
-    <section id="features" className="section-padding-premium bg-secondary">
+    <section id="features" className="section-padding-premium border-b border-border bg-[#eef2e8]">
       <div className="container-wide">
         {/* Header */}
         <div className="text-center max-w-2xl mx-auto mb-8 sm:mb-16 md:mb-20 px-3 sm:px-4">
@@ -77,10 +77,10 @@ export function LandingFeatures() {
             return (
               <div
                 key={f.title}
-                className="fluent-card-hover flex flex-col gap-3 sm:gap-5 p-4 sm:p-6 md:p-7 rounded-lg sm:rounded-xl"
+                className="flex flex-col gap-3 rounded-lg border border-border bg-white p-4 shadow-sm transition-all duration-150 hover:border-[#b8c9b5] hover:shadow-md sm:gap-5 sm:p-6 md:p-7"
               >
                 <div className="flex items-start justify-between gap-3">
-                  <div className={`h-10 sm:h-11 w-10 sm:w-11 rounded-lg sm:rounded-xl flex items-center justify-center flex-shrink-0 ${f.iconClass}`}>
+                  <div className={`h-10 sm:h-11 w-10 sm:w-11 rounded-md flex items-center justify-center flex-shrink-0 ${f.iconClass}`}>
                     <Icon className="h-4 sm:h-5 w-4 sm:w-5" />
                   </div>
                   <span className={`text-[8px] sm:text-[10px] font-bold uppercase tracking-widest rounded-full px-2 sm:px-2.5 py-0.5 sm:py-1 flex-shrink-0 ${f.tagClass}`}>
@@ -97,7 +97,7 @@ export function LandingFeatures() {
         </div>
 
         {/* 9-cell secondary grid */}
-        <div className="grid gap-px overflow-hidden rounded-lg sm:rounded-2xl border border-border bg-border shadow-sm grid-cols-1 sm:grid-cols-2 md:grid-cols-3 px-3 sm:px-0">
+        <div className="grid gap-px overflow-hidden rounded-lg border border-border bg-border shadow-sm grid-cols-1 sm:grid-cols-2 md:grid-cols-3 px-3 sm:px-0">
           {secondary.map((f) => {
             const Icon = f.icon
             return (
