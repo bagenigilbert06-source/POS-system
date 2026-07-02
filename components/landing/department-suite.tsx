@@ -230,7 +230,7 @@ export function DepartmentSuite() {
   return (
     <section className="bg-[#f4efe4] py-16 lg:py-20">
       <div className="mx-auto max-w-7xl px-5 sm:px-6 lg:px-8">
-        <h2 className="max-w-4xl text-4xl font-extrabold leading-tight tracking-tight text-zinc-950 sm:text-5xl">
+        <h2 className="max-w-3xl text-3xl font-bold leading-tight tracking-tight text-zinc-950 sm:text-4xl">
           Every team gets the tools they need. The business stays connected.
         </h2>
 
@@ -255,7 +255,7 @@ export function DepartmentSuite() {
 
         <div className="mt-14 grid gap-10 lg:grid-cols-[0.72fr_1.28fr] lg:items-center">
           <div key={active.label} className="animate-fade-up">
-            <h3 className="max-w-sm text-3xl font-extrabold leading-tight tracking-tight text-zinc-950">
+            <h3 className="max-w-sm text-2xl font-bold leading-tight tracking-tight text-zinc-950">
               {active.title}
             </h3>
             <p className="mt-5 max-w-md text-base leading-7 text-zinc-700">

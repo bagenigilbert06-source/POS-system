@@ -84,8 +84,8 @@ export function PlatformSuite() {
     <section id="platform" className="bg-[#005a43] py-16 text-white lg:py-20">
       <div className="mx-auto max-w-7xl px-5 sm:px-6 lg:px-8">
         <div className="max-w-3xl">
-          <p className="text-xs font-extrabold uppercase tracking-[0.22em] text-emerald-200">A Complete Platform</p>
-          <h2 className="mt-4 text-3xl font-extrabold leading-tight tracking-tight sm:text-4xl lg:text-5xl">
+          <p className="text-xs font-semibold uppercase tracking-widest text-emerald-200">Platform</p>
+          <h2 className="mt-3 text-3xl font-bold leading-tight tracking-tight sm:text-4xl">
             One suite for the work that happens before, during, and after every sale.
           </h2>
         </div>
@@ -111,8 +111,8 @@ export function PlatformSuite() {
 
         <div className="mt-11 grid gap-9 lg:grid-cols-[0.72fr_1.28fr] lg:items-center">
           <div key={active.label} className="animate-fade-up">
-            <h3 className="text-2xl font-extrabold tracking-tight sm:text-3xl">{active.title}</h3>
-            <p className="mt-4 text-base leading-7 text-emerald-50">{active.text}</p>
+            <h3 className="text-xl font-bold tracking-tight sm:text-2xl">{active.title}</h3>
+            <p className="mt-4 text-sm leading-6 text-emerald-50">{active.text}</p>
             <div className="mt-7 grid gap-3">
               {active.bullets.map((item) => (
                 <div key={item} className="flex items-center gap-3 text-sm font-semibold text-white">

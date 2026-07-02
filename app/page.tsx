@@ -288,32 +288,32 @@ export default async function RootPage() {
 
       <main>
         <section className="relative overflow-hidden bg-white">
-          <div className="absolute inset-x-0 top-0 h-44 bg-[linear-gradient(180deg,#f3f8ef_0%,#ffffff_100%)]" aria-hidden="true" />
-          <div className="relative mx-auto max-w-7xl px-5 pb-14 pt-12 sm:px-6 lg:px-8 lg:pb-20 lg:pt-16">
-            <div className="mx-auto max-w-4xl text-center">
-              <div className="mx-auto mb-5 inline-flex items-center gap-2 rounded-full border border-emerald-100 bg-emerald-50 px-4 py-2 text-xs font-bold text-emerald-900">
-                <Sparkles className="h-4 w-4" aria-hidden="true" />
-                All-in-one POS and business management suite
+          <div className="absolute inset-x-0 top-0 h-32 bg-[linear-gradient(180deg,#f3f8ef_0%,#ffffff_100%)]" aria-hidden="true" />
+          <div className="relative mx-auto max-w-7xl px-5 pb-12 pt-10 sm:px-6 lg:px-8 lg:pb-16 lg:pt-14">
+            <div className="mx-auto max-w-3xl text-center">
+              <div className="mx-auto mb-4 inline-flex items-center gap-2 rounded-full border border-[#d1fae5] bg-[#ecfdf5] px-3.5 py-1.5 text-xs font-semibold text-[#065f46]">
+                <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
+                All-in-one POS and business management
               </div>
-              <h1 className="text-4xl font-extrabold leading-[1.04] tracking-tight text-zinc-950 sm:text-5xl lg:text-6xl">
-                Sell smarter. Track stock faster. Run every branch from one place.
+              <h1 className="text-3xl font-bold leading-tight tracking-tight text-zinc-950 sm:text-4xl lg:text-5xl">
+                Sell smarter. Track stock faster. Run your business from one place.
               </h1>
-              <p className="mx-auto mt-5 max-w-3xl text-base leading-7 text-zinc-600 sm:text-lg">
-                Pesaby gives retailers, restaurants, pharmacies, salons, and wholesalers a modern operating system for checkout, inventory, payments, customers, suppliers, and daily reporting.
+              <p className="mx-auto mt-4 max-w-2xl text-base leading-6 text-zinc-600 sm:text-lg sm:leading-7">
+                Pesaby is a modern operating system built for retailers, restaurants, pharmacies, and wholesalers. Manage checkout, inventory, payments, customers, branches, and reporting—all from one clean workspace.
               </p>
-              <div className="mt-7 flex flex-col items-center justify-center gap-3 sm:flex-row">
-                <Link href="/sign-up" className="inline-flex h-12 items-center justify-center gap-2 rounded-md bg-[#d92534] px-7 text-sm font-bold text-white shadow-lg shadow-red-700/15 transition hover:-translate-y-0.5 hover:bg-[#bd1e2b]">
+              <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
+                <Link href="/sign-up" className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-[#1a5c38] px-6 text-sm font-semibold text-white shadow-md shadow-emerald-900/15 transition hover:-translate-y-0.5 hover:bg-[#154d30]">
                   Activate free trial
                   <ArrowRight className="h-4 w-4" aria-hidden="true" />
                 </Link>
-                <Link href="mailto:hello@pesaby.com" className="inline-flex h-12 items-center justify-center rounded-md bg-zinc-950 px-7 text-sm font-bold text-white transition hover:bg-[#005a43]">
+                <Link href="mailto:hello@pesaby.com" className="inline-flex h-11 items-center justify-center rounded-lg border border-zinc-300 bg-white px-6 text-sm font-semibold text-zinc-950 transition hover:bg-zinc-50">
                   Contact sales
                 </Link>
               </div>
-              <div className="mt-5 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm font-medium text-zinc-700">
-                {['Free for 30 days', 'No card details required', 'Free support and training'].map((item) => (
+              <div className="mt-6 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-xs font-medium text-zinc-600">
+                {['Free for 30 days', 'No card required', 'Free support included'].map((item) => (
                   <span key={item} className="inline-flex items-center gap-2">
-                    <Check className="h-4 w-4 text-[#00a650]" aria-hidden="true" />
+                    <Check className="h-4 w-4 text-[#1a5c38]" aria-hidden="true" />
                     {item}
                   </span>
                 ))}
@@ -330,22 +330,22 @@ export default async function RootPage() {
           </div>
         </section>
 
-        <section id="customers" className="bg-white py-16">
+        <section id="customers" className="bg-white py-14">
           <div className="mx-auto max-w-6xl px-5 text-center sm:px-6 lg:px-8">
-            <div className="inline-flex items-center gap-2 text-base text-zinc-950">
-              <Star className="h-5 w-5 fill-[#f5a400] text-[#f5a400]" aria-hidden="true" />
-              <span className="text-xl font-extrabold">4.8/5</span>
-              <span>based on growing business feedback</span>
+            <div className="inline-flex items-center gap-2 text-sm text-zinc-950">
+              <Star className="h-4 w-4 fill-[#f5a400] text-[#f5a400]" aria-hidden="true" />
+              <span className="font-bold">4.8/5</span>
+              <span className="text-zinc-600">based on growing business feedback</span>
             </div>
-            <div className="mx-auto mt-10 grid max-w-5xl border-y border-zinc-200 md:grid-cols-3">
+            <div className="mx-auto mt-10 grid max-w-4xl border-y border-zinc-200 md:grid-cols-3">
               {stats.map(([value, label]) => (
-                <div key={label} className="border-b border-zinc-200 px-6 py-7 md:border-b-0 md:border-r md:last:border-r-0">
-                  <p className="text-4xl font-extrabold tracking-tight text-zinc-950 lg:text-5xl">{value}</p>
-                  <p className="mt-3 text-sm font-medium text-zinc-700">{label}</p>
+                <div key={label} className="border-b border-zinc-200 px-6 py-6 md:border-b-0 md:border-r md:last:border-r-0">
+                  <p className="text-3xl font-bold tracking-tight text-zinc-950">{value}</p>
+                  <p className="mt-2 text-sm font-medium text-zinc-600">{label}</p>
                 </div>
               ))}
             </div>
-            <div className="mx-auto mt-10 flex max-w-4xl flex-wrap items-center justify-center gap-x-10 gap-y-4 text-lg font-extrabold text-zinc-300">
+            <div className="mx-auto mt-10 flex max-w-4xl flex-wrap items-center justify-center gap-x-8 gap-y-3 text-sm font-semibold text-zinc-400">
               {['RetailCo', 'FreshMart', 'MedPlus', 'Hardware Hub', 'Table House', 'BeautyPro'].map((logo) => (
                 <span key={logo}>{logo}</span>
               ))}
@@ -357,29 +357,29 @@ export default async function RootPage() {
 
         <PlatformSuite />
 
-        <section id="concierge" className="bg-white py-20 lg:py-28">
+        <section id="concierge" className="bg-white py-16 lg:py-24">
           <div className="mx-auto max-w-7xl px-5 sm:px-6 lg:px-8">
-            <h2 className="max-w-3xl text-5xl font-black leading-tight tracking-tight text-zinc-950 sm:text-6xl">
-              Ease into a new way of running your business.
+            <h2 className="max-w-2xl text-3xl font-bold leading-tight tracking-tight text-zinc-950 sm:text-4xl">
+              Launch with confidence. Get expert support every step.
             </h2>
-            <div className="mt-16 grid gap-12 lg:grid-cols-[0.95fr_1.05fr] lg:items-center">
+            <div className="mt-14 grid gap-12 lg:grid-cols-[0.95fr_1.05fr] lg:items-center">
               <div>
-                <div className="border-b-2 border-zinc-950 bg-[#f5f0e4] p-8">
-                  <div className="flex items-start gap-4">
-                    <PackageCheck className="mt-1 h-6 w-6 text-zinc-950" aria-hidden="true" />
+                <div className="border-b-2 border-zinc-950 bg-[#f5f0e4] p-6">
+                  <div className="flex items-start gap-3">
+                    <PackageCheck className="mt-1 h-5 w-5 text-zinc-950 flex-shrink-0" aria-hidden="true" />
                     <div>
-                      <h3 className="text-2xl font-black text-zinc-950">{setupSteps[0].title}</h3>
-                      <p className="mt-5 max-w-lg text-base leading-7 text-zinc-950">{setupSteps[0].text}</p>
+                      <h3 className="text-lg font-bold text-zinc-950">{setupSteps[0].title}</h3>
+                      <p className="mt-3 max-w-lg text-sm leading-6 text-zinc-950">{setupSteps[0].text}</p>
                     </div>
                   </div>
                 </div>
-                <div className="space-y-8 px-8 py-8">
+                <div className="space-y-6 px-8 py-8">
                   {setupSteps.slice(1).map((step) => {
                     const Icon = step.icon
                     return (
-                      <div key={step.title} className="flex items-center gap-4">
-                        <Icon className="h-6 w-6 text-zinc-950" aria-hidden="true" />
-                        <h3 className="text-2xl font-black text-zinc-950">{step.title}</h3>
+                      <div key={step.title} className="flex items-center gap-3">
+                        <Icon className="h-5 w-5 text-zinc-950 flex-shrink-0" aria-hidden="true" />
+                        <h3 className="text-lg font-bold text-zinc-950">{step.title}</h3>
                       </div>
                     )
                   })}
