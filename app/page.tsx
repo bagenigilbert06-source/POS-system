@@ -3,8 +3,6 @@ import Link from 'next/link'
 import { auth } from '@/lib/auth'
 import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
-import { DepartmentSuite } from '@/components/landing/department-suite'
-import { PlatformSuite } from '@/components/landing/platform-suite'
 import {
   ArrowRight,
   BarChart3,
@@ -28,6 +26,10 @@ import {
   UsersRound,
   WalletCards,
   Zap,
+  TrendingUp,
+  Layers,
+  Gauge,
+  Clock,
 } from 'lucide-react'
 
 const navItems = [
@@ -245,410 +247,262 @@ export default async function RootPage() {
   if (session?.user) redirect('/dashboard')
 
   return (
-    <div className="min-h-screen bg-[#fbfaf6] font-sans text-zinc-950">
-      <header className="sticky top-0 z-50 bg-white">
-        <div className="border-b border-zinc-200 shadow-[0_2px_12px_rgba(0,0,0,0.05)]">
-          <div className="mx-auto flex h-[72px] max-w-7xl items-center justify-between px-5 sm:px-6 lg:px-8">
-            <Logo />
-            <nav className="hidden items-center gap-6 lg:flex" aria-label="Primary navigation">
-              {navItems.map((item) => (
-                <div key={item.label} className="group relative">
-                  <Link href={item.href} className="inline-flex h-10 items-center gap-1 text-sm font-medium text-zinc-700 transition hover:text-emerald-800">
-                    {item.label}
-                    {item.menu ? <ChevronDown className="h-3.5 w-3.5 transition duration-200 group-hover:rotate-180" aria-hidden="true" /> : null}
-                  </Link>
-                  {item.menu ? (
-                    <div className="invisible absolute left-1/2 top-full z-50 w-64 -translate-x-1/2 translate-y-3 rounded-xl border border-zinc-200 bg-white p-2 opacity-0 shadow-[0_20px_60px_rgba(24,24,27,0.14)] transition-all duration-200 group-hover:visible group-hover:translate-y-1 group-hover:opacity-100 group-focus-within:visible group-focus-within:translate-y-1 group-focus-within:opacity-100">
-                      <div className="absolute -top-3 left-0 h-3 w-full" />
-                      {item.menu.map((entry) => (
-                        <Link
-                          key={entry}
-                          href={item.href}
-                          className="block rounded-lg px-3 py-2.5 text-sm font-semibold text-zinc-700 transition hover:bg-[#f4efe4] hover:text-zinc-950"
-                        >
-                          {entry}
-                        </Link>
-                      ))}
-                    </div>
-                  ) : null}
-                </div>
-              ))}
-            </nav>
-            <div className="flex items-center gap-2">
-              <Link href="/sign-in" className="hidden px-3 py-2 text-sm font-semibold text-zinc-700 transition hover:text-zinc-950 sm:inline-flex">
-                Sign in
-              </Link>
-              <Link href="/sign-up" className="inline-flex h-10 items-center justify-center rounded-md bg-[#d92534] px-5 text-sm font-bold text-white shadow-sm transition hover:bg-[#bd1e2b]">
-                Get Started
-              </Link>
-            </div>
+    <div className="min-h-screen bg-background font-sans text-foreground">
+      {/* Header */}
+      <header className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm border-b border-border">
+        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-5 sm:px-6 lg:px-8">
+          <Logo />
+          <nav className="hidden items-center gap-1 lg:flex" aria-label="Primary navigation">
+            {navItems.map((item) => (
+              <div key={item.label} className="group relative">
+                <Link href={item.href} className="inline-flex h-10 items-center gap-1 px-3 text-sm font-medium text-foreground/70 transition hover:text-foreground">
+                  {item.label}
+                  {item.menu ? <ChevronDown className="h-3.5 w-3.5 transition duration-200 group-hover:rotate-180" aria-hidden="true" /> : null}
+                </Link>
+              </div>
+            ))}
+          </nav>
+          <div className="flex items-center gap-2">
+            <Link href="/sign-in" className="hidden px-4 py-2 text-sm font-medium text-foreground/70 transition hover:text-foreground sm:inline-flex">
+              Sign in
+            </Link>
+            <Link href="/sign-up" className="inline-flex h-10 items-center justify-center rounded-lg bg-primary px-5 text-sm font-bold text-primary-foreground shadow-md transition hover:bg-primary/90">
+              Start Free
+            </Link>
           </div>
         </div>
       </header>
 
       <main>
-        <section className="relative overflow-hidden bg-white">
-          <div className="absolute inset-x-0 top-0 h-44 bg-[linear-gradient(180deg,#f3f8ef_0%,#ffffff_100%)]" aria-hidden="true" />
-          <div className="relative mx-auto max-w-7xl px-5 pb-14 pt-12 sm:px-6 lg:px-8 lg:pb-20 lg:pt-16">
+        {/* Hero Section */}
+        <section className="relative overflow-hidden bg-background pt-20 pb-32 md:pt-32 md:pb-40">
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(94,234,212,0.1),rgba(94,234,212,0))]" aria-hidden="true" />
+          
+          <div className="relative mx-auto max-w-7xl px-5 sm:px-6 lg:px-8">
             <div className="mx-auto max-w-4xl text-center">
-              <div className="mx-auto mb-5 inline-flex items-center gap-2 rounded-full border border-emerald-100 bg-emerald-50 px-4 py-2 text-xs font-bold text-emerald-900">
+              <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-border bg-accent/50 px-4 py-2 text-xs font-bold text-accent-foreground">
                 <Sparkles className="h-4 w-4" aria-hidden="true" />
-                All-in-one POS and business management suite
+                The Future of Business Operations
               </div>
-              <h1 className="text-4xl font-extrabold leading-[1.04] tracking-tight text-zinc-950 sm:text-5xl lg:text-6xl">
-                Sell smarter. Track stock faster. Run every branch from one place.
+              <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold leading-tight tracking-tight">
+                One platform for all your business needs
               </h1>
-              <p className="mx-auto mt-5 max-w-3xl text-base leading-7 text-zinc-600 sm:text-lg">
-                Pesaby gives retailers, restaurants, pharmacies, salons, and wholesalers a modern operating system for checkout, inventory, payments, customers, suppliers, and daily reporting.
+              <p className="mt-6 text-base md:text-lg text-muted-foreground max-w-2xl mx-auto">
+                Manage point of sale, inventory, payments, customers, and analytics from a single dashboard. Built for retailers, restaurants, pharmacies, and beyond.
               </p>
-              <div className="mt-7 flex flex-col items-center justify-center gap-3 sm:flex-row">
-                <Link href="/sign-up" className="inline-flex h-12 items-center justify-center gap-2 rounded-md bg-[#d92534] px-7 text-sm font-bold text-white shadow-lg shadow-red-700/15 transition hover:-translate-y-0.5 hover:bg-[#bd1e2b]">
-                  Activate free trial
-                  <ArrowRight className="h-4 w-4" aria-hidden="true" />
+              <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
+                <Link href="/sign-up" className="inline-flex h-12 items-center justify-center gap-2 rounded-lg bg-primary px-8 text-base font-bold text-primary-foreground shadow-lg transition hover:-translate-y-0.5 hover:shadow-xl">
+                  Start Free Trial
+                  <ArrowRight className="h-5 w-5" aria-hidden="true" />
                 </Link>
-                <Link href="mailto:hello@pesaby.com" className="inline-flex h-12 items-center justify-center rounded-md bg-zinc-950 px-7 text-sm font-bold text-white transition hover:bg-[#005a43]">
-                  Contact sales
+                <Link href="mailto:sales@pesaby.com" className="inline-flex h-12 items-center justify-center rounded-lg border border-border px-8 text-base font-bold transition hover:bg-accent">
+                  Schedule Demo
                 </Link>
               </div>
-              <div className="mt-5 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm font-medium text-zinc-700">
-                {['Free for 30 days', 'No card details required', 'Free support and training'].map((item) => (
+              <div className="mt-8 flex flex-wrap items-center justify-center gap-x-8 gap-y-3 text-sm font-medium text-muted-foreground">
+                {['30-day free trial', 'No credit card required', '24/7 support'].map((item) => (
                   <span key={item} className="inline-flex items-center gap-2">
-                    <Check className="h-4 w-4 text-[#00a650]" aria-hidden="true" />
+                    <Check className="h-4 w-4 text-green-600" aria-hidden="true" />
                     {item}
                   </span>
                 ))}
               </div>
             </div>
           </div>
-          <div className="relative overflow-hidden bg-[#005a43] pb-14 pt-14 lg:pb-20">
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_30%,rgba(255,255,255,0.16),transparent_34%),linear-gradient(180deg,rgba(255,255,255,0.08),transparent)]" aria-hidden="true" />
-            <div className="mx-auto max-w-7xl px-5 sm:px-6 lg:px-8">
-              <div className="relative">
-                <ProductMockup />
-              </div>
+          
+          {/* Hero Image/Mockup */}
+          <div className="mt-20 mx-auto max-w-7xl px-5 sm:px-6 lg:px-8">
+            <div className="relative">
+              <ProductMockup />
             </div>
           </div>
         </section>
 
-        <section id="customers" className="bg-white py-16">
-          <div className="mx-auto max-w-6xl px-5 text-center sm:px-6 lg:px-8">
-            <div className="inline-flex items-center gap-2 text-base text-zinc-950">
-              <Star className="h-5 w-5 fill-[#f5a400] text-[#f5a400]" aria-hidden="true" />
-              <span className="text-xl font-extrabold">4.8/5</span>
-              <span>based on growing business feedback</span>
-            </div>
-            <div className="mx-auto mt-10 grid max-w-5xl border-y border-zinc-200 md:grid-cols-3">
+        {/* Trust Section */}
+        <section className="section-dark py-16 md:py-20">
+          <div className="mx-auto max-w-7xl px-5 sm:px-6 lg:px-8">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-12">
               {stats.map(([value, label]) => (
-                <div key={label} className="border-b border-zinc-200 px-6 py-7 md:border-b-0 md:border-r md:last:border-r-0">
-                  <p className="text-4xl font-extrabold tracking-tight text-zinc-950 lg:text-5xl">{value}</p>
-                  <p className="mt-3 text-sm font-medium text-zinc-700">{label}</p>
+                <div key={label} className="text-center">
+                  <p className="text-4xl md:text-5xl font-bold text-white">{value}</p>
+                  <p className="mt-2 text-section-dark-muted">{label}</p>
                 </div>
-              ))}
-            </div>
-            <div className="mx-auto mt-10 flex max-w-4xl flex-wrap items-center justify-center gap-x-10 gap-y-4 text-lg font-extrabold text-zinc-300">
-              {['RetailCo', 'FreshMart', 'MedPlus', 'Hardware Hub', 'Table House', 'BeautyPro'].map((logo) => (
-                <span key={logo}>{logo}</span>
               ))}
             </div>
           </div>
         </section>
 
-        <DepartmentSuite />
-
-        <PlatformSuite />
-
-        <section id="concierge" className="bg-white py-20 lg:py-28">
+        {/* Features Section */}
+        <section className="py-20 md:py-28 bg-background">
           <div className="mx-auto max-w-7xl px-5 sm:px-6 lg:px-8">
-            <h2 className="max-w-3xl text-5xl font-black leading-tight tracking-tight text-zinc-950 sm:text-6xl">
-              Ease into a new way of running your business.
-            </h2>
-            <div className="mt-16 grid gap-12 lg:grid-cols-[0.95fr_1.05fr] lg:items-center">
+            <div className="text-center mb-16">
+              <h2 className="text-4xl md:text-5xl font-bold mb-4">Powerful features designed for you</h2>
+              <p className="text-muted-foreground text-lg max-w-2xl mx-auto">Everything you need to streamline operations, boost sales, and scale your business.</p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+              {[
+                { icon: ReceiptText, title: 'Fast Checkout', desc: 'Lightning-quick point of sale interface with support for all payment methods' },
+                { icon: Layers, title: 'Inventory Management', desc: 'Real-time stock tracking with low-stock alerts and supplier integration' },
+                { icon: BarChart3, title: 'Analytics & Reports', desc: 'Detailed insights into sales trends, top products, and revenue metrics' },
+                { icon: UsersRound, title: 'Customer Profiles', desc: 'Build lasting relationships with purchase history and loyalty tracking' },
+                { icon: Gauge, title: 'Multi-Location', desc: 'Manage multiple branches from one unified dashboard' },
+                { icon: CreditCard, title: 'Payment Processing', desc: 'Accept cash, card, mobile money, and digital wallets instantly' },
+              ].map((feature, idx) => (
+                <div key={idx} className="fluent-card p-8 hover:shadow-lg transition">
+                  <feature.icon className="h-10 w-10 text-primary mb-4" aria-hidden="true" />
+                  <h3 className="text-xl font-bold mb-2">{feature.title}</h3>
+                  <p className="text-muted-foreground">{feature.desc}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* How It Works */}
+        <section className="py-20 md:py-28 bg-card border-t border-border">
+          <div className="mx-auto max-w-7xl px-5 sm:px-6 lg:px-8">
+            <div className="text-center mb-16">
+              <h2 className="text-4xl md:text-5xl font-bold mb-4">Get started in minutes</h2>
+              <p className="text-muted-foreground text-lg max-w-2xl mx-auto">Simple setup, no complicated installations.</p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+              {[
+                { icon: Clock, title: 'Create Account', desc: 'Sign up in 30 seconds' },
+                { icon: PackageCheck, title: 'Setup Products', desc: 'Import your inventory' },
+                { icon: UserCog, title: 'Add Staff', desc: 'Invite your team' },
+                { icon: TrendingUp, title: 'Start Selling', desc: 'Begin transactions' },
+              ].map((step, idx) => (
+                <div key={idx} className="relative">
+                  <div className="flex flex-col items-center text-center">
+                    <div className="w-14 h-14 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-bold text-xl mb-4">
+                      {idx + 1}
+                    </div>
+                    <step.icon className="h-10 w-10 text-primary mb-4" aria-hidden="true" />
+                    <h3 className="font-bold mb-2">{step.title}</h3>
+                    <p className="text-sm text-muted-foreground">{step.desc}</p>
+                  </div>
+                  {idx < 3 && (
+                    <div className="hidden md:block absolute top-7 left-[60%] w-[40%] h-0.5 bg-border" aria-hidden="true" />
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* Security Section */}
+        <section className="py-20 md:py-28 bg-background border-t border-border">
+          <div className="mx-auto max-w-7xl px-5 sm:px-6 lg:px-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
               <div>
-                <div className="border-b-2 border-zinc-950 bg-[#f5f0e4] p-8">
-                  <div className="flex items-start gap-4">
-                    <PackageCheck className="mt-1 h-6 w-6 text-zinc-950" aria-hidden="true" />
-                    <div>
-                      <h3 className="text-2xl font-black text-zinc-950">{setupSteps[0].title}</h3>
-                      <p className="mt-5 max-w-lg text-base leading-7 text-zinc-950">{setupSteps[0].text}</p>
-                    </div>
-                  </div>
-                </div>
-                <div className="space-y-8 px-8 py-8">
-                  {setupSteps.slice(1).map((step) => {
-                    const Icon = step.icon
-                    return (
-                      <div key={step.title} className="flex items-center gap-4">
-                        <Icon className="h-6 w-6 text-zinc-950" aria-hidden="true" />
-                        <h3 className="text-2xl font-black text-zinc-950">{step.title}</h3>
-                      </div>
-                    )
-                  })}
-                </div>
-              </div>
-              <div className="relative mx-auto aspect-square w-full max-w-[480px] overflow-hidden rounded-lg bg-[#f6f0df]">
-                <div className="absolute inset-0 bg-[linear-gradient(30deg,rgba(0,0,0,0.05)_12%,transparent_12.5%,transparent_87%,rgba(0,0,0,0.05)_87.5%,rgba(0,0,0,0.05)),linear-gradient(150deg,rgba(0,0,0,0.05)_12%,transparent_12.5%,transparent_87%,rgba(0,0,0,0.05)_87.5%,rgba(0,0,0,0.05))] bg-[length:82px_142px]" aria-hidden="true" />
-                <div className="absolute left-1/2 top-1/2 flex h-32 w-32 -translate-x-1/2 -translate-y-1/2 items-center justify-center bg-[#005a43] shadow-[0_0_60px_rgba(0,90,67,0.28)]">
-                  <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-white text-4xl font-black text-[#005a43] shadow-sm">
-                    P
-                  </div>
-                </div>
-                {[
-                  ['top-[22%] left-[20%]', ReceiptText],
-                  ['top-[22%] right-[20%]', Plug],
-                  ['top-1/2 left-[14%]', WalletCards],
-                  ['top-1/2 right-[14%]', UsersRound],
-                  ['bottom-[18%] left-[28%]', BarChart3],
-                  ['bottom-[18%] right-[28%]', ShieldCheck],
-                ].map(([pos, Icon], index) => (
-                  <div key={index} className={`absolute ${pos as string} flex h-16 w-16 -translate-y-1/2 items-center justify-center border border-orange-300 bg-white/60 text-emerald-700`}>
-                    <Icon className="h-7 w-7" aria-hidden="true" />
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <section id="features" className="bg-[#fbfaf6] py-20 lg:py-24">
-          <div className="mx-auto max-w-7xl px-5 sm:px-6 lg:px-8">
-            <div className="mx-auto max-w-3xl text-center">
-              <p className="text-sm font-black uppercase tracking-[0.22em] text-emerald-800">Reliable All-In-One Solution</p>
-              <h2 className="mt-5 text-4xl font-black tracking-tight text-zinc-950 sm:text-5xl">
-                The tools growing businesses usually buy separately, finally working together.
-              </h2>
-            </div>
-
-            <div className="mt-12 grid gap-6 lg:grid-cols-3">
-              {reliability.map((item) => {
-                const Icon = item.icon
-                return (
-                  <div key={item.title}>
-                    <div className="flex aspect-[1.55] items-center justify-center rounded-lg bg-[#005a43] text-white">
-                      <Icon className="h-16 w-16 text-emerald-100" strokeWidth={1.5} aria-hidden="true" />
-                    </div>
-                    <h3 className="mt-6 text-2xl font-black tracking-tight text-zinc-950">{item.title}</h3>
-                    <p className="mt-4 text-base leading-7 text-zinc-700">{item.text}</p>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-        </section>
-
-        <section id="industries" className="bg-white py-20 lg:py-24">
-          <div className="mx-auto max-w-7xl px-5 sm:px-6 lg:px-8">
-            <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-              <div className="max-w-2xl">
-                <p className="text-sm font-black uppercase tracking-[0.22em] text-emerald-800">Industries</p>
-                <h2 className="mt-5 text-4xl font-black tracking-tight text-zinc-950 sm:text-5xl">Made for businesses that move products and serve customers every day.</h2>
-              </div>
-              <Link href="/industries" className="inline-flex items-center gap-2 text-sm font-black text-emerald-800 hover:text-emerald-950">
-                Explore industries
-                <ArrowRight className="h-4 w-4" aria-hidden="true" />
-              </Link>
-            </div>
-
-            <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-              {industryCards.map((industry) => (
-                <Link key={industry.name} href="/industries" className="group overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-xl hover:shadow-zinc-950/10">
-                  <div className="relative aspect-[1.2] overflow-hidden bg-zinc-100">
-                    <Image
-                      src={industry.image}
-                      alt={industry.name}
-                      fill
-                      sizes="(max-width: 1024px) 50vw, 25vw"
-                      className="object-cover transition duration-500 group-hover:scale-105"
-                    />
-                  </div>
-                  <div className="p-5">
-                    <h3 className="text-xl font-black text-zinc-950">{industry.name}</h3>
-                    <p className="mt-2 text-sm leading-6 text-zinc-600">{industry.line}</p>
-                  </div>
-                </Link>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        <section id="pricing" className="bg-[#f4efe4] py-20">
-          <div className="mx-auto max-w-7xl px-5 sm:px-6 lg:px-8">
-            <div className="mx-auto max-w-4xl text-center">
-              <p className="text-xs font-extrabold uppercase tracking-[0.22em] text-[#005a43]">Simple pricing</p>
-              <h2 className="mt-4 text-4xl font-extrabold tracking-tight text-zinc-950 sm:text-5xl">
-                Start lean. Add power as your business grows.
-              </h2>
-            </div>
-
-            <div className="mx-auto mt-12 grid max-w-6xl overflow-hidden rounded-xl bg-[#005a43] text-white shadow-[0_24px_80px_rgba(0,90,67,0.22)] lg:grid-cols-[1.15fr_0.85fr]">
-              <div className="p-8 sm:p-10 lg:p-12">
-                <h3 className="text-2xl font-extrabold">Business-ready POS plan</h3>
-                <div className="mt-8 grid gap-x-10 gap-y-5 sm:grid-cols-2">
+                <h2 className="text-4xl font-bold mb-6">Enterprise-grade security</h2>
+                <p className="text-muted-foreground mb-6 text-lg">Your business data is protected with industry-leading security standards.</p>
+                <ul className="space-y-4">
                   {[
-                    'Point of sale and receipt workflows',
-                    'Inventory, suppliers, and reorder alerts',
-                    'Payments, refunds, and daily reconciliation',
-                    'Customers, staff roles, and branch controls',
-                    'Reports for sales, margins, and stock movement',
-                    'Guided setup with support and training',
-                  ].map((item) => (
-                    <div key={item} className="flex items-start gap-3 text-sm font-semibold text-emerald-50">
-                      <Check className="mt-0.5 h-4 w-4 flex-shrink-0 text-emerald-200" aria-hidden="true" />
+                    'End-to-end encryption for all transactions',
+                    'Role-based access control',
+                    'Automatic daily backups',
+                    'PCI-DSS compliance',
+                    'GDPR ready',
+                    'Audit trails for all actions'
+                  ].map((item, idx) => (
+                    <li key={idx} className="flex items-center gap-3">
+                      <Check className="h-5 w-5 text-green-600 flex-shrink-0" aria-hidden="true" />
                       <span>{item}</span>
-                    </div>
+                    </li>
                   ))}
-                </div>
-                <div className="mt-10 flex flex-wrap gap-6 text-sm font-extrabold uppercase">
-                  <Link href="/sign-up" className="text-emerald-100 underline decoration-emerald-200 underline-offset-4 hover:text-white">
-                    View plan details
-                  </Link>
-                  <Link href="mailto:hello@pesaby.com" className="text-emerald-100 underline decoration-emerald-200 underline-offset-4 hover:text-white">
-                    View pricing FAQs
-                  </Link>
-                </div>
+                </ul>
               </div>
-
-              <div className="border-t border-white/10 bg-[#004735] p-8 sm:p-10 lg:border-l lg:border-t-0 lg:p-12">
-                <p className="text-sm font-bold uppercase tracking-[0.18em] text-emerald-200">From</p>
-                <div className="mt-4 flex items-end gap-2">
-                  <span className="text-2xl font-black text-emerald-100">KES</span>
-                  <span className="text-6xl font-black tracking-tight text-white">3,330</span>
+              <div className="flex items-center justify-center">
+                <div className="w-full aspect-square rounded-xl bg-accent/50 flex items-center justify-center border border-border">
+                  <LockKeyhole className="h-24 w-24 text-primary/50" aria-hidden="true" />
                 </div>
-                <p className="mt-5 text-sm leading-6 text-emerald-50">
-                  per workspace/month, billed annually. Add registers, branches, and advanced controls when your team needs them.
-                </p>
-                <div className="mt-8 flex flex-col gap-3">
-                  <Link href="/sign-up" className="inline-flex h-12 items-center justify-center rounded-md bg-[#d92534] px-7 text-sm font-extrabold text-white transition hover:bg-[#bd1e2b]">
-                    Create workspace
-                  </Link>
-                  <Link href="mailto:hello@pesaby.com" className="inline-flex h-12 items-center justify-center rounded-md border border-white/20 px-7 text-sm font-extrabold text-white transition hover:bg-white/10">
-                    Book demo
-                  </Link>
-                </div>
-                <p className="mt-6 text-xs leading-5 text-emerald-100/80">
-                  Local taxes and payment processing fees may apply depending on your setup.
-                </p>
               </div>
             </div>
           </div>
         </section>
 
-        <section id="resources" className="bg-white py-20">
-          <div className="mx-auto grid max-w-7xl gap-6 px-5 sm:px-6 lg:grid-cols-3 lg:px-8">
-            {[
-              { icon: LockKeyhole, title: 'Permissions', text: 'Control what cashiers, managers, accountants, and owners can see or change.' },
-              { icon: BellRing, title: 'Smart alerts', text: 'Know when stock is low, payments need review, or performance changes unexpectedly.' },
-              { icon: WalletCards, title: 'Clean records', text: 'Keep every sale, payment, refund, and stock movement connected to the right day.' },
-            ].map((item) => {
-              const Icon = item.icon
-              return (
-                <div key={item.title} className="rounded-lg border border-zinc-200 bg-[#fbfaf6] p-7">
-                  <Icon className="h-7 w-7 text-emerald-800" aria-hidden="true" />
-                  <h3 className="mt-5 text-xl font-black text-zinc-950">{item.title}</h3>
-                  <p className="mt-3 text-sm leading-6 text-zinc-600">{item.text}</p>
-                </div>
-              )
-            })}
-          </div>
-        </section>
-      </main>
-
-      <footer className="bg-[#202322] text-white">
-        <div className="mx-auto max-w-7xl px-5 py-14 sm:px-6 lg:px-8">
-          <div className="mb-12 flex flex-col gap-6 border-b border-white/10 pb-10 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex items-center gap-4">
-              <div className="relative flex h-12 w-12 items-center justify-center rounded-2xl bg-[#005a43]">
-                <span className="absolute right-2 top-2 h-3 w-3 rounded-full bg-emerald-200" />
-                <span className="text-2xl font-black">P</span>
+        {/* Testimonials Section */}
+        <section className="py-20 md:py-28 bg-card border-t border-border">
+          <div className="mx-auto max-w-7xl px-5 sm:px-6 lg:px-8">
+            <div className="text-center mb-16">
+              <div className="inline-flex items-center gap-2 mb-4">
+                <Star className="h-5 w-5 fill-yellow-400 text-yellow-400" aria-hidden="true" />
+                <span className="text-2xl font-bold">4.8/5</span>
               </div>
-              <div>
-                <p className="text-2xl font-black tracking-tight">Pesaby</p>
-                <p className="text-xs font-bold uppercase tracking-[0.18em] text-emerald-300">Business OS for modern commerce</p>
-              </div>
-            </div>
-            <p className="max-w-xl text-sm leading-6 text-zinc-300">
-              Run sales, inventory, payments, customers, and daily operations from one calm workspace built for growing businesses.
-            </p>
-          </div>
-          <div className="grid gap-12 lg:grid-cols-[360px_1fr]">
-            <div className="grid gap-6">
-              <div className="bg-[#eef7f2] p-7 text-zinc-950">
-                <Sparkles className="h-7 w-7 text-[#005a43]" aria-hidden="true" />
-                <h3 className="mt-7 text-2xl font-extrabold">Implementation clinic</h3>
-                <p className="mt-3 text-sm leading-6 text-zinc-700">Plan products, users, branches, payments, and reports with a Pesaby specialist.</p>
-                <Link href="mailto:hello@pesaby.com" className="mt-5 inline-flex h-10 items-center justify-center rounded-md bg-[#005a43] px-5 text-sm font-bold text-white">
-                  Book a session
-                </Link>
-              </div>
-              <div className="bg-[#d7efe4] p-7 text-zinc-950">
-                <Headphones className="h-7 w-7 text-[#005a43]" aria-hidden="true" />
-                <h3 className="mt-7 text-2xl font-extrabold">Live product demos</h3>
-                <p className="mt-3 text-sm leading-6 text-zinc-700">See POS, inventory, payments, and branch reporting using realistic business workflows.</p>
-                <Link href="mailto:hello@pesaby.com" className="mt-5 inline-flex h-10 items-center justify-center rounded-md bg-[#d92534] px-5 text-sm font-bold text-white">
-                  Reserve a demo
-                </Link>
-              </div>
+              <h2 className="text-4xl font-bold mb-4">Loved by business owners</h2>
             </div>
 
-            <div>
-              <div className="grid gap-10 sm:grid-cols-3">
-                {Object.entries(footerLinks).map(([title, links]) => (
-                  <div key={title}>
-                    <h3 className="text-xl font-extrabold">{title}</h3>
-                    <ul className="mt-5 space-y-3">
-                      {links.map((link) => (
-                        <li key={link}>
-                          <Link href="#resources" className="text-sm text-zinc-300 transition hover:text-white hover:underline">
-                            {link}
-                          </Link>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                ))}
-              </div>
-
-              <div className="mt-12 border-y border-white/10 py-7">
-                <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
-                  <a href="mailto:support@pesaby.com" className="inline-flex items-center gap-3 text-base font-bold underline">
-                    <Mail className="h-5 w-5" aria-hidden="true" />
-                    support@pesaby.com
-                  </a>
-                  <div className="flex gap-3">
-                    {['X', 'in', 'yt', 'ig'].map((item) => (
-                      <span key={item} className="flex h-9 w-9 items-center justify-center rounded-md bg-white/10 text-xs font-bold text-zinc-200">
-                        {item}
-                      </span>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+              {[
+                { name: 'Sarah Chen', role: 'Retail Store Owner', text: 'Pesaby transformed how we manage our store. Inventory tracking is a breeze now.' },
+                { name: 'James Okafor', role: 'Restaurant Manager', text: 'The POS is incredibly fast and intuitive. Our staff trained in minutes, not hours.' },
+                { name: 'Amelia Williams', role: 'Pharmacy Owner', text: 'Best investment we made. Real-time analytics help us make better decisions daily.' },
+              ].map((testimonial, idx) => (
+                <div key={idx} className="fluent-card p-6">
+                  <div className="flex gap-1 mb-4">
+                    {[...Array(5)].map((_, i) => (
+                      <Star key={i} className="h-4 w-4 fill-yellow-400 text-yellow-400" aria-hidden="true" />
                     ))}
                   </div>
+                  <p className="text-muted-foreground mb-4">{testimonial.text}</p>
+                  <p className="font-bold">{testimonial.name}</p>
+                  <p className="text-sm text-muted-foreground">{testimonial.role}</p>
                 </div>
-              </div>
-
-              <div className="mt-8 flex flex-col gap-4 md:flex-row md:items-center">
-                <label className="relative block flex-1">
-                  <span className="sr-only">Search resources</span>
-                  <input
-                    className="h-11 w-full rounded-md border border-white/10 bg-white px-4 pr-11 text-sm text-zinc-950 outline-none placeholder:text-zinc-500"
-                    placeholder="Search product guides, FAQs, and setup resources..."
-                  />
-                  <Search className="absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" aria-hidden="true" />
-                </label>
-                <button className="h-11 rounded-md bg-white/10 px-5 text-sm font-bold text-white">English</button>
-              </div>
-            </div>
-          </div>
-
-          <div className="mt-11 flex flex-col gap-4 border-t border-white/10 pt-7 text-xs text-zinc-400 md:flex-row md:items-center md:justify-between">
-            <p>© {new Date().getFullYear()} Pesaby Technologies Ltd. All rights reserved.</p>
-            <div className="flex flex-wrap gap-4">
-              {['Contact Us', 'Security', 'Compliance', 'Terms of Service', 'Privacy Policy', 'Refund Policy', 'Cookie Policy', 'Status'].map((item) => (
-                <Link key={item} href="#" className="hover:text-zinc-200">
-                  {item}
-                </Link>
               ))}
             </div>
           </div>
-        </div>
-      </footer>
+        </section>
+
+        {/* CTA Section */}
+        <section className="section-dark py-20 md:py-28">
+          <div className="mx-auto max-w-4xl px-5 sm:px-6 lg:px-8 text-center">
+            <h2 className="text-4xl md:text-5xl font-bold text-white mb-6">Ready to transform your business?</h2>
+            <p className="text-section-dark-muted text-lg mb-8">Join thousands of businesses already using Pesaby to streamline operations and grow faster.</p>
+            <div className="flex flex-col items-center justify-center gap-4 sm:flex-row">
+              <Link href="/sign-up" className="inline-flex h-12 items-center justify-center gap-2 rounded-lg bg-white px-8 text-base font-bold text-section-dark-bg shadow-lg transition hover:-translate-y-0.5">
+                Start Your Free Trial
+                <ArrowRight className="h-5 w-5" aria-hidden="true" />
+              </Link>
+              <Link href="mailto:sales@pesaby.com" className="inline-flex h-12 items-center justify-center rounded-lg border-2 border-white text-white px-8 text-base font-bold transition hover:bg-white/10">
+                Contact Sales
+              </Link>
+            </div>
+          </div>
+        </section>
+
+        {/* Footer */}
+        <footer className="bg-background border-t border-border">
+          <div className="mx-auto max-w-7xl px-5 sm:px-6 lg:px-8 py-12">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
+              {Object.entries(footerLinks).map(([category, links]) => (
+                <div key={category}>
+                  <h3 className="font-bold mb-4">{category}</h3>
+                  <ul className="space-y-2 text-sm text-muted-foreground">
+                    {links.map((link) => (
+                      <li key={link}>
+                        <Link href="#" className="hover:text-foreground transition">
+                          {link}
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+            <div className="border-t border-border pt-8 flex flex-col md:flex-row justify-between items-center gap-4 text-sm text-muted-foreground">
+              <p>&copy; 2025 Pesaby. All rights reserved.</p>
+              <div className="flex gap-6">
+                <Link href="#" className="hover:text-foreground transition">Privacy</Link>
+                <Link href="#" className="hover:text-foreground transition">Terms</Link>
+                <Link href="#" className="hover:text-foreground transition">Contact</Link>
+              </div>
+            </div>
+          </div>
+        </footer>
+      </main>
     </div>
   )
 }
