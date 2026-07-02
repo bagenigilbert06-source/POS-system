@@ -110,14 +110,14 @@ const footerLinks = {
 
 function Logo() {
   return (
-    <Link href="/" className="flex items-center gap-3 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 focus-visible:ring-offset-2">
-      <span className="relative flex h-10 w-10 items-center justify-center rounded-xl bg-[#005a43] shadow-sm">
-        <span className="absolute right-1.5 top-1.5 h-2.5 w-2.5 rounded-full bg-emerald-200" />
-        <span className="text-xl font-black tracking-tight text-white">P</span>
+    <Link href="/" className="flex items-center gap-3 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2">
+      <span className="relative flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-blue-600 to-blue-700 shadow-lg shadow-blue-600/30">
+        <span className="absolute right-1 top-1 h-3 w-3 rounded-full bg-blue-300 opacity-60" />
+        <span className="text-2xl font-black tracking-tight text-white">P</span>
       </span>
       <span className="leading-none">
-        <span className="block text-lg font-black tracking-tight text-zinc-950">Pesaby</span>
-        <span className="block text-[10px] font-bold uppercase tracking-[0.18em] text-zinc-500">Business OS</span>
+        <span className="block text-lg font-black tracking-tight text-slate-950">Pesaby</span>
+        <span className="block text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500">Business OS</span>
       </span>
     </Link>
   )
@@ -126,46 +126,46 @@ function Logo() {
 function ProductMockup() {
   return (
     <div className="relative mx-auto max-w-4xl">
-      <div className="absolute -left-5 top-12 z-10 hidden w-44 rounded-xl border border-emerald-100 bg-white p-4 shadow-2xl shadow-emerald-950/15 lg:block">
+      <div className="absolute -left-6 top-16 z-10 hidden w-48 rounded-xl border border-blue-300 bg-white p-4 shadow-2xl lg:block">
         <div className="mb-3 flex items-center gap-2">
-          <div className="flex h-9 w-9 items-center justify-center rounded-md bg-emerald-100 text-emerald-700">
+          <div className="flex h-9 w-9 items-center justify-center rounded-md bg-blue-100 text-blue-600">
             <BellRing className="h-4 w-4" aria-hidden="true" />
           </div>
           <div>
-            <p className="text-xs font-black text-zinc-950">Low stock</p>
-            <p className="text-[11px] text-zinc-500">18 items</p>
+            <p className="text-xs font-black text-slate-950">Low stock alert</p>
+            <p className="text-[11px] text-slate-500">18 items</p>
           </div>
         </div>
-        <div className="h-2 rounded-full bg-zinc-100">
-          <div className="h-2 w-2/3 rounded-full bg-[#005a43]" />
+        <div className="h-2 rounded-full bg-slate-100">
+          <div className="h-2 w-2/3 rounded-full bg-blue-600" />
         </div>
       </div>
 
-      <div className="absolute -right-5 bottom-12 z-10 hidden w-52 rounded-xl border border-emerald-100 bg-white p-4 shadow-2xl shadow-emerald-950/15 lg:block">
-        <p className="text-xs font-extrabold uppercase tracking-wide text-zinc-500">Today</p>
-        <p className="mt-1 text-2xl font-black tracking-tight text-[#005a43]">KES 842K</p>
-        <p className="mt-1 text-[11px] font-bold text-emerald-700">+18% vs yesterday</p>
+      <div className="absolute -right-6 bottom-16 z-10 hidden w-52 rounded-xl border border-blue-300 bg-white p-4 shadow-2xl lg:block">
+        <p className="text-xs font-extrabold uppercase tracking-wide text-slate-500">Today Sales</p>
+        <p className="mt-1 text-2xl font-black tracking-tight text-blue-600">KES 842K</p>
+        <p className="mt-1 text-[11px] font-bold text-green-600">+18% vs yesterday</p>
       </div>
 
-      <div className="overflow-hidden rounded-2xl border border-white/20 bg-white shadow-[0_35px_100px_rgba(0,54,39,0.28)]">
-        <div className="flex items-center justify-between border-b border-emerald-900/20 bg-[#071f18] px-5 py-4 text-white">
-          <div className="flex items-center gap-2">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/10">
-              <Store className="h-4 w-4" aria-hidden="true" />
+      <div className="overflow-hidden rounded-3xl border border-white/20 bg-white shadow-[0_40px_120px_rgba(37,99,235,0.15)]">
+        <div className="flex items-center justify-between border-b border-slate-200 bg-gradient-to-r from-slate-900 to-blue-900 px-6 py-4 text-white">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-white/10 backdrop-blur">
+              <Store className="h-5 w-5" aria-hidden="true" />
             </div>
             <div>
               <p className="text-sm font-extrabold">Nairobi CBD</p>
-              <p className="text-[11px] text-emerald-100/70">Live register</p>
+              <p className="text-[11px] text-blue-200">Live register</p>
             </div>
           </div>
-          <span className="rounded-full bg-emerald-300/15 px-3 py-1 text-[11px] font-extrabold text-emerald-100">Synced</span>
+          <span className="rounded-full bg-blue-400/20 px-3 py-1 text-[11px] font-extrabold text-blue-100">Synced</span>
         </div>
 
-        <div className="grid min-h-[440px] bg-[#f6fbf8] md:grid-cols-[0.72fr_1.28fr]">
-          <div className="border-b border-emerald-100 bg-white p-5 md:border-b-0 md:border-r">
+        <div className="grid min-h-[440px] bg-gradient-to-br from-slate-50 to-blue-50 md:grid-cols-[0.72fr_1.28fr]">
+          <div className="border-b border-slate-200 bg-white p-5 md:border-b-0 md:border-r">
             <div className="mb-4 flex items-center justify-between">
-              <p className="text-sm font-extrabold text-zinc-950">Checkout</p>
-              <ReceiptText className="h-4 w-4 text-[#005a43]" aria-hidden="true" />
+              <p className="text-sm font-extrabold text-slate-950">Checkout</p>
+              <ReceiptText className="h-4 w-4 text-blue-600" aria-hidden="true" />
             </div>
             {[
               ['Arabica coffee', '2 x 450', '900'],
@@ -173,20 +173,20 @@ function ProductMockup() {
               ['Sugar 1kg', '1 x 180', '180'],
               ['Bread loaf', '3 x 70', '210'],
             ].map(([name, qty, total]) => (
-              <div key={name} className="grid grid-cols-[1fr_auto] gap-3 border-b border-emerald-50 py-3 text-sm last:border-b-0">
+              <div key={name} className="grid grid-cols-[1fr_auto] gap-3 border-b border-slate-100 py-3 text-sm last:border-b-0">
                 <div>
-                  <p className="font-bold text-zinc-950">{name}</p>
-                  <p className="mt-0.5 text-xs text-zinc-500">{qty}</p>
+                  <p className="font-bold text-slate-950">{name}</p>
+                  <p className="mt-0.5 text-xs text-slate-500">{qty}</p>
                 </div>
-                <p className="font-extrabold text-zinc-950">{total}</p>
+                <p className="font-extrabold text-slate-950">{total}</p>
               </div>
             ))}
-            <div className="mt-5 rounded-xl bg-[#005a43] p-4 text-white shadow-lg shadow-emerald-900/15">
+            <div className="mt-5 rounded-xl bg-gradient-to-br from-blue-600 to-blue-700 p-4 text-white shadow-lg">
               <div className="flex items-center justify-between text-sm">
-                <span className="font-bold text-emerald-100">Total</span>
+                <span className="font-bold text-blue-100">Total</span>
                 <span className="text-2xl font-black tracking-tight">KES 1,610</span>
               </div>
-              <button className="mt-4 flex h-11 w-full items-center justify-center rounded-lg bg-white text-sm font-extrabold text-[#005a43]">
+              <button className="mt-4 flex h-11 w-full items-center justify-center rounded-lg bg-white text-sm font-extrabold text-blue-600 hover:bg-blue-50 transition">
                 Complete sale
               </button>
             </div>
@@ -199,38 +199,38 @@ function ProductMockup() {
                 ['Orders', '1,284'],
                 ['Margin', '31%'],
               ].map(([label, value]) => (
-                <div key={label} className="rounded-xl border border-emerald-100 bg-white p-4">
-                  <p className="text-[11px] font-bold text-zinc-500">{label}</p>
-                  <p className="mt-1 text-xl font-black text-[#005a43]">{value}</p>
+                <div key={label} className="rounded-xl border border-blue-200 bg-white p-4 hover:border-blue-300 hover:shadow-md transition">
+                  <p className="text-[11px] font-bold text-slate-500">{label}</p>
+                  <p className="mt-1 text-xl font-black text-blue-600">{value}</p>
                 </div>
               ))}
             </div>
-            <div className="mt-3 rounded-xl border border-emerald-100 bg-white p-4">
+            <div className="mt-3 rounded-xl border border-blue-200 bg-white p-4">
               <div className="mb-4 flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-extrabold text-zinc-950">Sales momentum</p>
-                  <p className="text-xs text-zinc-500">Last 12 hours</p>
+                  <p className="text-sm font-extrabold text-slate-950">Sales momentum</p>
+                  <p className="text-xs text-slate-500">Last 12 hours</p>
                 </div>
-                <BarChart3 className="h-4 w-4 text-[#005a43]" aria-hidden="true" />
+                <BarChart3 className="h-4 w-4 text-blue-600" aria-hidden="true" />
               </div>
               <div className="flex h-36 items-end gap-2">
                 {[38, 48, 43, 62, 58, 76, 68, 88, 80, 98, 92, 110].map((height, index) => (
-                  <div key={index} className="flex flex-1 items-end rounded-t bg-emerald-50" style={{ height: `${Math.max(height - 16, 25)}%` }}>
-                    <div className="w-full rounded-t bg-[#005a43]" style={{ height: `${height}%` }} />
+                  <div key={index} className="flex flex-1 items-end rounded-t bg-blue-100" style={{ height: `${Math.max(height - 16, 25)}%` }}>
+                    <div className="w-full rounded-t bg-gradient-to-t from-blue-600 to-blue-500" style={{ height: `${height}%` }} />
                   </div>
                 ))}
               </div>
             </div>
             <div className="mt-3 grid gap-3 sm:grid-cols-2">
-              <div className="rounded-xl border border-emerald-100 bg-white p-4">
-                <Truck className="h-5 w-5 text-[#005a43]" aria-hidden="true" />
-                <p className="mt-3 text-sm font-extrabold text-zinc-950">Supplier reorder</p>
-                <p className="mt-1 text-xs leading-5 text-zinc-500">Ready for 6 fast-moving products.</p>
+              <div className="rounded-xl border border-blue-200 bg-white p-4 hover:border-blue-300 hover:shadow-md transition">
+                <Truck className="h-5 w-5 text-blue-600" aria-hidden="true" />
+                <p className="mt-3 text-sm font-extrabold text-slate-950">Supplier reorder</p>
+                <p className="mt-1 text-xs leading-5 text-slate-500">Ready for 6 fast-moving products.</p>
               </div>
-              <div className="rounded-xl border border-emerald-100 bg-white p-4">
-                <CreditCard className="h-5 w-5 text-[#005a43]" aria-hidden="true" />
-                <p className="mt-3 text-sm font-extrabold text-zinc-950">Payments matched</p>
-                <p className="mt-1 text-xs leading-5 text-zinc-500">Cash, card, and mobile money.</p>
+              <div className="rounded-xl border border-blue-200 bg-white p-4 hover:border-blue-300 hover:shadow-md transition">
+                <CreditCard className="h-5 w-5 text-blue-600" aria-hidden="true" />
+                <p className="mt-3 text-sm font-extrabold text-slate-950">Payments matched</p>
+                <p className="mt-1 text-xs leading-5 text-slate-500">Cash, card, and mobile money.</p>
               </div>
             </div>
           </div>
@@ -245,83 +245,81 @@ export default async function RootPage() {
   if (session?.user) redirect('/dashboard')
 
   return (
-    <div className="min-h-screen bg-[#fbfaf6] font-sans text-zinc-950">
-      <header className="sticky top-0 z-50 bg-white">
-        <div className="border-b border-zinc-200 shadow-[0_2px_12px_rgba(0,0,0,0.05)]">
-          <div className="mx-auto flex h-[72px] max-w-7xl items-center justify-between px-5 sm:px-6 lg:px-8">
-            <Logo />
-            <nav className="hidden items-center gap-6 lg:flex" aria-label="Primary navigation">
-              {navItems.map((item) => (
-                <div key={item.label} className="group relative">
-                  <Link href={item.href} className="inline-flex h-10 items-center gap-1 text-sm font-medium text-zinc-700 transition hover:text-emerald-800">
-                    {item.label}
-                    {item.menu ? <ChevronDown className="h-3.5 w-3.5 transition duration-200 group-hover:rotate-180" aria-hidden="true" /> : null}
-                  </Link>
-                  {item.menu ? (
-                    <div className="invisible absolute left-1/2 top-full z-50 w-64 -translate-x-1/2 translate-y-3 rounded-xl border border-zinc-200 bg-white p-2 opacity-0 shadow-[0_20px_60px_rgba(24,24,27,0.14)] transition-all duration-200 group-hover:visible group-hover:translate-y-1 group-hover:opacity-100 group-focus-within:visible group-focus-within:translate-y-1 group-focus-within:opacity-100">
-                      <div className="absolute -top-3 left-0 h-3 w-full" />
-                      {item.menu.map((entry) => (
-                        <Link
-                          key={entry}
-                          href={item.href}
-                          className="block rounded-lg px-3 py-2.5 text-sm font-semibold text-zinc-700 transition hover:bg-[#f4efe4] hover:text-zinc-950"
-                        >
-                          {entry}
-                        </Link>
-                      ))}
-                    </div>
-                  ) : null}
-                </div>
-              ))}
-            </nav>
-            <div className="flex items-center gap-2">
-              <Link href="/sign-in" className="hidden px-3 py-2 text-sm font-semibold text-zinc-700 transition hover:text-zinc-950 sm:inline-flex">
-                Sign in
-              </Link>
-              <Link href="/sign-up" className="inline-flex h-10 items-center justify-center rounded-md bg-[#d92534] px-5 text-sm font-bold text-white shadow-sm transition hover:bg-[#bd1e2b]">
-                Get Started
-              </Link>
-            </div>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50/30 font-sans text-slate-950">
+      <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-xl border-b border-slate-100 shadow-sm">
+        <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-5 sm:px-6 lg:px-8">
+          <Logo />
+          <nav className="hidden items-center gap-8 lg:flex" aria-label="Primary navigation">
+            {navItems.map((item) => (
+              <div key={item.label} className="group relative">
+                <Link href={item.href} className="inline-flex h-10 items-center gap-1.5 text-sm font-semibold text-slate-700 transition hover:text-blue-600">
+                  {item.label}
+                  {item.menu ? <ChevronDown className="h-4 w-4 transition duration-200 group-hover:rotate-180" aria-hidden="true" /> : null}
+                </Link>
+                {item.menu ? (
+                  <div className="invisible absolute left-1/2 top-full z-50 w-56 -translate-x-1/2 translate-y-4 rounded-xl border border-slate-100 bg-white p-2 opacity-0 shadow-[0_20px_60px_rgba(15,23,42,0.12)] transition-all duration-200 group-hover:visible group-hover:translate-y-2 group-hover:opacity-100 group-focus-within:visible group-focus-within:translate-y-2 group-focus-within:opacity-100">
+                    <div className="absolute -top-4 left-1/2 -translate-x-1/2 h-4 w-full" />
+                    {item.menu.map((entry) => (
+                      <Link
+                        key={entry}
+                        href={item.href}
+                        className="block rounded-lg px-3 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-blue-50 hover:text-blue-600"
+                      >
+                        {entry}
+                      </Link>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+            ))}
+          </nav>
+          <div className="flex items-center gap-3">
+            <Link href="/sign-in" className="hidden px-4 py-2 text-sm font-semibold text-slate-700 transition hover:text-blue-600 sm:inline-flex">
+              Sign in
+            </Link>
+            <Link href="/sign-up" className="inline-flex h-10 items-center justify-center rounded-lg bg-gradient-to-r from-blue-600 to-blue-700 px-6 text-sm font-bold text-white shadow-lg shadow-blue-600/30 transition hover:from-blue-700 hover:to-blue-800 hover:shadow-lg hover:shadow-blue-700/40">
+              Get Started
+            </Link>
           </div>
         </div>
       </header>
 
       <main>
-        <section className="relative overflow-hidden bg-white">
-          <div className="absolute inset-x-0 top-0 h-44 bg-[linear-gradient(180deg,#f3f8ef_0%,#ffffff_100%)]" aria-hidden="true" />
-          <div className="relative mx-auto max-w-7xl px-5 pb-14 pt-12 sm:px-6 lg:px-8 lg:pb-20 lg:pt-16">
+        <section className="relative overflow-hidden">
+          <div className="absolute inset-x-0 top-0 h-96 bg-gradient-to-b from-blue-600/5 to-transparent pointer-events-none" aria-hidden="true" />
+          <div className="relative mx-auto max-w-7xl px-5 pb-12 pt-16 sm:px-6 lg:px-8 lg:pb-20 lg:pt-20">
             <div className="mx-auto max-w-4xl text-center">
-              <div className="mx-auto mb-5 inline-flex items-center gap-2 rounded-full border border-emerald-100 bg-emerald-50 px-4 py-2 text-xs font-bold text-emerald-900">
+              <div className="mx-auto mb-6 inline-flex items-center gap-2 rounded-full border border-blue-200 bg-blue-50 px-4 py-2 text-xs font-bold text-blue-700">
                 <Sparkles className="h-4 w-4" aria-hidden="true" />
                 All-in-one POS and business management suite
               </div>
-              <h1 className="text-4xl font-extrabold leading-[1.04] tracking-tight text-zinc-950 sm:text-5xl lg:text-6xl">
-                Sell smarter. Track stock faster. Run every branch from one place.
+              <h1 className="text-5xl font-black leading-[1.1] tracking-tight text-slate-950 sm:text-6xl lg:text-7xl">
+                <span className="bg-gradient-to-r from-blue-600 to-slate-900 bg-clip-text text-transparent">Sell smarter.</span> Track stock faster. Run every branch.
               </h1>
-              <p className="mx-auto mt-5 max-w-3xl text-base leading-7 text-zinc-600 sm:text-lg">
-                Pesaby gives retailers, restaurants, pharmacies, salons, and wholesalers a modern operating system for checkout, inventory, payments, customers, suppliers, and daily reporting.
+              <p className="mx-auto mt-6 max-w-2xl text-lg leading-8 text-slate-600 sm:text-xl">
+                Pesaby gives retailers, restaurants, pharmacies, and wholesalers a modern operating system for checkout, inventory, payments, customers, and daily reporting.
               </p>
-              <div className="mt-7 flex flex-col items-center justify-center gap-3 sm:flex-row">
-                <Link href="/sign-up" className="inline-flex h-12 items-center justify-center gap-2 rounded-md bg-[#d92534] px-7 text-sm font-bold text-white shadow-lg shadow-red-700/15 transition hover:-translate-y-0.5 hover:bg-[#bd1e2b]">
+              <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
+                <Link href="/sign-up" className="inline-flex h-12 items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-blue-600 to-blue-700 px-8 text-base font-bold text-white shadow-xl shadow-blue-600/40 transition hover:from-blue-700 hover:to-blue-800 hover:shadow-xl hover:shadow-blue-700/50">
                   Activate free trial
-                  <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                  <ArrowRight className="h-5 w-5" aria-hidden="true" />
                 </Link>
-                <Link href="mailto:hello@pesaby.com" className="inline-flex h-12 items-center justify-center rounded-md bg-zinc-950 px-7 text-sm font-bold text-white transition hover:bg-[#005a43]">
+                <Link href="mailto:hello@pesaby.com" className="inline-flex h-12 items-center justify-center rounded-lg border-2 border-slate-900 bg-white px-8 text-base font-bold text-slate-900 transition hover:bg-slate-50">
                   Contact sales
                 </Link>
               </div>
-              <div className="mt-5 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm font-medium text-zinc-700">
-                {['Free for 30 days', 'No card details required', 'Free support and training'].map((item) => (
+              <div className="mt-8 flex flex-wrap items-center justify-center gap-x-8 gap-y-3 text-sm font-semibold text-slate-700">
+                {['Free for 30 days', 'No card required', 'Premium support'].map((item) => (
                   <span key={item} className="inline-flex items-center gap-2">
-                    <Check className="h-4 w-4 text-[#00a650]" aria-hidden="true" />
+                    <Check className="h-5 w-5 text-blue-600 flex-shrink-0" aria-hidden="true" />
                     {item}
                   </span>
                 ))}
               </div>
             </div>
           </div>
-          <div className="relative overflow-hidden bg-[#005a43] pb-14 pt-14 lg:pb-20">
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_30%,rgba(255,255,255,0.16),transparent_34%),linear-gradient(180deg,rgba(255,255,255,0.08),transparent)]" aria-hidden="true" />
+          <div className="relative overflow-hidden bg-gradient-to-br from-slate-900 via-blue-900 to-slate-950 pb-16 pt-16 lg:pb-24 lg:pt-20">
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(59,130,246,0.15),transparent_40%),radial-gradient(circle_at_70%_60%,rgba(29,78,216,0.1),transparent_50%)]" aria-hidden="true" />
             <div className="mx-auto max-w-7xl px-5 sm:px-6 lg:px-8">
               <div className="relative">
                 <ProductMockup />
@@ -330,25 +328,34 @@ export default async function RootPage() {
           </div>
         </section>
 
-        <section id="customers" className="bg-white py-16">
-          <div className="mx-auto max-w-6xl px-5 text-center sm:px-6 lg:px-8">
-            <div className="inline-flex items-center gap-2 text-base text-zinc-950">
-              <Star className="h-5 w-5 fill-[#f5a400] text-[#f5a400]" aria-hidden="true" />
-              <span className="text-xl font-extrabold">4.8/5</span>
-              <span>based on growing business feedback</span>
-            </div>
-            <div className="mx-auto mt-10 grid max-w-5xl border-y border-zinc-200 md:grid-cols-3">
-              {stats.map(([value, label]) => (
-                <div key={label} className="border-b border-zinc-200 px-6 py-7 md:border-b-0 md:border-r md:last:border-r-0">
-                  <p className="text-4xl font-extrabold tracking-tight text-zinc-950 lg:text-5xl">{value}</p>
-                  <p className="mt-3 text-sm font-medium text-zinc-700">{label}</p>
+        <section id="customers" className="bg-white py-20 lg:py-28">
+          <div className="mx-auto max-w-7xl px-5 sm:px-6 lg:px-8">
+            <div className="text-center mb-16">
+              <div className="inline-flex items-center gap-3 mb-6">
+                <div className="flex gap-1">
+                  {[...Array(5)].map((_, i) => (
+                    <Star key={i} className="h-5 w-5 fill-amber-400 text-amber-400" aria-hidden="true" />
+                  ))}
                 </div>
-              ))}
+                <span className="text-lg font-bold text-slate-900">4.8/5</span>
+                <span className="text-slate-600">from trusted businesses</span>
+              </div>
+              <div className="mx-auto max-w-5xl grid md:grid-cols-3 gap-8">
+                {stats.map(([value, label]) => (
+                  <div key={label} className="flex flex-col items-center">
+                    <p className="text-5xl lg:text-6xl font-black text-slate-900">{value}</p>
+                    <p className="mt-3 text-base font-semibold text-slate-600">{label}</p>
+                  </div>
+                ))}
+              </div>
             </div>
-            <div className="mx-auto mt-10 flex max-w-4xl flex-wrap items-center justify-center gap-x-10 gap-y-4 text-lg font-extrabold text-zinc-300">
-              {['RetailCo', 'FreshMart', 'MedPlus', 'Hardware Hub', 'Table House', 'BeautyPro'].map((logo) => (
-                <span key={logo}>{logo}</span>
-              ))}
+            <div className="mt-20 pt-16 border-t border-slate-200">
+              <p className="text-center text-sm font-semibold uppercase tracking-widest text-slate-500 mb-8">Trusted by thousands</p>
+              <div className="flex flex-wrap items-center justify-center gap-12 text-slate-400 font-bold text-lg">
+                {['RetailCo', 'FreshMart', 'MedPlus', 'Hardware Hub', 'Table House', 'BeautyPro'].map((logo) => (
+                  <span key={logo} className="hover:text-slate-600 transition">{logo}</span>
+                ))}
+              </div>
             </div>
           </div>
         </section>
@@ -357,39 +364,49 @@ export default async function RootPage() {
 
         <PlatformSuite />
 
-        <section id="concierge" className="bg-white py-20 lg:py-28">
+        <section id="concierge" className="bg-gradient-to-b from-white to-blue-50/50 py-20 lg:py-28">
           <div className="mx-auto max-w-7xl px-5 sm:px-6 lg:px-8">
-            <h2 className="max-w-3xl text-5xl font-black leading-tight tracking-tight text-zinc-950 sm:text-6xl">
-              Ease into a new way of running your business.
+            <h2 className="max-w-3xl text-5xl font-black leading-tight tracking-tight text-slate-950 sm:text-6xl mb-4">
+              Get started in minutes.
             </h2>
-            <div className="mt-16 grid gap-12 lg:grid-cols-[0.95fr_1.05fr] lg:items-center">
+            <p className="max-w-2xl text-xl text-slate-600 mb-16">
+              No lengthy setup. Our guided onboarding gets you selling in minutes.
+            </p>
+            <div className="mt-12 grid gap-12 lg:grid-cols-[1fr_1.1fr] lg:items-stretch">
               <div>
-                <div className="border-b-2 border-zinc-950 bg-[#f5f0e4] p-8">
+                <div className="border-l-4 border-blue-600 bg-gradient-to-br from-blue-50 to-blue-100/50 p-8 rounded-lg">
                   <div className="flex items-start gap-4">
-                    <PackageCheck className="mt-1 h-6 w-6 text-zinc-950" aria-hidden="true" />
+                    <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-600 text-white flex-shrink-0">
+                      <PackageCheck className="h-6 w-6" aria-hidden="true" />
+                    </div>
                     <div>
-                      <h3 className="text-2xl font-black text-zinc-950">{setupSteps[0].title}</h3>
-                      <p className="mt-5 max-w-lg text-base leading-7 text-zinc-950">{setupSteps[0].text}</p>
+                      <h3 className="text-2xl font-black text-slate-950">{setupSteps[0].title}</h3>
+                      <p className="mt-3 max-w-lg text-base leading-7 text-slate-700">{setupSteps[0].text}</p>
                     </div>
                   </div>
                 </div>
-                <div className="space-y-8 px-8 py-8">
-                  {setupSteps.slice(1).map((step) => {
+                <div className="space-y-6 mt-6 pl-6 border-l-2 border-slate-200">
+                  {setupSteps.slice(1).map((step, idx) => {
                     const Icon = step.icon
                     return (
-                      <div key={step.title} className="flex items-center gap-4">
-                        <Icon className="h-6 w-6 text-zinc-950" aria-hidden="true" />
-                        <h3 className="text-2xl font-black text-zinc-950">{step.title}</h3>
+                      <div key={step.title} className="flex items-start gap-4 relative">
+                        <div className="absolute -left-8 top-0 flex h-12 w-12 items-center justify-center rounded-full bg-white border-2 border-blue-600 text-blue-600 font-bold flex-shrink-0">
+                          {idx + 2}
+                        </div>
+                        <div className="pt-1">
+                          <h3 className="text-xl font-black text-slate-950">{step.title}</h3>
+                        </div>
                       </div>
                     )
                   })}
                 </div>
               </div>
-              <div className="relative mx-auto aspect-square w-full max-w-[480px] overflow-hidden rounded-lg bg-[#f6f0df]">
-                <div className="absolute inset-0 bg-[linear-gradient(30deg,rgba(0,0,0,0.05)_12%,transparent_12.5%,transparent_87%,rgba(0,0,0,0.05)_87.5%,rgba(0,0,0,0.05)),linear-gradient(150deg,rgba(0,0,0,0.05)_12%,transparent_12.5%,transparent_87%,rgba(0,0,0,0.05)_87.5%,rgba(0,0,0,0.05))] bg-[length:82px_142px]" aria-hidden="true" />
-                <div className="absolute left-1/2 top-1/2 flex h-32 w-32 -translate-x-1/2 -translate-y-1/2 items-center justify-center bg-[#005a43] shadow-[0_0_60px_rgba(0,90,67,0.28)]">
-                  <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-white text-4xl font-black text-[#005a43] shadow-sm">
-                    P
+              <div className="relative mx-auto w-full max-w-[480px] overflow-hidden rounded-2xl bg-gradient-to-br from-slate-900 to-blue-900 p-8 shadow-2xl">
+                <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(59,130,246,0.2),transparent_40%)]" aria-hidden="true" />
+                <div className="absolute left-1/2 top-1/2 flex h-40 w-40 -translate-x-1/2 -translate-y-1/2 items-center justify-center">
+                  <div className="absolute inset-0 bg-gradient-to-br from-blue-400 to-blue-600 rounded-3xl opacity-20 blur-2xl" />
+                  <div className="relative flex h-24 w-24 items-center justify-center rounded-2xl bg-white shadow-2xl">
+                    <span className="text-5xl font-black text-blue-600">P</span>
                   </div>
                 </div>
                 {[
@@ -409,25 +426,25 @@ export default async function RootPage() {
           </div>
         </section>
 
-        <section id="features" className="bg-[#fbfaf6] py-20 lg:py-24">
+        <section id="features" className="bg-white py-20 lg:py-28">
           <div className="mx-auto max-w-7xl px-5 sm:px-6 lg:px-8">
-            <div className="mx-auto max-w-3xl text-center">
-              <p className="text-sm font-black uppercase tracking-[0.22em] text-emerald-800">Reliable All-In-One Solution</p>
-              <h2 className="mt-5 text-4xl font-black tracking-tight text-zinc-950 sm:text-5xl">
-                The tools growing businesses usually buy separately, finally working together.
+            <div className="mx-auto max-w-3xl text-center mb-16">
+              <p className="text-sm font-black uppercase tracking-widest text-blue-600 mb-4">Why Choose Pesaby</p>
+              <h2 className="text-5xl font-black tracking-tight text-slate-950 sm:text-6xl">
+                Everything your business needs in one place.
               </h2>
             </div>
 
-            <div className="mt-12 grid gap-6 lg:grid-cols-3">
+            <div className="mt-16 grid gap-8 lg:grid-cols-3">
               {reliability.map((item) => {
                 const Icon = item.icon
                 return (
-                  <div key={item.title}>
-                    <div className="flex aspect-[1.55] items-center justify-center rounded-lg bg-[#005a43] text-white">
-                      <Icon className="h-16 w-16 text-emerald-100" strokeWidth={1.5} aria-hidden="true" />
+                  <div key={item.title} className="rounded-2xl border border-slate-200 bg-gradient-to-br from-white to-slate-50 p-8 hover:border-blue-200 hover:shadow-lg transition duration-300">
+                    <div className="flex h-16 w-16 items-center justify-center rounded-xl bg-gradient-to-br from-blue-100 to-blue-50 text-blue-600">
+                      <Icon className="h-8 w-8" strokeWidth={1.5} aria-hidden="true" />
                     </div>
-                    <h3 className="mt-6 text-2xl font-black tracking-tight text-zinc-950">{item.title}</h3>
-                    <p className="mt-4 text-base leading-7 text-zinc-700">{item.text}</p>
+                    <h3 className="mt-6 text-2xl font-black tracking-tight text-slate-950">{item.title}</h3>
+                    <p className="mt-4 text-base leading-7 text-slate-600">{item.text}</p>
                   </div>
                 )
               })}
@@ -435,34 +452,35 @@ export default async function RootPage() {
           </div>
         </section>
 
-        <section id="industries" className="bg-white py-20 lg:py-24">
+        <section id="industries" className="bg-gradient-to-b from-blue-50/50 to-white py-20 lg:py-28">
           <div className="mx-auto max-w-7xl px-5 sm:px-6 lg:px-8">
-            <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+            <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between mb-16">
               <div className="max-w-2xl">
-                <p className="text-sm font-black uppercase tracking-[0.22em] text-emerald-800">Industries</p>
-                <h2 className="mt-5 text-4xl font-black tracking-tight text-zinc-950 sm:text-5xl">Made for businesses that move products and serve customers every day.</h2>
+                <p className="text-sm font-black uppercase tracking-widest text-blue-600 mb-4">Solutions</p>
+                <h2 className="text-5xl font-black tracking-tight text-slate-950 sm:text-6xl">Built for every type of business.</h2>
               </div>
-              <Link href="/industries" className="inline-flex items-center gap-2 text-sm font-black text-emerald-800 hover:text-emerald-950">
-                Explore industries
-                <ArrowRight className="h-4 w-4" aria-hidden="true" />
+              <Link href="/industries" className="inline-flex items-center gap-2 text-base font-bold text-blue-600 hover:text-blue-700 group">
+                Explore all
+                <ArrowRight className="h-5 w-5 group-hover:translate-x-1 transition" aria-hidden="true" />
               </Link>
             </div>
 
-            <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
               {industryCards.map((industry) => (
-                <Link key={industry.name} href="/industries" className="group overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-xl hover:shadow-zinc-950/10">
-                  <div className="relative aspect-[1.2] overflow-hidden bg-zinc-100">
+                <Link key={industry.name} href="/industries" className="group relative overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-xl hover:border-blue-300">
+                  <div className="relative aspect-[1.2] overflow-hidden bg-gradient-to-br from-slate-100 to-slate-200">
                     <Image
                       src={industry.image}
                       alt={industry.name}
                       fill
                       sizes="(max-width: 1024px) 50vw, 25vw"
-                      className="object-cover transition duration-500 group-hover:scale-105"
+                      className="object-cover transition duration-500 group-hover:scale-110"
                     />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition duration-300" />
                   </div>
-                  <div className="p-5">
-                    <h3 className="text-xl font-black text-zinc-950">{industry.name}</h3>
-                    <p className="mt-2 text-sm leading-6 text-zinc-600">{industry.line}</p>
+                  <div className="p-6">
+                    <h3 className="text-xl font-black text-slate-950">{industry.name}</h3>
+                    <p className="mt-3 text-sm leading-6 text-slate-600">{industry.line}</p>
                   </div>
                 </Link>
               ))}
