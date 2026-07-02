@@ -16,7 +16,7 @@ const carouselSlides = [
       text: 'Your Store Smarter',
     },
     description: 'Get ready for modern retail. Run inventory, track sales, manage staff, and grow your business all in one powerful platform.',
-    image: '/images/retail-dashboard.png',
+    image: '/images/pos-terminal-1.png',
     accentColor: 'emerald',
   },
   {
@@ -26,8 +26,8 @@ const carouselSlides = [
       colored: 'Track',
       text: 'Every Item Perfectly',
     },
-    description: 'Real-time stock visibility across all branches with barcode scanning. Never run out of bestsellers or waste money on overstocking.',
-    image: '/images/barcode-inventory.png',
+    description: 'Real-time stock visibility across all branches. Never run out of bestsellers or waste money on overstocking.',
+    image: '/images/pos-inventory.png',
     accentColor: 'emerald',
   },
   {
@@ -38,16 +38,15 @@ const carouselSlides = [
       text: 'Every Payment Method',
     },
     description: 'Cash, cards, mobile money, and digital wallets. Process payments instantly and securely with automatic reconciliation.',
-    image: '/images/pos-payment-terminal.png',
+    image: '/images/pos-dashboard.png',
     accentColor: 'emerald',
   },
 ]
 
 export function HeroCarousel() {
-  const [emblaRef, emblaApi] = useEmblaCarousel(
-    { loop: true, duration: 800 },
-    [Autoplay({ delay: 7000, stopOnInteraction: false })]
-  )
+  const [emblaRef, emblaApi] = useEmblaCarousel({ loop: true }, [
+    Autoplay({ delay: 6000, stopOnInteraction: false }),
+  ])
   const [selectedIndex, setSelectedIndex] = useState(0)
 
   useEffect(() => {
@@ -73,19 +72,16 @@ export function HeroCarousel() {
 
       <div ref={emblaRef} className="overflow-hidden">
         <div className="flex">
-          {carouselSlides.map((s, idx) => (
+          {carouselSlides.map((s) => (
             <div
               key={s.id}
-              className="min-w-full flex-shrink-0 pt-0"
+              className="min-w-full flex-shrink-0 transition-all duration-1000 ease-out pt-0"
             >
-              <div
-                className={`mx-auto max-w-7xl px-5 sm:px-6 lg:px-8 relative z-10 transition-opacity duration-700 ease-in-out ${
-                  idx === selectedIndex ? 'opacity-100' : 'opacity-0'
-                }`}
-              >
+
+              <div className="mx-auto max-w-7xl px-5 sm:px-6 lg:px-8 relative z-10">
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-center min-h-screen lg:min-h-[600px] py-16 sm:py-20 lg:py-24">
                   {/* Left Content */}
-                  <div>
+                  <div className="animate-fade-in">
                     {/* Badge */}
                     <div className="mb-8 inline-flex items-center gap-2 rounded-full border border-emerald-300 bg-white px-4 py-2 shadow-sm">
                       <div className="h-2 w-2 rounded-full bg-emerald-600" />
@@ -104,7 +100,7 @@ export function HeroCarousel() {
                     </p>
 
                     {/* CTAs */}
-                    <div className="flex flex-col sm:flex-row gap-4 mb-10">
+                    <div className="flex flex-col sm:flex-row gap-4 mb-10 animate-fade-in-delayed">
                       <Link
                         href="/sign-up"
                         className="inline-flex h-12 items-center justify-center rounded-lg bg-gradient-to-r from-emerald-600 to-green-600 text-white font-bold shadow-xl hover:from-emerald-700 hover:to-green-700 transition-all duration-300 px-8"
@@ -121,7 +117,7 @@ export function HeroCarousel() {
                     </div>
 
                     {/* Stats Row */}
-                    <div className="grid grid-cols-3 gap-4">
+                    <div className="grid grid-cols-3 gap-4 animate-fade-in-delayed-2">
                       {[
                         { label: 'Fast Setup', value: '5 min' },
                         { label: '4.9★ Rating', value: 'Trusted' },
@@ -139,7 +135,7 @@ export function HeroCarousel() {
                   </div>
 
                   {/* Right - Product Image Area */}
-                  <div className="relative h-96 sm:h-[500px] lg:h-[600px]">
+                  <div className="relative h-96 sm:h-[500px] lg:h-[600px] animate-fade-in-right">
                     {/* Discount badge */}
                     <div className="absolute top-8 right-8 z-20 flex h-14 w-14 items-center justify-center rounded-full bg-slate-900 text-white font-bold shadow-xl text-sm">
                       Save
@@ -211,7 +207,45 @@ export function HeroCarousel() {
         ))}
       </div>
 
+      <style>{`
+        @keyframes fadeIn {
+          from {
+            opacity: 0;
+            transform: translateY(20px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
 
+        @keyframes fadeInRight {
+          from {
+            opacity: 0;
+            transform: translateX(20px);
+          }
+          to {
+            opacity: 1;
+            transform: translateX(0);
+          }
+        }
+
+        .animate-fade-in {
+          animation: fadeIn 0.8s ease-out 0.2s both;
+        }
+
+        .animate-fade-in-delayed {
+          animation: fadeIn 0.8s ease-out 0.4s both;
+        }
+
+        .animate-fade-in-delayed-2 {
+          animation: fadeIn 0.8s ease-out 0.6s both;
+        }
+
+        .animate-fade-in-right {
+          animation: fadeInRight 0.8s ease-out 0.3s both;
+        }
+      `}</style>
     </section>
   )
 }
