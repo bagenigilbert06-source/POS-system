@@ -6,59 +6,59 @@
   :root {
     /* Font variables — Inter is loaded via next/font and injected as --font-inter */
 
-    /* Light Theme - Modern Clean */
-    --background: 0 0% 98%;
-    --foreground: 210 40% 10%;
+    /* Dark Luxury Green Theme */
+    --background: 157 35% 7%;
+    --foreground: 0 0% 96%;
 
-    --card: 0 0% 100%;
-    --card-foreground: 210 40% 10%;
+    --card: 157 35% 11%;
+    --card-foreground: 0 0% 96%;
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 210 40% 10%;
+    --popover: 157 35% 11%;
+    --popover-foreground: 0 0% 96%;
 
-    --primary: 216 100% 50%;
+    --primary: 157 50% 45%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 210 20% 92%;
-    --secondary-foreground: 210 40% 20%;
+    --secondary: 157 35% 16%;
+    --secondary-foreground: 157 30% 80%;
 
-    --muted: 210 10% 90%;
-    --muted-foreground: 210 15% 50%;
+    --muted: 157 30% 20%;
+    --muted-foreground: 157 20% 60%;
 
-    --accent: 216 100% 95%;
-    --accent-foreground: 216 100% 40%;
+    --accent: 157 50% 35%;
+    --accent-foreground: 0 0% 100%;
 
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 210 15% 88%;
-    --input: 210 12% 90%;
-    --ring: 216 100% 50%;
+    --border: 157 35% 18%;
+    --input: 157 35% 14%;
+    --ring: 157 50% 45%;
     --radius: 0.625rem;
 
-    /* Dark section — used for stats, CTA, hero gradient */
-    --section-dark-bg: 216 100% 10%;
+    /* Dark section — deep luxurious green */
+    --section-dark-bg: 157 40% 5%;
     --section-dark-fg: 0 0% 100%;
-    --section-dark-muted: 216 100% 60%;
-    --section-dark-border: 216 100% 20%;
+    --section-dark-muted: 157 40% 65%;
+    --section-dark-border: 157 35% 20%;
 
-    --success: 142 71% 40%;
+    --success: 142 71% 50%;
     --success-foreground: 0 0% 100%;
-    --warning: 38 92% 50%;
+    --warning: 38 92% 55%;
     --warning-foreground: 0 0% 100%;
 
-    --sidebar-bg: 210 40% 12%;
-    --sidebar-fg: 210 20% 60%;
-    --sidebar-active: 216 100% 50%;
+    --sidebar-bg: 157 35% 8%;
+    --sidebar-fg: 157 25% 65%;
+    --sidebar-active: 157 50% 45%;
     --sidebar-active-fg: 0 0% 100%;
-    --sidebar-hover: 210 40% 20%;
-    --sidebar-border: 210 40% 20%;
+    --sidebar-hover: 157 35% 18%;
+    --sidebar-border: 157 35% 20%;
 
-    --chart-1: 216 100% 50%;
-    --chart-2: 142 71% 45%;
-    --chart-3: 38 92% 50%;
-    --chart-4: 0 84% 60%;
-    --chart-5: 280 65% 60%;
+    --chart-1: 157 50% 45%;
+    --chart-2: 142 71% 50%;
+    --chart-3: 38 92% 55%;
+    --chart-4: 0 84% 65%;
+    --chart-5: 280 65% 65%;
   }
 
   .dark {
@@ -309,40 +309,141 @@
 
 /* ── Animations ─────────────────────────────────────────── */
 
+/* Fade in animations */
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fade-in-right {
+  from { opacity: 0; transform: translateX(-30px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes fade-in-left {
+  from { opacity: 0; transform: translateX(30px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes scale-in {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+/* Subtle floating animations */
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-8px); }
+}
+
+@keyframes float-delayed {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-6px); }
+}
+
+/* Glow animation */
+@keyframes glow {
+  0%, 100% { box-shadow: 0 0 20px rgba(157, 180, 120, 0.3); }
+  50% { box-shadow: 0 0 40px rgba(157, 180, 120, 0.5); }
+}
+
+/* Subtle pulse */
+@keyframes pulse-subtle {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+/* Border animation */
+@keyframes border-flow {
+  0%, 100% { border-color: hsl(157 50% 45%); }
+  50% { border-color: hsl(157 50% 55%); }
+}
+
+/* Carousel scroll */
 @keyframes carousel-scroll {
   0%   { transform: translateX(0); }
   100% { transform: translateX(-50%); }
-}
-.animate-carousel {
-  animation: carousel-scroll 30s linear infinite;
 }
 
 @keyframes marquee {
   0%   { transform: translateX(0); }
   100% { transform: translateX(-50%); }
 }
+
 @keyframes marquee-reverse {
   0%   { transform: translateX(-50%); }
   100% { transform: translateX(0); }
 }
+
+/* Animation utility classes */
+.animate-fade-in {
+  animation: fade-in 0.6s ease-out;
+}
+
+.animate-fade-up {
+  animation: fade-up 0.8s ease-out;
+}
+
+.animate-fade-in-right {
+  animation: fade-in-right 0.8s ease-out;
+}
+
+.animate-fade-in-left {
+  animation: fade-in-left 0.8s ease-out;
+}
+
+.animate-scale-in {
+  animation: scale-in 0.6s ease-out;
+}
+
+.animate-float {
+  animation: float 6s ease-in-out infinite;
+}
+
+.animate-float-delayed {
+  animation: float-delayed 7s ease-in-out infinite 0.5s;
+}
+
+.animate-glow {
+  animation: glow 3s ease-in-out infinite;
+}
+
+.animate-pulse-subtle {
+  animation: pulse-subtle 3s ease-in-out infinite;
+}
+
+.animate-border-flow {
+  animation: border-flow 3s ease-in-out infinite;
+}
+
+.animate-carousel {
+  animation: carousel-scroll 30s linear infinite;
+}
+
 .animate-marquee {
   animation: marquee 45s linear infinite;
 }
+
 .animate-marquee-reverse {
   animation: marquee-reverse 45s linear infinite;
 }
+
 .animate-marquee:hover,
 .animate-marquee-reverse:hover {
   animation-play-state: paused;
 }
 
-@keyframes fade-up {
-  from { opacity: 0; transform: translateY(16px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-.animate-fade-up {
-  animation: fade-up 0.5s ease-out forwards;
-}
+/* Stagger animation delays */
+.animate-delay-100 { animation-delay: 100ms; }
+.animate-delay-200 { animation-delay: 200ms; }
+.animate-delay-300 { animation-delay: 300ms; }
+.animate-delay-400 { animation-delay: 400ms; }
+.animate-delay-500 { animation-delay: 500ms; }
 
 @media print {
   .no-print   { display: none !important; }
