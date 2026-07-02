@@ -181,6 +181,34 @@ export function LandingIndustries() {
           </div>
         </div>
 
+        {/* ── Industries grid ────────────────────────────────────── */}
+        <div className="ind-grid-section">
+          <h3 className="ind-grid-title">Available for all industries</h3>
+          <div className="ind-grid">
+            {industries.map((industry) => (
+              <div
+                key={industry.id}
+                className="ind-grid-card"
+                onClick={() => setActiveId(industry.id)}
+              >
+                <div className="ind-grid-img-wrap">
+                  <Image
+                    src={industry.img}
+                    alt={industry.name}
+                    fill
+                    sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
+                    className="ind-grid-img"
+                  />
+                </div>
+                <div className="ind-grid-content">
+                  <h4 className="ind-grid-name">{industry.name}</h4>
+                  <p className="ind-grid-subtitle">{industry.subtitle}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
         {/* ── Footer note ────────────────────────────────────────── */}
         <p className="ind-footer-note">
           Don&apos;t see your industry?{' '}
@@ -657,6 +685,159 @@ export function LandingIndustries() {
 
         .ind-footer-link:hover {
           text-decoration: underline;
+        }
+
+        /* ── Industries Grid ───────────────────────────────────── */
+        .ind-grid-section {
+          margin-top: 40px;
+          padding-top: 40px;
+          border-top: 1px solid hsl(var(--border));
+        }
+
+        @media (min-width: 640px) {
+          .ind-grid-section {
+            margin-top: 56px;
+            padding-top: 56px;
+          }
+        }
+
+        @media (min-width: 1024px) {
+          .ind-grid-section {
+            margin-top: 64px;
+            padding-top: 64px;
+          }
+        }
+
+        .ind-grid-title {
+          text-align: center;
+          margin: 0 0 28px;
+          font-size: 1.125rem;
+          font-weight: 700;
+          color: hsl(var(--foreground));
+          letter-spacing: -0.01em;
+        }
+
+        @media (min-width: 640px) {
+          .ind-grid-title {
+            font-size: 1.25rem;
+            margin-bottom: 32px;
+          }
+        }
+
+        .ind-grid {
+          display: grid;
+          grid-template-columns: 1fr;
+          gap: 16px;
+        }
+
+        @media (min-width: 640px) {
+          .ind-grid {
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+          }
+        }
+
+        @media (min-width: 1024px) {
+          .ind-grid {
+            grid-template-columns: repeat(4, 1fr);
+            gap: 20px;
+          }
+        }
+
+        @media (min-width: 1280px) {
+          .ind-grid {
+            gap: 24px;
+          }
+        }
+
+        .ind-grid-card {
+          position: relative;
+          overflow: hidden;
+          border-radius: 12px;
+          border: 1px solid hsl(var(--border));
+          background: hsl(var(--card));
+          cursor: pointer;
+          transition: all 0.2s ease;
+          height: 200px;
+          display: flex;
+          flex-direction: column;
+        }
+
+        @media (min-width: 640px) {
+          .ind-grid-card {
+            height: 220px;
+            border-radius: 14px;
+          }
+        }
+
+        @media (min-width: 1024px) {
+          .ind-grid-card {
+            height: 240px;
+            border-radius: 16px;
+          }
+        }
+
+        .ind-grid-card:hover {
+          border-color: hsl(var(--primary));
+          box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+          transform: translateY(-2px);
+        }
+
+        .ind-grid-img-wrap {
+          position: relative;
+          flex: 1;
+          overflow: hidden;
+          background: hsl(var(--border));
+        }
+
+        .ind-grid-img {
+          object-fit: cover;
+          transition: transform 0.3s ease;
+        }
+
+        .ind-grid-card:hover .ind-grid-img {
+          transform: scale(1.05);
+        }
+
+        .ind-grid-content {
+          padding: 14px;
+          background: hsl(var(--card));
+          border-top: 1px solid hsl(var(--border));
+          flex-shrink: 0;
+        }
+
+        @media (min-width: 640px) {
+          .ind-grid-content {
+            padding: 16px;
+          }
+        }
+
+        .ind-grid-name {
+          margin: 0 0 4px;
+          font-size: 0.875rem;
+          font-weight: 700;
+          color: hsl(var(--foreground));
+          line-height: 1.2;
+        }
+
+        @media (min-width: 640px) {
+          .ind-grid-name {
+            font-size: 0.9375rem;
+            margin-bottom: 6px;
+          }
+        }
+
+        .ind-grid-subtitle {
+          margin: 0;
+          font-size: 0.75rem;
+          color: hsl(var(--muted-foreground));
+          line-height: 1.3;
+        }
+
+        @media (min-width: 640px) {
+          .ind-grid-subtitle {
+            font-size: 0.8125rem;
+          }
         }
       `}</style>
     </section>
