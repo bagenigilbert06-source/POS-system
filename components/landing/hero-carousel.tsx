@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import Image from 'next/image'
 import { useEffect, useState } from 'react'
 import { ArrowRight, TrendingUp } from 'lucide-react'
 import useEmblaCarousel from 'embla-carousel-react'
@@ -15,15 +16,8 @@ const carouselSlides = [
       text: 'Your Store Smarter',
     },
     description: 'Get ready for modern retail. Run inventory, track sales, manage staff, and grow your business all in one powerful platform.',
-    gradient: 'from-emerald-50 via-green-50 to-emerald-100',
-    accentGradient: 'from-emerald-600 to-green-600',
-    accentDark: 'from-emerald-700 to-green-700',
-    textColor: 'text-emerald-600',
-    floatingCardBg: 'border-emerald-200 text-emerald-600 bg-emerald-100',
-    statBg: 'bg-emerald-600',
-    mockupGradient: 'from-emerald-500 to-green-500',
-    decorLeft: 'bg-green-200/20',
-    decorRight: 'bg-emerald-200/20',
+    image: '/images/pos-terminal-1.png',
+    accentColor: 'emerald',
   },
   {
     id: 2,
@@ -33,15 +27,8 @@ const carouselSlides = [
       text: 'Every Item Perfectly',
     },
     description: 'Real-time stock visibility across all branches. Never run out of bestsellers or waste money on overstocking.',
-    gradient: 'from-teal-50 via-green-50 to-teal-100',
-    accentGradient: 'from-teal-600 to-green-600',
-    accentDark: 'from-teal-700 to-green-700',
-    textColor: 'text-teal-600',
-    floatingCardBg: 'border-teal-200 text-teal-600 bg-teal-100',
-    statBg: 'bg-teal-600',
-    mockupGradient: 'from-teal-500 to-green-500',
-    decorLeft: 'bg-green-200/20',
-    decorRight: 'bg-teal-200/20',
+    image: '/images/pos-inventory.png',
+    accentColor: 'emerald',
   },
   {
     id: 3,
@@ -51,15 +38,8 @@ const carouselSlides = [
       text: 'Every Payment Method',
     },
     description: 'Cash, cards, mobile money, and digital wallets. Process payments instantly and securely with automatic reconciliation.',
-    gradient: 'from-lime-50 via-green-50 to-lime-100',
-    accentGradient: 'from-lime-600 to-green-600',
-    accentDark: 'from-lime-700 to-green-700',
-    textColor: 'text-lime-600',
-    floatingCardBg: 'border-lime-200 text-lime-600 bg-lime-100',
-    statBg: 'bg-lime-600',
-    mockupGradient: 'from-lime-500 to-green-500',
-    decorLeft: 'bg-green-200/20',
-    decorRight: 'bg-lime-200/20',
+    image: '/images/pos-dashboard.png',
+    accentColor: 'emerald',
   },
 ]
 
@@ -85,36 +65,37 @@ export function HeroCarousel() {
   const slide = carouselSlides[selectedIndex]
 
   return (
-    <section className="relative overflow-hidden pt-0">
+    <section className="relative overflow-hidden pt-0 bg-gradient-to-br from-emerald-50 via-green-50 to-emerald-100">
+      {/* Consistent decorative background elements */}
+      <div className="absolute top-0 right-0 w-96 h-96 bg-green-200/20 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none" />
+      <div className="absolute bottom-0 left-0 w-80 h-80 bg-emerald-200/20 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2 pointer-events-none" />
+
       <div ref={emblaRef} className="overflow-hidden">
         <div className="flex">
           {carouselSlides.map((s) => (
             <div
               key={s.id}
-              className={`min-w-full flex-shrink-0 bg-gradient-to-br ${s.gradient} transition-all duration-1000 ease-out pt-0`}
+              className="min-w-full flex-shrink-0 transition-all duration-1000 ease-out pt-0"
             >
-              {/* Decorative background elements */}
-              <div className={`absolute top-0 right-0 w-96 h-96 ${s.decorLeft} rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none`} />
-              <div className={`absolute bottom-0 left-0 w-80 h-80 ${s.decorRight} rounded-full blur-3xl translate-y-1/2 -translate-x-1/2 pointer-events-none`} />
 
               <div className="mx-auto max-w-7xl px-5 sm:px-6 lg:px-8 relative z-10">
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-center min-h-screen lg:min-h-[600px] py-16 sm:py-20 lg:py-24">
                   {/* Left Content */}
                   <div className="animate-fade-in">
                     {/* Badge */}
-                    <div className={`mb-8 inline-flex items-center gap-2 rounded-full border bg-white px-4 py-2 shadow-sm transition-all duration-700 border-${s.textColor.split('-')[1]}-300`}>
-                      <div className={`h-2 w-2 rounded-full ${s.textColor}`} />
-                      <span className={`text-sm font-semibold ${s.textColor}`}>{s.badge}</span>
+                    <div className="mb-8 inline-flex items-center gap-2 rounded-full border border-emerald-300 bg-white px-4 py-2 shadow-sm">
+                      <div className="h-2 w-2 rounded-full bg-emerald-600" />
+                      <span className="text-sm font-semibold text-emerald-600">{s.badge}</span>
                     </div>
 
                     {/* Headline - Split colors */}
-                    <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black leading-[1.1] tracking-tight mb-6 transition-all duration-700">
-                      <span className={s.textColor}>{s.headline.colored}</span>{' '}
+                    <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black leading-[1.1] tracking-tight mb-6">
+                      <span className="text-emerald-600">{s.headline.colored}</span>{' '}
                       <span className="text-slate-950">{s.headline.text}</span>
                     </h1>
 
                     {/* Description */}
-                    <p className="text-lg text-slate-700 mb-8 max-w-md leading-relaxed transition-all duration-700">
+                    <p className="text-lg text-slate-700 mb-8 max-w-md leading-relaxed">
                       {s.description}
                     </p>
 
@@ -122,7 +103,7 @@ export function HeroCarousel() {
                     <div className="flex flex-col sm:flex-row gap-4 mb-10 animate-fade-in-delayed">
                       <Link
                         href="/sign-up"
-                        className={`inline-flex h-12 items-center justify-center rounded-lg bg-gradient-to-r ${s.accentGradient} text-white font-bold shadow-xl hover:${s.accentDark} transition-all duration-300 px-8`}
+                        className="inline-flex h-12 items-center justify-center rounded-lg bg-gradient-to-r from-emerald-600 to-green-600 text-white font-bold shadow-xl hover:from-emerald-700 hover:to-green-700 transition-all duration-300 px-8"
                       >
                         Activate free trial
                         <ArrowRight className="h-5 w-5 ml-2" aria-hidden="true" />
@@ -144,10 +125,9 @@ export function HeroCarousel() {
                       ].map((stat) => (
                         <div
                           key={stat.label}
-                          className="rounded-lg bg-white/70 backdrop-blur-sm border p-4 text-center transition-all duration-700"
-                          style={{ borderColor: s.textColor.replace('text-', 'border-') }}
+                          className="rounded-lg border border-emerald-200 bg-white/70 backdrop-blur-sm p-4 text-center"
                         >
-                          <p className={`text-2xl font-black mb-1 ${s.textColor}`}>{stat.value}</p>
+                          <p className="text-2xl font-black mb-1 text-emerald-600">{stat.value}</p>
                           <p className="text-xs font-semibold text-slate-600">{stat.label}</p>
                         </div>
                       ))}
@@ -157,60 +137,46 @@ export function HeroCarousel() {
                   {/* Right - Product Image Area */}
                   <div className="relative h-96 sm:h-[500px] lg:h-[600px] animate-fade-in-right">
                     {/* Discount badge */}
-                    <div className={`absolute top-8 right-8 z-20 flex h-14 w-14 items-center justify-center rounded-full bg-slate-900 text-white font-bold shadow-xl text-sm transition-all duration-700`}>
+                    <div className="absolute top-8 right-8 z-20 flex h-14 w-14 items-center justify-center rounded-full bg-slate-900 text-white font-bold shadow-xl text-sm">
                       Save
                     </div>
 
-                    {/* Product display area */}
+                    {/* Product display area - Real Image */}
                     <div className="relative h-full w-full">
-                      <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-slate-800 to-slate-900 shadow-2xl flex items-center justify-center overflow-hidden">
-                        {/* Pattern overlay */}
-                        <div className="absolute inset-0 opacity-10">
-                          <div className="absolute inset-0 bg-[linear-gradient(45deg,#fff9_1px,transparent_1px)] bg-[length:20px_20px]" />
-                        </div>
-
-                        {/* Simulated POS system mockup */}
-                        <div className="relative z-10 w-full h-full flex items-center justify-center p-8">
-                          <div className="bg-white/10 backdrop-blur-md rounded-2xl w-full max-w-sm h-80 flex flex-col justify-between p-6 border border-white/20">
-                            <div className="space-y-4">
-                              <div className="h-3 w-24 rounded bg-white/30" />
-                              <div className="space-y-2">
-                                <div className="h-2 w-full rounded bg-white/20" />
-                                <div className="h-2 w-5/6 rounded bg-white/20" />
-                                <div className="h-2 w-4/5 rounded bg-white/20" />
-                              </div>
-                            </div>
-                            <div className="space-y-3">
-                              <div className={`h-10 w-full rounded bg-gradient-to-r ${s.mockupGradient}`} />
-                              <div className="h-2 w-full rounded bg-white/10" />
-                            </div>
-                          </div>
-                        </div>
+                      <div className="absolute inset-0 rounded-3xl overflow-hidden shadow-2xl">
+                        <Image
+                          src={s.image}
+                          alt={s.headline.colored}
+                          fill
+                          className="object-cover"
+                          priority
+                          sizes="(max-width: 1024px) 100vw, 50vw"
+                        />
                       </div>
 
                       {/* Floating card - Left */}
-                      <div className={`absolute -left-6 top-1/4 z-20 w-48 rounded-xl bg-white shadow-xl border p-4 transition-all duration-700 ${s.floatingCardBg}`}>
+                      <div className="absolute -left-6 top-1/4 z-20 w-48 rounded-xl bg-white shadow-xl border border-emerald-200 p-4">
                         <div className="flex items-center gap-3 mb-3">
-                          <div className={`flex h-10 w-10 items-center justify-center rounded-lg ${s.floatingCardBg.split('border')[0]}`}>
+                          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-100 text-emerald-600">
                             <TrendingUp className="h-5 w-5" />
                           </div>
                           <div>
                             <p className="text-xs font-semibold text-slate-600">Today Sales</p>
-                            <p className={`text-lg font-black ${s.textColor}`}>KES 85K</p>
+                            <p className="text-lg font-black text-emerald-600">KES 85K</p>
                           </div>
                         </div>
                         <div className="h-2 rounded-full bg-slate-200">
-                          <div className={`h-2 w-3/4 rounded-full ${s.statBg}`} />
+                          <div className="h-2 w-3/4 rounded-full bg-emerald-600" />
                         </div>
                       </div>
 
                       {/* Floating card - Bottom Right */}
-                      <div className="absolute -bottom-6 -right-6 z-20 w-40 rounded-xl bg-white shadow-xl border border-slate-200 p-4 transition-all duration-700">
+                      <div className="absolute -bottom-6 -right-6 z-20 w-40 rounded-xl bg-white shadow-xl border border-slate-200 p-4">
                         <p className="text-xs font-semibold text-slate-600 mb-2">Quick Stats</p>
                         <div className="space-y-2">
                           <div className="flex justify-between items-center">
                             <span className="text-xs text-slate-600">Revenue</span>
-                            <span className={`text-sm font-bold ${s.textColor}`}>↑ 24%</span>
+                            <span className="text-sm font-bold text-emerald-600">↑ 24%</span>
                           </div>
                           <div className="flex justify-between items-center">
                             <span className="text-xs text-slate-600">Orders</span>
