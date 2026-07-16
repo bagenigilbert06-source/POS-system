@@ -7,8 +7,8 @@ import { LandingCTA } from '@/components/landing/cta'
 import { LandingFooter } from '@/components/landing/footer'
 
 export const metadata = {
-  title: 'Industries | Imara - Solutions for Every Business Type',
-  description: 'See how Imara works for retail, restaurants, salons, pharmacies, hardware stores, and more',
+  title: 'Industries | Pesaby - Solutions for Every Business Type',
+  description: 'See how Pesaby works for retail, restaurants, salons, pharmacies, hardware stores, and more',
 }
 
 export default async function IndustriesPage() {

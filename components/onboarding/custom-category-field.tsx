@@ -29,7 +29,7 @@ export function CustomCategoryField({ businessType, value, onChange, isVisible }
       <div className="space-y-3">
         <label className="text-sm font-semibold text-foreground">Tell us about your business</label>
         <p className="text-sm text-muted-foreground">
-          We couldn&apos;t find the right category. Type your business below and we&apos;ll tailor IMARA to your workflow.
+          We couldn&apos;t find the right category. Type your business below and we&apos;ll tailor PESABY to your workflow.
         </p>
       </div>
 

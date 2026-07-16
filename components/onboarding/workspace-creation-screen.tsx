@@ -166,7 +166,7 @@ export function WorkspaceCreationScreen({
 
       <p className="mb-12 max-w-md text-center text-base leading-7 text-zinc-600">
         {isSuccess
-          ? `Welcome to IMARA! ${onboardingData.businessName} is ready.`
+          ? `Welcome to PESABY! ${onboardingData.businessName} is ready.`
           : `Just a moment while we set up ${onboardingData.businessName || 'your business'}.`}
       </p>
 

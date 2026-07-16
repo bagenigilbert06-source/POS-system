@@ -5,12 +5,12 @@ import { Plus, Minus } from 'lucide-react'
 
 const faqs = [
   {
-    question: 'What exactly is IMARA?',
-    answer: 'IMARA is a Business Operating System — not just a POS. It combines point of sale, inventory, purchasing, CRM, employees, finance, analytics, and multi-branch management in one platform. Think of it as the operating system your business runs on.',
+    question: 'What exactly is PESABY?',
+    answer: 'PESABY is a Business Operating System — not just a POS. It combines point of sale, inventory, purchasing, CRM, employees, finance, analytics, and multi-branch management in one platform. Think of it as the operating system your business runs on.',
   },
   {
-    question: 'How is IMARA different from a regular POS?',
-    answer: 'A regular POS handles checkout. IMARA handles your entire business — from opening the shop to closing it. Sales, stock, suppliers, customers, employees, reports, and multi-branch operations are all connected and working together automatically.',
+    question: 'How is PESABY different from a regular POS?',
+    answer: 'A regular POS handles checkout. PESABY handles your entire business — from opening the shop to closing it. Sales, stock, suppliers, customers, employees, reports, and multi-branch operations are all connected and working together automatically.',
   },
   {
     question: 'How long is the free trial?',
@@ -22,15 +22,15 @@ const faqs = [
   },
   {
     question: 'Can I manage multiple branches?',
-    answer: 'Yes. IMARA supports unlimited locations with centralized inventory, reporting, and staff management. See all your branches from a single dashboard, transfer stock between locations, and compare performance across sites.',
+    answer: 'Yes. PESABY supports unlimited locations with centralized inventory, reporting, and staff management. See all your branches from a single dashboard, transfer stock between locations, and compare performance across sites.',
   },
   {
-    question: 'Does IMARA work on my existing hardware?',
-    answer: 'IMARA runs in any modern browser on desktop, tablet, or smartphone. You can also connect common receipt printers and barcode scanners without extra software.',
+    question: 'Does PESABY work on my existing hardware?',
+    answer: 'PESABY runs in any modern browser on desktop, tablet, or smartphone. You can also connect common receipt printers and barcode scanners without extra software.',
   },
   {
-    question: 'What payment methods does IMARA support?',
-    answer: 'IMARA supports M-Pesa, card, cash, and invoice workflows — all automatically reconciled so your finance team has clean records every day.',
+    question: 'What payment methods does PESABY support?',
+    answer: 'PESABY supports M-Pesa, card, cash, and invoice workflows — all automatically reconciled so your finance team has clean records every day.',
   },
   {
     question: 'How secure is my data?',
@@ -52,11 +52,11 @@ export function LandingFAQ() {
               Common questions.
             </h2>
             <p className="text-base text-muted-foreground leading-relaxed mb-6">
-              Everything you need to know about IMARA before getting started.
+              Everything you need to know about PESABY before getting started.
             </p>
             <p className="text-sm text-muted-foreground">
               Still have questions?{' '}
-              <a href="mailto:hello@imara.co" className="text-primary font-semibold hover:underline">
+              <a href="mailto:hello@pesaby.co" className="text-primary font-semibold hover:underline">
                 Write to us
               </a>
             </p>

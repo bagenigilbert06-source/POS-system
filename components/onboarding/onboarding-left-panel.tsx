@@ -30,7 +30,7 @@ export function OnboardingLeftPanel({
           <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center shadow-lg shadow-blue-500/20">
             <span className="text-sm font-bold text-white">I</span>
           </div>
-          <span className="text-xl font-bold text-white">IMARA</span>
+          <span className="text-xl font-bold text-white">PESABY</span>
         </div>
       </div>
 
@@ -71,7 +71,7 @@ export function OnboardingLeftPanel({
 
       {/* Footer */}
       <p className="text-xs text-blue-300/50 font-medium">
-        &copy; {new Date().getFullYear()} IMARA. All rights reserved.
+        &copy; {new Date().getFullYear()} PESABY. All rights reserved.
       </p>
     </>
   )

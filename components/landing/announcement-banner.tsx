@@ -23,7 +23,7 @@ export function AnnouncementBanner() {
           <div className="flex-1 flex items-center justify-center gap-3 text-center min-w-0">
             <p className="text-sm font-medium text-foreground">
               Join 8,500+ businesses running on{' '}
-              <span className="text-primary font-semibold">IMARA</span>
+              <span className="text-primary font-semibold">PESABY</span>
               <span className="hidden sm:inline text-muted-foreground"> — Free for 30 days, no card required</span>
             </p>
           </div>

@@ -7,7 +7,7 @@ import { ChevronLeft, ChevronRight } from 'lucide-react'
 
 const testimonials = [
   {
-    quote: 'IMARA replaced three different tools we were running — POS, stock, and M-Pesa. End-of-day reconciliation dropped from 2 hours to under 15 minutes.',
+    quote: 'PESABY replaced three different tools we were running — POS, stock, and M-Pesa. End-of-day reconciliation dropped from 2 hours to under 15 minutes.',
     name: 'Wanjiku Kamau',
     role: 'Owner, Kamau Supermarket',
     location: 'Thika',
@@ -23,7 +23,7 @@ const testimonials = [
     color: 'bg-sky-600',
   },
   {
-    quote: 'Managing inventory across three pharmacy branches was a nightmare before IMARA. Now I see every location from my phone in real time.',
+    quote: 'Managing inventory across three pharmacy branches was a nightmare before PESABY. Now I see every location from my phone in real time.',
     name: 'Amina Hassan',
     role: 'Director, Hassan Pharmacy Group',
     location: 'Mombasa',

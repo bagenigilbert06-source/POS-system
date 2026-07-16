@@ -7,8 +7,8 @@ import { LandingCTA } from '@/components/landing/cta'
 import { LandingFooter } from '@/components/landing/footer'
 
 export const metadata = {
-  title: 'Features | Imara - Business OS for African Commerce',
-  description: 'Explore all of Imara\'s features designed for African businesses',
+  title: 'Features | Pesaby - Business OS for African Commerce',
+  description: 'Explore all of Pesaby\'s features designed for African businesses',
 }
 
 export default async function FeaturesPage() {
@@ -27,7 +27,7 @@ export default async function FeaturesPage() {
                 Everything you need to run your business
               </h1>
               <p className="section-subheading text-lg">
-                From point of sale to inventory management, Imara brings together every tool modern African businesses need to operate, grow, and stay in control.
+                From point of sale to inventory management, Pesaby brings together every tool modern African businesses need to operate, grow, and stay in control.
               </p>
             </div>
           </div>

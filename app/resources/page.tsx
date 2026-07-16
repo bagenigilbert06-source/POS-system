@@ -10,37 +10,37 @@ import { FileText, PlayCircle, MessageSquare, BookOpen, ArrowRight } from 'lucid
 import { Button } from '@/components/ui/button'
 
 export const metadata = {
-  title: 'Resources | Imara - Guides, Docs & Support',
-  description: 'Access guides, documentation, and support resources for Imara',
+  title: 'Resources | Pesaby - Guides, Docs & Support',
+  description: 'Access guides, documentation, and support resources for Pesaby',
 }
 
 const resources = [
   {
     icon: BookOpen,
     title: 'Documentation',
-    description: 'Complete guides and API documentation to help you get the most out of Imara',
-    href: 'mailto:hello@imara.co',
+    description: 'Complete guides and API documentation to help you get the most out of Pesaby',
+    href: 'mailto:hello@pesaby.co',
     cta: 'Read Docs',
   },
   {
     icon: PlayCircle,
     title: 'Video Tutorials',
-    description: 'Learn Imara with step-by-step video guides for all features',
-    href: 'mailto:hello@imara.co',
+    description: 'Learn Pesaby with step-by-step video guides for all features',
+    href: 'mailto:hello@pesaby.co',
     cta: 'Watch Tutorials',
   },
   {
     icon: FileText,
     title: 'Blog & Articles',
-    description: 'Latest tips, industry insights, and success stories from Imara users',
-    href: 'mailto:hello@imara.co',
+    description: 'Latest tips, industry insights, and success stories from Pesaby users',
+    href: 'mailto:hello@pesaby.co',
     cta: 'Read Blog',
   },
   {
     icon: MessageSquare,
     title: 'Support & Contact',
     description: 'Get help from our support team. We typically respond within 2 hours',
-    href: 'mailto:hello@imara.co',
+    href: 'mailto:hello@pesaby.co',
     cta: 'Contact Support',
   },
 ]

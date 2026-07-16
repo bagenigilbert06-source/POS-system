@@ -22,7 +22,7 @@ export function OnboardingLayout({ children }: OnboardingLayoutProps) {
           </Link>
 
           <a
-            href="mailto:support@imara.co.ke"
+            href="mailto:support@pesaby.co.ke"
             className="text-sm font-semibold text-zinc-500 transition-colors hover:text-[#005a43]"
           >
             Need help?

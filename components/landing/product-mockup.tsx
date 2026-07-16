@@ -430,9 +430,9 @@ export function ProductMockup() {
                     type="button"
                     style={{
                       animationDelay: `${index * 40}ms`,
+                      height: `${Math.max(height - 16, 25)}%`,
                     }}
                     className="flex flex-1 items-end rounded-t-lg bg-emerald-50 transition-smooth hover:bg-emerald-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-200 group animate-slide-up"
-                    style={{ height: `${Math.max(height - 16, 25)}%` }}
                     aria-label={`${active.panelTitle} bar ${index + 1}`}
                   >
                     <span

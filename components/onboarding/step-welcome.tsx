@@ -20,7 +20,7 @@ export function StepWelcome({ businessName }: StepWelcomeProps) {
       {/* Main heading */}
       <div className="space-y-3">
         <h1 className="text-5xl font-bold text-foreground leading-tight">
-          Welcome to IMARA
+          Welcome to PESABY
         </h1>
         <p className="text-xl text-muted-foreground leading-relaxed">
           {businessName && `${businessName} is all set up and ready to go.`}

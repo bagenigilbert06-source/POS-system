@@ -44,7 +44,7 @@ export function GettingStartedChecklist({
       {/* Header */}
       <div className="mb-8">
         <h2 className="text-2xl font-bold text-foreground mb-2">
-          Welcome to IMARA
+          Welcome to PESABY
         </h2>
         <p className="text-muted-foreground mb-6">
           Your {templateName} is ready. Complete these recommended tasks to get

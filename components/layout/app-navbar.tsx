@@ -70,7 +70,7 @@ export function AppNavbar({ userName, userEmail, onOpenSidebar }: AppNavbarProps
           <span className="truncate">Search products, customers, orders</span>
         </div>
         <div className="min-w-0 md:hidden">
-          <p className="truncate text-sm font-semibold text-foreground">IMARA</p>
+          <p className="truncate text-sm font-semibold text-foreground">PESABY</p>
           <p className="truncate text-xs text-muted-foreground">Business OS</p>
         </div>
       </div>

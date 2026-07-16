@@ -1,26 +1,33 @@
-# Point of Sale (POS) Application
+# Pesaby Business Operating System
 
-This is a full-featured Point of Sale (POS) system built using **Next.js 14**, **Prisma ORM**, and **Supabase** for database management. The system is designed for managing product inventories, transactions, and sales reports, with a user-friendly interface for retail businesses.
+Pesaby is a Business Operating System for modern commerce. It connects sales, inventory, expenses, customers, staff, branches, payments, and reporting in one workspace.
 
 ## Features
 
-- **Product Management**: Add, edit, and delete products with price, stock, and category information.
-- **Inventory Tracking**: Keep track of stock levels and restock as needed.
-- **Sales Transactions**: Record sales with real-time calculations for total amounts, taxes, and discounts.
-- **Sales Reports**: View daily, weekly, and monthly sales reports.
-- **Responsive Design**: Fully responsive for desktop, tablet, and mobile devices.
+- **Sales and payments**: Run checkout, receipts, discounts, refunds, and payment workflows.
+- **Inventory and purchasing**: Track stock movement, suppliers, receiving, and reorder points.
+- **People and branches**: Manage staff access, customers, locations, and operational controls.
+- **Reporting**: Review sales, expenses, margins, payment mix, and branch performance.
+- **Responsive landing experience**: Clear, accessible layouts for desktop, tablet, and mobile.
 
 ## Tech Stack
 
-- **Next.js 14**: React framework for building the user interface and server-side rendering.
-- **Prisma ORM**: Database ORM for easy interaction with Supabase PostgreSQL database.
-- **Supabase**: Hosted PostgreSQL database for handling data storage, authentication, and APIs.
-- **Tailwind CSS**: Utility-first CSS framework for styling the application.
+- **Next.js 16** and React: Application framework and UI runtime.
+- **Prisma ORM** and PostgreSQL: Database access and persistence.
+- **Better Auth**: Authentication and session management.
+- **Tailwind CSS**: Utility-first styling system.
 
 ### Prerequisites
 
 - **Node.js** (v18 or later)
-- **npm** or **yarn**
-- **Supabase** account (for database setup)
-- **Prisma** installed globally
+- **pnpm**
+- PostgreSQL database configured through the environment variables.
 
+### Local development
+
+```bash
+pnpm install
+pnpm dev
+```
+
+The app is available at `http://localhost:3000`.

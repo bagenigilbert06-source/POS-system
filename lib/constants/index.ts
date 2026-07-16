@@ -3,7 +3,7 @@
  * Application-wide constants and configurations
  */
 
-export const APP_NAME = 'IMARA POS';
+export const APP_NAME = 'PESABY POS';
 export const APP_DESCRIPTION = 'Enterprise SaaS Business Operating System';
 
 // Payment Methods

@@ -1,43 +1,43 @@
 'use client'
 
 import {
-  BarChart3,
-  Boxes,
-  PackageCheck,
-  ReceiptText,
-  UsersRound,
-  WalletCards,
-} from 'lucide-react'
+  IconChartBar as BarChart3,
+  IconPackages as Boxes,
+  IconPackage as PackageCheck,
+  IconReceipt as ReceiptText,
+  IconUsers as UsersRound,
+  IconWallet as WalletCards,
+} from '@tabler/icons-react'
 
 const features = [
   {
-    title: 'Fast checkout flow',
-    description: 'Scan items, apply discounts, and complete cash, card, or mobile money payments in a single tidy POS workflow.',
+    title: 'Sales and payments',
+    description: 'Complete sales, issue receipts, apply discounts, and keep cash, card, mobile money, invoices, and refunds connected.',
     icon: ReceiptText,
   },
   {
-    title: 'Branch stock control',
-    description: 'Track inventory across outlets, manage transfers, and stay ahead of low-stock situations before they affect sales.',
+    title: 'Inventory and purchasing',
+    description: 'Track stock across locations, manage transfers and suppliers, receive deliveries, and respond to reorder alerts.',
     icon: Boxes,
   },
   {
-    title: 'Payment reconciliation',
-    description: 'Match every sale to the right payment method and close the day with clearer cash and mobile money records.',
+    title: 'Expenses and cash flow',
+    description: 'Record operating expenses, organize payment activity, and understand what came in and went out each day.',
     icon: WalletCards,
   },
   {
-    title: 'Customer profiles',
-    description: 'Keep purchase history, contact details, and loyalty activity in one place for faster repeat service.',
+    title: 'Customers and staff',
+    description: 'Keep customer history close while managing staff roles, access, shifts, approvals, and accountability.',
     icon: UsersRound,
   },
   {
-    title: 'Supplier purchasing',
-    description: 'Create purchase orders, receive deliveries, and keep supplier costs aligned with your stock movement.',
+    title: 'Multi-branch operations',
+    description: 'Standardize workflows, compare locations, transfer stock, and monitor branch activity from one workspace.',
     icon: PackageCheck,
   },
   {
-    title: 'Sales performance insights',
-    description: 'Review daily sales, margins, and top products so managers can make quicker restock and pricing decisions.',
+    title: 'Reporting and decisions',
+    description: 'Review sales, expenses, margins, stock movement, and team activity without rebuilding the day in spreadsheets.',
     icon: BarChart3,
   },
 ]
@@ -46,26 +46,18 @@ export function PlatformSuite() {
   return (
     <section
       id="platform"
-      className="relative overflow-hidden py-16 text-white lg:py-20"
-      style={{
-        backgroundImage: "linear-gradient(135deg, rgba(2, 6, 23, 0.88) 0%, rgba(15, 23, 42, 0.72) 45%, rgba(2, 132, 199, 0.18) 100%), url('/images/pos-dashboard.png')",
-        backgroundSize: 'cover',
-        backgroundPosition: 'center center',
-        backgroundRepeat: 'no-repeat',
-        backgroundAttachment: 'scroll',
-      }}
+      className="relative overflow-hidden bg-white py-20 text-slate-950 sm:py-24 lg:py-28"
     >
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,_rgba(56,189,248,0.18),_transparent_35%)]" />
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_bottom_right,_rgba(16,185,129,0.16),_transparent_30%)]" />
+      <div className="absolute inset-x-0 top-0 h-px bg-black/10" />
 
       <div className="relative mx-auto max-w-7xl px-5 sm:px-6 lg:px-8">
-        <div className="max-w-3xl rounded-[2rem] border border-white/10 bg-slate-950/50 p-8 shadow-2xl shadow-slate-950/40 backdrop-blur-xl">
-          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-sky-300">POS + BOS for daily operations</p>
-          <h2 className="mt-4 text-3xl font-extrabold leading-tight tracking-tight text-white sm:text-4xl lg:text-5xl">
-            Run tills, stock, payments, suppliers, and customer service from one dependable business system.
+        <div className="mx-auto max-w-3xl text-center">
+          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[#e42527]">A complete Business Operating System</p>
+          <h2 className="mt-4 text-3xl font-bold leading-tight tracking-tight text-slate-950 sm:text-4xl">
+            Connect the work, people, and numbers that keep your business moving.
           </h2>
-          <p className="mt-6 max-w-2xl text-base leading-8 text-slate-200">
-            Pesaby brings checkout, inventory, reconciliation, and reporting together so retail and wholesale teams can move faster with fewer manual steps.
+          <p className="mx-auto mt-5 max-w-2xl text-base leading-7 text-slate-600 sm:text-lg">
+            Pesaby brings sales, stock, expenses, staff, customers, suppliers, payments, and reporting together so every team works from the same operational truth.
           </p>
         </div>
 
@@ -73,30 +65,30 @@ export function PlatformSuite() {
           {features.map((feature) => {
             const Icon = feature.icon
             return (
-              <div key={feature.title} className="rounded-[2rem] border border-white/15 bg-white/10 p-6 shadow-2xl shadow-emerald-950/20 backdrop-blur-2xl transition hover:-translate-y-1 hover:border-white/25">
-                <div className="flex h-12 w-12 items-center justify-center rounded-3xl bg-emerald-200/20 text-emerald-200">
+              <div key={feature.title} className="flex min-h-[218px] flex-col rounded-lg border border-black/10 bg-white p-6">
+                <div className="flex h-11 w-11 items-center justify-center rounded-md bg-[#ffda32] text-slate-950">
                   <Icon className="h-6 w-6" aria-hidden="true" />
                 </div>
-                <h3 className="mt-6 text-lg font-semibold text-white">{feature.title}</h3>
-                <p className="mt-3 text-sm leading-7 text-slate-300">{feature.description}</p>
+                <h3 className="mt-5 text-lg font-semibold text-slate-950">{feature.title}</h3>
+                <p className="mt-3 text-sm leading-6 text-slate-600">{feature.description}</p>
               </div>
             )
           })}
         </div>
 
         <div className="mt-12 grid gap-6 lg:grid-cols-2">
-          <div className="rounded-[2rem] border border-white/15 bg-white/10 p-8 text-slate-100 shadow-2xl shadow-emerald-950/20 backdrop-blur-2xl">
-            <p className="text-sm font-semibold uppercase tracking-[0.22em] text-emerald-200">Why teams rely on Pesaby</p>
-            <ul className="mt-8 space-y-4 text-sm leading-7 text-slate-300">
+          <div className="rounded-lg border border-black/10 bg-[#f7f1e5] p-8 text-slate-950">
+            <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[#e42527]">Why teams rely on Pesaby</p>
+            <ul className="mt-8 space-y-4 text-sm leading-7 text-slate-600">
               <li>One system for tills, stock, customers, suppliers, and daily reports.</li>
               <li>Less manual reconciliation and fewer errors during busy sales periods.</li>
               <li>Clear visibility across branches, payments, and product movement.</li>
               <li>Customer records and loyalty details that support faster service.</li>
             </ul>
           </div>
-          <div className="rounded-[2rem] border border-white/15 bg-white/10 p-8 text-slate-100 shadow-2xl shadow-emerald-950/20 backdrop-blur-2xl">
-            <p className="text-sm font-semibold uppercase tracking-[0.22em] text-emerald-200">Built for fast operations</p>
-            <div className="mt-8 space-y-4 text-sm leading-7 text-slate-300">
+          <div className="rounded-lg border border-black/10 bg-[#ffda32] p-8 text-slate-950">
+            <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[#e42527]">Built for fast operations</p>
+            <div className="mt-8 space-y-4 text-sm leading-7 text-slate-800">
               <p>Keep the counter moving with workflows staff can learn quickly and use confidently from day one.</p>
               <p>Give managers a clearer view of stock, sales, and payments so daily decisions are faster and more reliable.</p>
             </div>

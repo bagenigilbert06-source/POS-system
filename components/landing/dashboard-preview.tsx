@@ -34,7 +34,7 @@ export function DashboardPreview({ compact = false }: { compact?: boolean }) {
             <Building2 className="h-5 w-5" aria-hidden="true" />
           </div>
           <div>
-            <p className="text-sm font-semibold text-foreground">Imara Command Center</p>
+            <p className="text-sm font-semibold text-foreground">Pesaby Command Center</p>
             <p className="text-xs text-muted-foreground">Live business overview</p>
           </div>
         </div>

@@ -60,22 +60,22 @@ export function DynamicAppSidebar({ mobileOpen = false, onMobileClose }: Dynamic
         {!collapsed && (
           <div className="flex items-center gap-2 flex-1">
             <Image
-              src="/imara-logo.png"
-              alt="IMARA"
+              src="/pesaby-logo.png"
+              alt="PESABY"
               width={32}
               height={32}
               className="h-8 w-auto flex-shrink-0"
             />
             <div>
-              <p className="font-semibold text-foreground text-sm leading-tight">IMARA</p>
+              <p className="font-semibold text-foreground text-sm leading-tight">PESABY</p>
               <p className="max-w-36 truncate text-xs text-muted-foreground">{config.name}</p>
             </div>
           </div>
         )}
         {collapsed && (
           <Image
-            src="/imara-logo.png"
-            alt="IMARA"
+            src="/pesaby-logo.png"
+            alt="PESABY"
             width={32}
             height={32}
             className="h-8 w-auto"

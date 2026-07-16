@@ -66,7 +66,7 @@ export function LandingFeatures() {
             Replace every tool with one platform.
           </h2>
           <p className="section-subheading mx-auto text-xs sm:text-base leading-relaxed">
-            Imara brings together the daily systems modern African businesses need to operate, grow, and stay in control.
+            Pesaby brings together the daily systems modern African businesses need to operate, grow, and stay in control.
           </p>
         </div>
 

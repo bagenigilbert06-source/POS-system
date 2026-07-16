@@ -15,7 +15,7 @@ export function LandingCTA() {
           <p className="section-eyebrow mb-5">Get Started</p>
 
           <h2 className="text-4xl md:text-5xl lg:text-6xl font-bold text-foreground tracking-tight leading-[1.05] mb-6 text-balance">
-            Start running your business with IMARA.
+            Start running your business with PESABY.
           </h2>
 
           <p className="text-lg text-muted-foreground leading-relaxed mb-10 text-balance">
@@ -32,7 +32,7 @@ export function LandingCTA() {
               <ArrowRight className="h-4 w-4 group-hover:translate-x-0.5 transition-transform" aria-hidden="true" />
             </Link>
             <Link
-              href="mailto:hello@imara.co"
+              href="mailto:hello@pesaby.co"
               className="inline-flex items-center justify-center gap-2 rounded-md border border-border bg-white px-8 py-4 text-base font-semibold text-foreground transition-all duration-150 hover:bg-card w-full sm:w-auto"
             >
               Schedule a Demo

@@ -4,7 +4,7 @@
 
 @layer base {
   :root {
-    /* Font variables — Inter is loaded via next/font and injected as --font-inter */
+    /* Geist Sans is loaded locally through the installed geist package. */
 
     /* Light Theme - Modern Clean */
     --background: 0 0% 98%;
@@ -155,10 +155,17 @@
   body {
     @apply text-foreground antialiased;
     background: transparent;
-    font-feature-settings: "rlig" 1, "calt" 1;
+    font-feature-settings:
+      'rlig' 1,
+      'calt' 1;
   }
 
-  h1, h2, h3, h4, h5, h6 {
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
     @apply text-foreground tracking-tight;
   }
 
@@ -170,24 +177,42 @@
 @layer utilities {
   /* Shadow system */
   .shadow-sm-soft {
-    box-shadow: 0 1px 2px rgba(0,0,0,0.06), 0 2px 4px rgba(0,0,0,0.04);
+    box-shadow:
+      0 1px 2px rgba(0, 0, 0, 0.06),
+      0 2px 4px rgba(0, 0, 0, 0.04);
   }
   .shadow-md-soft {
-    box-shadow: 0 4px 8px rgba(0,0,0,0.08), 0 8px 16px rgba(0,0,0,0.05);
+    box-shadow:
+      0 4px 8px rgba(0, 0, 0, 0.08),
+      0 8px 16px rgba(0, 0, 0, 0.05);
   }
   .shadow-lg-soft {
-    box-shadow: 0 8px 24px rgba(0,0,0,0.10), 0 16px 48px rgba(0,0,0,0.06);
+    box-shadow:
+      0 8px 24px rgba(0, 0, 0, 0.1),
+      0 16px 48px rgba(0, 0, 0, 0.06);
   }
   .shadow-xl-soft {
-    box-shadow: 0 16px 48px rgba(0,0,0,0.12), 0 32px 80px rgba(0,0,0,0.08);
+    box-shadow:
+      0 16px 48px rgba(0, 0, 0, 0.12),
+      0 32px 80px rgba(0, 0, 0, 0.08);
   }
 
   /* Legacy compat */
-  .fluent-shadow-2  { @apply shadow-sm-soft; }
-  .fluent-shadow-4  { @apply shadow-sm-soft; }
-  .fluent-shadow-8  { @apply shadow-md-soft; }
-  .fluent-shadow-16 { @apply shadow-lg-soft; }
-  .fluent-shadow-64 { @apply shadow-xl-soft; }
+  .fluent-shadow-2 {
+    @apply shadow-sm-soft;
+  }
+  .fluent-shadow-4 {
+    @apply shadow-sm-soft;
+  }
+  .fluent-shadow-8 {
+    @apply shadow-md-soft;
+  }
+  .fluent-shadow-16 {
+    @apply shadow-lg-soft;
+  }
+  .fluent-shadow-64 {
+    @apply shadow-xl-soft;
+  }
 
   /* Dark section utility — correct in both light and dark mode */
   .section-dark {
@@ -270,21 +295,51 @@
   }
 
   /* Dashboard / app utilities */
-  .metric-card    { @apply fluent-card p-6; }
-  .badge-success  { @apply inline-flex items-center rounded-full bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 px-2.5 py-0.5 text-xs font-medium; }
-  .badge-warning  { @apply inline-flex items-center rounded-full bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 px-2.5 py-0.5 text-xs font-medium; }
-  .badge-destructive { @apply inline-flex items-center rounded-full bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 px-2.5 py-0.5 text-xs font-medium; }
-  .badge-info     { @apply inline-flex items-center rounded-full bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 px-2.5 py-0.5 text-xs font-medium; }
-  .btn-primary    { @apply fluent-btn-primary; }
-  .btn-secondary  { @apply fluent-btn-secondary; }
-  .glass-morphism { @apply bg-card/80 backdrop-blur-sm border border-border rounded-xl; }
-  .page-header    { @apply mb-8 flex flex-col gap-2 md:flex-row md:items-center md:justify-between; }
-  .page-title     { @apply text-2xl md:text-3xl font-bold tracking-tight; }
-  .page-subtitle  { @apply text-sm md:text-base text-muted-foreground; }
-  .section-label  { @apply text-xs font-semibold uppercase tracking-widest text-muted-foreground; }
-  .input-base     { @apply rounded-lg border border-border bg-background px-4 py-2.5 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all; }
-  .divider        { @apply border-b border-border; }
-  .gradient-bg    { @apply bg-gradient-to-br from-background to-card; }
+  .metric-card {
+    @apply fluent-card p-6;
+  }
+  .badge-success {
+    @apply inline-flex items-center rounded-full bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 px-2.5 py-0.5 text-xs font-medium;
+  }
+  .badge-warning {
+    @apply inline-flex items-center rounded-full bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 px-2.5 py-0.5 text-xs font-medium;
+  }
+  .badge-destructive {
+    @apply inline-flex items-center rounded-full bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 px-2.5 py-0.5 text-xs font-medium;
+  }
+  .badge-info {
+    @apply inline-flex items-center rounded-full bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 px-2.5 py-0.5 text-xs font-medium;
+  }
+  .btn-primary {
+    @apply fluent-btn-primary;
+  }
+  .btn-secondary {
+    @apply fluent-btn-secondary;
+  }
+  .glass-morphism {
+    @apply bg-card/80 backdrop-blur-sm border border-border rounded-xl;
+  }
+  .page-header {
+    @apply mb-8 flex flex-col gap-2 md:flex-row md:items-center md:justify-between;
+  }
+  .page-title {
+    @apply text-2xl md:text-3xl font-bold tracking-tight;
+  }
+  .page-subtitle {
+    @apply text-sm md:text-base text-muted-foreground;
+  }
+  .section-label {
+    @apply text-xs font-semibold uppercase tracking-widest text-muted-foreground;
+  }
+  .input-base {
+    @apply rounded-lg border border-border bg-background px-4 py-2.5 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all;
+  }
+  .divider {
+    @apply border-b border-border;
+  }
+  .gradient-bg {
+    @apply bg-gradient-to-br from-background to-card;
+  }
 }
 
 .landing-green {
@@ -310,20 +365,32 @@
 /* ── Animations ─────────────────────────────────────────── */
 
 @keyframes carousel-scroll {
-  0%   { transform: translateX(0); }
-  100% { transform: translateX(-50%); }
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
 }
 .animate-carousel {
   animation: carousel-scroll 30s linear infinite;
 }
 
 @keyframes marquee {
-  0%   { transform: translateX(0); }
-  100% { transform: translateX(-50%); }
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
 }
 @keyframes marquee-reverse {
-  0%   { transform: translateX(-50%); }
-  100% { transform: translateX(0); }
+  0% {
+    transform: translateX(-50%);
+  }
+  100% {
+    transform: translateX(0);
+  }
 }
 .animate-marquee {
   animation: marquee 45s linear infinite;
@@ -337,14 +404,39 @@
 }
 
 @keyframes fade-up {
-  from { opacity: 0; transform: translateY(16px); }
-  to   { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 .animate-fade-up {
   animation: fade-up 0.5s ease-out forwards;
 }
 
 @media print {
-  .no-print   { display: none !important; }
-  .print-only { display: block !important; }
+  .no-print {
+    display: none !important;
+  }
+  .print-only {
+    display: block !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
 }

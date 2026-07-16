@@ -5,7 +5,7 @@ const footerLinks = {
   Product: [
     { label: 'Features', href: '/features' },
     { label: 'Industries', href: '/industries' },
-    { label: 'Why IMARA', href: '/why-imara' },
+    { label: 'Why PESABY', href: '/#features' },
     { label: 'Pricing', href: '#' },
     { label: 'Changelog', href: '#' },
   ],
@@ -18,17 +18,17 @@ const footerLinks = {
     { label: 'Multi-Branch', href: '#' },
   ],
   Company: [
-    { label: 'About IMARA', href: '#' },
+    { label: 'About PESABY', href: '#' },
     { label: 'Blog', href: '#' },
     { label: 'Careers', href: '#' },
     { label: 'Press', href: '#' },
-    { label: 'Contact', href: 'mailto:hello@imara.co' },
+    { label: 'Contact', href: 'mailto:hello@pesaby.co' },
   ],
   Support: [
     { label: 'Help Center', href: '#' },
     { label: 'Onboarding Guide', href: '#' },
     { label: 'Status', href: '#' },
-    { label: 'hello@imara.co', href: 'mailto:hello@imara.co' },
+    { label: 'hello@pesaby.co', href: 'mailto:hello@pesaby.co' },
   ],
 }
 
@@ -52,7 +52,7 @@ export function LandingFooter() {
               <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center flex-shrink-0">
                 <span className="text-sm font-bold text-white">I</span>
               </div>
-              <span className="text-base font-bold tracking-tight text-foreground">IMARA</span>
+              <span className="text-base font-bold tracking-tight text-foreground">PESABY</span>
             </Link>
             <p className="text-sm text-muted-foreground leading-relaxed">
               The complete Business Operating System for growing businesses. Run everything from one place.
@@ -101,7 +101,7 @@ export function LandingFooter() {
         {/* Bottom bar */}
         <div className="border-t border-border pt-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <p className="text-xs text-muted-foreground">
-            &copy; {year} IMARA Technologies Ltd. All rights reserved.
+            &copy; {year} PESABY Technologies Ltd. All rights reserved.
           </p>
           <div className="flex items-center gap-4">
             <Link href="#" className="text-xs text-muted-foreground hover:text-foreground transition-colors">Terms</Link>

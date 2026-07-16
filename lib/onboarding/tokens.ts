@@ -10,7 +10,7 @@ export const ONBOARDING_TOKENS = {
     stepIndicator: 'text-xs font-medium uppercase tracking-widest',
     stepIndicatorColor: 'text-muted-foreground',
 
-    // Main heading - "How will you use IMARA?"
+    // Main heading - "How will you use PESABY?"
     heading: 'text-2xl md:text-3xl font-semibold tracking-tight',
     headingColor: 'text-foreground',
 

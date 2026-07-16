@@ -28,7 +28,7 @@ module.exports = {
     },
     extend: {
       fontFamily: {
-        sans: ['var(--font-inter)', 'Inter', ...defaultTheme.fontFamily.sans],
+        sans: ['var(--font-geist-sans)', 'Geist Sans', ...defaultTheme.fontFamily.sans],
         mono: ['var(--font-mono)', 'ui-monospace', ...defaultTheme.fontFamily.mono],
       },
       colors: {
