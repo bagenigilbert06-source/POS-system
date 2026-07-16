@@ -3,7 +3,8 @@ import { headers } from 'next/headers'
 import { auth } from '@/lib/auth'
 import { AuthForm } from '@/components/auth/auth-form'
 import type { Metadata } from 'next'
-import { BarChart3, PackageCheck, ReceiptText, Sparkles, Store, UsersRound } from 'lucide-react'
+import { IconBuildingStore, IconSparkles, IconUserShield, IconUsersGroup } from '@tabler/icons-react'
+import { PesabyLogoMark } from '@/components/brand/pesaby-logo'
 
 export const metadata: Metadata = { title: 'Sign Up' }
 
@@ -12,89 +13,54 @@ export default async function SignUpPage() {
   if (session?.user) redirect('/dashboard')
 
   return (
-    <main className="min-h-screen bg-[#fbfaf6] text-zinc-950">
-      <div className="grid min-h-screen lg:grid-cols-[1.05fr_0.95fr]">
-        <section className="hidden bg-[#071f18] px-10 py-8 text-white lg:flex lg:flex-col">
+    <main className="min-h-screen bg-[#fff4e8] font-sans text-slate-950 [font-feature-settings:'ss01','cv02','cv03']">
+      <div className="grid min-h-screen lg:grid-cols-[47%_53%]">
+        <section className="hidden border-r border-black/10 bg-[#ffda32] px-14 py-8 text-slate-950 lg:flex lg:flex-col">
           <a href="/" className="flex items-center gap-3">
-            <span className="relative flex h-10 w-10 items-center justify-center rounded-xl bg-white shadow-sm">
-              <span className="absolute right-1.5 top-1.5 h-2.5 w-2.5 rounded-full bg-emerald-200" />
-              <span className="text-xl font-black tracking-tight text-[#005a43]">P</span>
-            </span>
+            <PesabyLogoMark className="h-10 w-10" />
             <span className="leading-none">
-              <span className="block text-lg font-black tracking-tight text-white">Pesaby</span>
-              <span className="block text-[10px] font-bold uppercase tracking-[0.18em] text-emerald-100/60">Business OS</span>
+              <span className="block text-lg font-black tracking-tight text-slate-950">Pesaby</span>
+              <span className="block text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500">Business OS</span>
             </span>
           </a>
 
           <div className="flex flex-1 items-center">
             <div className="w-full max-w-xl">
-              <p className="mb-4 text-xs font-extrabold uppercase tracking-[0.18em] text-emerald-200">Guided setup included</p>
-              <h2 className="max-w-lg text-5xl font-black leading-[1.03] tracking-tight text-white">
-                Launch a cleaner way to run daily commerce.
+              <p className="mb-4 text-xs font-extrabold uppercase tracking-[0.18em] text-[#e42527]">Get started in minutes</p>
+              <h2 className="max-w-lg text-5xl font-extrabold leading-[1.02] tracking-[-0.045em] text-slate-950">
+                Build a better way to run your business.
               </h2>
-              <p className="mt-5 max-w-md text-base leading-7 text-emerald-50/75">
-                Create your account, choose your business template, and we will prepare the right dashboard for your operations.
+              <p className="mt-5 max-w-md text-base leading-7 text-slate-700">
+                Create your workspace and bring sales, inventory, employees, customers and reporting together in one connected platform.
               </p>
 
-              <div className="mt-10 rounded-xl border border-white/10 bg-white/10 p-5 shadow-2xl shadow-black/20 backdrop-blur">
-                <div className="mb-5 flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-white text-[#005a43]">
-                    <Store className="h-5 w-5" aria-hidden="true" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-extrabold text-white">Workspace preview</p>
-                    <p className="text-xs text-emerald-100/60">Configured from onboarding</p>
-                  </div>
-                </div>
-                <div className="grid gap-3 sm:grid-cols-3">
-                  {[
-                    [ReceiptText, 'POS', 'Ready'],
-                    [PackageCheck, 'Inventory', 'Seeded'],
-                    [BarChart3, 'Reports', 'Live'],
-                  ].map(([Icon, label, value]) => (
-                    <div key={label as string} className="rounded-lg border border-white/10 bg-white/10 p-4">
-                      <Icon className="h-4 w-4 text-emerald-200" aria-hidden="true" />
-                      <p className="mt-3 text-[11px] font-bold text-emerald-100/60">{label as string}</p>
-                      <p className="mt-1 text-lg font-black text-white">{value as string}</p>
-                    </div>
-                  ))}
-                </div>
+              <div className="mt-10 space-y-4 border-t border-black/10 pt-6 text-sm font-semibold text-slate-700">
+                <div className="flex items-start gap-3"><span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-slate-950"><IconSparkles className="h-[18px] w-[18px]" stroke={1.8} aria-hidden="true" /></span><div><p>Guided business setup</p><p className="mt-1 font-normal leading-5">Add your business details, products and locations step by step.</p></div></div>
+                <div className="flex items-start gap-3"><span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-slate-950"><IconUsersGroup className="h-[18px] w-[18px]" stroke={1.8} aria-hidden="true" /></span><div><p>Manage your team</p><p className="mt-1 font-normal leading-5">Invite employees and control what each person can access.</p></div></div>
+                <div className="flex items-start gap-3"><span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-slate-950"><IconBuildingStore className="h-[18px] w-[18px]" stroke={1.8} aria-hidden="true" /></span><div><p>One connected workspace</p><p className="mt-1 font-normal leading-5">Manage daily operations and track performance across every location.</p></div></div>
               </div>
-
-              <div className="mt-6 grid gap-3 text-sm font-semibold text-emerald-50/80 sm:grid-cols-2">
-                <span className="flex items-center gap-2">
-                  <Sparkles className="h-4 w-4 text-emerald-200" aria-hidden="true" />
-                  Premium onboarding
-                </span>
-                <span className="flex items-center gap-2">
-                  <UsersRound className="h-4 w-4 text-emerald-200" aria-hidden="true" />
-                  Team-ready controls
-                </span>
-              </div>
+              <p className="mt-6 text-sm font-semibold text-slate-800">Simple setup. Secure access. Ready to grow with your business.</p>
             </div>
           </div>
 
-          <p className="text-xs font-medium text-emerald-100/50">&copy; {new Date().getFullYear()} Pesaby. All rights reserved.</p>
+          <p className="text-xs font-medium text-slate-500">&copy; {new Date().getFullYear()} Pesaby. All rights reserved.</p>
         </section>
 
-        <section className="flex items-center justify-center px-5 py-10 sm:px-8">
-          <div className="w-full max-w-[430px] rounded-xl border border-zinc-200 bg-white p-6 shadow-2xl shadow-zinc-950/5 sm:p-8">
+        <section className="flex items-center justify-center bg-[#fff4e8] px-5 py-10 sm:px-8">
+          <div className="w-full max-w-[440px] border-0 bg-transparent p-0 shadow-none sm:p-8">
             <div className="mb-8 lg:hidden">
               <a href="/" className="flex items-center gap-3">
-                <span className="relative flex h-10 w-10 items-center justify-center rounded-xl bg-[#005a43] shadow-sm">
-                  <span className="absolute right-1.5 top-1.5 h-2.5 w-2.5 rounded-full bg-emerald-200" />
-                  <span className="text-xl font-black tracking-tight text-white">P</span>
-                </span>
-                <span className="text-lg font-black tracking-tight text-zinc-950">Pesaby</span>
+                <PesabyLogoMark className="h-10 w-10" />
+                <span className="text-lg font-black tracking-tight text-slate-950">Pesaby</span>
               </a>
             </div>
 
             <div className="mb-8">
-              <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-lg bg-emerald-50 text-[#005a43]">
-                <Sparkles className="h-5 w-5" aria-hidden="true" />
+              <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-lg bg-[#ffda32] text-slate-950">
+                <IconUserShield className="h-5 w-5" stroke={1.8} aria-hidden="true" />
               </div>
-              <h1 className="mb-2 text-3xl font-black tracking-tight text-zinc-950">Create account</h1>
-              <p className="text-sm leading-6 text-zinc-600">Start with a guided setup tailored to your business.</p>
+              <h1 className="mb-2 text-3xl font-extrabold tracking-[-0.035em] text-slate-950">Create your Pesaby account</h1>
+              <p className="text-sm leading-6 text-zinc-600">Start your free setup and create your business workspace.</p>
             </div>
             <AuthForm mode="sign-up" />
           </div>

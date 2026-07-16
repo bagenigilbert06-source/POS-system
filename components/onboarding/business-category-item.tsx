@@ -1,7 +1,6 @@
 'use client'
 
 import { Check } from 'lucide-react'
-import { cn } from '@/lib/utils'
 
 interface BusinessCategoryItemProps {
   id: string
@@ -19,29 +18,26 @@ export function BusinessCategoryItem({
   return (
     <button
       onClick={onClick}
-      className={cn(
-        'w-full rounded-lg border-2 p-4 text-left transition-all duration-200',
+      type="button"
+      aria-pressed={selected}
+      className={`w-full rounded-xl border p-4 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e42527] focus-visible:ring-offset-2 ${
         selected
-          ? 'border-primary bg-primary/5 shadow-md-soft'
-          : 'border-border hover:border-primary/30 hover:bg-muted/50'
-      )}
+          ? 'border-[#e1b900] bg-[#ffda32]'
+          : 'border-zinc-200 bg-white hover:border-zinc-400 hover:bg-[#fffdf8]'
+      }`}
     >
       <div className="flex items-center justify-between gap-3">
         <h3
-          className={cn(
-            'text-sm font-semibold transition-colors duration-200',
-            selected ? 'text-foreground' : 'text-foreground'
-          )}
+          className="text-sm font-bold text-[#050816]"
         >
           {name}
         </h3>
         <div
-          className={cn(
-            'h-5 w-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-all duration-200',
-            selected ? 'border-primary bg-primary' : 'border-muted-foreground/30'
-          )}
+          className={`flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full border transition-colors ${
+            selected ? 'border-[#050816] bg-[#050816]' : 'border-zinc-300 bg-white'
+          }`}
         >
-          {selected && <Check className="h-3 w-3 text-primary-foreground" />}
+          {selected && <Check aria-hidden="true" className="h-3 w-3 text-white" />}
         </div>
       </div>
     </button>

@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import { getCategoriesForType } from '@/lib/types'
 import { BUSINESS_TYPE_METADATA, BusinessTypeEnum } from '@/lib/types'
 import { PremiumStepHeader } from './premium-step-header'
@@ -45,7 +45,7 @@ export function StepBusinessCategory({
   if (!categories.length) {
     return (
       <div className="text-center py-12">
-        <p className="text-muted-foreground">Please select a business type first</p>
+        <p className="text-zinc-600">Please select a business type first.</p>
       </div>
     )
   }
@@ -59,7 +59,7 @@ export function StepBusinessCategory({
         description="We'll configure features and defaults tailored to your specific category"
       />
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
         {categories.map((category) => (
           <BusinessCategoryItem
             key={category.id}
@@ -79,9 +79,9 @@ export function StepBusinessCategory({
         isVisible={isOtherSelected}
       />
 
-      <div className="rounded-lg bg-primary/5 border border-primary/20 p-4 space-y-2">
-        <p className="text-sm font-semibold text-foreground">Why does this matter?</p>
-        <p className="text-sm text-muted-foreground leading-relaxed">
+      <div className="space-y-2 rounded-xl border border-[#ead57a] bg-[#fff9df] p-5">
+        <p className="text-sm font-bold text-[#050816]">Why we ask</p>
+        <p className="text-sm leading-6 text-zinc-600">
           Your category helps us set up the right features, default product categories, and workflows for your specific business model. You can always customize these settings later from your account preferences.
         </p>
       </div>

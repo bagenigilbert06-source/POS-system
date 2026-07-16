@@ -49,12 +49,12 @@ export function StepLocation({
   }
 
   return (
-    <div className="space-y-12">
+    <div className="space-y-8">
       <PremiumStepHeader
         stepNumber={stepNumber}
         totalSteps={totalSteps}
         title="Where are you located?"
-        description="This helps us configure the right defaults for taxes, currency, and timezone"
+        description="We’ll configure the right currency, timezone, and regional defaults."
       />
 
       <div className="space-y-6">

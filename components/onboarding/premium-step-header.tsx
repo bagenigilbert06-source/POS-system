@@ -9,7 +9,7 @@ interface PremiumStepHeaderProps {
 export function PremiumStepHeader({ title, description }: PremiumStepHeaderProps) {
   return (
     <div className="mb-7 text-center">
-      <h2 className="text-2xl font-black leading-tight tracking-tight text-zinc-950">
+      <h2 className="text-2xl font-extrabold leading-tight tracking-[-0.03em] text-slate-950">
         {title}
       </h2>
       {description && (

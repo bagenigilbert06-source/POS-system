@@ -8,22 +8,22 @@ const BUSINESS_SIZES = [
   {
     id: 'solo',
     label: 'Solo',
-    description: 'Just me - Single person operation',
+    description: 'Just me — a single-person operation',
   },
   {
     id: 'small',
     label: 'Small',
-    description: '2-10 employees - Growing team',
+    description: '2–10 employees — a growing team',
   },
   {
     id: 'medium',
     label: 'Medium',
-    description: '11-50 employees - Established business',
+    description: '11–50 employees — an established business',
   },
   {
     id: 'large',
     label: 'Large',
-    description: '50+ employees - Enterprise operation',
+    description: '50+ employees — a larger operation',
   },
 ]
 
@@ -41,15 +41,15 @@ export function StepBusinessSize({
   totalSteps = 7,
 }: StepBusinessSizeProps) {
   return (
-    <div className="space-y-12">
+    <div className="space-y-8">
       <PremiumStepHeader
         stepNumber={stepNumber}
         totalSteps={totalSteps}
         title="How many people work in your business?"
-        description="This helps us recommend features and settings tailored to your team size"
+        description="We’ll tailor workspace settings to the size of your team."
       />
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         {BUSINESS_SIZES.map((size) => (
           <PremiumSelectionCard
             key={size.id}

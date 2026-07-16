@@ -27,9 +27,9 @@ export function CustomCategoryField({ businessType, value, onChange, isVisible }
   return (
     <div className="animate-in fade-in slide-in-from-top-4 duration-300 space-y-4">
       <div className="space-y-3">
-        <label className="text-sm font-semibold text-foreground">Tell us about your business</label>
-        <p className="text-sm text-muted-foreground">
-          We couldn&apos;t find the right category. Type your business below and we&apos;ll tailor PESABY to your workflow.
+        <label className="text-sm font-bold text-[#050816]">Tell us about your business</label>
+        <p className="text-sm leading-6 text-zinc-600">
+          We couldn&apos;t find the right category. Type your business below and we&apos;ll tailor Pesaby to your workflow.
         </p>
       </div>
 
@@ -42,8 +42,8 @@ export function CustomCategoryField({ businessType, value, onChange, isVisible }
       />
 
       {value && (
-        <div className="rounded-lg bg-primary/5 border border-primary/20 p-3 animate-in fade-in duration-200">
-          <p className="text-xs text-primary">
+        <div className="animate-in fade-in rounded-lg border border-[#e1b900] bg-[#fff4c4] p-3 duration-200">
+          <p className="text-xs text-[#050816]">
             <span className="font-semibold">Selected:</span> {value}
           </p>
         </div>

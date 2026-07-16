@@ -29,12 +29,12 @@ export function StepBusinessDetails({
   }
 
   return (
-    <div className="space-y-12">
+    <div className="space-y-8">
       <PremiumStepHeader
         stepNumber={stepNumber}
         totalSteps={totalSteps}
         title="Tell us about your business"
-        description="We'll use this information to personalize your experience and set up defaults"
+        description="We’ll use these details to prepare the right workspace defaults."
       />
 
       <div className="space-y-6">
@@ -43,10 +43,10 @@ export function StepBusinessDetails({
           icon={Building2}
           type="text"
           required
-          placeholder="My Awesome Business"
+          placeholder="Your business name"
           value={data.businessName}
           onChange={(e) => handleChange('businessName', e.target.value)}
-          description="This will appear throughout your dashboard"
+          description="This name will appear throughout your workspace."
         />
 
         <PremiumInput
@@ -54,10 +54,10 @@ export function StepBusinessDetails({
           icon={Mail}
           type="email"
           required
-          placeholder="business@example.com"
+          placeholder="you@business.com"
           value={data.businessEmail}
           onChange={(e) => handleChange('businessEmail', e.target.value)}
-          description="We'll use this for important notifications"
+          description="Used for important workspace notifications."
         />
 
         <PremiumInput
@@ -68,7 +68,7 @@ export function StepBusinessDetails({
           placeholder="+254 712 345 678"
           value={data.phone}
           onChange={(e) => handleChange('phone', e.target.value)}
-          description="Used for backup contact information"
+          description="Used as your business contact number."
         />
       </div>
     </div>

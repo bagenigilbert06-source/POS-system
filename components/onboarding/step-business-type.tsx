@@ -18,11 +18,6 @@ const iconMap: Record<BusinessTypeEnum, React.ComponentType<{ className?: string
   [BusinessTypeEnum.PHARMACY]: Pill,
 }
 
-const recommendedTypes = new Set<BusinessTypeEnum>([
-  BusinessTypeEnum.RETAIL,
-  BusinessTypeEnum.RESTAURANT,
-])
-
 export function StepBusinessType({
   value,
   onChange,
@@ -35,7 +30,7 @@ export function StepBusinessType({
         stepNumber={stepNumber}
         totalSteps={totalSteps}
         title="Select your business type"
-        description="Choose the option that best matches your business."
+        description="Choose the option that most closely matches your day-to-day operation."
       />
 
       <div className="grid gap-4 md:grid-cols-3">

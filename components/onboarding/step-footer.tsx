@@ -24,16 +24,13 @@ export function StepFooter({
 }: StepFooterProps) {
   return (
     <div
-      className={cn('mt-8 flex items-center pt-6', showBack ? 'justify-between' : 'justify-end')}
-      style={{
-        borderTop: '1px solid #e5e7eb',
-      }}
+      className={cn('mt-8 flex items-center border-t border-zinc-200 pt-6', showBack ? 'justify-between' : 'justify-end')}
     >
       {showBack && (
         <button
           onClick={onBack}
           disabled={backDisabled || loading}
-          className="inline-flex items-center gap-2 rounded-md px-3 py-2 text-[14px] font-semibold text-zinc-600 transition-colors hover:bg-zinc-50 hover:text-zinc-950 disabled:cursor-not-allowed disabled:opacity-30"
+          className="inline-flex min-h-11 items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold text-zinc-600 transition-colors hover:bg-zinc-100 hover:text-zinc-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e42527] disabled:cursor-not-allowed disabled:opacity-30"
         >
           <ArrowLeft className="h-4 w-4" aria-hidden="true" />
           Back
@@ -44,16 +41,11 @@ export function StepFooter({
         onClick={onNext}
         disabled={nextDisabled || loading}
         className={cn(
-          'inline-flex items-center gap-2 rounded-md px-6 py-3 text-[14px] font-extrabold text-white transition-all duration-150',
+          'inline-flex min-h-11 min-w-[148px] items-center justify-center gap-2 rounded-lg px-6 py-3 text-sm font-extrabold text-white transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e42527] focus-visible:ring-offset-2',
           'disabled:opacity-40 disabled:cursor-not-allowed',
           !showBack && 'ml-auto',
         )}
-        style={{
-          background: nextDisabled || loading ? '#9ca3af' : '#005a43',
-          boxShadow: nextDisabled || loading ? 'none' : '0 12px 24px rgba(0, 90, 67, 0.18)',
-          minWidth: '132px',
-          justifyContent: 'center',
-        }}
+        style={{ background: nextDisabled || loading ? '#a1a1aa' : '#e42527' }}
       >
         {loading && <Loader2 className="h-4 w-4 animate-spin" />}
         {nextLabel}

@@ -251,11 +251,12 @@ export function OnboardingContainer({
   return (
     <div className="w-full">
       <div className="mb-8 text-center">
-        <h1 className="text-2xl font-black tracking-tight text-zinc-950 sm:text-3xl">
-          Welcome to Pesaby
+        <p className="mb-3 text-xs font-extrabold uppercase tracking-[0.2em] text-[#e42527]">Workspace setup</p>
+        <h1 className="text-2xl font-extrabold tracking-[-0.035em] text-slate-950 sm:text-3xl">
+          Set up your Pesaby workspace
         </h1>
-        <p className="mt-2 text-sm leading-6 text-zinc-600">
-          Create your business workspace. Everything can be changed later.
+        <p className="mx-auto mt-2 max-w-lg text-sm leading-6 text-zinc-600">
+          Tell us how your business works so Pesaby can prepare the right starting point. You can change these settings later.
         </p>
       </div>
 
@@ -267,12 +268,12 @@ export function OnboardingContainer({
       />
 
       {error && (
-        <div className="mb-6 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-[13px] font-semibold text-red-700">
+        <div role="alert" className="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
           {error}
         </div>
       )}
 
-      <div className="mb-10 animate-fade-up">{renderStep()}</div>
+      <div key={step.id} className="mb-8 animate-fade-up">{renderStep()}</div>
 
       <StepFooter
         onBack={handlePrevious}

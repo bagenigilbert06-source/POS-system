@@ -23,48 +23,41 @@ export function PremiumSelectionCard({
 }: PremiumSelectionCardProps) {
   return (
     <button
+      type="button"
       onClick={onClick}
       aria-pressed={selected}
-      className="group relative w-full rounded-lg text-left transition-all duration-150 hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-800/30 focus-visible:ring-offset-2"
-      style={{
-        background: '#ffffff',
-        border: selected ? '2px solid #005a43' : '1px solid #e5e7eb',
-        padding: '20px',
-        boxShadow: selected ? '0 14px 30px rgba(0, 90, 67, 0.12)' : '0 1px 2px rgba(0,0,0,0.04)',
-        outline: 'none',
-      }}
+      className={`group relative min-h-44 w-full rounded-xl border p-5 text-left transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e42527] focus-visible:ring-offset-2 ${
+        selected
+          ? 'border-[#e1b900] bg-[#ffda32]'
+          : 'border-zinc-200 bg-white hover:border-zinc-400 hover:bg-[#fffdf8]'
+      }`}
     >
       {/* Check mark in top-right */}
       {selected && (
         <span
-          className="absolute top-3 right-3 h-[22px] w-[22px] rounded-full flex items-center justify-center"
-          style={{ background: '#005a43' }}
+          className="absolute right-4 top-4 flex h-6 w-6 items-center justify-center rounded-full bg-[#050816]"
         >
-          <Check className="h-3 w-3 text-white stroke-[3]" />
+          <Check aria-hidden="true" className="h-3.5 w-3.5 text-white stroke-[3]" />
         </span>
       )}
 
       {/* Icon */}
       <div
-        className="mb-4 h-10 w-10 rounded-lg flex items-center justify-center"
-        style={{
-          background: selected ? '#005a43' : '#f3f4f6',
-          color: selected ? '#ffffff' : '#374151',
-        }}
+        className={`mb-5 flex h-11 w-11 items-center justify-center rounded-lg ${
+          selected ? 'bg-[#050816] text-[#ffda32]' : 'bg-[#fff4c4] text-[#050816]'
+        }`}
       >
-        <Icon className="h-5 w-5" />
+        <Icon aria-hidden="true" className="h-5 w-5" />
       </div>
 
       {/* Title */}
       <p
-        className="text-[14px] font-semibold mb-1 leading-snug"
-        style={{ color: '#111827' }}
+        className="mb-2 text-[15px] font-bold leading-snug text-[#050816]"
       >
         {title}
         {badge && (
           <span
-            className="ml-2 text-[10px] font-medium px-1.5 py-0.5 rounded"
-            style={{ background: '#f3f4f6', color: '#374151' }}
+            className="ml-2 rounded bg-white/70 px-1.5 py-0.5 text-[10px] font-semibold text-zinc-700"
           >
             {badge}
           </span>
@@ -73,8 +66,7 @@ export function PremiumSelectionCard({
 
       {/* Description */}
       <p
-        className="text-[12px] leading-relaxed line-clamp-2"
-        style={{ color: '#9ca3af' }}
+        className="line-clamp-3 text-[13px] leading-5 text-zinc-600"
       >
         {description}
       </p>

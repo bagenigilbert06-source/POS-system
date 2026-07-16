@@ -3,7 +3,7 @@
 import { LucideIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import React from 'react'
-import { ONBOARDING_TOKENS, ONBOARDING_PRESETS } from '@/lib/onboarding/tokens'
+import { ONBOARDING_TOKENS } from '@/lib/onboarding/tokens'
 
 interface PremiumInputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   label?: string
@@ -27,32 +27,30 @@ export const PremiumInput = React.forwardRef<HTMLInputElement, PremiumInputProps
       <div className="space-y-2">
         {label && (
           <label
-            className="block text-[13px] font-semibold mb-1"
-            style={{ color: '#374151' }}
+            className="mb-1 block text-sm font-semibold text-zinc-800"
           >
             {label}
-            {props.required && <span className="ml-0.5" style={{ color: '#dc2626' }}>*</span>}
+            {props.required && <span className="ml-0.5 text-[#e42527]">*</span>}
           </label>
         )}
 
         {description && (
-          <p className="text-[12px] mb-1.5" style={{ color: '#94a3b8' }}>
+          <p className="mb-1.5 text-xs text-zinc-500">
             {description}
           </p>
         )}
 
         <div className="relative">
           {Icon && (
-            <Icon className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground pointer-events-none" />
+            <Icon className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-zinc-500" aria-hidden="true" />
           )}
           <input
             ref={ref}
             className={cn(
-              'w-full h-11 px-4 rounded-lg text-[14px] text-gray-900 placeholder:text-gray-400 transition-all duration-150 outline-none',
-              'bg-white border border-gray-200',
-              'focus:border-blue-500 focus:ring-2 focus:ring-blue-100',
+              'h-12 w-full rounded-lg border border-zinc-300 bg-white px-4 text-sm text-zinc-950 outline-none transition-colors duration-150 placeholder:text-zinc-400',
+              'focus:border-[#e42527] focus:ring-2 focus:ring-[#e42527]/15',
               Icon && 'pl-11',
-              error && 'border-red-400 focus:ring-red-100 focus:border-red-500',
+              error && 'border-red-400 focus:border-red-500 focus:ring-red-100',
               className
             )}
             {...props}

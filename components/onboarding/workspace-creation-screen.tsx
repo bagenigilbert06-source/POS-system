@@ -118,7 +118,7 @@ export function WorkspaceCreationScreen({
     return (
       <div className="flex min-h-[500px] flex-col items-center justify-center py-12 text-center">
         <div className="mb-8 flex h-16 w-16 items-center justify-center rounded-full bg-red-50">
-          <AlertCircle className="w-8 h-8 text-destructive" />
+          <AlertCircle aria-hidden="true" className="h-8 w-8 text-[#e42527]" />
         </div>
         <h1 className="mb-3 text-2xl font-black tracking-tight text-zinc-950">Setup failed</h1>
         <p className="mb-2 max-w-sm text-sm text-zinc-600">
@@ -130,12 +130,12 @@ export function WorkspaceCreationScreen({
         <button
           onClick={handleRetry}
           disabled={retrying}
-          className="flex items-center gap-2 rounded-md bg-[#005a43] px-6 py-3 text-sm font-extrabold text-white transition-all hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50"
+          className="flex min-h-12 items-center gap-2 rounded-lg bg-[#e42527] px-6 py-3 text-sm font-bold text-white transition-colors hover:bg-[#c91e20] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e42527] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {retrying ? (
-            <Loader2 className="w-4 h-4 animate-spin" />
+            <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
           ) : (
-            <RefreshCw className="w-4 h-4" />
+            <RefreshCw aria-hidden="true" className="h-4 w-4" />
           )}
           Try again
         </button>
@@ -149,13 +149,13 @@ export function WorkspaceCreationScreen({
   const isSuccess = phase === 'success'
 
   return (
-    <div className="flex min-h-[500px] flex-col items-center justify-center py-12">
+    <div className="flex min-h-[500px] flex-col items-center justify-center py-10" aria-live="polite">
       <div className="mb-12">
-        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-emerald-50">
+        <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-[#ffda32] text-[#050816]">
           {isSuccess ? (
-            <CheckCircle2 className="h-8 w-8 text-[#005a43]" />
+            <CheckCircle2 aria-hidden="true" className="h-8 w-8" />
           ) : (
-            <Loader2 className="h-8 w-8 animate-spin text-[#005a43]" />
+            <Loader2 aria-hidden="true" className="h-8 w-8 animate-spin" />
           )}
         </div>
       </div>
@@ -166,7 +166,7 @@ export function WorkspaceCreationScreen({
 
       <p className="mb-12 max-w-md text-center text-base leading-7 text-zinc-600">
         {isSuccess
-          ? `Welcome to PESABY! ${onboardingData.businessName} is ready.`
+          ? `Welcome to Pesaby. ${onboardingData.businessName} is ready.`
           : `Just a moment while we set up ${onboardingData.businessName || 'your business'}.`}
       </p>
 
@@ -176,21 +176,21 @@ export function WorkspaceCreationScreen({
           const isActive = activeStep === index && !isDone
 
           return (
-            <div key={step.id} className="flex items-center gap-4 rounded-lg border border-zinc-100 bg-white px-4 py-3 transition-all duration-300">
+            <div key={step.id} className={`flex items-center gap-4 rounded-xl border px-4 py-3 transition-colors duration-300 ${isActive ? 'border-[#ead57a] bg-[#fff9df]' : 'border-zinc-200 bg-white'}`}>
               <div
                 className={[
                   'flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full border-2 transition-all duration-300',
                   isDone
-                    ? 'border-[#005a43] bg-[#005a43]'
+                    ? 'border-[#050816] bg-[#050816]'
                     : isActive
-                      ? 'animate-pulse border-[#005a43] bg-emerald-50'
+                      ? 'border-[#e1b900] bg-[#ffda32]'
                       : 'border-zinc-300',
                 ].join(' ')}
               >
                 {isDone ? (
-                  <CheckCircle2 className="h-4 w-4 text-white" />
+                  <CheckCircle2 aria-hidden="true" className="h-4 w-4 text-white" />
                 ) : isActive ? (
-                  <Loader2 className="h-3 w-3 animate-spin text-[#005a43]" />
+                  <Loader2 aria-hidden="true" className="h-3 w-3 animate-spin text-[#050816]" />
                 ) : (
                   <div className="h-2 w-2 rounded-full bg-zinc-300" />
                 )}
@@ -199,7 +199,7 @@ export function WorkspaceCreationScreen({
               <span
                 className={[
                   'text-sm font-medium transition-colors duration-300',
-                  isDone ? 'text-[#005a43]' : isActive ? 'text-zinc-950' : 'text-zinc-500',
+                  isDone ? 'font-semibold text-[#050816]' : isActive ? 'text-zinc-950' : 'text-zinc-500',
                 ].join(' ')}
               >
                 {step.label}

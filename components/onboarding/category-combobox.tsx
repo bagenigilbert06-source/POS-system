@@ -92,9 +92,8 @@ export function CategoryCombobox({
       <div className="relative">
         <div
           className={cn(
-            'w-full rounded-lg border px-4 py-3 flex items-center gap-2 transition-all duration-200',
-            'bg-card border-border',
-            open ? 'ring-2 ring-primary ring-offset-2 ring-offset-background border-primary' : ''
+            'flex min-h-12 w-full items-center gap-2 rounded-xl border bg-white px-4 py-3 transition-colors',
+            open ? 'border-[#e42527] ring-2 ring-[#e42527]/15' : 'border-zinc-300'
           )}
         >
           <input
@@ -106,7 +105,7 @@ export function CategoryCombobox({
             onBlur={handleBlur}
             onKeyDown={handleKeyDown}
             placeholder={placeholder}
-            className="flex-1 bg-transparent outline-none text-sm placeholder:text-muted-foreground"
+            className="flex-1 bg-transparent text-sm text-[#050816] outline-none placeholder:text-zinc-400"
             aria-label="Search business category"
             aria-autocomplete="list"
             aria-controls="category-suggestions"
@@ -119,30 +118,32 @@ export function CategoryCombobox({
                 onChange('')
                 inputRef.current?.focus()
               }}
-              className="p-1 hover:bg-muted rounded transition-colors"
+              type="button"
+              className="rounded p-1 text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-zinc-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e42527]"
               aria-label="Clear input"
             >
-              <X className="h-4 w-4 text-muted-foreground" />
+              <X aria-hidden="true" className="h-4 w-4" />
             </button>
           )}
-          <ChevronDown className={cn('h-4 w-4 text-muted-foreground transition-transform', open && 'rotate-180')} />
+          <ChevronDown aria-hidden="true" className={cn('h-4 w-4 text-zinc-500 transition-transform', open && 'rotate-180')} />
         </div>
 
         {/* Dropdown */}
         {open && filtered.length > 0 && (
           <div
             id="category-suggestions"
-            className="absolute top-full mt-2 w-full bg-card border border-border rounded-lg shadow-lg z-50 max-h-64 overflow-y-auto"
+            className="absolute top-full z-50 mt-2 max-h-64 w-full overflow-y-auto rounded-xl border border-zinc-200 bg-white shadow-[0_18px_45px_rgba(5,8,22,0.12)]"
           >
             <div className="space-y-1 p-2">
               {filtered.map((item) => (
                 <button
                   key={item}
+                  type="button"
                   onClick={() => handleSelect(item)}
                   className={cn(
-                    'w-full text-left px-3 py-2 rounded transition-colors text-sm',
-                    'hover:bg-primary/10 hover:text-primary',
-                    value === item ? 'bg-primary/15 text-primary font-medium' : 'text-foreground'
+                    'w-full rounded-lg px-3 py-2.5 text-left text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e42527]',
+                    'hover:bg-[#fff4c4] hover:text-[#050816]',
+                    value === item ? 'bg-[#ffda32] font-semibold text-[#050816]' : 'text-zinc-700'
                   )}
                   role="option"
                   aria-selected={value === item}
@@ -156,14 +157,15 @@ export function CategoryCombobox({
 
         {/* No results message */}
         {open && search.trim() && filtered.length === 0 && (
-          <div className="absolute top-full mt-2 w-full bg-card border border-border rounded-lg shadow-lg z-50 p-4">
-            <p className="text-sm text-muted-foreground mb-3">Can&apos;t find yours?</p>
-            <p className="text-xs text-muted-foreground mb-3">
+          <div className="absolute top-full z-50 mt-2 w-full rounded-xl border border-zinc-200 bg-white p-4 shadow-[0_18px_45px_rgba(5,8,22,0.12)]">
+            <p className="mb-2 text-sm font-semibold text-[#050816]">Can&apos;t find yours?</p>
+            <p className="mb-3 text-xs leading-5 text-zinc-600">
               You can use &quot;{search}&quot; as your custom category.
             </p>
             <button
               onClick={() => handleSelect(search)}
-              className="w-full px-3 py-2 rounded-lg bg-primary/10 text-primary text-sm font-medium hover:bg-primary/20 transition-colors"
+              type="button"
+              className="w-full rounded-lg bg-[#ffda32] px-3 py-2.5 text-sm font-bold text-[#050816] transition-colors hover:bg-[#f4c900] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e42527]"
             >
               Use &quot;{search}&quot;
             </button>
@@ -171,7 +173,7 @@ export function CategoryCombobox({
         )}
       </div>
 
-      {description && <p className="text-xs text-muted-foreground mt-2">{description}</p>}
+      {description && <p className="mt-2 text-xs leading-5 text-zinc-500">{description}</p>}
     </div>
   )
 }
