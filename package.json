@@ -9,8 +9,10 @@
     "dev": "next dev --webpack -H 0.0.0.0",
     "build": "next build --webpack",
     "start": "next start",
-    "lint": "next lint",
+    "lint": "eslint .",
     "test:auth": "node tests/auth.test.mjs",
+    "test:onboarding": "node tests/onboarding.test.mjs",
+    "test": "pnpm run test:auth && pnpm run test:onboarding",
     "postinstall": "prisma generate"
   },
   "dependencies": {
@@ -82,7 +84,7 @@
     "@types/uuid": "^9.0.8",
     "@typescript-eslint/eslint-plugin": "^8.62.0",
     "@typescript-eslint/parser": "^8.62.0",
-    "eslint": "^10.6.0",
+    "eslint": "^9.39.5",
     "eslint-config-next": "16.2.9",
     "eslint-config-prettier": "^9.1.0",
     "eslint-plugin-prettier": "^5.1.3",

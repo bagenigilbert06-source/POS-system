@@ -86,28 +86,29 @@ async function cleanupTestUser(email) {
 loadEnv()
 
 const port = process.env.AUTH_TEST_PORT ?? '3100'
-const baseURL = `http://127.0.0.1:${port}`
+const baseURL = process.env.AUTH_TEST_BASE_URL ?? `http://127.0.0.1:${port}`
+const useExternalServer = Boolean(process.env.AUTH_TEST_BASE_URL)
 const email = `auth-test-${Date.now()}@example.com`
 const password = 'Correct-Horse-42-auth-test'
 
 process.env.BETTER_AUTH_URL = baseURL
 
-const server = spawn('node', ['node_modules/next/dist/bin/next', 'dev', '-H', '127.0.0.1', '-p', port], {
+const server = useExternalServer ? null : spawn('node', ['node_modules/next/dist/bin/next', 'dev', '-H', '127.0.0.1', '-p', port], {
   env: process.env,
   detached: true,
   stdio: ['ignore', 'pipe', 'pipe'],
 })
 
 let output = ''
-server.stdout.on('data', (chunk) => {
+server?.stdout.on('data', (chunk) => {
   output += chunk.toString()
 })
-server.stderr.on('data', (chunk) => {
+server?.stderr.on('data', (chunk) => {
   output += chunk.toString()
 })
 
 try {
-  await waitForServer(baseURL, server)
+  if (server) await waitForServer(baseURL, server)
   await cleanupTestUser(email)
 
   const signUp = await authFetch(baseURL, '/sign-up/email', {
@@ -202,11 +203,11 @@ try {
   console.log('Auth integration test passed')
 } finally {
   await cleanupTestUser(email).catch(() => {})
-  if (server.exitCode === null) {
+  if (server?.exitCode === null && server.pid) {
     process.kill(-server.pid, 'SIGTERM')
     await wait(1000)
   }
-  if (server.exitCode === null) {
+  if (server?.exitCode === null && server.pid) {
     process.kill(-server.pid, 'SIGKILL')
   }
   if (process.env.DEBUG_AUTH_TEST === '1') {

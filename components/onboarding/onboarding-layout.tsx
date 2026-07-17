@@ -32,7 +32,7 @@ export function OnboardingLayout({ children }: OnboardingLayoutProps) {
         <div aria-hidden="true" className="absolute inset-x-0 top-0 h-1 bg-[linear-gradient(90deg,#e42527_0_33%,#ffda32_33%_66%,#050816_66%)]" />
         <div aria-hidden="true" className="absolute inset-0 bg-[radial-gradient(circle_at_15%_20%,rgba(255,218,50,0.18),transparent_28%),radial-gradient(circle_at_90%_85%,rgba(228,37,39,0.06),transparent_30%)]" />
 
-        <div className="relative w-full max-w-[880px] overflow-hidden rounded-2xl border border-black/10 bg-white px-5 py-7 shadow-[0_24px_70px_rgba(15,23,42,0.09)] sm:px-10 sm:py-10 lg:px-12">
+        <div className="relative w-full max-w-[1040px] overflow-hidden rounded-2xl border border-black/10 bg-white px-4 py-6 shadow-[0_24px_70px_rgba(15,23,42,0.09)] sm:px-8 sm:py-9 lg:px-12">
           {children}
         </div>
       </main>

@@ -4,13 +4,16 @@
  * Thin helper surface for reading workspace configuration at runtime
  * (e.g. in dashboard layouts and RSC pages).
  *
- * Workspace *creation* is handled entirely by WorkspaceFactory.
+ * Workspace creation is handled transactionally by OnboardingService.
  * This service is read-only: it never writes to the database.
  */
 
 import { getWorkspaceTemplate, getDashboardRoute, resolveTemplateId } from '@/lib/templates'
 import type { WorkspaceConfig } from '@/lib/types/workspace'
 import { OrganizationService } from '@/lib/services/organization-service'
+import { db } from '@/lib/db'
+import { workspace } from '@/lib/db/schema'
+import { eq } from 'drizzle-orm'
 
 export class WorkspaceService {
   /**
@@ -56,19 +59,21 @@ export class WorkspaceService {
   /**
    * Load a workspace config from the organization row by id.
    */
-  static async getWorkspaceConfig(organizationId: string): Promise<WorkspaceConfig | null> {
-    const org = await OrganizationService.getOrganization(organizationId)
+  static async getWorkspaceConfig(organizationId: string, userId: string): Promise<WorkspaceConfig | null> {
+    const org = await OrganizationService.getOrganization(organizationId, userId)
     if (!org) {
       return null
     }
 
-    return this.buildConfigFromOrg({
-      id: org.id,
-      name: org.name ?? null,
-      businessType: org.businessType ?? null,
-      businessCategory: org.businessCategory ?? null,
-      templateId: (org as any).templateId ?? null,
-    })
+    const [stored] = await db.select({ config: workspace.config }).from(workspace).where(eq(workspace.organizationId, organizationId)).limit(1)
+    const selected = Array.isArray((stored?.config as any)?.enabledModules) ? (stored.config as any).enabledModules as string[] : undefined
+    const config = this.createWorkspaceConfig(
+      org.id,
+      org.businessType,
+      org.businessCategory ?? 'other_retail',
+      selected,
+    )
+    return { ...config, name: org.name }
   }
 
   /**
@@ -84,13 +89,16 @@ export class WorkspaceService {
   static createWorkspaceConfig(
     organizationId: string,
     businessType: string,
-    businessCategory: string
+    businessCategory: string,
+    selectedModules?: string[]
   ): WorkspaceConfig {
     const type = (businessType ?? 'retail').toLowerCase().trim()
     const category = (businessCategory ?? 'other_retail').toLowerCase().trim()
     const templateId = resolveTemplateId(type, category)
     const template = getWorkspaceTemplate(templateId)
 
+    const enabledModules = selectedModules ?? template.enabledModules
+    const filterNavigation = (items: typeof template.navigation.primaryNav) => items.filter((item) => item.id === 'dashboard' || item.id === 'settings' || enabledModules.includes(item.id))
     return {
       id: organizationId,
       name: template.name,
@@ -98,11 +106,11 @@ export class WorkspaceService {
       businessCategory: category,
       templateId,
       template,
-      enabledModules: template.enabledModules,
+      enabledModules,
       enabledFeatures: template.enabledFeatures,
       sidebarConfig: {
-        primaryNav: template.navigation.primaryNav,
-        secondaryNav: template.navigation.secondaryNav,
+        primaryNav: filterNavigation(template.navigation.primaryNav),
+        secondaryNav: filterNavigation(template.navigation.secondaryNav),
       },
       createdAt: new Date(),
       updatedAt: new Date(),

@@ -4,6 +4,8 @@ import { auth } from '@/lib/auth'
 import { OrganizationService } from '@/lib/services/organization-service'
 import { WorkspaceService } from '@/lib/services/workspace-service'
 import { DashboardLayoutClient } from '@/components/layout/dashboard-layout-client'
+import { SetupChecklist } from '@/components/dashboard/setup-checklist'
+import { getSetupChecklist } from '@/lib/services/setup-checklist-service'
 
 export default async function DashboardRouteLayout({ children }: { children: React.ReactNode }) {
   const session = await auth.api.getSession({ headers: await headers() })
@@ -16,11 +18,9 @@ export default async function DashboardRouteLayout({ children }: { children: Rea
 
   // Build a full WorkspaceConfig from the persisted businessType + businessCategory.
   // This is done once on the server so the client never needs to fetch it separately.
-  const workspaceConfig = WorkspaceService.createWorkspaceConfig(
-    organization.id,
-    organization.businessType ?? 'retail',
-    organization.businessCategory ?? 'other_retail'
-  )
+  const workspaceConfig = await WorkspaceService.getWorkspaceConfig(organization.id, session.user.id)
+  if (!workspaceConfig) redirect('/onboarding')
+  const checklist = await getSetupChecklist(organization.id, workspaceConfig.enabledModules)
 
   return (
     <DashboardLayoutClient
@@ -30,6 +30,7 @@ export default async function DashboardRouteLayout({ children }: { children: Rea
       organizationId={organization.id}
       organizationName={organization.name}
       initialWorkspaceConfig={workspaceConfig}
+      setupChecklist={<SetupChecklist items={checklist.items} initiallyDismissed={checklist.dismissed} />}
     >
       {children}
     </DashboardLayoutClient>

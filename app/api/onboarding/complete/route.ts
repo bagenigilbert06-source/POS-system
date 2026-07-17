@@ -1,139 +1,21 @@
-import { NextRequest, NextResponse } from 'next/server'
 import { headers } from 'next/headers'
+import { NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
-import { db } from '@/lib/db'
-import { workspace } from '@/lib/db/schema'
-import { eq, sql } from 'drizzle-orm'
-import { WorkspaceService } from '@/lib/services/workspace-service'
-import { StarterDataService } from '@/lib/services/starter-data-service'
-import { OrganizationService } from '@/lib/services/organization-service'
-import { generateId } from '@/lib/utils'
+import { OnboardingService } from '@/lib/services/onboarding-service'
 
 export const dynamic = 'force-dynamic'
 
-async function ensureWorkspaceTable() {
-  await db.execute(sql`
-    create table if not exists "workspace" (
-      "id" text primary key,
-      "organizationId" text not null unique references "organization"("id") on delete cascade,
-      "config" json not null,
-      "createdAt" timestamp not null default now(),
-      "updatedAt" timestamp not null default now()
-    )
-  `)
-}
-
-export async function POST(req: NextRequest) {
+export async function POST() {
+  const session = await auth.api.getSession({ headers: await headers() })
+  if (!session?.user) return NextResponse.json({ message: 'Sign in to continue.' }, { status: 401 })
   try {
-    // ── Auth ────────────────────────────────────────────────────────────────
-    const session = await auth.api.getSession({ headers: await headers() })
-    if (!session?.user) {
-      return NextResponse.json({ message: 'Unauthorized' }, { status: 401 })
-    }
-
-    const body = await req.json()
-    const { organizationId, onboardingData } = body
-
-    if (!organizationId || !onboardingData) {
-      return NextResponse.json({ message: 'Missing required fields' }, { status: 400 })
-    }
-
-    // SECURITY: Verify the authenticated user owns this org
-    const canAccess = await OrganizationService.canUserAccess(organizationId, session.user.id)
-    if (!canAccess) {
-      return NextResponse.json({ message: 'Forbidden: No access to this organization' }, { status: 403 })
-    }
-
-    // ── 1. Resolve businessCategory (use customCategory when "Other" was chosen) ──
-    const businessCategory = onboardingData.customCategory || onboardingData.businessCategory || 'other_retail'
-    const businessType = onboardingData.businessType || 'retail'
-
-    // ── 2. Build workspace config from businessType + businessCategory ────────
-    //      WorkspaceService.createWorkspaceConfig looks up the template registry —
-    //      no if/else chains, no hardcoded catalogs.
-    const workspaceConfig = WorkspaceService.createWorkspaceConfig(
-      organizationId,
-      businessType,
-      businessCategory
-    )
-
-    // ── 3. Upsert workspace config row ────────────────────────────────────────
-    try {
-      await ensureWorkspaceTable()
-
-      const existing = await db
-        .select({ id: workspace.id })
-        .from(workspace)
-        .where(eq(workspace.organizationId, organizationId))
-        .limit(1)
-
-      if (existing.length > 0) {
-        await db
-          .update(workspace)
-          .set({ config: workspaceConfig as any, updatedAt: new Date() })
-          .where(eq(workspace.organizationId, organizationId))
-      } else {
-        await db.insert(workspace).values({
-          id: generateId(),
-          organizationId,
-          config: workspaceConfig as any,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        })
-      }
-    } catch (err) {
-      console.warn('[onboarding/complete] workspace upsert skipped:', err)
-    }
-
-    // ── 4. Seed starter categories & products (transactional) ─────────────────
-    const seedResult = await StarterDataService.seedStarterData(
-      organizationId,
-      session.user.id,
-      workspaceConfig
-    )
-
-    if (!seedResult.success) {
-      console.warn('[onboarding/complete] Starter data seeding partially failed — continuing')
-    }
-
-    // ── 5. Mark onboarding complete, persist all fields ─────────────────────
-    let updatedOrg
-    try {
-      updatedOrg = await OrganizationService.updateOrganization(organizationId, session.user.id, {
-        name: onboardingData.businessName,
-        businessType,
-        businessCategory,
-        businessEmail: onboardingData.businessEmail,
-        phone: onboardingData.phone,
-        country: onboardingData.country,
-        timezone: onboardingData.timezone,
-        businessSize: onboardingData.businessSize,
-        businessDescription: onboardingData.businessDescription ?? null,
-        onboardingCompleted: true,
-        onboardingStep: 6,
-      })
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to update organization'
-      return NextResponse.json({ message }, { status: 500 })
-    }
-
-    if (!updatedOrg) {
-      return NextResponse.json({ message: 'Failed to update organization' }, { status: 500 })
-    }
-
-    // ── 6. Return the dashboard route so the client can redirect correctly ─────
-    const dashboardRoute = WorkspaceService.getDashboardRoute(businessType)
-
-    return NextResponse.json({
-      success: true,
-      organization: updatedOrg,
-      templateId: workspaceConfig.templateId,
-      dashboardRoute,
-      seeding: seedResult,
-    })
+    const result = await OnboardingService.complete(session.user.id, session.user.emailVerified)
+    return NextResponse.json({ success: true, dashboardRoute: result.dashboardRoute })
   } catch (error) {
-    console.error('[onboarding/complete] Unhandled error:', error)
-    const message = error instanceof Error ? error.message : 'Internal server error'
-    return NextResponse.json({ message }, { status: 500 })
+    const code = error instanceof Error ? error.message : ''
+    if (code === 'EMAIL_NOT_VERIFIED') return NextResponse.json({ message: 'Verify your email before creating a workspace.' }, { status: 403 })
+    if (code.startsWith('INCOMPLETE_STEP:')) return NextResponse.json({ message: 'Review the incomplete section before creating your workspace.', stepId: code.split(':')[1] }, { status: 422 })
+    console.error('[onboarding/complete] Workspace transaction failed')
+    return NextResponse.json({ message: 'We could not create the workspace. No partial setup was saved; please try again.' }, { status: 500 })
   }
 }

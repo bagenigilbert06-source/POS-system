@@ -5,6 +5,7 @@ import { AuthForm } from '@/components/auth/auth-form'
 import type { Metadata } from 'next'
 import { IconLockAccess, IconPackages, IconReceipt, IconShieldCheck } from '@tabler/icons-react'
 import { PesabyLogoMark } from '@/components/brand/pesaby-logo'
+import Link from 'next/link'
 
 export const metadata: Metadata = { title: 'Sign In' }
 
@@ -16,13 +17,13 @@ export default async function SignInPage() {
     <main className="min-h-screen bg-[#fff4e8] font-sans text-slate-950 [font-feature-settings:'ss01','cv02','cv03']">
       <div className="grid min-h-screen lg:grid-cols-[47%_53%]">
         <section className="hidden border-r border-black/10 bg-[#ffda32] px-14 py-8 text-slate-950 lg:flex lg:flex-col">
-          <a href="/" className="flex items-center gap-3">
+          <Link href="/" className="flex items-center gap-3">
             <PesabyLogoMark className="h-10 w-10" />
             <span className="leading-none">
               <span className="block text-lg font-black tracking-tight text-slate-950">Pesaby</span>
               <span className="block text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500">Business OS</span>
             </span>
-          </a>
+          </Link>
 
           <div className="flex flex-1 items-center">
             <div className="w-full max-w-xl">
@@ -49,10 +50,10 @@ export default async function SignInPage() {
         <section className="flex items-center justify-center bg-[#fff4e8] px-5 py-10 sm:px-8">
           <div className="w-full max-w-[440px] border-0 bg-transparent p-0 shadow-none sm:p-8">
             <div className="mb-8 lg:hidden">
-              <a href="/" className="flex items-center gap-3">
+              <Link href="/" className="flex items-center gap-3">
                 <PesabyLogoMark className="h-10 w-10" />
                 <span className="text-lg font-black tracking-tight text-slate-950">Pesaby</span>
-              </a>
+              </Link>
             </div>
 
             <div className="mb-8">

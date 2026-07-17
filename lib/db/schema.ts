@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, boolean, integer, numeric, json } from 'drizzle-orm/pg-core'
+import { pgTable, text, timestamp, boolean, integer, numeric, json, uniqueIndex, index } from 'drizzle-orm/pg-core'
 
 // --- Better Auth required tables -------------------------------------------
 export const user = pgTable('user', {
@@ -88,7 +88,9 @@ export const organizationMembership = pgTable('organization_membership', {
   role: text('role').notNull().default('member'), // owner, admin, manager, staff, member
   createdAt: timestamp('createdAt').notNull().defaultNow(),
   updatedAt: timestamp('updatedAt').notNull().defaultNow(),
-})
+}, (table) => ({
+  organizationUserUnique: uniqueIndex('organization_membership_org_user_unique').on(table.organizationId, table.userId),
+}))
 
 // Workspace configuration
 export const workspace = pgTable('workspace', {
@@ -98,6 +100,90 @@ export const workspace = pgTable('workspace', {
   createdAt: timestamp('createdAt').notNull().defaultNow(),
   updatedAt: timestamp('updatedAt').notNull().defaultNow(),
 })
+
+/** A user-owned, resumable draft. No tenant id supplied by the browser is trusted. */
+export const onboardingState = pgTable('onboarding_state', {
+  id: text('id').primaryKey(),
+  userId: text('userId').notNull().unique().references(() => user.id, { onDelete: 'cascade' }),
+  organizationId: text('organizationId').unique().references(() => organization.id, { onDelete: 'cascade' }),
+  status: text('status').notNull().default('not_started'),
+  currentStep: text('currentStep').notNull().default('welcome'),
+  completedSteps: json('completedSteps').notNull().default([]),
+  data: json('data').notNull().default({}),
+  configurationVersion: integer('configurationVersion').notNull().default(1),
+  startedAt: timestamp('startedAt').notNull().defaultNow(),
+  lastSavedAt: timestamp('lastSavedAt').notNull().defaultNow(),
+  completedAt: timestamp('completedAt'),
+})
+
+export const branch = pgTable('branch', {
+  id: text('id').primaryKey(),
+  organizationId: text('organizationId').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  code: text('code').notNull(),
+  name: text('name').notNull(),
+  phone: text('phone'),
+  address: text('address'),
+  region: text('region'),
+  city: text('city'),
+  timezone: text('timezone').notNull().default('Africa/Nairobi'),
+  receiptHeader: text('receiptHeader'),
+  isMain: boolean('isMain').notNull().default(false),
+  createdAt: timestamp('createdAt').notNull().defaultNow(),
+  updatedAt: timestamp('updatedAt').notNull().defaultNow(),
+}, (table) => ({
+  organizationCodeUnique: uniqueIndex('branch_org_code_unique').on(table.organizationId, table.code),
+  organizationIndex: index('branch_organization_idx').on(table.organizationId),
+}))
+
+export const branchMembership = pgTable('branch_membership', {
+  id: text('id').primaryKey(),
+  branchId: text('branchId').notNull().references(() => branch.id, { onDelete: 'cascade' }),
+  userId: text('userId').notNull().references(() => user.id, { onDelete: 'cascade' }),
+  role: text('role').notNull().default('staff'),
+  createdAt: timestamp('createdAt').notNull().defaultNow(),
+}, (table) => ({
+  branchUserUnique: uniqueIndex('branch_membership_branch_user_unique').on(table.branchId, table.userId),
+}))
+
+export const businessSettings = pgTable('business_settings', {
+  organizationId: text('organizationId').primaryKey().references(() => organization.id, { onDelete: 'cascade' }),
+  displayName: text('displayName'),
+  website: text('website'),
+  region: text('region'),
+  city: text('city'),
+  address: text('address'),
+  language: text('language').notNull().default('en'),
+  financialYearStart: text('financialYearStart'),
+  operations: json('operations').notNull().default({}),
+  enabledModules: json('enabledModules').notNull().default([]),
+  paymentMethods: json('paymentMethods').notNull().default([]),
+  defaultPaymentMethod: text('defaultPaymentMethod'),
+  taxEnabled: boolean('taxEnabled').notNull().default(false),
+  pricesIncludeTax: boolean('pricesIncludeTax').notNull().default(false),
+  taxName: text('taxName'),
+  taxRate: numeric('taxRate', { precision: 5, scale: 2 }).notNull().default('0'),
+  taxIdentifier: text('taxIdentifier'),
+  receiptBusinessName: text('receiptBusinessName'),
+  receiptPhone: text('receiptPhone'),
+  receiptAddress: text('receiptAddress'),
+  receiptFooter: text('receiptFooter'),
+  showTaxOnReceipt: boolean('showTaxOnReceipt').notNull().default(false),
+  receiptNumbering: text('receiptNumbering').notNull().default('automatic'),
+  checklistDismissed: boolean('checklistDismissed').notNull().default(false),
+  createdAt: timestamp('createdAt').notNull().defaultNow(),
+  updatedAt: timestamp('updatedAt').notNull().defaultNow(),
+})
+
+export const auditEvent = pgTable('audit_event', {
+  id: text('id').primaryKey(),
+  organizationId: text('organizationId').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  userId: text('userId').notNull().references(() => user.id, { onDelete: 'restrict' }),
+  action: text('action').notNull(),
+  metadata: json('metadata').notNull().default({}),
+  createdAt: timestamp('createdAt').notNull().defaultNow(),
+}, (table) => ({
+  organizationIndex: index('audit_event_organization_idx').on(table.organizationId),
+}))
 
 export const category = pgTable('category', {
   id: text('id').primaryKey(),
@@ -185,6 +271,9 @@ export type User = typeof user.$inferSelect
 export type Organization = typeof organization.$inferSelect
 export type OrganizationMembership = typeof organizationMembership.$inferSelect
 export type Workspace = typeof workspace.$inferSelect
+export type OnboardingState = typeof onboardingState.$inferSelect
+export type Branch = typeof branch.$inferSelect
+export type BusinessSettings = typeof businessSettings.$inferSelect
 export type Category = typeof category.$inferSelect
 export type Product = typeof product.$inferSelect
 export type Customer = typeof customer.$inferSelect

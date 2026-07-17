@@ -51,10 +51,9 @@ function resolveIcon(name?: string) {
 
 export function BosCommandCenter({ workspaceConfig }: BosCommandCenterProps) {
   const { template } = workspaceConfig
-  const quickActions = template.quickActions.slice(0, 6)
-  const modules = template.enabledModules.slice(0, 8)
+  const modules = workspaceConfig.enabledModules.slice(0, 8)
+  const quickActions = template.quickActions.filter((action) => modules.some((module) => action.href.includes(`/dashboard/${module}`))).slice(0, 6)
   const reports = template.reports.filter((report) => report.enabled).slice(0, 4)
-  const tasks = template.gettingStartedTasks.slice(0, 5)
   const roles = template.permissions.roles.slice(0, 4)
   const settings = template.settings
 
@@ -180,24 +179,6 @@ export function BosCommandCenter({ workspaceConfig }: BosCommandCenterProps) {
         </div>
       </div>
 
-      <div className="rounded-lg border border-border bg-white p-4 shadow-sm sm:p-5">
-        <div className="mb-4 flex items-center justify-between">
-          <div>
-            <h3 className="font-semibold text-foreground">Setup checklist</h3>
-            <p className="mt-1 text-sm text-muted-foreground">Finish these tasks to make the BOS fully operational.</p>
-          </div>
-          <span className="text-xs font-semibold text-muted-foreground">{tasks.length} tasks</span>
-        </div>
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
-          {tasks.map((task) => (
-            <Link key={task.id} href={task.action} className="rounded-lg border border-border p-3 transition hover:bg-muted">
-              <CheckCircle2 className="mb-3 h-4 w-4 text-[#005a43]" aria-hidden="true" />
-              <p className="text-sm font-semibold text-foreground">{task.title}</p>
-              <p className="mt-1 line-clamp-2 text-xs leading-5 text-muted-foreground">{task.description}</p>
-            </Link>
-          ))}
-        </div>
-      </div>
     </section>
   )
 }

@@ -69,16 +69,11 @@ export function AuthForm({ mode }: AuthFormProps) {
         if (result.error) throw new Error(result.error.message)
         await loadAccessToken()
 
-        // Create organization for new user
-        try {
-          await fetch('/api/auth/post-signup', {
-            method: 'POST',
-            credentials: 'include',
-          })
-        } catch (orgError) {
-          console.warn('[v0] Failed to create organization:', orgError)
-          // Continue anyway, user can still access onboarding
-        }
+        const setupResponse = await fetch('/api/auth/post-signup', {
+          method: 'POST',
+          credentials: 'include',
+        })
+        if (!setupResponse.ok) throw new Error('Signed up, but setup could not be initialized')
 
         router.push('/onboarding')
       } else {

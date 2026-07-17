@@ -17,6 +17,7 @@ interface DashboardLayoutClientProps {
    * Providing this avoids a client-side fetch to load the workspace on mount.
    */
   initialWorkspaceConfig?: WorkspaceConfig
+  setupChecklist?: React.ReactNode
   children: React.ReactNode
 }
 
@@ -27,6 +28,7 @@ export function DashboardLayoutClient({
   organizationId,
   organizationName,
   initialWorkspaceConfig,
+  setupChecklist,
   children,
 }: DashboardLayoutClientProps) {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
@@ -48,6 +50,7 @@ export function DashboardLayoutClient({
             onOpenSidebar={() => setMobileSidebarOpen(true)}
           />
           <main className="flex-1 overflow-y-auto px-4 py-5 sm:px-6 lg:px-8">
+            {setupChecklist}
             {children}
           </main>
         </div>
