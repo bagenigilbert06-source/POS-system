@@ -34,7 +34,7 @@ export function StatCard({
   trend,
   icon,
   bgColor = 'bg-white dark:bg-card',
-  iconBg = 'bg-[#e4efe7]',
+  iconBg = 'bg-[#fff3be]',
   onClick,
   loading = false,
   suffix,
@@ -86,7 +86,7 @@ export function StatCard({
           )}
         </div>
 
-        {icon && <div className={`${iconBg} rounded-md p-2.5 text-[#1f5132] dark:text-primary`}>{icon}</div>}
+        {icon && <div className={`${iconBg} rounded-md p-2.5 text-[#050a1f]`}>{icon}</div>}
       </div>
     </div>
   );

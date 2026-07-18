@@ -3,10 +3,13 @@ import { formatCurrency } from '@/lib/utils'
 import { Boxes, AlertTriangle, TrendingDown, CheckCircle2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { Metadata } from 'next'
+import { DashboardPageHeading } from '@/components/dashboard/page-heading'
+import { requireWorkspaceModule } from '@/lib/onboarding/require-module'
 
 export const metadata: Metadata = { title: 'Inventory' }
 
 export default async function InventoryPage() {
+  await requireWorkspaceModule('inventory')
   const products = await getProducts()
 
   const totalValue = products.reduce(
@@ -30,20 +33,8 @@ export default async function InventoryPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="page-header">
-        <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
-            <Boxes className="h-5 w-5" />
-          </div>
-          <div>
-            <h1 className="text-xl font-semibold">Inventory</h1>
-            <p className="text-sm text-muted-foreground">
-              Track stock levels and inventory value
-            </p>
-          </div>
-        </div>
-      </div>
+    <div className="mx-auto max-w-[1480px] space-y-5">
+      <DashboardPageHeading icon={Boxes} title="Inventory" description="Track stock levels, reorder needs and recorded inventory cost." />
 
       {/* Summary cards */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -101,10 +92,10 @@ export default async function InventoryPage() {
       )}
 
       {/* Full inventory table */}
-      <div className="rounded-lg border bg-card overflow-hidden">
-        <div className="flex items-center justify-between border-b px-4 py-3 bg-muted/30">
+      <div className="overflow-hidden rounded-xl border bg-card">
+        <div className="flex flex-col gap-2 border-b bg-muted/30 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
           <h3 className="text-sm font-semibold">All Products</h3>
-          <div className="flex items-center gap-4 text-xs text-muted-foreground">
+          <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
             <span className="flex items-center gap-1">
               <CheckCircle2 className="h-3.5 w-3.5 text-[hsl(var(--success))]" />
               {wellStocked.length} in stock
@@ -119,7 +110,11 @@ export default async function InventoryPage() {
             </span>
           </div>
         </div>
-        <div className="overflow-x-auto">
+        {products.length === 0 ? <div className="flex min-h-52 flex-col items-center justify-center px-6 text-center"><Boxes className="h-7 w-7 text-muted-foreground/50" /><p className="mt-3 text-sm font-semibold">No inventory yet</p><p className="mt-1 text-sm text-muted-foreground">Add an active product to start tracking stock.</p></div> : <>
+        <div className="grid gap-3 p-3 md:hidden">
+          {products.map((p) => { const status = stockStatus(p); const config = statusConfig[status]; return <article key={p.id} className="rounded-xl border bg-white p-4"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><p className="truncate font-bold">{p.name}</p><p className="mt-1 text-xs text-muted-foreground">{p.sku || 'No SKU'}</p></div><span className={cn('shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold', config.cls)}>{config.label}</span></div><dl className="mt-4 grid grid-cols-2 gap-3 text-sm"><div><dt className="text-xs text-muted-foreground">Current stock</dt><dd className="mt-1 font-bold tabular-nums">{p.stock} {p.unit}</dd></div><div><dt className="text-xs text-muted-foreground">Stock cost</dt><dd className="mt-1 font-bold tabular-nums">{formatCurrency(parseFloat(p.buyingPrice) * p.stock)}</dd></div></dl></article> })}
+        </div>
+        <div className="hidden overflow-x-auto md:block">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b bg-muted/20">
@@ -164,7 +159,7 @@ export default async function InventoryPage() {
               })}
             </tbody>
           </table>
-        </div>
+        </div></>}
       </div>
     </div>
   )

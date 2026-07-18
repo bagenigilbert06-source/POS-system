@@ -2,25 +2,22 @@ import { getProducts } from '@/app/actions/products'
 import { getCustomers } from '@/app/actions/customers'
 import { POSTerminal } from '@/components/pos/pos-terminal'
 import type { Metadata } from 'next'
+import { ReceiptText } from 'lucide-react'
+import { DashboardPageHeading } from '@/components/dashboard/page-heading'
+import { requireWorkspaceModule } from '@/lib/onboarding/require-module'
 
 export const metadata: Metadata = { title: 'POS Terminal' }
 
 export default async function POSPage() {
+  const { config } = await requireWorkspaceModule('pos')
   const [products, customers] = await Promise.all([
     getProducts(),
-    getCustomers(),
+    config.enabledModules.includes('customers') ? getCustomers() : Promise.resolve([]),
   ])
 
   return (
-    <div>
-      <div className="page-header mb-4">
-        <div>
-          <h1 className="text-xl font-semibold">POS Terminal</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">
-            Process sales with cash, M-Pesa, or card
-          </p>
-        </div>
-      </div>
+    <div className="mx-auto max-w-[1480px] space-y-5">
+      <DashboardPageHeading icon={ReceiptText} title="Point of sale" description="Process complete sales with the payment methods configured for your workspace." />
       <POSTerminal products={products} customers={customers} />
     </div>
   )

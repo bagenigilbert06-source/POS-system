@@ -1,27 +1,78 @@
-/**
- * lib/services/workspace-service.ts
- *
- * Thin helper surface for reading workspace configuration at runtime
- * (e.g. in dashboard layouts and RSC pages).
- *
- * Workspace creation is handled transactionally by OnboardingService.
- * This service is read-only: it never writes to the database.
- */
-
-import { getWorkspaceTemplate, getDashboardRoute, resolveTemplateId } from '@/lib/templates'
-import type { WorkspaceConfig } from '@/lib/types/workspace'
-import { OrganizationService } from '@/lib/services/organization-service'
+import { eq } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { workspace } from '@/lib/db/schema'
-import { eq } from 'drizzle-orm'
+import { getWorkspaceTemplate, resolveOnboardingTemplateId } from '@/lib/templates'
+import type { SidebarNavItem, WorkspaceConfig } from '@/lib/types/workspace'
+import { OrganizationService } from '@/lib/services/organization-service'
+import { getBusinessExperience } from '@/lib/workspace/business-experience'
+
+type StoredWorkspaceConfig = {
+  templateId?: string
+  enabledModules?: string[]
+  enabledFeatures?: string[]
+  businessFamily?: string
+  businessCategory?: string
+}
+
+const MODULE_NAV: Record<string, SidebarNavItem> = {
+  pos: { id: 'pos', label: 'Point of sale', icon: 'ShoppingCart', route: '/dashboard/pos' },
+  sales: { id: 'sales', label: 'Sales', icon: 'ReceiptText', route: '/dashboard/sales' },
+  products: { id: 'products', label: 'Products', icon: 'Package', route: '/dashboard/products' },
+  inventory: { id: 'inventory', label: 'Inventory', icon: 'Boxes', route: '/dashboard/inventory' },
+  customers: { id: 'customers', label: 'Customers', icon: 'Users', route: '/dashboard/customers' },
+  reports: { id: 'reports', label: 'Reports', icon: 'ChartNoAxesCombined', route: '/dashboard/reports' },
+}
+
+function navigationFor(enabledModules: string[], businessFamily: string, businessCategory: string) {
+  const experience = getBusinessExperience(businessFamily, businessCategory)
+  const labels: Record<string, string> = {
+    pos: experience.navigation.pos,
+    sales: experience.navigation.sales,
+    products: experience.navigation.products,
+    inventory: experience.navigation.inventory,
+    customers: experience.navigation.customers,
+  }
+  return {
+    primaryNav: [
+      { id: 'dashboard', label: experience.navigation.overview, icon: 'LayoutDashboard', route: '/dashboard' },
+      ...enabledModules.map((id) => MODULE_NAV[id] ? { ...MODULE_NAV[id], label: labels[id] ?? MODULE_NAV[id].label } : undefined).filter((item): item is SidebarNavItem => Boolean(item)),
+    ],
+    secondaryNav: [{ id: 'settings', label: 'Settings', icon: 'Settings', route: '/dashboard/settings' }],
+  }
+}
+
+function runtimeConfig(input: {
+  organizationId: string
+  name: string
+  businessType: string
+  businessCategory: string
+  stored?: StoredWorkspaceConfig
+}): WorkspaceConfig {
+  const enabledModules = input.stored?.enabledModules ?? ['sales', 'reports']
+  const storedTemplateId = input.stored?.templateId
+  const templateId = storedTemplateId && storedTemplateId !== 'adaptive.generic'
+    ? storedTemplateId
+    : resolveOnboardingTemplateId(input.stored?.businessFamily ?? input.businessType, input.stored?.businessCategory ?? input.businessCategory)
+
+  // WorkspaceTemplate remains part of the legacy context contract. Runtime
+  // navigation and capabilities below are derived only from persisted modules.
+  const template = getWorkspaceTemplate(templateId)
+  return {
+    id: input.organizationId,
+    name: input.name,
+    businessType: input.stored?.businessFamily ?? input.businessType,
+    businessCategory: input.stored?.businessCategory ?? input.businessCategory,
+    templateId,
+    template,
+    enabledModules,
+    enabledFeatures: input.stored?.enabledFeatures ?? [],
+    sidebarConfig: navigationFor(enabledModules, input.stored?.businessFamily ?? input.businessType, input.stored?.businessCategory ?? input.businessCategory),
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  }
+}
 
 export class WorkspaceService {
-  /**
-   * Build a WorkspaceConfig from data already stored on the organization row.
-   * Used by the dashboard layout to hydrate the WorkspaceProvider SSR.
-   *
-   * No database queries — config is assembled from the template registry.
-   */
   static buildConfigFromOrg(org: {
     id: string
     name: string | null
@@ -29,104 +80,52 @@ export class WorkspaceService {
     businessCategory: string | null
     templateId: string | null
   }): WorkspaceConfig {
-    const businessType = (org.businessType ?? 'retail').toLowerCase()
-    const businessCategory = (org.businessCategory ?? 'other_retail').toLowerCase()
-
-    // templateId stored on org row is the primary key — fall back to general
-    const templateId = org.templateId ?? resolveTemplateId(businessType, businessCategory)
-    const template = getWorkspaceTemplate(templateId)
-
-    const sidebarConfig = {
-      primaryNav: template.navigation.primaryNav,
-      secondaryNav: template.navigation.secondaryNav,
-    }
-
-    return {
-      id: org.id,
-      name: org.name ?? template.name,
-      businessType,
-      businessCategory,
-      templateId,
-      template,
-      enabledModules: template.enabledModules,
-      enabledFeatures: template.enabledFeatures,
-      sidebarConfig,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    }
+    return runtimeConfig({
+      organizationId: org.id,
+      name: org.name ?? 'Pesaby workspace',
+      businessType: org.businessType ?? 'other',
+      businessCategory: org.businessCategory ?? 'custom',
+      stored: { templateId: org.templateId ?? 'adaptive.generic' },
+    })
   }
 
-  /**
-   * Load a workspace config from the organization row by id.
-   */
   static async getWorkspaceConfig(organizationId: string, userId: string): Promise<WorkspaceConfig | null> {
     const org = await OrganizationService.getOrganization(organizationId, userId)
-    if (!org) {
-      return null
-    }
-
-    const [stored] = await db.select({ config: workspace.config }).from(workspace).where(eq(workspace.organizationId, organizationId)).limit(1)
-    const selected = Array.isArray((stored?.config as any)?.enabledModules) ? (stored.config as any).enabledModules as string[] : undefined
-    const config = this.createWorkspaceConfig(
-      org.id,
-      org.businessType,
-      org.businessCategory ?? 'other_retail',
-      selected,
-    )
-    return { ...config, name: org.name }
+    if (!org) return null
+    const [stored] = await db.select({ config: workspace.config }).from(workspace)
+      .where(eq(workspace.organizationId, organizationId)).limit(1)
+    return runtimeConfig({
+      organizationId: org.id,
+      name: org.name,
+      businessType: org.businessType,
+      businessCategory: org.businessCategory ?? 'custom',
+      stored: (stored?.config ?? {}) as StoredWorkspaceConfig,
+    })
   }
 
-  /**
-   * The correct dashboard route for a given business type.
-   */
-  static getDashboardRoute(businessType: string): string {
-    return getDashboardRoute(businessType.toLowerCase())
+  static getDashboardRoute(): string {
+    return '/dashboard'
   }
 
-  /**
-   * Build a WorkspaceConfig from a business type and category.
-   */
   static createWorkspaceConfig(
     organizationId: string,
     businessType: string,
     businessCategory: string,
-    selectedModules?: string[]
+    selectedModules?: string[],
   ): WorkspaceConfig {
-    const type = (businessType ?? 'retail').toLowerCase().trim()
-    const category = (businessCategory ?? 'other_retail').toLowerCase().trim()
-    const templateId = resolveTemplateId(type, category)
-    const template = getWorkspaceTemplate(templateId)
-
-    const enabledModules = selectedModules ?? template.enabledModules
-    const filterNavigation = (items: typeof template.navigation.primaryNav) => items.filter((item) => item.id === 'dashboard' || item.id === 'settings' || enabledModules.includes(item.id))
-    return {
-      id: organizationId,
-      name: template.name,
-      businessType: type,
-      businessCategory: category,
-      templateId,
-      template,
-      enabledModules,
-      enabledFeatures: template.enabledFeatures,
-      sidebarConfig: {
-        primaryNav: filterNavigation(template.navigation.primaryNav),
-        secondaryNav: filterNavigation(template.navigation.secondaryNav),
-      },
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    }
+    return runtimeConfig({
+      organizationId,
+      name: 'Pesaby workspace',
+      businessType: businessType || 'other',
+      businessCategory: businessCategory || 'custom',
+      stored: { enabledModules: selectedModules ?? ['sales', 'reports'] },
+    })
   }
 
-  /**
-   * Check if a module is enabled for this workspace.
-   */
   static isModuleEnabled(config: WorkspaceConfig, moduleId: string): boolean {
     return config.enabledModules.includes(moduleId)
   }
 
-  /**
-   * Check if a feature is enabled for this workspace.
-   */
   static isFeatureEnabled(config: WorkspaceConfig, featureId: string): boolean {
     return config.enabledFeatures.includes(featureId)
   }

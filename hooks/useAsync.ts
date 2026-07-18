@@ -49,6 +49,8 @@ export function useAsync<T>(asyncFunction: () => Promise<T>, options: UseAsyncOp
     if (autoFetch) {
       execute();
     }
+    // Callers can explicitly opt into refetches for values used by their async function.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoFetch, execute, ...dependencies]);
 
   return {

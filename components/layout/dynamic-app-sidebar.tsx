@@ -2,12 +2,12 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import Image from 'next/image'
 import { cn } from '@/lib/utils'
 import * as Icons from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useWorkspace } from '@/lib/context/workspace-context'
 import { ChevronLeft, ChevronRight, X } from 'lucide-react'
+import { PesabyLogoMark } from '@/components/brand/pesaby-logo'
 
 type IconName = keyof typeof Icons
 
@@ -26,9 +26,18 @@ export function DynamicAppSidebar({ mobileOpen = false, onMobileClose }: Dynamic
   const [collapsed, setCollapsed] = useState(false)
   const { config, isLoading } = useWorkspace()
 
+  useEffect(() => {
+    setCollapsed(window.localStorage.getItem('pesaby-sidebar-collapsed') === 'true')
+  }, [])
+
+  const setSidebarCollapsed = (value: boolean) => {
+    setCollapsed(value)
+    window.localStorage.setItem('pesaby-sidebar-collapsed', String(value))
+  }
+
   if (isLoading || !config) {
     return (
-      <aside className="hidden w-64 flex-col border-r border-border bg-white lg:flex dark:bg-card">
+      <aside className="dashboard-sidebar hidden w-64 flex-col border-r lg:flex">
         <div className="h-16 border-b border-[hsl(var(--sidebar-border))] animate-pulse bg-[hsl(var(--sidebar-hover))]" />
       </aside>
     )
@@ -39,12 +48,12 @@ export function DynamicAppSidebar({ mobileOpen = false, onMobileClose }: Dynamic
 
   const primaryNav = config.sidebarConfig.primaryNav
   const secondaryNav = config.sidebarConfig.secondaryNav
-  const sidebarWidth = collapsed ? 'lg:w-[72px]' : 'lg:w-64'
+  const sidebarWidth = collapsed ? 'lg:w-[68px]' : 'lg:w-[236px]'
 
   const sidebar = (
     <aside
       className={cn(
-        'flex h-full flex-col border-r border-border bg-white shadow-sm dark:bg-card',
+        'dashboard-sidebar flex h-full flex-col border-r',
         'transition-all duration-200 ease-in-out',
         'w-72 max-w-[85vw]',
         sidebarWidth
@@ -59,30 +68,18 @@ export function DynamicAppSidebar({ mobileOpen = false, onMobileClose }: Dynamic
       >
         {!collapsed && (
           <div className="flex items-center gap-2 flex-1">
-            <Image
-              src="/pesaby-logo.png"
-              alt="PESABY"
-              width={32}
-              height={32}
-              className="h-8 w-auto flex-shrink-0"
-            />
+            <PesabyLogoMark className="h-9 w-9 flex-shrink-0" />
             <div>
-              <p className="font-semibold text-foreground text-sm leading-tight">PESABY</p>
-              <p className="max-w-36 truncate text-xs text-muted-foreground">{config.name}</p>
+              <p className="text-sm font-extrabold leading-tight text-[#050a1f]">Pesaby</p>
+              <p className="max-w-36 truncate text-xs text-[#667085]">{config.name}</p>
             </div>
           </div>
         )}
         {collapsed && (
-          <Image
-            src="/pesaby-logo.png"
-            alt="PESABY"
-            width={32}
-            height={32}
-            className="h-8 w-auto"
-          />
+          <PesabyLogoMark className="h-9 w-9" />
         )}
         <button
-          onClick={() => setCollapsed(!collapsed)}
+          onClick={() => setSidebarCollapsed(!collapsed)}
           className={cn(
             'hidden rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors lg:inline-flex',
             collapsed && 'lg:hidden'
@@ -103,7 +100,7 @@ export function DynamicAppSidebar({ mobileOpen = false, onMobileClose }: Dynamic
       {/* Expand button when collapsed */}
       {collapsed && (
         <button
-          onClick={() => setCollapsed(false)}
+          onClick={() => setSidebarCollapsed(false)}
           className="mx-auto mt-3 hidden rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors lg:inline-flex"
           aria-label="Expand sidebar"
         >
@@ -114,7 +111,7 @@ export function DynamicAppSidebar({ mobileOpen = false, onMobileClose }: Dynamic
       {/* Main nav */}
       <nav className="flex-1 overflow-y-auto py-4 px-2.5">
         {!collapsed && (
-          <p className="section-label mb-3 px-3 text-muted-foreground">Navigation</p>
+          <p className="section-label mb-3 px-3 text-[#8a94a5]">Workspace</p>
         )}
         <ul className="space-y-1">
           {primaryNav.map((item) => {
@@ -133,7 +130,7 @@ export function DynamicAppSidebar({ mobileOpen = false, onMobileClose }: Dynamic
                   className={cn(
                     'sidebar-item',
                     collapsed ? 'lg:justify-center lg:px-0 lg:py-3' : '',
-                    active ? 'bg-[#1f5132] text-white shadow-sm hover:bg-[#1f5132]' : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                    active ? 'dashboard-nav-active font-semibold' : 'dashboard-nav-inactive'
                   )}
                 >
                   <IconComponent className="h-5 w-5 flex-shrink-0" />
@@ -150,6 +147,7 @@ export function DynamicAppSidebar({ mobileOpen = false, onMobileClose }: Dynamic
         <ul className="space-y-0.5">
           {secondaryNav.map((item) => {
             const IconComponent = getIcon(item.icon) as React.ElementType
+            const active = item.route ? isActive(item.route) : false
 
             return (
               <li key={item.id}>
@@ -160,7 +158,7 @@ export function DynamicAppSidebar({ mobileOpen = false, onMobileClose }: Dynamic
                   className={cn(
                     'sidebar-item',
                     collapsed ? 'lg:justify-center lg:px-0 lg:py-2.5' : '',
-                    'text-muted-foreground hover:bg-muted hover:text-foreground'
+                    active ? 'dashboard-nav-active font-semibold' : 'dashboard-nav-inactive'
                   )}
                 >
                   <IconComponent className="h-4 w-4 flex-shrink-0" />

@@ -1,23 +1,23 @@
 'use client'
 
-import { useState } from 'react'
-import { deleteCustomer } from '@/app/actions/customers'
+import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { formatDate } from '@/lib/utils'
-import { Search, Plus, Pencil, Trash2, Users, Phone, Mail, MapPin } from 'lucide-react'
+import { Search, Plus, Pencil, Users, Phone, Mail, MapPin } from 'lucide-react'
 import { CustomerForm } from './customer-form'
 import type { Customer } from '@/lib/db/schema'
-import { toast } from 'sonner'
 
 interface CustomersClientProps {
   initialCustomers: Customer[]
 }
 
 export function CustomersClient({ initialCustomers }: CustomersClientProps) {
+  const router = useRouter()
   const [customers, setCustomers] = useState(initialCustomers)
   const [search, setSearch] = useState('')
   const [showForm, setShowForm] = useState(false)
   const [editCustomer, setEditCustomer] = useState<Customer | undefined>()
-  const [deleting, setDeleting] = useState<string | null>(null)
+  useEffect(() => setCustomers(initialCustomers), [initialCustomers])
 
   const filtered = customers.filter(
     (c) =>
@@ -27,24 +27,10 @@ export function CustomersClient({ initialCustomers }: CustomersClientProps) {
       (c.email ?? '').toLowerCase().includes(search.toLowerCase())
   )
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Remove this customer?')) return
-    setDeleting(id)
-    try {
-      await deleteCustomer(id)
-      setCustomers((prev) => prev.filter((c) => c.id !== id))
-      toast.success('Customer removed')
-    } catch {
-      toast.error('Failed to delete customer')
-    } finally {
-      setDeleting(null)
-    }
-  }
-
   const handleFormClose = () => {
     setShowForm(false)
     setEditCustomer(undefined)
-    window.location.reload()
+    router.refresh()
   }
 
   return (
@@ -90,7 +76,7 @@ export function CustomersClient({ initialCustomers }: CustomersClientProps) {
               <div key={c.id} className="metric-card flex flex-col gap-3">
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-3 min-w-0">
-                    <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary font-semibold text-sm">
+                    <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-[#fff3be] text-sm font-extrabold text-[#050a1f]">
                       {c.name.charAt(0).toUpperCase()}
                     </div>
                     <div className="min-w-0">
@@ -106,13 +92,6 @@ export function CustomersClient({ initialCustomers }: CustomersClientProps) {
                       className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
                     >
                       <Pencil className="h-3.5 w-3.5" />
-                    </button>
-                    <button
-                      onClick={() => handleDelete(c.id)}
-                      disabled={deleting === c.id}
-                      className="rounded-md p-1.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
                     </button>
                   </div>
                 </div>
@@ -141,10 +120,6 @@ export function CustomersClient({ initialCustomers }: CustomersClientProps) {
                   )}
                 </div>
 
-                <div className="flex items-center justify-between rounded-md bg-primary/5 px-3 py-1.5">
-                  <span className="text-xs text-muted-foreground">Loyalty points</span>
-                  <span className="text-xs font-semibold text-primary">{c.loyaltyPoints} pts</span>
-                </div>
               </div>
             ))}
           </div>

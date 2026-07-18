@@ -2,11 +2,13 @@
 
 import { auth } from '@/lib/auth'
 import { db } from '@/lib/db'
-import { product, organization } from '@/lib/db/schema'
+import { product } from '@/lib/db/schema'
 import { and, desc, eq, ilike, or, sql } from 'drizzle-orm'
 import { headers } from 'next/headers'
 import { revalidatePath } from 'next/cache'
 import { generateId } from '@/lib/utils'
+import { OrganizationService } from '@/lib/services/organization-service'
+import { WorkspaceService } from '@/lib/services/workspace-service'
 
 async function getUserId() {
   const session = await auth.api.getSession({ headers: await headers() })
@@ -15,19 +17,19 @@ async function getUserId() {
 }
 
 async function getOrgId(userId: string) {
-  const org = await db
-    .select()
-    .from(organization)
-    .where(eq(organization.userId, userId))
-    .limit(1)
-  return org[0]?.id ?? userId
+  const organization = await OrganizationService.getPrimaryOrganization(userId)
+  if (!organization) throw new Error('No organization available')
+  const config = await WorkspaceService.getWorkspaceConfig(organization.id, userId)
+  if (!config?.enabledModules.includes('products')) throw new Error('Products are not enabled for this workspace')
+  return organization.id
 }
 
-export async function getProducts(search?: string) {
+export async function getProducts(search?: string, includeInactive = false) {
   const userId = await getUserId()
   const orgId = await getOrgId(userId)
 
   const conditions = [eq(product.orgId, orgId)]
+  if (!includeInactive) conditions.push(eq(product.isActive, true))
   if (search) {
     conditions.push(
       or(
@@ -54,6 +56,7 @@ export async function getLowStockProducts() {
     .where(
       and(
         eq(product.orgId, orgId),
+        eq(product.isActive, true),
         sql`${product.stock} <= ${product.minStock}`
       )
     )
@@ -125,4 +128,14 @@ export async function deleteProduct(id: string) {
     .delete(product)
     .where(and(eq(product.id, id), eq(product.orgId, orgId)))
   revalidatePath('/dashboard/products')
+}
+
+export async function archiveProduct(id: string) {
+  const userId = await getUserId()
+  const orgId = await getOrgId(userId)
+  await db.update(product)
+    .set({ isActive: false, updatedAt: new Date() })
+    .where(and(eq(product.id, id), eq(product.orgId, orgId)))
+  revalidatePath('/dashboard/products')
+  revalidatePath('/dashboard/inventory')
 }

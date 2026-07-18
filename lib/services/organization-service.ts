@@ -15,8 +15,6 @@ export class OrganizationService {
   }
 
   static async getOrganizationsForUser(userId: string) {
-    const owned = await db.select().from(organization).where(eq(organization.userId, userId))
-    if (owned.length) return owned
     const memberships = await db.select({ organization }).from(organizationMembership)
       .innerJoin(organization, eq(organization.id, organizationMembership.organizationId))
       .where(eq(organizationMembership.userId, userId))
@@ -25,6 +23,11 @@ export class OrganizationService {
 
   static async getPrimaryOrganization(userId: string) {
     return (await this.getOrganizationsForUser(userId))[0] ?? null
+  }
+
+  static async getOwnedOrganization(userId: string) {
+    const [owned] = await db.select().from(organization).where(eq(organization.userId, userId)).limit(1)
+    return owned ?? null
   }
 
   static async canUserAccess(organizationId: string, userId: string) {

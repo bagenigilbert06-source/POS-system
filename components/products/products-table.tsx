@@ -1,25 +1,31 @@
 'use client'
 
-import { useState } from 'react'
-import { deleteProduct } from '@/app/actions/products'
+import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { archiveProduct } from '@/app/actions/products'
 import { formatCurrency } from '@/lib/utils'
 import { cn } from '@/lib/utils'
-import { Pencil, Trash2, Plus, Search, Package, AlertTriangle } from 'lucide-react'
+import { Archive, Pencil, Plus, Search, Package, AlertTriangle } from 'lucide-react'
 import { ProductForm } from './product-form'
 import type { Product } from '@/lib/db/schema'
 import { toast } from 'sonner'
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
 
 interface ProductsTableProps {
   initialProducts: Product[]
 }
 
 export function ProductsTable({ initialProducts }: ProductsTableProps) {
+  const router = useRouter()
   const [products, setProducts] = useState(initialProducts)
   const [search, setSearch] = useState('')
   const [showForm, setShowForm] = useState(false)
   const [editProduct, setEditProduct] = useState<Product | undefined>()
-  const [deleting, setDeleting] = useState<string | null>(null)
-  const [filter, setFilter] = useState<'all' | 'low-stock' | 'active'>('all')
+  const [archiving, setArchiving] = useState<string | null>(null)
+  const [archiveTarget, setArchiveTarget] = useState<Product | null>(null)
+  const [filter, setFilter] = useState<'all' | 'low-stock' | 'active' | 'archived'>('all')
+
+  useEffect(() => setProducts(initialProducts), [initialProducts])
 
   const filtered = products.filter((p) => {
     const matchSearch =
@@ -28,30 +34,31 @@ export function ProductsTable({ initialProducts }: ProductsTableProps) {
       (p.sku ?? '').toLowerCase().includes(search.toLowerCase()) ||
       (p.barcode ?? '').toLowerCase().includes(search.toLowerCase())
 
-    if (filter === 'low-stock') return matchSearch && p.stock <= p.minStock
+    if (filter === 'low-stock') return matchSearch && p.isActive && p.stock <= p.minStock
     if (filter === 'active') return matchSearch && p.isActive
+    if (filter === 'archived') return matchSearch && !p.isActive
     return matchSearch
   })
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Delete this product? This cannot be undone.')) return
-    setDeleting(id)
+  const handleArchive = async () => {
+    if (!archiveTarget) return
+    setArchiving(archiveTarget.id)
     try {
-      await deleteProduct(id)
-      setProducts((prev) => prev.filter((p) => p.id !== id))
-      toast.success('Product deleted')
+      await archiveProduct(archiveTarget.id)
+      setProducts((prev) => prev.map((item) => item.id === archiveTarget.id ? { ...item, isActive: false } : item))
+      toast.success('Product archived')
     } catch {
-      toast.error('Failed to delete product')
+      toast.error('Failed to archive product')
     } finally {
-      setDeleting(null)
+      setArchiving(null)
+      setArchiveTarget(null)
     }
   }
 
   const handleFormClose = () => {
     setShowForm(false)
     setEditProduct(undefined)
-    // Reload via router refresh is handled by revalidatePath in action
-    window.location.reload()
+    router.refresh()
   }
 
   const stockStatus = (p: Product) => {
@@ -70,6 +77,7 @@ export function ProductsTable({ initialProducts }: ProductsTableProps) {
     { key: 'all', label: 'All Products' },
     { key: 'low-stock', label: 'Low Stock' },
     { key: 'active', label: 'Active' },
+    { key: 'archived', label: 'Archived' },
   ] as const
 
   return (
@@ -80,6 +88,12 @@ export function ProductsTable({ initialProducts }: ProductsTableProps) {
           onClose={handleFormClose}
         />
       )}
+      <AlertDialog open={Boolean(archiveTarget)} onOpenChange={(open) => !open && setArchiveTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader><AlertDialogTitle>Archive this product?</AlertDialogTitle><AlertDialogDescription>{archiveTarget?.name} will no longer appear in active product and POS lists. Existing sales records remain unchanged.</AlertDialogDescription></AlertDialogHeader>
+          <AlertDialogFooter><AlertDialogCancel>Keep product</AlertDialogCancel><AlertDialogAction onClick={handleArchive} className="bg-primary text-primary-foreground hover:bg-primary/90">Archive product</AlertDialogAction></AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <div className="space-y-4">
         {/* Toolbar */}
@@ -104,7 +118,7 @@ export function ProductsTable({ initialProducts }: ProductsTableProps) {
         </div>
 
         {/* Filter tabs */}
-        <div className="flex gap-1 rounded-lg border bg-muted p-1 w-fit">
+        <div className="flex max-w-full gap-1 overflow-x-auto rounded-lg border bg-muted p-1 sm:w-fit">
           {filterTabs.map((tab) => (
             <button
               key={tab.key}
@@ -132,7 +146,14 @@ export function ProductsTable({ initialProducts }: ProductsTableProps) {
               </p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
+            <>
+            <div className="grid gap-3 p-3 md:hidden">
+              {filtered.map((p) => {
+                const status = stockStatus(p)
+                return <article key={p.id} className="rounded-xl border bg-white p-4"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><p className="truncate font-bold">{p.name}</p><p className="mt-1 text-xs text-muted-foreground">{p.sku ? `SKU ${p.sku}` : 'No SKU'} · {p.isActive ? 'Active' : 'Archived'}</p></div><button onClick={() => { setEditProduct(p); setShowForm(true) }} className="app-icon-button" aria-label={`Edit ${p.name}`}><Pencil className="h-4 w-4" /></button></div><dl className="mt-4 grid grid-cols-2 gap-3 text-sm"><div><dt className="text-xs text-muted-foreground">Selling price</dt><dd className="mt-1 font-bold tabular-nums">{formatCurrency(p.sellingPrice)}</dd></div><div><dt className="text-xs text-muted-foreground">Stock</dt><dd className="mt-1"><span className={cn('rounded-full px-2 py-1 text-xs font-semibold', stockBadge[status])}>{p.stock} {p.unit}</span></dd></div></dl>{p.isActive && <button onClick={() => setArchiveTarget(p)} className="mt-4 inline-flex min-h-10 items-center gap-2 text-sm font-semibold text-muted-foreground"><Archive className="h-4 w-4" />Archive</button>}</article>
+              })}
+            </div>
+            <div className="hidden overflow-x-auto md:block">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b bg-muted/50">
@@ -157,7 +178,7 @@ export function ProductsTable({ initialProducts }: ProductsTableProps) {
                       <tr key={p.id} className="border-b last:border-0 hover:bg-muted/30 transition-colors">
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-3">
-                            <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                            <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-[#fff3be] text-[#050a1f]">
                               <Package className="h-4 w-4" />
                             </div>
                             <div className="min-w-0">
@@ -201,14 +222,7 @@ export function ProductsTable({ initialProducts }: ProductsTableProps) {
                             >
                               <Pencil className="h-3.5 w-3.5" />
                             </button>
-                            <button
-                              onClick={() => handleDelete(p.id)}
-                              disabled={deleting === p.id}
-                              className="rounded-md p-1.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors disabled:opacity-40"
-                              aria-label="Delete product"
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </button>
+                            {p.isActive && <button onClick={() => setArchiveTarget(p)} disabled={archiving === p.id} className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors disabled:opacity-40" aria-label={`Archive ${p.name}`}><Archive className="h-3.5 w-3.5" /></button>}
                           </div>
                         </td>
                       </tr>
@@ -216,7 +230,7 @@ export function ProductsTable({ initialProducts }: ProductsTableProps) {
                   })}
                 </tbody>
               </table>
-            </div>
+            </div></>
           )}
         </div>
 

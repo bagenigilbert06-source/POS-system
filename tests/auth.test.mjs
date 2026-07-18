@@ -85,6 +85,10 @@ async function cleanupTestUser(email) {
 
 loadEnv()
 
+if (!process.env.TEST_DATABASE_URL) throw new Error('TEST_DATABASE_URL is required. Authentication tests never run against the application database.')
+process.env.DATABASE_URL = process.env.TEST_DATABASE_URL
+process.env.DIRECT_URL = process.env.TEST_DATABASE_URL
+
 const port = process.env.AUTH_TEST_PORT ?? '3100'
 const baseURL = process.env.AUTH_TEST_BASE_URL ?? `http://127.0.0.1:${port}`
 const useExternalServer = Boolean(process.env.AUTH_TEST_BASE_URL)

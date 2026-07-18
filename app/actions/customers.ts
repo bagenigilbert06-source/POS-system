@@ -2,11 +2,13 @@
 
 import { auth } from '@/lib/auth'
 import { db } from '@/lib/db'
-import { customer, organization } from '@/lib/db/schema'
+import { customer } from '@/lib/db/schema'
 import { and, desc, eq, ilike, or } from 'drizzle-orm'
 import { headers } from 'next/headers'
 import { revalidatePath } from 'next/cache'
 import { generateId } from '@/lib/utils'
+import { OrganizationService } from '@/lib/services/organization-service'
+import { WorkspaceService } from '@/lib/services/workspace-service'
 
 async function getUserId() {
   const session = await auth.api.getSession({ headers: await headers() })
@@ -15,12 +17,11 @@ async function getUserId() {
 }
 
 async function getOrgId(userId: string) {
-  const org = await db
-    .select()
-    .from(organization)
-    .where(eq(organization.userId, userId))
-    .limit(1)
-  return org[0]?.id ?? userId
+  const organization = await OrganizationService.getPrimaryOrganization(userId)
+  if (!organization) throw new Error('No organization available')
+  const config = await WorkspaceService.getWorkspaceConfig(organization.id, userId)
+  if (!config?.enabledModules.includes('customers')) throw new Error('Customers are not enabled for this workspace')
+  return organization.id
 }
 
 export async function getCustomers(search?: string) {

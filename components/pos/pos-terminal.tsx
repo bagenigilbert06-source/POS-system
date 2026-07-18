@@ -241,9 +241,9 @@ export function POSTerminal({ products, customers }: POSTerminalProps) {
   }
 
   return (
-    <div className="flex h-[calc(100vh-8rem)] gap-4">
+    <div className="flex min-h-[calc(100vh-8rem)] flex-col gap-4 lg:h-[calc(100vh-8rem)] lg:min-h-0 lg:flex-row">
       {/* Left: Product catalog */}
-      <div className="flex flex-1 flex-col min-w-0">
+      <div className="flex min-h-[420px] min-w-0 flex-1 flex-col lg:min-h-0">
         <div className="mb-3 relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <input
@@ -305,7 +305,7 @@ export function POSTerminal({ products, customers }: POSTerminalProps) {
       </div>
 
       {/* Right: Cart + Payment */}
-      <div className="flex w-80 flex-shrink-0 flex-col rounded-xl border bg-card xl:w-96">
+      <div className="flex min-h-[520px] w-full flex-shrink-0 flex-col rounded-xl border bg-card lg:min-h-0 lg:w-80 xl:w-96">
         {/* Cart header */}
         <div className="flex items-center justify-between border-b px-4 py-3">
           <div className="flex items-center gap-2">
@@ -348,16 +348,16 @@ export function POSTerminal({ products, customers }: POSTerminalProps) {
                   <div className="flex items-center gap-1 flex-shrink-0">
                     <button
                       onClick={() => updateQty(item.productId, -1)}
-                      className="flex h-6 w-6 items-center justify-center rounded border hover:bg-secondary transition-colors"
+                      className="flex h-9 w-9 items-center justify-center rounded-md border hover:bg-secondary transition-colors"
                     >
                       <Minus className="h-3 w-3" />
                     </button>
-                    <span className="w-7 text-center text-xs font-semibold tabular-nums">
+                    <span className="w-8 text-center text-sm font-semibold tabular-nums">
                       {item.quantity}
                     </span>
                     <button
                       onClick={() => updateQty(item.productId, 1)}
-                      className="flex h-6 w-6 items-center justify-center rounded border hover:bg-secondary transition-colors"
+                      className="flex h-9 w-9 items-center justify-center rounded-md border hover:bg-secondary transition-colors"
                     >
                       <Plus className="h-3 w-3" />
                     </button>

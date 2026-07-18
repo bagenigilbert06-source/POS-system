@@ -16,7 +16,7 @@
     --popover: 0 0% 100%;
     --popover-foreground: 210 40% 10%;
 
-    --primary: 216 100% 50%;
+    --primary: 359 78% 52%;
     --primary-foreground: 0 0% 100%;
 
     --secondary: 210 20% 92%;
@@ -25,15 +25,15 @@
     --muted: 210 10% 90%;
     --muted-foreground: 210 15% 50%;
 
-    --accent: 216 100% 95%;
-    --accent-foreground: 216 100% 40%;
+    --accent: 48 100% 87%;
+    --accent-foreground: 229 72% 7%;
 
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
 
     --border: 210 15% 88%;
     --input: 210 12% 90%;
-    --ring: 216 100% 50%;
+    --ring: 359 78% 52%;
     --radius: 0.625rem;
 
     /* Dark section — used for stats, CTA, hero gradient */
@@ -49,16 +49,25 @@
 
     --sidebar-bg: 210 40% 12%;
     --sidebar-fg: 210 20% 60%;
-    --sidebar-active: 216 100% 50%;
-    --sidebar-active-fg: 0 0% 100%;
+    --sidebar-active: 48 100% 60%;
+    --sidebar-active-fg: 229 72% 7%;
     --sidebar-hover: 210 40% 20%;
     --sidebar-border: 210 40% 20%;
 
-    --chart-1: 216 100% 50%;
-    --chart-2: 142 71% 45%;
-    --chart-3: 38 92% 50%;
-    --chart-4: 0 84% 60%;
-    --chart-5: 280 65% 60%;
+    --chart-1: 359 78% 52%;
+    --chart-2: 48 100% 60%;
+    --chart-3: 229 72% 7%;
+    --chart-4: 0 0% 48%;
+    --chart-5: 42 74% 36%;
+
+    --app-canvas: 48 33% 97%;
+    --app-surface: 0 0% 100%;
+    --app-surface-subtle: 45 33% 98%;
+    --app-text: 229 72% 7%;
+    --app-text-muted: 218 16% 42%;
+    --app-border: 218 17% 88%;
+    --app-brand-yellow: 48 100% 60%;
+    --app-brand-red: 359 78% 52%;
   }
 
   .dark {
@@ -121,7 +130,251 @@
     --chart-3: 38 92% 60%;
     --chart-4: 0 84% 65%;
     --chart-5: 280 65% 65%;
+
+    /* Pesaby application palette */
+    --app-canvas: 228 29% 7%;
+    --app-surface: 226 25% 10%;
+    --app-surface-subtle: 225 21% 13%;
+    --app-text: 48 33% 97%;
+    --app-text-muted: 220 12% 67%;
+    --app-border: 224 17% 20%;
+    --app-brand-yellow: 48 100% 60%;
+    --app-brand-red: 359 78% 57%;
   }
+}
+
+/* Dashboard palette. The application deliberately keeps Pesaby's exact
+   landing-page yellow (#ffda32) in both themes. */
+.dashboard-shell {
+  --background: 42 27% 97%;
+  --foreground: 32 18% 9%;
+  --card: 0 0% 100%;
+  --card-foreground: 32 18% 9%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 32 18% 9%;
+  --secondary: 40 20% 93%;
+  --secondary-foreground: 32 15% 18%;
+  --muted: 38 16% 92%;
+  --muted-foreground: 32 10% 42%;
+  --border: 38 20% 87%;
+  --input: 38 20% 87%;
+  --primary: 48 100% 60%;
+  --primary-foreground: 229 72% 7%;
+  --ring: 48 100% 60%;
+  --accent: 48 100% 87%;
+  --accent-foreground: 229 72% 7%;
+  --dashboard-canvas: #f7f6f2;
+  --dashboard-surface: #ffffff;
+  --dashboard-surface-subtle: #fbfaf7;
+  --dashboard-text: #15130f;
+  --dashboard-muted: #746e64;
+  --dashboard-border: #e4e0d7;
+  --dashboard-chart-grid: #ebe7df;
+  --dashboard-chart-tick: #81796d;
+  --dashboard-chart-tooltip: #fffdf9;
+  --dashboard-chart-revenue: #bf4332;
+  --dashboard-chart-revenue-fill: #bf4332;
+  --dashboard-chart-secondary: #ffda32;
+  --dashboard-highlight: #e42527;
+  background: var(--dashboard-canvas);
+  color: var(--dashboard-text);
+}
+
+.dark .dashboard-shell {
+  --background: 28 24% 9%;
+  --foreground: 39 61% 93%;
+  --card: 28 22% 14%;
+  --card-foreground: 39 61% 93%;
+  --popover: 28 22% 14%;
+  --popover-foreground: 39 61% 93%;
+  --secondary: 27 19% 19%;
+  --secondary-foreground: 38 31% 86%;
+  --muted: 27 16% 22%;
+  --muted-foreground: 33 18% 69%;
+  --border: 24 20% 24%;
+  --input: 24 20% 22%;
+  --accent: 48 42% 18%;
+  --accent-foreground: 48 100% 72%;
+  --dashboard-canvas: #211814;
+  --dashboard-surface: #2b201b;
+  --dashboard-surface-subtle: #362821;
+  --dashboard-text: #f8f0df;
+  --dashboard-muted: #c5b6a2;
+  --dashboard-border: #4b3930;
+  --dashboard-chart-grid: #4b3930;
+  --dashboard-chart-tick: #c5b6a2;
+  --dashboard-chart-tooltip: #2b201b;
+  --dashboard-chart-revenue: #ee7058;
+  --dashboard-chart-revenue-fill: #ee7058;
+  --dashboard-chart-secondary: #f1b84b;
+  --dashboard-highlight: #e77b39;
+}
+
+.dashboard-sidebar,
+.dashboard-navbar {
+  background: var(--dashboard-surface);
+  border-color: var(--dashboard-border);
+}
+
+.dashboard-navbar {
+  background: color-mix(in srgb, var(--dashboard-surface) 94%, transparent);
+  color: var(--dashboard-text);
+  box-shadow: inset 0 -2px #ffda32, 0 1px 2px rgb(38 28 17 / 0.04);
+}
+
+.dashboard-nav-active {
+  background: color-mix(in srgb, var(--dashboard-highlight) 16%, transparent);
+  color: var(--dashboard-text);
+  box-shadow: inset 3px 0 0 var(--dashboard-highlight);
+}
+
+.dashboard-nav-inactive {
+  color: var(--dashboard-muted);
+}
+
+.dashboard-nav-inactive:hover {
+  background: var(--dashboard-surface-subtle);
+  color: var(--dashboard-text);
+}
+
+.dashboard-shell .app-panel,
+.dashboard-shell .metric-card {
+  border-color: var(--dashboard-border);
+  background-color: var(--dashboard-surface);
+}
+
+.dark .dashboard-shell {
+  background:
+    radial-gradient(circle at 52% -18%, rgb(141 72 36 / 0.28), transparent 38rem),
+    radial-gradient(circle at 100% 100%, rgb(89 47 27 / 0.18), transparent 34rem),
+    var(--dashboard-canvas);
+}
+
+.dark .dashboard-sidebar {
+  background: linear-gradient(180deg, #1d1511 0%, #211814 100%);
+}
+
+.dark .dashboard-navbar {
+  background: rgb(33 24 20 / 0.9);
+  border-color: rgb(91 65 52 / 0.7);
+  box-shadow: inset 0 -1px rgb(231 123 57 / 0.62), 0 12px 36px rgb(0 0 0 / 0.18);
+}
+
+.dark .dashboard-shell .app-panel,
+.dark .dashboard-shell .metric-card,
+.dark .dashboard-shell [class*='bg-white'] {
+  box-shadow: 0 12px 28px rgb(0 0 0 / 0.16);
+}
+
+.dark .dashboard-shell [class*='bg-white'],
+.dark .dashboard-shell .bg-\[\#fafbfc\],
+.dark .dashboard-shell .bg-\[\#fafaf8\] {
+  background-image: linear-gradient(145deg, rgb(255 255 255 / 0.025), transparent 46%);
+}
+
+.dark .dashboard-shell .bg-\[\#ffda32\] {
+  background-color: var(--dashboard-highlight) !important;
+  color: #fff8ef !important;
+}
+
+.dark .dashboard-shell .hover\:bg-\[\#f0c900\]:hover {
+  background-color: #f0954d !important;
+}
+
+.dark .dashboard-shell .text-\[\#e42527\],
+.dark .dashboard-shell .hover\:text-\[\#e42527\]:hover {
+  color: #f09350 !important;
+}
+
+.dashboard-shell .bg-white,
+.dashboard-shell .bg-white\/95,
+.dashboard-shell .bg-\[\#fffdf7\],
+.dashboard-shell .bg-\[\#fafbfc\],
+.dashboard-shell .bg-\[\#fafaf8\] {
+  background-color: var(--dashboard-surface) !important;
+}
+
+.dashboard-shell .bg-\[\#f5f6f8\],
+.dashboard-shell .bg-\[\#f8f9fb\],
+.dashboard-shell .bg-\[\#f3f5f7\],
+.dashboard-shell .bg-\[\#eef0f4\] {
+  background-color: var(--dashboard-surface-subtle) !important;
+}
+
+.dashboard-shell .text-\[\#050a1f\],
+.dashboard-shell .text-\[\#101828\],
+.dashboard-shell .text-\[\#172033\],
+.dashboard-shell .text-\[\#344054\] {
+  color: var(--dashboard-text) !important;
+}
+
+.dashboard-shell .text-\[\#526078\],
+.dashboard-shell .text-\[\#667085\],
+.dashboard-shell .text-\[\#697386\],
+.dashboard-shell .text-\[\#7b8495\],
+.dashboard-shell .text-\[\#7c8799\],
+.dashboard-shell .text-\[\#8a94a5\],
+.dashboard-shell .text-\[\#8b95a7\],
+.dashboard-shell .text-\[\#a0a8b7\] {
+  color: var(--dashboard-muted) !important;
+}
+
+.dashboard-shell .border-\[\#d9dde5\],
+.dashboard-shell .border-\[\#d9dce3\],
+.dashboard-shell .border-\[\#dde1e8\],
+.dashboard-shell .border-\[\#dfe2e7\],
+.dashboard-shell .border-\[\#dfe3ea\],
+.dashboard-shell .border-\[\#e2e5ea\],
+.dashboard-shell .border-\[\#e3dfd2\],
+.dashboard-shell .border-\[\#e5e8ed\],
+.dashboard-shell .border-\[\#e7e9ee\],
+.dashboard-shell .border-\[\#eceef2\],
+.dashboard-shell .border-\[\#edf0f4\] {
+  border-color: var(--dashboard-border) !important;
+}
+
+.dark .dashboard-shell .bg-white,
+.dark .dashboard-shell .bg-white\/95,
+.dark .dashboard-shell .bg-\[\#fafbfc\],
+.dark .dashboard-shell .bg-\[\#fafaf8\] {
+  background-color: var(--dashboard-surface) !important;
+}
+
+.dark .dashboard-shell .hover\:bg-white:hover,
+.dark .dashboard-shell .hover\:bg-\[\#fafbfc\]:hover,
+.dark .dashboard-shell .hover\:bg-\[\#f8f9fb\]:hover,
+.dark .dashboard-shell .hover\:bg-\[\#f7f8fa\]:hover,
+.dark .dashboard-shell .hover\:bg-\[\#f5f6f8\]:hover {
+  background-color: var(--dashboard-surface-subtle) !important;
+}
+
+.dark .dashboard-shell .text-\[\#050a1f\],
+.dark .dashboard-shell .text-\[\#101828\],
+.dark .dashboard-shell .text-\[\#172033\],
+.dark .dashboard-shell .text-\[\#344054\] {
+  color: var(--dashboard-text) !important;
+}
+
+.dark .dashboard-shell .text-\[\#526078\],
+.dark .dashboard-shell .text-\[\#667085\],
+.dark .dashboard-shell .text-\[\#697386\],
+.dark .dashboard-shell .text-\[\#7b8495\],
+.dark .dashboard-shell .text-\[\#7c8799\],
+.dark .dashboard-shell .text-\[\#8a94a5\],
+.dark .dashboard-shell .text-\[\#8b95a7\],
+.dark .dashboard-shell .text-\[\#a0a8b7\] {
+  color: var(--dashboard-muted) !important;
+}
+
+.dark .dashboard-shell .border-\[\#d9dde5\],
+.dark .dashboard-shell .border-\[\#dde1e8\],
+.dark .dashboard-shell .border-\[\#dfe2e7\],
+.dark .dashboard-shell .border-\[\#dfe3ea\],
+.dark .dashboard-shell .border-\[\#e2e5ea\],
+.dark .dashboard-shell .border-\[\#e7e9ee\],
+.dark .dashboard-shell .border-\[\#eceef2\],
+.dark .dashboard-shell .border-\[\#edf0f4\] {
+  border-color: var(--dashboard-border) !important;
 }
 
 @layer base {
@@ -296,7 +549,16 @@
 
   /* Dashboard / app utilities */
   .metric-card {
-    @apply fluent-card p-6;
+    @apply rounded-xl border border-border bg-card p-4 sm:p-5;
+  }
+  .app-panel {
+    @apply rounded-xl border border-border bg-card;
+  }
+  .app-icon-button {
+    @apply inline-flex h-10 w-10 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50;
+  }
+  .skip-link {
+    @apply fixed left-3 top-3 z-[100] -translate-y-20 rounded-lg bg-foreground px-4 py-2 text-sm font-bold text-background focus:translate-y-0;
   }
   .badge-success {
     @apply inline-flex items-center rounded-full bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 px-2.5 py-0.5 text-xs font-medium;

@@ -2,11 +2,14 @@
 
 import { auth } from '@/lib/auth'
 import { db } from '@/lib/db'
-import { sale, saleItem, product, organization } from '@/lib/db/schema'
+import { sale, saleItem, product, businessSettings } from '@/lib/db/schema'
 import { and, desc, eq, gte, sql } from 'drizzle-orm'
 import { headers } from 'next/headers'
 import { revalidatePath } from 'next/cache'
 import { generateId, generateReceiptNo } from '@/lib/utils'
+import { OrganizationService } from '@/lib/services/organization-service'
+import { WorkspaceService } from '@/lib/services/workspace-service'
+import { z } from 'zod'
 
 async function getUserId() {
   const session = await auth.api.getSession({ headers: await headers() })
@@ -14,13 +17,12 @@ async function getUserId() {
   return session.user.id
 }
 
-async function getOrgId(userId: string) {
-  const org = await db
-    .select()
-    .from(organization)
-    .where(eq(organization.userId, userId))
-    .limit(1)
-  return org[0]?.id ?? userId
+async function getOrgId(userId: string, moduleId = 'sales') {
+  const organization = await OrganizationService.getPrimaryOrganization(userId)
+  if (!organization) throw new Error('No organization available')
+  const config = await WorkspaceService.getWorkspaceConfig(organization.id, userId)
+  if (!config?.enabledModules.includes(moduleId)) throw new Error(`${moduleId} is not enabled for this workspace`)
+  return organization.id
 }
 
 export type CartItem = {
@@ -29,6 +31,45 @@ export type CartItem = {
   quantity: number
   unitPrice: number
   totalPrice: number
+}
+
+const manualSaleSchema = z.object({
+  description: z.string().trim().min(2).max(120),
+  amount: z.number().positive().max(999999999),
+  paymentMethod: z.string().trim().min(1).max(40),
+})
+
+export async function createManualSale(input: z.input<typeof manualSaleSchema>) {
+  const data = manualSaleSchema.parse(input)
+  const userId = await getUserId()
+  const orgId = await getOrgId(userId, 'sales')
+  const [settings] = await db.select({
+    paymentMethods: businessSettings.paymentMethods,
+    taxEnabled: businessSettings.taxEnabled,
+    taxRate: businessSettings.taxRate,
+    pricesIncludeTax: businessSettings.pricesIncludeTax,
+  }).from(businessSettings)
+    .where(eq(businessSettings.organizationId, orgId)).limit(1)
+  const allowedMethods = Array.isArray(settings?.paymentMethods) ? settings.paymentMethods as string[] : []
+  if (!allowedMethods.includes(data.paymentMethod)) throw new Error('Choose a payment method enabled for this workspace')
+  const rate = settings?.taxEnabled ? Number(settings.taxRate ?? 0) / 100 : 0
+  const taxAmount = rate > 0 ? (settings?.pricesIncludeTax ? data.amount - (data.amount / (1 + rate)) : data.amount * rate) : 0
+  const total = settings?.pricesIncludeTax ? data.amount : data.amount + taxAmount
+  const saleId = generateId()
+  const receiptNo = generateReceiptNo()
+  await db.transaction(async (tx) => {
+    await tx.insert(sale).values({
+      id: saleId, receiptNo, subtotal: String(data.amount), taxAmount: String(taxAmount), discountAmount: '0', total: String(total),
+      paymentMethod: data.paymentMethod, status: 'completed', userId, orgId,
+    })
+    await tx.insert(saleItem).values({
+      id: generateId(), saleId, productId: `manual-${saleId}`, productName: data.description, quantity: 1,
+      unitPrice: String(data.amount), totalPrice: String(total), userId, orgId,
+    })
+  })
+  revalidatePath('/dashboard')
+  revalidatePath('/dashboard/sales')
+  return { saleId, receiptNo }
 }
 
 export async function createSale(data: {
@@ -42,7 +83,7 @@ export async function createSale(data: {
   mpesaRef?: string
 }) {
   const userId = await getUserId()
-  const orgId = await getOrgId(userId)
+  const orgId = await getOrgId(userId, 'pos')
   const saleId = generateId()
   const receiptNo = generateReceiptNo()
 

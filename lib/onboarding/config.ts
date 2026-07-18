@@ -1,13 +1,24 @@
 import type { LucideIcon } from 'lucide-react'
-import { Building2, CircleHelp, Pill, ShoppingBasket, Utensils } from 'lucide-react'
+import {
+  BookOpenCheck,
+  BriefcaseBusiness,
+  CircleHelp,
+  Factory,
+  HeartPulse,
+  Leaf,
+  Scissors,
+  ShoppingBasket,
+  Utensils,
+  Wrench,
+} from 'lucide-react'
 
 export const ONBOARDING_STEPS = [
   'welcome',
   'business-details',
   'business-type',
   'operations',
-  'main-branch',
   'modules',
+  'main-branch',
   'payments-tax',
   'receipt',
   'review',
@@ -16,24 +27,91 @@ export const ONBOARDING_STEPS = [
 export type OnboardingStepId = (typeof ONBOARDING_STEPS)[number]
 
 export const WORKING_MODULES = [
-  { id: 'pos', name: 'Point of sale', description: 'Checkout, payments and receipts.' },
+  { id: 'pos', name: 'Point of sale', description: 'Checkout, payments and supported receipts.' },
   { id: 'sales', name: 'Sales', description: 'Transactions and sales history.' },
   { id: 'products', name: 'Products', description: 'Product records and pricing.' },
   { id: 'inventory', name: 'Inventory', description: 'Stock levels and movement.' },
-  { id: 'customers', name: 'Customers', description: 'Customer records and activity.' },
-  { id: 'reports', name: 'Reports', description: 'Operational reporting.' },
+  { id: 'customers', name: 'Customers', description: 'Customer or client records and activity.' },
+  { id: 'reports', name: 'Reports', description: 'Reports based on recorded operational data.' },
 ] as const
 
 export const REQUIRED_MODULES = ['sales', 'reports'] as const
+export type WorkingModuleId = (typeof WORKING_MODULES)[number]['id']
 
-export interface BusinessProfile {
-  id: 'retail' | 'restaurant' | 'pharmacy' | 'other'
+export const BUSINESS_FAMILY_IDS = [
+  'retail',
+  'food_hospitality',
+  'health_wellness',
+  'professional_services',
+  'beauty_personal_care',
+  'wholesale_distribution',
+  'repairs_technical',
+  'education_training',
+  'agriculture',
+  'other',
+] as const
+
+export type BusinessFamilyId = (typeof BUSINESS_FAMILY_IDS)[number]
+
+export interface BusinessFamilyProfile {
+  id: BusinessFamilyId
   name: string
   description: string
   icon: LucideIcon
-  category: string
-  recommendedModules: string[]
-  defaults: Partial<OnboardingDraft>
+}
+
+export interface BusinessCategoryOption {
+  id: string
+  name: string
+}
+
+export const BUSINESS_FAMILIES: BusinessFamilyProfile[] = [
+  { id: 'retail', name: 'Retail and shops', description: 'Sell products in a shop, counter or store.', icon: ShoppingBasket },
+  { id: 'food_hospitality', name: 'Food and hospitality', description: 'Sell prepared food, drinks or hospitality services.', icon: Utensils },
+  { id: 'health_wellness', name: 'Health and wellness', description: 'Provide health, fitness or wellness services.', icon: HeartPulse },
+  { id: 'professional_services', name: 'Professional services', description: 'Deliver expertise, projects or client services.', icon: BriefcaseBusiness },
+  { id: 'beauty_personal_care', name: 'Beauty and personal care', description: 'Provide personal care services or sell related products.', icon: Scissors },
+  { id: 'wholesale_distribution', name: 'Wholesale and distribution', description: 'Buy, hold and distribute products in volume.', icon: Factory },
+  { id: 'repairs_technical', name: 'Repairs and technical services', description: 'Repair, install or maintain customer equipment.', icon: Wrench },
+  { id: 'education_training', name: 'Education and training', description: 'Provide lessons, courses or training services.', icon: BookOpenCheck },
+  { id: 'agriculture', name: 'Agriculture', description: 'Sell farm products, inputs or agricultural services.', icon: Leaf },
+  { id: 'other', name: 'Other business', description: 'Describe a business that does not fit these groups.', icon: CircleHelp },
+]
+
+export const BUSINESS_CATEGORIES: Record<BusinessFamilyId, BusinessCategoryOption[]> = {
+  retail: [
+    ['general_shop', 'General shop'], ['supermarket', 'Supermarket'], ['mini_mart', 'Mini-mart'], ['hardware', 'Hardware'],
+    ['electronics', 'Electronics'], ['clothing', 'Clothing'], ['cosmetics', 'Cosmetics'], ['liquor_shop', 'Liquor shop'],
+    ['bookshop', 'Bookshop'], ['spare_parts', 'Spare parts'], ['retail_pharmacy', 'Pharmacy'], ['other_retail', 'Other retail'],
+  ].map(([id, name]) => ({ id, name })),
+  food_hospitality: [
+    ['cafe', 'Café'], ['restaurant', 'Restaurant'], ['bakery', 'Bakery'], ['fast_food', 'Fast food'],
+    ['catering', 'Catering'], ['bar_lounge', 'Bar or lounge'], ['other_food', 'Other food business'],
+  ].map(([id, name]) => ({ id, name })),
+  health_wellness: [
+    ['clinic', 'Clinic'], ['dental_clinic', 'Dental clinic'], ['health_pharmacy', 'Pharmacy'], ['optical_shop', 'Optical shop'],
+    ['laboratory', 'Laboratory'], ['physiotherapy', 'Physiotherapy'], ['gym', 'Gym'], ['other_health', 'Other health business'],
+  ].map(([id, name]) => ({ id, name })),
+  professional_services: [
+    ['consulting', 'Consulting'], ['accounting', 'Accounting'], ['legal', 'Legal'], ['photography', 'Photography'],
+    ['cleaning', 'Cleaning'], ['other_professional_service', 'Other professional service'],
+  ].map(([id, name]) => ({ id, name })),
+  beauty_personal_care: [
+    ['salon', 'Salon'], ['barber', 'Barber'], ['spa', 'Spa'], ['beauty_shop', 'Beauty shop'], ['other_personal_care', 'Other personal care'],
+  ].map(([id, name]) => ({ id, name })),
+  wholesale_distribution: [
+    ['general_wholesale', 'General wholesale'], ['food_distribution', 'Food distribution'], ['medical_distribution', 'Medical distribution'], ['other_distribution', 'Other distribution'],
+  ].map(([id, name]) => ({ id, name })),
+  repairs_technical: [
+    ['garage', 'Garage'], ['electronics_repair', 'Electronics repair'], ['appliance_repair', 'Appliance repair'], ['installation_service', 'Installation service'], ['other_repair', 'Other repair service'],
+  ].map(([id, name]) => ({ id, name })),
+  education_training: [
+    ['school', 'School'], ['training_center', 'Training centre'], ['tutor', 'Tutor'], ['other_education', 'Other education business'],
+  ].map(([id, name]) => ({ id, name })),
+  agriculture: [
+    ['farm', 'Farm'], ['agrovet', 'Agrovet'], ['produce_shop', 'Produce shop'], ['agricultural_service', 'Agricultural service'], ['other_agriculture', 'Other agriculture business'],
+  ].map(([id, name]) => ({ id, name })),
+  other: [{ id: 'custom', name: 'Describe my business' }],
 }
 
 export interface OnboardingDraft {
@@ -49,8 +127,9 @@ export interface OnboardingDraft {
   timezone: string
   currency: string
   financialYearStart: string
-  businessType: BusinessProfile['id']
+  businessFamily: BusinessFamilyId | ''
   businessCategory: string
+  customBusinessCategory: string
   sellsProducts: boolean
   providesServices: boolean
   tracksInventory: boolean
@@ -89,26 +168,45 @@ export interface OnboardingDraft {
 export const DEFAULT_ONBOARDING_DATA: OnboardingDraft = {
   businessName: '', displayName: '', country: 'KE', region: '', city: '', phone: '',
   businessEmail: '', website: '', language: 'en', timezone: 'Africa/Nairobi', currency: 'KES',
-  financialYearStart: '01-01', businessType: 'retail', businessCategory: 'other_retail',
-  sellsProducts: true, providesServices: false, tracksInventory: true, hasEmployees: false,
-  multipleLocations: false, keepsCustomers: true, usesSuppliers: true, acceptsCash: true,
+  financialYearStart: '01-01', businessFamily: '', businessCategory: '', customBusinessCategory: '',
+  sellsProducts: false, providesServices: false, tracksInventory: false, hasEmployees: false,
+  multipleLocations: false, keepsCustomers: false, usesSuppliers: false, acceptsCash: true,
   acceptsMpesa: true, acceptsCard: false, needsTax: false, issuesReceipts: true,
-  branchName: 'Main Branch', branchPhone: '', branchAddress: '', branchRegion: '', branchCity: '',
-  branchTimezone: 'Africa/Nairobi', receiptHeader: '',
-  enabledModules: ['pos', 'sales', 'products', 'inventory', 'customers', 'reports'],
+  branchName: 'Main location', branchPhone: '', branchAddress: '', branchRegion: '', branchCity: '',
+  branchTimezone: 'Africa/Nairobi', receiptHeader: '', enabledModules: ['sales', 'reports'],
   paymentMethods: ['cash', 'mpesa'], defaultPaymentMethod: 'cash', taxEnabled: false,
   pricesIncludeTax: false, taxName: 'VAT', taxRate: '16', taxIdentifier: '',
   receiptBusinessName: '', receiptPhone: '', receiptAddress: '', receiptFooter: 'Thank you for your business.',
   showTaxOnReceipt: false, receiptNumbering: 'automatic',
 }
 
-export const BUSINESS_PROFILES: BusinessProfile[] = [
-  { id: 'retail', name: 'Retail store', description: 'Sell products and manage stock at a counter.', icon: ShoppingBasket, category: 'other_retail', recommendedModules: ['pos', 'sales', 'products', 'inventory', 'customers', 'reports'], defaults: { sellsProducts: true, tracksInventory: true, providesServices: false } },
-  { id: 'restaurant', name: 'Restaurant & café', description: 'Manage counter sales, products and daily reporting.', icon: Utensils, category: 'other_restaurant', recommendedModules: ['pos', 'sales', 'products', 'inventory', 'customers', 'reports'], defaults: { sellsProducts: true, tracksInventory: true, providesServices: true } },
-  { id: 'pharmacy', name: 'Pharmacy', description: 'Sell products with stock visibility and reporting.', icon: Pill, category: 'other_pharmacy', recommendedModules: ['pos', 'sales', 'products', 'inventory', 'customers', 'reports'], defaults: { sellsProducts: true, tracksInventory: true, providesServices: false } },
-  { id: 'other', name: 'Other business', description: 'Start with a safe shared workspace and configure it your way.', icon: CircleHelp, category: 'other_retail', recommendedModules: ['sales', 'customers', 'reports'], defaults: { sellsProducts: false, tracksInventory: false, providesServices: true } },
-]
+export function familyFor(id: string) {
+  return BUSINESS_FAMILIES.find((family) => family.id === id)
+}
 
-export const profileFor = (id: string) => BUSINESS_PROFILES.find((profile) => profile.id === id) ?? BUSINESS_PROFILES[3]
-export const persistedBusinessType = (id: string) => id === 'other' ? 'retail' : id
+export function categoriesFor(family: string) {
+  return BUSINESS_CATEGORIES[family as BusinessFamilyId] ?? []
+}
 
+export function isCategoryValidForFamily(family: string, category: string) {
+  return categoriesFor(family).some((option) => option.id === category)
+}
+
+export function categoryLabel(family: string, category: string, custom = '') {
+  if (family === 'other') return custom || 'Other business'
+  return categoriesFor(family).find((option) => option.id === category)?.name ?? category
+}
+
+export function recommendedModules(data: Pick<OnboardingDraft, 'sellsProducts' | 'tracksInventory' | 'keepsCustomers'>): string[] {
+  const modules = new Set<string>(['sales', 'reports'])
+  if (data.sellsProducts) {
+    modules.add('pos')
+    modules.add('products')
+  }
+  if (data.tracksInventory) {
+    modules.add('products')
+    modules.add('inventory')
+  }
+  if (data.keepsCustomers) modules.add('customers')
+  return WORKING_MODULES.map((module) => module.id).filter((id) => modules.has(id))
+}

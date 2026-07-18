@@ -1,115 +1,89 @@
-import { getSales } from '@/app/actions/sales'
-import { getProducts } from '@/app/actions/products'
-import { formatCurrency } from '@/lib/utils'
-import { ReportsCharts } from '@/components/reports/reports-charts'
-import { BarChart3 } from 'lucide-react'
+import { headers } from 'next/headers'
+import { redirect } from 'next/navigation'
 import type { Metadata } from 'next'
+import { BarChart3, CalendarDays, Package, ReceiptText, Tags } from 'lucide-react'
+import { auth } from '@/lib/auth'
+import { OrganizationService } from '@/lib/services/organization-service'
+import { getReportsOverview } from '@/lib/services/reports-service'
+import { formatCurrency, formatNumber } from '@/lib/utils/format'
+import { ReportsCharts } from '@/components/reports/reports-charts'
+import { DashboardPageHeading } from '@/components/dashboard/page-heading'
+import { requireWorkspaceModule } from '@/lib/onboarding/require-module'
 
 export const metadata: Metadata = { title: 'Reports' }
 
 export default async function ReportsPage() {
-  const [sales, products] = await Promise.all([getSales(500), getProducts()])
+  await requireWorkspaceModule('reports')
+  const session = await auth.api.getSession({ headers: await headers() })
+  if (!session?.user) redirect('/sign-in')
+  const organization = await OrganizationService.getPrimaryOrganization(session.user.id)
+  if (!organization) redirect('/onboarding')
 
-  // Compute monthly breakdown from sales
-  const monthlyMap: Record<string, { revenue: number; count: number }> = {}
-  for (const s of sales) {
-    const key = new Date(s.createdAt).toLocaleDateString('en-KE', { year: 'numeric', month: 'short' })
-    if (!monthlyMap[key]) monthlyMap[key] = { revenue: 0, count: 0 }
-    monthlyMap[key].revenue += parseFloat(s.total)
-    monthlyMap[key].count += 1
-  }
-  const monthlyData = Object.entries(monthlyMap)
-    .map(([month, data]) => ({ month, ...data }))
-    .slice(-6)
+  const report = await getReportsOverview(organization.id, organization.timezone || 'Africa/Nairobi')
+  const currency = organization.currency || 'KES'
 
-  // Payment method breakdown
-  const paymentMap: Record<string, number> = {}
-  for (const s of sales) {
-    paymentMap[s.paymentMethod] = (paymentMap[s.paymentMethod] ?? 0) + parseFloat(s.total)
-  }
-  const paymentData = Object.entries(paymentMap).map(([method, amount]) => ({
-    method: method.charAt(0).toUpperCase() + method.slice(1),
-    amount,
-  }))
-
-  // Top products by (approximate) sales — count unique product appearances from product names
-  const productSaleMap: Record<string, number> = {}
-  for (const s of sales) {
-    // We'll use a placeholder; real data would join sale_items
-  }
-
-  const totalRevenue = sales.reduce((sum, s) => sum + parseFloat(s.total), 0)
-  const totalTax = sales.reduce((sum, s) => sum + parseFloat(s.taxAmount), 0)
-  const totalDiscount = sales.reduce((sum, s) => sum + parseFloat(s.discountAmount), 0)
-  const avgOrderValue = sales.length > 0 ? totalRevenue / sales.length : 0
-
-  const inventoryValue = products.reduce(
-    (sum, p) => sum + parseFloat(p.buyingPrice) * p.stock,
-    0
-  )
-  const potentialRevenue = products.reduce(
-    (sum, p) => sum + parseFloat(p.sellingPrice) * p.stock,
-    0
-  )
+  const metrics = [
+    { label: 'Net sales', value: formatCurrency(report.totals.revenue, currency), detail: `${formatNumber(report.totals.transactions)} completed transactions`, icon: ReceiptText },
+    { label: 'Average sale', value: formatCurrency(report.totals.averageSale, currency), detail: 'Per completed transaction', icon: BarChart3 },
+    { label: 'Recorded tax', value: formatCurrency(report.totals.tax, currency), detail: 'Tax stored on completed sales', icon: Tags },
+    { label: 'Discounts', value: formatCurrency(report.totals.discounts, currency), detail: 'Discounts stored on completed sales', icon: CalendarDays },
+  ]
 
   return (
-    <div className="space-y-6">
-      <div className="page-header">
-        <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
-            <BarChart3 className="h-5 w-5" />
+    <div className="mx-auto max-w-[1480px] space-y-5 pb-8">
+      <DashboardPageHeading
+        icon={BarChart3}
+        title="Reports"
+        description="Review six months of recorded sales, payments and inventory value."
+        action={<div className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-[#d9dce3] bg-white px-3 text-sm font-semibold text-[#344054]"><CalendarDays className="h-4 w-4" /><span>{report.period.label}</span></div>}
+      />
+
+      <section aria-label="Report summary" className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {metrics.map(({ label, value, detail, icon: Icon }) => (
+          <article key={label} className="app-panel p-4 sm:p-5">
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-accent text-accent-foreground"><Icon className="h-4 w-4" aria-hidden="true" /></div>
+            <p className="mt-4 text-sm font-medium text-muted-foreground">{label}</p>
+            <p className="mt-1 text-2xl font-extrabold tracking-tight tabular-nums">{value}</p>
+            <p className="mt-1.5 text-xs leading-5 text-muted-foreground">{detail}</p>
+          </article>
+        ))}
+      </section>
+
+      <ReportsCharts monthlyData={report.monthly} paymentData={report.payments} currency={currency} />
+
+      <section className="grid gap-4 xl:grid-cols-[minmax(0,1.25fr)_minmax(320px,.75fr)]">
+        <article className="app-panel overflow-hidden">
+          <div className="border-b px-4 py-4 sm:px-5">
+            <h2 className="font-bold">Top products</h2>
+            <p className="mt-1 text-sm text-muted-foreground">Ranked by recorded sales value in this report period.</p>
           </div>
-          <div>
-            <h1 className="text-xl font-semibold">Reports</h1>
-            <p className="text-sm text-muted-foreground">Business performance overview</p>
-          </div>
-        </div>
-      </div>
+          {report.topProducts.length ? (
+            <div className="divide-y">
+              {report.topProducts.map((item, index) => (
+                <div key={item.name} className="flex items-center gap-3 px-4 py-3.5 sm:px-5">
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent text-xs font-extrabold text-accent-foreground">{index + 1}</span>
+                  <div className="min-w-0 flex-1"><p className="truncate text-sm font-bold">{item.name}</p><p className="text-xs text-muted-foreground">{formatNumber(item.quantity)} units sold</p></div>
+                  <p className="text-sm font-bold tabular-nums">{formatCurrency(item.revenue, currency)}</p>
+                </div>
+              ))}
+            </div>
+          ) : <ReportEmpty title="No product sales yet" detail="Completed sales with product lines will appear here." />}
+        </article>
 
-      {/* Key metrics */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="metric-card">
-          <p className="text-sm font-medium text-muted-foreground">Total Revenue</p>
-          <p className="mt-1.5 text-2xl font-semibold">{formatCurrency(totalRevenue)}</p>
-          <p className="text-xs text-muted-foreground mt-1">All-time from {sales.length} sales</p>
-        </div>
-        <div className="metric-card">
-          <p className="text-sm font-medium text-muted-foreground">Avg Order Value</p>
-          <p className="mt-1.5 text-2xl font-semibold">{formatCurrency(avgOrderValue)}</p>
-          <p className="text-xs text-muted-foreground mt-1">Per transaction</p>
-        </div>
-        <div className="metric-card">
-          <p className="text-sm font-medium text-muted-foreground">VAT Collected</p>
-          <p className="mt-1.5 text-2xl font-semibold">{formatCurrency(totalTax)}</p>
-          <p className="text-xs text-muted-foreground mt-1">Total tax remittable</p>
-        </div>
-        <div className="metric-card">
-          <p className="text-sm font-medium text-muted-foreground">Total Discounts</p>
-          <p className="mt-1.5 text-2xl font-semibold">{formatCurrency(totalDiscount)}</p>
-          <p className="text-xs text-muted-foreground mt-1">Given to customers</p>
-        </div>
-      </div>
-
-      {/* Inventory value */}
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div className="metric-card">
-          <p className="text-sm font-medium text-muted-foreground">Inventory Cost</p>
-          <p className="mt-1.5 text-2xl font-semibold">{formatCurrency(inventoryValue)}</p>
-          <p className="text-xs text-muted-foreground mt-1">
-            Cost of {products.length} products at buying price
-          </p>
-        </div>
-        <div className="metric-card">
-          <p className="text-sm font-medium text-muted-foreground">Potential Revenue</p>
-          <p className="mt-1.5 text-2xl font-semibold">{formatCurrency(potentialRevenue)}</p>
-          <p className="text-xs text-muted-foreground mt-1">
-            If all stock sold at selling price (KES {formatCurrency(potentialRevenue - inventoryValue)} gross margin)
-          </p>
-        </div>
-      </div>
-
-      {/* Charts */}
-      <ReportsCharts monthlyData={monthlyData} paymentData={paymentData} />
+        <article className="app-panel p-4 sm:p-5">
+          <div className="flex items-start justify-between gap-3"><div><h2 className="font-bold">Inventory valuation</h2><p className="mt-1 text-sm text-muted-foreground">Current active product stock.</p></div><Package className="h-5 w-5 text-primary" /></div>
+          <dl className="mt-5 divide-y">
+            <div className="flex justify-between gap-4 py-3"><dt className="text-sm text-muted-foreground">Products</dt><dd className="font-bold tabular-nums">{formatNumber(report.inventory.products)}</dd></div>
+            <div className="flex justify-between gap-4 py-3"><dt className="text-sm text-muted-foreground">Recorded cost</dt><dd className="font-bold tabular-nums">{formatCurrency(report.inventory.cost, currency)}</dd></div>
+            <div className="flex justify-between gap-4 py-3"><dt className="text-sm text-muted-foreground">Estimated retail value</dt><dd className="font-bold tabular-nums">{formatCurrency(report.inventory.retailValue, currency)}</dd></div>
+          </dl>
+          <p className="mt-4 rounded-lg bg-muted/60 p-3 text-xs leading-5 text-muted-foreground">Retail value is an estimate based on current units and selling prices. It is not recognized revenue.</p>
+        </article>
+      </section>
     </div>
   )
+}
+
+function ReportEmpty({ title, detail }: { title: string; detail: string }) {
+  return <div className="flex min-h-40 flex-col items-center justify-center p-6 text-center"><BarChart3 className="h-7 w-7 text-muted-foreground/50" /><p className="mt-3 text-sm font-semibold">{title}</p><p className="mt-1 text-sm text-muted-foreground">{detail}</p></div>
 }

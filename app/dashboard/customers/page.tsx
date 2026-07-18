@@ -2,25 +2,18 @@ import { getCustomers } from '@/app/actions/customers'
 import { CustomersClient } from '@/components/customers/customers-client'
 import { Users } from 'lucide-react'
 import type { Metadata } from 'next'
+import { DashboardPageHeading } from '@/components/dashboard/page-heading'
+import { requireWorkspaceModule } from '@/lib/onboarding/require-module'
 
 export const metadata: Metadata = { title: 'Customers' }
 
 export default async function CustomersPage() {
+  await requireWorkspaceModule('customers')
   const customers = await getCustomers()
 
   return (
-    <div className="space-y-6">
-      <div className="page-header">
-        <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
-            <Users className="h-5 w-5" />
-          </div>
-          <div>
-            <h1 className="text-xl font-semibold">Customers</h1>
-            <p className="text-sm text-muted-foreground">Manage your customer relationships</p>
-          </div>
-        </div>
-      </div>
+    <div className="mx-auto max-w-[1480px] space-y-5">
+      <DashboardPageHeading icon={Users} title="Customers" description="Keep customer details and activity connected to daily sales." />
 
       <CustomersClient initialCustomers={customers} />
     </div>

@@ -4,6 +4,12 @@ import Link from 'next/link'
 import { Receipt, Smartphone, Banknote, CreditCard, ArrowUpRight, Plus } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { Metadata } from 'next'
+import { DashboardPageHeading } from '@/components/dashboard/page-heading'
+import { requireWorkspaceModule } from '@/lib/onboarding/require-module'
+import { ManualSaleDialog } from '@/components/sales/manual-sale-dialog'
+import { db } from '@/lib/db'
+import { businessSettings } from '@/lib/db/schema'
+import { eq } from 'drizzle-orm'
 
 export const metadata: Metadata = { title: 'Sales' }
 
@@ -14,40 +20,35 @@ const paymentIcon = {
 }
 
 const paymentBadgeCls: Record<string, string> = {
-  cash: 'bg-[hsl(var(--success)/0.1)] text-[hsl(var(--success))]',
-  mpesa: 'bg-[hsl(var(--info)/0.1)] text-[hsl(var(--info))]',
-  card: 'bg-secondary text-secondary-foreground',
+  cash: 'bg-[#fff3be] text-[#5f4900]',
+  mpesa: 'bg-[#fff0f0] text-[#b51f21]',
+  card: 'bg-[#eef0f4] text-[#344054]',
 }
 
 export default async function SalesPage() {
-  const sales = await getSales(100)
+  const { config, organization } = await requireWorkspaceModule('sales')
+  const [sales, [settings]] = await Promise.all([
+    getSales(100),
+    db.select({ paymentMethods: businessSettings.paymentMethods, taxEnabled: businessSettings.taxEnabled, pricesIncludeTax: businessSettings.pricesIncludeTax }).from(businessSettings).where(eq(businessSettings.organizationId, organization.id)).limit(1),
+  ])
+  const paymentMethods = Array.isArray(settings?.paymentMethods) ? settings.paymentMethods as string[] : []
+  const completedSales = sales.filter((record) => record.status === 'completed')
 
-  const totalRevenue = sales.reduce((sum, s) => sum + parseFloat(s.total), 0)
-  const cashSales = sales.filter((s) => s.paymentMethod === 'cash')
-  const mpesaSales = sales.filter((s) => s.paymentMethod === 'mpesa')
+  const totalRevenue = completedSales.reduce((sum, s) => sum + parseFloat(s.total), 0)
+  const cashSales = completedSales.filter((s) => s.paymentMethod === 'cash')
+  const mpesaSales = completedSales.filter((s) => s.paymentMethod === 'mpesa')
   const cashRevenue = cashSales.reduce((sum, s) => sum + parseFloat(s.total), 0)
   const mpesaRevenue = mpesaSales.reduce((sum, s) => sum + parseFloat(s.total), 0)
 
   return (
     <div className="mx-auto w-full max-w-[1440px] space-y-5">
-      <div className="flex flex-col gap-4 rounded-lg border border-border bg-white p-4 shadow-sm dark:bg-card sm:flex-row sm:items-center sm:justify-between sm:p-5">
-        <div className="flex min-w-0 items-center gap-3">
-          <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-md bg-[#e4efe7] text-[#1f5132] dark:bg-primary/15 dark:text-primary">
-            <Receipt className="h-5 w-5" />
-          </div>
-          <div>
-            <h1 className="text-xl font-semibold tracking-tight">Sales</h1>
-            <p className="text-sm text-muted-foreground">Track transactions, payments, and daily revenue</p>
-          </div>
-        </div>
-        <Link
+      <DashboardPageHeading icon={Receipt} title="Sales" description="Track completed transactions, payments and recorded revenue." action={config.enabledModules.includes('pos') ? <Link
           href="/dashboard/pos"
-          className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-[#1f5132] px-4 text-sm font-medium text-white shadow-sm transition hover:bg-[#174327]"
+          className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-[#e42527] px-4 text-sm font-bold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#050a1f] focus-visible:ring-offset-2"
         >
           <Plus className="h-4 w-4" />
           New sale
-        </Link>
-      </div>
+        </Link> : <ManualSaleDialog paymentMethods={paymentMethods} taxEnabled={settings?.taxEnabled ?? false} pricesIncludeTax={settings?.pricesIncludeTax ?? false} />} />
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <div className="rounded-lg border border-border bg-white p-4 shadow-sm dark:bg-card">
@@ -55,9 +56,9 @@ export default async function SalesPage() {
             <div>
               <p className="text-sm font-medium text-muted-foreground">Total Revenue</p>
               <p className="mt-2 text-2xl font-semibold tracking-tight">{formatCurrency(totalRevenue)}</p>
-              <p className="mt-1 text-xs text-muted-foreground">{sales.length} transactions</p>
+              <p className="mt-1 text-xs text-muted-foreground">{completedSales.length} completed transactions</p>
             </div>
-            <span className="rounded-md bg-[#e4efe7] p-2 text-[#1f5132]">
+            <span className="rounded-md bg-[#fff3be] p-2 text-[#050a1f]">
               <ArrowUpRight className="h-4 w-4" />
             </span>
           </div>
@@ -69,7 +70,7 @@ export default async function SalesPage() {
               <p className="mt-2 text-2xl font-semibold tracking-tight">{formatCurrency(cashRevenue)}</p>
               <p className="mt-1 text-xs text-muted-foreground">{cashSales.length} transactions</p>
             </div>
-            <span className="rounded-md bg-green-50 p-2 text-green-700 dark:bg-green-950">
+            <span className="rounded-md bg-[#fff3be] p-2 text-[#050a1f]">
               <Banknote className="h-4 w-4" />
             </span>
           </div>
@@ -81,7 +82,7 @@ export default async function SalesPage() {
               <p className="mt-2 text-2xl font-semibold tracking-tight">{formatCurrency(mpesaRevenue)}</p>
               <p className="mt-1 text-xs text-muted-foreground">{mpesaSales.length} transactions</p>
             </div>
-            <span className="rounded-md bg-blue-50 p-2 text-blue-700 dark:bg-blue-950">
+            <span className="rounded-md bg-[#fff0f0] p-2 text-[#e42527]">
               <Smartphone className="h-4 w-4" />
             </span>
           </div>
@@ -89,7 +90,7 @@ export default async function SalesPage() {
         <div className="rounded-lg border border-border bg-white p-4 shadow-sm dark:bg-card">
           <p className="text-sm font-medium text-muted-foreground">Average Sale</p>
           <p className="mt-2 text-2xl font-semibold tracking-tight">
-            {formatCurrency(sales.length ? totalRevenue / sales.length : 0)}
+            {formatCurrency(completedSales.length ? totalRevenue / completedSales.length : 0)}
           </p>
           <p className="mt-1 text-xs text-muted-foreground">Across all payment methods</p>
         </div>
@@ -113,14 +114,18 @@ export default async function SalesPage() {
             </p>
             <Link
               href="/dashboard/pos"
-              className="mt-5 inline-flex h-10 items-center justify-center gap-2 rounded-md bg-[#1f5132] px-4 text-sm font-medium text-white shadow-sm transition hover:bg-[#174327]"
+              className="mt-5 inline-flex h-10 items-center justify-center gap-2 rounded-md bg-[#e42527] px-4 text-sm font-bold text-white"
             >
               <Plus className="h-4 w-4" />
               Start selling
             </Link>
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <>
+          <div className="grid gap-3 p-3 md:hidden">
+            {sales.map((record) => { const Icon = paymentIcon[record.paymentMethod as keyof typeof paymentIcon] ?? Banknote; return <article key={record.id} className="rounded-xl border bg-white p-4"><div className="flex items-start justify-between gap-3"><div><p className="font-mono text-xs font-bold">{record.receiptNo}</p><p className="mt-1 text-xs text-muted-foreground">{formatDateTime(record.createdAt)}</p></div><span className={cn('inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold capitalize', paymentBadgeCls[record.paymentMethod] ?? 'bg-secondary')}><Icon className="h-3 w-3" />{record.paymentMethod}</span></div><div className="mt-4 flex items-end justify-between gap-3"><div><p className="text-xs text-muted-foreground">Status</p><p className="mt-1 text-sm font-semibold capitalize">{record.status}</p></div><div className="text-right"><p className="text-xs text-muted-foreground">Total</p><p className="mt-1 text-lg font-extrabold tabular-nums">{formatCurrency(record.total)}</p></div></div></article> })}
+          </div>
+          <div className="hidden overflow-x-auto md:block">
             <table className="w-full min-w-[820px] text-sm">
               <thead>
                 <tr className="border-b border-border bg-[#fafaf8] dark:bg-background">
@@ -160,7 +165,7 @@ export default async function SalesPage() {
                         {formatCurrency(s.total)}
                       </td>
                       <td className="px-4 py-3 text-center">
-                        <span className="rounded-full bg-[hsl(var(--success)/0.1)] px-2.5 py-0.5 text-xs font-medium text-[hsl(var(--success))] capitalize">
+                        <span className="rounded-full bg-[#fff3be] px-2.5 py-0.5 text-xs font-bold text-[#5f4900] capitalize">
                           {s.status}
                         </span>
                       </td>
@@ -169,7 +174,7 @@ export default async function SalesPage() {
                 })}
               </tbody>
             </table>
-          </div>
+          </div></>
         )}
       </div>
     </div>

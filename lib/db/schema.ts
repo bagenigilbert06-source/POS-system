@@ -7,6 +7,7 @@ export const user = pgTable('user', {
   email: text('email').notNull().unique(),
   emailVerified: boolean('emailVerified').notNull().default(false),
   image: text('image'),
+  status: text('status').notNull().default('active'),
   createdAt: timestamp('createdAt').notNull().defaultNow(),
   updatedAt: timestamp('updatedAt').notNull().defaultNow(),
 })
@@ -154,6 +155,7 @@ export const businessSettings = pgTable('business_settings', {
   address: text('address'),
   language: text('language').notNull().default('en'),
   financialYearStart: text('financialYearStart'),
+  customBusinessCategory: text('customBusinessCategory'),
   operations: json('operations').notNull().default({}),
   enabledModules: json('enabledModules').notNull().default([]),
   paymentMethods: json('paymentMethods').notNull().default([]),

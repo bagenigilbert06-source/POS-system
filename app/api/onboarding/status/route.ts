@@ -10,7 +10,7 @@ export async function GET() {
   if (!session?.user) return NextResponse.json({ message: 'Unauthorized' }, { status: 401 })
   try {
     const state = await OnboardingService.getOrCreate(session.user.id)
-    return NextResponse.json({ status: state.status, currentStep: state.currentStep, completedSteps: state.completedSteps, lastSavedAt: state.lastSavedAt })
+    return NextResponse.json({ status: state.status, currentStep: state.currentStep, completedSteps: state.completedSteps, revision: state.configurationVersion, lastSavedAt: state.lastSavedAt })
   } catch {
     return NextResponse.json({ message: 'Unable to load onboarding status.' }, { status: 500 })
   }

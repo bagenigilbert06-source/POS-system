@@ -11,8 +11,9 @@
     "start": "next start",
     "lint": "eslint .",
     "test:auth": "node tests/auth.test.mjs",
+    "test:onboarding-rules": "ts-node --compiler-options '{\"module\":\"CommonJS\",\"moduleResolution\":\"node\",\"types\":[\"node\"]}' tests/onboarding-rules.test.ts",
     "test:onboarding": "node tests/onboarding.test.mjs",
-    "test": "pnpm run test:auth && pnpm run test:onboarding",
+    "test": "pnpm run test:onboarding-rules && pnpm run test:auth && pnpm run test:onboarding",
     "postinstall": "prisma generate"
   },
   "dependencies": {

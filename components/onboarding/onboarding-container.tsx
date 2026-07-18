@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { authClient } from '@/lib/auth-client'
 import {
@@ -10,7 +10,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import {
-  BUSINESS_PROFILES, ONBOARDING_STEPS, REQUIRED_MODULES, WORKING_MODULES, profileFor,
+  BUSINESS_FAMILIES, ONBOARDING_STEPS, REQUIRED_MODULES, WORKING_MODULES, categoriesFor, categoryLabel, familyFor, recommendedModules,
   type OnboardingDraft, type OnboardingStepId,
 } from '@/lib/onboarding/config'
 
@@ -65,15 +65,40 @@ function SelectField({ label, name, value, onChange, children, error }: { label:
   </label>
 }
 
-export function OnboardingContainer({ initialStep, initialData }: { initialStep: OnboardingStepId; initialData: OnboardingDraft }) {
+export function OnboardingContainer({ initialStep, initialData, initialRevision }: { initialStep: OnboardingStepId; initialData: OnboardingDraft; initialRevision: number }) {
   const router = useRouter()
   const [stepIndex, setStepIndex] = useState(Math.max(0, ONBOARDING_STEPS.indexOf(initialStep)))
+  const [maxUnlockedStep, setMaxUnlockedStep] = useState(Math.max(0, ONBOARDING_STEPS.indexOf(initialStep)))
   const [data, setData] = useState(initialData)
+  const [revision, setRevision] = useState(initialRevision)
   const [errors, setErrors] = useState<FieldErrors>({})
   const [pageError, setPageError] = useState('')
   const [saving, setSaving] = useState(false)
   const stepId = ONBOARDING_STEPS[stepIndex]
   const progress = Math.round((stepIndex / (ONBOARDING_STEPS.length - 1)) * 100)
+
+  useEffect(() => {
+    const current = ONBOARDING_STEPS[stepIndex]
+    const url = new URL(window.location.href)
+    url.searchParams.set('step', current)
+    window.history.replaceState({ onboardingStep: current }, '', url)
+    const onPopState = () => {
+      const requested = new URL(window.location.href).searchParams.get('step') as OnboardingStepId | null
+      const index = requested ? ONBOARDING_STEPS.indexOf(requested) : -1
+      if (index >= 0 && index <= maxUnlockedStep) setStepIndex(index)
+    }
+    window.addEventListener('popstate', onPopState)
+    return () => window.removeEventListener('popstate', onPopState)
+  }, [maxUnlockedStep, stepIndex])
+
+  const navigateTo = (index: number) => {
+    const nextIndex = Math.max(0, Math.min(index, ONBOARDING_STEPS.length - 1))
+    const nextStep = ONBOARDING_STEPS[nextIndex]
+    const url = new URL(window.location.href)
+    url.searchParams.set('step', nextStep)
+    window.history.pushState({ onboardingStep: nextStep }, '', url)
+    setStepIndex(nextIndex)
+  }
 
   const update = (name: keyof OnboardingDraft, value: string | boolean | string[]) => {
     setData((current) => {
@@ -91,16 +116,25 @@ export function OnboardingContainer({ initialStep, initialData }: { initialStep:
     setPageError('')
   }
 
-  const saveStep = async () => {
+  const saveStep = async (): Promise<number | false> => {
     setSaving(true); setPageError(''); setErrors({})
     try {
-      const submittedData = stepId === 'receipt' ? {
+      const synchronizedData = stepId === 'operations' ? {
         ...data,
-        receiptBusinessName: data.receiptBusinessName || data.displayName || data.businessName,
-        receiptPhone: data.receiptPhone || data.phone,
-        receiptAddress: data.receiptAddress || data.branchAddress,
+        enabledModules: recommendedModules(data),
+        paymentMethods: [data.acceptsCash && 'cash', data.acceptsMpesa && 'mpesa', data.acceptsCard && 'card'].filter(Boolean) as string[],
+        defaultPaymentMethod: data.acceptsCash ? 'cash' : data.acceptsMpesa ? 'mpesa' : 'card',
+        taxEnabled: data.needsTax,
+        pricesIncludeTax: data.needsTax ? data.pricesIncludeTax : false,
+        showTaxOnReceipt: data.needsTax && data.issuesReceipts ? data.showTaxOnReceipt : false,
       } : data
-      const response = await fetch('/api/onboarding/save-step', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ stepId, data: submittedData }) })
+      const submittedData = stepId === 'receipt' ? {
+        ...synchronizedData,
+        receiptBusinessName: synchronizedData.receiptBusinessName || synchronizedData.displayName || synchronizedData.businessName,
+        receiptPhone: synchronizedData.receiptPhone || synchronizedData.phone,
+        receiptAddress: synchronizedData.receiptAddress || synchronizedData.branchAddress,
+      } : synchronizedData
+      const response = await fetch('/api/onboarding/save-step', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ stepId, data: submittedData, revision }) })
       const result = await response.json()
       if (!response.ok) {
         setErrors(result.fieldErrors ?? {})
@@ -108,8 +142,10 @@ export function OnboardingContainer({ initialStep, initialData }: { initialStep:
         requestAnimationFrame(() => document.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus())
         return false
       }
-      if (stepId === 'receipt') setData(submittedData)
-      return true
+      setData(submittedData)
+      setRevision(result.revision)
+      setMaxUnlockedStep(Math.min(stepIndex + 1, ONBOARDING_STEPS.length - 1))
+      return result.revision as number
     } catch {
       setPageError('Your progress could not be saved. Check your connection and try again.')
       return false
@@ -117,14 +153,15 @@ export function OnboardingContainer({ initialStep, initialData }: { initialStep:
   }
 
   const next = async () => {
-    if (!(await saveStep())) return
+    const savedRevision = await saveStep()
+    if (!savedRevision) return
     if (stepId === 'review') {
       setSaving(true)
       try {
-        const response = await fetch('/api/onboarding/complete', { method: 'POST', credentials: 'include' })
+        const response = await fetch('/api/onboarding/complete', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ revision: savedRevision }) })
         const result = await response.json()
         if (!response.ok) {
-          if (result.stepId && ONBOARDING_STEPS.includes(result.stepId)) setStepIndex(ONBOARDING_STEPS.indexOf(result.stepId))
+          if (result.stepId && ONBOARDING_STEPS.includes(result.stepId)) navigateTo(ONBOARDING_STEPS.indexOf(result.stepId))
           setPageError(result.message ?? 'Workspace creation failed safely. Please try again.')
           return
         }
@@ -133,16 +170,17 @@ export function OnboardingContainer({ initialStep, initialData }: { initialStep:
       finally { setSaving(false) }
       return
     }
-    setStepIndex((current) => Math.min(current + 1, ONBOARDING_STEPS.length - 1))
+    navigateTo(Math.min(stepIndex + 1, ONBOARDING_STEPS.length - 1))
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
-  const previous = () => { setErrors({}); setPageError(''); setStepIndex((current) => Math.max(0, current - 1)) }
-  const edit = (id: OnboardingStepId) => setStepIndex(ONBOARDING_STEPS.indexOf(id))
+  const previous = () => { setErrors({}); setPageError(''); navigateTo(stepIndex - 1) }
+  const edit = (id: OnboardingStepId) => navigateTo(ONBOARDING_STEPS.indexOf(id))
 
-  const setProfile = (id: string) => {
-    const profile = profileFor(id)
-    setData((current) => ({ ...current, ...profile.defaults, businessType: profile.id, businessCategory: profile.category, enabledModules: profile.recommendedModules }))
+  const setBusinessFamily = (id: string) => {
+    const firstCategory = categoriesFor(id)[0]?.id ?? ''
+    setData((current) => ({ ...current, businessFamily: id as OnboardingDraft['businessFamily'], businessCategory: firstCategory, customBusinessCategory: '' }))
+    setErrors((current) => ({ ...current, businessFamily: undefined, businessCategory: undefined, customBusinessCategory: undefined }))
   }
 
   const renderedStep = (() => {
@@ -174,8 +212,10 @@ export function OnboardingContainer({ initialStep, initialData }: { initialStep:
       </div>
     </section>
 
-    if (stepId === 'business-type') return <section><StepTitle eyebrow="Business type" title="What best describes your business?" description="This sets sensible defaults. You can adjust modules before creation." />
-      <div className="grid gap-3 sm:grid-cols-2">{BUSINESS_PROFILES.map(({ id, name, description, icon: Icon }) => { const selected = data.businessType === id; return <button type="button" key={id} aria-pressed={selected} onClick={() => setProfile(id)} className={cn('relative flex min-h-32 gap-4 rounded-xl border p-5 text-left outline-none transition-colors focus-visible:ring-2 focus-visible:ring-[#e42527]', selected ? 'border-slate-950 bg-[#fff4c4]' : 'border-zinc-200 bg-white')}><span className={cn('flex h-11 w-11 shrink-0 items-center justify-center rounded-lg', selected ? 'bg-[#ffda32]' : 'bg-zinc-100')}><Icon className="h-5 w-5" /></span><span><span className="block font-extrabold text-slate-950">{name}</span><span className="mt-1 block text-sm leading-6 text-zinc-600">{description}</span></span>{selected && <Check className="absolute right-4 top-4 h-5 w-5 text-[#e42527]" />}</button> })}</div>
+    if (stepId === 'business-type') return <section><StepTitle eyebrow="Business profile" title="What kind of business do you run?" description="Choose a broad family and then the category that best describes your day-to-day work." />
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{BUSINESS_FAMILIES.map(({ id, name, description, icon: Icon }) => { const selected = data.businessFamily === id; return <button type="button" key={id} aria-pressed={selected} onClick={() => setBusinessFamily(id)} className={cn('relative flex min-h-32 gap-4 rounded-xl border p-5 text-left outline-none focus-visible:ring-2 focus-visible:ring-[#e42527]', selected ? 'border-slate-950 bg-[#fff4c4]' : 'border-zinc-200 bg-white')}><span className={cn('flex h-11 w-11 shrink-0 items-center justify-center rounded-lg', selected ? 'bg-[#ffda32]' : 'bg-zinc-100')}><Icon className="h-5 w-5" /></span><span><span className="block font-extrabold text-slate-950">{name}</span><span className="mt-1 block text-sm leading-6 text-zinc-600">{description}</span></span>{selected && <Check className="absolute right-4 top-4 h-5 w-5 text-[#e42527]" />}</button> })}</div>
+      {errors.businessFamily?.[0] && <p className="mt-2 text-xs font-semibold text-red-700">{errors.businessFamily[0]}</p>}
+      {data.businessFamily && <div className="mt-6 grid gap-5 sm:grid-cols-2"><SelectField label="Business category" name="businessCategory" value={data.businessCategory} onChange={update} error={errors.businessCategory}><option value="">Select a category</option>{categoriesFor(data.businessFamily).map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</SelectField>{data.businessFamily === 'other' && <Field label="Describe your business" name="customBusinessCategory" value={data.customBusinessCategory} onChange={update} error={errors.customBusinessCategory} placeholder="For example, event equipment hire" />}</div>}
     </section>
 
     if (stepId === 'operations') return <section><StepTitle eyebrow="Operations profile" title="How does your business work?" description="Choose only what applies. These answers shape your modules and settings." />
@@ -194,17 +234,19 @@ export function OnboardingContainer({ initialStep, initialData }: { initialStep:
       </div>
     </section>
 
-    if (stepId === 'modules') return <section><StepTitle eyebrow="Workspace modules" title="Choose the tools you need now" description="Only working Pesaby modules are shown. Required modules stay enabled and optional ones can be changed later." />
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{WORKING_MODULES.map((module) => { const required = REQUIRED_MODULES.includes(module.id as never); const checked = data.enabledModules.includes(module.id); return <label key={module.id} className={cn('rounded-xl border p-4', checked ? 'border-[#e7be16] bg-[#fff8d7]' : 'border-zinc-200')}><span className="flex items-start gap-3"><input type="checkbox" checked={checked} disabled={required} onChange={() => { let next = checked ? data.enabledModules.filter((id) => id !== module.id) : [...data.enabledModules, module.id]; if (module.id === 'inventory' && !checked && !next.includes('products')) next.push('products'); if (module.id === 'products' && checked) next = next.filter((id) => id !== 'inventory'); update('enabledModules', next) }} className="mt-1 h-4 w-4 accent-[#e42527]" /><span><span className="flex items-center gap-2 text-sm font-extrabold">{module.name}{required && <span className="rounded bg-white px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-zinc-500">Required</span>}</span><span className="mt-1 block text-xs leading-5 text-zinc-600">{module.description}</span></span></span></label> })}</div>
+    if (stepId === 'modules') return <section><StepTitle eyebrow="Workspace modules" title="Your recommended workspace" description="Pesaby has matched these working modules to the operations you selected. Required operational modules stay aligned with those answers." />
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{WORKING_MODULES.map((module) => { const alwaysRequired = REQUIRED_MODULES.includes(module.id as never); const operationallyRequired = (module.id === 'products' && data.sellsProducts) || (module.id === 'inventory' && data.tracksInventory) || (module.id === 'customers' && data.keepsCustomers); const incompatible = (module.id === 'products' && !data.sellsProducts) || (module.id === 'inventory' && !data.tracksInventory) || (module.id === 'customers' && !data.keepsCustomers); const locked = alwaysRequired || operationallyRequired || incompatible; const checked = data.enabledModules.includes(module.id); const status = alwaysRequired || operationallyRequired ? 'Required' : module.id === 'pos' && data.sellsProducts ? 'Recommended' : 'Optional'; return <label key={module.id} className={cn('rounded-xl border p-4', checked ? 'border-[#e7be16] bg-[#fff8d7]' : 'border-zinc-200', incompatible && 'bg-zinc-50 opacity-65')}><span className="flex items-start gap-3"><input type="checkbox" checked={checked} disabled={locked} onChange={() => update('enabledModules', checked ? data.enabledModules.filter((id) => id !== module.id) : [...data.enabledModules, module.id])} className="mt-1 h-4 w-4 accent-[#e42527]" /><span><span className="flex items-center gap-2 text-sm font-extrabold">{module.name}<span className="rounded bg-white px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-zinc-500">{incompatible ? 'Not needed' : status}</span></span><span className="mt-1 block text-xs leading-5 text-zinc-600">{module.description}</span></span></span></label> })}</div>
     </section>
 
     if (stepId === 'payments-tax') return <section><StepTitle eyebrow="Payments & tax" title="Configure how you record money" description="These methods are available for manual recording. No payment integration is connected by this step." />
-      <h3 className="mb-3 text-sm font-extrabold">Payment methods</h3><div className="grid gap-3 sm:grid-cols-3">{PAYMENT_METHODS.map(({ id, label, icon: Icon }) => { const checked = data.paymentMethods.includes(id); return <label key={id} className={cn('flex items-center gap-3 rounded-lg border p-3', checked ? 'border-[#e7be16] bg-[#fff8d7]' : 'border-zinc-200')}><input type="checkbox" checked={checked} onChange={() => { const methods = checked ? data.paymentMethods.filter((method) => method !== id) : [...data.paymentMethods, id]; update('paymentMethods', methods); if (!methods.includes(data.defaultPaymentMethod)) update('defaultPaymentMethod', methods[0] ?? '') }} className="h-4 w-4 accent-[#e42527]" /><Icon className="h-5 w-5" /><span className="text-sm font-bold">{label}</span></label> })}</div>
+      <h3 className="mb-3 text-sm font-extrabold">Payment methods</h3><div className="grid gap-3 sm:grid-cols-3">{PAYMENT_METHODS.map(({ id, label, icon: Icon }) => { const checked = data.paymentMethods.includes(id); return <label key={id} className={cn('flex items-center gap-3 rounded-lg border p-3', checked ? 'border-[#e7be16] bg-[#fff8d7]' : 'border-zinc-200')}><input type="checkbox" checked={checked} onChange={() => { const methods = checked ? data.paymentMethods.filter((method) => method !== id) : [...data.paymentMethods, id]; update('paymentMethods', methods); if (id === 'cash') update('acceptsCash', !checked); if (id === 'mpesa') update('acceptsMpesa', !checked); if (id === 'card') update('acceptsCard', !checked); if (!methods.includes(data.defaultPaymentMethod)) update('defaultPaymentMethod', methods[0] ?? '') }} className="h-4 w-4 accent-[#e42527]" /><Icon className="h-5 w-5" /><span className="text-sm font-bold">{label}</span></label> })}</div>
       {errors.paymentMethods?.[0] && <p className="mt-2 text-xs font-semibold text-red-700">{errors.paymentMethods[0]}</p>}
       <div className="mt-5 grid gap-5 sm:grid-cols-2"><SelectField label="Default payment method" name="defaultPaymentMethod" value={data.defaultPaymentMethod} onChange={update} error={errors.defaultPaymentMethod}>{data.paymentMethods.map((id) => <option key={id} value={id}>{PAYMENT_METHODS.find((method) => method.id === id)?.label ?? id}</option>)}</SelectField>
         <label className="flex min-h-12 items-center gap-3 rounded-lg border border-zinc-200 px-4 text-sm font-bold"><input type="checkbox" checked={data.taxEnabled} onChange={(event) => { update('taxEnabled', event.target.checked); update('needsTax', event.target.checked) }} className="h-4 w-4 accent-[#e42527]" />Apply tax calculations</label></div>
       {data.taxEnabled && <div className="mt-5 grid gap-5 rounded-xl bg-[#fff9ef] p-5 sm:grid-cols-2"><Field label="Tax name" name="taxName" value={data.taxName} onChange={update} error={errors.taxName} placeholder="VAT" /><Field label="Tax rate (%)" name="taxRate" value={data.taxRate} onChange={update} error={errors.taxRate} type="number" /><Field label="Tax identifier" name="taxIdentifier" value={data.taxIdentifier} onChange={update} error={errors.taxIdentifier} optional placeholder="Business PIN" /><label className="flex items-center gap-3 text-sm font-bold"><input type="checkbox" checked={data.pricesIncludeTax} onChange={(event) => update('pricesIncludeTax', event.target.checked)} className="h-4 w-4 accent-[#e42527]" />Prices already include tax</label></div>}
     </section>
+
+    if (stepId === 'receipt' && !data.issuesReceipts) return <section><StepTitle eyebrow="Receipt settings" title="Receipts are not enabled" description="You told us this workspace does not issue receipts. Pesaby will keep receipt controls out of the initial workflow; you can enable them later in settings." /><div className="rounded-xl border border-[#e7be16] bg-[#fff8d7] p-5 text-sm leading-6 text-[#344054]">No receipt configuration is needed for this workspace.</div></section>
 
     if (stepId === 'receipt') return <section><StepTitle eyebrow="Receipt settings" title="Set your receipt defaults" description="Preview the business details Pesaby can show on supported receipts." />
       <div className="grid gap-8 lg:grid-cols-[1fr_320px]"><div className="grid gap-5 sm:grid-cols-2"><Field label="Receipt business name" name="receiptBusinessName" value={data.receiptBusinessName || data.displayName || data.businessName} onChange={update} error={errors.receiptBusinessName} /><Field label="Business phone" name="receiptPhone" value={data.receiptPhone || data.phone} onChange={update} error={errors.receiptPhone} type="tel" /><div className="sm:col-span-2"><Field label="Address" name="receiptAddress" value={data.receiptAddress || data.branchAddress} onChange={update} error={errors.receiptAddress} optional /></div><div className="sm:col-span-2"><Field label="Footer message" name="receiptFooter" value={data.receiptFooter} onChange={update} error={errors.receiptFooter} optional /></div><label className="flex items-center gap-3 text-sm font-bold"><input type="checkbox" disabled={!data.taxEnabled} checked={data.taxEnabled && data.showTaxOnReceipt} onChange={(event) => update('showTaxOnReceipt', event.target.checked)} className="h-4 w-4 accent-[#e42527]" />Show tax on receipt</label></div>
@@ -214,11 +256,12 @@ export function OnboardingContainer({ initialStep, initialData }: { initialStep:
     return <section><StepTitle eyebrow="Review" title="Check your workspace setup" description="Review each section before creation. You can change these settings later." />
       <div className="grid gap-3 sm:grid-cols-2">{[
         ['Business', data.businessName, `${data.city}, ${data.region} · ${data.currency}`, 'business-details'],
-        ['Business type', profileFor(data.businessType).name, 'Configuration-driven workspace defaults', 'business-type'],
+        ['Business profile', familyFor(data.businessFamily)?.name ?? 'Not selected', categoryLabel(data.businessFamily, data.businessCategory, data.customBusinessCategory), 'business-type'],
+        ['Operations', data.sellsProducts && data.providesServices ? 'Products and services' : data.sellsProducts ? 'Products' : 'Services', `${data.enabledModules.length} modules matched to your workflow`, 'operations'],
         ['Main branch', data.branchName, `${data.branchAddress}, ${data.branchCity}`, 'main-branch'],
         ['Modules', `${data.enabledModules.length} enabled`, data.enabledModules.join(', '), 'modules'],
         ['Payments & tax', data.paymentMethods.join(', '), data.taxEnabled ? `${data.taxName} at ${data.taxRate}%` : 'Tax not enabled', 'payments-tax'],
-        ['Receipt', data.receiptBusinessName || data.businessName, data.receiptFooter || 'No footer message', 'receipt'],
+        ['Receipt', data.issuesReceipts ? data.receiptBusinessName || data.businessName : 'Not enabled', data.issuesReceipts ? data.receiptFooter || 'No footer message' : 'Receipt controls stay out of the initial workflow', 'receipt'],
       ].map(([title, value, description, target]) => <div key={title} className="rounded-xl border border-zinc-200 p-5"><div className="flex items-start justify-between gap-3"><div><p className="text-xs font-extrabold uppercase tracking-[0.15em] text-[#e42527]">{title}</p><p className="mt-2 font-extrabold text-slate-950">{value}</p><p className="mt-1 text-sm leading-5 text-zinc-600">{description}</p></div><button type="button" onClick={() => edit(target as OnboardingStepId)} className="text-sm font-bold text-slate-700 underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e42527]">Edit</button></div></div>)}</div>
     </section>
   })()

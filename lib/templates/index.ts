@@ -194,6 +194,28 @@ export function resolveTemplate(
   return getWorkspaceTemplate(templateId)
 }
 
+/** Maps the current onboarding taxonomy to a supported template. */
+export function resolveOnboardingTemplateId(businessFamily: string, businessCategory: string): string {
+  const category = businessCategory.toLowerCase()
+  if (businessFamily === 'retail') {
+    if (category === 'supermarket') return 'retail.supermarket'
+    if (['general_shop', 'mini_mart', 'liquor_shop'].includes(category)) return 'retail.grocery'
+    if (category === 'hardware') return 'retail.hardware'
+    if (category === 'electronics') return 'retail.electronics'
+    if (category === 'clothing') return 'retail.clothing'
+    if (category === 'cosmetics') return 'retail.cosmetics'
+    return 'retail.general'
+  }
+  if (businessFamily === 'food_hospitality') {
+    if (category === 'cafe') return 'restaurant.cafe'
+    if (category === 'bakery') return 'restaurant.bakery'
+    if (category === 'fast_food') return 'restaurant.fast-food'
+    return 'restaurant.general'
+  }
+  if (businessFamily === 'health_wellness' && ['retail_pharmacy', 'health_pharmacy'].includes(category)) return 'pharmacy.community'
+  return 'retail.general'
+}
+
 /**
  * Get all categories that belong to a given businessType, ordered as they
  * should appear in the onboarding UI.  "Other" always appears last.
@@ -228,11 +250,11 @@ export function getTemplatesForBusinessType(businessType: string): WorkspaceTemp
  * This is the only place that should define this mapping.
  */
 export const DASHBOARD_ROUTES: Record<string, string> = {
-  retail:     '/dashboard/retail',
-  restaurant: '/dashboard/restaurant',
-  pharmacy:   '/dashboard/pharmacy',
+  retail: '/dashboard',
+  restaurant: '/dashboard',
+  pharmacy: '/dashboard',
 }
 
 export function getDashboardRoute(businessType: string): string {
-  return DASHBOARD_ROUTES[businessType.toLowerCase()] ?? '/dashboard/retail'
+  return DASHBOARD_ROUTES[businessType.toLowerCase()] ?? '/dashboard'
 }

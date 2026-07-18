@@ -11,4 +11,5 @@ export async function requireWorkspaceModule(moduleId: string) {
   if (!organization?.onboardingCompleted) redirect('/onboarding')
   const config = await WorkspaceService.getWorkspaceConfig(organization.id, session.user.id)
   if (!config?.enabledModules.includes(moduleId)) redirect('/dashboard')
+  return { organization, config }
 }
