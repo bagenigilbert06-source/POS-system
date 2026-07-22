@@ -268,6 +268,95 @@ export const expense = pgTable('expense', {
   createdAt: timestamp('createdAt').notNull().defaultNow(),
 })
 
+export const supplier = pgTable('supplier', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull(),
+  phone: text('phone'),
+  email: text('email'),
+  taxId: text('taxId'),
+  address: text('address'),
+  status: text('status').notNull().default('active'),
+  userId: text('userId').notNull(),
+  orgId: text('orgId').notNull(),
+  createdAt: timestamp('createdAt').notNull().defaultNow(),
+  updatedAt: timestamp('updatedAt').notNull().defaultNow(),
+}, (table) => ({ organizationIndex: index('supplier_org_idx').on(table.orgId) }))
+
+export const purchase = pgTable('purchase', {
+  id: text('id').primaryKey(),
+  purchaseNo: text('purchaseNo').notNull(),
+  supplierId: text('supplierId').references(() => supplier.id, { onDelete: 'restrict' }),
+  supplierName: text('supplierName').notNull(),
+  reference: text('reference'),
+  subtotal: numeric('subtotal', { precision: 12, scale: 2 }).notNull(),
+  taxAmount: numeric('taxAmount', { precision: 12, scale: 2 }).notNull().default('0'),
+  total: numeric('total', { precision: 12, scale: 2 }).notNull(),
+  paymentStatus: text('paymentStatus').notNull().default('unpaid'),
+  status: text('status').notNull().default('received'),
+  notes: text('notes'),
+  userId: text('userId').notNull(),
+  orgId: text('orgId').notNull(),
+  createdAt: timestamp('createdAt').notNull().defaultNow(),
+}, (table) => ({ organizationIndex: index('purchase_org_idx').on(table.orgId) }))
+
+export const purchaseItem = pgTable('purchase_item', {
+  id: text('id').primaryKey(),
+  purchaseId: text('purchaseId').notNull().references(() => purchase.id, { onDelete: 'cascade' }),
+  productId: text('productId').notNull(),
+  productName: text('productName').notNull(),
+  quantity: integer('quantity').notNull(),
+  unitCost: numeric('unitCost', { precision: 12, scale: 2 }).notNull(),
+  totalCost: numeric('totalCost', { precision: 12, scale: 2 }).notNull(),
+  orgId: text('orgId').notNull(),
+})
+
+export const stockMovement = pgTable('stock_movement', {
+  id: text('id').primaryKey(),
+  productId: text('productId').notNull(),
+  productName: text('productName').notNull(),
+  type: text('type').notNull(),
+  quantity: integer('quantity').notNull(),
+  stockBefore: integer('stockBefore').notNull(),
+  stockAfter: integer('stockAfter').notNull(),
+  referenceType: text('referenceType'),
+  referenceId: text('referenceId'),
+  reason: text('reason'),
+  userId: text('userId').notNull(),
+  orgId: text('orgId').notNull(),
+  createdAt: timestamp('createdAt').notNull().defaultNow(),
+}, (table) => ({ organizationIndex: index('stock_movement_org_idx').on(table.orgId), productIndex: index('stock_movement_product_idx').on(table.productId) }))
+
+export const salesReturn = pgTable('sales_return', {
+  id: text('id').primaryKey(), returnNo: text('returnNo').notNull(), saleId: text('saleId').notNull(), receiptNo: text('receiptNo').notNull(),
+  amount: numeric('amount', { precision: 12, scale: 2 }).notNull(), refundMethod: text('refundMethod').notNull(), reason: text('reason').notNull(),
+  status: text('status').notNull().default('completed'), userId: text('userId').notNull(), orgId: text('orgId').notNull(), createdAt: timestamp('createdAt').notNull().defaultNow(),
+}, (table) => ({ organizationIndex: index('sales_return_org_idx').on(table.orgId) }))
+
+export const salesReturnItem = pgTable('sales_return_item', {
+  id: text('id').primaryKey(), returnId: text('returnId').notNull().references(() => salesReturn.id, { onDelete: 'cascade' }), productId: text('productId').notNull(),
+  productName: text('productName').notNull(), quantity: integer('quantity').notNull(), unitPrice: numeric('unitPrice', { precision: 12, scale: 2 }).notNull(),
+  total: numeric('total', { precision: 12, scale: 2 }).notNull(), disposition: text('disposition').notNull().default('restock'), orgId: text('orgId').notNull(),
+})
+
+export const inventoryLoss = pgTable('inventory_loss', {
+  id: text('id').primaryKey(), lossNo: text('lossNo').notNull(), productId: text('productId').notNull(), productName: text('productName').notNull(),
+  quantity: integer('quantity').notNull(), type: text('type').notNull(), unitCost: numeric('unitCost', { precision: 12, scale: 2 }).notNull(),
+  totalCost: numeric('totalCost', { precision: 12, scale: 2 }).notNull(), reason: text('reason').notNull(), userId: text('userId').notNull(),
+  orgId: text('orgId').notNull(), createdAt: timestamp('createdAt').notNull().defaultNow(),
+}, (table) => ({ organizationIndex: index('inventory_loss_org_idx').on(table.orgId) }))
+
+export const posSession = pgTable('pos_session', {
+  id: text('id').primaryKey(), sessionNo: text('sessionNo').notNull(), status: text('status').notNull().default('open'),
+  openingCash: numeric('openingCash', { precision: 12, scale: 2 }).notNull().default('0'), expectedCash: numeric('expectedCash', { precision: 12, scale: 2 }),
+  closingCash: numeric('closingCash', { precision: 12, scale: 2 }), variance: numeric('variance', { precision: 12, scale: 2 }), notes: text('notes'),
+  openedBy: text('openedBy').notNull(), closedBy: text('closedBy'), orgId: text('orgId').notNull(), openedAt: timestamp('openedAt').notNull().defaultNow(), closedAt: timestamp('closedAt'),
+}, (table) => ({ organizationIndex: index('pos_session_org_idx').on(table.orgId) }))
+
+export const cashMovement = pgTable('cash_movement', {
+  id: text('id').primaryKey(), sessionId: text('sessionId').notNull().references(() => posSession.id, { onDelete: 'cascade' }), type: text('type').notNull(),
+  amount: numeric('amount', { precision: 12, scale: 2 }).notNull(), reason: text('reason').notNull(), userId: text('userId').notNull(), orgId: text('orgId').notNull(), createdAt: timestamp('createdAt').notNull().defaultNow(),
+})
+
 // --- Type exports ----------------------------------------------------------
 export type User = typeof user.$inferSelect
 export type Organization = typeof organization.$inferSelect
@@ -282,3 +371,10 @@ export type Customer = typeof customer.$inferSelect
 export type Sale = typeof sale.$inferSelect
 export type SaleItem = typeof saleItem.$inferSelect
 export type Expense = typeof expense.$inferSelect
+export type Supplier = typeof supplier.$inferSelect
+export type Purchase = typeof purchase.$inferSelect
+export type PurchaseItem = typeof purchaseItem.$inferSelect
+export type StockMovement = typeof stockMovement.$inferSelect
+export type SalesReturn = typeof salesReturn.$inferSelect
+export type InventoryLoss = typeof inventoryLoss.$inferSelect
+export type PosSession = typeof posSession.$inferSelect

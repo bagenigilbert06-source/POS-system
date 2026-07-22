@@ -2,7 +2,7 @@
 
 import { auth } from '@/lib/auth'
 import { db } from '@/lib/db'
-import { sale, saleItem, product, businessSettings } from '@/lib/db/schema'
+import { sale, saleItem, product, businessSettings, stockMovement } from '@/lib/db/schema'
 import { and, desc, eq, gte, sql } from 'drizzle-orm'
 import { headers } from 'next/headers'
 import { revalidatePath } from 'next/cache'
@@ -87,7 +87,8 @@ export async function createSale(data: {
   const saleId = generateId()
   const receiptNo = generateReceiptNo()
 
-  await db.insert(sale).values({
+  await db.transaction(async (tx) => {
+  await tx.insert(sale).values({
     id: saleId,
     receiptNo,
     customerId: data.customerId,
@@ -103,7 +104,10 @@ export async function createSale(data: {
   })
 
   for (const item of data.items) {
-    await db.insert(saleItem).values({
+    const [current] = await tx.select({ stock: product.stock, name: product.name }).from(product).where(and(eq(product.id, item.productId), eq(product.orgId, orgId))).limit(1)
+    if (!current) throw new Error(`Product ${item.productName} was not found`)
+    if (current.stock < item.quantity) throw new Error(`Not enough stock for ${item.productName}`)
+    await tx.insert(saleItem).values({
       id: generateId(),
       saleId,
       productId: item.productId,
@@ -116,11 +120,13 @@ export async function createSale(data: {
     })
 
     // decrement stock
-    await db
+    await tx
       .update(product)
       .set({ stock: sql`${product.stock} - ${item.quantity}` })
       .where(and(eq(product.id, item.productId), eq(product.orgId, orgId)))
+    await tx.insert(stockMovement).values({ id: generateId(), productId: item.productId, productName: current.name, type: 'sale', quantity: -item.quantity, stockBefore: current.stock, stockAfter: current.stock - item.quantity, referenceType: 'sale', referenceId: saleId, reason: receiptNo, userId, orgId })
   }
+  })
 
   revalidatePath('/dashboard')
   revalidatePath('/dashboard/sales')

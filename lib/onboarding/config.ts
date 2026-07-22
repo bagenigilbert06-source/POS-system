@@ -31,11 +31,13 @@ export const WORKING_MODULES = [
   { id: 'sales', name: 'Sales', description: 'Transactions and sales history.' },
   { id: 'products', name: 'Products', description: 'Product records and pricing.' },
   { id: 'inventory', name: 'Inventory', description: 'Stock levels and movement.' },
+  { id: 'purchases', name: 'Purchases', description: 'Suppliers, receiving and procurement history.' },
   { id: 'customers', name: 'Customers', description: 'Customer or client records and activity.' },
+  { id: 'expenses', name: 'Expenses', description: 'Operating costs, categories and cash outflows.' },
   { id: 'reports', name: 'Reports', description: 'Reports based on recorded operational data.' },
 ] as const
 
-export const REQUIRED_MODULES = ['sales', 'reports'] as const
+export const REQUIRED_MODULES = ['sales', 'expenses', 'reports'] as const
 export type WorkingModuleId = (typeof WORKING_MODULES)[number]['id']
 
 export const BUSINESS_FAMILY_IDS = [
@@ -173,7 +175,7 @@ export const DEFAULT_ONBOARDING_DATA: OnboardingDraft = {
   multipleLocations: false, keepsCustomers: false, usesSuppliers: false, acceptsCash: true,
   acceptsMpesa: true, acceptsCard: false, needsTax: false, issuesReceipts: true,
   branchName: 'Main location', branchPhone: '', branchAddress: '', branchRegion: '', branchCity: '',
-  branchTimezone: 'Africa/Nairobi', receiptHeader: '', enabledModules: ['sales', 'reports'],
+  branchTimezone: 'Africa/Nairobi', receiptHeader: '', enabledModules: ['sales', 'expenses', 'reports'],
   paymentMethods: ['cash', 'mpesa'], defaultPaymentMethod: 'cash', taxEnabled: false,
   pricesIncludeTax: false, taxName: 'VAT', taxRate: '16', taxIdentifier: '',
   receiptBusinessName: '', receiptPhone: '', receiptAddress: '', receiptFooter: 'Thank you for your business.',
@@ -198,7 +200,7 @@ export function categoryLabel(family: string, category: string, custom = '') {
 }
 
 export function recommendedModules(data: Pick<OnboardingDraft, 'sellsProducts' | 'tracksInventory' | 'keepsCustomers'>): string[] {
-  const modules = new Set<string>(['sales', 'reports'])
+  const modules = new Set<string>(['sales', 'expenses', 'reports'])
   if (data.sellsProducts) {
     modules.add('pos')
     modules.add('products')
@@ -206,6 +208,7 @@ export function recommendedModules(data: Pick<OnboardingDraft, 'sellsProducts' |
   if (data.tracksInventory) {
     modules.add('products')
     modules.add('inventory')
+    modules.add('purchases')
   }
   if (data.keepsCustomers) modules.add('customers')
   return WORKING_MODULES.map((module) => module.id).filter((id) => modules.has(id))

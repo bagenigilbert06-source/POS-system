@@ -20,6 +20,9 @@ const MODULE_NAV: Record<string, SidebarNavItem> = {
   products: { id: 'products', label: 'Products', icon: 'Package', route: '/dashboard/products' },
   inventory: { id: 'inventory', label: 'Inventory', icon: 'Boxes', route: '/dashboard/inventory' },
   customers: { id: 'customers', label: 'Customers', icon: 'Users', route: '/dashboard/customers' },
+  expenses: { id: 'expenses', label: 'Expenses', icon: 'WalletCards', route: '/dashboard/expenses' },
+  purchases: { id: 'purchases', label: 'Purchases', icon: 'Truck', route: '/dashboard/purchases' },
+  operations: { id: 'operations', label: 'Operations', icon: 'ClipboardCheck', route: '/dashboard/operations' },
   reports: { id: 'reports', label: 'Reports', icon: 'ChartNoAxesCombined', route: '/dashboard/reports' },
 }
 
@@ -48,7 +51,8 @@ function runtimeConfig(input: {
   businessCategory: string
   stored?: StoredWorkspaceConfig
 }): WorkspaceConfig {
-  const enabledModules = input.stored?.enabledModules ?? ['sales', 'reports']
+  const storedModules = input.stored?.enabledModules ?? ['sales', 'reports']
+  const enabledModules = Array.from(new Set([...storedModules, 'expenses', 'operations', ...(storedModules.includes('inventory') ? ['purchases'] : [])]))
   const storedTemplateId = input.stored?.templateId
   const templateId = storedTemplateId && storedTemplateId !== 'adaptive.generic'
     ? storedTemplateId
@@ -118,7 +122,7 @@ export class WorkspaceService {
       name: 'Pesaby workspace',
       businessType: businessType || 'other',
       businessCategory: businessCategory || 'custom',
-      stored: { enabledModules: selectedModules ?? ['sales', 'reports'] },
+      stored: { enabledModules: selectedModules ?? ['sales', 'expenses', 'reports'] },
     })
   }
 
