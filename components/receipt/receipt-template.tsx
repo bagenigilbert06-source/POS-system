@@ -9,6 +9,7 @@ interface ReceiptTemplateProps {
   receiptFooter?: string
   cashierName?: string
   customerName?: string
+  taxName?: string
 }
 
 export function ReceiptTemplate({
@@ -19,6 +20,7 @@ export function ReceiptTemplate({
   receiptFooter = 'Thank you for your business!',
   cashierName = 'Cashier',
   customerName = 'Customer',
+  taxName = 'Tax',
 }: ReceiptTemplateProps) {
   const subtotal = parseFloat(sale.subtotal.toString())
   const taxAmount = parseFloat(sale.taxAmount.toString())
@@ -90,7 +92,7 @@ export function ReceiptTemplate({
           </div>
           {taxAmount > 0 && (
             <div className="flex justify-between">
-              <span>Tax (16%):</span>
+              <span>{taxName}:</span>
               <span>{formatCurrency(taxAmount)}</span>
             </div>
           )}

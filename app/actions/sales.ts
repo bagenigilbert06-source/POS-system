@@ -81,9 +81,30 @@ export async function createSale(data: {
   paymentMethod: string
   mpesaRef?: string
   amountReceived?: number
+  idempotencyKey?: string
 }) {
   const userId = await getUserId()
   const orgId = await getOrgId(userId, 'pos')
+  
+  // Generate idempotency key if not provided
+  const idempotencyKey = data.idempotencyKey || generateId()
+  
+  // Check for duplicate submission (idempotency)
+  const [existingSale] = await db.select().from(sale)
+    .where(and(
+      eq(sale.orgId, orgId),
+      eq(sale.idempotencyKey, idempotencyKey)
+    )).limit(1)
+  
+  if (existingSale) {
+    return { 
+      saleId: existingSale.id, 
+      receiptNo: existingSale.receiptNo, 
+      tax: parseFloat(existingSale.taxAmount),
+      total: parseFloat(existingSale.total),
+      isDuplicate: true
+    }
+  }
   
   // Load business settings for tax configuration
   const [settings] = await db.select({
@@ -117,16 +138,34 @@ export async function createSale(data: {
   const calculatedTotal = data.subtotal + calculatedTax - data.discountAmount
   
   // Validate cash payment
+  let changeAmount = 0
   if (data.paymentMethod === 'cash') {
     if (!data.amountReceived || data.amountReceived < calculatedTotal) {
       throw new Error('Insufficient payment received')
     }
+    changeAmount = data.amountReceived - calculatedTotal
   }
   
   const saleId = generateId()
   const receiptNo = generateReceiptNo()
 
   await db.transaction(async (tx) => {
+    // Verify and deduct stock using atomic conditional update
+    for (const item of data.items) {
+      // Atomic update: only deduct if stock is sufficient
+      const result = await tx
+        .update(product)
+        .set({ stock: sql`${product.stock} - ${item.quantity}` })
+        .where(and(
+          eq(product.id, item.productId),
+          eq(product.orgId, orgId),
+          sql`${product.stock} >= ${item.quantity}` // Conditional: only update if stock available
+        ))
+      
+      // Check if update succeeded
+      if (!result) throw new Error(`Insufficient stock for product`)
+    }
+    
     // Create the sale
     await tx.insert(sale).values({
       id: saleId,
@@ -136,18 +175,20 @@ export async function createSale(data: {
       taxAmount: String(calculatedTax),
       discountAmount: String(data.discountAmount),
       total: String(calculatedTotal),
+      amountReceived: data.paymentMethod === 'cash' ? String(data.amountReceived) : null,
+      change: data.paymentMethod === 'cash' ? String(changeAmount) : null,
       paymentMethod: data.paymentMethod,
       mpesaRef: data.mpesaRef,
       status: 'completed',
+      idempotencyKey,
       userId,
       orgId,
     })
 
-    // Process each item
+    // Process each item to create sale items and stock movements
     for (const item of data.items) {
-      const [current] = await tx.select({ stock: product.stock, name: product.name }).from(product).where(and(eq(product.id, item.productId), eq(product.orgId, orgId))).limit(1)
-      if (!current) throw new Error(`Product ${item.productName} was not found`)
-      if (current.stock < item.quantity) throw new Error(`Insufficient stock for ${item.productName}`)
+      const [product_record] = await tx.select({ stock: product.stock, name: product.name }).from(product)
+        .where(and(eq(product.id, item.productId), eq(product.orgId, orgId))).limit(1)
       
       await tx.insert(saleItem).values({
         id: generateId(),
@@ -160,22 +201,16 @@ export async function createSale(data: {
         userId,
         orgId,
       })
-
-      // Decrement stock
-      await tx
-        .update(product)
-        .set({ stock: sql`${product.stock} - ${item.quantity}` })
-        .where(and(eq(product.id, item.productId), eq(product.orgId, orgId)))
       
       // Record stock movement
       await tx.insert(stockMovement).values({ 
         id: generateId(), 
         productId: item.productId, 
-        productName: current.name, 
+        productName: product_record?.name || item.productName, 
         type: 'sale', 
         quantity: -item.quantity, 
-        stockBefore: current.stock, 
-        stockAfter: current.stock - item.quantity, 
+        stockBefore: (product_record?.stock || 0) + item.quantity, // Add back to get original
+        stockAfter: product_record?.stock || 0, 
         referenceType: 'sale', 
         referenceId: saleId, 
         reason: receiptNo, 
@@ -199,13 +234,15 @@ export async function createSale(data: {
         total: calculatedTotal,
         items: data.items.length,
         paymentMethod: data.paymentMethod,
+        amountReceived: data.paymentMethod === 'cash' ? data.amountReceived : null,
+        change: data.paymentMethod === 'cash' ? changeAmount : null,
       },
     })
   })
 
   revalidatePath('/dashboard')
   revalidatePath('/dashboard/sales')
-  return { saleId, receiptNo, tax: calculatedTax, total: calculatedTotal }
+  return { saleId, receiptNo, tax: calculatedTax, total: calculatedTotal, idempotencyKey }
 }
 
 export async function getSales(limit = 50) {

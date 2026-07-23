@@ -237,9 +237,12 @@ export const sale = pgTable('sale', {
   taxAmount: numeric('taxAmount', { precision: 12, scale: 2 }).notNull().default('0'),
   discountAmount: numeric('discountAmount', { precision: 12, scale: 2 }).notNull().default('0'),
   total: numeric('total', { precision: 12, scale: 2 }).notNull(),
+  amountReceived: numeric('amountReceived', { precision: 12, scale: 2 }), // Cash only
+  change: numeric('change', { precision: 12, scale: 2 }), // Cash only
   paymentMethod: text('paymentMethod').notNull().default('cash'),
   mpesaRef: text('mpesaRef'),
   status: text('status').notNull().default('completed'),
+  idempotencyKey: text('idempotencyKey'), // For duplicate prevention
   userId: text('userId').notNull(),
   orgId: text('orgId').notNull(),
   createdAt: timestamp('createdAt').notNull().defaultNow(),

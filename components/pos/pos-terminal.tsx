@@ -74,6 +74,7 @@ export function POSTerminal({ products, customers, settings }: POSTerminalProps)
   const searchInputRef = useRef<HTMLInputElement>(null)
   const barcodeBufferRef = useRef<string>('')
   const barcodeTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const checkoutIdempotencyKeyRef = useRef<string>('')
   
   // Get unique categories
   const categories = Array.from(new Set(products.filter(p => p.categoryId).map(p => p.categoryId))).filter(Boolean) as string[]
@@ -192,6 +193,12 @@ export function POSTerminal({ products, customers, settings }: POSTerminalProps)
     }
 
     setProcessing(true)
+    
+    // Generate idempotency key on first attempt
+    if (!checkoutIdempotencyKeyRef.current) {
+      checkoutIdempotencyKeyRef.current = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+    }
+    
     try {
       const { receiptNo, tax, total: returnedTotal } = await createSale({
         customerId: selectedCustomer || undefined,
@@ -202,6 +209,7 @@ export function POSTerminal({ products, customers, settings }: POSTerminalProps)
         paymentMethod,
         mpesaRef: mpesaRef || undefined,
         amountReceived: paymentMethod === 'cash' ? parseFloat(amountPaid || '0') : undefined,
+        idempotencyKey: checkoutIdempotencyKeyRef.current,
       })
       setReceipt({
         receiptNo,
@@ -230,6 +238,7 @@ export function POSTerminal({ products, customers, settings }: POSTerminalProps)
     setPaymentMethod('cash')
     setReceipt(null)
     setSearch('')
+    checkoutIdempotencyKeyRef.current = '' // Reset for new sale
   }
   
   const handleCreateCustomer = async () => {
