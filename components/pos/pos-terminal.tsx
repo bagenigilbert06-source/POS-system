@@ -1,7 +1,8 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import { createSale, type CartItem } from '@/app/actions/sales'
+import { createCustomer } from '@/app/actions/customers'
 import { formatCurrency } from '@/lib/utils'
 import { cn } from '@/lib/utils'
 import {
@@ -25,9 +26,20 @@ import { toast } from 'sonner'
 interface POSTerminalProps {
   products: Product[]
   customers: Customer[]
+  settings: {
+    displayName: string
+    receiptBusinessName: string
+    receiptPhone: string
+    receiptAddress: string
+    receiptFooter: string
+    taxEnabled: boolean
+    taxRate: number
+    taxName: string
+    pricesIncludeTax: boolean
+    paymentMethods: string[]
+    showTaxOnReceipt: boolean
+  }
 }
-
-const TAX_RATE = 0.16
 
 interface ReceiptData {
   receiptNo: string
@@ -41,8 +53,9 @@ interface ReceiptData {
   change: number
 }
 
-export function POSTerminal({ products, customers }: POSTerminalProps) {
+export function POSTerminal({ products, customers, settings }: POSTerminalProps) {
   const [search, setSearch] = useState('')
+  const [selectedCategory, setSelectedCategory] = useState<string>('')
   const [cart, setCart] = useState<CartItem[]>([])
   const [discount, setDiscount] = useState(0)
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'mpesa' | 'card'>('cash')
@@ -51,15 +64,67 @@ export function POSTerminal({ products, customers }: POSTerminalProps) {
   const [selectedCustomer, setSelectedCustomer] = useState<string>('')
   const [processing, setProcessing] = useState(false)
   const [receipt, setReceipt] = useState<ReceiptData | null>(null)
-  const [applyTax, setApplyTax] = useState(false)
+  const [applyTax, setApplyTax] = useState(settings.taxEnabled)
+  const [showNewCustomer, setShowNewCustomer] = useState(false)
+  const [newCustomerName, setNewCustomerName] = useState('')
+  const [newCustomerPhone, setNewCustomerPhone] = useState('')
+  const [newCustomerEmail, setNewCustomerEmail] = useState('')
+  const [creatingCustomer, setCreatingCustomer] = useState(false)
+  const [availableCustomers, setAvailableCustomers] = useState(customers || [])
+  const searchInputRef = useRef<HTMLInputElement>(null)
+  const barcodeBufferRef = useRef<string>('')
+  const barcodeTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  
+  // Get unique categories
+  const categories = Array.from(new Set(products.filter(p => p.categoryId).map(p => p.categoryId))).filter(Boolean) as string[]
+  
+  // Detect barcode scanner input (USB scanners send Enter after barcode)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't trigger if user is typing in other fields
+      if (receipt || !searchInputRef.current) return
+      
+      if (e.key === 'Enter' && barcodeBufferRef.current) {
+        e.preventDefault()
+        const barcode = barcodeBufferRef.current
+        barcodeBufferRef.current = ''
+        
+        // Find product by barcode
+        const product = products.find(p => p.barcode === barcode && p.isActive)
+        if (product) {
+          addToCart(product)
+          setSearch('')
+        } else {
+          toast.error('Product not found')
+        }
+        return
+      }
+      
+      // Collect barcode characters (numbers, usually 5-20 chars)
+      if (e.key.length === 1 && /[0-9a-zA-Z]/.test(e.key) && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        barcodeBufferRef.current += e.key
+        
+        // Clear buffer after 2 seconds without input
+        if (barcodeTimeoutRef.current) clearTimeout(barcodeTimeoutRef.current)
+        barcodeTimeoutRef.current = setTimeout(() => {
+          barcodeBufferRef.current = ''
+        }, 2000)
+      }
+    }
+    
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [products, receipt])
 
   const filteredProducts = products.filter(
     (p) =>
       p.isActive &&
       p.stock > 0 &&
+      (!selectedCategory || p.categoryId === selectedCategory) &&
       (!search ||
         p.name.toLowerCase().includes(search.toLowerCase()) ||
-        (p.sku ?? '').toLowerCase().includes(search.toLowerCase()))
+        (p.sku ?? '').toLowerCase().includes(search.toLowerCase()) ||
+        (p.barcode ?? '').toLowerCase().includes(search.toLowerCase()))
   )
 
   const addToCart = useCallback((product: Product) => {
@@ -113,7 +178,8 @@ export function POSTerminal({ products, customers }: POSTerminalProps) {
   }
 
   const subtotal = cart.reduce((sum, i) => sum + i.totalPrice, 0)
-  const taxAmount = applyTax ? subtotal * TAX_RATE : 0
+  const TAX_RATE = settings.taxEnabled ? settings.taxRate / 100 : 0
+  const taxAmount = applyTax && settings.taxEnabled ? subtotal * TAX_RATE : 0
   const discountAmount = Math.min(discount, subtotal + taxAmount)
   const total = subtotal + taxAmount - discountAmount
   const change = paymentMethod === 'cash' ? Math.max(0, parseFloat(amountPaid || '0') - total) : 0
@@ -127,26 +193,26 @@ export function POSTerminal({ products, customers }: POSTerminalProps) {
 
     setProcessing(true)
     try {
-      const { receiptNo } = await createSale({
+      const { receiptNo, tax, total: returnedTotal } = await createSale({
         customerId: selectedCustomer || undefined,
         items: cart,
         subtotal,
-        taxAmount,
         discountAmount,
         total,
         paymentMethod,
         mpesaRef: mpesaRef || undefined,
+        amountReceived: paymentMethod === 'cash' ? parseFloat(amountPaid || '0') : undefined,
       })
       setReceipt({
         receiptNo,
         items: cart,
         subtotal,
-        taxAmount,
+        taxAmount: tax || taxAmount,
         discountAmount,
-        total,
+        total: returnedTotal || total,
         paymentMethod,
         mpesaRef: mpesaRef || undefined,
-        change,
+        change: paymentMethod === 'cash' ? (parseFloat(amountPaid || '0') - (returnedTotal || total)) : 0,
       })
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to process sale')
@@ -165,16 +231,52 @@ export function POSTerminal({ products, customers }: POSTerminalProps) {
     setReceipt(null)
     setSearch('')
   }
+  
+  const handleCreateCustomer = async () => {
+    if (!newCustomerName.trim()) {
+      toast.error('Customer name is required')
+      return
+    }
+    
+    setCreatingCustomer(true)
+    try {
+      const { id } = await createCustomer({
+        name: newCustomerName,
+        phone: newCustomerPhone || undefined,
+        email: newCustomerEmail || undefined,
+      })
+      
+      // Add new customer to list
+      const newCust = {
+        id,
+        name: newCustomerName,
+        phone: newCustomerPhone || null,
+        email: newCustomerEmail || null,
+        address: null,
+        loyaltyPoints: 0,
+        userId: '',
+        orgId: '',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      }
+      setAvailableCustomers([...availableCustomers, newCust])
+      setSelectedCustomer(id)
+      
+      // Reset form
+      setNewCustomerName('')
+      setNewCustomerPhone('')
+      setNewCustomerEmail('')
+      setShowNewCustomer(false)
+      
+      toast.success('Customer created successfully')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to create customer')
+    } finally {
+      setCreatingCustomer(false)
+    }
+  }
 
   const inputCls = 'w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-colors'
-
-  // Get unique categories from products
-  const categories = Array.from(new Set(products.map(p => p.categoryId).filter(Boolean)))
-  const categoryNames = Object.fromEntries(
-    products
-      .filter(p => p.categoryId)
-      .map(p => [p.categoryId, products.find(pr => pr.categoryId === p.categoryId)?.categoryId])
-  )
 
   // Receipt overlay
   if (receipt) {
@@ -182,12 +284,15 @@ export function POSTerminal({ products, customers }: POSTerminalProps) {
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
         <div className="w-full max-w-xl rounded-xl bg-white shadow-2xl overflow-hidden">
           {/* Success header */}
-          <div className="bg-gradient-to-r from-green-50 to-emerald-50 border-b p-6 text-center">
-            <div className="mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100">
-              <CheckCircle2 className="h-8 w-8 text-emerald-600" />
+          <div className="bg-gradient-to-r from-green-50 to-emerald-50 border-b p-4 text-center">
+            <p className="text-sm font-semibold text-foreground">{settings.receiptBusinessName}</p>
+            {settings.receiptPhone && <p className="text-xs text-muted-foreground">{settings.receiptPhone}</p>}
+            {settings.receiptAddress && <p className="text-xs text-muted-foreground">{settings.receiptAddress}</p>}
+            <div className="mx-auto mb-2 mt-3 flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100">
+              <CheckCircle2 className="h-6 w-6 text-emerald-600" />
             </div>
-            <h2 className="text-2xl font-bold text-foreground">Sale Complete!</h2>
-            <p className="text-sm text-muted-foreground mt-1">Receipt #{receipt.receiptNo}</p>
+            <h2 className="text-lg font-bold text-foreground">Sale Complete</h2>
+            <p className="text-xs text-muted-foreground mt-0.5">Receipt #{receipt.receiptNo}</p>
           </div>
 
           {/* Receipt content */}
@@ -211,9 +316,9 @@ export function POSTerminal({ products, customers }: POSTerminalProps) {
                 <span>Subtotal</span>
                 <span className="tabular-nums">{formatCurrency(receipt.subtotal)}</span>
               </div>
-              {receipt.taxAmount > 0 && (
+              {receipt.taxAmount > 0 && settings.showTaxOnReceipt && (
                 <div className="flex justify-between text-muted-foreground">
-                  <span>Tax (16%)</span>
+                  <span>{settings.taxName || 'Tax'}</span>
                   <span className="tabular-nums">{formatCurrency(receipt.taxAmount)}</span>
                 </div>
               )}
@@ -248,6 +353,13 @@ export function POSTerminal({ products, customers }: POSTerminalProps) {
                 </div>
               )}
             </div>
+            
+            {/* Receipt footer */}
+            {settings.receiptFooter && (
+              <div className="mt-4 pt-4 border-t text-center">
+                <p className="text-xs text-muted-foreground">{settings.receiptFooter}</p>
+              </div>
+            )}
           </div>
 
           {/* Actions */}
@@ -280,6 +392,7 @@ export function POSTerminal({ products, customers }: POSTerminalProps) {
         <div className="mb-3 relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <input
+            ref={searchInputRef}
             type="text"
             placeholder="Search by name, SKU or barcode..."
             value={search}
@@ -288,6 +401,37 @@ export function POSTerminal({ products, customers }: POSTerminalProps) {
             autoFocus
           />
         </div>
+        
+        {/* Category filter */}
+        {categories.length > 0 && (
+          <div className="mb-3 flex gap-1 overflow-x-auto pb-2">
+            <button
+              onClick={() => setSelectedCategory('')}
+              className={cn(
+                'flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors',
+                !selectedCategory
+                  ? 'bg-primary text-primary-foreground'
+                  : 'bg-muted text-muted-foreground hover:bg-secondary'
+              )}
+            >
+              All
+            </button>
+            {categories.map((cat) => (
+              <button
+                key={cat}
+                onClick={() => setSelectedCategory(cat)}
+                className={cn(
+                  'flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors',
+                  selectedCategory === cat
+                    ? 'bg-primary text-primary-foreground'
+                    : 'bg-muted text-muted-foreground hover:bg-secondary'
+                )}
+              >
+                {cat}
+              </button>
+            ))}
+          </div>
+        )}
 
         {/* Product grid */}
         <div className="flex-1 overflow-y-auto">
@@ -456,31 +600,77 @@ export function POSTerminal({ products, customers }: POSTerminalProps) {
           <div className="border-t p-3 space-y-3 bg-muted/20">
             {/* Customer select */}
             <div>
-              <label className="mb-1 block text-xs font-medium text-muted-foreground">Customer</label>
-              <select
-                value={selectedCustomer}
-                onChange={(e) => setSelectedCustomer(e.target.value)}
-                className={cn(inputCls, 'text-sm')}
-              >
-                <option value="">Walk-in Customer</option>
-                {customers.map((c) => (
-                  <option key={c.id} value={c.id}>{c.name}{c.phone ? ` (${c.phone})` : ''}</option>
-                ))}
-              </select>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-xs font-medium text-muted-foreground">Customer</label>
+                <button
+                  onClick={() => setShowNewCustomer(!showNewCustomer)}
+                  className="text-xs text-primary hover:underline font-medium"
+                >
+                  {showNewCustomer ? 'Cancel' : '+New'}
+                </button>
+              </div>
+              {showNewCustomer ? (
+                <div className="space-y-2">
+                  <input
+                    type="text"
+                    placeholder="Full name"
+                    value={newCustomerName}
+                    onChange={(e) => setNewCustomerName(e.target.value)}
+                    className={cn(inputCls, 'text-xs h-8')}
+                    disabled={creatingCustomer}
+                  />
+                  <input
+                    type="tel"
+                    placeholder="Phone (optional)"
+                    value={newCustomerPhone}
+                    onChange={(e) => setNewCustomerPhone(e.target.value)}
+                    className={cn(inputCls, 'text-xs h-8')}
+                    disabled={creatingCustomer}
+                  />
+                  <input
+                    type="email"
+                    placeholder="Email (optional)"
+                    value={newCustomerEmail}
+                    onChange={(e) => setNewCustomerEmail(e.target.value)}
+                    className={cn(inputCls, 'text-xs h-8')}
+                    disabled={creatingCustomer}
+                  />
+                  <button
+                    onClick={handleCreateCustomer}
+                    disabled={creatingCustomer || !newCustomerName.trim()}
+                    className="w-full py-1.5 px-2 rounded text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors"
+                  >
+                    {creatingCustomer ? 'Creating...' : 'Save Customer'}
+                  </button>
+                </div>
+              ) : (
+                <select
+                  value={selectedCustomer}
+                  onChange={(e) => setSelectedCustomer(e.target.value)}
+                  className={cn(inputCls, 'text-sm')}
+                >
+                  <option value="">Walk-in Customer</option>
+                  {availableCustomers.map((c) => (
+                    <option key={c.id} value={c.id}>{c.name}{c.phone ? ` (${c.phone})` : ''}</option>
+                  ))}
+                </select>
+              )}
             </div>
 
             {/* Tax and Discount controls */}
             <div className="grid grid-cols-2 gap-2">
               {/* Tax toggle */}
-              <label className="flex items-center gap-2 p-2 rounded border border-input cursor-pointer hover:bg-muted/50 transition-colors">
-                <input
-                  type="checkbox"
-                  checked={applyTax}
-                  onChange={(e) => setApplyTax(e.target.checked)}
-                  className="h-4 w-4 rounded"
-                />
-                <span className="text-xs font-medium">Add Tax (16%)</span>
-              </label>
+              {settings.taxEnabled && (
+                <label className="flex items-center gap-2 p-2 rounded border border-input cursor-pointer hover:bg-muted/50 transition-colors">
+                  <input
+                    type="checkbox"
+                    checked={applyTax}
+                    onChange={(e) => setApplyTax(e.target.checked)}
+                    className="h-4 w-4 rounded"
+                  />
+                  <span className="text-xs font-medium">Add {settings.taxName || 'Tax'} ({(settings.taxRate).toFixed(1)}%)</span>
+                </label>
+              )}
               
               {/* Discount input */}
               <div>
@@ -502,9 +692,9 @@ export function POSTerminal({ products, customers }: POSTerminalProps) {
                 <span>Subtotal</span>
                 <span className="tabular-nums font-medium">{formatCurrency(subtotal)}</span>
               </div>
-              {applyTax && (
+              {applyTax && settings.showTaxOnReceipt && (
                 <div className="flex justify-between text-muted-foreground">
-                  <span>Tax (16%)</span>
+                  <span>{settings.taxName || 'Tax'} ({(settings.taxRate).toFixed(1)}%)</span>
                   <span className="tabular-nums font-medium text-amber-600">{formatCurrency(taxAmount)}</span>
                 </div>
               )}
@@ -521,12 +711,14 @@ export function POSTerminal({ products, customers }: POSTerminalProps) {
             </div>
 
             {/* Payment method */}
-            <div className="grid grid-cols-3 gap-1.5">
+            <div className={cn('grid gap-1.5', settings.paymentMethods.length === 3 ? 'grid-cols-3' : settings.paymentMethods.length === 2 ? 'grid-cols-2' : 'grid-cols-1')}>
               {([
                 { key: 'cash', icon: Banknote, label: 'Cash' },
                 { key: 'mpesa', icon: Smartphone, label: 'M-Pesa' },
                 { key: 'card', icon: CreditCard, label: 'Card' },
-              ] as const).map(({ key, icon: Icon, label }) => (
+              ] as const)
+                .filter(({ key }) => settings.paymentMethods.includes(key))
+                .map(({ key, icon: Icon, label }) => (
                 <button
                   key={key}
                   onClick={() => setPaymentMethod(key)}
@@ -564,7 +756,7 @@ export function POSTerminal({ products, customers }: POSTerminalProps) {
             )}
 
             {paymentMethod === 'mpesa' && (
-              <div>
+              <div className="space-y-1">
                 <label className="mb-1 block text-xs font-medium text-muted-foreground">
                   M-Pesa Reference <span className="text-destructive">*</span>
                 </label>
@@ -575,6 +767,13 @@ export function POSTerminal({ products, customers }: POSTerminalProps) {
                   onChange={(e) => setMpesaRef(e.target.value.toUpperCase())}
                   className={inputCls}
                 />
+                <p className="text-[10px] text-amber-600 font-medium">Integration pending - Enter reference for manual verification</p>
+              </div>
+            )}
+            
+            {paymentMethod === 'card' && (
+              <div>
+                <p className="text-xs text-amber-600 font-medium">Card payment integration pending</p>
               </div>
             )}
 
