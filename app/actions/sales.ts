@@ -2,7 +2,7 @@
 
 import { auth } from '@/lib/auth'
 import { db } from '@/lib/db'
-import { sale, saleItem, product, businessSettings, stockMovement } from '@/lib/db/schema'
+import { sale, saleItem, product, businessSettings, stockMovement, auditEvent } from '@/lib/db/schema'
 import { and, desc, eq, gte, sql } from 'drizzle-orm'
 import { headers } from 'next/headers'
 import { revalidatePath } from 'next/cache'
@@ -76,61 +76,173 @@ export async function createSale(data: {
   customerId?: string
   items: CartItem[]
   subtotal: number
-  taxAmount: number
   discountAmount: number
   total: number
   paymentMethod: string
   mpesaRef?: string
+  amountReceived?: number
+  idempotencyKey?: string
 }) {
   const userId = await getUserId()
   const orgId = await getOrgId(userId, 'pos')
+  
+  // Generate idempotency key if not provided
+  const idempotencyKey = data.idempotencyKey || generateId()
+  
+  // Check for duplicate submission (idempotency)
+  const [existingSale] = await db.select().from(sale)
+    .where(and(
+      eq(sale.orgId, orgId),
+      eq(sale.idempotencyKey, idempotencyKey)
+    )).limit(1)
+  
+  if (existingSale) {
+    return { 
+      saleId: existingSale.id, 
+      receiptNo: existingSale.receiptNo, 
+      tax: parseFloat(existingSale.taxAmount),
+      total: parseFloat(existingSale.total),
+      isDuplicate: true
+    }
+  }
+  
+  // Load business settings for tax configuration
+  const [settings] = await db.select({
+    taxEnabled: businessSettings.taxEnabled,
+    taxRate: businessSettings.taxRate,
+    pricesIncludeTax: businessSettings.pricesIncludeTax,
+    paymentMethods: businessSettings.paymentMethods,
+  }).from(businessSettings)
+    .where(eq(businessSettings.organizationId, orgId)).limit(1)
+  
+  const allowedMethods = Array.isArray(settings?.paymentMethods) ? settings.paymentMethods as string[] : ['cash']
+  if (!allowedMethods.includes(data.paymentMethod)) {
+    throw new Error('Payment method not enabled for this workspace')
+  }
+  
+  // Server-side calculation of tax (do not trust client)
+  const rate = settings?.taxEnabled ? Number(settings.taxRate ?? 0) / 100 : 0
+  const calculatedTax = rate > 0 
+    ? (settings?.pricesIncludeTax 
+      ? data.subtotal - (data.subtotal / (1 + rate)) 
+      : data.subtotal * rate)
+    : 0
+  
+  // Validate discount doesn't exceed subtotal + tax
+  const maxDiscount = data.subtotal + calculatedTax
+  if (data.discountAmount < 0 || data.discountAmount > maxDiscount) {
+    throw new Error(`Discount must be between 0 and ${maxDiscount}`)
+  }
+  
+  // Recalculate total
+  const calculatedTotal = data.subtotal + calculatedTax - data.discountAmount
+  
+  // Validate cash payment
+  let changeAmount = 0
+  if (data.paymentMethod === 'cash') {
+    if (!data.amountReceived || data.amountReceived < calculatedTotal) {
+      throw new Error('Insufficient payment received')
+    }
+    changeAmount = data.amountReceived - calculatedTotal
+  }
+  
   const saleId = generateId()
   const receiptNo = generateReceiptNo()
 
   await db.transaction(async (tx) => {
-  await tx.insert(sale).values({
-    id: saleId,
-    receiptNo,
-    customerId: data.customerId,
-    subtotal: String(data.subtotal),
-    taxAmount: String(data.taxAmount),
-    discountAmount: String(data.discountAmount),
-    total: String(data.total),
-    paymentMethod: data.paymentMethod,
-    mpesaRef: data.mpesaRef,
-    status: 'completed',
-    userId,
-    orgId,
-  })
-
-  for (const item of data.items) {
-    const [current] = await tx.select({ stock: product.stock, name: product.name }).from(product).where(and(eq(product.id, item.productId), eq(product.orgId, orgId))).limit(1)
-    if (!current) throw new Error(`Product ${item.productName} was not found`)
-    if (current.stock < item.quantity) throw new Error(`Not enough stock for ${item.productName}`)
-    await tx.insert(saleItem).values({
-      id: generateId(),
-      saleId,
-      productId: item.productId,
-      productName: item.productName,
-      quantity: item.quantity,
-      unitPrice: String(item.unitPrice),
-      totalPrice: String(item.totalPrice),
+    // Verify and deduct stock using atomic conditional update
+    for (const item of data.items) {
+      // Atomic update: only deduct if stock is sufficient
+      const result = await tx
+        .update(product)
+        .set({ stock: sql`${product.stock} - ${item.quantity}` })
+        .where(and(
+          eq(product.id, item.productId),
+          eq(product.orgId, orgId),
+          sql`${product.stock} >= ${item.quantity}` // Conditional: only update if stock available
+        ))
+      
+      // Check if update succeeded
+      if (!result) throw new Error(`Insufficient stock for product`)
+    }
+    
+    // Create the sale
+    await tx.insert(sale).values({
+      id: saleId,
+      receiptNo,
+      customerId: data.customerId,
+      subtotal: String(data.subtotal),
+      taxAmount: String(calculatedTax),
+      discountAmount: String(data.discountAmount),
+      total: String(calculatedTotal),
+      amountReceived: data.paymentMethod === 'cash' ? String(data.amountReceived) : null,
+      change: data.paymentMethod === 'cash' ? String(changeAmount) : null,
+      paymentMethod: data.paymentMethod,
+      mpesaRef: data.mpesaRef,
+      status: 'completed',
+      idempotencyKey,
       userId,
       orgId,
     })
 
-    // decrement stock
-    await tx
-      .update(product)
-      .set({ stock: sql`${product.stock} - ${item.quantity}` })
-      .where(and(eq(product.id, item.productId), eq(product.orgId, orgId)))
-    await tx.insert(stockMovement).values({ id: generateId(), productId: item.productId, productName: current.name, type: 'sale', quantity: -item.quantity, stockBefore: current.stock, stockAfter: current.stock - item.quantity, referenceType: 'sale', referenceId: saleId, reason: receiptNo, userId, orgId })
-  }
+    // Process each item to create sale items and stock movements
+    for (const item of data.items) {
+      const [product_record] = await tx.select({ stock: product.stock, name: product.name }).from(product)
+        .where(and(eq(product.id, item.productId), eq(product.orgId, orgId))).limit(1)
+      
+      await tx.insert(saleItem).values({
+        id: generateId(),
+        saleId,
+        productId: item.productId,
+        productName: item.productName,
+        quantity: item.quantity,
+        unitPrice: String(item.unitPrice),
+        totalPrice: String(item.totalPrice),
+        userId,
+        orgId,
+      })
+      
+      // Record stock movement
+      await tx.insert(stockMovement).values({ 
+        id: generateId(), 
+        productId: item.productId, 
+        productName: product_record?.name || item.productName, 
+        type: 'sale', 
+        quantity: -item.quantity, 
+        stockBefore: (product_record?.stock || 0) + item.quantity, // Add back to get original
+        stockAfter: product_record?.stock || 0, 
+        referenceType: 'sale', 
+        referenceId: saleId, 
+        reason: receiptNo, 
+        userId, 
+        orgId 
+      })
+    }
+    
+    // Create audit event
+    await tx.insert(auditEvent).values({
+      id: generateId(),
+      organizationId: orgId,
+      userId,
+      action: 'sale_created',
+      metadata: {
+        saleId,
+        receiptNo,
+        subtotal: data.subtotal,
+        tax: calculatedTax,
+        discount: data.discountAmount,
+        total: calculatedTotal,
+        items: data.items.length,
+        paymentMethod: data.paymentMethod,
+        amountReceived: data.paymentMethod === 'cash' ? data.amountReceived : null,
+        change: data.paymentMethod === 'cash' ? changeAmount : null,
+      },
+    })
   })
 
   revalidatePath('/dashboard')
   revalidatePath('/dashboard/sales')
-  return { saleId, receiptNo }
+  return { saleId, receiptNo, tax: calculatedTax, total: calculatedTotal, idempotencyKey }
 }
 
 export async function getSales(limit = 50) {
