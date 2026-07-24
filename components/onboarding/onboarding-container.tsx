@@ -5,14 +5,15 @@ import { useRouter } from 'next/navigation'
 import { authClient } from '@/lib/auth-client'
 import {
   ArrowLeft, ArrowRight, Banknote, Building2, Check, CheckCircle2, Clock3, CreditCard,
-  FileText, Landmark, Loader2, MapPin, Package, ReceiptText, ShieldCheck, Smartphone,
+  Landmark, Loader2, ShieldCheck, Smartphone,
   Users, WalletCards,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import {
-  BUSINESS_FAMILIES, ONBOARDING_STEPS, REQUIRED_MODULES, WORKING_MODULES, categoriesFor, categoryLabel, familyFor, recommendedModules,
+  BUSINESS_FAMILIES, DEFAULT_ONBOARDING_DATA, FINANCIAL_YEAR_START_OPTIONS, ONBOARDING_STEPS, REQUIRED_MODULES, WORKING_MODULES, categoriesFor, categoryLabel, familyFor, recommendedModules,
   type OnboardingDraft, type OnboardingStepId,
 } from '@/lib/onboarding/config'
+import { ReceiptPreview } from '@/components/receipt/receipt-preview'
 
 type FieldErrors = Record<string, string[] | undefined>
 
@@ -40,6 +41,16 @@ const PAYMENT_METHODS = [
   { id: 'cash', label: 'Cash', icon: Banknote }, { id: 'mpesa', label: 'M-Pesa', icon: Smartphone },
   { id: 'card', label: 'Card', icon: CreditCard }, { id: 'bank_transfer', label: 'Bank transfer', icon: Landmark },
   { id: 'other', label: 'Other', icon: WalletCards },
+]
+
+const RECEIPT_DISPLAY_OPTIONS: Array<{ key: 'receiptShowPhone' | 'receiptShowAddress' | 'receiptShowCashier' | 'receiptShowCustomer' | 'receiptShowPayment' | 'receiptShowQrCode' | 'receiptShowItemSku'; title: string; description: string }> = [
+  { key: 'receiptShowPhone', title: 'Business phone', description: 'Show a contact number in the header.' },
+  { key: 'receiptShowAddress', title: 'Business address', description: 'Show the location below the name.' },
+  { key: 'receiptShowCashier', title: 'Cashier name', description: 'Show who completed the sale.' },
+  { key: 'receiptShowCustomer', title: 'Customer name', description: 'Show the selected customer or walk-in.' },
+  { key: 'receiptShowPayment', title: 'Payment details', description: 'Show the payment method and reference.' },
+  { key: 'receiptShowQrCode', title: 'Receipt QR code', description: 'Show a scan-friendly receipt reference.' },
+  { key: 'receiptShowItemSku', title: 'Item codes', description: 'Show product codes under line items.' },
 ]
 
 function Field({ label, name, value, onChange, error, optional, type = 'text', placeholder, autoComplete }: {
@@ -74,6 +85,7 @@ export function OnboardingContainer({ initialStep, initialData, initialRevision 
   const [errors, setErrors] = useState<FieldErrors>({})
   const [pageError, setPageError] = useState('')
   const [saving, setSaving] = useState(false)
+  const [workspaceCreated, setWorkspaceCreated] = useState(false)
   const stepId = ONBOARDING_STEPS[stepIndex]
   const progress = Math.round((stepIndex / (ONBOARDING_STEPS.length - 1)) * 100)
 
@@ -133,6 +145,13 @@ export function OnboardingContainer({ initialStep, initialData, initialRevision 
         receiptBusinessName: synchronizedData.receiptBusinessName || synchronizedData.displayName || synchronizedData.businessName,
         receiptPhone: synchronizedData.receiptPhone || synchronizedData.phone,
         receiptAddress: synchronizedData.receiptAddress || synchronizedData.branchAddress,
+        receiptShowPhone: synchronizedData.receiptShowPhone ?? DEFAULT_ONBOARDING_DATA.receiptShowPhone,
+        receiptShowAddress: synchronizedData.receiptShowAddress ?? DEFAULT_ONBOARDING_DATA.receiptShowAddress,
+        receiptShowCashier: synchronizedData.receiptShowCashier ?? DEFAULT_ONBOARDING_DATA.receiptShowCashier,
+        receiptShowCustomer: synchronizedData.receiptShowCustomer ?? DEFAULT_ONBOARDING_DATA.receiptShowCustomer,
+        receiptShowPayment: synchronizedData.receiptShowPayment ?? DEFAULT_ONBOARDING_DATA.receiptShowPayment,
+        receiptShowQrCode: synchronizedData.receiptShowQrCode ?? DEFAULT_ONBOARDING_DATA.receiptShowQrCode,
+        receiptShowItemSku: synchronizedData.receiptShowItemSku ?? DEFAULT_ONBOARDING_DATA.receiptShowItemSku,
       } : synchronizedData
       const response = await fetch('/api/onboarding/save-step', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ stepId, data: submittedData, revision }) })
       const result = await response.json()
@@ -166,7 +185,7 @@ export function OnboardingContainer({ initialStep, initialData, initialRevision 
           setPageError(result.message ?? 'Workspace creation failed safely. Please try again.')
           return
         }
-        router.replace(result.dashboardRoute ?? '/dashboard'); router.refresh()
+        setWorkspaceCreated(true)
       } catch { setPageError('Workspace creation failed safely. Check your connection and try again.') }
       finally { setSaving(false) }
       return
@@ -184,6 +203,8 @@ export function OnboardingContainer({ initialStep, initialData, initialRevision 
     setErrors((current) => ({ ...current, businessFamily: undefined, businessCategory: undefined, customBusinessCategory: undefined }))
   }
 
+  if (workspaceCreated) { const firstAction = data.enabledModules.includes('products') ? { label: 'Add your first product', route: '/dashboard/products' } : { label: 'Record your first sale', route: '/dashboard/sales' }; return <div className="mx-auto max-w-xl py-8 text-center"><div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100 text-emerald-700"><CheckCircle2 className="h-7 w-7" /></div><p className="mt-6 text-xs font-extrabold uppercase tracking-[0.18em] text-[#e42527]">Workspace created</p><h1 className="mt-2 text-3xl font-extrabold tracking-[-0.04em] text-slate-950">You’re ready to start selling</h1><p className="mt-3 text-base leading-7 text-zinc-600">Your business, modules and receipt defaults are saved. Add your first records next, then return here anytime from workspace settings.</p><div className="mt-8 grid gap-3 sm:grid-cols-2"><button type="button" onClick={() => router.replace('/dashboard')} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-lg bg-[#e42527] px-5 text-sm font-extrabold text-white">Go to dashboard <ArrowRight className="h-4 w-4" /></button><button type="button" onClick={() => router.replace(firstAction.route)} className="inline-flex min-h-12 items-center justify-center rounded-lg border border-zinc-300 bg-white px-5 text-sm font-extrabold text-slate-950">{firstAction.label}</button></div></div> }
+
   const renderedStep = (() => {
     if (stepId === 'welcome') return <div className="mx-auto max-w-2xl text-center">
       <div className="mx-auto mb-6 flex h-14 w-14 items-center justify-center rounded-xl bg-[#ffda32]"><Building2 className="h-7 w-7" /></div>
@@ -191,8 +212,10 @@ export function OnboardingContainer({ initialStep, initialData, initialRevision 
       <h1 className="mt-3 text-3xl font-extrabold tracking-[-0.04em] text-slate-950 sm:text-4xl">Let’s set up your business</h1>
       <p className="mx-auto mt-4 max-w-xl text-base leading-7 text-zinc-600">Tell us how your business operates and Pesaby will prepare the right workspace, tools and defaults for you.</p>
       <div className="mx-auto mt-8 grid max-w-xl gap-3 text-left sm:grid-cols-3">
-        {[['5–8 minutes', Clock3], ['Saved as you go', ShieldCheck], ['Editable later', CheckCircle2]].map(([label, Icon]) => <div key={label as string} className="flex items-center gap-3 rounded-lg border border-zinc-200 bg-[#fff9ef] p-3 text-sm font-semibold"><Icon className="h-5 w-5 text-[#e42527]" />{label as string}</div>)}
+        {[['About 10 minutes', Clock3], ['Saved each step', ShieldCheck], ['Editable later', CheckCircle2]].map(([label, Icon]) => <div key={label as string} className="flex items-center gap-3 rounded-lg border border-zinc-200 bg-[#fff9ef] p-3 text-sm font-semibold"><Icon className="h-5 w-5 text-[#e42527]" />{label as string}</div>)}
       </div>
+      <label className="mx-auto mt-7 flex max-w-xl items-start gap-3 rounded-lg border border-zinc-200 bg-white p-4 text-left text-sm leading-5 text-zinc-700"><input type="checkbox" checked={data.acceptsTerms} onChange={(event) => update('acceptsTerms', event.target.checked)} className="mt-0.5 h-4 w-4 accent-[#e42527]" /><span>I agree that Pesaby may use these business details to create and operate my workspace. I can update workspace settings later.</span></label>
+      {errors.acceptsTerms?.[0] && <p className="mx-auto mt-2 max-w-xl text-left text-xs font-semibold text-red-700">{errors.acceptsTerms[0]}</p>}
       <button type="button" onClick={async () => { await authClient.signOut(); router.replace('/sign-in') }} className="mt-6 text-sm font-semibold text-zinc-600 underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e42527]">Sign out</button>
     </div>
 
@@ -200,16 +223,18 @@ export function OnboardingContainer({ initialStep, initialData, initialRevision 
       <div className="grid gap-5 sm:grid-cols-2">
         <Field label="Business name" name="businessName" value={data.businessName} onChange={update} error={errors.businessName} placeholder="Acme Traders" autoComplete="organization" />
         <Field label="Display name" name="displayName" value={data.displayName} onChange={update} error={errors.displayName} optional placeholder="Name shown to customers" />
-        <SelectField label="Country" name="country" value={data.country} onChange={update} error={errors.country}><option value="KE">Kenya</option></SelectField>
+        <div><SelectField label="Country" name="country" value={data.country} onChange={update} error={errors.country}><option value="KE">Kenya</option></SelectField><p className="mt-1.5 text-xs leading-5 text-zinc-500">This workspace currently supports Kenyan currency, tax and time-zone defaults.</p></div>
         <Field label="County or region" name="region" value={data.region} onChange={update} error={errors.region} placeholder="Nairobi" autoComplete="address-level1" />
         <Field label="City or town" name="city" value={data.city} onChange={update} error={errors.city} placeholder="Nairobi" autoComplete="address-level2" />
         <Field label="Business phone" name="phone" value={data.phone} onChange={update} error={errors.phone} placeholder="+254 700 000 000" type="tel" autoComplete="tel" />
         <Field label="Business email" name="businessEmail" value={data.businessEmail} onChange={update} error={errors.businessEmail} optional placeholder="hello@business.com" type="email" autoComplete="email" />
         <Field label="Website" name="website" value={data.website} onChange={update} error={errors.website} optional placeholder="https://business.com" type="url" />
+        <SelectField label="Business size" name="businessSize" value={data.businessSize} onChange={update} error={errors.businessSize}><option value="solo">Just me</option><option value="small">2–10 people</option><option value="medium">11–50 people</option><option value="large">More than 50 people</option></SelectField>
         <SelectField label="Preferred language" name="language" value={data.language} onChange={update}><option value="en">English</option><option value="sw">Kiswahili</option></SelectField>
         <SelectField label="Time zone" name="timezone" value={data.timezone} onChange={update}><option value="Africa/Nairobi">Africa/Nairobi</option></SelectField>
         <SelectField label="Default currency" name="currency" value={data.currency} onChange={update}><option value="KES">Kenyan shilling (KES)</option></SelectField>
-        <SelectField label="Financial year starts" name="financialYearStart" value={data.financialYearStart} onChange={update}><option value="01-01">1 January</option><option value="07-01">1 July</option></SelectField>
+        <SelectField label="Financial year starts" name="financialYearStart" value={data.financialYearStart} onChange={update} error={errors.financialYearStart}>{FINANCIAL_YEAR_START_OPTIONS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</SelectField>
+        <div className="sm:col-span-2"><Field label="What does your business sell or provide?" name="businessDescription" value={data.businessDescription} onChange={update} error={errors.businessDescription} optional placeholder="For example, everyday groceries, household goods and delivery services" /></div>
       </div>
     </section>
 
@@ -236,7 +261,7 @@ export function OnboardingContainer({ initialStep, initialData, initialRevision 
     </section>
 
     if (stepId === 'modules') return <section><StepTitle eyebrow="Workspace modules" title="Your recommended workspace" description="Pesaby has matched these working modules to the operations you selected. Required operational modules stay aligned with those answers." />
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{WORKING_MODULES.map((module) => { const alwaysRequired = REQUIRED_MODULES.includes(module.id as never); const operationallyRequired = (module.id === 'products' && data.sellsProducts) || (module.id === 'inventory' && data.tracksInventory) || (module.id === 'customers' && data.keepsCustomers); const incompatible = (module.id === 'products' && !data.sellsProducts) || (module.id === 'inventory' && !data.tracksInventory) || (module.id === 'customers' && !data.keepsCustomers); const locked = alwaysRequired || operationallyRequired || incompatible; const checked = data.enabledModules.includes(module.id); const status = alwaysRequired || operationallyRequired ? 'Required' : module.id === 'pos' && data.sellsProducts ? 'Recommended' : 'Optional'; return <label key={module.id} className={cn('rounded-xl border p-4', checked ? 'border-[#e7be16] bg-[#fff8d7]' : 'border-zinc-200', incompatible && 'bg-zinc-50 opacity-65')}><span className="flex items-start gap-3"><input type="checkbox" checked={checked} disabled={locked} onChange={() => update('enabledModules', checked ? data.enabledModules.filter((id) => id !== module.id) : [...data.enabledModules, module.id])} className="mt-1 h-4 w-4 accent-[#e42527]" /><span><span className="flex items-center gap-2 text-sm font-extrabold">{module.name}<span className="rounded bg-white px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-zinc-500">{incompatible ? 'Not needed' : status}</span></span><span className="mt-1 block text-xs leading-5 text-zinc-600">{module.description}</span></span></span></label> })}</div>
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{WORKING_MODULES.map((module) => { const alwaysRequired = REQUIRED_MODULES.includes(module.id as never); const operationallyRequired = (module.id === 'products' && (data.sellsProducts || data.usesSuppliers)) || (module.id === 'inventory' && data.tracksInventory) || (module.id === 'purchases' && data.usesSuppliers) || (module.id === 'customers' && data.keepsCustomers); const incompatible = (module.id === 'inventory' && !data.tracksInventory) || (module.id === 'customers' && !data.keepsCustomers) || (module.id === 'purchases' && !data.usesSuppliers); const locked = alwaysRequired || operationallyRequired || incompatible; const checked = data.enabledModules.includes(module.id); const status = alwaysRequired || operationallyRequired ? 'Required' : module.id === 'pos' && data.sellsProducts ? 'Recommended' : 'Optional'; return <label key={module.id} className={cn('rounded-xl border p-4', checked ? 'border-[#e7be16] bg-[#fff8d7]' : 'border-zinc-200', incompatible && 'bg-zinc-50 opacity-65')}><span className="flex items-start gap-3"><input type="checkbox" checked={checked} disabled={locked} onChange={() => update('enabledModules', checked ? data.enabledModules.filter((id) => id !== module.id) : [...data.enabledModules, module.id])} className="mt-1 h-4 w-4 accent-[#e42527]" /><span><span className="flex items-center gap-2 text-sm font-extrabold">{module.name}<span className="rounded bg-white px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-zinc-500">{incompatible ? 'Not needed' : status}</span></span><span className="mt-1 block text-xs leading-5 text-zinc-600">{module.description}</span></span></span></label> })}</div>
     </section>
 
     if (stepId === 'payments-tax') return <section><StepTitle eyebrow="Payments & tax" title="Configure how you record money" description="These methods are available for manual recording. No payment integration is connected by this step." />
@@ -244,14 +269,14 @@ export function OnboardingContainer({ initialStep, initialData, initialRevision 
       {errors.paymentMethods?.[0] && <p className="mt-2 text-xs font-semibold text-red-700">{errors.paymentMethods[0]}</p>}
       <div className="mt-5 grid gap-5 sm:grid-cols-2"><SelectField label="Default payment method" name="defaultPaymentMethod" value={data.defaultPaymentMethod} onChange={update} error={errors.defaultPaymentMethod}>{data.paymentMethods.map((id) => <option key={id} value={id}>{PAYMENT_METHODS.find((method) => method.id === id)?.label ?? id}</option>)}</SelectField>
         <label className="flex min-h-12 items-center gap-3 rounded-lg border border-zinc-200 px-4 text-sm font-bold"><input type="checkbox" checked={data.taxEnabled} onChange={(event) => { update('taxEnabled', event.target.checked); update('needsTax', event.target.checked) }} className="h-4 w-4 accent-[#e42527]" />Apply tax calculations</label></div>
-      {data.taxEnabled && <div className="mt-5 grid gap-5 rounded-xl bg-[#fff9ef] p-5 sm:grid-cols-2"><Field label="Tax name" name="taxName" value={data.taxName} onChange={update} error={errors.taxName} placeholder="VAT" /><Field label="Tax rate (%)" name="taxRate" value={data.taxRate} onChange={update} error={errors.taxRate} type="number" /><Field label="Tax identifier" name="taxIdentifier" value={data.taxIdentifier} onChange={update} error={errors.taxIdentifier} optional placeholder="Business PIN" /><label className="flex items-center gap-3 text-sm font-bold"><input type="checkbox" checked={data.pricesIncludeTax} onChange={(event) => update('pricesIncludeTax', event.target.checked)} className="h-4 w-4 accent-[#e42527]" />Prices already include tax</label></div>}
+      {data.taxEnabled && <div className="mt-5 grid gap-5 rounded-xl bg-[#fff9ef] p-5 sm:grid-cols-2"><SelectField label="Tax type" name="taxName" value={data.taxName} onChange={update} error={errors.taxName}><option value="VAT">VAT</option><option value="Turnover Tax">Turnover Tax</option><option value="Withholding Tax">Withholding Tax</option><option value="Other tax">Other tax</option></SelectField><Field label="Tax rate (%)" name="taxRate" value={data.taxRate} onChange={update} error={errors.taxRate} type="number" /><Field label="KRA PIN" name="taxIdentifier" value={data.taxIdentifier} onChange={update} error={errors.taxIdentifier} placeholder="A000000000Z" /><label className="flex items-center gap-3 text-sm font-bold"><input type="checkbox" checked={data.pricesIncludeTax} onChange={(event) => update('pricesIncludeTax', event.target.checked)} className="h-4 w-4 accent-[#e42527]" />Prices already include tax</label><p className="sm:col-span-2 text-xs leading-5 text-zinc-600">Confirm the selected tax and rate with your tax adviser. Pesaby records the tax settings you choose; it does not submit tax returns.</p></div>}
     </section>
 
     if (stepId === 'receipt' && !data.issuesReceipts) return <section><StepTitle eyebrow="Receipt settings" title="Receipts are not enabled" description="You told us this workspace does not issue receipts. Pesaby will keep receipt controls out of the initial workflow; you can enable them later in settings." /><div className="rounded-xl border border-[#e7be16] bg-[#fff8d7] p-5 text-sm leading-6 text-[#344054]">No receipt configuration is needed for this workspace.</div></section>
 
-    if (stepId === 'receipt') return <section><StepTitle eyebrow="Receipt settings" title="Set your receipt defaults" description="Preview the business details Pesaby can show on supported receipts." />
-      <div className="grid gap-8 lg:grid-cols-[1fr_320px]"><div className="grid gap-5 sm:grid-cols-2"><Field label="Receipt business name" name="receiptBusinessName" value={data.receiptBusinessName || data.displayName || data.businessName} onChange={update} error={errors.receiptBusinessName} /><Field label="Business phone" name="receiptPhone" value={data.receiptPhone || data.phone} onChange={update} error={errors.receiptPhone} type="tel" /><div className="sm:col-span-2"><Field label="Address" name="receiptAddress" value={data.receiptAddress || data.branchAddress} onChange={update} error={errors.receiptAddress} optional /></div><div className="sm:col-span-2"><Field label="Footer message" name="receiptFooter" value={data.receiptFooter} onChange={update} error={errors.receiptFooter} optional /></div><label className="flex items-center gap-3 text-sm font-bold"><input type="checkbox" disabled={!data.taxEnabled} checked={data.taxEnabled && data.showTaxOnReceipt} onChange={(event) => update('showTaxOnReceipt', event.target.checked)} className="h-4 w-4 accent-[#e42527]" />Show tax on receipt</label></div>
-        <div aria-label="Receipt preview" className="rounded-xl border border-zinc-300 bg-[#fffdf8] p-6 text-center shadow-sm"><ReceiptText className="mx-auto h-6 w-6" /><p className="mt-3 font-extrabold">{data.receiptBusinessName || data.displayName || data.businessName || 'Your business'}</p><p className="mt-1 text-xs text-zinc-500">{data.receiptAddress || data.branchAddress || 'Business address'}</p><div className="my-5 border-t border-dashed border-zinc-300" /><div className="flex justify-between text-sm"><span>Receipt number</span><span>AUTOMATIC</span></div><div className="my-5 border-t border-dashed border-zinc-300" /><p className="text-xs text-zinc-600">{data.receiptFooter || 'Thank you for your business.'}</p></div></div>
+    if (stepId === 'receipt') return <section><StepTitle eyebrow="Receipt design" title="Make every receipt clear and professional" description="Set the details customers need, then check the live printer-style preview before you continue." />
+      <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_360px]"><div className="grid content-start gap-5 sm:grid-cols-2"><Field label="Receipt business name" name="receiptBusinessName" value={data.receiptBusinessName || data.displayName || data.businessName} onChange={update} error={errors.receiptBusinessName} /><Field label="Business phone" name="receiptPhone" value={data.receiptPhone || data.phone} onChange={update} error={errors.receiptPhone} type="tel" /><div className="sm:col-span-2"><Field label="Address" name="receiptAddress" value={data.receiptAddress || data.branchAddress} onChange={update} error={errors.receiptAddress} optional /></div><div className="sm:col-span-2"><Field label="Footer message" name="receiptFooter" value={data.receiptFooter} onChange={update} error={errors.receiptFooter} optional placeholder="Thank you for shopping with us." /></div><label className="flex min-h-12 items-center gap-3 rounded-lg border border-zinc-200 px-4 text-sm font-bold"><input type="checkbox" disabled={!data.taxEnabled} checked={data.taxEnabled && data.showTaxOnReceipt} onChange={(event) => update('showTaxOnReceipt', event.target.checked)} className="h-4 w-4 accent-[#e42527]" />Show {data.taxName || 'tax'} as a separate line</label><p className="text-xs leading-5 text-zinc-500">Receipt numbers are generated automatically, keeping each completed sale traceable and easy to reprint.</p><div className="sm:col-span-2"><p className="mb-3 text-sm font-extrabold text-slate-950">Choose what customers see</p><div className="grid gap-2 sm:grid-cols-2">{RECEIPT_DISPLAY_OPTIONS.map(({ key, title, description }) => { const checked = Boolean(data[key]); return <label key={key} className={cn('flex cursor-pointer items-start gap-3 rounded-lg border p-3', checked ? 'border-[#e7be16] bg-[#fff8d7]' : 'border-zinc-200')}><input type="checkbox" checked={checked} onChange={(event) => update(key, event.target.checked)} className="mt-0.5 h-4 w-4 accent-[#e42527]" /><span><span className="block text-sm font-bold">{title}</span><span className="mt-0.5 block text-xs leading-4 text-zinc-600">{description}</span></span></label> })}</div></div></div>
+        <div><p className="mb-3 text-xs font-extrabold uppercase tracking-[0.16em] text-zinc-500">Live preview</p><ReceiptPreview businessName={data.receiptBusinessName || data.displayName || data.businessName} phone={data.receiptPhone || data.phone} address={data.receiptAddress || data.branchAddress} header={data.receiptHeader} footer={data.receiptFooter} taxEnabled={data.taxEnabled} taxName={data.taxName} taxRate={data.taxRate} showTax={data.showTaxOnReceipt} paymentMethod={data.defaultPaymentMethod} showPhone={data.receiptShowPhone} showAddress={data.receiptShowAddress} showCashier={data.receiptShowCashier} showCustomer={data.receiptShowCustomer} showPayment={data.receiptShowPayment} showQrCode={data.receiptShowQrCode} showItemSku={data.receiptShowItemSku} /></div></div>
     </section>
 
     return <section><StepTitle eyebrow="Review" title="Check your workspace setup" description="Review each section before creation. You can change these settings later." />

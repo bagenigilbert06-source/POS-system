@@ -17,7 +17,7 @@ const financialYearStart = z.string().regex(/^\d{2}-\d{2}$/, 'Choose a valid fin
 }, 'Choose a real calendar date')
 
 export const onboardingStepSchemas = {
-  welcome: z.object({}),
+  welcome: z.object({ acceptsTerms: z.literal(true, { errorMap: () => ({ message: 'Confirm that Pesaby may create your workspace' }) }) }),
   'business-details': z.object({
     businessName: z.string().trim().min(2, 'Enter your business name').max(120),
     displayName: optionalText(120),
@@ -27,6 +27,8 @@ export const onboardingStepSchemas = {
     phone,
     businessEmail: z.union([z.literal(''), z.string().trim().email('Enter a valid business email')]),
     website: url,
+    businessSize: z.enum(['solo', 'small', 'medium', 'large']),
+    businessDescription: optionalText(500),
     language: z.enum(['en', 'sw']),
     timezone: z.literal('Africa/Nairobi'),
     currency: z.literal('KES'),
@@ -78,10 +80,13 @@ export const onboardingStepSchemas = {
     if (!value.paymentMethods.includes(value.defaultPaymentMethod as never)) context.addIssue({ code: z.ZodIssueCode.custom, path: ['defaultPaymentMethod'], message: 'Default method must be enabled' })
     if (!value.taxEnabled && value.pricesIncludeTax) context.addIssue({ code: z.ZodIssueCode.custom, path: ['pricesIncludeTax'], message: 'Prices cannot include tax when tax is disabled' })
     if (value.taxEnabled && !value.taxName.trim()) context.addIssue({ code: z.ZodIssueCode.custom, path: ['taxName'], message: 'Enter the tax name' })
+    if (value.taxEnabled && !value.taxIdentifier.trim()) context.addIssue({ code: z.ZodIssueCode.custom, path: ['taxIdentifier'], message: 'Enter the KRA PIN used for this tax setup' })
   }),
   receipt: z.object({
     receiptBusinessName: z.string().trim().min(2).max(120), receiptPhone: phone, receiptAddress: optionalText(180),
-    receiptFooter: optionalText(160), showTaxOnReceipt: z.boolean(), receiptNumbering: z.literal('automatic'),
+    receiptFooter: optionalText(160), showTaxOnReceipt: z.boolean(), receiptShowPhone: z.boolean(), receiptShowAddress: z.boolean(),
+    receiptShowCashier: z.boolean(), receiptShowCustomer: z.boolean(), receiptShowPayment: z.boolean(), receiptShowQrCode: z.boolean(),
+    receiptShowItemSku: z.boolean(), receiptNumbering: z.literal('automatic'),
   }),
   review: z.object({}),
 } satisfies Record<(typeof ONBOARDING_STEPS)[number], z.ZodTypeAny>
@@ -108,11 +113,12 @@ export function validateCompleteDraft(data: Record<string, unknown>) {
   const draft = merged as unknown as OnboardingDraft
   const modules = new Set(draft.enabledModules)
   if (draft.sellsProducts && !modules.has('products')) return draftError('modules', 'enabledModules', 'Product-selling businesses require Products')
-  if (!draft.sellsProducts && modules.has('products')) return draftError('modules', 'enabledModules', 'Products cannot be enabled when the business does not sell products')
+  if (!draft.sellsProducts && !draft.usesSuppliers && modules.has('products')) return draftError('modules', 'enabledModules', 'Products require product sales or supplier purchasing')
   if (draft.tracksInventory && !modules.has('inventory')) return draftError('modules', 'enabledModules', 'Inventory must be enabled when stock tracking is selected')
   if (!draft.tracksInventory && modules.has('inventory')) return draftError('modules', 'enabledModules', 'Inventory cannot be enabled when stock tracking is not selected')
   if (draft.keepsCustomers && !modules.has('customers')) return draftError('modules', 'enabledModules', 'Customers must be enabled when customer records are selected')
   if (!draft.keepsCustomers && modules.has('customers')) return draftError('modules', 'enabledModules', 'Customers cannot be enabled when customer records are not selected')
+  if (draft.usesSuppliers && !modules.has('purchases')) return draftError('modules', 'enabledModules', 'Purchases must be enabled when supplier records are selected')
   if (modules.has('pos') && draft.sellsProducts && !modules.has('products')) return draftError('modules', 'enabledModules', 'Product checkout requires Products')
 
   const payments = new Set(draft.paymentMethods)

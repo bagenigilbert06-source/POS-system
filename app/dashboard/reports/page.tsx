@@ -34,7 +34,7 @@ export default async function ReportsPage() {
       <DashboardPageHeading
         icon={BarChart3}
         title="Reports"
-        description="Review six months of recorded sales, payments and inventory value."
+        description="Review sales, payments and inventory for the current financial year."
         action={<div className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-[#d9dce3] bg-white px-3 text-sm font-semibold text-[#344054]"><CalendarDays className="h-4 w-4" /><span>{report.period.label}</span></div>}
       />
 

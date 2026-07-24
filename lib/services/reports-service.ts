@@ -1,6 +1,7 @@
 import { and, desc, eq, gte, sql } from 'drizzle-orm'
 import { db } from '@/lib/db'
-import { product, sale, saleItem } from '@/lib/db/schema'
+import { businessSettings, product, sale, saleItem } from '@/lib/db/schema'
+import { fiscalYearLabel, fiscalYearStart } from '@/lib/finance/fiscal-year'
 
 export interface ReportsOverview {
   period: { from: Date; to: Date; label: string }
@@ -34,7 +35,9 @@ export async function getReportsOverview(organizationId: string, timeZone = 'Afr
     safeTimeZone = 'Africa/Nairobi'
   }
   const now = new Date()
-  const from = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 5, 1))
+  const [settings] = await db.select({ financialYearStart: businessSettings.financialYearStart })
+    .from(businessSettings).where(eq(businessSettings.organizationId, organizationId)).limit(1)
+  const from = fiscalYearStart(now, settings?.financialYearStart)
   const completed = and(eq(sale.orgId, organizationId), eq(sale.status, 'completed'), gte(sale.createdAt, from))
   const localMonth = sql`date_trunc('month', ((${sale.createdAt} at time zone 'UTC') at time zone ${safeTimeZone}))`
 
@@ -76,7 +79,8 @@ export async function getReportsOverview(organizationId: string, timeZone = 'Afr
   const revenue = numeric(total?.revenue)
   const transactions = numeric(total?.transactions)
   const monthMap = new Map(monthlyRows.map((row) => [row.month, row]))
-  const monthly = Array.from({ length: 6 }, (_, index) => {
+  const monthsInPeriod = (now.getUTCFullYear() - from.getUTCFullYear()) * 12 + now.getUTCMonth() - from.getUTCMonth() + 1
+  const monthly = Array.from({ length: monthsInPeriod }, (_, index) => {
     const date = new Date(Date.UTC(from.getUTCFullYear(), from.getUTCMonth() + index, 1))
     const key = `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}`
     const row = monthMap.get(key)
@@ -91,7 +95,7 @@ export async function getReportsOverview(organizationId: string, timeZone = 'Afr
     period: {
       from,
       to: now,
-      label: `${from.toLocaleDateString('en-KE', { month: 'short', year: 'numeric', timeZone: 'UTC' })} – ${now.toLocaleDateString('en-KE', { month: 'short', year: 'numeric' })}`,
+      label: fiscalYearLabel(from, now),
     },
     totals: {
       revenue,

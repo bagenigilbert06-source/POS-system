@@ -26,6 +26,12 @@ export const ONBOARDING_STEPS = [
 
 export type OnboardingStepId = (typeof ONBOARDING_STEPS)[number]
 
+export const FINANCIAL_YEAR_START_OPTIONS = [
+  ['01-01', '1 January'], ['02-01', '1 February'], ['03-01', '1 March'], ['04-01', '1 April'],
+  ['05-01', '1 May'], ['06-01', '1 June'], ['07-01', '1 July'], ['08-01', '1 August'],
+  ['09-01', '1 September'], ['10-01', '1 October'], ['11-01', '1 November'], ['12-01', '1 December'],
+] as const
+
 export const WORKING_MODULES = [
   { id: 'pos', name: 'Point of sale', description: 'Checkout, payments and supported receipts.' },
   { id: 'sales', name: 'Sales', description: 'Transactions and sales history.' },
@@ -118,6 +124,7 @@ export const BUSINESS_CATEGORIES: Record<BusinessFamilyId, BusinessCategoryOptio
 }
 
 export interface OnboardingDraft {
+  acceptsTerms: boolean
   businessName: string
   displayName: string
   country: string
@@ -126,6 +133,8 @@ export interface OnboardingDraft {
   phone: string
   businessEmail: string
   website: string
+  businessSize: 'solo' | 'small' | 'medium' | 'large'
+  businessDescription: string
   language: string
   timezone: string
   currency: string
@@ -165,13 +174,20 @@ export interface OnboardingDraft {
   receiptAddress: string
   receiptFooter: string
   showTaxOnReceipt: boolean
+  receiptShowPhone: boolean
+  receiptShowAddress: boolean
+  receiptShowCashier: boolean
+  receiptShowCustomer: boolean
+  receiptShowPayment: boolean
+  receiptShowQrCode: boolean
+  receiptShowItemSku: boolean
   receiptNumbering: 'automatic'
 }
 
 export const DEFAULT_ONBOARDING_DATA: OnboardingDraft = {
-  businessName: '', displayName: '', country: 'KE', region: '', city: '', phone: '',
-  businessEmail: '', website: '', language: 'en', timezone: 'Africa/Nairobi', currency: 'KES',
-  financialYearStart: '01-01', businessFamily: '', businessCategory: '', customBusinessCategory: '',
+  acceptsTerms: false, businessName: '', displayName: '', country: 'KE', region: '', city: '', phone: '',
+  businessEmail: '', website: '', businessSize: 'small', businessDescription: '', language: 'en', timezone: 'Africa/Nairobi', currency: 'KES',
+  financialYearStart: '07-01', businessFamily: '', businessCategory: '', customBusinessCategory: '',
   sellsProducts: false, providesServices: false, tracksInventory: false, hasEmployees: false,
   multipleLocations: false, keepsCustomers: false, usesSuppliers: false, acceptsCash: true,
   acceptsMpesa: true, acceptsCard: false, needsTax: false, issuesReceipts: true,
@@ -180,7 +196,8 @@ export const DEFAULT_ONBOARDING_DATA: OnboardingDraft = {
   paymentMethods: ['cash', 'mpesa'], defaultPaymentMethod: 'cash', taxEnabled: false,
   pricesIncludeTax: false, taxName: 'VAT', taxRate: '16', taxIdentifier: '',
   receiptBusinessName: '', receiptPhone: '', receiptAddress: '', receiptFooter: 'Thank you for your business.',
-  showTaxOnReceipt: false, receiptNumbering: 'automatic',
+  showTaxOnReceipt: false, receiptShowPhone: true, receiptShowAddress: true, receiptShowCashier: true,
+  receiptShowCustomer: true, receiptShowPayment: true, receiptShowQrCode: false, receiptShowItemSku: false, receiptNumbering: 'automatic',
 }
 
 export function familyFor(id: string) {
@@ -200,17 +217,17 @@ export function categoryLabel(family: string, category: string, custom = '') {
   return categoriesFor(family).find((option) => option.id === category)?.name ?? category
 }
 
-export function recommendedModules(data: Pick<OnboardingDraft, 'sellsProducts' | 'tracksInventory' | 'keepsCustomers'>): string[] {
+export function recommendedModules(data: Pick<OnboardingDraft, 'sellsProducts' | 'tracksInventory' | 'keepsCustomers' | 'usesSuppliers'>): string[] {
   const modules = new Set<string>(['sales', 'expenses', 'reports', 'analytics'])
   if (data.sellsProducts) {
     modules.add('pos')
     modules.add('products')
   }
-  if (data.tracksInventory) {
+  if (data.tracksInventory || data.usesSuppliers) {
     modules.add('products')
-    modules.add('inventory')
     modules.add('purchases')
   }
+  if (data.tracksInventory) modules.add('inventory')
   if (data.keepsCustomers) modules.add('customers')
   return WORKING_MODULES.map((module) => module.id).filter((id) => modules.has(id))
 }

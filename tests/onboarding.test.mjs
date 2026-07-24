@@ -47,14 +47,14 @@ async function api(cookie, path, body) {
 }
 
 const steps = [
-  ['welcome', {}],
-  ['business-details', { businessName: 'Test Traders', displayName: '', country: 'KE', region: 'Nairobi', city: 'Nairobi', phone: '+254700000000', businessEmail: '', website: '', language: 'en', timezone: 'Africa/Nairobi', currency: 'KES', financialYearStart: '01-01' }],
+  ['welcome', { acceptsTerms: true }],
+  ['business-details', { businessName: 'Test Traders', displayName: '', country: 'KE', region: 'Nairobi', city: 'Nairobi', phone: '+254700000000', businessEmail: '', website: '', businessSize: 'small', businessDescription: 'Everyday retail goods', language: 'en', timezone: 'Africa/Nairobi', currency: 'KES', financialYearStart: '07-01' }],
   ['business-type', { businessFamily: 'retail', businessCategory: 'general_shop', customBusinessCategory: '' }],
   ['operations', { sellsProducts: true, providesServices: false, tracksInventory: true, hasEmployees: false, multipleLocations: false, keepsCustomers: true, usesSuppliers: true, acceptsCash: true, acceptsMpesa: true, acceptsCard: false, needsTax: false, issuesReceipts: true }],
-  ['modules', { enabledModules: ['pos', 'sales', 'products', 'inventory', 'customers', 'reports', 'analytics'] }],
+  ['modules', { enabledModules: ['pos', 'sales', 'products', 'inventory', 'purchases', 'customers', 'reports', 'analytics'] }],
   ['main-branch', { branchName: 'Main Branch', branchPhone: '+254700000000', branchAddress: 'Test Street', branchRegion: 'Nairobi', branchCity: 'Nairobi', branchTimezone: 'Africa/Nairobi', receiptHeader: '' }],
   ['payments-tax', { paymentMethods: ['cash', 'mpesa'], defaultPaymentMethod: 'cash', taxEnabled: false, pricesIncludeTax: false, taxName: 'VAT', taxRate: '16', taxIdentifier: '' }],
-  ['receipt', { receiptBusinessName: 'Test Traders', receiptPhone: '+254700000000', receiptAddress: 'Test Street', receiptFooter: 'Thank you.', showTaxOnReceipt: false, receiptNumbering: 'automatic' }],
+  ['receipt', { receiptBusinessName: 'Test Traders', receiptPhone: '+254700000000', receiptAddress: 'Test Street', receiptFooter: 'Thank you.', showTaxOnReceipt: false, receiptShowPhone: true, receiptShowAddress: true, receiptShowCashier: true, receiptShowCustomer: true, receiptShowPayment: true, receiptShowQrCode: false, receiptShowItemSku: false, receiptNumbering: 'automatic' }],
   ['review', {}],
 ]
 

@@ -16,6 +16,12 @@ function label(value: string | null | undefined) {
   return value.replace(/[_-]/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase())
 }
 
+function financialYearStartLabel(value: string | null | undefined) {
+  if (!value || !/^\d{2}-\d{2}$/.test(value)) return '1 July'
+  const [month, day] = value.split('-').map(Number)
+  return new Date(Date.UTC(2024, month - 1, day)).toLocaleDateString('en-KE', { day: 'numeric', month: 'long', timeZone: 'UTC' })
+}
+
 export default async function SettingsPage() {
   const session = await auth.api.getSession({ headers: await headers() })
   if (!session?.user) redirect('/sign-in')
@@ -37,6 +43,7 @@ export default async function SettingsPage() {
           <Value label="Business name" value={settings?.displayName || organization.name} />
           <Value label="Business family" value={label(organization.businessType)} />
           <Value label="Category" value={settings?.customBusinessCategory || label(organization.businessCategory)} />
+          <Value label="Business size" value={label(organization.businessSize)} />
           <Value label="Locations" value={String(Number(locationCount?.count ?? 0))} />
           <Value label="Location" value={[settings?.city, organization.country].filter(Boolean).join(', ') || 'Not configured'} />
         </SettingsCard>
@@ -44,6 +51,7 @@ export default async function SettingsPage() {
         <SettingsCard icon={CreditCard} title="Operating defaults">
           <Value label="Currency" value={organization.currency} />
           <Value label="Timezone" value={organization.timezone || 'Africa/Nairobi'} />
+          <Value label="Financial year starts" value={financialYearStartLabel(settings?.financialYearStart)} />
           <Value label="Default payment" value={label(settings?.defaultPaymentMethod)} />
           <Value label="Tax" value={settings?.taxEnabled ? `${settings.taxName || 'Tax'} · ${settings.taxRate}%` : 'Not enabled'} />
           <Value label="Receipts" value={operations.issuesReceipts === false ? 'Not enabled' : label(settings?.receiptNumbering || 'automatic')} />

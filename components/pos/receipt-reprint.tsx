@@ -16,6 +16,13 @@ interface ReceiptReprintProps {
     receiptAddress: string
     receiptFooter: string
     taxName: string
+    receiptShowPhone?: boolean
+    receiptShowAddress?: boolean
+    receiptShowCashier?: boolean
+    receiptShowCustomer?: boolean
+    receiptShowPayment?: boolean
+    receiptShowQrCode?: boolean
+    receiptShowItemSku?: boolean
   }
   onRefund?: (sale: Sale & { items: SaleItem[] }) => void
 }
@@ -99,6 +106,13 @@ export function ReceiptReprint({ onClose, settings, onRefund }: ReceiptReprintPr
               businessAddress={settings.receiptAddress}
               receiptFooter={settings.receiptFooter}
               taxName={settings.taxName}
+              showPhone={settings.receiptShowPhone}
+              showAddress={settings.receiptShowAddress}
+              showCashier={settings.receiptShowCashier}
+              showCustomer={settings.receiptShowCustomer}
+              showPayment={settings.receiptShowPayment}
+              showQrCode={settings.receiptShowQrCode}
+              showItemSku={settings.receiptShowItemSku}
             />
           </div>
 

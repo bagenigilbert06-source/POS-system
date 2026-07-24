@@ -56,6 +56,11 @@ import type { WorkspaceTemplate } from './types'
 // ---------------------------------------------------------------------------
 
 const REGISTRY: Record<string, WorkspaceTemplate> = {
+  'adaptive.generic': {
+    ...generalRetailTemplate,
+    id: 'adaptive.generic',
+    name: 'Adaptive business workspace',
+  },
   // Retail
   'retail.supermarket':   supermarketTemplate,
   'retail.grocery':       groceryTemplate,
@@ -207,13 +212,17 @@ export function resolveOnboardingTemplateId(businessFamily: string, businessCate
     return 'retail.general'
   }
   if (businessFamily === 'food_hospitality') {
+    if (category === 'restaurant') return 'restaurant.restaurant'
     if (category === 'cafe') return 'restaurant.cafe'
     if (category === 'bakery') return 'restaurant.bakery'
     if (category === 'fast_food') return 'restaurant.fast-food'
     return 'restaurant.general'
   }
-  if (businessFamily === 'health_wellness' && ['retail_pharmacy', 'health_pharmacy'].includes(category)) return 'pharmacy.community'
-  return 'retail.general'
+  if (businessFamily === 'health_wellness') {
+    if (['retail_pharmacy', 'health_pharmacy'].includes(category)) return 'pharmacy.community'
+    return 'adaptive.generic'
+  }
+  return 'adaptive.generic'
 }
 
 /**

@@ -8,6 +8,9 @@ export interface ModuleDefinition {
 }
 
 export const MODULE_REGISTRY: Record<string, ModuleDefinition> = {
+  products: {
+    id: 'products', name: 'Products', description: 'Manage products, prices, and catalogues', icon: 'Package', route: '/dashboard/products', enabled: true,
+  },
   inventory: {
     id: 'inventory',
     name: 'Inventory Management',
@@ -48,69 +51,14 @@ export const MODULE_REGISTRY: Record<string, ModuleDefinition> = {
     route: '/dashboard/analytics',
     enabled: true,
   },
-  menu: {
-    id: 'menu',
-    name: 'Menu Management',
-    description: 'Manage menu items and categories',
-    icon: 'UtensilsCrossed',
-    route: '/dashboard/menu',
-    enabled: true,
+  purchases: {
+    id: 'purchases', name: 'Purchases', description: 'Suppliers, receiving, and procurement history', icon: 'Truck', route: '/dashboard/purchases', enabled: true,
   },
-  orders: {
-    id: 'orders',
-    name: 'Order Management',
-    description: 'Track restaurant orders',
-    icon: 'ClipboardList',
-    route: '/dashboard/orders',
-    enabled: true,
+  expenses: {
+    id: 'expenses', name: 'Expenses', description: 'Operating costs and cash outflows', icon: 'Wallet', route: '/dashboard/expenses', enabled: true,
   },
-  tables: {
-    id: 'tables',
-    name: 'Table Management',
-    description: 'Manage dining tables and reservations',
-    icon: 'Grid',
-    route: '/dashboard/tables',
-    enabled: true,
-  },
-  kitchen: {
-    id: 'kitchen',
-    name: 'Kitchen Display',
-    description: 'Kitchen order display system',
-    icon: 'ChefHat',
-    route: '/dashboard/kitchen',
-    enabled: true,
-  },
-  prescriptions: {
-    id: 'prescriptions',
-    name: 'Prescription Management',
-    description: 'Manage customer prescriptions',
-    icon: 'FileText',
-    route: '/dashboard/prescriptions',
-    enabled: true,
-  },
-  compliance: {
-    id: 'compliance',
-    name: 'Compliance & Audit',
-    description: 'Compliance tracking and audit logs',
-    icon: 'ShieldCheck',
-    route: '/dashboard/compliance',
-    enabled: true,
-  },
-  services: {
-    id: 'services',
-    name: 'Services',
-    description: 'Manage services offered',
-    icon: 'Scissors',
-    route: '/dashboard/services',
-    enabled: true,
-  },
-  appointments: {
-    id: 'appointments',
-    name: 'Appointments',
-    description: 'Schedule and manage appointments',
-    icon: 'Calendar',
-    route: '/dashboard/appointments',
-    enabled: true,
+  reports: {
+    id: 'reports', name: 'Reports', description: 'Operational reporting', icon: 'FileText', route: '/dashboard/reports', enabled: true,
   },
 }
 

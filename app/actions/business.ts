@@ -39,5 +39,12 @@ export async function getBusinessSettings() {
     pricesIncludeTax: settings?.pricesIncludeTax || false,
     paymentMethods: (Array.isArray(settings?.paymentMethods) ? settings.paymentMethods as string[] : ['cash']) || ['cash'],
     showTaxOnReceipt: settings?.showTaxOnReceipt || false,
+    receiptShowPhone: settings?.receiptShowPhone ?? true,
+    receiptShowAddress: settings?.receiptShowAddress ?? true,
+    receiptShowCashier: settings?.receiptShowCashier ?? true,
+    receiptShowCustomer: settings?.receiptShowCustomer ?? true,
+    receiptShowPayment: settings?.receiptShowPayment ?? true,
+    receiptShowQrCode: settings?.receiptShowQrCode ?? false,
+    receiptShowItemSku: settings?.receiptShowItemSku ?? false,
   }
 }

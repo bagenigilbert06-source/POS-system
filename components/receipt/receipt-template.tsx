@@ -10,6 +10,13 @@ interface ReceiptTemplateProps {
   cashierName?: string
   customerName?: string
   taxName?: string
+  showPhone?: boolean
+  showAddress?: boolean
+  showCashier?: boolean
+  showCustomer?: boolean
+  showPayment?: boolean
+  showQrCode?: boolean
+  showItemSku?: boolean
 }
 
 export function ReceiptTemplate({
@@ -21,6 +28,13 @@ export function ReceiptTemplate({
   cashierName = 'Cashier',
   customerName = 'Customer',
   taxName = 'Tax',
+  showPhone = true,
+  showAddress = true,
+  showCashier = true,
+  showCustomer = true,
+  showPayment = true,
+  showQrCode = false,
+  showItemSku = false,
 }: ReceiptTemplateProps) {
   const subtotal = parseFloat(sale.subtotal.toString())
   const taxAmount = parseFloat(sale.taxAmount.toString())
@@ -40,8 +54,8 @@ export function ReceiptTemplate({
         {/* Header */}
         <div className="text-center border-b pb-3 mb-3">
           <h1 className="font-bold text-sm">{businessName}</h1>
-          {businessAddress && <p className="text-[10px] mt-1">{businessAddress}</p>}
-          {businessPhone && <p className="text-[10px]">{businessPhone}</p>}
+          {showAddress && businessAddress && <p className="text-[10px] mt-1">{businessAddress}</p>}
+          {showPhone && businessPhone && <p className="text-[10px]">{businessPhone}</p>}
         </div>
 
         {/* Receipt Number and Date */}
@@ -52,14 +66,8 @@ export function ReceiptTemplate({
 
         {/* Cashier and Customer */}
         <div className="border-b pb-2 mb-2 text-[10px]">
-          <div className="flex justify-between">
-            <span>Cashier:</span>
-            <span>{cashierName}</span>
-          </div>
-          <div className="flex justify-between">
-            <span>Customer:</span>
-            <span>{customerName}</span>
-          </div>
+          {showCashier && <div className="flex justify-between"><span>Cashier:</span><span>{cashierName}</span></div>}
+          {showCustomer && <div className="flex justify-between"><span>Customer:</span><span>{customerName}</span></div>}
         </div>
 
         {/* Items */}
@@ -75,7 +83,7 @@ export function ReceiptTemplate({
             <tbody>
               {sale.items.map((item) => (
                 <tr key={item.id}>
-                  <td className="text-left">{item.productName}</td>
+                  <td className="text-left">{item.productName}{showItemSku && <span className="block text-[9px] text-gray-500">Item {item.productId.slice(0, 8).toUpperCase()}</span>}</td>
                   <td className="text-center">{item.quantity}</td>
                   <td className="text-right">{formatCurrency(parseFloat(item.totalPrice.toString()))}</td>
                 </tr>
@@ -109,10 +117,12 @@ export function ReceiptTemplate({
         </div>
 
         {/* Payment Method */}
-        <div className="border-b pb-2 mb-2 text-[10px]">
+        {showPayment && <div className="border-b pb-2 mb-2 text-[10px]">
           <p>Payment: <span className="font-bold capitalize">{sale.paymentMethod}</span></p>
           {sale.mpesaRef && <p>M-Pesa Ref: {sale.mpesaRef}</p>}
-        </div>
+        </div>}
+
+        {showQrCode && <div className="mx-auto mb-3 grid h-16 w-16 grid-cols-7 gap-px bg-white p-1">{Array.from({ length: 49 }, (_, index) => <span key={index} className={(index * 11 + index % 5) % 7 < 3 ? 'bg-black' : 'bg-white'} />)}</div>}
 
         {/* Footer */}
         <div className="text-center text-[10px] pt-2">

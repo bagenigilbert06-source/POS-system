@@ -44,6 +44,13 @@ interface POSTerminalProps {
     pricesIncludeTax: boolean
     paymentMethods: string[]
     showTaxOnReceipt: boolean
+    receiptShowPhone: boolean
+    receiptShowAddress: boolean
+    receiptShowCashier: boolean
+    receiptShowCustomer: boolean
+    receiptShowPayment: boolean
+    receiptShowQrCode: boolean
+    receiptShowItemSku: boolean
   }
 }
 
