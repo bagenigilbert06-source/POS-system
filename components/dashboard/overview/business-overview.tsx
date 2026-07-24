@@ -11,6 +11,12 @@ import {
   ReceiptText,
   ShoppingBag,
   UsersRound,
+  BarChart3,
+  Plus,
+  AlertTriangle,
+  TrendingUp,
+  Clock,
+  CheckCircle2,
 } from 'lucide-react'
 import { formatCurrency, formatNumber } from '@/lib/utils/format'
 import { cn } from '@/lib/utils'
@@ -18,6 +24,12 @@ import type { WorkspaceConfig } from '@/lib/types/workspace'
 import type { DashboardOverview } from '@/lib/services/dashboard-overview-service'
 import { OperatingChart } from './operating-chart'
 import { getBusinessExperience } from '@/lib/workspace/business-experience'
+import { QuickActions } from '../widgets/quick-actions'
+import { OutstandingPayments } from '../widgets/outstanding-payments'
+import { ActivityFeed } from '../widgets/activity-feed'
+import { ActionTasks } from '../widgets/action-tasks'
+import { OnboardingChecklist } from '../widgets/onboarding-checklist'
+import { PerformanceGoals } from '../widgets/performance-goals'
 
 interface BusinessOverviewProps {
   organizationName: string
@@ -38,10 +50,19 @@ export function BusinessOverview({ organizationName, userName, currency, overvie
   const hasCustomers = workspaceConfig.enabledModules.includes('customers')
   const saleHref = workspaceConfig.enabledModules.includes('pos') ? '/dashboard/pos' : '/dashboard/sales'
   const availableActions = [
-    ...(workspaceConfig.enabledModules.includes('pos') || workspaceConfig.enabledModules.includes('sales') ? [{ id: 'primary', label: experience.actionLabels.primary, href: saleHref, icon: ShoppingBag, primary: true }] : []),
-    ...(hasProducts ? [{ id: 'products', label: experience.actionLabels.products, href: '/dashboard/products', icon: Package, primary: false }] : []),
-    ...(hasInventory ? [{ id: 'inventory', label: experience.actionLabels.inventory, href: '/dashboard/inventory', icon: Boxes, primary: false }] : []),
+    ...(workspaceConfig.enabledModules.includes('pos') || workspaceConfig.enabledModules.includes('sales') ? [{ id: 'primary', label: experience.actionLabels.primary, href: saleHref, icon: ShoppingBag, primary: true, description: 'Record a new sale' }] : []),
+    ...(hasProducts ? [{ id: 'products', label: experience.actionLabels.products, href: '/dashboard/products', icon: Package, primary: false, description: 'Manage products' }] : []),
+    ...(hasInventory ? [{ id: 'inventory', label: experience.actionLabels.inventory, href: '/dashboard/inventory', icon: Boxes, primary: false, description: 'Check stock levels' }] : []),
+    ...(hasCustomers ? [{ id: 'customers', label: 'Customers', href: '/dashboard/customers', icon: UsersRound, primary: false, description: 'Manage customers' }] : []),
+    ...(workspaceConfig.enabledModules.includes('reports') ? [{ id: 'reports', label: 'Reports', href: '/dashboard/reports', icon: BarChart3, primary: false, description: 'View insights' }] : []),
   ]
+  
+  // Mock data for demonstration - replace with real queries
+  const outstandingPayments: any[] = [] // Will come from real data
+  const activityItems: any[] = [] // Will come from real data
+  const actionTasks: any[] = [] // Will come from real data
+  const onboardingSteps: any[] = [] // Will come from real data
+  const performanceGoals: any[] = [] // Will come from real data
   const maxPayment = Math.max(...overview.paymentMix.map((item) => item.amount), 1)
   const firstName = userName?.trim().split(/\s+/)[0]
 
@@ -85,6 +106,16 @@ export function BusinessOverview({ organizationName, userName, currency, overvie
           })}
         </div>
       </header>
+
+      {/* Quick Actions Section */}
+      <QuickActions actions={availableActions.map((action) => ({ 
+        id: action.id, 
+        label: action.label, 
+        description: action.description, 
+        href: action.href, 
+        icon: <action.icon className="h-5 w-5" />, 
+        primary: action.primary 
+      }))} />
 
       <section aria-label="Today's operating metrics" className="overflow-hidden rounded-xl border border-[#dfe3ea] bg-white shadow-[0_1px_2px_rgba(16,24,40,.03)]">
         <div className="grid sm:grid-cols-2 xl:grid-cols-4">
@@ -165,6 +196,22 @@ export function BusinessOverview({ organizationName, userName, currency, overvie
           <SectionHeader title="Payment mix" description="Completed sales this month." />
           {overview.paymentMix.length ? <div className="space-y-4 px-5 py-5">{overview.paymentMix.slice(0, 5).map((item) => <div key={item.method}><div className="flex items-center justify-between gap-3"><div className="flex items-center gap-2"><span className="text-sm font-semibold text-[#101828]">{methodLabel(item.method)}</span><span className="text-xs text-[#8a94a5]">{item.transactions}</span></div><p className="text-sm font-semibold tabular-nums text-[#101828]">{formatCurrency(item.amount, currency)}</p></div><div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[#eef0f4]"><div className="h-full rounded-full bg-[#ffda32]" style={{ width: `${Math.max((item.amount / maxPayment) * 100, 4)}%` }} /></div></div>)}</div> : <EmptyState message="No payment activity yet" detail="Payment methods will be compared after completed sales." href="/dashboard/pos" action="Open POS" />}
         </article>
+      </section>
+
+      {/* Additional Widgets Section */}
+      <section className="grid gap-4 xl:grid-cols-[minmax(0,1.4fr)_minmax(330px,.75fr)]">
+        {/* Left Column - Activity Feed and Tasks */}
+        <div className="space-y-4">
+          {actionTasks.length > 0 && <ActionTasks tasks={actionTasks} />}
+          <ActivityFeed activities={activityItems} />
+        </div>
+
+        {/* Right Column - Alerts and Goals */}
+        <div className="space-y-4">
+          {outstandingPayments.length > 0 && <OutstandingPayments payments={outstandingPayments} currency={currency} />}
+          {performanceGoals.length > 0 && <PerformanceGoals goals={performanceGoals} currency={currency} />}
+          {onboardingSteps.length > 0 && <OnboardingChecklist steps={onboardingSteps} />}
+        </div>
       </section>
     </div>
   )
