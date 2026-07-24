@@ -34,7 +34,7 @@ export function PerformanceGoals({ goals, currency }: PerformanceGoalsProps) {
     <article className="overflow-hidden rounded-xl border border-[#dfe3ea] bg-white shadow-[0_1px_2px_rgba(16,24,40,.03)]">
       <div className="border-b border-[#edf0f4] px-5 py-4">
         <h2 className="text-[0.95rem] font-bold text-[#101828]">Performance goals</h2>
-        <p className="mt-1 text-xs text-[#7b8495]">Today's targets vs. current performance</p>
+        <p className="mt-1 text-xs text-[#7b8495]">Today&apos;s targets vs. current performance</p>
       </div>
 
       <div className="divide-y divide-[#edf0f4] px-5">

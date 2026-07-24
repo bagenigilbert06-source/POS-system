@@ -11,7 +11,7 @@ function validDraft(overrides: Partial<OnboardingDraft> = {}): OnboardingDraft {
     businessFamily: 'retail', businessCategory: 'general_shop', sellsProducts: true, tracksInventory: true,
     keepsCustomers: true, usesSuppliers: true, branchName: 'Main location', branchPhone: '+254700000000',
     branchAddress: 'Test Street', branchRegion: 'Nairobi', branchCity: 'Nairobi',
-    enabledModules: ['pos', 'sales', 'products', 'inventory', 'customers', 'reports'],
+    enabledModules: ['pos', 'sales', 'products', 'inventory', 'customers', 'reports', 'analytics'],
     receiptBusinessName: 'Test Business', receiptPhone: '+254700000000',
     ...overrides,
   }
@@ -40,9 +40,10 @@ assert.equal(getBusinessExperience('food_hospitality', 'cafe').navigation.produc
 assert.equal(getBusinessExperience('food_hospitality', 'cafe').actionLabels.primary, 'New order', 'cafés must use order-oriented actions')
 
 assert.equal(validate(validDraft()).success, true, 'product and inventory workflow should validate')
+assert.equal(validate(validDraft({ enabledModules: ['pos', 'sales', 'products', 'inventory', 'customers', 'reports'] })).success, false, 'analytics must be enabled for the working dashboard')
 assert.equal(validate(validDraft({
   businessFamily: 'professional_services', businessCategory: 'consulting', sellsProducts: false, providesServices: true,
-  tracksInventory: false, keepsCustomers: true, usesSuppliers: false, enabledModules: ['sales', 'customers', 'reports'],
+  tracksInventory: false, keepsCustomers: true, usesSuppliers: false, enabledModules: ['sales', 'customers', 'reports', 'analytics'],
 })).success, true, 'service workflow should validate without product or inventory modules')
 assert.equal(validate(validDraft({ sellsProducts: false, providesServices: true, tracksInventory: false })).success, false, 'disabled product operations must reject product modules')
 assert.equal(validate(validDraft({ acceptsCash: false })).success, false, 'operations and payment settings must agree')

@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gte, lte, sql } from 'drizzle-orm'
+import { and, asc, desc, eq, gte, lt, lte, sql } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { branch, customer, expense, product, sale, saleItem } from '@/lib/db/schema'
 
@@ -126,11 +126,11 @@ export async function getDashboardOverview(organizationId: string, timeZone = 'A
         transactions: sql<number>`count(*)`,
       })
       .from(sale)
-      .where(and(completedSale, gte(sale.createdAt, today), lte(sale.createdAt, tomorrow))),
+      .where(and(completedSale, gte(sale.createdAt, today), lt(sale.createdAt, tomorrow))),
     db
       .select({ amount: sql<string>`coalesce(sum(${expense.amount}), 0)` })
       .from(expense)
-      .where(and(eq(expense.orgId, organizationId), gte(expense.createdAt, today), lte(expense.createdAt, tomorrow))),
+      .where(and(eq(expense.orgId, organizationId), gte(expense.createdAt, today), lt(expense.createdAt, tomorrow))),
     db
       .select({ revenue: sql<string>`coalesce(sum(${sale.total}), 0)` })
       .from(sale)

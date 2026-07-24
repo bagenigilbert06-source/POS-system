@@ -54,7 +54,7 @@ export const onboardingStepSchemas = {
     if (!value.acceptsCash && !value.acceptsMpesa && !value.acceptsCard) context.addIssue({ code: z.ZodIssueCode.custom, message: 'Select at least one payment method your business accepts' })
   }),
   modules: z.object({ enabledModules: z.array(z.enum(WORKING_MODULES.map((module) => module.id) as [string, ...string[]])).min(2) })
-    .refine((value) => ['sales', 'reports'].every((id) => value.enabledModules.includes(id)), { message: 'Sales and Reports are required' })
+    .refine((value) => ['sales', 'reports', 'analytics'].every((id) => value.enabledModules.includes(id)), { message: 'Sales, Reports and Analytics are required' })
     .refine((value) => !value.enabledModules.includes('pos') || value.enabledModules.includes('sales'), { message: 'Point of sale requires Sales' })
     .refine((value) => !value.enabledModules.includes('inventory') || value.enabledModules.includes('products'), { message: 'Inventory requires Products' }),
   'main-branch': z.object({

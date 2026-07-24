@@ -35,9 +35,10 @@ export const WORKING_MODULES = [
   { id: 'customers', name: 'Customers', description: 'Customer or client records and activity.' },
   { id: 'expenses', name: 'Expenses', description: 'Operating costs, categories and cash outflows.' },
   { id: 'reports', name: 'Reports', description: 'Reports based on recorded operational data.' },
+  { id: 'analytics', name: 'Analytics', description: 'Trends, customer insights and performance forecasts.' },
 ] as const
 
-export const REQUIRED_MODULES = ['sales', 'expenses', 'reports'] as const
+export const REQUIRED_MODULES = ['sales', 'expenses', 'reports', 'analytics'] as const
 export type WorkingModuleId = (typeof WORKING_MODULES)[number]['id']
 
 export const BUSINESS_FAMILY_IDS = [
@@ -175,7 +176,7 @@ export const DEFAULT_ONBOARDING_DATA: OnboardingDraft = {
   multipleLocations: false, keepsCustomers: false, usesSuppliers: false, acceptsCash: true,
   acceptsMpesa: true, acceptsCard: false, needsTax: false, issuesReceipts: true,
   branchName: 'Main location', branchPhone: '', branchAddress: '', branchRegion: '', branchCity: '',
-  branchTimezone: 'Africa/Nairobi', receiptHeader: '', enabledModules: ['sales', 'expenses', 'reports'],
+  branchTimezone: 'Africa/Nairobi', receiptHeader: '', enabledModules: ['sales', 'expenses', 'reports', 'analytics'],
   paymentMethods: ['cash', 'mpesa'], defaultPaymentMethod: 'cash', taxEnabled: false,
   pricesIncludeTax: false, taxName: 'VAT', taxRate: '16', taxIdentifier: '',
   receiptBusinessName: '', receiptPhone: '', receiptAddress: '', receiptFooter: 'Thank you for your business.',
@@ -200,7 +201,7 @@ export function categoryLabel(family: string, category: string, custom = '') {
 }
 
 export function recommendedModules(data: Pick<OnboardingDraft, 'sellsProducts' | 'tracksInventory' | 'keepsCustomers'>): string[] {
-  const modules = new Set<string>(['sales', 'expenses', 'reports'])
+  const modules = new Set<string>(['sales', 'expenses', 'reports', 'analytics'])
   if (data.sellsProducts) {
     modules.add('pos')
     modules.add('products')

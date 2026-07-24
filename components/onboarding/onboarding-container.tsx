@@ -144,7 +144,8 @@ export function OnboardingContainer({ initialStep, initialData, initialRevision 
       }
       setData(submittedData)
       setRevision(result.revision)
-      setMaxUnlockedStep(Math.min(stepIndex + 1, ONBOARDING_STEPS.length - 1))
+      const serverStepIndex = ONBOARDING_STEPS.indexOf(result.currentStep as OnboardingStepId)
+      setMaxUnlockedStep(serverStepIndex >= 0 ? serverStepIndex : Math.min(stepIndex + 1, ONBOARDING_STEPS.length - 1))
       return result.revision as number
     } catch {
       setPageError('Your progress could not be saved. Check your connection and try again.')

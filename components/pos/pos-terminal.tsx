@@ -57,6 +57,12 @@ interface ReceiptData {
   paymentMethod: string
   mpesaRef?: string
   change: number
+  idempotencyKey: string
+  completedAt: Date
+}
+
+function createIdempotencyKey() {
+  return crypto.randomUUID()
 }
 
 export function POSTerminal({ products, customers, settings }: POSTerminalProps) {
@@ -86,6 +92,23 @@ export function POSTerminal({ products, customers, settings }: POSTerminalProps)
   const barcodeBufferRef = useRef<string>('')
   const barcodeTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const checkoutIdempotencyKeyRef = useRef<string>('')
+
+  const addToCart = useCallback((product: Product) => {
+    setCart((previousCart) => {
+      const existing = previousCart.find((item) => item.productId === product.id)
+      const price = parseFloat(product.sellingPrice)
+      if (existing) {
+        if (existing.quantity >= product.stock) {
+          toast.error(`Only ${product.stock} ${product.unit} in stock`)
+          return previousCart
+        }
+        return previousCart.map((item) => item.productId === product.id
+          ? { ...item, quantity: item.quantity + 1, totalPrice: (item.quantity + 1) * price }
+          : item)
+      }
+      return [...previousCart, { productId: product.id, productName: product.name, quantity: 1, unitPrice: price, totalPrice: price }]
+    })
+  }, [])
   
   // Get unique categories
   const categories = Array.from(new Set(products.filter(p => p.categoryId).map(p => p.categoryId))).filter(Boolean) as string[]
@@ -126,7 +149,7 @@ export function POSTerminal({ products, customers, settings }: POSTerminalProps)
     
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [products, receipt])
+  }, [products, receipt, addToCart])
 
   const filteredProducts = products.filter(
     (p) =>
@@ -138,34 +161,6 @@ export function POSTerminal({ products, customers, settings }: POSTerminalProps)
         (p.sku ?? '').toLowerCase().includes(search.toLowerCase()) ||
         (p.barcode ?? '').toLowerCase().includes(search.toLowerCase()))
   )
-
-  const addToCart = useCallback((product: Product) => {
-    setCart((prev) => {
-      const existing = prev.find((i) => i.productId === product.id)
-      const price = parseFloat(product.sellingPrice)
-      if (existing) {
-        if (existing.quantity >= product.stock) {
-          toast.error(`Only ${product.stock} ${product.unit} in stock`)
-          return prev
-        }
-        return prev.map((i) =>
-          i.productId === product.id
-            ? { ...i, quantity: i.quantity + 1, totalPrice: (i.quantity + 1) * price }
-            : i
-        )
-      }
-      return [
-        ...prev,
-        {
-          productId: product.id,
-          productName: product.name,
-          quantity: 1,
-          unitPrice: price,
-          totalPrice: price,
-        },
-      ]
-    })
-  }, [])
 
   const updateQty = (productId: string, delta: number) => {
     setCart((prev) =>
@@ -225,7 +220,7 @@ export function POSTerminal({ products, customers, settings }: POSTerminalProps)
     
     // Generate idempotency key on first attempt
     if (!checkoutIdempotencyKeyRef.current) {
-      checkoutIdempotencyKeyRef.current = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+      checkoutIdempotencyKeyRef.current = createIdempotencyKey()
     }
     
     try {
@@ -250,6 +245,8 @@ export function POSTerminal({ products, customers, settings }: POSTerminalProps)
         paymentMethod,
         mpesaRef: mpesaRef || undefined,
         change: paymentMethod === 'cash' ? (parseFloat(amountPaid || '0') - (returnedTotal || total)) : 0,
+        idempotencyKey: checkoutIdempotencyKeyRef.current,
+        completedAt: new Date(),
       })
       
       // Show success toast with inventory update notification
@@ -330,14 +327,14 @@ export function POSTerminal({ products, customers, settings }: POSTerminalProps)
       amountReceived: receipt.paymentMethod === 'cash' ? String(parseFloat(amountPaid || '0')) : null,
       change: receipt.change.toString(),
       mpesaRef: receipt.mpesaRef || null,
-      idempotencyKey: checkoutIdempotencyKeyRef.current,
+      idempotencyKey: receipt.idempotencyKey,
       status: 'completed',
       userId: '',
       orgId: '',
-      createdAt: new Date(),
-      updatedAt: new Date(),
+      createdAt: receipt.completedAt,
+      updatedAt: receipt.completedAt,
       items: receipt.items.map(item => ({
-        id: `${item.productId}-${Math.random()}`,
+        id: `${receipt.receiptNo}-${item.productId}`,
         saleId: 'temp-id',
         productId: item.productId,
         productName: item.productName,
@@ -346,8 +343,8 @@ export function POSTerminal({ products, customers, settings }: POSTerminalProps)
         totalPrice: item.totalPrice.toString(),
         userId: '',
         orgId: '',
-        createdAt: new Date(),
-        updatedAt: new Date(),
+        createdAt: receipt.completedAt,
+        updatedAt: receipt.completedAt,
       })),
     }
 

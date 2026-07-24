@@ -24,6 +24,7 @@ const MODULE_NAV: Record<string, SidebarNavItem> = {
   purchases: { id: 'purchases', label: 'Purchases', icon: 'Truck', route: '/dashboard/purchases' },
   operations: { id: 'operations', label: 'Operations', icon: 'ClipboardCheck', route: '/dashboard/operations' },
   reports: { id: 'reports', label: 'Reports', icon: 'ChartNoAxesCombined', route: '/dashboard/reports' },
+  analytics: { id: 'analytics', label: 'Analytics', icon: 'BarChart3', route: '/dashboard/analytics' },
 }
 
 function navigationFor(enabledModules: string[], businessFamily: string, businessCategory: string) {
@@ -51,8 +52,8 @@ function runtimeConfig(input: {
   businessCategory: string
   stored?: StoredWorkspaceConfig
 }): WorkspaceConfig {
-  const storedModules = input.stored?.enabledModules ?? ['sales', 'reports']
-  const enabledModules = Array.from(new Set([...storedModules, 'expenses', 'operations', ...(storedModules.includes('inventory') ? ['purchases'] : [])]))
+  const storedModules = input.stored?.enabledModules ?? ['sales', 'expenses', 'reports', 'analytics']
+  const enabledModules = Array.from(new Set([...storedModules, 'expenses', 'reports', 'analytics', 'operations', ...(storedModules.includes('inventory') ? ['purchases'] : [])]))
   const storedTemplateId = input.stored?.templateId
   const templateId = storedTemplateId && storedTemplateId !== 'adaptive.generic'
     ? storedTemplateId
@@ -122,7 +123,7 @@ export class WorkspaceService {
       name: 'Pesaby workspace',
       businessType: businessType || 'other',
       businessCategory: businessCategory || 'custom',
-      stored: { enabledModules: selectedModules ?? ['sales', 'expenses', 'reports'] },
+      stored: { enabledModules: selectedModules ?? ['sales', 'expenses', 'reports', 'analytics'] },
     })
   }
 

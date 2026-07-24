@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Plus, Loader2, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -19,11 +19,19 @@ export function CreateInvoiceDialog() {
   const [isLoading, setIsLoading] = useState(false)
   const [items, setItems] = useState([{ description: '', quantity: 1, unitPrice: 0 }])
   const [formData, setFormData] = useState({
-    invoiceNo: `INV-${Date.now()}`,
+    invoiceNo: '',
     customerId: '',
     notes: '',
     dueDate: '',
   })
+
+  const nextInvoiceNumber = () => `INV-${Date.now()}`
+
+  useEffect(() => {
+    if (open && !formData.invoiceNo) {
+      setFormData((current) => ({ ...current, invoiceNo: nextInvoiceNumber() }))
+    }
+  }, [open, formData.invoiceNo])
 
   const handleAddItem = () => {
     setItems([...items, { description: '', quantity: 1, unitPrice: 0 }])
@@ -51,7 +59,7 @@ export function CreateInvoiceDialog() {
       })
       toast.success('Invoice created successfully')
       setFormData({
-        invoiceNo: `INV-${Date.now()}`,
+        invoiceNo: '',
         customerId: '',
         notes: '',
         dueDate: '',

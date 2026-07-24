@@ -51,7 +51,7 @@ const steps = [
   ['business-details', { businessName: 'Test Traders', displayName: '', country: 'KE', region: 'Nairobi', city: 'Nairobi', phone: '+254700000000', businessEmail: '', website: '', language: 'en', timezone: 'Africa/Nairobi', currency: 'KES', financialYearStart: '01-01' }],
   ['business-type', { businessFamily: 'retail', businessCategory: 'general_shop', customBusinessCategory: '' }],
   ['operations', { sellsProducts: true, providesServices: false, tracksInventory: true, hasEmployees: false, multipleLocations: false, keepsCustomers: true, usesSuppliers: true, acceptsCash: true, acceptsMpesa: true, acceptsCard: false, needsTax: false, issuesReceipts: true }],
-  ['modules', { enabledModules: ['pos', 'sales', 'products', 'inventory', 'customers', 'reports'] }],
+  ['modules', { enabledModules: ['pos', 'sales', 'products', 'inventory', 'customers', 'reports', 'analytics'] }],
   ['main-branch', { branchName: 'Main Branch', branchPhone: '+254700000000', branchAddress: 'Test Street', branchRegion: 'Nairobi', branchCity: 'Nairobi', branchTimezone: 'Africa/Nairobi', receiptHeader: '' }],
   ['payments-tax', { paymentMethods: ['cash', 'mpesa'], defaultPaymentMethod: 'cash', taxEnabled: false, pricesIncludeTax: false, taxName: 'VAT', taxRate: '16', taxIdentifier: '' }],
   ['receipt', { receiptBusinessName: 'Test Traders', receiptPhone: '+254700000000', receiptAddress: 'Test Street', receiptFooter: 'Thank you.', showTaxOnReceipt: false, receiptNumbering: 'automatic' }],
