@@ -2,9 +2,22 @@
 
 import { db } from '@/lib/db'
 import { sale, expense, purchase, generalLedger, financialStatement } from '@/lib/db/schema'
-import { eq, gte, lte, and } from 'drizzle-orm'
-import { getUserId, getOrgId } from '@/lib/auth'
-import { sql } from 'drizzle-orm'
+import { eq, gte, lte, and, sql } from 'drizzle-orm'
+import { auth } from '@/lib/auth'
+import { headers } from 'next/headers'
+import { OrganizationService } from '@/lib/services/organization-service'
+
+async function getUserId() {
+  const session = await auth.api.getSession({ headers: await headers() })
+  if (!session?.user) throw new Error('Unauthorized')
+  return session.user.id
+}
+
+async function getOrgId(userId: string) {
+  const org = await OrganizationService.getPrimaryOrganization(userId)
+  if (!org) throw new Error('Organization not found')
+  return org.id
+}
 
 export async function getFinancialStatements() {
   const userId = await getUserId()
@@ -91,13 +104,16 @@ export async function getGeneralLedger(accountId?: string) {
   const orgId = await getOrgId(userId)
 
   try {
-    let query = db.select().from(generalLedger).where(eq(generalLedger.orgId, orgId))
+    const entries = await db
+      .select()
+      .from(generalLedger)
+      .where(
+        accountId
+          ? and(eq(generalLedger.orgId, orgId), eq(generalLedger.accountId, accountId))
+          : eq(generalLedger.orgId, orgId)
+      )
+      .orderBy(generalLedger.date)
 
-    if (accountId) {
-      query = query.where(eq(generalLedger.accountId, accountId))
-    }
-
-    const entries = await query.orderBy(generalLedger.date)
     return entries
   } catch (error) {
     console.error('[v0] Error fetching general ledger:', error)

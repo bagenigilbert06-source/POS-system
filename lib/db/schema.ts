@@ -494,7 +494,7 @@ export const employeeCommission = pgTable('employee_commission', {
 }, (table) => ({ organizationIndex: index('employee_commission_org_idx').on(table.orgId) }))
 
 // --- Financial Management ---
-export const account = pgTable('gl_account', {
+export const glAccount = pgTable('gl_account', {
   id: text('id').primaryKey(),
   code: text('code').notNull(),
   name: text('name').notNull(),
@@ -506,7 +506,7 @@ export const account = pgTable('gl_account', {
 
 export const generalLedger = pgTable('general_ledger', {
   id: text('id').primaryKey(),
-  accountId: text('accountId').notNull().references(() => account.id, { onDelete: 'restrict' }),
+  accountId: text('accountId').notNull().references(() => glAccount.id, { onDelete: 'restrict' }),
   debit: numeric('debit', { precision: 12, scale: 2 }).notNull().default('0'),
   credit: numeric('credit', { precision: 12, scale: 2 }).notNull().default('0'),
   description: text('description'),
@@ -687,7 +687,7 @@ export type Employee = typeof employee.$inferSelect
 export type Shift = typeof shift.$inferSelect
 export type ShiftAssignment = typeof shiftAssignment.$inferSelect
 export type EmployeeCommission = typeof employeeCommission.$inferSelect
-export type GLAccount = typeof account.$inferSelect
+export type GLAccount = typeof glAccount.$inferSelect
 export type GeneralLedger = typeof generalLedger.$inferSelect
 export type FinancialStatement = typeof financialStatement.$inferSelect
 export type Invoice = typeof invoice.$inferSelect

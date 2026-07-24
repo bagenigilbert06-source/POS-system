@@ -16,9 +16,9 @@ async function getUserId() {
 }
 
 async function getOrgId(userId: string) {
-  const workspace = await WorkspaceService.getCurrentWorkspace(userId, 'pos')
-  if (!workspace) throw new Error('Workspace not found')
-  return workspace.organizationId
+  const org = await OrganizationService.getPrimaryOrganization(userId)
+  if (!org) throw new Error('Organization not found')
+  return org.id
 }
 
 export async function createCreditSale(data: {
@@ -28,14 +28,14 @@ export async function createCreditSale(data: {
   dueDate?: Date
 }) {
   const userId = await getUserId()
-  const orgId = await getOrgId(userId, 'pos')
+  const orgId = await getOrgId(userId)
 
   // Check customer credit limit
   const [creditLimit] = await db.select().from(customerCreditLimit)
     .where(and(eq(customerCreditLimit.customerId, data.customerId), eq(customerCreditLimit.orgId, orgId)))
     .limit(1)
 
-  if (creditLimit && creditLimit.currentBalance + data.amount > parseFloat(creditLimit.creditLimit)) {
+  if (creditLimit && parseFloat(creditLimit.currentBalance.toString()) + data.amount > parseFloat(creditLimit.creditLimit.toString())) {
     throw new Error('Credit limit exceeded for this customer')
   }
 
@@ -89,7 +89,7 @@ export async function recordCreditPayment(data: {
   reference?: string
 }) {
   const userId = await getUserId()
-  const orgId = await getOrgId(userId, 'pos')
+  const orgId = await getOrgId(userId)
 
   const [creditSaleRecord] = await db.select().from(creditSale)
     .where(and(eq(creditSale.id, data.creditSaleId), eq(creditSale.orgId, orgId)))
@@ -164,7 +164,7 @@ export async function setCustomerCreditLimit(data: {
   creditLimit: number
 }) {
   const userId = await getUserId()
-  const orgId = await getOrgId(userId, 'pos')
+  const orgId = await getOrgId(userId)
 
   const [existing] = await db.select().from(customerCreditLimit)
     .where(and(eq(customerCreditLimit.customerId, data.customerId), eq(customerCreditLimit.orgId, orgId)))

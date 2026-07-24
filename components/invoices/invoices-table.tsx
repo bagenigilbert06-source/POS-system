@@ -19,7 +19,7 @@ export function InvoicesTable({ invoices, orgId }: InvoicesTableProps) {
   const [showViewDialog, setShowViewDialog] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
 
-  const handleDelete = async (invoiceId: string) {
+  const handleDelete = async (invoiceId: string) => {
     if (!confirm('Are you sure you want to delete this invoice?')) return
 
     setIsDeleting(true)

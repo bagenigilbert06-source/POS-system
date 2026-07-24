@@ -3,7 +3,21 @@
 import { db } from '@/lib/db'
 import { sale, customer, product, saleItem, employee, task, performanceGoal } from '@/lib/db/schema'
 import { eq, gte, lte, desc, sql, and } from 'drizzle-orm'
-import { getUserId, getOrgId } from '@/lib/auth'
+import { auth } from '@/lib/auth'
+import { headers } from 'next/headers'
+import { OrganizationService } from '@/lib/services/organization-service'
+
+async function getUserId() {
+  const session = await auth.api.getSession({ headers: await headers() })
+  if (!session?.user) throw new Error('Unauthorized')
+  return session.user.id
+}
+
+async function getOrgId(userId: string) {
+  const org = await OrganizationService.getPrimaryOrganization(userId)
+  if (!org) throw new Error('Organization not found')
+  return org.id
+}
 
 // Get sales trend data for charts
 export async function getSalesTrendData(days: number = 30) {
