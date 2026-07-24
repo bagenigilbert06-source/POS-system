@@ -448,6 +448,213 @@ export const cashierShift = pgTable('cashier_shift', {
   orgId: text('orgId').notNull(),
 }, (table) => ({ organizationIndex: index('cashier_shift_org_idx').on(table.orgId), cashierIndex: index('cashier_shift_cashier_idx').on(table.cashierId) }))
 
+// --- Staff & Employee Management ---
+export const employee = pgTable('employee', {
+  id: text('id').primaryKey(),
+  userId: text('userId').references(() => user.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  email: text('email'),
+  phone: text('phone'),
+  role: text('role').notNull().default('staff'), // manager, cashier, stock, supervisor
+  department: text('department'),
+  salary: numeric('salary', { precision: 12, scale: 2 }).notNull().default('0'),
+  joinDate: timestamp('joinDate').notNull().defaultNow(),
+  status: text('status').notNull().default('active'), // active, inactive, terminated
+  orgId: text('orgId').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  createdAt: timestamp('createdAt').notNull().defaultNow(),
+  updatedAt: timestamp('updatedAt').notNull().defaultNow(),
+}, (table) => ({ organizationIndex: index('employee_org_idx').on(table.orgId) }))
+
+export const shift = pgTable('shift', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull(),
+  startTime: text('startTime').notNull(), // HH:mm format
+  endTime: text('endTime').notNull(),
+  orgId: text('orgId').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  createdAt: timestamp('createdAt').notNull().defaultNow(),
+}, (table) => ({ organizationIndex: index('shift_org_idx').on(table.orgId) }))
+
+export const shiftAssignment = pgTable('shift_assignment', {
+  id: text('id').primaryKey(),
+  employeeId: text('employeeId').notNull().references(() => employee.id, { onDelete: 'cascade' }),
+  shiftId: text('shiftId').notNull().references(() => shift.id, { onDelete: 'cascade' }),
+  date: timestamp('date').notNull(),
+  orgId: text('orgId').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  createdAt: timestamp('createdAt').notNull().defaultNow(),
+}, (table) => ({ organizationIndex: index('shift_assignment_org_idx').on(table.orgId), employeeIndex: index('shift_assignment_employee_idx').on(table.employeeId) }))
+
+export const employeeCommission = pgTable('employee_commission', {
+  id: text('id').primaryKey(),
+  employeeId: text('employeeId').notNull().references(() => employee.id, { onDelete: 'cascade' }),
+  amount: numeric('amount', { precision: 12, scale: 2 }).notNull(),
+  period: text('period').notNull(), // YYYY-MM format
+  status: text('status').notNull().default('pending'), // pending, approved, paid
+  orgId: text('orgId').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  createdAt: timestamp('createdAt').notNull().defaultNow(),
+}, (table) => ({ organizationIndex: index('employee_commission_org_idx').on(table.orgId) }))
+
+// --- Financial Management ---
+export const account = pgTable('gl_account', {
+  id: text('id').primaryKey(),
+  code: text('code').notNull(),
+  name: text('name').notNull(),
+  type: text('type').notNull(), // asset, liability, equity, revenue, expense
+  category: text('category').notNull(),
+  orgId: text('orgId').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  createdAt: timestamp('createdAt').notNull().defaultNow(),
+}, (table) => ({ organizationIndex: index('gl_account_org_idx').on(table.orgId), codeUnique: uniqueIndex('gl_account_org_code_unique').on(table.orgId, table.code) }))
+
+export const generalLedger = pgTable('general_ledger', {
+  id: text('id').primaryKey(),
+  accountId: text('accountId').notNull().references(() => account.id, { onDelete: 'restrict' }),
+  debit: numeric('debit', { precision: 12, scale: 2 }).notNull().default('0'),
+  credit: numeric('credit', { precision: 12, scale: 2 }).notNull().default('0'),
+  description: text('description'),
+  referenceType: text('referenceType'), // sale, purchase, expense, adjustment
+  referenceId: text('referenceId'),
+  date: timestamp('date').notNull().defaultNow(),
+  orgId: text('orgId').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  createdAt: timestamp('createdAt').notNull().defaultNow(),
+}, (table) => ({ organizationIndex: index('general_ledger_org_idx').on(table.orgId), dateIndex: index('general_ledger_date_idx').on(table.date) }))
+
+export const financialStatement = pgTable('financial_statement', {
+  id: text('id').primaryKey(),
+  type: text('type').notNull(), // income_statement, balance_sheet, cash_flow
+  period: text('period').notNull(), // YYYY-MM-01 to YYYY-MM-31
+  data: json('data').notNull(), // Statement data
+  orgId: text('orgId').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  createdAt: timestamp('createdAt').notNull().defaultNow(),
+}, (table) => ({ organizationIndex: index('financial_statement_org_idx').on(table.orgId) }))
+
+// --- Documents: Invoices, Quotes, Purchase Orders ---
+export const invoice = pgTable('invoice', {
+  id: text('id').primaryKey(),
+  invoiceNo: text('invoiceNo').notNull(),
+  customerId: text('customerId').references(() => customer.id, { onDelete: 'set null' }),
+  subtotal: numeric('subtotal', { precision: 12, scale: 2 }).notNull().default('0'),
+  taxAmount: numeric('taxAmount', { precision: 12, scale: 2 }).notNull().default('0'),
+  total: numeric('total', { precision: 12, scale: 2 }).notNull(),
+  dueDate: timestamp('dueDate'),
+  status: text('status').notNull().default('draft'), // draft, sent, paid, overdue, cancelled
+  notes: text('notes'),
+  orgId: text('orgId').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  userId: text('userId').notNull(),
+  createdAt: timestamp('createdAt').notNull().defaultNow(),
+  updatedAt: timestamp('updatedAt').notNull().defaultNow(),
+}, (table) => ({ organizationIndex: index('invoice_org_idx').on(table.orgId) }))
+
+export const invoiceItem = pgTable('invoice_item', {
+  id: text('id').primaryKey(),
+  invoiceId: text('invoiceId').notNull().references(() => invoice.id, { onDelete: 'cascade' }),
+  description: text('description').notNull(),
+  quantity: integer('quantity').notNull(),
+  unitPrice: numeric('unitPrice', { precision: 12, scale: 2 }).notNull(),
+  total: numeric('total', { precision: 12, scale: 2 }).notNull(),
+  orgId: text('orgId').notNull(),
+})
+
+export const quotation = pgTable('quotation', {
+  id: text('id').primaryKey(),
+  quoteNo: text('quoteNo').notNull(),
+  customerId: text('customerId').references(() => customer.id, { onDelete: 'set null' }),
+  subtotal: numeric('subtotal', { precision: 12, scale: 2 }).notNull().default('0'),
+  taxAmount: numeric('taxAmount', { precision: 12, scale: 2 }).notNull().default('0'),
+  total: numeric('total', { precision: 12, scale: 2 }).notNull(),
+  validUntil: timestamp('validUntil'),
+  status: text('status').notNull().default('draft'), // draft, sent, accepted, rejected, expired
+  notes: text('notes'),
+  orgId: text('orgId').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  userId: text('userId').notNull(),
+  createdAt: timestamp('createdAt').notNull().defaultNow(),
+  updatedAt: timestamp('updatedAt').notNull().defaultNow(),
+}, (table) => ({ organizationIndex: index('quotation_org_idx').on(table.orgId) }))
+
+export const quotationItem = pgTable('quotation_item', {
+  id: text('id').primaryKey(),
+  quotationId: text('quotationId').notNull().references(() => quotation.id, { onDelete: 'cascade' }),
+  description: text('description').notNull(),
+  quantity: integer('quantity').notNull(),
+  unitPrice: numeric('unitPrice', { precision: 12, scale: 2 }).notNull(),
+  total: numeric('total', { precision: 12, scale: 2 }).notNull(),
+  orgId: text('orgId').notNull(),
+})
+
+export const purchaseOrder = pgTable('purchase_order', {
+  id: text('id').primaryKey(),
+  poNo: text('poNo').notNull(),
+  supplierId: text('supplierId').notNull().references(() => supplier.id, { onDelete: 'restrict' }),
+  subtotal: numeric('subtotal', { precision: 12, scale: 2 }).notNull().default('0'),
+  taxAmount: numeric('taxAmount', { precision: 12, scale: 2 }).notNull().default('0'),
+  total: numeric('total', { precision: 12, scale: 2 }).notNull(),
+  status: text('status').notNull().default('draft'), // draft, sent, confirmed, received, cancelled
+  expectedDelivery: timestamp('expectedDelivery'),
+  notes: text('notes'),
+  orgId: text('orgId').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  userId: text('userId').notNull(),
+  createdAt: timestamp('createdAt').notNull().defaultNow(),
+  updatedAt: timestamp('updatedAt').notNull().defaultNow(),
+}, (table) => ({ organizationIndex: index('purchase_order_org_idx').on(table.orgId) }))
+
+export const purchaseOrderItem = pgTable('purchase_order_item', {
+  id: text('id').primaryKey(),
+  poId: text('poId').notNull().references(() => purchaseOrder.id, { onDelete: 'cascade' }),
+  productId: text('productId'),
+  description: text('description').notNull(),
+  quantity: integer('quantity').notNull(),
+  unitPrice: numeric('unitPrice', { precision: 12, scale: 2 }).notNull(),
+  total: numeric('total', { precision: 12, scale: 2 }).notNull(),
+  orgId: text('orgId').notNull(),
+})
+
+// --- Inventory & Process Management ---
+export const inventoryTransfer = pgTable('inventory_transfer', {
+  id: text('id').primaryKey(),
+  transferNo: text('transferNo').notNull(),
+  fromLocation: text('fromLocation').notNull(), // branch ID or location
+  toLocation: text('toLocation').notNull(),
+  status: text('status').notNull().default('pending'), // pending, in_transit, received
+  userId: text('userId').notNull(),
+  approvedBy: text('approvedBy'),
+  orgId: text('orgId').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  createdAt: timestamp('createdAt').notNull().defaultNow(),
+  approvedAt: timestamp('approvedAt'),
+}, (table) => ({ organizationIndex: index('inventory_transfer_org_idx').on(table.orgId) }))
+
+export const inventoryTransferItem = pgTable('inventory_transfer_item', {
+  id: text('id').primaryKey(),
+  transferId: text('transferId').notNull().references(() => inventoryTransfer.id, { onDelete: 'cascade' }),
+  productId: text('productId').notNull(),
+  productName: text('productName').notNull(),
+  quantity: integer('quantity').notNull(),
+  orgId: text('orgId').notNull(),
+})
+
+export const task = pgTable('task', {
+  id: text('id').primaryKey(),
+  title: text('title').notNull(),
+  description: text('description'),
+  status: text('status').notNull().default('pending'), // pending, in_progress, completed, cancelled
+  priority: text('priority').notNull().default('medium'), // low, medium, high, urgent
+  assigneeId: text('assigneeId').references(() => employee.id, { onDelete: 'set null' }),
+  dueDate: timestamp('dueDate'),
+  completedAt: timestamp('completedAt'),
+  orgId: text('orgId').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  createdBy: text('createdBy').notNull(),
+  createdAt: timestamp('createdAt').notNull().defaultNow(),
+}, (table) => ({ organizationIndex: index('task_org_idx').on(table.orgId) }))
+
+export const performanceGoal = pgTable('performance_goal', {
+  id: text('id').primaryKey(),
+  employeeId: text('employeeId').notNull().references(() => employee.id, { onDelete: 'cascade' }),
+  title: text('title').notNull(),
+  target: numeric('target', { precision: 12, scale: 2 }).notNull(),
+  achieved: numeric('achieved', { precision: 12, scale: 2 }).notNull().default('0'),
+  period: text('period').notNull(), // YYYY-Q1, YYYY-Q2, YYYY-MM
+  status: text('status').notNull().default('in_progress'), // in_progress, completed, missed
+  orgId: text('orgId').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  createdAt: timestamp('createdAt').notNull().defaultNow(),
+}, (table) => ({ organizationIndex: index('performance_goal_org_idx').on(table.orgId) }))
+
 // --- Type exports ----------------------------------------------------------
 export type User = typeof user.$inferSelect
 export type Organization = typeof organization.$inferSelect
@@ -476,3 +683,20 @@ export type CustomerCreditLimit = typeof customerCreditLimit.$inferSelect
 export type CashierShift = typeof cashierShift.$inferSelect
 export type InventoryLoss = typeof inventoryLoss.$inferSelect
 export type PosSession = typeof posSession.$inferSelect
+export type Employee = typeof employee.$inferSelect
+export type Shift = typeof shift.$inferSelect
+export type ShiftAssignment = typeof shiftAssignment.$inferSelect
+export type EmployeeCommission = typeof employeeCommission.$inferSelect
+export type GLAccount = typeof account.$inferSelect
+export type GeneralLedger = typeof generalLedger.$inferSelect
+export type FinancialStatement = typeof financialStatement.$inferSelect
+export type Invoice = typeof invoice.$inferSelect
+export type InvoiceItem = typeof invoiceItem.$inferSelect
+export type Quotation = typeof quotation.$inferSelect
+export type QuotationItem = typeof quotationItem.$inferSelect
+export type PurchaseOrder = typeof purchaseOrder.$inferSelect
+export type PurchaseOrderItem = typeof purchaseOrderItem.$inferSelect
+export type InventoryTransfer = typeof inventoryTransfer.$inferSelect
+export type InventoryTransferItem = typeof inventoryTransferItem.$inferSelect
+export type Task = typeof task.$inferSelect
+export type PerformanceGoal = typeof performanceGoal.$inferSelect

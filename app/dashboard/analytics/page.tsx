@@ -4,7 +4,6 @@ import type { Metadata } from 'next'
 import { BarChart3, CalendarDays } from 'lucide-react'
 import { auth } from '@/lib/auth'
 import { OrganizationService } from '@/lib/services/organization-service'
-import { getAnalyticsData } from '@/lib/services/analytics-service'
 import { DashboardPageHeading } from '@/components/dashboard/page-heading'
 import { requireWorkspaceModule } from '@/lib/onboarding/require-module'
 import { TrendAnalysis } from '@/components/analytics/trend-analysis'
@@ -14,6 +13,15 @@ import { ProductPerformance } from '@/components/analytics/product-performance'
 import { StaffKPIs } from '@/components/analytics/staff-kpis'
 import { HourlyPatterns } from '@/components/analytics/hourly-patterns'
 import { Forecasting } from '@/components/analytics/forecasting'
+import {
+  getSalesTrendData,
+  getCustomerCohorts,
+  getRepeatCustomerMetrics,
+  getProductPerformance,
+  getStaffKPIs,
+  getHourlyPatterns,
+  getSalesForecast,
+} from '@/app/actions/analytics-actions'
 
 export const metadata: Metadata = { title: 'Analytics' }
 
@@ -26,16 +34,34 @@ export default async function AnalyticsPage() {
 
   const currency = organization.currency || 'KES'
   
-  // Fetch analytics data - this will use mock data if service is not fully implemented
-  const analytics = await getAnalyticsData(organization.id, organization.timezone || 'Africa/Nairobi').catch(() => ({
-    trendData: [],
-    cohortData: [],
-    repeatData: [],
-    productData: [],
-    staffData: [],
-    hourlyData: [],
-    forecastData: [],
-  }))
+  // Fetch all analytics data in parallel from real database queries
+  const [
+    trendData,
+    cohortData,
+    repeatData,
+    productData,
+    staffData,
+    hourlyData,
+    forecastData,
+  ] = await Promise.all([
+    getSalesTrendData(30).catch(() => []),
+    getCustomerCohorts().catch(() => []),
+    getRepeatCustomerMetrics().catch(() => []),
+    getProductPerformance().catch(() => []),
+    getStaffKPIs().catch(() => []),
+    getHourlyPatterns().catch(() => []),
+    getSalesForecast(30).catch(() => []),
+  ])
+
+  const analytics = {
+    trendData,
+    cohortData,
+    repeatData,
+    productData,
+    staffData,
+    hourlyData,
+    forecastData,
+  }
 
   return (
     <div className="mx-auto max-w-[1480px] space-y-5 pb-8">
