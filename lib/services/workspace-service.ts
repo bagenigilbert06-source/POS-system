@@ -24,6 +24,13 @@ const MODULE_NAV: Record<string, SidebarNavItem> = {
   purchases: { id: 'purchases', label: 'Purchases', icon: 'Truck', route: '/dashboard/purchases' },
   operations: { id: 'operations', label: 'Operations', icon: 'ClipboardCheck', route: '/dashboard/operations' },
   reports: { id: 'reports', label: 'Reports', icon: 'ChartNoAxesCombined', route: '/dashboard/reports' },
+  analytics: { id: 'analytics', label: 'Analytics', icon: 'BarChart3', route: '/dashboard/analytics' },
+  'sales-analytics': { id: 'sales-analytics', label: 'Sales Analytics', icon: 'TrendingUp', route: '/dashboard/sales-analytics' },
+  'expense-analytics': { id: 'expense-analytics', label: 'Expense Analytics', icon: 'CreditCard', route: '/dashboard/expense-analytics' },
+  'customer-analytics': { id: 'customer-analytics', label: 'Customer Analytics', icon: 'Users', route: '/dashboard/customer-analytics' },
+  'inventory-analytics': { id: 'inventory-analytics', label: 'Inventory Analytics', icon: 'Package', route: '/dashboard/inventory-analytics' },
+  'financial-insights': { id: 'financial-insights', label: 'Financial Insights', icon: 'TrendingUp', route: '/dashboard/financial-insights' },
+  'staff-performance': { id: 'staff-performance', label: 'Staff Performance', icon: 'Users', route: '/dashboard/staff-performance' },
 }
 
 function navigationFor(enabledModules: string[], businessFamily: string, businessCategory: string) {
