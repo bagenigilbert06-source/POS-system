@@ -58,6 +58,7 @@ export function POSTerminal({ products, customers, settings }: POSTerminalProps)
   const [selectedCategory, setSelectedCategory] = useState<string>('')
   const [cart, setCart] = useState<CartItem[]>([])
   const [discount, setDiscount] = useState(0)
+  const [discountType, setDiscountType] = useState<'fixed' | 'percentage'>('fixed')
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'mpesa' | 'card'>('cash')
   const [mpesaRef, setMpesaRef] = useState('')
   const [amountPaid, setAmountPaid] = useState('')
@@ -181,7 +182,15 @@ export function POSTerminal({ products, customers, settings }: POSTerminalProps)
   const subtotal = cart.reduce((sum, i) => sum + i.totalPrice, 0)
   const TAX_RATE = settings.taxEnabled ? settings.taxRate / 100 : 0
   const taxAmount = applyTax && settings.taxEnabled ? subtotal * TAX_RATE : 0
-  const discountAmount = Math.min(discount, subtotal + taxAmount)
+  
+  // Calculate discount based on type
+  let discountAmount = 0
+  if (discountType === 'percentage') {
+    discountAmount = Math.min((discount / 100) * (subtotal + taxAmount), subtotal + taxAmount)
+  } else {
+    discountAmount = Math.min(discount, subtotal + taxAmount)
+  }
+  
   const total = subtotal + taxAmount - discountAmount
   const change = paymentMethod === 'cash' ? Math.max(0, parseFloat(amountPaid || '0') - total) : 0
 
@@ -681,16 +690,27 @@ export function POSTerminal({ products, customers, settings }: POSTerminalProps)
                 </label>
               )}
               
-              {/* Discount input */}
-              <div>
+              {/* Discount input with type selector */}
+              <div className="flex gap-2">
+                <select
+                  value={discountType}
+                  onChange={(e) => {
+                    setDiscountType(e.target.value as 'fixed' | 'percentage')
+                    setDiscount(0)
+                  }}
+                  className={cn(inputCls, 'text-xs h-9 w-24')}
+                >
+                  <option value="fixed">Fixed (KES)</option>
+                  <option value="percentage">Percent (%)</option>
+                </select>
                 <input
                   type="number"
                   min="0"
-                  max={subtotal + taxAmount}
-                  placeholder="Discount"
+                  max={discountType === 'percentage' ? 100 : subtotal + taxAmount}
+                  placeholder={discountType === 'percentage' ? '0-100%' : 'Amount'}
                   value={discount || ''}
                   onChange={(e) => setDiscount(parseFloat(e.target.value) || 0)}
-                  className={cn(inputCls, 'text-xs h-9')}
+                  className={cn(inputCls, 'text-xs h-9 flex-1')}
                 />
               </div>
             </div>
@@ -708,9 +728,9 @@ export function POSTerminal({ products, customers, settings }: POSTerminalProps)
                 </div>
               )}
               {discountAmount > 0 && (
-                <div className="flex justify-between text-emerald-600">
-                  <span>Discount</span>
-                  <span className="tabular-nums font-medium">-{formatCurrency(discountAmount)}</span>
+                <div className="flex justify-between">
+                  <span>Discount {discountType === 'percentage' ? `(${discount.toFixed(1)}%)` : ''}</span>
+                  <span className="tabular-nums">-{formatCurrency(discountAmount)}</span>
                 </div>
               )}
               <div className="flex justify-between font-bold text-sm border-t border-border pt-1.5 mt-1">

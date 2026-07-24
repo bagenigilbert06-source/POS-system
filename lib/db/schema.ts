@@ -360,6 +360,94 @@ export const cashMovement = pgTable('cash_movement', {
   amount: numeric('amount', { precision: 12, scale: 2 }).notNull(), reason: text('reason').notNull(), userId: text('userId').notNull(), orgId: text('orgId').notNull(), createdAt: timestamp('createdAt').notNull().defaultNow(),
 })
 
+export const salePayment = pgTable('sale_payment', {
+  id: text('id').primaryKey(),
+  saleId: text('saleId').notNull().references(() => sale.id, { onDelete: 'cascade' }),
+  method: text('method').notNull(),
+  amount: numeric('amount', { precision: 12, scale: 2 }).notNull(),
+  reference: text('reference'),
+  status: text('status').notNull().default('completed'),
+  userId: text('userId').notNull(),
+  orgId: text('orgId').notNull(),
+  createdAt: timestamp('createdAt').notNull().defaultNow(),
+}, (table) => ({ organizationIndex: index('sale_payment_org_idx').on(table.orgId), saleIndex: index('sale_payment_sale_idx').on(table.saleId) }))
+
+export const creditSale = pgTable('credit_sale', {
+  id: text('id').primaryKey(),
+  saleId: text('saleId').notNull().references(() => sale.id, { onDelete: 'cascade' }),
+  customerId: text('customerId').notNull().references(() => customer.id, { onDelete: 'restrict' }),
+  amount: numeric('amount', { precision: 12, scale: 2 }).notNull(),
+  amountPaid: numeric('amountPaid', { precision: 12, scale: 2 }).notNull().default('0'),
+  dueDate: timestamp('dueDate'),
+  status: text('status').notNull().default('unpaid'),
+  userId: text('userId').notNull(),
+  orgId: text('orgId').notNull(),
+  createdAt: timestamp('createdAt').notNull().defaultNow(),
+  updatedAt: timestamp('updatedAt').notNull().defaultNow(),
+}, (table) => ({ organizationIndex: index('credit_sale_org_idx').on(table.orgId), customerIndex: index('credit_sale_customer_idx').on(table.customerId) }))
+
+export const creditPayment = pgTable('credit_payment', {
+  id: text('id').primaryKey(),
+  creditSaleId: text('creditSaleId').notNull().references(() => creditSale.id, { onDelete: 'cascade' }),
+  amount: numeric('amount', { precision: 12, scale: 2 }).notNull(),
+  method: text('method').notNull().default('cash'),
+  reference: text('reference'),
+  userId: text('userId').notNull(),
+  orgId: text('orgId').notNull(),
+  createdAt: timestamp('createdAt').notNull().defaultNow(),
+}, (table) => ({ organizationIndex: index('credit_payment_org_idx').on(table.orgId) }))
+
+export const stockAdjustment = pgTable('stock_adjustment', {
+  id: text('id').primaryKey(),
+  adjustmentNo: text('adjustmentNo').notNull(),
+  type: text('type').notNull(),
+  status: text('status').notNull().default('pending'),
+  notes: text('notes'),
+  approvedBy: text('approvedBy'),
+  userId: text('userId').notNull(),
+  orgId: text('orgId').notNull(),
+  createdAt: timestamp('createdAt').notNull().defaultNow(),
+  approvedAt: timestamp('approvedAt'),
+}, (table) => ({ organizationIndex: index('stock_adjustment_org_idx').on(table.orgId) }))
+
+export const stockAdjustmentItem = pgTable('stock_adjustment_item', {
+  id: text('id').primaryKey(),
+  adjustmentId: text('adjustmentId').notNull().references(() => stockAdjustment.id, { onDelete: 'cascade' }),
+  productId: text('productId').notNull(),
+  productName: text('productName').notNull(),
+  quantityBefore: integer('quantityBefore').notNull(),
+  quantityAfter: integer('quantityAfter').notNull(),
+  variance: integer('variance').notNull(),
+  orgId: text('orgId').notNull(),
+})
+
+export const customerCreditLimit = pgTable('customer_credit_limit', {
+  id: text('id').primaryKey(),
+  customerId: text('customerId').notNull().references(() => customer.id, { onDelete: 'cascade' }),
+  creditLimit: numeric('creditLimit', { precision: 12, scale: 2 }).notNull().default('0'),
+  currentBalance: numeric('currentBalance', { precision: 12, scale: 2 }).notNull().default('0'),
+  approvedBy: text('approvedBy').notNull(),
+  status: text('status').notNull().default('active'),
+  orgId: text('orgId').notNull(),
+  createdAt: timestamp('createdAt').notNull().defaultNow(),
+  updatedAt: timestamp('updatedAt').notNull().defaultNow(),
+}, (table) => ({ organizationIndex: index('customer_credit_limit_org_idx').on(table.orgId), customerIndex: index('customer_credit_limit_customer_idx').on(table.customerId) }))
+
+export const cashierShift = pgTable('cashier_shift', {
+  id: text('id').primaryKey(),
+  shiftNo: text('shiftNo').notNull(),
+  cashierId: text('cashierId').notNull().references(() => user.id, { onDelete: 'restrict' }),
+  sessionId: text('sessionId').notNull().references(() => posSession.id, { onDelete: 'cascade' }),
+  startTime: timestamp('startTime').notNull(),
+  endTime: timestamp('endTime'),
+  openingCash: numeric('openingCash', { precision: 12, scale: 2 }).notNull(),
+  closingCash: numeric('closingCash', { precision: 12, scale: 2 }),
+  expectedCash: numeric('expectedCash', { precision: 12, scale: 2 }),
+  variance: numeric('variance', { precision: 12, scale: 2 }),
+  status: text('status').notNull().default('open'),
+  orgId: text('orgId').notNull(),
+}, (table) => ({ organizationIndex: index('cashier_shift_org_idx').on(table.orgId), cashierIndex: index('cashier_shift_cashier_idx').on(table.cashierId) }))
+
 // --- Type exports ----------------------------------------------------------
 export type User = typeof user.$inferSelect
 export type Organization = typeof organization.$inferSelect
@@ -379,5 +467,12 @@ export type Purchase = typeof purchase.$inferSelect
 export type PurchaseItem = typeof purchaseItem.$inferSelect
 export type StockMovement = typeof stockMovement.$inferSelect
 export type SalesReturn = typeof salesReturn.$inferSelect
+export type SalePayment = typeof salePayment.$inferSelect
+export type CreditSale = typeof creditSale.$inferSelect
+export type CreditPayment = typeof creditPayment.$inferSelect
+export type StockAdjustment = typeof stockAdjustment.$inferSelect
+export type StockAdjustmentItem = typeof stockAdjustmentItem.$inferSelect
+export type CustomerCreditLimit = typeof customerCreditLimit.$inferSelect
+export type CashierShift = typeof cashierShift.$inferSelect
 export type InventoryLoss = typeof inventoryLoss.$inferSelect
 export type PosSession = typeof posSession.$inferSelect
