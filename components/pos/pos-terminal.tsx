@@ -19,9 +19,15 @@ import {
   X,
   Package,
   Printer,
+  History,
+  RotateCcw,
+  AlertTriangle,
 } from 'lucide-react'
-import type { Product, Customer } from '@/lib/db/schema'
+import type { Product, Customer, Sale, SaleItem } from '@/lib/db/schema'
 import { toast } from 'sonner'
+import { RefundDialog } from './refund-dialog'
+import { ReceiptReprint } from './receipt-reprint'
+import { SalesHistoryModal } from './sales-history-modal'
 
 interface POSTerminalProps {
   products: Product[]
@@ -72,6 +78,10 @@ export function POSTerminal({ products, customers, settings }: POSTerminalProps)
   const [newCustomerEmail, setNewCustomerEmail] = useState('')
   const [creatingCustomer, setCreatingCustomer] = useState(false)
   const [availableCustomers, setAvailableCustomers] = useState(customers || [])
+  const [showRefundDialog, setShowRefundDialog] = useState(false)
+  const [showReceiptReprint, setShowReceiptReprint] = useState(false)
+  const [showSalesHistory, setShowSalesHistory] = useState(false)
+  const [refundSale, setRefundSale] = useState<(Sale & { items: SaleItem[] }) | null>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
   const barcodeBufferRef = useRef<string>('')
   const barcodeTimeoutRef = useRef<NodeJS.Timeout | null>(null)
@@ -201,6 +211,16 @@ export function POSTerminal({ products, customers, settings }: POSTerminalProps)
       return toast.error('Amount paid is less than total')
     }
 
+    // Check for low stock items
+    const lowStockItems = cart.filter(item => {
+      const product = products.find(p => p.id === item.productId)
+      return product && (product.stock - item.quantity) < product.minStock
+    })
+
+    if (lowStockItems.length > 0) {
+      toast.warning(`${lowStockItems.length} item(s) will go below minimum stock level after this sale`)
+    }
+
     setProcessing(true)
     
     // Generate idempotency key on first attempt
@@ -230,6 +250,11 @@ export function POSTerminal({ products, customers, settings }: POSTerminalProps)
         paymentMethod,
         mpesaRef: mpesaRef || undefined,
         change: paymentMethod === 'cash' ? (parseFloat(amountPaid || '0') - (returnedTotal || total)) : 0,
+      })
+      
+      // Show success toast with inventory update notification
+      toast.success('Sale completed & inventory updated', {
+        description: `${cart.length} product(s) - Receipt #${receiptNo}`,
       })
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to process sale')
@@ -295,6 +320,51 @@ export function POSTerminal({ products, customers, settings }: POSTerminalProps)
   }
 
   const inputCls = 'w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-colors'
+
+  // Show refund dialog if refund sale is set
+  if (showRefundDialog && receipt) {
+    const saleWithItems: Sale & { items: SaleItem[] } = {
+      ...receipt,
+      id: 'temp-id',
+      customerId: selectedCustomer || null,
+      amountReceived: receipt.paymentMethod === 'cash' ? String(parseFloat(amountPaid || '0')) : null,
+      change: receipt.change.toString(),
+      mpesaRef: receipt.mpesaRef || null,
+      idempotencyKey: checkoutIdempotencyKeyRef.current,
+      status: 'completed',
+      userId: '',
+      orgId: '',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      items: receipt.items.map(item => ({
+        id: `${item.productId}-${Math.random()}`,
+        saleId: 'temp-id',
+        productId: item.productId,
+        productName: item.productName,
+        quantity: item.quantity,
+        unitPrice: item.unitPrice.toString(),
+        totalPrice: item.totalPrice.toString(),
+        userId: '',
+        orgId: '',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      })),
+    }
+
+    return (
+      <>
+        <RefundDialog
+          sale={saleWithItems}
+          onClose={() => setShowRefundDialog(false)}
+          onSuccess={() => {
+            setShowRefundDialog(false)
+            handleNewSale()
+            toast.success('Refund processed successfully')
+          }}
+        />
+      </>
+    )
+  }
 
   // Receipt overlay
   if (receipt) {
@@ -381,17 +451,24 @@ export function POSTerminal({ products, customers, settings }: POSTerminalProps)
           </div>
 
           {/* Actions */}
-          <div className="border-t bg-muted/30 p-4 flex gap-2">
+          <div className="border-t bg-muted/30 p-4 flex gap-2 flex-wrap">
             <button
               onClick={() => window.print()}
-              className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg border border-input hover:bg-muted transition-colors text-sm font-medium"
+              className="flex-1 min-w-[100px] flex items-center justify-center gap-2 py-2.5 rounded-lg border border-input hover:bg-muted transition-colors text-sm font-medium"
             >
               <Printer className="h-4 w-4" />
               Print
             </button>
             <button
+              onClick={() => setShowRefundDialog(true)}
+              className="flex-1 min-w-[100px] flex items-center justify-center gap-2 py-2.5 rounded-lg border border-destructive text-destructive hover:bg-destructive/10 transition-colors text-sm font-medium"
+            >
+              <RotateCcw className="h-4 w-4" />
+              Refund
+            </button>
+            <button
               onClick={handleNewSale}
-              className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors text-sm font-bold"
+              className="flex-1 min-w-[100px] flex items-center justify-center gap-2 py-2.5 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors text-sm font-bold"
             >
               <Plus className="h-4 w-4" />
               Next Sale
@@ -490,10 +567,18 @@ export function POSTerminal({ products, customers, settings }: POSTerminalProps)
                       <div className="absolute top-1 right-1 text-[8px] font-bold rounded px-1 py-0.5 bg-red-100 text-red-800">OOS</div>
                     )}
                     
-                    {/* Product icon */}
-                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary mb-2">
-                      <Package className="h-4 w-4" />
-                    </div>
+                    {/* Product image or icon */}
+                    {product.imageUrl ? (
+                      <img
+                        src={product.imageUrl}
+                        alt={product.name}
+                        className="w-full h-16 object-cover rounded-lg mb-2"
+                      />
+                    ) : (
+                      <div className="flex h-16 w-full items-center justify-center rounded-lg bg-primary/10 text-primary mb-2">
+                        <Package className="h-6 w-6" />
+                      </div>
+                    )}
                     
                     {/* Product name */}
                     <p className="text-xs font-semibold leading-tight line-clamp-2 mb-1">
@@ -531,27 +616,47 @@ export function POSTerminal({ products, customers, settings }: POSTerminalProps)
 
       {/* Right: Cart + Payment */}
       <div className="flex min-h-[520px] w-full flex-shrink-0 flex-col rounded-xl border bg-card lg:min-h-0 lg:w-96 xl:w-[420px] shadow-sm">
-        {/* Cart header */}
-        <div className="flex items-center justify-between border-b px-4 py-3 bg-muted/30">
-          <div className="flex items-center gap-2">
-            <ShoppingCart className="h-4 w-4 text-primary" />
-            <span className="text-sm font-bold">Order Summary</span>
+        {/* Cart header with quick actions */}
+        <div className="border-b bg-muted/30 p-3 space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <ShoppingCart className="h-4 w-4 text-primary" />
+              <span className="text-sm font-bold">Order Summary</span>
+              {cart.length > 0 && (
+                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
+                  {cart.length}
+                </span>
+              )}
+            </div>
             {cart.length > 0 && (
-              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
-                {cart.length}
-              </span>
+              <button
+                onClick={() => {
+                  if (confirm('Clear all items from cart?')) setCart([])
+                }}
+                className="text-xs font-medium text-muted-foreground hover:text-destructive transition-colors"
+              >
+                Clear
+              </button>
             )}
           </div>
-          {cart.length > 0 && (
+          
+          {/* Quick action buttons */}
+          <div className="flex gap-2">
             <button
-              onClick={() => {
-                if (confirm('Clear all items from cart?')) setCart([])
-              }}
-              className="text-xs font-medium text-muted-foreground hover:text-destructive transition-colors"
+              onClick={() => setShowSalesHistory(true)}
+              className="flex-1 flex items-center justify-center gap-1 py-1.5 rounded-lg border border-input hover:bg-accent/50 transition-colors text-xs font-medium"
             >
-              Clear
+              <History className="h-3 w-3" />
+              History
             </button>
-          )}
+            <button
+              onClick={() => setShowReceiptReprint(true)}
+              className="flex-1 flex items-center justify-center gap-1 py-1.5 rounded-lg border border-input hover:bg-accent/50 transition-colors text-xs font-medium"
+            >
+              <Printer className="h-3 w-3" />
+              Reprint
+            </button>
+          </div>
         </div>
 
         {/* Cart items */}
@@ -785,24 +890,30 @@ export function POSTerminal({ products, customers, settings }: POSTerminalProps)
             )}
 
             {paymentMethod === 'mpesa' && (
-              <div className="space-y-1">
-                <label className="mb-1 block text-xs font-medium text-muted-foreground">
-                  M-Pesa Reference <span className="text-destructive">*</span>
-                </label>
-                <input
-                  type="text"
-                  placeholder="e.g. QGH4X8MNPA"
-                  value={mpesaRef}
-                  onChange={(e) => setMpesaRef(e.target.value.toUpperCase())}
-                  className={inputCls}
-                />
-                <p className="text-[10px] text-amber-600 font-medium">Integration pending - Enter reference for manual verification</p>
+              <div className="space-y-2">
+                <div className="flex gap-2 p-2 rounded-lg bg-amber-50 border border-amber-200">
+                  <AlertTriangle className="h-4 w-4 text-amber-600 flex-shrink-0 mt-0.5" />
+                  <p className="text-xs text-amber-800 font-medium">Integration pending - Enter reference for manual verification</p>
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                    M-Pesa Reference <span className="text-destructive">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. QGH4X8MNPA"
+                    value={mpesaRef}
+                    onChange={(e) => setMpesaRef(e.target.value.toUpperCase())}
+                    className={inputCls}
+                  />
+                </div>
               </div>
             )}
             
             {paymentMethod === 'card' && (
-              <div>
-                <p className="text-xs text-amber-600 font-medium">Card payment integration pending</p>
+              <div className="flex gap-2 p-2 rounded-lg bg-amber-50 border border-amber-200">
+                <AlertTriangle className="h-4 w-4 text-amber-600 flex-shrink-0 mt-0.5" />
+                <p className="text-xs text-amber-800 font-medium">Card payment integration pending</p>
               </div>
             )}
 
@@ -827,6 +938,41 @@ export function POSTerminal({ products, customers, settings }: POSTerminalProps)
           </div>
         )}
       </div>
+
+      {/* Sales History Modal */}
+      {showSalesHistory && (
+        <SalesHistoryModal
+          onClose={() => setShowSalesHistory(false)}
+          onSelectSale={(sale) => {
+            setRefundSale(sale)
+            setShowSalesHistory(false)
+          }}
+        />
+      )}
+
+      {/* Receipt Reprint Modal */}
+      {showReceiptReprint && (
+        <ReceiptReprint
+          onClose={() => setShowReceiptReprint(false)}
+          settings={settings}
+          onRefund={(sale) => {
+            setRefundSale(sale)
+            setShowReceiptReprint(false)
+          }}
+        />
+      )}
+
+      {/* Refund Dialog (from sales history or receipt reprint) */}
+      {refundSale && (
+        <RefundDialog
+          sale={refundSale}
+          onClose={() => setRefundSale(null)}
+          onSuccess={() => {
+            setRefundSale(null)
+            toast.success('Refund processed successfully')
+          }}
+        />
+      )}
     </div>
   )
 }
