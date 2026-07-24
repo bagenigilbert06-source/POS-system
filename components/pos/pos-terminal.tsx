@@ -332,7 +332,6 @@ export function POSTerminal({ products, customers, settings }: POSTerminalProps)
       userId: '',
       orgId: '',
       createdAt: receipt.completedAt,
-      updatedAt: receipt.completedAt,
       items: receipt.items.map(item => ({
         id: `${receipt.receiptNo}-${item.productId}`,
         saleId: 'temp-id',
