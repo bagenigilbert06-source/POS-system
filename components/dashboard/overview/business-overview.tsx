@@ -45,7 +45,6 @@ export function BusinessOverview({ organizationName, currency, overview, workspa
   const hasInventory = workspaceConfig.enabledModules.includes('inventory')
   const hasCustomers = workspaceConfig.enabledModules.includes('customers')
   const saleHref = workspaceConfig.enabledModules.includes('pos') ? '/dashboard/pos' : '/dashboard/sales'
-  return <POSOperationsDashboard currency={currency} overview={overview} saleHref={saleHref} />
   const isNewWorkspace = overview.recentSales.length === 0
   const availableActions = [
     ...(workspaceConfig.enabledModules.includes('pos') || workspaceConfig.enabledModules.includes('sales') ? [{ id: 'primary', label: experience.actionLabels.primary, href: saleHref, icon: ShoppingBag, primary: true, description: 'Record a new sale' }] : []),
@@ -162,7 +161,7 @@ export function BusinessOverview({ organizationName, currency, overview, workspa
             <MiniRecord label="Locations" value={formatNumber(overview.records.branches)} href="/dashboard/settings" />
           </div>
         </aside>
-      </section>}
+      </section>
 
       {!isNewWorkspace && <DashboardInsightCharts currency={currency} paymentMix={overview.paymentMix} topProducts={overview.topProducts} stock={{ healthy: overview.records.products - overview.records.lowStock, low: overview.records.lowStock - overview.records.outOfStock, out: overview.records.outOfStock }} productLabel={workspaceConfig.businessCategory === 'liquor_shop' ? 'drinks' : 'products'} />}
 
