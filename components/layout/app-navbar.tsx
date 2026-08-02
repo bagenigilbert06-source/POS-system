@@ -48,7 +48,7 @@ export function AppNavbar({ userName, userEmail, organizationName, branchName, w
   }
 
   return (
-    <header className="dashboard-navbar sticky top-0 z-30 flex h-16 items-center justify-between border-b px-3 shadow-sm backdrop-blur-md sm:px-5 lg:px-6 xl:px-7">
+    <header className="dashboard-navbar sticky top-0 z-30 flex h-[106px] items-center justify-between border-b px-4 shadow-sm backdrop-blur-md sm:px-6 lg:px-7">
       <div className="flex min-w-0 flex-1 items-center gap-3">
         <button
           onClick={onOpenSidebar}
@@ -58,7 +58,7 @@ export function AppNavbar({ userName, userEmail, organizationName, branchName, w
           <Menu className="h-5 w-5" />
         </button>
         <div className="hidden min-w-0 md:block">
-          <p className="truncate text-sm font-extrabold text-[#050a1f]">{organizationName}{branchName ? ` · ${branchName}` : ''}</p>
+          <p className="truncate text-sm font-extrabold text-[#050a1f]">{organizationName}</p>
           <p className="max-w-[720px] truncate text-xs text-[#7c8799]">{workspaceDescription}</p>
         </div>
         <div className="flex min-w-0 items-center gap-2 md:hidden">

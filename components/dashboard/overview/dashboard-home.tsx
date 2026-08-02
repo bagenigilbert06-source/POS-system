@@ -27,6 +27,7 @@ export async function DashboardHome() {
       currency={organization.currency || 'KES'}
       overview={overview}
       workspaceConfig={workspaceConfig}
+      generatedAt={new Date()}
     />
   )
 }

@@ -48,21 +48,21 @@ export function DynamicAppSidebar({ mobileOpen = false, onMobileClose }: Dynamic
 
   const primaryNav = config.sidebarConfig.primaryNav
   const secondaryNav = config.sidebarConfig.secondaryNav
-  const sidebarWidth = collapsed ? 'lg:w-[68px]' : 'lg:w-[236px]'
+  const sidebarWidth = collapsed ? 'lg:w-[68px]' : 'lg:w-[223px]'
 
   const sidebar = (
     <aside
       className={cn(
         'dashboard-sidebar flex h-full flex-col border-r',
         'transition-all duration-200 ease-in-out',
-        'w-72 max-w-[85vw]',
+        'w-[223px] max-w-[85vw]',
         sidebarWidth
       )}
     >
       {/* Logo */}
       <div
         className={cn(
-          'flex h-16 items-center border-b border-border px-4 gap-3',
+          'flex h-[106px] items-center border-b border-border px-4 gap-3',
           collapsed ? 'justify-center' : 'justify-between'
         )}
       >
@@ -70,8 +70,8 @@ export function DynamicAppSidebar({ mobileOpen = false, onMobileClose }: Dynamic
           <div className="flex items-center gap-2 flex-1">
             <PesabyLogoMark className="h-9 w-9 flex-shrink-0" />
             <div>
-              <p className="text-sm font-extrabold leading-tight text-[#050a1f]">Pesaby</p>
-              <p className="max-w-36 truncate text-xs text-[#667085]">{config.name}</p>
+              <p className="text-sm font-extrabold leading-tight text-[var(--dashboard-text)]">Pesaby</p>
+              <p className="max-w-36 truncate text-xs text-[var(--dashboard-muted)]">{config.name}</p>
             </div>
           </div>
         )}

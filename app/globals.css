@@ -143,39 +143,38 @@
   }
 }
 
-/* Dashboard palette. The application deliberately keeps Pesaby's exact
-   landing-page yellow (#ffda32) in both themes. */
+/* Salestics dashboard palette extracted from the supplied design system. */
 .dashboard-shell {
-  --background: 42 27% 97%;
-  --foreground: 32 18% 9%;
+  --background: 84 24% 96%;
+  --foreground: 60 2% 9%;
   --card: 0 0% 100%;
   --card-foreground: 32 18% 9%;
   --popover: 0 0% 100%;
   --popover-foreground: 32 18% 9%;
-  --secondary: 40 20% 93%;
-  --secondary-foreground: 32 15% 18%;
-  --muted: 38 16% 92%;
-  --muted-foreground: 32 10% 42%;
-  --border: 38 20% 87%;
-  --input: 38 20% 87%;
-  --primary: 48 100% 60%;
-  --primary-foreground: 229 72% 7%;
-  --ring: 48 100% 60%;
-  --accent: 48 100% 87%;
-  --accent-foreground: 229 72% 7%;
-  --dashboard-canvas: #f7f6f2;
+  --secondary: 84 20% 94%;
+  --secondary-foreground: 84 6% 20%;
+  --muted: 84 18% 93%;
+  --muted-foreground: 84 6% 43%;
+  --border: 84 15% 88%;
+  --input: 84 15% 88%;
+  --primary: 82 84% 60%;
+  --primary-foreground: 0 0% 10%;
+  --ring: 82 84% 60%;
+  --accent: 82 72% 92%;
+  --accent-foreground: 84 72% 22%;
+  --dashboard-canvas: #f5f7f1;
   --dashboard-surface: #ffffff;
-  --dashboard-surface-subtle: #fbfaf7;
-  --dashboard-text: #15130f;
-  --dashboard-muted: #746e64;
-  --dashboard-border: #e4e0d7;
-  --dashboard-chart-grid: #ebe7df;
-  --dashboard-chart-tick: #81796d;
-  --dashboard-chart-tooltip: #fffdf9;
-  --dashboard-chart-revenue: #bf4332;
-  --dashboard-chart-revenue-fill: #bf4332;
-  --dashboard-chart-secondary: #ffda32;
-  --dashboard-highlight: #e42527;
+  --dashboard-surface-subtle: #f5f7f1;
+  --dashboard-text: #151514;
+  --dashboard-muted: #74776f;
+  --dashboard-border: #e1e6db;
+  --dashboard-chart-grid: #e9eee4;
+  --dashboard-chart-tick: #7e857a;
+  --dashboard-chart-tooltip: #ffffff;
+  --dashboard-chart-revenue: #8dbe27;
+  --dashboard-chart-revenue-fill: #b9ef43;
+  --dashboard-chart-secondary: #1d1d2d;
+  --dashboard-highlight: #b9ef43;
   background: var(--dashboard-canvas);
   color: var(--dashboard-text);
 }
@@ -204,10 +203,10 @@
   --dashboard-chart-grid: #2c2c2e;
   --dashboard-chart-tick: #98989d;
   --dashboard-chart-tooltip: #1c1c1e;
-  --dashboard-chart-revenue: #ff453a;
-  --dashboard-chart-revenue-fill: #ff453a;
-  --dashboard-chart-secondary: #ffd60a;
-  --dashboard-highlight: #ff453a;
+  --dashboard-chart-revenue: #b9ef43;
+  --dashboard-chart-revenue-fill: #b9ef43;
+  --dashboard-chart-secondary: #d7ddd2;
+  --dashboard-highlight: #b9ef43;
   color-scheme: dark;
 }
 
@@ -220,7 +219,7 @@
 .dashboard-navbar {
   background: color-mix(in srgb, var(--dashboard-surface) 94%, transparent);
   color: var(--dashboard-text);
-  box-shadow: inset 0 -2px #ffda32, 0 1px 2px rgb(38 28 17 / 0.04);
+  box-shadow: inset 0 -2px #b9ef43, 0 1px 2px rgb(38 28 17 / 0.04);
 }
 
 .dashboard-nav-active {
@@ -242,6 +241,37 @@
 .dashboard-shell .metric-card {
   border-color: var(--dashboard-border);
   background-color: var(--dashboard-surface);
+  border-radius: 1rem;
+  box-shadow: 0 8px 24px rgb(35 37 34 / 0.05);
+}
+
+.dashboard-shell .bg-\[\#ffda32\] {
+  background-color: #b9ef43 !important;
+  color: #171717 !important;
+}
+
+.dashboard-shell .hover\:bg-\[\#f0c900\]:hover {
+  background-color: #a7dc36 !important;
+}
+
+.dashboard-shell .border-\[\#d9dde5\],
+.dashboard-shell .border-\[\#dfe3ea\],
+.dashboard-shell .border-\[\#e3dfd2\] {
+  border-color: #e1e6db !important;
+}
+
+.dashboard-shell .bg-\[\#fafbfc\],
+.dashboard-shell .bg-\[\#fafaf8\],
+.dashboard-shell .bg-\[\#fffdf7\] {
+  background-color: #f5f7f1 !important;
+}
+
+.dashboard-shell table thead {
+  background-color: #f5f7f1;
+}
+
+.dashboard-shell table tbody tr {
+  border-color: #edf0e8;
 }
 
 .dark .dashboard-shell {
@@ -255,7 +285,7 @@
 .dark .dashboard-navbar {
   background: rgb(21 21 23 / 0.86);
   border-color: rgb(44 44 46 / 0.9);
-  box-shadow: inset 0 -1px rgb(255 214 10 / 0.72), 0 12px 36px rgb(0 0 0 / 0.24);
+  box-shadow: inset 0 -1px rgb(185 239 67 / 0.72), 0 12px 36px rgb(0 0 0 / 0.24);
 }
 
 .dark .dashboard-shell .app-panel,
@@ -319,6 +349,23 @@
 .dashboard-shell .bg-\[\#fafbfc\],
 .dashboard-shell .bg-\[\#fafaf8\] {
   background-color: var(--dashboard-surface) !important;
+}
+
+.dashboard-shell .bg-\[\#ffda32\],
+.dashboard-shell .bg-\[\#fff6c8\],
+.dashboard-shell .bg-\[\#fff7d1\],
+.dashboard-shell .bg-\[\#fff8d6\],
+.dashboard-shell .bg-\[\#fff3be\] {
+  background-color: #b9ef43 !important;
+}
+
+.dashboard-shell .hover\:bg-\[\#f0c900\]:hover {
+  background-color: #a8dc39 !important;
+}
+
+.dashboard-shell .text-\[\#e42527\],
+.dashboard-shell .hover\:text-\[\#e42527\]:hover {
+  color: #638c15 !important;
 }
 
 .dashboard-shell .bg-\[\#f5f6f8\],

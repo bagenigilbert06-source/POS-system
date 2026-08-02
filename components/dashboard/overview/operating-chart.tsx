@@ -43,13 +43,16 @@ export function OperatingChart({ data, currency }: OperatingChartProps) {
   })), [data, range])
   const summary = chartData.map((point) => `${point.label}: sales ${compact(point.revenue, currency)}, expenses ${compact(point.expenses, currency)}`).join('; ')
   const hasData = chartData.some((point) => point.revenue > 0 || point.expenses > 0)
+  const periodLabel = range === 1 ? 'today' : `the last ${range} days`
 
   return (
-    <div className="relative h-[330px] w-full pt-12 sm:h-[370px]" role="img" aria-label={`Sales and expenses over the last ${range === 1 ? 'day' : `${range} days`}`}>
+    <div className="relative h-[270px] w-full pt-10 sm:h-[305px]" role="img" aria-label={`Sales and expenses over the last ${range === 1 ? 'day' : `${range} days`}`}>
       <p className="sr-only">{summary || 'No operating activity recorded in this period.'}</p>
       <div className="absolute left-1 top-0 z-10 flex rounded-lg border border-[var(--dashboard-border)] bg-[var(--dashboard-surface-subtle)] p-1" aria-label="Chart period">
         {([[1, 'Today'], [7, '7 days'], [30, '30 days']] as const).map(([value, text]) => <button key={value} type="button" onClick={() => setRange(value)} aria-pressed={range === value} className={range === value ? 'rounded-md bg-[var(--dashboard-surface)] px-3 py-1.5 text-xs font-bold text-[var(--dashboard-text)] shadow-sm' : 'rounded-md px-3 py-1.5 text-xs font-semibold text-[var(--dashboard-muted)] hover:text-[var(--dashboard-text)]'}>{text}</button>)}
       </div>
+      {!hasData && <div className="flex h-full items-center justify-center"><div className="max-w-sm rounded-lg border border-[var(--dashboard-border)] bg-[var(--dashboard-surface)] px-5 py-4 text-center shadow-sm"><p className="text-sm font-semibold text-[var(--dashboard-text)]">No activity for {periodLabel}</p><p className="mt-1 text-xs leading-5 text-[var(--dashboard-muted)]">Sales and expenses will appear here after they are recorded.</p></div></div>}
+      {hasData && <>
       <ResponsiveContainer width="100%" height="100%">
         <ComposedChart data={chartData} margin={{ top: 12, right: 10, left: -8, bottom: 0 }} barCategoryGap={range === 30 ? '72%' : '58%'}>
           <defs><linearGradient id="pesabyRevenueArea" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="var(--dashboard-chart-revenue-fill)" stopOpacity={0.18} /><stop offset="100%" stopColor="var(--dashboard-chart-revenue-fill)" stopOpacity={0} /></linearGradient></defs>
@@ -61,7 +64,7 @@ export function OperatingChart({ data, currency }: OperatingChartProps) {
           <Area type="monotone" dataKey="revenue" stroke="var(--dashboard-chart-revenue)" strokeWidth={2.5} fill="url(#pesabyRevenueArea)" dot={false} activeDot={{ r: 4, fill: 'var(--dashboard-chart-revenue)', stroke: 'var(--dashboard-surface)', strokeWidth: 2 }} isAnimationActive={false} />
         </ComposedChart>
       </ResponsiveContainer>
-      {!hasData && <div className="pointer-events-none absolute inset-0 flex items-center justify-center"><div className="rounded-lg border border-[#e5e8ed] bg-white/95 px-4 py-3 text-center shadow-sm"><p className="text-sm font-semibold text-[#344054]">No activity this week</p><p className="mt-1 text-xs text-[#8a94a5]">The chart updates after sales or expenses are recorded.</p></div></div>}
+      </>}
     </div>
   )
 }

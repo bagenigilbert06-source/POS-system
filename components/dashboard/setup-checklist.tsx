@@ -18,7 +18,7 @@ export function SetupChecklist({ items, initiallyDismissed }: { items: SetupChec
     if (!response.ok) setDismissed(!nextDismissed)
   }
 
-  if (dismissed) return <div className="mx-auto mb-3 flex w-full max-w-[1440px] justify-end"><button type="button" onClick={() => setVisibility(false)} className="inline-flex min-h-9 items-center gap-2 rounded-md border border-[#dfe3ea] bg-white px-3 text-xs font-semibold text-[#344054] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e42527]"><RotateCcw className="h-3.5 w-3.5" />Show setup</button></div>
+  if (dismissed) return <div className="mx-auto mb-3 flex w-full max-w-[1440px] justify-end"><button type="button" onClick={() => setVisibility(false)} className="inline-flex min-h-9 items-center gap-2 rounded-md border border-[#dfe3ea] bg-white px-3 text-xs font-semibold text-[#344054] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e42527]"><RotateCcw className="h-3.5 w-3.5" />Setup {completed}/{items.length}</button></div>
 
   return (
     <section className="mx-auto mb-4 w-full max-w-[1440px] overflow-hidden rounded-xl border border-[#dfe3ea] bg-white shadow-[0_1px_2px_rgba(16,24,40,.03)]" aria-labelledby="setup-checklist-title">
