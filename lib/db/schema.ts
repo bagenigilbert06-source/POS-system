@@ -248,6 +248,11 @@ export const sale = pgTable('sale', {
   change: numeric('change', { precision: 12, scale: 2 }), // Cash only
   paymentMethod: text('paymentMethod').notNull().default('cash'),
   mpesaRef: text('mpesaRef'),
+  // Recorded when a liquor-workspace cashier confirms the customer was checked
+  // before an age-restricted sale can be completed.
+  ageVerified: boolean('ageVerified').notNull().default(false),
+  ageVerifiedAt: timestamp('ageVerifiedAt'),
+  ageVerifiedBy: text('ageVerifiedBy'),
   status: text('status').notNull().default('completed'),
   idempotencyKey: text('idempotencyKey'), // For duplicate prevention
   userId: text('userId').notNull(),

@@ -39,7 +39,10 @@ export function ExpenseByCategoryChart({ data, currency }: ExpenseByCategoryProp
                   cx="50%"
                   cy="50%"
                   outerRadius={80}
-                  label={({ category, value }) => `${category}: ${formatCurrency(value, currency)}`}
+                  label={(props) => {
+                    const entry = props as unknown as { category: string; value: number }
+                    return `${entry.category}: ${formatCurrency(entry.value, currency)}`
+                  }}
                 >
                   {chartData.map((_, index) => (
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />

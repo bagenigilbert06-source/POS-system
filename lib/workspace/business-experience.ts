@@ -45,6 +45,22 @@ export function getBusinessExperience(businessFamily: string, businessCategory: 
   }
 
   if (businessFamily === 'retail') {
+    if (category === 'liquor_shop') {
+      return {
+        kind: 'retail',
+        label: 'Liquor shop',
+        overviewTitle: 'Liquor shop overview',
+        overviewDescription: 'Monitor daily sales, fast-moving drinks, payment mix and stock that needs reordering.',
+        navigation: { overview: 'Liquor dashboard', pos: 'Checkout', sales: 'Drink sales', products: 'Drinks catalogue', inventory: 'Bottle stock', customers: 'Customers' },
+        actions: ['primary', 'products', 'inventory'],
+        actionLabels: { primary: 'Start sale', products: 'Add drinks', inventory: 'Receive stock' },
+        metricLabels: ["Today's sales", 'Transactions today', 'Average sale', 'Reorder alerts'],
+        activityTitle: 'Recent drink sales',
+        activityDescription: 'Latest completed liquor shop transactions.',
+        stockTitle: 'Drinks to reorder',
+        stockDescription: 'Beer, wine, spirits and mixers at or below their reorder level.',
+      }
+    }
     const storeLabel = category === 'supermarket' ? 'Supermarket' : category === 'mini_mart' ? 'Mini-mart' : category === 'general_shop' ? 'Shop' : label
     return {
       kind: 'retail',

@@ -11,7 +11,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 
 export function ThemeSwitcher() {
-  const { theme, setTheme } = useTheme()
+  const { theme, resolvedTheme, setTheme } = useTheme()
   const [mounted, setMounted] = useState(false)
 
   // Prevent hydration mismatch
@@ -52,7 +52,7 @@ export function ThemeSwitcher() {
               className={theme === t.value ? 'bg-primary/10' : ''}
             >
               <Icon className="mr-2 h-4 w-4" />
-              <span>{t.label}</span>
+              <span>{t.label}{t.value === 'system' && theme === 'system' ? ` (${resolvedTheme === 'dark' ? 'Dark' : 'Light'})` : ''}</span>
             </DropdownMenuItem>
           )
         })}

@@ -2,7 +2,7 @@
 
 import { auth } from '@/lib/auth'
 import { db } from '@/lib/db'
-import { product } from '@/lib/db/schema'
+import { category, product } from '@/lib/db/schema'
 import { and, desc, eq, ilike, or, sql } from 'drizzle-orm'
 import { headers } from 'next/headers'
 import { revalidatePath } from 'next/cache'
@@ -45,6 +45,18 @@ export async function getProducts(search?: string, includeInactive = false) {
     .from(product)
     .where(and(...conditions))
     .orderBy(desc(product.createdAt))
+}
+
+/** Categories for POS filters. Kept separate from products so the register can
+ * render human-readable category buttons without exposing raw IDs. */
+export async function getProductCategories() {
+  const userId = await getUserId()
+  const orgId = await getOrgId(userId)
+  return db
+    .select({ id: category.id, name: category.name })
+    .from(category)
+    .where(eq(category.orgId, orgId))
+    .orderBy(category.name)
 }
 
 export async function getLowStockProducts() {

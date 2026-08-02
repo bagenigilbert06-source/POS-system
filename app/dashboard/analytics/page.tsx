@@ -53,14 +53,70 @@ export default async function AnalyticsPage() {
     getSalesForecast(30).catch(() => []),
   ])
 
+  // The query layer returns database-oriented names. Normalize them once here so
+  // the charts receive a stable, numeric contract (Postgres aggregates may be strings).
+  const repeatBuckets = [
+    { visits: '1 visit', min: 1, max: 1 },
+    { visits: '2 visits', min: 2, max: 2 },
+    { visits: '3–5 visits', min: 3, max: 5 },
+    { visits: '6+ visits', min: 6, max: Number.POSITIVE_INFINITY },
+  ]
+  const repeatTotal = repeatData.length
   const analytics = {
-    trendData,
-    cohortData,
-    repeatData,
-    productData,
-    staffData,
-    hourlyData,
-    forecastData,
+    trendData: trendData.map((row) => ({
+      date: String(row.date),
+      revenue: Number(row.total ?? 0),
+      transactions: Number(row.count ?? 0),
+    })),
+    cohortData: cohortData.map((row) => {
+      const size = Number(row.cohortSize ?? 0)
+      const retained = Number(row.repeatPurchases ?? 0)
+      return {
+        period: new Date(row.joinMonth).toLocaleDateString('en', { month: 'short', year: 'numeric' }),
+        newCustomers: size,
+        retained,
+        churn: Math.max(0, size - retained),
+        retention: size > 0 ? Math.round((retained / size) * 100) : 0,
+      }
+    }),
+    repeatData: repeatBuckets.map((bucket) => {
+      const count = repeatData.filter((row) => {
+        const visits = Number(row.purchaseCount ?? 0)
+        return visits >= bucket.min && visits <= bucket.max
+      }).length
+      return {
+        visits: bucket.visits,
+        count,
+        percentage: repeatTotal > 0 ? Math.round((count / repeatTotal) * 100) : 0,
+      }
+    }),
+    productData: productData.map((row) => ({
+      id: row.productId,
+      name: row.productName,
+      revenue: Number(row.revenue ?? 0),
+      units: Number(row.unitsSold ?? 0),
+      trend: 'stable' as const,
+      margin: Number(row.margin ?? 0),
+    })),
+    staffData: staffData.map((row, index) => ({
+      id: row.employeeId,
+      name: row.employeeName,
+      totalSales: Number(row.totalSales ?? 0),
+      transactions: Number(row.transactionCount ?? 0),
+      avgSale: Number(row.averageTransaction ?? 0),
+      ranking: index + 1,
+      topPerformer: index === 0 && Number(row.totalSales ?? 0) > 0,
+    })),
+    hourlyData: hourlyData.map((row) => ({
+      hour: `${String(Number(row.hour ?? 0)).padStart(2, '0')}:00`,
+      sales: Number(row.totalSales ?? 0),
+      transactions: Number(row.transactionCount ?? 0),
+    })),
+    forecastData: forecastData.map((row) => ({
+      date: row.date,
+      forecast: Number(row.predicted ?? 0),
+      confidence: 'low' as const,
+    })),
   }
 
   return (

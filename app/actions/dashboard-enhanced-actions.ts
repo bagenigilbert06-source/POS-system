@@ -102,7 +102,7 @@ export async function getSalesDashboardData(dateFrom: Date, dateTo: Date) {
         sku: r.sku || 'N/A',
         revenue: new Decimal(r.revenue || 0).toNumber(),
         quantity: Number(r.quantity || 0),
-        unitPrice: new Decimal(r.unitPrice || 0).toNumber()
+        unitPrice: new Decimal(String(r.unitPrice ?? 0)).toNumber()
       }))),
     
     // Sales by payment method
@@ -193,7 +193,7 @@ export async function getExpenseDashboardData(dateFrom: Date, dateTo: Date) {
         title: r.title,
         category: r.category || 'General',
         amount: new Decimal(r.amount).toNumber(),
-        notes: r.notes,
+        notes: r.notes ?? undefined,
         date: r.createdAt
       })))
   ])
@@ -233,8 +233,8 @@ export async function getCustomerDashboardData(dateFrom: Date, dateTo: Date) {
       .then(rows => rows.map(r => ({
         id: r.customerId,
         name: r.name,
-        email: r.email,
-        phone: r.phone,
+        email: r.email ?? undefined,
+        phone: r.phone ?? undefined,
         totalRevenue: new Decimal(r.totalSpent || 0).toNumber(),
         transactions: Number(r.transactionCount || 0)
       }))),
@@ -256,7 +256,7 @@ export async function getCustomerDashboardData(dateFrom: Date, dateTo: Date) {
       .then(rows => ({
         totalCustomers: Number(rows[0]?.totalCustomers || 0),
         customersWithPurchases: Number(rows[0]?.customersWithPurchases || 0),
-        avgTransactionValue: new Decimal(rows[0]?.avgTransactionValue || 0).toNumber()
+        avgTransactionValue: new Decimal(String(rows[0]?.avgTransactionValue ?? 0)).toNumber()
       })),
     
     // Credit sales status

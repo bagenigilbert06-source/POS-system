@@ -1,4 +1,4 @@
-import { getProducts } from '@/app/actions/products'
+import { getProductCategories, getProducts } from '@/app/actions/products'
 import { getCustomers } from '@/app/actions/customers'
 import { getBusinessSettings } from '@/app/actions/business'
 import { POSTerminal } from '@/components/pos/pos-terminal'
@@ -11,8 +11,9 @@ export const metadata: Metadata = { title: 'POS Terminal' }
 
 export default async function POSPage() {
   const { config } = await requireWorkspaceModule('pos')
-  const [products, customers, settings] = await Promise.all([
+  const [products, categories, customers, settings] = await Promise.all([
     getProducts(),
+    getProductCategories(),
     config.enabledModules.includes('customers') ? getCustomers() : Promise.resolve([]),
     getBusinessSettings(),
   ])
@@ -20,7 +21,7 @@ export default async function POSPage() {
   return (
     <div className="mx-auto max-w-[1480px] space-y-5">
       <DashboardPageHeading icon={ReceiptText} title="Point of sale" description="Process complete sales with the payment methods configured for your workspace." />
-      <POSTerminal products={products} customers={customers} settings={settings} />
+      <POSTerminal products={products} categories={categories} customers={customers} settings={settings} requiresAgeVerification={config.businessCategory === 'liquor_shop'} />
     </div>
   )
 }

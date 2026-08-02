@@ -82,9 +82,15 @@ export async function createSale(data: {
   mpesaRef?: string
   amountReceived?: number
   idempotencyKey?: string
+  ageVerified?: boolean
 }) {
   const userId = await getUserId()
   const orgId = await getOrgId(userId, 'pos')
+  const workspace = await WorkspaceService.getWorkspaceConfig(orgId, userId)
+  const requiresAgeVerification = workspace?.businessCategory === 'liquor_shop'
+  if (requiresAgeVerification && !data.ageVerified) {
+    throw new Error('Age verification is required before completing this liquor sale')
+  }
   
   // Generate idempotency key if not provided
   const idempotencyKey = data.idempotencyKey || generateId()
@@ -161,9 +167,10 @@ export async function createSale(data: {
           eq(product.orgId, orgId),
           sql`${product.stock} >= ${item.quantity}` // Conditional: only update if stock available
         ))
+        .returning({ id: product.id })
       
       // Check if update succeeded
-      if (!result) throw new Error(`Insufficient stock for product`)
+      if (result.length === 0) throw new Error(`Insufficient stock for ${item.productName}`)
     }
     
     // Create the sale
@@ -179,6 +186,9 @@ export async function createSale(data: {
       change: data.paymentMethod === 'cash' ? String(changeAmount) : null,
       paymentMethod: data.paymentMethod,
       mpesaRef: data.mpesaRef,
+      ageVerified: requiresAgeVerification,
+      ageVerifiedAt: requiresAgeVerification ? new Date() : null,
+      ageVerifiedBy: requiresAgeVerification ? userId : null,
       status: 'completed',
       idempotencyKey,
       userId,

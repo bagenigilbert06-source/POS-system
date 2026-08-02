@@ -15,10 +15,12 @@ async function getUserId() {
   return session.user.id
 }
 
-async function getOrgId(userId: string) {
-  const workspace = await WorkspaceService.getCurrentWorkspace(userId, 'pos')
-  if (!workspace) throw new Error('Workspace not found')
-  return workspace.organizationId
+async function getOrgId(userId: string, moduleId: string) {
+  const organization = await OrganizationService.getPrimaryOrganization(userId)
+  if (!organization?.onboardingCompleted) throw new Error('Workspace not found')
+  const workspace = await WorkspaceService.getWorkspaceConfig(organization.id, userId)
+  if (!workspace?.enabledModules.includes(moduleId)) throw new Error('Module unavailable')
+  return organization.id
 }
 
 interface AdjustmentItem {
@@ -34,7 +36,7 @@ export async function createStockAdjustment(data: {
   notes?: string
 }) {
   const userId = await getUserId()
-  const orgId = await getOrgId(userId, 'pos')
+  const orgId = await getOrgId(userId, 'inventory')
 
   const adjustmentId = generateId()
   const adjustmentNo = `ADJ-${Date.now().toString().slice(-6)}`
@@ -87,7 +89,7 @@ export async function createStockAdjustment(data: {
 
 export async function approveStockAdjustment(adjustmentId: string) {
   const userId = await getUserId()
-  const orgId = await getOrgId(userId, 'pos')
+  const orgId = await getOrgId(userId, 'inventory')
 
   const [adjustment] = await db.select().from(stockAdjustment)
     .where(and(eq(stockAdjustment.id, adjustmentId), eq(stockAdjustment.orgId, orgId)))
@@ -157,7 +159,7 @@ export async function approveStockAdjustment(adjustmentId: string) {
 
 export async function rejectStockAdjustment(adjustmentId: string, reason: string) {
   const userId = await getUserId()
-  const orgId = await getOrgId(userId, 'pos')
+  const orgId = await getOrgId(userId, 'inventory')
 
   await db.update(stockAdjustment)
     .set({

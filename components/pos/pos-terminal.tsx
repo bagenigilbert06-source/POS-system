@@ -22,6 +22,7 @@ import {
   History,
   RotateCcw,
   AlertTriangle,
+  ShieldCheck,
 } from 'lucide-react'
 import type { Product, Customer, Sale, SaleItem } from '@/lib/db/schema'
 import { toast } from 'sonner'
@@ -31,6 +32,8 @@ import { SalesHistoryModal } from './sales-history-modal'
 
 interface POSTerminalProps {
   products: Product[]
+  categories: Array<{ id: string; name: string }>
+  requiresAgeVerification?: boolean
   customers: Customer[]
   settings: {
     displayName: string
@@ -55,6 +58,7 @@ interface POSTerminalProps {
 }
 
 interface ReceiptData {
+  saleId: string
   receiptNo: string
   items: CartItem[]
   subtotal: number
@@ -65,6 +69,7 @@ interface ReceiptData {
   mpesaRef?: string
   change: number
   idempotencyKey: string
+  ageVerified: boolean
   completedAt: Date
 }
 
@@ -72,7 +77,7 @@ function createIdempotencyKey() {
   return crypto.randomUUID()
 }
 
-export function POSTerminal({ products, customers, settings }: POSTerminalProps) {
+export function POSTerminal({ products, categories, customers, settings, requiresAgeVerification = false }: POSTerminalProps) {
   const [search, setSearch] = useState('')
   const [selectedCategory, setSelectedCategory] = useState<string>('')
   const [cart, setCart] = useState<CartItem[]>([])
@@ -95,6 +100,8 @@ export function POSTerminal({ products, customers, settings }: POSTerminalProps)
   const [showReceiptReprint, setShowReceiptReprint] = useState(false)
   const [showSalesHistory, setShowSalesHistory] = useState(false)
   const [refundSale, setRefundSale] = useState<(Sale & { items: SaleItem[] }) | null>(null)
+  const [ageVerified, setAgeVerified] = useState(false)
+  const [showAgeVerification, setShowAgeVerification] = useState(false)
   const searchInputRef = useRef<HTMLInputElement>(null)
   const barcodeBufferRef = useRef<string>('')
   const barcodeTimeoutRef = useRef<NodeJS.Timeout | null>(null)
@@ -117,8 +124,7 @@ export function POSTerminal({ products, customers, settings }: POSTerminalProps)
     })
   }, [])
   
-  // Get unique categories
-  const categories = Array.from(new Set(products.filter(p => p.categoryId).map(p => p.categoryId))).filter(Boolean) as string[]
+  const availableCategories = categories.filter((category) => products.some((product) => product.categoryId === category.id))
   
   // Detect barcode scanner input (USB scanners send Enter after barcode)
   useEffect(() => {
@@ -206,7 +212,7 @@ export function POSTerminal({ products, customers, settings }: POSTerminalProps)
   const total = subtotal + taxAmount - discountAmount
   const change = paymentMethod === 'cash' ? Math.max(0, parseFloat(amountPaid || '0') - total) : 0
 
-  const handleCheckout = async () => {
+  const processCheckout = async (verified = ageVerified) => {
     if (cart.length === 0) return toast.error('Cart is empty')
     if (paymentMethod === 'mpesa' && !mpesaRef) return toast.error('Enter M-Pesa reference number')
     if (paymentMethod === 'cash' && parseFloat(amountPaid || '0') < total) {
@@ -231,7 +237,7 @@ export function POSTerminal({ products, customers, settings }: POSTerminalProps)
     }
     
     try {
-      const { receiptNo, tax, total: returnedTotal } = await createSale({
+      const { saleId, receiptNo, tax, total: returnedTotal } = await createSale({
         customerId: selectedCustomer || undefined,
         items: cart,
         subtotal,
@@ -241,8 +247,10 @@ export function POSTerminal({ products, customers, settings }: POSTerminalProps)
         mpesaRef: mpesaRef || undefined,
         amountReceived: paymentMethod === 'cash' ? parseFloat(amountPaid || '0') : undefined,
         idempotencyKey: checkoutIdempotencyKeyRef.current,
+        ageVerified: requiresAgeVerification ? verified : undefined,
       })
       setReceipt({
+        saleId,
         receiptNo,
         items: cart,
         subtotal,
@@ -253,6 +261,7 @@ export function POSTerminal({ products, customers, settings }: POSTerminalProps)
         mpesaRef: mpesaRef || undefined,
         change: paymentMethod === 'cash' ? (parseFloat(amountPaid || '0') - (returnedTotal || total)) : 0,
         idempotencyKey: checkoutIdempotencyKeyRef.current,
+        ageVerified: requiresAgeVerification ? verified : false,
         completedAt: new Date(),
       })
       
@@ -267,6 +276,14 @@ export function POSTerminal({ products, customers, settings }: POSTerminalProps)
     }
   }
 
+  const handleCheckout = () => {
+    if (requiresAgeVerification && !ageVerified) {
+      setShowAgeVerification(true)
+      return
+    }
+    void processCheckout()
+  }
+
   const handleNewSale = () => {
     setCart([])
     setDiscount(0)
@@ -274,6 +291,7 @@ export function POSTerminal({ products, customers, settings }: POSTerminalProps)
     setAmountPaid('')
     setSelectedCustomer('')
     setPaymentMethod('cash')
+    setAgeVerified(false)
     setReceipt(null)
     setSearch('')
     checkoutIdempotencyKeyRef.current = '' // Reset for new sale
@@ -329,19 +347,26 @@ export function POSTerminal({ products, customers, settings }: POSTerminalProps)
   if (showRefundDialog && receipt) {
     const saleWithItems: Sale & { items: SaleItem[] } = {
       ...receipt,
-      id: 'temp-id',
+      id: receipt.saleId,
+      subtotal: receipt.subtotal.toString(),
+      taxAmount: receipt.taxAmount.toString(),
+      discountAmount: receipt.discountAmount.toString(),
+      total: receipt.total.toString(),
       customerId: selectedCustomer || null,
       amountReceived: receipt.paymentMethod === 'cash' ? String(parseFloat(amountPaid || '0')) : null,
       change: receipt.change.toString(),
       mpesaRef: receipt.mpesaRef || null,
       idempotencyKey: receipt.idempotencyKey,
+      ageVerified: receipt.ageVerified,
+      ageVerifiedAt: receipt.ageVerified ? receipt.completedAt : null,
+      ageVerifiedBy: null,
       status: 'completed',
       userId: '',
       orgId: '',
       createdAt: receipt.completedAt,
       items: receipt.items.map(item => ({
         id: `${receipt.receiptNo}-${item.productId}`,
-        saleId: 'temp-id',
+        saleId: receipt.saleId,
         productId: item.productId,
         productName: item.productName,
         quantity: item.quantity,
@@ -483,11 +508,18 @@ export function POSTerminal({ products, customers, settings }: POSTerminalProps)
   }
 
   return (
-    <div className="flex min-h-[calc(100vh-8rem)] flex-col gap-4 lg:h-[calc(100vh-8rem)] lg:min-h-0 lg:flex-row">
+    <div className="grid min-h-[calc(100vh-10.5rem)] gap-4 lg:grid-cols-[minmax(0,1fr)_400px] lg:items-stretch">
       {/* Left: Product catalog */}
-      <div className="flex min-h-[420px] min-w-0 flex-1 flex-col lg:min-h-0">
-        {/* Search bar */}
-        <div className="mb-3 relative">
+      <section className="flex min-h-[520px] min-w-0 flex-col overflow-hidden rounded-xl border border-[var(--dashboard-border)] bg-[var(--dashboard-surface)] shadow-[0_1px_3px_rgba(16,24,40,.05)]">
+        <div className="border-b border-[var(--dashboard-border)] px-4 py-4 sm:px-5">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <div>
+              <h2 className="text-sm font-bold text-[var(--dashboard-text)]">Products</h2>
+              <p className="mt-0.5 text-xs text-[var(--dashboard-muted)]">Tap an item to add it to this sale</p>
+            </div>
+            <span className="rounded-md bg-[#fff8d6] px-2 py-1 text-xs font-semibold text-[#5f4b00] dark:bg-[#292513] dark:text-[#ffdf45]">{filteredProducts.length} available</span>
+          </div>
+          <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <input
             ref={searchInputRef}
@@ -495,44 +527,45 @@ export function POSTerminal({ products, customers, settings }: POSTerminalProps)
             placeholder="Search by name, SKU or barcode..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className={cn(inputCls, 'pl-9')}
+            className={cn(inputCls, 'h-11 border-[#d9dde5] bg-white pl-10 dark:bg-[#171717]')}
             autoFocus
           />
+          </div>
         </div>
         
         {/* Category filter */}
-        {categories.length > 0 && (
-          <div className="mb-3 flex gap-1 overflow-x-auto pb-2">
+        {availableCategories.length > 0 && (
+          <div className="flex gap-2 overflow-x-auto border-b border-[var(--dashboard-border)] px-4 py-3 sm:px-5">
             <button
               onClick={() => setSelectedCategory('')}
               className={cn(
-                'flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors',
+                'flex-shrink-0 rounded-md border px-3 py-1.5 text-xs font-semibold whitespace-nowrap transition-colors',
                 !selectedCategory
-                  ? 'bg-primary text-primary-foreground'
-                  : 'bg-muted text-muted-foreground hover:bg-secondary'
+                  ? 'border-[#e6c31d] bg-[#ffda32] text-[#050a1f]'
+                  : 'border-[var(--dashboard-border)] bg-[var(--dashboard-surface)] text-[var(--dashboard-muted)] hover:bg-[#f7f8fa] dark:hover:bg-white/5'
               )}
             >
-              All
+              All products
             </button>
-            {categories.map((cat) => (
+            {availableCategories.map((category) => (
               <button
-                key={cat}
-                onClick={() => setSelectedCategory(cat)}
+                key={category.id}
+                onClick={() => setSelectedCategory(category.id)}
                 className={cn(
-                  'flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors',
-                  selectedCategory === cat
-                    ? 'bg-primary text-primary-foreground'
-                    : 'bg-muted text-muted-foreground hover:bg-secondary'
+                  'flex-shrink-0 rounded-md border px-3 py-1.5 text-xs font-semibold whitespace-nowrap transition-colors',
+                  selectedCategory === category.id
+                    ? 'border-[#e6c31d] bg-[#ffda32] text-[#050a1f]'
+                    : 'border-[var(--dashboard-border)] bg-[var(--dashboard-surface)] text-[var(--dashboard-muted)] hover:bg-[#f7f8fa] dark:hover:bg-white/5'
                 )}
               >
-                {cat}
+                {category.name}
               </button>
             ))}
           </div>
         )}
 
         {/* Product grid */}
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 overflow-y-auto bg-[#fafaf8] p-4 dark:bg-[#101010] sm:p-5">
           {filteredProducts.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-48 text-center">
               <Package className="h-10 w-10 text-muted-foreground/40 mb-3" />
@@ -544,7 +577,7 @@ export function POSTerminal({ products, customers, settings }: POSTerminalProps)
               </p>
             </div>
           ) : (
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 pr-2">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
               {filteredProducts.map((product) => {
                 const inCart = cart.find((i) => i.productId === product.id)
                 const outOfStock = product.stock === 0
@@ -554,12 +587,12 @@ export function POSTerminal({ products, customers, settings }: POSTerminalProps)
                     onClick={() => addToCart(product)}
                     disabled={outOfStock}
                     className={cn(
-                      'group relative flex flex-col rounded-lg border p-3 text-left transition-all',
+                      'group relative flex min-h-[170px] flex-col rounded-lg border border-[#dfe3ea] bg-white p-3.5 text-left shadow-[0_1px_2px_rgba(16,24,40,.03)] transition-colors dark:border-[#303030] dark:bg-[#191919]',
                       'disabled:opacity-50 disabled:cursor-not-allowed',
-                      'hover:border-primary hover:shadow-sm hover:shadow-primary/10',
+                      'hover:border-[#d5bd42] hover:bg-[#fffdf4] dark:hover:bg-[#211e12]',
                       inCart
-                        ? 'border-primary bg-primary/5 ring-1 ring-primary/20'
-                        : 'bg-card hover:bg-accent/20'
+                        ? 'border-[#d5bd42] bg-[#fff8d6] ring-1 ring-[#e6c31d]/30 dark:bg-[#292513]'
+                        : ''
                     )}
                   >
                     {/* Stock badge */}
@@ -578,13 +611,13 @@ export function POSTerminal({ products, customers, settings }: POSTerminalProps)
                         className="w-full h-16 object-cover rounded-lg mb-2"
                       />
                     ) : (
-                      <div className="flex h-16 w-full items-center justify-center rounded-lg bg-primary/10 text-primary mb-2">
+                      <div className="mb-3 flex h-16 w-full items-center justify-center rounded-lg bg-[#f4f5f7] text-[#667085] dark:bg-[#252525] dark:text-[#a7a7a7]">
                         <Package className="h-6 w-6" />
                       </div>
                     )}
                     
                     {/* Product name */}
-                    <p className="text-xs font-semibold leading-tight line-clamp-2 mb-1">
+                    <p className="mb-1 text-sm font-semibold leading-tight line-clamp-2 text-[var(--dashboard-text)]">
                       {product.name}
                     </p>
                     
@@ -594,7 +627,7 @@ export function POSTerminal({ products, customers, settings }: POSTerminalProps)
                     )}
                     
                     {/* Price */}
-                    <p className="text-sm font-bold text-primary mt-auto mb-1">
+                    <p className="mt-auto mb-1 text-sm font-bold text-[var(--dashboard-text)]">
                       {formatCurrency(product.sellingPrice)}
                     </p>
                     
@@ -605,7 +638,7 @@ export function POSTerminal({ products, customers, settings }: POSTerminalProps)
                     
                     {/* Cart badge */}
                     {inCart && (
-                      <div className="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground shadow-lg">
+                      <div className="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-full bg-[#ffda32] text-xs font-bold text-[#050a1f] shadow-sm">
                         {inCart.quantity}
                       </div>
                     )}
@@ -615,21 +648,16 @@ export function POSTerminal({ products, customers, settings }: POSTerminalProps)
             </div>
           )}
         </div>
-      </div>
+      </section>
 
       {/* Right: Cart + Payment */}
-      <div className="flex min-h-[520px] w-full flex-shrink-0 flex-col rounded-xl border bg-card lg:min-h-0 lg:w-96 xl:w-[420px] shadow-sm">
+      <aside className="flex min-h-[520px] w-full flex-col overflow-hidden rounded-xl border border-[var(--dashboard-border)] bg-[var(--dashboard-surface)] shadow-[0_1px_3px_rgba(16,24,40,.06)] lg:sticky lg:top-5 lg:max-h-[calc(100vh-7rem)]">
         {/* Cart header with quick actions */}
-        <div className="border-b bg-muted/30 p-3 space-y-3">
+        <div className="border-b border-[var(--dashboard-border)] bg-[#fffdf7] p-4 dark:bg-[#191817] space-y-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <ShoppingCart className="h-4 w-4 text-primary" />
-              <span className="text-sm font-bold">Order Summary</span>
-              {cart.length > 0 && (
-                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
-                  {cart.length}
-                </span>
-              )}
+              <span className="flex h-8 w-8 items-center justify-center rounded-md bg-[#ffda32] text-[#050a1f]"><ShoppingCart className="h-4 w-4" /></span>
+              <div><span className="block text-sm font-bold text-[var(--dashboard-text)]">Current sale</span><span className="block text-[11px] text-[var(--dashboard-muted)]">{cart.length ? `${cart.length} item${cart.length === 1 ? '' : 's'} in basket` : 'New transaction'}</span></div>
             </div>
             {cart.length > 0 && (
               <button
@@ -663,12 +691,12 @@ export function POSTerminal({ products, customers, settings }: POSTerminalProps)
         </div>
 
         {/* Cart items */}
-        <div className="flex-1 overflow-y-auto">
+        <div className="min-h-[220px] flex-1 overflow-y-auto">
           {cart.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-center py-12 px-4">
-              <ShoppingCart className="h-12 w-12 text-muted-foreground/20 mb-3" />
-              <p className="text-sm font-medium text-foreground">No items in cart</p>
-              <p className="text-xs text-muted-foreground mt-1">Search and click products to add them</p>
+              <ShoppingCart className="mb-3 h-11 w-11 text-[#d9dde5] dark:text-[#3a3a3a]" />
+              <p className="text-sm font-semibold text-[var(--dashboard-text)]">Your basket is empty</p>
+              <p className="mt-1 max-w-[220px] text-xs leading-5 text-[var(--dashboard-muted)]">Select products from the catalog to build this sale.</p>
             </div>
           ) : (
             <ul className="divide-y">
@@ -920,6 +948,22 @@ export function POSTerminal({ products, customers, settings }: POSTerminalProps)
               </div>
             )}
 
+            {requiresAgeVerification && (
+              <button
+                type="button"
+                onClick={() => setShowAgeVerification(true)}
+                className={cn(
+                  'flex w-full items-center gap-2 rounded-lg border px-3 py-2 text-left text-xs font-medium',
+                  ageVerified
+                    ? 'border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-300'
+                    : 'border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-300'
+                )}
+              >
+                <ShieldCheck className="h-4 w-4 shrink-0" />
+                <span>{ageVerified ? 'Age check recorded for this sale' : 'Age check required before charging'}</span>
+              </button>
+            )}
+
             <button
               onClick={handleCheckout}
               disabled={processing || cart.length === 0}
@@ -940,7 +984,21 @@ export function POSTerminal({ products, customers, settings }: POSTerminalProps)
             </button>
           </div>
         )}
-      </div>
+      </aside>
+
+      {showAgeVerification && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4" role="dialog" aria-modal="true" aria-labelledby="age-check-title">
+          <div className="w-full max-w-md rounded-xl border border-[#e3dfd2] bg-white p-6 shadow-2xl dark:border-[#343434] dark:bg-[#1c1c1e]">
+            <span className="flex h-11 w-11 items-center justify-center rounded-lg bg-[#fff8d6] text-[#5f4b00] dark:bg-[#292513] dark:text-[#ffdf45]"><ShieldCheck className="h-5 w-5" /></span>
+            <h2 id="age-check-title" className="mt-4 text-lg font-bold text-[var(--dashboard-text)]">Verify customer age</h2>
+            <p className="mt-2 text-sm leading-6 text-[var(--dashboard-muted)]">Check a valid photo ID where required and confirm the customer meets the legal drinking age before completing this sale.</p>
+            <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <button type="button" onClick={() => setShowAgeVerification(false)} className="min-h-10 rounded-lg border border-[var(--dashboard-border)] px-4 text-sm font-semibold text-[var(--dashboard-text)] hover:bg-[#f7f8fa] dark:hover:bg-white/5">Cancel</button>
+              <button type="button" onClick={() => { setAgeVerified(true); setShowAgeVerification(false); void processCheckout(true) }} className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-[#ffda32] px-4 text-sm font-bold text-[#050a1f] hover:bg-[#f0c900]"><ShieldCheck className="h-4 w-4" />Age verified — continue</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Sales History Modal */}
       {showSalesHistory && (

@@ -20,7 +20,12 @@ export async function POST(request: Request) {
     if (code === 'EMAIL_NOT_VERIFIED') return NextResponse.json({ message: 'Verify your email before creating a workspace.' }, { status: 403 })
     if (code === 'STALE_REVISION') return NextResponse.json({ code: 'STALE_REVISION', message: 'This setup changed in another tab. Reload to continue with the latest version.' }, { status: 409 })
     if (code.startsWith('INCOMPLETE_STEP:')) return NextResponse.json({ message: 'Review the incomplete section before creating your workspace.', stepId: code.split(':')[1] }, { status: 422 })
-    console.error('[onboarding/complete] Workspace transaction failed')
+    console.error('[onboarding/complete] Workspace transaction failed', {
+      code,
+      cause: error instanceof Error && error.cause instanceof Error
+        ? { name: error.cause.name, message: error.cause.message }
+        : undefined,
+    })
     return NextResponse.json({ message: 'We could not create the workspace. No partial setup was saved; please try again.' }, { status: 500 })
   }
 }

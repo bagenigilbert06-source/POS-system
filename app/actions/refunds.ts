@@ -15,10 +15,12 @@ async function getUserId() {
   return session.user.id
 }
 
-async function getOrgId(userId: string) {
-  const workspace = await WorkspaceService.getCurrentWorkspace(userId, 'pos')
-  if (!workspace) throw new Error('Workspace not found')
-  return workspace.organizationId
+async function getOrgId(userId: string, moduleId: string) {
+  const organization = await OrganizationService.getPrimaryOrganization(userId)
+  if (!organization?.onboardingCompleted) throw new Error('Workspace not found')
+  const workspace = await WorkspaceService.getWorkspaceConfig(organization.id, userId)
+  if (!workspace?.enabledModules.includes(moduleId)) throw new Error('Module unavailable')
+  return organization.id
 }
 
 interface RefundItem {

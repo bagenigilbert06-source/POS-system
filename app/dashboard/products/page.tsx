@@ -1,4 +1,4 @@
-import { getProducts } from '@/app/actions/products'
+import { getProductCategories, getProducts } from '@/app/actions/products'
 import { ProductsTable } from '@/components/products/products-table'
 import { Package } from 'lucide-react'
 import type { Metadata } from 'next'
@@ -9,13 +9,16 @@ export const metadata: Metadata = { title: 'Products' }
 
 export default async function ProductsPage() {
   await requireWorkspaceModule('products')
-  const products = await getProducts(undefined, true)
+  const [products, categories] = await Promise.all([
+    getProducts(undefined, true),
+    getProductCategories(),
+  ])
 
   return (
     <div className="mx-auto max-w-[1480px] space-y-5">
       <DashboardPageHeading icon={Package} title="Products" description="Manage your product catalog, pricing and stock setup." />
 
-      <ProductsTable initialProducts={products} />
+      <ProductsTable initialProducts={products} categories={categories} />
     </div>
   )
 }

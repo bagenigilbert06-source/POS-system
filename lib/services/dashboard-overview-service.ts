@@ -40,6 +40,10 @@ export interface DashboardOverview {
     minStock: number
   }>
   topProducts: Array<{ name: string; quantity: number; revenue: number }>
+  liquorCompliance: {
+    verifiedToday: number
+    unverifiedToday: number
+  }
 }
 
 function number(value: unknown) {
@@ -97,7 +101,7 @@ export async function getDashboardOverview(organizationId: string, timeZone = 'A
   const now = new Date()
   const currentDate = localDateParts(now, safeTimeZone)
   const tomorrowDate = moveCalendarDate(currentDate.year, currentDate.month, currentDate.day, 1)
-  const seriesStartDate = moveCalendarDate(currentDate.year, currentDate.month, currentDate.day, -6)
+  const seriesStartDate = moveCalendarDate(currentDate.year, currentDate.month, currentDate.day, -29)
   const today = zonedMidnight(currentDate.year, currentDate.month, currentDate.day, safeTimeZone)
   const tomorrow = zonedMidnight(tomorrowDate.year, tomorrowDate.month, tomorrowDate.day, safeTimeZone)
   const monthStart = zonedMidnight(currentDate.year, currentDate.month, 1, safeTimeZone)
@@ -119,6 +123,7 @@ export async function getDashboardOverview(organizationId: string, timeZone = 'A
     recentRows,
     lowStockRows,
     topProductRows,
+    complianceRows,
   ] = await Promise.all([
     db
       .select({
@@ -206,6 +211,13 @@ export async function getDashboardOverview(organizationId: string, timeZone = 'A
       .groupBy(saleItem.productName)
       .orderBy(desc(sql`sum(${saleItem.totalPrice})`))
       .limit(5),
+    db
+      .select({
+        verified: sql<number>`count(*) filter (where ${sale.ageVerified} = true)`,
+        unverified: sql<number>`count(*) filter (where ${sale.ageVerified} = false)`,
+      })
+      .from(sale)
+      .where(and(completedSale, gte(sale.createdAt, today), lt(sale.createdAt, tomorrow))),
   ])
 
   const todayRevenue = number(todaySalesRows[0]?.revenue)
@@ -216,7 +228,7 @@ export async function getDashboardOverview(organizationId: string, timeZone = 'A
 
   const revenueByDate = new Map(revenueRows.map((row) => [row.date, number(row.amount)]))
   const expensesByDate = new Map(expenseRows.map((row) => [row.date, number(row.amount)]))
-  const revenueSeries = Array.from({ length: 7 }, (_, index) => {
+  const revenueSeries = Array.from({ length: 30 }, (_, index) => {
     const key = calendarKey(moveCalendarDate(seriesStartDate.year, seriesStartDate.month, seriesStartDate.day, index))
     return { date: key, revenue: revenueByDate.get(key) ?? 0, expenses: expensesByDate.get(key) ?? 0 }
   })
@@ -246,5 +258,9 @@ export async function getDashboardOverview(organizationId: string, timeZone = 'A
     recentSales: recentRows.map((row) => ({ ...row, total: number(row.total) })),
     lowStockProducts: lowStockRows,
     topProducts: topProductRows.map((row) => ({ name: row.name, quantity: number(row.quantity), revenue: number(row.revenue) })),
+    liquorCompliance: {
+      verifiedToday: number(complianceRows[0]?.verified),
+      unverifiedToday: number(complianceRows[0]?.unverified),
+    },
   }
 }

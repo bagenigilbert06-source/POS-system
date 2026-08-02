@@ -46,7 +46,7 @@ export async function getStaffPerformanceData(dateFrom: Date, dateTo: Date) {
         name: r.staffName || 'Unknown',
         totalSales: new Decimal(r.totalSales || 0).toNumber(),
         transactions: Number(r.transactionCount || 0),
-        avgValue: new Decimal(r.avgTransactionValue || 0).toNumber()
+        avgValue: new Decimal(String(r.avgTransactionValue ?? 0)).toNumber()
       }))),
     
     // Staff count and metrics

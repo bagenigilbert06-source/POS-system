@@ -37,7 +37,7 @@ export function ProfitTrendChart({ data, currency }: ProfitTrendChartProps) {
               <YAxis stroke="#8a94a5" />
               <Tooltip 
                 contentStyle={{ backgroundColor: '#fff', border: '1px solid #d9dce3' }}
-                formatter={(value: any, name: string) => {
+                formatter={(value: any, name: any) => {
                   return [formatCurrency(value, currency), name.charAt(0).toUpperCase() + name.slice(1)]
                 }}
               />

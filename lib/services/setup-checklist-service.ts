@@ -11,17 +11,7 @@ export interface SetupChecklistItem {
 }
 
 export async function getSetupChecklist(organizationId: string, enabledModules: string[]) {
-  const [[products], [stock], [customers], [sales], [employees], [branches], [suppliers], [settings]] = await Promise.all([
-    db.select({ value: count() }).from(product).where(eq(product.orgId, organizationId)),
-    db.select({ value: count() }).from(product).where(and(eq(product.orgId, organizationId), gt(product.stock, 0))),
-    db.select({ value: count() }).from(customer).where(eq(customer.orgId, organizationId)),
-    db.select({ value: count() }).from(sale).where(eq(sale.orgId, organizationId)),
-    db.select({ value: count() }).from(employee).where(eq(employee.orgId, organizationId)),
-    db.select({ value: count() }).from(branch).where(eq(branch.organizationId, organizationId)),
-    db.select({ value: count() }).from(supplier).where(eq(supplier.orgId, organizationId)),
-    db.select().from(businessSettings).where(eq(businessSettings.organizationId, organizationId)).limit(1),
-  ])
-  const paymentMethods = Array.isArray(settings?.paymentMethods) ? settings.paymentMethods : []
+  const [settings] = await db.select().from(businessSettings).where(eq(businessSettings.organizationId, organizationId)).limit(1)
   const operations = (settings?.operations ?? {}) as Record<string, unknown>
   const hasProducts = enabledModules.includes('products')
   const hasInventory = enabledModules.includes('inventory')
@@ -29,6 +19,18 @@ export async function getSetupChecklist(organizationId: string, enabledModules: 
   const hasTeam = operations.hasEmployees === true
   const hasMultipleLocations = operations.multipleLocations === true
   const usesSuppliers = operations.usesSuppliers === true
+
+  // Query only capabilities that are enabled for this workspace. Besides
+  // avoiding unnecessary database work, optional modules remain truly optional.
+  const [[products], [stock], [customers], [sales], [employees], [branches], [suppliers]] = await Promise.all([
+    db.select({ value: count() }).from(product).where(eq(product.orgId, organizationId)),
+    db.select({ value: count() }).from(product).where(and(eq(product.orgId, organizationId), gt(product.stock, 0))),
+    hasCustomers ? db.select({ value: count() }).from(customer).where(eq(customer.orgId, organizationId)) : Promise.resolve([{ value: 0 }]),
+    db.select({ value: count() }).from(sale).where(eq(sale.orgId, organizationId)),
+    hasTeam ? db.select({ value: count() }).from(employee).where(eq(employee.orgId, organizationId)) : Promise.resolve([{ value: 0 }]),
+    hasMultipleLocations ? db.select({ value: count() }).from(branch).where(eq(branch.organizationId, organizationId)) : Promise.resolve([{ value: 1 }]),
+    usesSuppliers ? db.select({ value: count() }).from(supplier).where(eq(supplier.orgId, organizationId)) : Promise.resolve([{ value: 0 }]),
+  ])
   const issuesReceipts = operations.issuesReceipts === true
   const saleHref = enabledModules.includes('pos') ? '/dashboard/pos' : '/dashboard/sales'
   const items: SetupChecklistItem[] = [

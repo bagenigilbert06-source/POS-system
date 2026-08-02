@@ -33,6 +33,7 @@ import { cosmeticsTemplate }      from './retail/cosmetics'
 import { hardwareTemplate }       from './retail/hardware'
 import { petShopTemplate }        from './retail/pet-shop'
 import { furnitureTemplate }      from './retail/furniture'
+import { liquorShopTemplate }     from './retail/liquor-shop'
 import { generalRetailTemplate }  from './retail/general'
 
 // ── Restaurant ───────────────────────────────────────────────────────────────
@@ -70,6 +71,7 @@ const REGISTRY: Record<string, WorkspaceTemplate> = {
   'retail.hardware':      hardwareTemplate,
   'retail.pet-shop':      petShopTemplate,
   'retail.furniture':     furnitureTemplate,
+  'retail.liquor-shop':   liquorShopTemplate,
   'retail.general':       generalRetailTemplate,
 
   // Restaurant
@@ -118,6 +120,7 @@ const CATEGORY_MAP: Record<string, CategoryMapEntry> = {
   furniture_store:    { templateId: 'retail.furniture',     businessType: 'retail' },
   gift_shop:          { templateId: 'retail.general',       businessType: 'retail' },
   convenience_store:  { templateId: 'retail.grocery',       businessType: 'retail' },
+  liquor_shop:        { templateId: 'retail.liquor-shop',   businessType: 'retail' },
   other_retail:       { templateId: 'retail.general',       businessType: 'retail' },
 
   // ── Restaurant ───────────────────────────────────────────────────────────
@@ -204,7 +207,8 @@ export function resolveOnboardingTemplateId(businessFamily: string, businessCate
   const category = businessCategory.toLowerCase()
   if (businessFamily === 'retail') {
     if (category === 'supermarket') return 'retail.supermarket'
-    if (['general_shop', 'mini_mart', 'liquor_shop'].includes(category)) return 'retail.grocery'
+    if (category === 'liquor_shop') return 'retail.liquor-shop'
+    if (['general_shop', 'mini_mart'].includes(category)) return 'retail.grocery'
     if (category === 'hardware') return 'retail.hardware'
     if (category === 'electronics') return 'retail.electronics'
     if (category === 'clothing') return 'retail.clothing'

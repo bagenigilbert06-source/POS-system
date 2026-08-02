@@ -61,7 +61,8 @@ function runtimeConfig(input: {
   const storedModules = input.stored?.enabledModules ?? ['sales', 'expenses', 'reports', 'analytics']
   const enabledModules = Array.from(new Set([...storedModules, 'expenses', 'reports', 'analytics', 'operations', ...(storedModules.includes('inventory') ? ['purchases'] : [])]))
   const storedTemplateId = input.stored?.templateId
-  const templateId = storedTemplateId && storedTemplateId !== 'adaptive.generic'
+  const legacyLiquorTemplate = input.businessCategory === 'liquor_shop' && storedTemplateId === 'retail.grocery'
+  const templateId = storedTemplateId && storedTemplateId !== 'adaptive.generic' && !legacyLiquorTemplate
     ? storedTemplateId
     : resolveOnboardingTemplateId(input.stored?.businessFamily ?? input.businessType, input.stored?.businessCategory ?? input.businessCategory)
 

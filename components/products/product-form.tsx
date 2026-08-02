@@ -3,24 +3,27 @@
 import { useState } from 'react'
 import { createProduct, updateProduct } from '@/app/actions/products'
 import { cn } from '@/lib/utils'
-import { Loader2, X } from 'lucide-react'
+import { Barcode, Boxes, Check, CircleDollarSign, Loader2, Package2, Tag, X } from 'lucide-react'
 import type { Product } from '@/lib/db/schema'
 import { toast } from 'sonner'
 
 interface ProductFormProps {
   product?: Product
+  categories: Array<{ id: string; name: string }>
   onClose: () => void
 }
 
 const UNITS = ['pcs', 'kg', 'g', 'litre', 'ml', 'box', 'dozen', 'pack', 'bag', 'bottle', 'tin', 'roll']
 
-export function ProductForm({ product, onClose }: ProductFormProps) {
+export function ProductForm({ product, categories, onClose }: ProductFormProps) {
   const [loading, setLoading] = useState(false)
+  const [errors, setErrors] = useState<{ name?: string; sellingPrice?: string }>({})
   const [form, setForm] = useState({
     name: product?.name ?? '',
     sku: product?.sku ?? '',
     barcode: product?.barcode ?? '',
     description: product?.description ?? '',
+    categoryId: product?.categoryId ?? '',
     buyingPrice: product?.buyingPrice ?? '0',
     sellingPrice: product?.sellingPrice ?? '',
     stock: product?.stock ?? 0,
@@ -32,14 +35,22 @@ export function ProductForm({ product, onClose }: ProductFormProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!form.name || !form.sellingPrice) return
+    const nextErrors = {
+      name: form.name.trim() ? undefined : 'Enter a product name.',
+      sellingPrice: Number(form.sellingPrice) >= 0 && form.sellingPrice !== '' ? undefined : 'Enter a selling price.',
+    }
+    if (nextErrors.name || nextErrors.sellingPrice) {
+      setErrors(nextErrors)
+      return
+    }
     setLoading(true)
     try {
       const data = {
-        name: form.name,
+        name: form.name.trim(),
         sku: form.sku || undefined,
         barcode: form.barcode || undefined,
         description: form.description || undefined,
+        categoryId: form.categoryId || undefined,
         buyingPrice: parseFloat(String(form.buyingPrice)) || 0,
         sellingPrice: parseFloat(String(form.sellingPrice)),
         stock: Number(form.stock),
@@ -67,53 +78,68 @@ export function ProductForm({ product, onClose }: ProductFormProps) {
     'focus:border-primary focus:ring-2 focus:ring-primary/20 transition-colors'
   )
 
+  const buying = Number(form.buyingPrice) || 0
+  const selling = Number(form.sellingPrice) || 0
+  const margin = selling - buying
+  const marginPercent = buying > 0 ? (margin / buying) * 100 : 0
+
+  const FieldLabel = ({ children, required }: { children: React.ReactNode; required?: boolean }) => (
+    <label className="mb-1.5 block text-sm font-medium text-foreground">
+      {children}{required && <span className="ml-1 text-destructive">*</span>}
+    </label>
+  )
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-      <div className="w-full max-w-lg rounded-xl border bg-card shadow-xl">
-        {/* Header */}
-        <div className="flex items-center justify-between border-b px-5 py-4">
-          <h2 className="text-base font-semibold">
-            {product ? 'Edit Product' : 'Add Product'}
-          </h2>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4 sm:p-6">
+      <div className="flex max-h-[calc(100vh-2rem)] w-full max-w-3xl flex-col overflow-hidden rounded-xl border bg-card shadow-2xl sm:max-h-[calc(100vh-3rem)]">
+        <div className="flex items-start justify-between border-b px-5 py-4 sm:px-6">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <Package2 className="h-5 w-5" />
+            </div>
+            <div>
+              <h2 className="text-base font-semibold">{product ? 'Edit product' : 'New product'}</h2>
+              <p className="mt-0.5 text-sm text-muted-foreground">Set up the product, price and stock levels for your catalogue.</p>
+            </div>
+          </div>
           <button
             onClick={onClose}
-            className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
+            className="ml-4 rounded-md p-2 text-muted-foreground hover:bg-secondary hover:text-foreground"
+            aria-label="Close product form"
           >
             <X className="h-4 w-4" />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit}>
-          <div className="space-y-4 p-5">
-            {/* Name */}
-            <div>
-              <label className="mb-1.5 block text-sm font-medium">
-                Product name <span className="text-destructive">*</span>
-              </label>
+        <form onSubmit={handleSubmit} noValidate className="flex min-h-0 flex-1 flex-col">
+          <div className="min-h-0 flex-1 space-y-6 overflow-y-auto p-5 sm:p-6">
+            <section>
+              <div className="mb-3 flex items-center gap-2"><Tag className="h-4 w-4 text-primary" /><h3 className="text-sm font-semibold">Product details</h3></div>
+              <div className="rounded-lg border bg-muted/20 p-4 sm:p-5">
+                <div>
+                  <FieldLabel required>Product name</FieldLabel>
               <input
                 type="text"
-                required
-                placeholder="e.g. Unga Maize Flour 2kg"
+                    placeholder="e.g. Johnnie Walker Black Label 750ml"
                 value={form.name}
-                onChange={(e) => set('name', e.target.value)}
-                className={inputCls}
+                    onChange={(e) => { set('name', e.target.value); setErrors((current) => ({ ...current, name: undefined })) }}
+                    className={cn(inputCls, errors.name && 'border-destructive focus:border-destructive focus:ring-destructive/20')}
               />
-            </div>
-
-            {/* SKU & Barcode */}
-            <div className="grid grid-cols-2 gap-3">
+                  {errors.name && <p className="mt-1.5 text-xs text-destructive">{errors.name}</p>}
+                </div>
+                <div className="mt-4 grid gap-4 sm:grid-cols-3">
               <div>
-                <label className="mb-1.5 block text-sm font-medium">SKU</label>
+                    <FieldLabel>SKU</FieldLabel>
                 <input
                   type="text"
-                  placeholder="e.g. UMF-2KG"
+                      placeholder="e.g. JWB-750"
                   value={form.sku}
                   onChange={(e) => set('sku', e.target.value)}
                   className={inputCls}
                 />
               </div>
               <div>
-                <label className="mb-1.5 block text-sm font-medium">Barcode</label>
+                    <FieldLabel>Barcode</FieldLabel>
                 <input
                   type="text"
                   placeholder="Scan or enter"
@@ -122,12 +148,27 @@ export function ProductForm({ product, onClose }: ProductFormProps) {
                   className={inputCls}
                 />
               </div>
-            </div>
+                  <div>
+                    <FieldLabel>Category</FieldLabel>
+                    <select value={form.categoryId} onChange={(e) => set('categoryId', e.target.value)} className={inputCls}>
+                      <option value="">Uncategorised</option>
+                      {categories.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+                    </select>
+                  </div>
+                </div>
+                <div className="mt-4">
+                  <FieldLabel>Description</FieldLabel>
+                  <textarea rows={2} placeholder="Optional product description" value={form.description} onChange={(e) => set('description', e.target.value)} className={cn(inputCls, 'resize-y')} />
+                </div>
+              </div>
+            </section>
 
-            {/* Prices */}
-            <div className="grid grid-cols-2 gap-3">
+            <section>
+              <div className="mb-3 flex items-center gap-2"><CircleDollarSign className="h-4 w-4 text-primary" /><h3 className="text-sm font-semibold">Pricing</h3></div>
+              <div className="rounded-lg border bg-muted/20 p-4 sm:p-5">
+                <div className="grid gap-4 sm:grid-cols-2">
               <div>
-                <label className="mb-1.5 block text-sm font-medium">Buying Price (KES)</label>
+                    <FieldLabel>Buying price <span className="font-normal text-muted-foreground">(KES)</span></FieldLabel>
                 <input
                   type="number"
                   min="0"
@@ -139,26 +180,33 @@ export function ProductForm({ product, onClose }: ProductFormProps) {
                 />
               </div>
               <div>
-                <label className="mb-1.5 block text-sm font-medium">
-                  Selling Price (KES) <span className="text-destructive">*</span>
-                </label>
+                    <FieldLabel required>Selling price <span className="font-normal text-muted-foreground">(KES)</span></FieldLabel>
                 <input
                   type="number"
                   min="0"
                   step="0.01"
-                  required
                   placeholder="0.00"
                   value={form.sellingPrice}
-                  onChange={(e) => set('sellingPrice', e.target.value)}
-                  className={inputCls}
+                      onChange={(e) => { set('sellingPrice', e.target.value); setErrors((current) => ({ ...current, sellingPrice: undefined })) }}
+                      className={cn(inputCls, errors.sellingPrice && 'border-destructive focus:border-destructive focus:ring-destructive/20')}
                 />
+                    {errors.sellingPrice && <p className="mt-1.5 text-xs text-destructive">{errors.sellingPrice}</p>}
+                  </div>
+                </div>
+                <div className={cn('mt-4 flex items-center justify-between rounded-md border px-3 py-2.5 text-sm', margin >= 0 ? 'border-[hsl(var(--success)/0.25)] bg-[hsl(var(--success)/0.06)]' : 'border-destructive/25 bg-destructive/5')}>
+                  <span className="text-muted-foreground">Expected gross margin</span>
+                  <span className={cn('font-semibold tabular-nums', margin >= 0 ? 'text-[hsl(var(--success))]' : 'text-destructive')}>KES {margin.toFixed(2)} {buying > 0 && `(${marginPercent.toFixed(1)}%)`}</span>
+                </div>
               </div>
-            </div>
+            </section>
 
-            {/* Stock */}
-            <div className="grid grid-cols-3 gap-3">
+            <section>
+              <div className="mb-3 flex items-center gap-2"><Boxes className="h-4 w-4 text-primary" /><h3 className="text-sm font-semibold">Inventory</h3></div>
+              <div className="rounded-lg border bg-muted/20 p-4 sm:p-5">
+                <p className="mb-4 text-xs text-muted-foreground">Set the opening quantity and the level at which this product should be flagged for reorder.</p>
+                <div className="grid gap-4 sm:grid-cols-3">
               <div>
-                <label className="mb-1.5 block text-sm font-medium">Stock Qty</label>
+                    <FieldLabel>Opening stock</FieldLabel>
                 <input
                   type="number"
                   min="0"
@@ -168,7 +216,7 @@ export function ProductForm({ product, onClose }: ProductFormProps) {
                 />
               </div>
               <div>
-                <label className="mb-1.5 block text-sm font-medium">Min Stock</label>
+                    <FieldLabel>Reorder level</FieldLabel>
                 <input
                   type="number"
                   min="0"
@@ -178,7 +226,7 @@ export function ProductForm({ product, onClose }: ProductFormProps) {
                 />
               </div>
               <div>
-                <label className="mb-1.5 block text-sm font-medium">Unit</label>
+                    <FieldLabel>Unit of measure</FieldLabel>
                 <select
                   value={form.unit}
                   onChange={(e) => set('unit', e.target.value)}
@@ -189,37 +237,18 @@ export function ProductForm({ product, onClose }: ProductFormProps) {
                   ))}
                 </select>
               </div>
-            </div>
-
-            {/* Description */}
-            <div>
-              <label className="mb-1.5 block text-sm font-medium">Description</label>
-              <textarea
-                rows={2}
-                placeholder="Optional product description"
-                value={form.description}
-                onChange={(e) => set('description', e.target.value)}
-                className={cn(inputCls, 'resize-none')}
-              />
-            </div>
-
-            {/* Margin */}
-            {form.buyingPrice && form.sellingPrice && (
-              <div className="rounded-md bg-[hsl(var(--success)/0.08)] border border-[hsl(var(--success)/0.2)] px-3 py-2 text-xs text-[hsl(var(--success))]">
-                Margin: KES {(parseFloat(String(form.sellingPrice)) - parseFloat(String(form.buyingPrice))).toFixed(2)}{' '}
-                ({parseFloat(String(form.buyingPrice)) > 0
-                  ? (((parseFloat(String(form.sellingPrice)) - parseFloat(String(form.buyingPrice))) / parseFloat(String(form.buyingPrice))) * 100).toFixed(1)
-                  : 0}%)
+                </div>
               </div>
-            )}
+            </section>
           </div>
 
-          {/* Footer */}
-          <div className="flex items-center justify-end gap-2 border-t px-5 py-4">
+          <div className="flex items-center justify-between border-t bg-muted/20 px-5 py-4 sm:px-6">
+            <p className="hidden items-center gap-1.5 text-xs text-muted-foreground sm:flex"><Check className="h-3.5 w-3.5 text-[hsl(var(--success))]" />Changes are saved to your workspace.</p>
+            <div className="ml-auto flex items-center gap-2">
             <button
               type="button"
               onClick={onClose}
-              className="rounded-md border px-4 py-2 text-sm font-medium hover:bg-secondary transition-colors"
+                className="rounded-md border bg-background px-4 py-2 text-sm font-medium hover:bg-secondary"
             >
               Cancel
             </button>
@@ -228,12 +257,13 @@ export function ProductForm({ product, onClose }: ProductFormProps) {
               disabled={loading}
               className={cn(
                 'flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground',
-                'hover:bg-primary/90 disabled:opacity-60 disabled:cursor-not-allowed transition-colors'
+                  'hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60'
               )}
             >
               {loading && <Loader2 className="h-4 w-4 animate-spin" />}
-              {product ? 'Save Changes' : 'Add Product'}
+                {product ? 'Save changes' : 'Create product'}
             </button>
+            </div>
           </div>
         </form>
       </div>

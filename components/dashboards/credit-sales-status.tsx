@@ -46,7 +46,7 @@ export function CreditSalesStatusChart({ status, currency }: CreditSalesStatusCh
                 <YAxis stroke="#8a94a5" />
                 <Tooltip 
                   contentStyle={{ backgroundColor: '#fff', border: '1px solid #d9dce3' }}
-                  formatter={(value: any, name: string) => {
+                  formatter={(value: any, name: any) => {
                     if (name === 'totalAmount') return [formatCurrency(value, currency), 'Total Amount']
                     if (name === 'amountPaid') return [formatCurrency(value, currency), 'Amount Paid']
                     return [value, 'Count']

@@ -1,5 +1,6 @@
 'use client'
 
+import { useMemo, useState } from 'react'
 import { Area, Bar, CartesianGrid, ComposedChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 
 interface OperatingChartProps {
@@ -35,18 +36,25 @@ function compact(value: number, currency: string) {
 }
 
 export function OperatingChart({ data, currency }: OperatingChartProps) {
-  const chartData = data.map((point) => ({ ...point, label: new Date(`${point.date}T12:00:00`).toLocaleDateString('en-KE', { weekday: 'short' }) }))
+  const [range, setRange] = useState<1 | 7 | 30>(30)
+  const chartData = useMemo(() => data.slice(-range).map((point) => ({
+    ...point,
+    label: new Date(`${point.date}T12:00:00`).toLocaleDateString('en-KE', range === 7 ? { weekday: 'short' } : { day: 'numeric', month: 'short' }),
+  })), [data, range])
   const summary = chartData.map((point) => `${point.label}: sales ${compact(point.revenue, currency)}, expenses ${compact(point.expenses, currency)}`).join('; ')
   const hasData = chartData.some((point) => point.revenue > 0 || point.expenses > 0)
 
   return (
-    <div className="relative h-[280px] w-full sm:h-[320px]" role="img" aria-label="Sales and expenses over the last seven days">
+    <div className="relative h-[330px] w-full pt-12 sm:h-[370px]" role="img" aria-label={`Sales and expenses over the last ${range === 1 ? 'day' : `${range} days`}`}>
       <p className="sr-only">{summary || 'No operating activity recorded in this period.'}</p>
+      <div className="absolute left-1 top-0 z-10 flex rounded-lg border border-[var(--dashboard-border)] bg-[var(--dashboard-surface-subtle)] p-1" aria-label="Chart period">
+        {([[1, 'Today'], [7, '7 days'], [30, '30 days']] as const).map(([value, text]) => <button key={value} type="button" onClick={() => setRange(value)} aria-pressed={range === value} className={range === value ? 'rounded-md bg-[var(--dashboard-surface)] px-3 py-1.5 text-xs font-bold text-[var(--dashboard-text)] shadow-sm' : 'rounded-md px-3 py-1.5 text-xs font-semibold text-[var(--dashboard-muted)] hover:text-[var(--dashboard-text)]'}>{text}</button>)}
+      </div>
       <ResponsiveContainer width="100%" height="100%">
-        <ComposedChart data={chartData} margin={{ top: 12, right: 10, left: -8, bottom: 0 }} barCategoryGap="58%">
+        <ComposedChart data={chartData} margin={{ top: 12, right: 10, left: -8, bottom: 0 }} barCategoryGap={range === 30 ? '72%' : '58%'}>
           <defs><linearGradient id="pesabyRevenueArea" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="var(--dashboard-chart-revenue-fill)" stopOpacity={0.18} /><stop offset="100%" stopColor="var(--dashboard-chart-revenue-fill)" stopOpacity={0} /></linearGradient></defs>
           <CartesianGrid vertical={false} stroke="var(--dashboard-chart-grid)" strokeDasharray="2 4" />
-          <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill: 'var(--dashboard-chart-tick)', fontSize: 11 }} dy={9} />
+          <XAxis dataKey="label" axisLine={false} tickLine={false} interval={range === 30 ? 4 : 0} tick={{ fill: 'var(--dashboard-chart-tick)', fontSize: 11 }} dy={9} />
           <YAxis axisLine={false} tickLine={false} width={58} tick={{ fill: 'var(--dashboard-chart-tick)', fontSize: 10 }} tickFormatter={(value) => compact(value, currency)} />
           <Tooltip cursor={{ fill: 'var(--dashboard-surface-subtle)' }} contentStyle={{ background: 'var(--dashboard-chart-tooltip)', color: 'var(--dashboard-text)', border: '1px solid var(--dashboard-border)', borderRadius: 8, boxShadow: '0 12px 30px rgb(38 28 17 / .16)', fontSize: 12 }} formatter={(value, name) => [compact(Number(value), currency), name === 'revenue' ? 'Sales' : 'Expenses']} labelFormatter={(_, payload) => payload?.[0]?.payload?.date ?? ''} />
           <Bar dataKey="expenses" fill="var(--dashboard-chart-secondary)" radius={[3, 3, 0, 0]} maxBarSize={22} isAnimationActive={false} />

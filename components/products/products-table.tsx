@@ -13,9 +13,10 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 
 interface ProductsTableProps {
   initialProducts: Product[]
+  categories: Array<{ id: string; name: string }>
 }
 
-export function ProductsTable({ initialProducts }: ProductsTableProps) {
+export function ProductsTable({ initialProducts, categories }: ProductsTableProps) {
   const router = useRouter()
   const [products, setProducts] = useState(initialProducts)
   const [search, setSearch] = useState('')
@@ -85,6 +86,7 @@ export function ProductsTable({ initialProducts }: ProductsTableProps) {
       {(showForm || editProduct) && (
         <ProductForm
           product={editProduct}
+          categories={categories}
           onClose={handleFormClose}
         />
       )}

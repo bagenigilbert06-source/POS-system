@@ -38,7 +38,7 @@ export function StaffActivityChart({ data, currency }: StaffActivityChartProps) 
             <YAxis stroke="#8a94a5" yAxisId="right" orientation="right" />
             <Tooltip 
               contentStyle={{ backgroundColor: '#fff', border: '1px solid #d9dce3' }}
-              formatter={(value: any, name: string) => {
+              formatter={(value: any, name: any) => {
                 if (name === 'sales') return [formatCurrency(value, currency), 'Sales']
                 if (name === 'activeStaff') return [formatNumber(value), 'Staff']
                 return [formatNumber(value), 'Transactions']

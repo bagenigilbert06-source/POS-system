@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import {
   ArrowRight,
-  Banknote,
+  BadgeDollarSign,
   Boxes,
   Building2,
   CircleAlert,
@@ -10,13 +10,11 @@ import {
   PackageOpen,
   ReceiptText,
   ShoppingBag,
+  TrendingUp,
+  TriangleAlert,
+  ShieldCheck,
   UsersRound,
   BarChart3,
-  Plus,
-  AlertTriangle,
-  TrendingUp,
-  Clock,
-  CheckCircle2,
 } from 'lucide-react'
 import { formatCurrency, formatNumber } from '@/lib/utils/format'
 import { cn } from '@/lib/utils'
@@ -24,16 +22,13 @@ import type { WorkspaceConfig } from '@/lib/types/workspace'
 import type { DashboardOverview } from '@/lib/services/dashboard-overview-service'
 import { OperatingChart } from './operating-chart'
 import { getBusinessExperience } from '@/lib/workspace/business-experience'
-import { QuickActions } from '../widgets/quick-actions'
-import { OutstandingPayments } from '../widgets/outstanding-payments'
-import { ActivityFeed } from '../widgets/activity-feed'
-import { ActionTasks } from '../widgets/action-tasks'
-import { OnboardingChecklist } from '../widgets/onboarding-checklist'
-import { PerformanceGoals } from '../widgets/performance-goals'
+import { DashboardInsightCharts } from './dashboard-insight-charts'
+import { TimeGreeting } from '@/components/dashboard/time-greeting'
 
 interface BusinessOverviewProps {
   organizationName: string
   userName?: string | null
+  timeZone: string
   currency: string
   overview: DashboardOverview
   workspaceConfig: WorkspaceConfig
@@ -43,7 +38,7 @@ function methodLabel(method: string) {
   return method.replace(/[_-]/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase())
 }
 
-export function BusinessOverview({ organizationName, userName, currency, overview, workspaceConfig }: BusinessOverviewProps) {
+export function BusinessOverview({ organizationName, userName, timeZone, currency, overview, workspaceConfig }: BusinessOverviewProps) {
   const experience = getBusinessExperience(workspaceConfig.businessType, workspaceConfig.businessCategory)
   const hasProducts = workspaceConfig.enabledModules.includes('products')
   const hasInventory = workspaceConfig.enabledModules.includes('inventory')
@@ -56,92 +51,87 @@ export function BusinessOverview({ organizationName, userName, currency, overvie
     ...(hasCustomers ? [{ id: 'customers', label: 'Customers', href: '/dashboard/customers', icon: UsersRound, primary: false, description: 'Manage customers' }] : []),
     ...(workspaceConfig.enabledModules.includes('reports') ? [{ id: 'reports', label: 'Reports', href: '/dashboard/reports', icon: BarChart3, primary: false, description: 'View insights' }] : []),
   ]
-  
-  // Mock data for demonstration - replace with real queries
-  const outstandingPayments: any[] = [] // Will come from real data
-  const activityItems: any[] = [] // Will come from real data
-  const actionTasks: any[] = [] // Will come from real data
-  const onboardingSteps: any[] = [] // Will come from real data
-  const performanceGoals: any[] = [] // Will come from real data
-  const maxPayment = Math.max(...overview.paymentMix.map((item) => item.amount), 1)
-  const firstName = userName?.trim().split(/\s+/)[0]
-
   const transactionAverage = overview.today.transactions ? overview.today.revenue / overview.today.transactions : 0
   const commerceMetrics = experience.kind === 'retail' || experience.kind === 'hospitality'
   const metrics = [
-    { label: experience.metricLabels[0], value: formatCurrency(overview.today.revenue, currency), detail: `${formatNumber(overview.today.transactions)} completed`, icon: Banknote },
+    { label: experience.metricLabels[0], value: formatCurrency(overview.today.revenue, currency), detail: `${formatNumber(overview.today.transactions)} completed`, icon: TrendingUp },
     commerceMetrics
       ? { label: experience.metricLabels[1], value: formatNumber(overview.today.transactions), detail: experience.kind === 'hospitality' ? 'Completed counter orders' : 'Completed sales', icon: ReceiptText }
       : { label: experience.metricLabels[1], value: formatCurrency(overview.today.expenses, currency), detail: 'Recorded today', icon: CreditCard },
     commerceMetrics
-      ? { label: experience.metricLabels[2], value: formatCurrency(transactionAverage, currency), detail: experience.kind === 'hospitality' ? 'Per completed order' : 'Per completed sale', icon: CreditCard }
-      : { label: experience.metricLabels[2], value: formatCurrency(overview.today.operatingPosition, currency), detail: 'Sales less expenses', icon: ReceiptText },
+      ? { label: experience.metricLabels[2], value: formatCurrency(transactionAverage, currency), detail: experience.kind === 'hospitality' ? 'Per completed order' : 'Per completed sale', icon: BadgeDollarSign }
+      : { label: experience.metricLabels[2], value: formatCurrency(overview.today.operatingPosition, currency), detail: 'Sales less expenses', icon: BadgeDollarSign },
     ...(hasInventory && commerceMetrics
       ? experience.kind === 'hospitality'
         ? [{ label: experience.metricLabels[3], value: formatNumber(overview.records.products), detail: 'Available menu items', icon: Package }]
-        : [{ label: experience.metricLabels[3], value: formatNumber(overview.records.lowStock), detail: `${overview.records.outOfStock} out of stock`, icon: CircleAlert }]
-      : hasInventory ? [{ label: 'Stock alerts', value: formatNumber(overview.records.lowStock), detail: `${overview.records.outOfStock} out of stock`, icon: CircleAlert }] : []),
+        : [{ label: experience.metricLabels[3], value: formatNumber(overview.records.lowStock), detail: `${overview.records.outOfStock} out of stock`, icon: TriangleAlert }]
+      : hasInventory ? [{ label: 'Stock alerts', value: formatNumber(overview.records.lowStock), detail: `${overview.records.outOfStock} out of stock`, icon: TriangleAlert }] : []),
     ...(!hasInventory && hasCustomers ? [{ label: 'Customer records', value: formatNumber(overview.records.customers), detail: 'Available in this workspace', icon: UsersRound }] : []),
     ...(!hasInventory && !hasCustomers ? [{ label: 'Locations', value: formatNumber(overview.records.branches), detail: 'Active business locations', icon: Building2 }] : []),
   ]
 
   return (
     <div className="mx-auto w-full max-w-[1440px] space-y-4 pb-10">
-      <header className="flex flex-col gap-4 py-1 sm:flex-row sm:items-end sm:justify-between">
+      <header className="flex flex-col gap-5 border-b border-[var(--dashboard-border)] pb-5 pt-1 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <div className="flex items-center gap-2 text-xs font-semibold text-[#697386]">
-            <span>{experience.label}</span><span aria-hidden="true">/</span><span className="text-[#050a1f]">Overview</span>
-          </div>
-          <h1 className="mt-2 text-[1.7rem] font-bold tracking-[-0.035em] text-[#050a1f] sm:text-[2rem]">{organizationName}</h1>
-          <p className="mt-1 text-sm text-[#667085]">{firstName ? `Welcome back, ${firstName}. ` : ''}{experience.overviewDescription}</p>
+          <p className="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-[#e42527]">{experience.label} · Operations</p>
+          <h1 className="mt-2 text-[1.75rem] font-bold tracking-[-0.035em] text-[#050a1f] sm:text-[2.05rem]"><TimeGreeting name={userName} timeZone={timeZone} /></h1>
+          <p className="mt-1 text-sm text-[#667085]">Here is today&apos;s operating overview for {organizationName}.</p>
         </div>
-        <div className="flex flex-wrap gap-2">
-          {availableActions.map((action) => {
-            const Icon = action.icon
-            return (
-              <Link key={action.href} href={action.href} className={action.primary ? 'inline-flex min-h-10 items-center gap-2 rounded-lg bg-[#ffda32] px-4 text-sm font-bold text-[#050a1f] shadow-sm outline-none transition-colors hover:bg-[#f0c900] focus-visible:ring-2 focus-visible:ring-[#e42527] focus-visible:ring-offset-2' : 'inline-flex min-h-10 items-center gap-2 rounded-lg border border-[#d9dde5] bg-white px-4 text-sm font-semibold text-[#172033] outline-none transition-colors hover:border-[#b9c0cc] hover:bg-[#f8f9fb] focus-visible:ring-2 focus-visible:ring-[#ffda32]'}>
-                <Icon className="h-4 w-4" aria-hidden="true" />{action.label}
-              </Link>
-            )
-          })}
+        <div>
+          <div className="flex flex-wrap gap-2">
+            {availableActions.map((action) => {
+              const Icon = action.icon
+              return (
+                <Link key={action.href} href={action.href} className={action.primary ? 'inline-flex min-h-10 items-center gap-2 rounded-lg bg-[#ffda32] px-4 text-sm font-bold text-[#050a1f] shadow-sm outline-none transition-colors hover:bg-[#f0c900] focus-visible:ring-2 focus-visible:ring-[#e42527] focus-visible:ring-offset-2' : 'inline-flex min-h-10 items-center gap-2 rounded-lg border border-[#d9dde5] bg-white px-4 text-sm font-semibold text-[#172033] outline-none transition-colors hover:border-[#b9c0cc] hover:bg-[#f8f9fb] focus-visible:ring-2 focus-visible:ring-[#ffda32]' }>
+                  <Icon className="h-4 w-4" aria-hidden="true" />{action.label}
+                </Link>
+              )
+            })}
+          </div>
         </div>
       </header>
 
-      {/* Quick Actions Section */}
-      <QuickActions actions={availableActions.map((action) => ({ 
-        id: action.id, 
-        label: action.label, 
-        description: action.description, 
-        href: action.href, 
-        icon: <action.icon className="h-5 w-5" />, 
-        primary: action.primary 
-      }))} />
-
-      <section aria-label="Today's operating metrics" className="overflow-hidden rounded-xl border border-[#dfe3ea] bg-white shadow-[0_1px_2px_rgba(16,24,40,.03)]">
-        <div className="grid sm:grid-cols-2 xl:grid-cols-4">
-          {metrics.map((metric, index) => {
+      <section aria-label="Today's operating metrics">
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          {metrics.map((metric) => {
             const Icon = metric.icon
             return (
-              <article key={metric.label} className="relative px-5 py-4 sm:min-h-[132px] sm:px-6 sm:py-5 [&:not(:last-child)]:border-b sm:[&:nth-child(odd)]:border-r sm:[&:nth-child(-n+2)]:border-b xl:[&:not(:last-child)]:border-r xl:[&:not(:last-child)]:border-b-0">
+              <article key={metric.label} className="rounded-lg border border-[var(--dashboard-border)] bg-[var(--dashboard-surface)] px-5 py-4 shadow-[0_1px_3px_rgba(16,24,40,.06)] hover:border-[#d5bd42] hover:shadow-[0_3px_10px_rgba(16,24,40,.07)] dark:hover:border-[#746929] sm:min-h-[128px]">
                 <div className="flex items-center justify-between gap-4">
                   <p className="text-[0.78rem] font-semibold text-[#667085]">{metric.label}</p>
-                  <Icon className="h-[18px] w-[18px] text-[#8b95a7]" aria-hidden="true" />
+                  <span className="flex h-8 w-8 items-center justify-center rounded-md border border-[#ead77b] bg-[#fff8d6] text-[#5f4b00] dark:border-[#5f5526] dark:bg-[#292513] dark:text-[#ffdf45]"><Icon className="h-4 w-4" strokeWidth={2} aria-hidden="true" /></span>
                 </div>
                 <p className="mt-3 text-[1.55rem] font-bold tabular-nums tracking-[-0.035em] text-[#050a1f]">{metric.value}</p>
                 <p className="mt-1 text-xs text-[#8a94a5]">{metric.detail}</p>
-                {index === 0 && <span className="absolute inset-x-0 bottom-0 h-0.5 bg-[#ffda32]" aria-hidden="true" />}
               </article>
             )
           })}
         </div>
       </section>
 
+      {workspaceConfig.businessCategory === 'liquor_shop' && (
+        <section className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto]" aria-label="Liquor-store controls">
+          <article className="flex flex-col gap-4 rounded-xl border border-[var(--dashboard-border)] bg-[var(--dashboard-surface)] p-4 shadow-[0_1px_2px_rgba(16,24,40,.03)] sm:flex-row sm:items-center sm:justify-between sm:px-5">
+            <div className="flex items-start gap-3">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#fff8d6] text-[#5f4b00] dark:bg-[#292513] dark:text-[#ffdf45]"><ShieldCheck className="h-5 w-5" /></span>
+              <div><h2 className="text-sm font-bold text-[var(--dashboard-text)]">Liquor sales controls</h2><p className="mt-1 text-xs leading-5 text-[var(--dashboard-muted)]">Age verification is required at checkout and recorded with each new liquor sale.</p></div>
+            </div>
+            <div className="flex divide-x divide-[var(--dashboard-border)] rounded-lg border border-[var(--dashboard-border)] text-center">
+              <div className="min-w-[92px] px-3 py-2"><p className="text-lg font-bold tabular-nums text-[var(--dashboard-text)]">{formatNumber(overview.liquorCompliance.verifiedToday)}</p><p className="text-[10px] font-semibold uppercase tracking-wide text-[var(--dashboard-muted)]">verified today</p></div>
+              <div className="min-w-[92px] px-3 py-2"><p className={cn('text-lg font-bold tabular-nums', overview.liquorCompliance.unverifiedToday ? 'text-[#c51f21]' : 'text-[var(--dashboard-text)]')}>{formatNumber(overview.liquorCompliance.unverifiedToday)}</p><p className="text-[10px] font-semibold uppercase tracking-wide text-[var(--dashboard-muted)]">needs review</p></div>
+            </div>
+          </article>
+          <Link href="/dashboard/operations" className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-[var(--dashboard-border)] bg-[var(--dashboard-surface)] px-4 text-sm font-semibold text-[var(--dashboard-text)] hover:bg-[#f7f8fa] dark:hover:bg-white/5"><CircleAlert className="h-4 w-4" />Register controls</Link>
+        </section>
+      )}
+
       <section className="grid gap-4 xl:grid-cols-[minmax(0,1.8fr)_minmax(300px,.72fr)]">
         <article className="overflow-hidden rounded-xl border border-[#dfe3ea] bg-white shadow-[0_1px_2px_rgba(16,24,40,.03)]">
           <div className="flex flex-col gap-3 border-b border-[#edf0f4] px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
             <div>
               <h2 className="text-[0.95rem] font-bold text-[#101828]">Operating performance</h2>
-              <p className="mt-1 text-xs text-[#7b8495]">Sales and recorded expenses · Last 7 days</p>
+              <p className="mt-1 text-xs text-[#7b8495]">Sales and recorded expenses · Live 30-day history</p>
             </div>
             <div className="flex items-center gap-4 text-xs font-medium text-[#667085]">
               <span className="flex items-center gap-2"><i className="h-2 w-2 rounded-full bg-[#e42527]" />Sales</span>
@@ -169,6 +159,8 @@ export function BusinessOverview({ organizationName, userName, currency, overvie
         </aside>
       </section>
 
+      <DashboardInsightCharts currency={currency} paymentMix={overview.paymentMix} topProducts={overview.topProducts} stock={{ healthy: overview.records.products - overview.records.lowStock, low: overview.records.lowStock - overview.records.outOfStock, out: overview.records.outOfStock }} productLabel={workspaceConfig.businessCategory === 'liquor_shop' ? 'drinks' : 'products'} />
+
       <section className={cn('grid gap-4', hasInventory && 'xl:grid-cols-[minmax(0,1.45fr)_minmax(330px,.75fr)]')}>
         <article className="overflow-hidden rounded-xl border border-[#dfe3ea] bg-white shadow-[0_1px_2px_rgba(16,24,40,.03)]">
           <SectionHeader title={experience.activityTitle} description={experience.activityDescription} href="/dashboard/sales" />
@@ -186,33 +178,6 @@ export function BusinessOverview({ organizationName, userName, currency, overvie
         </article>}
       </section>
 
-      <section className={cn('grid gap-4', hasProducts && 'xl:grid-cols-2')}>
-        {hasProducts && <article className="overflow-hidden rounded-xl border border-[#dfe3ea] bg-white shadow-[0_1px_2px_rgba(16,24,40,.03)]">
-          <SectionHeader title="Top products" description="Ranked by sales value this month." />
-          {overview.topProducts.length ? <ol className="divide-y divide-[#edf0f4] px-5">{overview.topProducts.map((item, index) => <li key={item.name} className="flex items-center gap-4 py-3.5"><span className="w-5 text-xs font-semibold tabular-nums text-[#a0a8b7]">{String(index + 1).padStart(2, '0')}</span><div className="min-w-0 flex-1"><p className="truncate text-sm font-semibold text-[#101828]">{item.name}</p><p className="mt-0.5 text-xs text-[#8a94a5]">{formatNumber(item.quantity)} units sold</p></div><p className="text-sm font-semibold tabular-nums text-[#101828]">{formatCurrency(item.revenue, currency)}</p></li>)}</ol> : <EmptyState message="No product ranking yet" detail="Top products appear after completed sales." href={saleHref} action="Open sales" />}
-        </article>}
-
-        <article className="overflow-hidden rounded-xl border border-[#dfe3ea] bg-white shadow-[0_1px_2px_rgba(16,24,40,.03)]">
-          <SectionHeader title="Payment mix" description="Completed sales this month." />
-          {overview.paymentMix.length ? <div className="space-y-4 px-5 py-5">{overview.paymentMix.slice(0, 5).map((item) => <div key={item.method}><div className="flex items-center justify-between gap-3"><div className="flex items-center gap-2"><span className="text-sm font-semibold text-[#101828]">{methodLabel(item.method)}</span><span className="text-xs text-[#8a94a5]">{item.transactions}</span></div><p className="text-sm font-semibold tabular-nums text-[#101828]">{formatCurrency(item.amount, currency)}</p></div><div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[#eef0f4]"><div className="h-full rounded-full bg-[#ffda32]" style={{ width: `${Math.max((item.amount / maxPayment) * 100, 4)}%` }} /></div></div>)}</div> : <EmptyState message="No payment activity yet" detail="Payment methods will be compared after completed sales." href="/dashboard/pos" action="Open POS" />}
-        </article>
-      </section>
-
-      {/* Additional Widgets Section */}
-      <section className="grid gap-4 xl:grid-cols-[minmax(0,1.4fr)_minmax(330px,.75fr)]">
-        {/* Left Column - Activity Feed and Tasks */}
-        <div className="space-y-4">
-          {actionTasks.length > 0 && <ActionTasks tasks={actionTasks} />}
-          <ActivityFeed activities={activityItems} />
-        </div>
-
-        {/* Right Column - Alerts and Goals */}
-        <div className="space-y-4">
-          {outstandingPayments.length > 0 && <OutstandingPayments payments={outstandingPayments} currency={currency} />}
-          {performanceGoals.length > 0 && <PerformanceGoals goals={performanceGoals} currency={currency} />}
-          {onboardingSteps.length > 0 && <OnboardingChecklist steps={onboardingSteps} />}
-        </div>
-      </section>
     </div>
   )
 }

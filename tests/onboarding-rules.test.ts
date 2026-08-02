@@ -36,10 +36,13 @@ assert.equal(onboardingStepSchemas['business-type'].safeParse({ businessFamily: 
 
 assert.equal(resolveOnboardingTemplateId('retail', 'supermarket'), 'retail.supermarket', 'supermarkets must receive the supermarket template')
 assert.equal(resolveOnboardingTemplateId('retail', 'mini_mart'), 'retail.grocery', 'mini-marts must receive the grocery template')
+assert.equal(resolveOnboardingTemplateId('retail', 'liquor_shop'), 'retail.liquor-shop', 'liquor shops must receive their specialized template')
 assert.equal(resolveOnboardingTemplateId('food_hospitality', 'cafe'), 'restaurant.cafe', 'cafés must receive the café template')
 assert.equal(resolveOnboardingTemplateId('food_hospitality', 'restaurant'), 'restaurant.restaurant', 'restaurants must receive the restaurant template')
 assert.equal(resolveOnboardingTemplateId('professional_services', 'consulting'), 'adaptive.generic', 'unsupported verticals must use the neutral adaptive template')
 assert.equal(getBusinessExperience('retail', 'supermarket').navigation.pos, 'Checkout', 'supermarkets must use retail navigation')
+assert.equal(getBusinessExperience('retail', 'liquor_shop').navigation.overview, 'Liquor dashboard', 'liquor shops must receive specialized dashboard navigation')
+assert.equal(getBusinessExperience('retail', 'liquor_shop').stockTitle, 'Drinks to reorder', 'liquor shops must receive drink-specific inventory language')
 assert.equal(getBusinessExperience('food_hospitality', 'cafe').navigation.products, 'Menu', 'cafés must use menu navigation')
 assert.equal(getBusinessExperience('food_hospitality', 'cafe').actionLabels.primary, 'New order', 'cafés must use order-oriented actions')
 

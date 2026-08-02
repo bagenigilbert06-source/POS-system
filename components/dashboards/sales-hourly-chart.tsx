@@ -33,7 +33,7 @@ export function SalesHourlyChart({ data, currency }: SalesHourlyChartProps) {
             <YAxis stroke="#8a94a5" />
             <Tooltip 
               contentStyle={{ backgroundColor: '#fff', border: '1px solid #d9dce3' }}
-              formatter={(value: any, name: string) => {
+              formatter={(value: any, name: any) => {
                 if (name === 'revenue') return [formatCurrency(value, currency), 'Revenue']
                 return [value, 'Transactions']
               }}

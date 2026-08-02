@@ -24,10 +24,11 @@ interface AppNavbarProps {
   userEmail?: string | null
   organizationName: string
   branchName?: string | null
+  workspaceDescription: string
   onOpenSidebar?: () => void
 }
 
-export function AppNavbar({ userName, userEmail, organizationName, branchName, onOpenSidebar }: AppNavbarProps) {
+export function AppNavbar({ userName, userEmail, organizationName, branchName, workspaceDescription, onOpenSidebar }: AppNavbarProps) {
   const router = useRouter()
 
   const clearStoredAuthState = () => {
@@ -57,12 +58,12 @@ export function AppNavbar({ userName, userEmail, organizationName, branchName, o
           <Menu className="h-5 w-5" />
         </button>
         <div className="hidden min-w-0 md:block">
-          <p className="truncate text-sm font-extrabold text-[#050a1f]">{organizationName}</p>
-          <p className="truncate text-xs text-[#7c8799]">{branchName ? `${branchName} · Operating workspace` : 'Operating workspace'}</p>
+          <p className="truncate text-sm font-extrabold text-[#050a1f]">{organizationName}{branchName ? ` · ${branchName}` : ''}</p>
+          <p className="max-w-[720px] truncate text-xs text-[#7c8799]">{workspaceDescription}</p>
         </div>
         <div className="flex min-w-0 items-center gap-2 md:hidden">
           <PesabyLogoMark className="h-8 w-8" />
-          <div><p className="truncate text-sm font-extrabold text-[#050a1f]">Pesaby</p><p className="truncate text-[10px] font-bold uppercase tracking-[0.14em] text-[#7c8799]">Business OS</p></div>
+          <div><p className="truncate text-sm font-extrabold text-[#050a1f]">{organizationName}</p><p className="truncate text-[10px] font-bold uppercase tracking-[0.14em] text-[#7c8799]">Business OS</p></div>
         </div>
       </div>
 
@@ -83,7 +84,7 @@ export function AppNavbar({ userName, userEmail, organizationName, branchName, o
             <ChevronDown className="h-4 w-4 text-muted-foreground" />
           </button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-64 rounded-xl border-[#dfe2e7] p-2 shadow-md">
+          <DropdownMenuContent align="end" className="w-64 rounded-xl border-border bg-popover p-2 text-popover-foreground shadow-md">
             <DropdownMenuLabel className="px-2 py-2 font-normal">
               <p className="truncate text-sm font-semibold text-foreground">{userName || 'Pesaby account'}</p>
               <p className="mt-1 truncate text-xs text-muted-foreground">{userEmail}</p>

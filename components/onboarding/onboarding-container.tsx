@@ -203,6 +203,23 @@ export function OnboardingContainer({ initialStep, initialData, initialRevision 
     setErrors((current) => ({ ...current, businessFamily: undefined, businessCategory: undefined, customBusinessCategory: undefined }))
   }
 
+  const setBusinessCategory = (_name: keyof OnboardingDraft, value: string | boolean | string[]) => {
+    const category = String(value)
+    setData((current) => category === 'liquor_shop' ? {
+      ...current,
+      businessCategory: category,
+      sellsProducts: true,
+      providesServices: false,
+      tracksInventory: true,
+      usesSuppliers: true,
+      issuesReceipts: true,
+      acceptsCash: true,
+      acceptsMpesa: true,
+    } : { ...current, businessCategory: category })
+    setErrors((current) => ({ ...current, businessCategory: undefined }))
+    setPageError('')
+  }
+
   if (workspaceCreated) { const firstAction = data.enabledModules.includes('products') ? { label: 'Add your first product', route: '/dashboard/products' } : { label: 'Record your first sale', route: '/dashboard/sales' }; return <div className="mx-auto max-w-xl py-8 text-center"><div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100 text-emerald-700"><CheckCircle2 className="h-7 w-7" /></div><p className="mt-6 text-xs font-extrabold uppercase tracking-[0.18em] text-[#e42527]">Workspace created</p><h1 className="mt-2 text-3xl font-extrabold tracking-[-0.04em] text-slate-950">You’re ready to start selling</h1><p className="mt-3 text-base leading-7 text-zinc-600">Your business, modules and receipt defaults are saved. Add your first records next, then return here anytime from workspace settings.</p><div className="mt-8 grid gap-3 sm:grid-cols-2"><button type="button" onClick={() => router.replace('/dashboard')} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-lg bg-[#e42527] px-5 text-sm font-extrabold text-white">Go to dashboard <ArrowRight className="h-4 w-4" /></button><button type="button" onClick={() => router.replace(firstAction.route)} className="inline-flex min-h-12 items-center justify-center rounded-lg border border-zinc-300 bg-white px-5 text-sm font-extrabold text-slate-950">{firstAction.label}</button></div></div> }
 
   const renderedStep = (() => {
@@ -241,7 +258,7 @@ export function OnboardingContainer({ initialStep, initialData, initialRevision 
     if (stepId === 'business-type') return <section><StepTitle eyebrow="Business profile" title="What kind of business do you run?" description="Choose a broad family and then the category that best describes your day-to-day work." />
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{BUSINESS_FAMILIES.map(({ id, name, description, icon: Icon }) => { const selected = data.businessFamily === id; return <button type="button" key={id} aria-pressed={selected} onClick={() => setBusinessFamily(id)} className={cn('relative flex min-h-32 gap-4 rounded-xl border p-5 text-left outline-none focus-visible:ring-2 focus-visible:ring-[#e42527]', selected ? 'border-slate-950 bg-[#fff4c4]' : 'border-zinc-200 bg-white')}><span className={cn('flex h-11 w-11 shrink-0 items-center justify-center rounded-lg', selected ? 'bg-[#ffda32]' : 'bg-zinc-100')}><Icon className="h-5 w-5" /></span><span><span className="block font-extrabold text-slate-950">{name}</span><span className="mt-1 block text-sm leading-6 text-zinc-600">{description}</span></span>{selected && <Check className="absolute right-4 top-4 h-5 w-5 text-[#e42527]" />}</button> })}</div>
       {errors.businessFamily?.[0] && <p className="mt-2 text-xs font-semibold text-red-700">{errors.businessFamily[0]}</p>}
-      {data.businessFamily && <div className="mt-6 grid gap-5 sm:grid-cols-2"><SelectField label="Business category" name="businessCategory" value={data.businessCategory} onChange={update} error={errors.businessCategory}><option value="">Select a category</option>{categoriesFor(data.businessFamily).map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</SelectField>{data.businessFamily === 'other' && <Field label="Describe your business" name="customBusinessCategory" value={data.customBusinessCategory} onChange={update} error={errors.customBusinessCategory} placeholder="For example, event equipment hire" />}</div>}
+      {data.businessFamily && <div className="mt-6 grid gap-5 sm:grid-cols-2"><div><SelectField label="Business category" name="businessCategory" value={data.businessCategory} onChange={setBusinessCategory} error={errors.businessCategory}><option value="">Select a category</option>{categoriesFor(data.businessFamily).map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</SelectField>{data.businessCategory === 'liquor_shop' && <p className="mt-2 rounded-lg border border-[#e7be16] bg-[#fff8d7] px-3 py-2 text-xs leading-5 text-[#5f4b00]">We’ll prepare a liquor dashboard with checkout, a drinks catalogue, bottle stock, supplier purchasing, reorder alerts, barcode support and sales reporting.</p>}</div>{data.businessFamily === 'other' && <Field label="Describe your business" name="customBusinessCategory" value={data.customBusinessCategory} onChange={update} error={errors.customBusinessCategory} placeholder="For example, event equipment hire" />}</div>}
     </section>
 
     if (stepId === 'operations') return <section><StepTitle eyebrow="Operations profile" title="How does your business work?" description="Choose only what applies. These answers shape your modules and settings." />

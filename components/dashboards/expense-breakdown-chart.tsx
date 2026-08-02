@@ -39,7 +39,10 @@ export function ExpenseBreakdownChart({ data, currency }: ExpenseBreakdownChartP
                   cx="50%"
                   cy="50%"
                   outerRadius={80}
-                  label={({ category, percentage }) => `${category}: ${percentage}%`}
+                  label={(props) => {
+                    const entry = props as unknown as { category: string; percentage: number }
+                    return `${entry.category}: ${entry.percentage}%`
+                  }}
                 >
                   {chartData.map((_, index) => (
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />

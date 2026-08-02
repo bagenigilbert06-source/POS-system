@@ -1,7 +1,7 @@
 'use server'
 
 import { db } from '@/lib/db'
-import { sale, customer, product, saleItem, employee, task, performanceGoal } from '@/lib/db/schema'
+import { sale, customer, product, saleItem, employee, task, performanceGoal, creditSale } from '@/lib/db/schema'
 import { eq, gte, lte, desc, sql, and } from 'drizzle-orm'
 import { auth } from '@/lib/auth'
 import { headers } from 'next/headers'
@@ -149,7 +149,7 @@ export async function getStaffKPIs() {
         averageTransaction: sql<number>`AVG(CAST(${sale.total} AS FLOAT))`,
       })
       .from(employee)
-      .leftJoin(sale, and(eq(employee.id, sql`${sale.userId}`), eq(sale.orgId, orgId)))
+      .leftJoin(sale, and(eq(employee.userId, sale.userId), eq(sale.orgId, orgId)))
       .where(eq(employee.orgId, orgId))
       .groupBy(employee.id, employee.name, employee.department)
       .orderBy(desc(sql`SUM(CAST(${sale.total} AS FLOAT))`))
@@ -313,22 +313,22 @@ export async function getOutstandingPayments() {
   try {
     const outstanding = await db
       .select({
-        id: sql`${sql.raw('credit_sale')}.id`,
+        id: creditSale.id,
         customerName: customer.name,
-        amount: sql`CAST(${sql.raw('credit_sale')}.amount AS FLOAT)`,
-        amountPaid: sql`CAST(${sql.raw('credit_sale')}.amount_paid AS FLOAT)`,
-        dueDate: sql`${sql.raw('credit_sale')}.due_date`,
-        daysOverdue: sql<number>`EXTRACT(DAY FROM NOW() - ${sql.raw('credit_sale')}.due_date)`,
+        amount: sql<number>`CAST(${creditSale.amount} AS FLOAT)`,
+        amountPaid: sql<number>`CAST(${creditSale.amountPaid} AS FLOAT)`,
+        dueDate: creditSale.dueDate,
+        daysOverdue: sql<number>`EXTRACT(DAY FROM NOW() - ${creditSale.dueDate})`,
       })
-      .from(sql.raw('credit_sale'))
-      .innerJoin(customer, eq(customer.id, sql.raw('credit_sale.customer_id')))
+      .from(creditSale)
+      .innerJoin(customer, eq(customer.id, creditSale.customerId))
       .where(
         and(
-          eq(sql.raw('credit_sale.org_id'), orgId),
-          eq(sql.raw('credit_sale.status'), 'unpaid')
+          eq(creditSale.orgId, orgId),
+          eq(creditSale.status, 'unpaid')
         )
       )
-      .orderBy(desc(sql`NOW() - ${sql.raw('credit_sale')}.due_date`))
+      .orderBy(desc(sql`NOW() - ${creditSale.dueDate}`))
       .limit(20)
 
     return outstanding
