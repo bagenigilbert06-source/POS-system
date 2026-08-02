@@ -143,6 +143,42 @@
   }
 }
 
+/* Light Theme - Professional Clean SaaS */
+:not(.dark) .dashboard-shell {
+  --background: 0 0% 98%;
+  --foreground: 210 10% 12%;
+  --card: 0 0% 100%;
+  --card-foreground: 210 10% 12%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 210 10% 12%;
+  --secondary: 210 20% 92%;
+  --secondary-foreground: 210 10% 32%;
+  --muted: 210 15% 88%;
+  --muted-foreground: 210 12% 48%;
+  --border: 210 18% 88%;
+  --input: 210 14% 90%;
+  --primary: 217 91% 60%;
+  --primary-foreground: 0 0% 100%;
+  --ring: 217 91% 60%;
+  --accent: 217 91% 50%;
+  --accent-foreground: 0 0% 100%;
+  --dashboard-canvas: #f8f9fa;
+  --dashboard-surface: #ffffff;
+  --dashboard-surface-subtle: #f3f4f6;
+  --dashboard-text: #111827;
+  --dashboard-muted: #6b7280;
+  --dashboard-border: #e5e7eb;
+  --dashboard-chart-grid: #f3f4f6;
+  --dashboard-chart-tick: #6b7280;
+  --dashboard-chart-tooltip: #ffffff;
+  --dashboard-chart-revenue: #dc2626;
+  --dashboard-chart-revenue-fill: #dc2626;
+  --dashboard-chart-secondary: #2563eb;
+  --dashboard-highlight: #2563eb;
+  background: var(--dashboard-canvas);
+  color: var(--dashboard-text);
+}
+
 /* Premium Dark SaaS Dashboard Palette - Stripe/Linear/Vercel inspired */
 .dashboard-shell {
   --background: 0 0% 5%;
@@ -245,36 +281,85 @@
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1), 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
+/* Light theme color corrections */
+:not(.dark) .dashboard-shell .bg-\[\#ffda32\] {
+  background-color: #2563eb !important;
+  color: #ffffff !important;
+}
+
+:not(.dark) .dashboard-shell .hover\:bg-\[\#f0c900\]:hover {
+  background-color: #1d4ed8 !important;
+}
+
+:not(.dark) .dashboard-shell .border-\[\#d9dde5\],
+:not(.dark) .dashboard-shell .border-\[\#dfe3ea\],
+:not(.dark) .dashboard-shell .border-\[\#e3dfd2\] {
+  border-color: #e5e7eb !important;
+}
+
+:not(.dark) .dashboard-shell .bg-\[\#fafbfc\],
+:not(.dark) .dashboard-shell .bg-\[\#fafaf8\],
+:not(.dark) .dashboard-shell .bg-\[\#fffdf7\] {
+  background-color: #f3f4f6 !important;
+}
+
+:not(.dark) .dashboard-shell table thead {
+  background-color: #f3f4f6;
+}
+
+:not(.dark) .dashboard-shell table tbody tr {
+  border-color: #e5e7eb;
+}
+
 /* Premium dark mode color corrections */
-.dashboard-shell .bg-\[\#ffda32\] {
+.dark .dashboard-shell .bg-\[\#ffda32\] {
   background-color: #3b82f6 !important;
   color: #ffffff !important;
 }
 
-.dashboard-shell .hover\:bg-\[\#f0c900\]:hover {
+.dark .dashboard-shell .hover\:bg-\[\#f0c900\]:hover {
   background-color: #2563eb !important;
 }
 
-.dashboard-shell .border-\[\#d9dde5\],
-.dashboard-shell .border-\[\#dfe3ea\],
-.dashboard-shell .border-\[\#e3dfd2\] {
+.dark .dashboard-shell .border-\[\#d9dde5\],
+.dark .dashboard-shell .border-\[\#dfe3ea\],
+.dark .dashboard-shell .border-\[\#e3dfd2\] {
   border-color: #262626 !important;
 }
 
-.dashboard-shell .bg-\[\#fafbfc\],
-.dashboard-shell .bg-\[\#fafaf8\],
-.dashboard-shell .bg-\[\#fffdf7\] {
+.dark .dashboard-shell .bg-\[\#fafbfc\],
+.dark .dashboard-shell .bg-\[\#fafaf8\],
+.dark .dashboard-shell .bg-\[\#fffdf7\] {
   background-color: #1a1a1a !important;
 }
 
-.dashboard-shell table thead {
+.dark .dashboard-shell table thead {
   background-color: #1a1a1a;
 }
 
-.dashboard-shell table tbody tr {
+.dark .dashboard-shell table tbody tr {
   border-color: #262626;
 }
 
+/* Light theme - dashboard shell background and components */
+:not(.dark) .dashboard-shell {
+  background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 25%, #f8f9fa 50%, #ffffff 75%, #f8f9fa 100%);
+  background-attachment: fixed;
+}
+
+:not(.dark) .dashboard-sidebar {
+  background: linear-gradient(180deg, #ffffff 0%, #f9fafb 100%);
+  border-color: #e5e7eb;
+}
+
+:not(.dark) .dashboard-navbar {
+  background: rgba(255, 255, 255, 0.95);
+  border-color: #e5e7eb;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06), 0 2px 6px rgba(0, 0, 0, 0.04);
+  backdrop-filter: blur(8px);
+}
+
+/* Dark theme - dashboard shell background and components */
 .dark .dashboard-shell {
   background: linear-gradient(135deg, #09090b 0%, #0f0f15 25%, #09090b 50%, #0f0f15 75%, #09090b 100%);
   background-attachment: fixed;
@@ -292,6 +377,16 @@
   backdrop-filter: blur(8px);
 }
 
+/* Light theme - cards and panels */
+:not(.dark) .dashboard-shell .app-panel,
+:not(.dark) .dashboard-shell .metric-card,
+:not(.dark) .dashboard-shell [class*='bg-white'] {
+  background-color: #ffffff !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06), 0 4px 12px rgba(0, 0, 0, 0.08);
+  border-color: #e5e7eb !important;
+}
+
+/* Dark theme - cards and panels */
 .dark .dashboard-shell .app-panel,
 .dark .dashboard-shell .metric-card,
 .dark .dashboard-shell [class*='bg-white'] {
