@@ -228,8 +228,8 @@
   --muted-foreground: 0 0% 64%;
   --border: 0 0% 16%;
   --input: 0 0% 12%;
-  --accent: 217 91% 25%;
-  --accent-foreground: 217 91% 70%;
+  --accent: 45 95% 55%;
+  --accent-foreground: 45 10% 15%;
   --dashboard-canvas: #050505;
   --dashboard-surface: #0d0d0d;
   --dashboard-surface-subtle: #1a1a1a;
@@ -241,8 +241,8 @@
   --dashboard-chart-tooltip: #1a1a1a;
   --dashboard-chart-revenue: #ef4444;
   --dashboard-chart-revenue-fill: #ef4444;
-  --dashboard-chart-secondary: #3b82f6;
-  --dashboard-highlight: #3b82f6;
+  --dashboard-chart-secondary: #b9ef43;
+  --dashboard-highlight: #b9ef43;
   color-scheme: dark;
 }
 
@@ -313,12 +313,12 @@
 
 /* Premium dark mode color corrections */
 .dark .dashboard-shell .bg-\[\#ffda32\] {
-  background-color: #3b82f6 !important;
-  color: #ffffff !important;
+  background-color: #b9ef43 !important;
+  color: #0d0d0d !important;
 }
 
 .dark .dashboard-shell .hover\:bg-\[\#f0c900\]:hover {
-  background-color: #2563eb !important;
+  background-color: #a7dc36 !important;
 }
 
 .dark .dashboard-shell .border-\[\#d9dde5\],
