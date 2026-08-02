@@ -52,19 +52,21 @@ export function OperatingChart({ data, currency }: OperatingChartProps) {
         {([[1, 'Today'], [7, '7 days'], [30, '30 days']] as const).map(([value, text]) => <button key={value} type="button" onClick={() => setRange(value)} aria-pressed={range === value} className={range === value ? 'rounded-md dark:bg-[#111827] px-3 py-1.5 text-xs font-bold dark:text-[#fafafa] shadow-sm' : 'rounded-md px-3 py-1.5 text-xs font-semibold dark:text-[#a1a1aa] hover:dark:text-[#fafafa]'}>{text}</button>)}
       </div>
       {!hasData && <div className="flex h-full items-center justify-center"><div className="max-w-sm rounded-lg border border-[var(--dashboard-border)] bg-[var(--dashboard-surface)] px-5 py-4 text-center shadow-sm"><p className="text-sm font-semibold text-[var(--dashboard-text)]">No activity for {periodLabel}</p><p className="mt-1 text-xs leading-5 text-[var(--dashboard-muted)]">Sales and expenses will appear here after they are recorded.</p></div></div>}
-      {hasData && <>
-      <ResponsiveContainer width="100%" height="100%">
-        <ComposedChart data={chartData} margin={{ top: 12, right: 10, left: -8, bottom: 0 }} barCategoryGap={range === 30 ? '72%' : '58%'}>
-          <defs><linearGradient id="pesabyRevenueArea" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#ef4444" stopOpacity={0.15} /><stop offset="100%" stopColor="#ef4444" stopOpacity={0} /></linearGradient></defs>
-          <CartesianGrid vertical={false} stroke="#27272a" strokeDasharray="2 4" />
-          <XAxis dataKey="label" axisLine={false} tickLine={false} interval={range === 30 ? 4 : 0} tick={{ fill: '#a1a1aa', fontSize: 11 }} dy={9} />
-          <YAxis axisLine={false} tickLine={false} width={58} tick={{ fill: '#a1a1aa', fontSize: 10 }} tickFormatter={(value) => compact(value, currency)} />
-          <Tooltip cursor={{ fill: '#1a1f2e' }} contentStyle={{ background: '#1a1f2e', color: '#fafafa', border: '1px solid #27272a', borderRadius: 8, boxShadow: '0 12px 30px rgba(0, 0, 0, 0.3)', fontSize: 12 }} formatter={(value, name) => [compact(Number(value), currency), name === 'revenue' ? 'Sales' : 'Expenses']} labelFormatter={(_, payload) => payload?.[0]?.payload?.date ?? ''} />
-          <Bar dataKey="expenses" fill="#ffd60a" radius={[3, 3, 0, 0]} maxBarSize={22} isAnimationActive={false} />
-          <Area type="monotone" dataKey="revenue" stroke="#ef4444" strokeWidth={2.5} fill="url(#pesabyRevenueArea)" dot={false} activeDot={{ r: 4, fill: '#ef4444', stroke: '#111827', strokeWidth: 2 }} isAnimationActive={false} />
-        </ComposedChart>
-      </ResponsiveContainer>
-      {!hasData && <div className="pointer-events-none absolute inset-0 flex items-center justify-center"><div className="rounded-lg border border-[#27272a] dark:bg-[#111827]/95 px-4 py-3 text-center shadow-sm"><p className="text-sm font-semibold dark:text-[#fafafa]">No activity this week</p><p className="mt-1 text-xs dark:text-[#a1a1aa]">The chart updates after sales or expenses are recorded.</p></div></div>}
+      {hasData && (
+        <>
+          <ResponsiveContainer width="100%" height="100%">
+            <ComposedChart data={chartData} margin={{ top: 12, right: 10, left: -8, bottom: 0 }} barCategoryGap={range === 30 ? '72%' : '58%'}>
+              <defs><linearGradient id="pesabyRevenueArea" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#ef4444" stopOpacity={0.15} /><stop offset="100%" stopColor="#ef4444" stopOpacity={0} /></linearGradient></defs>
+              <CartesianGrid vertical={false} stroke="#27272a" strokeDasharray="2 4" />
+              <XAxis dataKey="label" axisLine={false} tickLine={false} interval={range === 30 ? 4 : 0} tick={{ fill: '#a1a1aa', fontSize: 11 }} dy={9} />
+              <YAxis axisLine={false} tickLine={false} width={58} tick={{ fill: '#a1a1aa', fontSize: 10 }} tickFormatter={(value) => compact(value, currency)} />
+              <Tooltip cursor={{ fill: '#1a1f2e' }} contentStyle={{ background: '#1a1f2e', color: '#fafafa', border: '1px solid #27272a', borderRadius: 8, boxShadow: '0 12px 30px rgba(0, 0, 0, 0.3)', fontSize: 12 }} formatter={(value, name) => [compact(Number(value), currency), name === 'revenue' ? 'Sales' : 'Expenses']} labelFormatter={(_, payload) => payload?.[0]?.payload?.date ?? ''} />
+              <Bar dataKey="expenses" fill="#ffd60a" radius={[3, 3, 0, 0]} maxBarSize={22} isAnimationActive={false} />
+              <Area type="monotone" dataKey="revenue" stroke="#ef4444" strokeWidth={2.5} fill="url(#pesabyRevenueArea)" dot={false} activeDot={{ r: 4, fill: '#ef4444', stroke: '#111827', strokeWidth: 2 }} isAnimationActive={false} />
+            </ComposedChart>
+          </ResponsiveContainer>
+        </>
+      )}
     </div>
   )
 }

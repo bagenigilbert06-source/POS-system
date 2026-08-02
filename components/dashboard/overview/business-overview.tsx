@@ -24,6 +24,7 @@ import { OperatingChart } from './operating-chart'
 import { getBusinessExperience } from '@/lib/workspace/business-experience'
 import { DashboardInsightCharts } from './dashboard-insight-charts'
 import { POSOperationsDashboard } from './pos-operations-dashboard'
+import { TimeGreeting } from '../time-greeting'
 
 interface BusinessOverviewProps {
   organizationName: string
@@ -39,7 +40,7 @@ function methodLabel(method: string) {
   return method.replace(/[_-]/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase())
 }
 
-export function BusinessOverview({ organizationName, currency, overview, workspaceConfig, generatedAt }: BusinessOverviewProps) {
+export function BusinessOverview({ organizationName, userName, timeZone, currency, overview, workspaceConfig, generatedAt }: BusinessOverviewProps) {
   const experience = getBusinessExperience(workspaceConfig.businessType, workspaceConfig.businessCategory)
   const hasProducts = workspaceConfig.enabledModules.includes('products')
   const hasInventory = workspaceConfig.enabledModules.includes('inventory')
