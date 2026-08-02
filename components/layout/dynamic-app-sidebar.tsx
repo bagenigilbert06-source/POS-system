@@ -62,26 +62,26 @@ export function DynamicAppSidebar({ mobileOpen = false, onMobileClose }: Dynamic
       {/* Logo */}
       <div
         className={cn(
-          'flex h-16 items-center border-b border-border px-4 gap-3',
+          'flex h-16 items-center border-b border-[rgba(255,214,10,0.08)] px-4 gap-3',
           collapsed ? 'justify-center' : 'justify-between'
         )}
       >
         {!collapsed && (
-          <div className="flex items-center gap-2 flex-1">
-            <PesabyLogoMark className="h-9 w-9 flex-shrink-0" />
+          <div className="flex items-center gap-3 flex-1">
+            <PesabyLogoMark className="h-8 w-8 flex-shrink-0" />
             <div>
-              <p className="text-sm font-extrabold leading-tight text-[#050a1f]">Pesaby</p>
-              <p className="max-w-36 truncate text-xs text-[#667085]">{config.name}</p>
+              <p className="text-sm font-bold leading-tight text-[#f5f5f7]">Pesaby</p>
+              <p className="max-w-36 truncate text-xs text-[#a1a1a6]">{config.name}</p>
             </div>
           </div>
         )}
         {collapsed && (
-          <PesabyLogoMark className="h-9 w-9" />
+          <PesabyLogoMark className="h-8 w-8" />
         )}
         <button
           onClick={() => setSidebarCollapsed(!collapsed)}
           className={cn(
-            'hidden rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors lg:inline-flex',
+            'hidden rounded-lg p-1.5 text-[#a1a1a6] hover:bg-[rgba(255,255,255,0.08)] hover:text-[#f5f5f7] transition-all lg:inline-flex',
             collapsed && 'lg:hidden'
           )}
           aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
@@ -90,7 +90,7 @@ export function DynamicAppSidebar({ mobileOpen = false, onMobileClose }: Dynamic
         </button>
         <button
           onClick={onMobileClose}
-          className="rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground lg:hidden"
+          className="rounded-lg p-1.5 text-[#a1a1a6] hover:bg-[rgba(255,255,255,0.08)] hover:text-[#f5f5f7] lg:hidden transition-all"
           aria-label="Close navigation"
         >
           <X className="h-4 w-4" />
@@ -101,7 +101,7 @@ export function DynamicAppSidebar({ mobileOpen = false, onMobileClose }: Dynamic
       {collapsed && (
         <button
           onClick={() => setSidebarCollapsed(false)}
-          className="mx-auto mt-3 hidden rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors lg:inline-flex"
+          className="mx-auto mt-4 hidden rounded-lg p-1.5 text-[#a1a1a6] hover:bg-[rgba(255,255,255,0.08)] hover:text-[#f5f5f7] transition-all lg:inline-flex"
           aria-label="Expand sidebar"
         >
           <ChevronRight className="h-4 w-4" />
@@ -109,11 +109,11 @@ export function DynamicAppSidebar({ mobileOpen = false, onMobileClose }: Dynamic
       )}
 
       {/* Main nav */}
-      <nav className="flex-1 overflow-y-auto py-4 px-2.5">
+      <nav className="flex-1 overflow-y-auto py-6 px-3">
         {!collapsed && (
-          <p className="section-label mb-3 px-3 text-[#8a94a5]">Workspace</p>
+          <p className="section-label mb-4 px-3 text-[#a1a1a6] text-xs font-semibold uppercase tracking-wider">Workspace</p>
         )}
-        <ul className="space-y-1">
+        <ul className="space-y-1.5">
           {primaryNav.map((item) => {
             // Skip items that don't have a route
             if (!item.route) return null
@@ -128,13 +128,15 @@ export function DynamicAppSidebar({ mobileOpen = false, onMobileClose }: Dynamic
                   onClick={onMobileClose}
                   title={collapsed ? item.label : undefined}
                   className={cn(
-                    'sidebar-item',
-                    collapsed ? 'lg:justify-center lg:px-0 lg:py-3' : '',
-                    active ? 'dashboard-nav-active font-semibold' : 'dashboard-nav-inactive'
+                    'sidebar-item rounded-lg transition-all',
+                    collapsed ? 'lg:justify-center lg:px-3 lg:py-2.5' : 'px-3 py-2.5',
+                    active 
+                      ? 'bg-[rgba(255,214,10,0.1)] text-[#ffd60a] border border-[rgba(255,214,10,0.2)]' 
+                      : 'text-[#a1a1a6] hover:bg-[rgba(255,255,255,0.05)] hover:text-[#f5f5f7]'
                   )}
                 >
                   <IconComponent className="h-5 w-5 flex-shrink-0" />
-                  <span className={cn('text-sm', collapsed && 'lg:hidden')}>{item.label}</span>
+                  <span className={cn('text-sm font-medium', collapsed && 'lg:hidden')}>{item.label}</span>
                 </Link>
               </li>
             )
@@ -143,8 +145,8 @@ export function DynamicAppSidebar({ mobileOpen = false, onMobileClose }: Dynamic
       </nav>
 
       {/* Bottom nav */}
-      <div className="border-t border-border py-3 px-2">
-        <ul className="space-y-0.5">
+      <div className="border-t border-[rgba(255,214,10,0.08)] py-4 px-3">
+        <ul className="space-y-1">
           {secondaryNav.map((item) => {
             const IconComponent = getIcon(item.icon) as React.ElementType
             const active = item.route ? isActive(item.route) : false
@@ -156,13 +158,15 @@ export function DynamicAppSidebar({ mobileOpen = false, onMobileClose }: Dynamic
                   onClick={onMobileClose}
                   title={collapsed ? item.label : undefined}
                   className={cn(
-                    'sidebar-item',
-                    collapsed ? 'lg:justify-center lg:px-0 lg:py-2.5' : '',
-                    active ? 'dashboard-nav-active font-semibold' : 'dashboard-nav-inactive'
+                    'sidebar-item rounded-lg transition-all',
+                    collapsed ? 'lg:justify-center lg:px-3 lg:py-2.5' : 'px-3 py-2.5',
+                    active 
+                      ? 'bg-[rgba(255,214,10,0.1)] text-[#ffd60a] border border-[rgba(255,214,10,0.2)]' 
+                      : 'text-[#a1a1a6] hover:bg-[rgba(255,255,255,0.05)] hover:text-[#f5f5f7]'
                   )}
                 >
                   <IconComponent className="h-4 w-4 flex-shrink-0" />
-                  <span className={cn('text-sm', collapsed && 'lg:hidden')}>{item.label}</span>
+                  <span className={cn('text-sm font-medium', collapsed && 'lg:hidden')}>{item.label}</span>
                 </Link>
               </li>
             )
