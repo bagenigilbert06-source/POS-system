@@ -61,17 +61,17 @@ export function StatCard({
   return (
     <div
       onClick={onClick}
-      className={`${bgColor} rounded-2xl border border-[#e1e6db] p-4 shadow-[0_8px_20px_rgba(35,37,34,.04)] transition-all hover:-translate-y-0.5 hover:shadow-md sm:p-5 ${
+      className={`rounded-lg border border-[#27272a] dark:bg-[#111827] dark:text-[#fafafa] p-5 sm:p-6 card-elevation-2 transition-all hover:card-elevation-3 ${
         onClick ? 'cursor-pointer' : ''
       }`}
     >
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-medium text-[#74776f]">{title}</p>
+          <p className="truncate text-sm font-medium text-[#a1a1aa] dark:text-[#a1a1aa]">{title}</p>
           {loading ? (
-            <div className="mt-2 h-8 w-24 animate-pulse rounded bg-muted" />
+            <div className="mt-2 h-8 w-24 animate-pulse rounded bg-[#27272a]" />
           ) : (
-            <p className="mt-2 truncate text-2xl font-bold tracking-[-0.035em] text-[#151514] sm:text-3xl">{displayValue}</p>
+            <p className="mt-2 truncate text-3xl font-bold tracking-tight dark:text-[#fafafa]">{displayValue}</p>
           )}
 
           {trend && (
@@ -81,12 +81,12 @@ export function StatCard({
                 {trend.value > 0 ? '+' : ''}
                 {trend.value}%
               </span>
-              {trend.label && <span className="text-xs text-muted-foreground">{trend.label}</span>}
+              {trend.label && <span className="text-xs text-[#a1a1aa] dark:text-[#a1a1aa]">{trend.label}</span>}
             </div>
           )}
         </div>
 
-        {icon && <div className={`${iconBg} rounded-xl p-2.5 text-[#557b14]`}>{icon}</div>}
+        {icon && <div className={`dark:bg-[#22c55e]/15 dark:text-[#22c55e] rounded-lg p-3 text-[#0b0b0d]`}>{icon}</div>}
       </div>
     </div>
   );
@@ -95,11 +95,11 @@ export function StatCard({
 // Loading skeleton
 export function StatCardSkeleton() {
   return (
-    <div className="rounded-2xl border border-[#e1e6db] bg-white p-5 shadow-[0_8px_20px_rgba(35,37,34,.04)]">
+    <div className="rounded-lg border border-[#27272a] dark:bg-[#111827] p-6 card-elevation-2">
       <div className="animate-pulse space-y-4">
-        <div className="h-5 w-20 rounded bg-muted" />
-        <div className="h-8 w-32 rounded bg-muted" />
-        <div className="h-4 w-24 rounded bg-muted" />
+        <div className="h-5 w-20 rounded bg-[#27272a]" />
+        <div className="h-8 w-32 rounded bg-[#27272a]" />
+        <div className="h-4 w-24 rounded bg-[#27272a]" />
       </div>
     </div>
   );
