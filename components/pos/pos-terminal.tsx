@@ -3,7 +3,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
 import { createSale, type CartItem } from '@/app/actions/sales'
 import { createCustomer } from '@/app/actions/customers'
-import { formatCurrency } from '@/lib/utils'
+import { formatCurrency, normalizeBarcode } from '@/lib/utils'
 import { cn } from '@/lib/utils'
 import {
   Search,
@@ -105,9 +105,11 @@ export function POSTerminal({ products, categories, customers, settings, require
   const [ageVerified, setAgeVerified] = useState(false)
   const [showAgeVerification, setShowAgeVerification] = useState(false)
   const [checkoutOpen, setCheckoutOpen] = useState(false)
+  const [scanMessage, setScanMessage] = useState('')
   const searchInputRef = useRef<HTMLInputElement>(null)
   const barcodeBufferRef = useRef<string>('')
   const barcodeTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const lastScanRef = useRef<{ barcode: string; at: number } | null>(null)
   const checkoutIdempotencyKeyRef = useRef<string>('')
 
   const addToCart = useCallback((product: Product) => {
@@ -126,27 +128,36 @@ export function POSTerminal({ products, categories, customers, settings, require
       return [...previousCart, { productId: product.id, productName: product.name, quantity: 1, unitPrice: price, totalPrice: price }]
     })
   }, [])
+
+  const SCANNER_INACTIVITY_MS = 450
   
   const availableCategories = categories.filter((category) => products.some((product) => product.categoryId === category.id))
   
-  // Detect barcode scanner input (USB scanners send Enter after barcode)
+  // USB scanners type rapidly like a keyboard and normally finish with Enter.
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Don't trigger if user is typing in other fields
-      if (receipt || !searchInputRef.current) return
+      const target = e.target as HTMLElement | null
+      const editable = target?.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target?.tagName ?? '')
+      if (receipt || processing || checkoutOpen || editable) return
       
       if (e.key === 'Enter' && barcodeBufferRef.current) {
         e.preventDefault()
-        const barcode = barcodeBufferRef.current
+        const barcode = normalizeBarcode(barcodeBufferRef.current)
         barcodeBufferRef.current = ''
+        if (!barcode) return
+        const now = Date.now()
+        if (lastScanRef.current && lastScanRef.current.barcode === barcode && now - lastScanRef.current.at < 350) return
+        lastScanRef.current = { barcode, at: now }
         
         // Find product by barcode
-        const product = products.find(p => p.barcode === barcode && p.isActive)
+        const product = products.find(p => normalizeBarcode(p.barcode ?? '') === barcode && p.isActive)
         if (product) {
           addToCart(product)
           setSearch('')
+          setScanMessage(`${product.name} added — quantity updated.`)
         } else {
-          toast.error('Product not found')
+          toast.error(`No product found for barcode ${barcode}.`)
+          setScanMessage(`No product found for barcode ${barcode}.`)
         }
         return
       }
@@ -159,13 +170,13 @@ export function POSTerminal({ products, categories, customers, settings, require
         if (barcodeTimeoutRef.current) clearTimeout(barcodeTimeoutRef.current)
         barcodeTimeoutRef.current = setTimeout(() => {
           barcodeBufferRef.current = ''
-        }, 2000)
+        }, SCANNER_INACTIVITY_MS)
       }
     }
     
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [products, receipt, addToCart])
+  }, [products, receipt, processing, checkoutOpen, addToCart])
 
   const filteredProducts = products.filter(
     (p) =>
@@ -534,9 +545,16 @@ export function POSTerminal({ products, categories, customers, settings, require
             placeholder="Search by name, SKU or barcode..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key !== 'Enter') return
+              const barcode = normalizeBarcode(search)
+              const match = products.find((product) => product.isActive && normalizeBarcode(product.barcode ?? '') === barcode)
+              if (match) { e.preventDefault(); addToCart(match); setSearch(''); setScanMessage(`${match.name} added — quantity updated.`) }
+            }}
             className={cn(inputCls, 'h-11 border-[#d9dde5] bg-white pl-10 dark:bg-[#171717]')}
             autoFocus
           />
+          <p className="mt-2 text-xs text-muted-foreground" role="status" aria-live="polite">{scanMessage || 'Scanner ready · focus the POS screen and scan a barcode.'}</p>
           </div>
         </div>
         

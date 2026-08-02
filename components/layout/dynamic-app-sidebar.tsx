@@ -43,8 +43,12 @@ export function DynamicAppSidebar({ mobileOpen = false, onMobileClose }: Dynamic
     )
   }
 
-  const isActive = (href: string) =>
-    href === '/dashboard' ? pathname === '/dashboard' : pathname.startsWith(href)
+  const isActive = (href: string) => {
+    if (href === '/dashboard') return pathname === '/dashboard'
+    if (href === '/dashboard/products/categories') return pathname === href
+    if (href === '/dashboard/products' && pathname.startsWith('/dashboard/products/categories')) return false
+    return pathname === href || pathname.startsWith(`${href}/`)
+  }
 
   const primaryNav = config.sidebarConfig.primaryNav
   const secondaryNav = config.sidebarConfig.secondaryNav

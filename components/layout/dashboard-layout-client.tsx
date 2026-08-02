@@ -1,11 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { Children, useState } from 'react'
 import { DynamicAppSidebar } from './dynamic-app-sidebar'
 import { AppNavbar } from './app-navbar'
 import { WorkspaceProvider } from '@/lib/context/workspace-context'
 import type { WorkspaceConfig } from '@/lib/types/workspace'
-import { useTheme } from 'next-themes'
 import { getBusinessExperience } from '@/lib/workspace/business-experience'
 
 interface DashboardLayoutClientProps {
@@ -36,7 +35,6 @@ export function DashboardLayoutClient({
   children,
 }: DashboardLayoutClientProps) {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
-  const { resolvedTheme } = useTheme()
   const experience = initialWorkspaceConfig
     ? getBusinessExperience(initialWorkspaceConfig.businessType, initialWorkspaceConfig.businessCategory)
     : null
@@ -46,27 +44,25 @@ export function DashboardLayoutClient({
       workspaceId={organizationId}
       initialConfig={initialWorkspaceConfig}
     >
-      <div className={resolvedTheme === 'dark' ? 'dark' : undefined}>
-        <div className="dashboard-shell flex min-h-screen overflow-hidden font-sans">
-          <a href="#dashboard-content" className="skip-link">Skip to main content</a>
-          <DynamicAppSidebar
-            mobileOpen={mobileSidebarOpen}
-            onMobileClose={() => setMobileSidebarOpen(false)}
+      <div className="dashboard-shell flex min-h-screen overflow-hidden font-sans">
+        <a href="#dashboard-content" className="skip-link">Skip to main content</a>
+        <DynamicAppSidebar
+          mobileOpen={mobileSidebarOpen}
+          onMobileClose={() => setMobileSidebarOpen(false)}
+        />
+        <div className="flex min-w-0 flex-1 flex-col">
+          <AppNavbar
+            userName={userName}
+            userEmail={userEmail}
+            organizationName={organizationName}
+            branchName={branchName}
+            workspaceDescription={experience?.overviewDescription ?? 'Operating workspace'}
+            onOpenSidebar={() => setMobileSidebarOpen(true)}
           />
-          <div className="flex min-w-0 flex-1 flex-col">
-            <AppNavbar
-              userName={userName}
-              userEmail={userEmail}
-              organizationName={organizationName}
-              branchName={branchName}
-              workspaceDescription={experience?.overviewDescription ?? 'Operating workspace'}
-              onOpenSidebar={() => setMobileSidebarOpen(true)}
-            />
-            <main id="dashboard-content" tabIndex={-1} className="flex-1 overflow-y-auto px-4 py-5 outline-none sm:px-6 lg:px-7 lg:py-7">
-              {setupChecklist}
-              {children}
-            </main>
-          </div>
+          <main id="dashboard-content" tabIndex={-1} className="flex-1 overflow-y-auto px-4 py-5 outline-none sm:px-6 lg:px-7 lg:py-7">
+            {Children.toArray(setupChecklist)}
+            {Children.toArray(children)}
+          </main>
         </div>
       </div>
     </WorkspaceProvider>

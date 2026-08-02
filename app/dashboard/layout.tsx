@@ -1,3 +1,4 @@
+import { Suspense } from 'react'
 import { redirect } from 'next/navigation'
 import { headers } from 'next/headers'
 import { auth } from '@/lib/auth'
@@ -30,13 +31,10 @@ export default async function DashboardRouteLayout({ children }: { children: Rea
   // This is done once on the server so the client never needs to fetch it separately.
   const workspaceConfig = await WorkspaceService.getWorkspaceConfig(organization.id, session.user.id)
   if (!workspaceConfig) redirect('/onboarding')
-  const [checklist, [activeBranch]] = await Promise.all([
-    getSetupChecklist(organization.id, workspaceConfig.enabledModules),
-    db.select({ name: branch.name }).from(branch)
+  const [activeBranch] = await db.select({ name: branch.name }).from(branch)
       .where(and(eq(branch.organizationId, organization.id), eq(branch.isMain, true)))
       .orderBy(desc(branch.updatedAt))
-      .limit(1),
-  ])
+      .limit(1)
 
   return (
     <DashboardLayoutClient
@@ -47,9 +45,14 @@ export default async function DashboardRouteLayout({ children }: { children: Rea
       organizationName={organization.name}
       branchName={activeBranch?.name ?? null}
       initialWorkspaceConfig={workspaceConfig}
-      setupChecklist={<SetupChecklist key="setup-checklist" items={checklist.items} initiallyDismissed={checklist.dismissed} />}
+      setupChecklist={<Suspense fallback={null}><DashboardSetupChecklist organizationId={organization.id} enabledModules={workspaceConfig.enabledModules} /></Suspense>}
     >
       {children}
     </DashboardLayoutClient>
   )
+}
+
+async function DashboardSetupChecklist({ organizationId, enabledModules }: { organizationId: string; enabledModules: string[] }) {
+  const checklist = await getSetupChecklist(organizationId, enabledModules)
+  return <SetupChecklist items={checklist.items} initiallyDismissed={checklist.dismissed} />
 }

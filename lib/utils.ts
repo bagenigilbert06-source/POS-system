@@ -52,6 +52,11 @@ export function slugify(text: string): string {
     .replace(/(^-|-$)/g, '');
 }
 
+/** Normalizes scanner suffix/control characters without changing barcode digits or leading zeros. */
+export function normalizeBarcode(value: string): string {
+  return value.replace(/[\u0000-\u001F\u007F]/g, '').trim()
+}
+
 export const generatePagination = (currentPage: number, totalPages: number) => {
   const pagination: (number | string)[] = [];
   const pageRange = 2;

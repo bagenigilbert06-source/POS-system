@@ -18,6 +18,7 @@ const MODULE_NAV: Record<string, SidebarNavItem> = {
   pos: { id: 'pos', label: 'Point of sale', icon: 'ShoppingCart', route: '/dashboard/pos' },
   sales: { id: 'sales', label: 'Sales', icon: 'ReceiptText', route: '/dashboard/sales' },
   products: { id: 'products', label: 'Products', icon: 'Package', route: '/dashboard/products' },
+  categories: { id: 'categories', label: 'Categories', icon: 'Tags', route: '/dashboard/products/categories' },
   inventory: { id: 'inventory', label: 'Inventory', icon: 'Boxes', route: '/dashboard/inventory' },
   customers: { id: 'customers', label: 'Customers', icon: 'Users', route: '/dashboard/customers' },
   expenses: { id: 'expenses', label: 'Expenses', icon: 'WalletCards', route: '/dashboard/expenses' },
@@ -45,7 +46,11 @@ function navigationFor(enabledModules: string[], businessFamily: string, busines
   return {
     primaryNav: [
       { id: 'dashboard', label: experience.navigation.overview, icon: 'LayoutDashboard', route: '/dashboard' },
-      ...enabledModules.map((id) => MODULE_NAV[id] ? { ...MODULE_NAV[id], label: labels[id] ?? MODULE_NAV[id].label } : undefined).filter((item): item is SidebarNavItem => Boolean(item)),
+      ...enabledModules.flatMap((id) => {
+        if (!MODULE_NAV[id]) return []
+        const items = [{ ...MODULE_NAV[id], label: labels[id] ?? MODULE_NAV[id].label }]
+        return id === 'products' ? [...items, MODULE_NAV.categories] : items
+      }),
     ],
     secondaryNav: [{ id: 'settings', label: 'Settings', icon: 'Settings', route: '/dashboard/settings' }],
   }

@@ -197,15 +197,24 @@ export const auditEvent = pgTable('audit_event', {
 export const category = pgTable('category', {
   id: text('id').primaryKey(),
   name: text('name').notNull(),
+  slug: text('slug').notNull(),
   description: text('description'),
+  imageUrl: text('imageUrl'),
+  parentCategoryId: text('parentCategoryId'),
+  isActive: boolean('isActive').notNull().default(true),
   userId: text('userId').notNull(),
   orgId: text('orgId').notNull(),
   createdAt: timestamp('createdAt').notNull().defaultNow(),
-})
+  updatedAt: timestamp('updatedAt').notNull().defaultNow(),
+}, (table) => ({
+  organizationSlugUnique: uniqueIndex('category_org_slug_unique').on(table.orgId, table.slug),
+  organizationParentIndex: index('category_org_parent_idx').on(table.orgId, table.parentCategoryId),
+}))
 
 export const product = pgTable('product', {
   id: text('id').primaryKey(),
   name: text('name').notNull(),
+  brand: text('brand'),
   sku: text('sku'),
   barcode: text('barcode'),
   description: text('description'),
@@ -215,6 +224,12 @@ export const product = pgTable('product', {
   stock: integer('stock').notNull().default(0),
   minStock: integer('minStock').notNull().default(5),
   unit: text('unit').notNull().default('pcs'),
+  volume: numeric('volume', { precision: 10, scale: 2 }),
+  volumeUnit: text('volumeUnit'),
+  abv: numeric('abv', { precision: 5, scale: 2 }),
+  countryOfOrigin: text('countryOfOrigin'),
+  unitsPerPack: integer('unitsPerPack'),
+  preferredSupplierId: text('preferredSupplierId'),
   imageUrl: text('imageUrl'),
   isActive: boolean('isActive').notNull().default(true),
   userId: text('userId').notNull(),
