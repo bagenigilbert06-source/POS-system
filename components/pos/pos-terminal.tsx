@@ -23,6 +23,8 @@ import {
   RotateCcw,
   AlertTriangle,
   ShieldCheck,
+  ArrowRight,
+  Sparkles,
 } from 'lucide-react'
 import type { Product, Customer, Sale, SaleItem } from '@/lib/db/schema'
 import { toast } from 'sonner'
@@ -102,6 +104,7 @@ export function POSTerminal({ products, categories, customers, settings, require
   const [refundSale, setRefundSale] = useState<(Sale & { items: SaleItem[] }) | null>(null)
   const [ageVerified, setAgeVerified] = useState(false)
   const [showAgeVerification, setShowAgeVerification] = useState(false)
+  const [checkoutOpen, setCheckoutOpen] = useState(false)
   const searchInputRef = useRef<HTMLInputElement>(null)
   const barcodeBufferRef = useRef<string>('')
   const barcodeTimeoutRef = useRef<NodeJS.Timeout | null>(null)
@@ -294,6 +297,7 @@ export function POSTerminal({ products, categories, customers, settings, require
     setAgeVerified(false)
     setReceipt(null)
     setSearch('')
+    setCheckoutOpen(false)
     checkoutIdempotencyKeyRef.current = '' // Reset for new sale
   }
   
@@ -508,14 +512,17 @@ export function POSTerminal({ products, categories, customers, settings, require
   }
 
   return (
-    <div className="grid min-h-[calc(100vh-10.5rem)] gap-4 lg:grid-cols-[minmax(0,1fr)_400px] lg:items-stretch">
+    <div className="grid min-h-[calc(100vh-10.5rem)] gap-5 lg:grid-cols-[minmax(0,1fr)_420px] lg:items-stretch">
       {/* Left: Product catalog */}
       <section className="flex min-h-[520px] min-w-0 flex-col overflow-hidden rounded-xl border border-[var(--dashboard-border)] bg-[var(--dashboard-surface)] shadow-[0_1px_3px_rgba(16,24,40,.05)]">
         <div className="border-b border-[var(--dashboard-border)] px-4 py-4 sm:px-5">
-          <div className="mb-3 flex items-center justify-between gap-3">
+          <div className="mb-4 flex items-center justify-between gap-3">
             <div>
-              <h2 className="text-sm font-bold text-[var(--dashboard-text)]">Products</h2>
-              <p className="mt-0.5 text-xs text-[var(--dashboard-muted)]">Tap an item to add it to this sale</p>
+              <div className="flex items-center gap-2">
+                <h2 className="text-base font-bold text-[var(--dashboard-text)]">Shop products</h2>
+                <Sparkles className="h-4 w-4 text-[#e6b800]" />
+              </div>
+              <p className="mt-0.5 text-xs text-[var(--dashboard-muted)]">Tap a product to add it to this sale.</p>
             </div>
             <span className="rounded-md bg-[#fff8d6] px-2 py-1 text-xs font-semibold text-[#5f4b00] dark:bg-[#292513] dark:text-[#ffdf45]">{filteredProducts.length} available</span>
           </div>
@@ -587,9 +594,9 @@ export function POSTerminal({ products, categories, customers, settings, require
                     onClick={() => addToCart(product)}
                     disabled={outOfStock}
                     className={cn(
-                      'group relative flex min-h-[170px] flex-col rounded-lg border border-[#dfe3ea] bg-white p-3.5 text-left shadow-[0_1px_2px_rgba(16,24,40,.03)] transition-colors dark:border-[#303030] dark:bg-[#191919]',
+                      'group relative flex min-h-[240px] flex-col overflow-hidden rounded-xl border border-[#e5e7eb] bg-white text-left shadow-[0_1px_2px_rgba(16,24,40,.03)] transition-all duration-200 dark:border-[#303030] dark:bg-[#191919]',
                       'disabled:opacity-50 disabled:cursor-not-allowed',
-                      'hover:border-[#d5bd42] hover:bg-[#fffdf4] dark:hover:bg-[#211e12]',
+                      'hover:-translate-y-0.5 hover:border-[#d5bd42] hover:shadow-[0_10px_24px_rgba(16,24,40,.10)] dark:hover:bg-[#211e12]',
                       inCart
                         ? 'border-[#d5bd42] bg-[#fff8d6] ring-1 ring-[#e6c31d]/30 dark:bg-[#292513]'
                         : ''
@@ -608,33 +615,21 @@ export function POSTerminal({ products, categories, customers, settings, require
                       <img
                         src={product.imageUrl}
                         alt={product.name}
-                        className="w-full h-16 object-cover rounded-lg mb-2"
+                        className="h-32 w-full object-cover"
                       />
                     ) : (
-                      <div className="mb-3 flex h-16 w-full items-center justify-center rounded-lg bg-[#f4f5f7] text-[#667085] dark:bg-[#252525] dark:text-[#a7a7a7]">
-                        <Package className="h-6 w-6" />
+                      <div className="flex h-32 w-full items-center justify-center bg-gradient-to-br from-[#fff7d3] via-[#f7f8fa] to-[#e9edf5] text-[#667085] dark:from-[#292513] dark:via-[#252525] dark:to-[#1b1b1b] dark:text-[#a7a7a7]">
+                        <Package className="h-9 w-9" />
                       </div>
                     )}
-                    
-                    {/* Product name */}
-                    <p className="mb-1 text-sm font-semibold leading-tight line-clamp-2 text-[var(--dashboard-text)]">
-                      {product.name}
-                    </p>
-                    
-                    {/* SKU if available */}
-                    {product.sku && (
-                      <p className="text-[9px] text-muted-foreground mb-1">SKU: {product.sku}</p>
-                    )}
-                    
-                    {/* Price */}
-                    <p className="mt-auto mb-1 text-sm font-bold text-[var(--dashboard-text)]">
-                      {formatCurrency(product.sellingPrice)}
-                    </p>
-                    
-                    {/* Stock */}
-                    <p className={cn('text-[10px]', outOfStock ? 'text-red-600 font-medium' : 'text-muted-foreground')}>
-                      {product.stock} {product.unit} left
-                    </p>
+                    <div className="flex flex-1 flex-col p-3.5">
+                      <p className="mb-1 text-sm font-semibold leading-tight line-clamp-2 text-[var(--dashboard-text)]">{product.name}</p>
+                      {product.sku && <p className="text-[10px] text-muted-foreground">{product.sku}</p>}
+                      <div className="mt-auto flex items-end justify-between gap-2 pt-3">
+                        <p className="text-base font-bold text-[var(--dashboard-text)]">{formatCurrency(product.sellingPrice)}</p>
+                        <p className={cn('text-[10px]', outOfStock ? 'text-red-600 font-medium' : 'text-muted-foreground')}>{product.stock} {product.unit}</p>
+                      </div>
+                    </div>
                     
                     {/* Cart badge */}
                     {inCart && (
@@ -657,7 +652,7 @@ export function POSTerminal({ products, categories, customers, settings, require
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <span className="flex h-8 w-8 items-center justify-center rounded-md bg-[#ffda32] text-[#050a1f]"><ShoppingCart className="h-4 w-4" /></span>
-              <div><span className="block text-sm font-bold text-[var(--dashboard-text)]">Current sale</span><span className="block text-[11px] text-[var(--dashboard-muted)]">{cart.length ? `${cart.length} item${cart.length === 1 ? '' : 's'} in basket` : 'New transaction'}</span></div>
+              <div><span className="block text-sm font-bold text-[var(--dashboard-text)]">{checkoutOpen ? 'Checkout' : 'Your basket'}</span><span className="block text-[11px] text-[var(--dashboard-muted)]">{cart.length ? `${cart.length} product${cart.length === 1 ? '' : 's'} selected` : 'Start a new sale'}</span></div>
             </div>
             {cart.length > 0 && (
               <button
@@ -750,8 +745,21 @@ export function POSTerminal({ products, categories, customers, settings, require
         </div>
 
         {/* Payment panel */}
-        {cart.length > 0 && (
+        {cart.length > 0 && !checkoutOpen && (
+          <div className="border-t bg-white p-4 dark:bg-[#191919]">
+            <div className="mb-4 flex items-center justify-between text-sm">
+              <span className="font-medium text-muted-foreground">Basket total</span>
+              <span className="text-xl font-bold tabular-nums text-[var(--dashboard-text)]">{formatCurrency(subtotal)}</span>
+            </div>
+            <button onClick={() => setCheckoutOpen(true)} className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#ffda32] px-4 py-3 text-sm font-bold text-[#050a1f] transition-colors hover:bg-[#f0c900]">
+              Review & checkout <ArrowRight className="h-4 w-4" />
+            </button>
+          </div>
+        )}
+
+        {cart.length > 0 && checkoutOpen && (
           <div className="border-t p-3 space-y-3 bg-muted/20">
+            <button onClick={() => setCheckoutOpen(false)} className="text-xs font-semibold text-muted-foreground hover:text-foreground">← Back to basket</button>
             {/* Customer select */}
             <div>
               <div className="flex items-center justify-between mb-1">

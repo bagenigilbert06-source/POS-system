@@ -23,7 +23,7 @@ import type { DashboardOverview } from '@/lib/services/dashboard-overview-servic
 import { OperatingChart } from './operating-chart'
 import { getBusinessExperience } from '@/lib/workspace/business-experience'
 import { DashboardInsightCharts } from './dashboard-insight-charts'
-import { TimeGreeting } from '@/components/dashboard/time-greeting'
+import { POSOperationsDashboard } from './pos-operations-dashboard'
 
 interface BusinessOverviewProps {
   organizationName: string
@@ -32,18 +32,21 @@ interface BusinessOverviewProps {
   currency: string
   overview: DashboardOverview
   workspaceConfig: WorkspaceConfig
+  generatedAt: Date
 }
 
 function methodLabel(method: string) {
   return method.replace(/[_-]/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase())
 }
 
-export function BusinessOverview({ organizationName, userName, timeZone, currency, overview, workspaceConfig }: BusinessOverviewProps) {
+export function BusinessOverview({ organizationName, currency, overview, workspaceConfig, generatedAt }: BusinessOverviewProps) {
   const experience = getBusinessExperience(workspaceConfig.businessType, workspaceConfig.businessCategory)
   const hasProducts = workspaceConfig.enabledModules.includes('products')
   const hasInventory = workspaceConfig.enabledModules.includes('inventory')
   const hasCustomers = workspaceConfig.enabledModules.includes('customers')
   const saleHref = workspaceConfig.enabledModules.includes('pos') ? '/dashboard/pos' : '/dashboard/sales'
+  return <POSOperationsDashboard currency={currency} overview={overview} saleHref={saleHref} />
+  const isNewWorkspace = overview.recentSales.length === 0
   const availableActions = [
     ...(workspaceConfig.enabledModules.includes('pos') || workspaceConfig.enabledModules.includes('sales') ? [{ id: 'primary', label: experience.actionLabels.primary, href: saleHref, icon: ShoppingBag, primary: true, description: 'Record a new sale' }] : []),
     ...(hasProducts ? [{ id: 'products', label: experience.actionLabels.products, href: '/dashboard/products', icon: Package, primary: false, description: 'Manage products' }] : []),
@@ -54,21 +57,23 @@ export function BusinessOverview({ organizationName, userName, timeZone, currenc
   const transactionAverage = overview.today.transactions ? overview.today.revenue / overview.today.transactions : 0
   const commerceMetrics = experience.kind === 'retail' || experience.kind === 'hospitality'
   const metrics = [
-    { label: experience.metricLabels[0], value: formatCurrency(overview.today.revenue, currency), detail: `${formatNumber(overview.today.transactions)} completed`, icon: TrendingUp },
+    { label: experience.metricLabels[0], value: formatCurrency(overview.today.revenue, currency), detail: `${formatNumber(overview.today.transactions)} completed`, icon: TrendingUp, href: '/dashboard/sales' },
     commerceMetrics
-      ? { label: experience.metricLabels[1], value: formatNumber(overview.today.transactions), detail: experience.kind === 'hospitality' ? 'Completed counter orders' : 'Completed sales', icon: ReceiptText }
-      : { label: experience.metricLabels[1], value: formatCurrency(overview.today.expenses, currency), detail: 'Recorded today', icon: CreditCard },
+      ? { label: experience.metricLabels[1], value: formatNumber(overview.today.transactions), detail: experience.kind === 'hospitality' ? 'Completed counter orders' : 'Completed sales', icon: ReceiptText, href: '/dashboard/sales' }
+      : { label: experience.metricLabels[1], value: formatCurrency(overview.today.expenses, currency), detail: 'Recorded today', icon: CreditCard, href: '/dashboard/expenses' },
     commerceMetrics
-      ? { label: experience.metricLabels[2], value: formatCurrency(transactionAverage, currency), detail: experience.kind === 'hospitality' ? 'Per completed order' : 'Per completed sale', icon: BadgeDollarSign }
-      : { label: experience.metricLabels[2], value: formatCurrency(overview.today.operatingPosition, currency), detail: 'Sales less expenses', icon: BadgeDollarSign },
+      ? { label: experience.metricLabels[2], value: formatCurrency(transactionAverage, currency), detail: experience.kind === 'hospitality' ? 'Per completed order' : 'Per completed sale', icon: BadgeDollarSign, href: '/dashboard/sales' }
+      : { label: experience.metricLabels[2], value: formatCurrency(overview.today.operatingPosition, currency), detail: 'Sales less expenses', icon: BadgeDollarSign, href: '/dashboard/reports' },
     ...(hasInventory && commerceMetrics
       ? experience.kind === 'hospitality'
-        ? [{ label: experience.metricLabels[3], value: formatNumber(overview.records.products), detail: 'Available menu items', icon: Package }]
-        : [{ label: experience.metricLabels[3], value: formatNumber(overview.records.lowStock), detail: `${overview.records.outOfStock} out of stock`, icon: TriangleAlert }]
-      : hasInventory ? [{ label: 'Stock alerts', value: formatNumber(overview.records.lowStock), detail: `${overview.records.outOfStock} out of stock`, icon: TriangleAlert }] : []),
+        ? [{ label: experience.metricLabels[3], value: formatNumber(overview.records.products), detail: 'Available menu items', icon: Package, href: '/dashboard/products' }]
+        : [{ label: experience.metricLabels[3], value: formatNumber(overview.records.lowStock), detail: `${overview.records.outOfStock} out of stock`, icon: TriangleAlert, href: '/dashboard/inventory' }]
+      : hasInventory ? [{ label: 'Stock alerts', value: formatNumber(overview.records.lowStock), detail: `${overview.records.outOfStock} out of stock`, icon: TriangleAlert, href: '/dashboard/inventory' }] : []),
     ...(!hasInventory && hasCustomers ? [{ label: 'Customer records', value: formatNumber(overview.records.customers), detail: 'Available in this workspace', icon: UsersRound }] : []),
     ...(!hasInventory && !hasCustomers ? [{ label: 'Locations', value: formatNumber(overview.records.branches), detail: 'Active business locations', icon: Building2 }] : []),
   ]
+
+  const updatedAt = generatedAt.toLocaleTimeString('en-KE', { hour: '2-digit', minute: '2-digit' })
 
   return (
     <div className="mx-auto w-full max-w-[1440px] space-y-8 pb-12">
@@ -157,9 +162,9 @@ export function BusinessOverview({ organizationName, userName, timeZone, currenc
             <MiniRecord label="Locations" value={formatNumber(overview.records.branches)} href="/dashboard/settings" />
           </div>
         </aside>
-      </section>
+      </section>}
 
-      <DashboardInsightCharts currency={currency} paymentMix={overview.paymentMix} topProducts={overview.topProducts} stock={{ healthy: overview.records.products - overview.records.lowStock, low: overview.records.lowStock - overview.records.outOfStock, out: overview.records.outOfStock }} productLabel={workspaceConfig.businessCategory === 'liquor_shop' ? 'drinks' : 'products'} />
+      {!isNewWorkspace && <DashboardInsightCharts currency={currency} paymentMix={overview.paymentMix} topProducts={overview.topProducts} stock={{ healthy: overview.records.products - overview.records.lowStock, low: overview.records.lowStock - overview.records.outOfStock, out: overview.records.outOfStock }} productLabel={workspaceConfig.businessCategory === 'liquor_shop' ? 'drinks' : 'products'} />}
 
       <section className={cn('grid gap-6', hasInventory && 'xl:grid-cols-[minmax(0,1.45fr)_minmax(330px,.75fr)]')}>
         <article className="overflow-hidden rounded-2xl border border-[rgba(255,214,10,0.08)] bg-[rgba(255,255,255,0.03)] shadow-dark-sm backdrop-blur-sm">

@@ -81,6 +81,7 @@ export async function createProduct(data: {
   sku?: string
   barcode?: string
   description?: string
+  imageUrl?: string
   categoryId?: string
   buyingPrice: number
   sellingPrice: number
@@ -110,6 +111,7 @@ export async function updateProduct(
     sku: string
     barcode: string
     description: string
+    imageUrl: string
     categoryId: string
     buyingPrice: number
     sellingPrice: number

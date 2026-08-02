@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { createProduct, updateProduct } from '@/app/actions/products'
 import { cn } from '@/lib/utils'
-import { Barcode, Boxes, Check, CircleDollarSign, Loader2, Package2, Tag, X } from 'lucide-react'
+import { Barcode, Boxes, Check, CircleDollarSign, ImageIcon, Loader2, Package2, Tag, X } from 'lucide-react'
 import type { Product } from '@/lib/db/schema'
 import { toast } from 'sonner'
 
@@ -23,6 +23,7 @@ export function ProductForm({ product, categories, onClose }: ProductFormProps) 
     sku: product?.sku ?? '',
     barcode: product?.barcode ?? '',
     description: product?.description ?? '',
+    imageUrl: product?.imageUrl ?? '',
     categoryId: product?.categoryId ?? '',
     buyingPrice: product?.buyingPrice ?? '0',
     sellingPrice: product?.sellingPrice ?? '',
@@ -50,6 +51,7 @@ export function ProductForm({ product, categories, onClose }: ProductFormProps) 
         sku: form.sku || undefined,
         barcode: form.barcode || undefined,
         description: form.description || undefined,
+        imageUrl: form.imageUrl || undefined,
         categoryId: form.categoryId || undefined,
         buyingPrice: parseFloat(String(form.buyingPrice)) || 0,
         sellingPrice: parseFloat(String(form.sellingPrice)),
@@ -159,6 +161,22 @@ export function ProductForm({ product, categories, onClose }: ProductFormProps) 
                 <div className="mt-4">
                   <FieldLabel>Description</FieldLabel>
                   <textarea rows={2} placeholder="Optional product description" value={form.description} onChange={(e) => set('description', e.target.value)} className={cn(inputCls, 'resize-y')} />
+                </div>
+                <div className="mt-4">
+                  <FieldLabel>Product image URL</FieldLabel>
+                  <div className="flex gap-3">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-md border bg-muted/40 text-muted-foreground">
+                      {form.imageUrl ? <img src={form.imageUrl} alt="Product preview" className="h-full w-full object-cover" /> : <ImageIcon className="h-4 w-4" />}
+                    </div>
+                    <input
+                      type="url"
+                      placeholder="https://example.com/product-image.jpg"
+                      value={form.imageUrl}
+                      onChange={(e) => set('imageUrl', e.target.value)}
+                      className={inputCls}
+                    />
+                  </div>
+                  <p className="mt-1.5 text-xs text-muted-foreground">Paste an image link to show this product in the checkout catalogue.</p>
                 </div>
               </div>
             </section>

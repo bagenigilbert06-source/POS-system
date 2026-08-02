@@ -48,14 +48,14 @@ export function DynamicAppSidebar({ mobileOpen = false, onMobileClose }: Dynamic
 
   const primaryNav = config.sidebarConfig.primaryNav
   const secondaryNav = config.sidebarConfig.secondaryNav
-  const sidebarWidth = collapsed ? 'lg:w-[68px]' : 'lg:w-[236px]'
+  const sidebarWidth = collapsed ? 'lg:w-[68px]' : 'lg:w-[223px]'
 
   const sidebar = (
     <aside
       className={cn(
         'dashboard-sidebar flex h-full flex-col border-r',
         'transition-all duration-200 ease-in-out',
-        'w-72 max-w-[85vw]',
+        'w-[223px] max-w-[85vw]',
         sidebarWidth
       )}
     >

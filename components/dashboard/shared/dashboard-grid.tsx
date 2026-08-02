@@ -93,11 +93,11 @@ interface DashboardPageProps {
 export function DashboardPage({ title, description, children, action }: DashboardPageProps) {
   return (
     <div className="mx-auto w-full max-w-[1440px] space-y-6">
-      <div className="rounded-lg border border-border bg-white px-4 py-4 shadow-sm dark:bg-card sm:px-5">
+      <div className="rounded-2xl border border-[#e1e6db] bg-white px-5 py-5 shadow-[0_8px_24px_rgba(35,37,34,.05)] sm:px-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-xl font-semibold tracking-tight text-foreground sm:text-2xl">{title}</h1>
-            {description && <p className="mt-1 text-sm text-muted-foreground">{description}</p>}
+            <h1 className="text-xl font-bold tracking-[-0.035em] text-[#151514] sm:text-2xl">{title}</h1>
+            {description && <p className="mt-1 text-sm text-[#74776f]">{description}</p>}
           </div>
           {action}
         </div>
@@ -130,8 +130,8 @@ export function DashboardSection({
       {(title || action) && (
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <h2 className="text-base font-semibold text-foreground">{title}</h2>
-            {description && <p className="mt-1 text-sm text-muted-foreground">{description}</p>}
+            <h2 className="text-base font-bold text-[#151514]">{title}</h2>
+            {description && <p className="mt-1 text-sm text-[#74776f]">{description}</p>}
           </div>
           {action}
         </div>
@@ -165,7 +165,7 @@ export function DashboardCard({
 }: DashboardCardProps) {
   if (loading) {
     return (
-      <div className="animate-pulse rounded-lg border border-border bg-card">
+      <div className="animate-pulse rounded-2xl border border-[#e1e6db] bg-white">
         <div className="space-y-4 p-6">
           <div className="h-6 w-24 rounded bg-muted" />
           <div className="h-32 rounded bg-muted" />
@@ -175,12 +175,12 @@ export function DashboardCard({
   }
 
   return (
-    <div className="overflow-hidden rounded-lg border border-border bg-white shadow-sm dark:bg-card">
+    <div className="overflow-hidden rounded-2xl border border-[#e1e6db] bg-white shadow-[0_8px_24px_rgba(35,37,34,.05)]">
       {(title || action) && (
-        <div className="flex items-center justify-between border-b border-border px-4 py-3 sm:px-5">
+        <div className="flex items-center justify-between border-b border-[#edf0e8] px-4 py-3 sm:px-5">
           <div>
-            <h3 className="font-semibold text-foreground">{title}</h3>
-            {description && <p className="mt-1 text-sm text-muted-foreground">{description}</p>}
+            <h3 className="font-bold text-[#151514]">{title}</h3>
+            {description && <p className="mt-1 text-sm text-[#74776f]">{description}</p>}
           </div>
           {action}
         </div>
