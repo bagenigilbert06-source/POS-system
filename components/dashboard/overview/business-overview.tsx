@@ -125,18 +125,18 @@ export function BusinessOverview({ organizationName, userName, timeZone, currenc
       {!isNewWorkspace && <DashboardInsightCharts currency={currency} paymentMix={overview.paymentMix} topProducts={overview.topProducts} stock={{ healthy: overview.records.products - overview.records.lowStock, low: overview.records.lowStock - overview.records.outOfStock, out: overview.records.outOfStock }} productLabel={workspaceConfig.businessCategory === 'liquor_shop' ? 'drinks' : 'products'} />}
 
       {workspaceConfig.businessCategory === 'liquor_shop' && (
-        <section className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto]" aria-label="Liquor-store controls">
-          <article className="flex flex-col gap-4 rounded-2xl border border-[rgba(255,214,10,0.1)] bg-[rgba(255,255,255,0.03)] p-6 shadow-dark-sm backdrop-blur-sm sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex items-start gap-4">
-              <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg border border-[rgba(255,214,10,0.2)] bg-[rgba(255,214,10,0.08)] text-[#ffd60a]"><ShieldCheck className="h-6 w-6" /></span>
-              <div><h2 className="text-sm font-bold text-[#f5f5f7]">Liquor sales controls</h2><p className="mt-1 text-xs leading-5 text-[#a1a1a6]">Age verification is required at checkout and recorded with each new liquor sale.</p></div>
+        <section aria-label="Liquor-store controls">
+          <article className="flex flex-col gap-5 rounded-2xl border border-[rgba(255,214,10,0.1)] bg-[rgba(255,255,255,0.03)] p-5 shadow-dark-sm backdrop-blur-sm lg:flex-row lg:items-center">
+            <div className="flex min-w-0 flex-1 items-center gap-3">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[rgba(255,214,10,0.2)] bg-[rgba(255,214,10,0.08)] text-[#ffd60a]"><ShieldCheck className="h-5 w-5" /></span>
+              <div className="min-w-0"><h2 className="text-sm font-semibold text-[#f5f5f7]">Liquor sales controls</h2><p className="mt-1 max-w-xl text-xs leading-5 text-[#a1a1a6]">Age verification is required at checkout and recorded with each new liquor sale.</p></div>
             </div>
-            <div className="flex divide-x divide-[rgba(255,214,10,0.08)] rounded-lg border border-[rgba(255,214,10,0.1)] text-center">
-              <div className="min-w-[100px] px-4 py-3"><p className="text-xl font-bold tabular-nums text-[#f5f5f7]">{formatNumber(overview.liquorCompliance.verifiedToday)}</p><p className="text-[11px] font-semibold uppercase tracking-wide text-[#a1a1a6] mt-1">verified today</p></div>
-              <div className="min-w-[100px] px-4 py-3"><p className={cn('text-xl font-bold tabular-nums', overview.liquorCompliance.unverifiedToday ? 'text-[#ff6961]' : 'text-[#f5f5f7]')}>{formatNumber(overview.liquorCompliance.unverifiedToday)}</p><p className="text-[11px] font-semibold uppercase tracking-wide text-[#a1a1a6] mt-1">needs review</p></div>
+            <div className="flex shrink-0 gap-2">
+              <div className="min-w-[92px] rounded-xl border border-[rgba(22,163,106,0.22)] bg-[rgba(22,163,106,0.08)] px-4 py-2.5"><p className="text-lg font-semibold tabular-nums text-[#f5f5f7]">{formatNumber(overview.liquorCompliance.verifiedToday)}</p><p className="mt-0.5 text-[10px] font-medium uppercase tracking-[0.08em] text-[#a1a1a6]">verified today</p></div>
+              <div className="min-w-[92px] rounded-xl border border-[rgba(255,214,10,0.18)] bg-[rgba(255,214,10,0.06)] px-4 py-2.5"><p className={cn('text-lg font-semibold tabular-nums', overview.liquorCompliance.unverifiedToday ? 'text-[#ff6961]' : 'text-[#f5f5f7]')}>{formatNumber(overview.liquorCompliance.unverifiedToday)}</p><p className="mt-0.5 text-[10px] font-medium uppercase tracking-[0.08em] text-[#a1a1a6]">needs review</p></div>
             </div>
+            <Link href="/dashboard/operations" className="inline-flex min-h-10 shrink-0 items-center justify-center gap-2 rounded-xl border border-[rgba(255,214,10,0.2)] bg-[rgba(255,255,255,0.05)] px-4 text-sm font-medium text-[#f5f5f7] transition-all hover:border-[rgba(255,214,10,0.3)] hover:bg-[rgba(255,255,255,0.08)]"><CircleAlert className="h-4 w-4" />Register controls</Link>
           </article>
-          <Link href="/dashboard/operations" className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-[rgba(255,214,10,0.2)] bg-[rgba(255,255,255,0.05)] px-6 text-sm font-medium text-[#f5f5f7] transition-all hover:bg-[rgba(255,255,255,0.08)] hover:border-[rgba(255,214,10,0.3)]"><CircleAlert className="h-4 w-4" />Register controls</Link>
         </section>
       )}
 
