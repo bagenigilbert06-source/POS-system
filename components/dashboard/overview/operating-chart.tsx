@@ -58,9 +58,9 @@ export function OperatingChart({ data, currency }: OperatingChartProps) {
             <BarChart data={chartData} margin={{ top: 16, right: 12, left: -8, bottom: 0 }} barCategoryGap={range === 30 ? '54%' : '40%'}>
               <XAxis dataKey="label" axisLine={false} tickLine={false} interval={range === 30 ? 4 : 0} tick={{ fill: 'var(--dashboard-chart-tick)', fontSize: 11 }} dy={9} />
               <YAxis axisLine={false} tickLine={false} width={58} tickCount={2} tick={{ fill: 'var(--dashboard-chart-tick)', fontSize: 10 }} tickFormatter={(value) => compact(value, currency)} />
-              <Tooltip cursor={{ fill: 'rgba(214, 168, 0, .08)' }} contentStyle={{ background: 'var(--dashboard-chart-tooltip)', color: 'var(--dashboard-text)', border: '1px solid var(--dashboard-border)', borderRadius: 10, boxShadow: '0 10px 24px rgba(16,24,40,.12)', fontSize: 12 }} itemStyle={{ color: 'var(--dashboard-text)' }} labelStyle={{ color: 'var(--dashboard-muted)', marginBottom: 4 }} formatter={(value, name) => [compact(Number(value), currency), name === 'revenue' ? 'Sales' : 'Expenses']} labelFormatter={(_, payload) => payload?.[0]?.payload?.date ?? ''} />
-              <Bar dataKey="revenue" name="Sales" fill="#d6a800" radius={[4, 4, 0, 0]} maxBarSize={22} isAnimationActive={false} />
-              <Bar dataKey="expenses" name="Expenses" fill="#344b70" radius={[4, 4, 0, 0]} maxBarSize={22} isAnimationActive={false} />
+              <Tooltip cursor={false} contentStyle={{ background: 'var(--dashboard-chart-tooltip)', color: 'var(--dashboard-text)', border: '1px solid var(--dashboard-border)', borderRadius: 10, boxShadow: '0 10px 24px rgba(16,24,40,.12)', fontSize: 12 }} itemStyle={{ color: 'var(--dashboard-text)' }} labelStyle={{ color: 'var(--dashboard-muted)', marginBottom: 4 }} formatter={(value, name) => [compact(Number(value), currency), name === 'Sales' ? 'Sales' : 'Expenses']} labelFormatter={(_, payload) => payload?.[0]?.payload?.date ?? ''} />
+              <Bar dataKey="revenue" name="Sales" fill="var(--dashboard-chart-revenue)" radius={[0, 0, 0, 0]} maxBarSize={30} isAnimationActive={false} />
+              <Bar dataKey="expenses" name="Expenses" fill="var(--dashboard-chart-secondary)" radius={[0, 0, 0, 0]} maxBarSize={30} isAnimationActive={false} />
             </BarChart>
           </ResponsiveContainer>
         </>

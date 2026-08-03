@@ -148,19 +148,19 @@ export function BusinessOverview({ organizationName, userName, timeZone, currenc
               <p className="mt-1 text-xs text-[#a1a1a6]">Sales and recorded expenses · Live 30-day history</p>
             </div>
             <div className="flex items-center gap-4 text-xs font-medium text-[#a1a1a6]">
-              <span className="flex items-center gap-2"><i className="h-2 w-2 rounded-full bg-[#d6a800]" />Sales</span>
-              <span className="flex items-center gap-2"><i className="h-2 w-2 rounded-sm bg-[#344b70]" />Expenses</span>
+              <span className="flex items-center gap-2"><i className="h-2 w-2 rounded-sm bg-[var(--dashboard-chart-revenue)]" />Sales</span>
+              <span className="flex items-center gap-2"><i className="h-2 w-2 rounded-sm bg-[var(--dashboard-chart-secondary)]" />Expenses</span>
               <Link href="/dashboard/reports" className="ml-1 font-semibold text-[#ffd60a] hover:text-[#ffdf3a]">Reports</Link>
             </div>
           </div>
           <div className="px-4 pb-4 pt-6 sm:px-6"><OperatingChart data={overview.revenueSeries} currency={currency} /></div>
         </article>
 
-        <aside className="overflow-hidden rounded-2xl border border-[rgba(255,214,10,0.08)] bg-[rgba(255,255,255,0.03)] shadow-dark-sm backdrop-blur-sm">
+        <aside className="flex h-full min-h-[305px] flex-col overflow-hidden rounded-2xl border border-[rgba(255,214,10,0.08)] bg-[rgba(255,255,255,0.03)] shadow-dark-sm backdrop-blur-sm">
           <div className="border-b border-[rgba(255,214,10,0.08)] px-6 py-5">
-            <div className="flex items-center justify-between gap-3"><div><h2 className="text-[1rem] font-bold text-[#f5f5f7]">Month to date</h2><p className="mt-1 text-xs text-[#a1a1a6]">Current operating position</p></div><span className="inline-flex items-center gap-1.5 text-[0.7rem] font-semibold text-[#a1a1a6]"><i className="h-2 w-2 rounded-full bg-[#ff6961]" />Live</span></div>
+            <div className="flex items-center justify-between gap-3"><div><h2 className="text-[1rem] font-semibold text-[#f5f5f7]">Month to date</h2><p className="mt-1 text-xs text-[#a1a1a6]">Current operating position</p></div><span className="inline-flex items-center gap-1.5 text-[0.7rem] font-medium text-[#a1a1a6]"><i className="dashboard-live-dot h-2 w-2 rounded-full bg-[#ff6961]" />Live</span></div>
           </div>
-          <dl className="divide-y divide-[rgba(255,214,10,0.08)] px-6">
+          <dl className="flex flex-1 flex-col justify-center divide-y divide-[rgba(255,214,10,0.08)] px-6">
             <SummaryRow label="Sales" value={formatCurrency(overview.month.revenue, currency)} />
             <SummaryRow label="Expenses" value={formatCurrency(overview.month.expenses, currency)} />
             <SummaryRow label="Sales less expenses" value={formatCurrency(overview.month.operatingPosition, currency)} emphasis />
@@ -173,7 +173,7 @@ export function BusinessOverview({ organizationName, userName, timeZone, currenc
         </aside>
       </section>
 
-      <section className={cn('grid gap-6', hasInventory && 'xl:grid-cols-[minmax(0,1.45fr)_minmax(330px,.75fr)]')}>
+      <section className={cn('grid items-start gap-6', hasInventory && 'xl:grid-cols-[minmax(0,1.45fr)_minmax(330px,.75fr)]')}>
         <article className="overflow-hidden rounded-2xl border border-[rgba(255,214,10,0.08)] bg-[rgba(255,255,255,0.03)] shadow-dark-sm backdrop-blur-sm">
           <SectionHeader title={experience.activityTitle} description={experience.activityDescription} href="/dashboard/sales" />
           {overview.recentSales.length ? (
@@ -184,9 +184,9 @@ export function BusinessOverview({ organizationName, userName, timeZone, currenc
           ) : <EmptyState message="No transactions yet" detail="Completed sales will appear here automatically." href={saleHref} action="Record the first sale" />}
         </article>
 
-        {hasInventory && <article className="overflow-hidden rounded-2xl border border-[rgba(255,214,10,0.08)] bg-[rgba(255,255,255,0.03)] shadow-dark-sm backdrop-blur-sm">
+        {hasInventory && <article className="self-start overflow-hidden rounded-2xl border border-[rgba(255,214,10,0.08)] bg-[rgba(255,255,255,0.03)] shadow-dark-sm backdrop-blur-sm">
           <SectionHeader title={experience.stockTitle} description={experience.stockDescription} href="/dashboard/inventory" />
-          {overview.lowStockProducts.length ? <div className="divide-y divide-[rgba(255,214,10,0.08)] px-6">{overview.lowStockProducts.map((item) => <div key={item.id} className="flex items-center justify-between gap-4 py-4"><div className="min-w-0"><p className="truncate text-sm font-semibold text-[#f5f5f7]">{item.name}</p><p className="mt-0.5 text-xs text-[#a1a1a6]">{item.sku || 'No SKU'} · reorder at {item.minStock}</p></div><span className={item.stock <= 0 ? 'rounded-lg bg-[rgba(255,105,107,0.15)] px-3 py-1 text-xs font-semibold text-[#ff6961]' : 'rounded-lg bg-[rgba(255,214,10,0.15)] px-3 py-1 text-xs font-semibold text-[#ffd60a]'}>{item.stock} left</span></div>)}</div> : <EmptyState message="Stock levels look healthy" detail="No active products currently need attention." href="/dashboard/inventory" action="Review inventory" icon="stock" />}
+          {overview.lowStockProducts.length ? <div className="divide-y divide-[rgba(255,214,10,0.08)] px-5">{overview.lowStockProducts.map((item) => <div key={item.id} className="flex items-center gap-3 py-4"><span className={item.stock <= 0 ? 'h-2.5 w-2.5 shrink-0 rounded-full bg-[#ff6961]' : 'h-2.5 w-2.5 shrink-0 rounded-full bg-[#ffd60a]'} /><div className="min-w-0 flex-1"><p className="truncate text-sm font-semibold text-[#f5f5f7]">{item.name}</p><p className="mt-1 truncate text-xs text-[#a1a1a6]">{item.sku || 'No SKU'} · reorder at {item.minStock}</p></div><span className={item.stock <= 0 ? 'shrink-0 rounded-lg bg-[rgba(255,105,107,0.15)] px-3 py-1.5 text-xs font-semibold text-[#ff6961]' : 'shrink-0 rounded-lg bg-[rgba(255,214,10,0.15)] px-3 py-1.5 text-xs font-semibold text-[#ffd60a]'}>{item.stock} left</span></div>)}</div> : <EmptyState message="Stock levels look healthy" detail="No active products currently need attention." href="/dashboard/inventory" action="Review inventory" icon="stock" />}
         </article>}
       </section>
 

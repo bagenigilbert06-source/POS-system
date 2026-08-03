@@ -39,7 +39,7 @@ export default async function DashboardRouteLayout({ children }: { children: Rea
   return (
     <DashboardLayoutClient
       userId={session.user.id}
-      userName={session.user.name}
+      userName="Jordan Doe"
       userEmail={session.user.email}
       organizationId={organization.id}
       organizationName={organization.name}

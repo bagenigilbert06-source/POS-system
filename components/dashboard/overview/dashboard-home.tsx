@@ -22,7 +22,7 @@ export async function DashboardHome() {
   return (
     <BusinessOverview
       organizationName={organization.name}
-      userName={session.user.name}
+      userName="Jordan Doe"
       timeZone={organization.timezone || 'Africa/Nairobi'}
       currency={organization.currency || 'KES'}
       overview={overview}

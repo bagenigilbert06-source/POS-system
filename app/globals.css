@@ -172,8 +172,8 @@
   --dashboard-chart-grid: #e5e9ef;
   --dashboard-chart-tick: #64748b;
   --dashboard-chart-tooltip: #ffffff;
-  --dashboard-chart-revenue: #e42527;
-  --dashboard-chart-revenue-fill: #e42527;
+  --dashboard-chart-revenue: #ff6b0a;
+  --dashboard-chart-revenue-fill: #ff6b0a;
   --dashboard-chart-secondary: #2563eb;
   --dashboard-highlight: #e42527;
   background: var(--dashboard-canvas);
@@ -204,8 +204,8 @@
   --dashboard-chart-grid: #262626;
   --dashboard-chart-tick: #a3a3a3;
   --dashboard-chart-tooltip: #1a1a1a;
-  --dashboard-chart-revenue: #ef4444;
-  --dashboard-chart-revenue-fill: #ef4444;
+  --dashboard-chart-revenue: #ff6b0a;
+  --dashboard-chart-revenue-fill: #ff6b0a;
   --dashboard-chart-secondary: #3b82f6;
   --dashboard-highlight: #3b82f6;
   color-scheme: dark;
@@ -852,13 +852,24 @@ html:not(.dark) .dashboard-shell .shadow-dark-md {
   gap: .45rem;
   border: 1px solid var(--dashboard-border);
   border-radius: 999px;
-  padding: .35rem .65rem;
-  font-size: .68rem;
+  padding: .48rem .82rem;
+  font-size: .78rem;
   font-weight: 700;
   color: var(--dashboard-muted);
   background: rgba(255,255,255,.72);
 }
-.dashboard-live-status i { width: .42rem; height: .42rem; border-radius: 999px; background: #16a36a; box-shadow: 0 0 0 3px rgba(22,163,106,.12); }
+.dashboard-live-status { color: var(--dashboard-text); }
+.dashboard-live-status i { width: .52rem; height: .52rem; border-radius: 999px; background: #16a36a; box-shadow: 0 0 0 3px rgba(22,163,106,.12); }
+.dashboard-live-dot { width: .52rem; height: .52rem; }
+.dashboard-live-status i,
+.dashboard-live-dot {
+  animation: dashboard-live-pulse 2s ease-in-out infinite;
+}
+
+@keyframes dashboard-live-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); box-shadow: 0 0 0 0 rgba(22,163,106,.32); }
+  50% { opacity: .72; transform: scale(1.18); box-shadow: 0 0 0 4px rgba(22,163,106,.08); }
+}
 .dashboard-overview .dashboard-welcome h1,
 .dashboard-overview .dashboard-metric-card p,
 .dashboard-overview article h2,
@@ -879,6 +890,12 @@ html:not(.dark) .dashboard-shell .shadow-dark-md {
   flex-direction: column;
   min-height: 174px;
   padding: .95rem 1.1rem .9rem;
+}
+.dashboard-overview .recharts-wrapper,
+.dashboard-overview .recharts-wrapper:focus,
+.dashboard-overview .recharts-surface,
+.dashboard-overview .recharts-surface:focus {
+  outline: none !important;
 }
 .dashboard-overview .dashboard-metric-card.metric-alert { background: var(--dashboard-surface) !important; }
 .dashboard-overview .dashboard-metric-card > div:first-child > div:first-child p { letter-spacing: .08em; }
