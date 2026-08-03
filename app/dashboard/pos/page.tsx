@@ -8,6 +8,8 @@ import { DashboardPageHeading } from '@/components/dashboard/page-heading'
 import { requireWorkspaceModule } from '@/lib/onboarding/require-module'
 
 export const metadata: Metadata = { title: 'POS Terminal' }
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
 
 export default async function POSPage() {
   const { config } = await requireWorkspaceModule('pos')

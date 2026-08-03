@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useCallback, useRef, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { createSale, type CartItem } from '@/app/actions/sales'
 import { createCustomer } from '@/app/actions/customers'
@@ -32,6 +33,7 @@ import { toast } from 'sonner'
 import { RefundDialog } from './refund-dialog'
 import { ReceiptReprint } from './receipt-reprint'
 import { SalesHistoryModal } from './sales-history-modal'
+import { ReceiptTemplate } from '@/components/receipt/receipt-template'
 
 interface POSTerminalProps {
   products: Product[]
@@ -58,6 +60,8 @@ interface POSTerminalProps {
     receiptShowQrCode: boolean
     receiptShowItemSku: boolean
   }
+  startCheckout?: boolean
+  checkoutOnly?: boolean
 }
 
 interface ReceiptData {
@@ -80,7 +84,14 @@ function createIdempotencyKey() {
   return crypto.randomUUID()
 }
 
-export function POSTerminal({ products, categories, customers, settings, requiresAgeVerification = false }: POSTerminalProps) {
+function PaymentBrand({ method }: { method: 'cash' | 'mpesa' | 'card' }) {
+  if (method === 'cash') return <Banknote className="h-4 w-4" aria-hidden="true" />
+  if (method === 'mpesa') return <Image src="/payment-logos/mpesa.svg" alt="M-Pesa" width={62} height={28} className="h-5 w-auto object-contain" />
+  return <span className="flex items-center gap-1"><Image src="/payment-logos/visa.svg" alt="Visa" width={32} height={18} className="h-4 w-auto object-contain" /><Image src="/payment-logos/mastercard.svg" alt="Mastercard" width={32} height={18} className="h-4 w-auto object-contain" /></span>
+}
+
+export function POSTerminal({ products, categories, customers, settings, requiresAgeVerification = false, startCheckout = false, checkoutOnly = false }: POSTerminalProps) {
+  const router = useRouter()
   const [search, setSearch] = useState('')
   const [selectedCategory, setSelectedCategory] = useState<string>('')
   const [cart, setCart] = useState<CartItem[]>(() => {
@@ -113,7 +124,7 @@ export function POSTerminal({ products, categories, customers, settings, require
   const [refundSale, setRefundSale] = useState<(Sale & { items: SaleItem[] }) | null>(null)
   const [ageVerified, setAgeVerified] = useState(false)
   const [showAgeVerification, setShowAgeVerification] = useState(false)
-  const [checkoutOpen, setCheckoutOpen] = useState(false)
+  const [checkoutOpen, setCheckoutOpen] = useState(startCheckout)
   const [scanMessage, setScanMessage] = useState('')
   const searchInputRef = useRef<HTMLInputElement>(null)
   const barcodeBufferRef = useRef<string>('')
@@ -444,6 +455,25 @@ export function POSTerminal({ products, categories, customers, settings, require
 
   // Receipt overlay
   if (receipt) {
+    const printableSale = {
+      id: receipt.saleId,
+      receiptNo: receipt.receiptNo,
+      createdAt: receipt.completedAt,
+      subtotal: receipt.subtotal.toFixed(2),
+      taxAmount: receipt.taxAmount.toFixed(2),
+      discountAmount: receipt.discountAmount.toFixed(2),
+      total: receipt.total.toFixed(2),
+      paymentMethod: receipt.paymentMethod,
+      mpesaRef: receipt.mpesaRef ?? null,
+      items: receipt.items.map((item) => ({
+        id: `${receipt.saleId}-${item.productId}`,
+        productName: item.productName,
+        productId: item.productId,
+        quantity: item.quantity,
+        totalPrice: item.totalPrice.toFixed(2),
+      })),
+    }
+
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
         <div className="w-full max-w-xl rounded-xl bg-white shadow-2xl overflow-hidden">
@@ -459,71 +489,22 @@ export function POSTerminal({ products, categories, customers, settings, require
             <p className="text-xs text-muted-foreground mt-0.5">Receipt #{receipt.receiptNo}</p>
           </div>
 
-          {/* Receipt content */}
-          <div className="max-h-[50vh] overflow-y-auto p-6">
-            {/* Items */}
-            <div className="mb-4 space-y-2 border-b pb-4">
-              {receipt.items.map((item) => (
-                <div key={item.productId} className="flex justify-between text-sm">
-                  <div className="flex-1">
-                    <p className="font-medium">{item.productName}</p>
-                    <p className="text-xs text-muted-foreground">{formatCurrency(item.unitPrice)} × {item.quantity}</p>
-                  </div>
-                  <p className="font-semibold tabular-nums">{formatCurrency(item.totalPrice)}</p>
-                </div>
-              ))}
-            </div>
-
-            {/* Summary */}
-            <div className="space-y-2 rounded-lg bg-muted/40 p-3 text-sm">
-              <div className="flex justify-between text-muted-foreground">
-                <span>Subtotal</span>
-                <span className="tabular-nums">{formatCurrency(receipt.subtotal)}</span>
-              </div>
-              {receipt.taxAmount > 0 && settings.showTaxOnReceipt && (
-                <div className="flex justify-between text-muted-foreground">
-                  <span>{settings.taxName || 'Tax'}</span>
-                  <span className="tabular-nums">{formatCurrency(receipt.taxAmount)}</span>
-                </div>
-              )}
-              {receipt.discountAmount > 0 && (
-                <div className="flex justify-between text-emerald-600 font-medium">
-                  <span>Discount</span>
-                  <span className="tabular-nums">-{formatCurrency(receipt.discountAmount)}</span>
-                </div>
-              )}
-              <div className="flex justify-between text-base font-bold border-t pt-2">
-                <span>Total Amount</span>
-                <span className="tabular-nums text-primary">{formatCurrency(receipt.total)}</span>
-              </div>
-            </div>
-
-            {/* Payment info */}
-            <div className="mt-4 rounded-lg border p-3 text-sm space-y-1">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Payment Method</span>
-                <span className="font-semibold capitalize">{receipt.paymentMethod}</span>
-              </div>
-              {receipt.mpesaRef && (
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">M-Pesa Reference</span>
-                  <span className="font-mono">{receipt.mpesaRef}</span>
-                </div>
-              )}
-              {receipt.change > 0 && (
-                <div className="flex justify-between font-medium text-emerald-600">
-                  <span>Change Due</span>
-                  <span className="tabular-nums">{formatCurrency(receipt.change)}</span>
-                </div>
-              )}
-            </div>
-            
-            {/* Receipt footer */}
-            {settings.receiptFooter && (
-              <div className="mt-4 pt-4 border-t text-center">
-                <p className="text-xs text-muted-foreground">{settings.receiptFooter}</p>
-              </div>
-            )}
+          <div className="max-h-[56vh] overflow-y-auto bg-zinc-100 p-4">
+            <ReceiptTemplate
+              sale={printableSale}
+              businessName={settings.receiptBusinessName}
+              businessPhone={settings.receiptPhone}
+              businessAddress={settings.receiptAddress}
+              receiptFooter={settings.receiptFooter}
+              taxName={settings.taxName}
+              showPhone={settings.receiptShowPhone}
+              showAddress={settings.receiptShowAddress}
+              showCashier={settings.receiptShowCashier}
+              showCustomer={settings.receiptShowCustomer}
+              showPayment={settings.receiptShowPayment}
+              showQrCode={settings.receiptShowQrCode}
+              showItemSku={settings.receiptShowItemSku}
+            />
           </div>
 
           {/* Actions */}
@@ -556,9 +537,9 @@ export function POSTerminal({ products, categories, customers, settings, require
   }
 
   return (
-    <div className="grid min-h-[calc(100vh-10.5rem)] gap-5 lg:grid-cols-[minmax(0,1fr)_420px] lg:items-stretch">
+    <div className={cn('grid min-h-[calc(100vh-10.5rem)] gap-4 sm:gap-5 lg:grid-cols-[minmax(0,1fr)_420px] lg:items-stretch', checkoutOnly && 'w-full max-w-none lg:grid-cols-1')}>
       {/* Left: Product catalog */}
-      <section className="flex min-h-[520px] min-w-0 flex-col overflow-hidden rounded-xl border border-[var(--dashboard-border)] bg-[var(--dashboard-surface)] shadow-[0_1px_3px_rgba(16,24,40,.05)]">
+      <section className={cn('flex min-h-[520px] min-w-0 flex-col overflow-hidden rounded-xl border border-[var(--dashboard-border)] bg-[var(--dashboard-surface)] shadow-[0_1px_3px_rgba(16,24,40,.05)]', checkoutOnly && 'hidden')}>
         <div className="border-b border-[var(--dashboard-border)] px-4 py-4 sm:px-5">
           <div className="mb-4 flex items-center justify-between gap-3">
             <div>
@@ -571,7 +552,7 @@ export function POSTerminal({ products, categories, customers, settings, require
             <span className="rounded-md bg-[#fff8d6] px-2 py-1 text-xs font-semibold text-[#5f4b00] dark:bg-[#292513] dark:text-[#ffdf45]">{filteredProducts.length} available</span>
           </div>
           <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Search aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 z-10 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <input
             ref={searchInputRef}
             type="text"
@@ -584,7 +565,7 @@ export function POSTerminal({ products, categories, customers, settings, require
               const match = products.find((product) => product.isActive && normalizeBarcode(product.barcode ?? '') === barcode)
               if (match) { e.preventDefault(); addToCart(match); setSearch(''); setScanMessage(`${match.name} added — quantity updated.`) }
             }}
-            className={cn(inputCls, 'h-11 border-[#d9dde5] bg-white pl-10 dark:bg-[#171717]')}
+            className={cn(inputCls, 'h-11 border-[#d9dde5] bg-white pl-10 pr-10 dark:bg-[#171717]')}
             autoFocus
           />
           <p className="mt-2 text-xs text-muted-foreground" role="status" aria-live="polite">{scanMessage || 'Scanner ready · focus the POS screen and scan a barcode.'}</p>
@@ -623,7 +604,7 @@ export function POSTerminal({ products, categories, customers, settings, require
         )}
 
         {/* Product grid */}
-        <div className="flex-1 overflow-y-auto bg-[#fafaf8] p-4 dark:bg-[#101010] sm:p-5">
+        <div className="flex-1 overflow-y-auto bg-[#fafaf8] p-3 dark:bg-[#101010] sm:p-5">
           {filteredProducts.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-48 text-center">
               <Package className="h-10 w-10 text-muted-foreground/40 mb-3" />
@@ -635,7 +616,7 @@ export function POSTerminal({ products, categories, customers, settings, require
               </p>
             </div>
           ) : (
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
+            <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 sm:gap-3 xl:grid-cols-4">
               {filteredProducts.map((product) => {
                 const inCart = cart.find((i) => i.productId === product.id)
                 const outOfStock = product.stock === 0
@@ -663,14 +644,16 @@ export function POSTerminal({ products, categories, customers, settings, require
                     
                     {/* Product image or icon */}
                     {product.imageUrl ? (
-                      <Image
-                        src={product.imageUrl}
-                        alt={product.name}
-                        width={320}
-                        height={128}
-                        unoptimized
-                        className="h-32 w-full object-cover"
-                      />
+                      <span className="relative block h-32 w-full">
+                        <Image
+                          src={product.imageUrl}
+                          alt={product.name}
+                          fill
+                          sizes="(min-width: 1280px) 240px, (min-width: 640px) 30vw, 50vw"
+                          unoptimized
+                          className="object-cover"
+                        />
+                      </span>
                     ) : (
                       <div className="flex h-32 w-full items-center justify-center bg-gradient-to-br from-[#fff7d3] via-[#f7f8fa] to-[#e9edf5] text-[#667085] dark:from-[#292513] dark:via-[#252525] dark:to-[#1b1b1b] dark:text-[#a7a7a7]">
                         <Package className="h-9 w-9" />
@@ -701,9 +684,9 @@ export function POSTerminal({ products, categories, customers, settings, require
       </section>
 
       {/* Right: Cart + Payment */}
-      <aside className="flex min-h-[520px] w-full flex-col overflow-y-auto rounded-xl border border-[var(--dashboard-border)] bg-[var(--dashboard-surface)] shadow-[0_1px_3px_rgba(16,24,40,.06)] lg:sticky lg:top-5 lg:max-h-[calc(100vh-7rem)]">
+      <aside className={cn('flex min-h-[520px] w-full flex-col overflow-y-auto rounded-xl border border-[var(--dashboard-border)] bg-[var(--dashboard-surface)] shadow-[0_1px_3px_rgba(16,24,40,.06)] lg:sticky lg:top-5 lg:max-h-[calc(100vh-7rem)]', checkoutOnly && 'min-h-0 w-full max-w-none gap-6 overflow-visible border-0 bg-transparent shadow-none lg:grid lg:grid-cols-[minmax(0,1.15fr)_minmax(500px,.85fr)] lg:items-start lg:static lg:max-h-none')}>
         {/* Cart header with quick actions */}
-        <div className="border-b border-[var(--dashboard-border)] bg-[#fffdf7] p-4 dark:bg-[#191817] space-y-3">
+        <div className={cn('border-b border-[var(--dashboard-border)] bg-[#fffdf7] p-4 dark:bg-[#191817] space-y-3', checkoutOnly && 'hidden')}>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <span className="flex h-8 w-8 items-center justify-center rounded-md bg-[#ffda32] text-[#050a1f]"><ShoppingCart className="h-4 w-4" /></span>
@@ -741,7 +724,8 @@ export function POSTerminal({ products, categories, customers, settings, require
         </div>
 
         {/* Cart items */}
-        <div className="min-h-[220px] flex-1 overflow-y-auto">
+        <div className={cn('min-h-[220px] flex-1 overflow-y-auto', checkoutOnly && 'flex min-h-0 flex-col self-start overflow-hidden rounded-xl border border-[var(--dashboard-border)] bg-[var(--dashboard-surface)] shadow-[0_1px_3px_rgba(16,24,40,.05)] lg:col-start-1 lg:row-start-1')}>
+          {checkoutOnly && <div className="flex items-center justify-between border-b border-[var(--dashboard-border)] px-5 py-4"><div><h2 className="text-base font-bold text-[var(--dashboard-text)]">Order summary</h2><p className="mt-1 text-sm text-[var(--dashboard-muted)]">{cart.length} item{cart.length === 1 ? '' : 's'} ready for payment</p></div><button type="button" onClick={() => router.push('/dashboard/pos')} className="rounded-md px-2.5 py-1.5 text-sm font-semibold text-primary hover:bg-primary/5">Edit basket</button></div>}
           {cart.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-center py-12 px-4">
               <ShoppingCart className="mb-3 h-11 w-11 text-[#d9dde5] dark:text-[#3a3a3a]" />
@@ -799,24 +783,26 @@ export function POSTerminal({ products, categories, customers, settings, require
               ))}
             </ul>
           )}
+          {checkoutOnly && cart.length > 0 && <div className="border-t border-[var(--dashboard-border)] bg-[#fafbfc] px-5 py-4"><div className="flex items-center justify-between"><span className="text-sm font-medium text-[var(--dashboard-muted)]">Items subtotal</span><span className="text-lg font-bold tabular-nums text-[var(--dashboard-text)]">{formatCurrency(subtotal)}</span></div><p className="mt-2 text-sm text-[var(--dashboard-muted)]">You can adjust quantities before completing payment.</p></div>}
         </div>
 
         {/* Payment panel */}
         {cart.length > 0 && !checkoutOpen && (
-          <div className="border-t bg-white p-4 dark:bg-[#191919]">
+          <div className={cn('border-t bg-white p-4 dark:bg-[#191919]', checkoutOnly && 'md:col-start-2 md:row-start-2 md:border-l')}>
             <div className="mb-4 flex items-center justify-between text-sm">
               <span className="font-medium text-muted-foreground">Basket total</span>
               <span className="text-xl font-bold tabular-nums text-[var(--dashboard-text)]">{formatCurrency(subtotal)}</span>
             </div>
-            <button onClick={() => setCheckoutOpen(true)} className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#ffda32] px-4 py-3 text-sm font-bold text-[#050a1f] transition-colors hover:bg-[#f0c900]">
+            <button onClick={() => router.push('/dashboard/pos/checkout')} className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#ffda32] px-4 py-3 text-sm font-bold text-[#050a1f] transition-colors hover:bg-[#f0c900]">
               Pay {formatCurrency(subtotal)} <ArrowRight className="h-4 w-4" />
             </button>
           </div>
         )}
 
         {cart.length > 0 && checkoutOpen && (
-          <div className="border-t p-3 space-y-3 bg-muted/20">
-            <button onClick={() => setCheckoutOpen(false)} className="text-xs font-semibold text-muted-foreground hover:text-foreground">← Back to basket</button>
+          <div className={cn('border-t p-3 space-y-3 bg-muted/20', checkoutOnly && 'self-start rounded-xl border border-[var(--dashboard-border)] bg-[var(--dashboard-surface)] p-6 shadow-[0_1px_3px_rgba(16,24,40,.05)] lg:col-start-2 lg:row-start-1')}>
+            {checkoutOnly && <div className="border-b border-[var(--dashboard-border)] pb-4"><button onClick={() => router.push('/dashboard/pos')} className="text-sm font-semibold text-primary hover:underline">← Back to POS</button><p className="mt-4 text-xs font-bold uppercase tracking-[0.12em] text-[#a47700]">Payment</p><h2 className="mt-1 text-xl font-bold tracking-tight text-[var(--dashboard-text)]">Complete this sale</h2><p className="mt-1 text-sm text-[var(--dashboard-muted)]">Confirm the customer, total, and payment method.</p></div>}
+            {!checkoutOnly && <button onClick={() => setCheckoutOpen(false)} className="text-sm font-semibold text-primary hover:underline">← Back to basket</button>}
             {/* Customer select */}
             <div>
               <div className="flex items-center justify-between mb-1">
@@ -941,26 +927,32 @@ export function POSTerminal({ products, categories, customers, settings, require
             </div>
 
             {/* Payment method */}
-            <div className={cn('grid gap-1.5', settings.paymentMethods.length === 3 ? 'grid-cols-3' : settings.paymentMethods.length === 2 ? 'grid-cols-2' : 'grid-cols-1')}>
+            <div className="grid gap-2 sm:grid-cols-3">
               {([
-                { key: 'cash', icon: Banknote, label: 'Cash' },
-                { key: 'mpesa', icon: Smartphone, label: 'M-Pesa' },
-                { key: 'card', icon: CreditCard, label: 'Card' },
+                { key: 'cash', label: 'Cash', description: 'Pay at the counter' },
+                { key: 'mpesa', label: 'M-Pesa', description: 'Mobile money' },
+                { key: 'card', label: 'Card', description: 'Visa or Mastercard' },
               ] as const)
                 .filter(({ key }) => settings.paymentMethods.includes(key))
-                .map(({ key, icon: Icon, label }) => (
+                .map(({ key, label, description }) => (
                 <button
                   key={key}
                   onClick={() => setPaymentMethod(key)}
+                  aria-pressed={paymentMethod === key}
                   className={cn(
-                    'flex flex-col items-center gap-1 rounded-lg border py-2 text-xs font-medium transition-colors',
+                    'group flex min-h-[92px] flex-col items-start justify-between rounded-xl border bg-white p-3 text-left transition-colors dark:bg-[#1b1b1b]',
                     paymentMethod === key
-                      ? 'border-primary bg-primary/10 text-primary'
-                      : 'hover:bg-secondary text-muted-foreground'
+                      ? key === 'mpesa'
+                        ? 'border-[#24a148] bg-[#f1fbf4] text-[#176b31] ring-1 ring-[#24a148]/20 dark:bg-[#122318]'
+                        : 'border-[#e6c31d] bg-[#fff9df] text-[#5f4b00] ring-1 ring-[#e6c31d]/20 dark:bg-[#292513]'
+                      : 'border-[var(--dashboard-border)] text-[var(--dashboard-muted)] hover:border-[#cbd2dc] hover:bg-[#fafbfc] dark:hover:bg-white/5'
                   )}
                 >
-                  <Icon className="h-4 w-4" />
-                  {label}
+                  <span className="flex w-full items-center justify-between">
+                    <span className={cn('flex h-8 min-w-8 items-center justify-center rounded-lg px-1.5', key === 'mpesa' ? 'bg-[#e1f5e6] text-[#24a148]' : key === 'card' ? 'bg-[#eef3ff] text-[#3157a6]' : 'bg-[#fff1c2] text-[#946d00]')}><PaymentBrand method={key} /></span>
+                    <span className={cn('h-4 w-4 rounded-full border-2', paymentMethod === key ? 'border-current bg-current ring-2 ring-white ring-inset' : 'border-[#b8c0cc')} />
+                  </span>
+                  <span><span className="block text-sm font-bold text-[var(--dashboard-text)]">{label}</span><span className="mt-0.5 block text-[11px] text-[var(--dashboard-muted)]">{description}</span></span>
                 </button>
               ))}
             </div>

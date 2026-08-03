@@ -2,7 +2,9 @@ import { formatCurrency, formatDateTime } from '@/lib/utils'
 import type { Sale, SaleItem } from '@/lib/db/schema'
 
 interface ReceiptTemplateProps {
-  sale: Sale & { items: SaleItem[] }
+  sale: Pick<Sale, 'id' | 'receiptNo' | 'createdAt' | 'subtotal' | 'taxAmount' | 'discountAmount' | 'total' | 'paymentMethod' | 'mpesaRef'> & {
+    items: Array<Pick<SaleItem, 'id' | 'productName' | 'productId' | 'quantity' | 'totalPrice'>>
+  }
   businessName?: string
   businessPhone?: string
   businessAddress?: string
