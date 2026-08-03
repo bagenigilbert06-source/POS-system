@@ -891,6 +891,40 @@ html:not(.dark) .dashboard-shell .shadow-dark-md {
   min-height: 174px;
   padding: .95rem 1.1rem .9rem;
 }
+
+/* Products: give catalog cards a deliberate elevated surface in dark mode. */
+.dark .products-table article[class*="bg-white"] {
+  border-color: #292929 !important;
+  background: linear-gradient(155deg, #171717 0%, #0d0d0d 72%) !important;
+  box-shadow: 0 10px 24px rgba(0,0,0,.18) !important;
+}
+.dark .products-table article[class*="bg-white"]:hover {
+  border-color: rgba(255,214,10,.35) !important;
+  box-shadow: 0 14px 30px rgba(0,0,0,.28) !important;
+}
+.dark .products-table article[class*="bg-white"] h3,
+.dark .products-table article[class*="bg-white"] .text-\[\#101828\] {
+  color: #f5f5f7 !important;
+}
+.dark .products-table article[class*="bg-white"] .bg-\[\#fafbfc\] {
+  background: linear-gradient(180deg, #141414, #0b0b0b) !important;
+  border-top: 1px solid #252525;
+}
+.dark .products-table article[class*="bg-white"] .bg-\[\#fff8e8\] {
+  background: linear-gradient(145deg, #24200e, #111111) !important;
+}
+.dark .products-table > div > .bg-white,
+.dark .products-table .bg-white[class*="rounded"] {
+  background: #111111 !important;
+  border-color: #292929 !important;
+}
+.dark .products-table input,
+.dark .products-table select,
+.dark .products-table [aria-label="Product layout"] {
+  border-color: #292929 !important;
+  background: #111111 !important;
+  color: #f5f5f7 !important;
+}
 .dashboard-overview .recharts-wrapper,
 .dashboard-overview .recharts-wrapper:focus,
 .dashboard-overview .recharts-surface,

@@ -116,7 +116,7 @@ export function ProductsTable({ initialProducts }: ProductsTableProps) {
   const emptyCopy = { all: ['No products yet', 'Add your first product to start selling and tracking stock.', true], active: ['No active products', 'Active products available for sale will appear here.', false], 'low-stock': ['No low-stock products', 'Products that reach their low-stock alert level will appear here.', false], critical: ['No critically low products', 'Products that are nearly out of stock will appear here.', false], out: ['No out-of-stock products', 'Products with zero available stock will appear here.', false], archived: ['No archived products', 'Products you archive will appear here.', false] }[filter]
 
   return (
-    <>
+    <div className="products-table">
       {zoomedImage && <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#050a1f]/80 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-label={`Preview ${zoomedImage.name}`} onMouseDown={(event) => { if (event.target === event.currentTarget) setZoomedImage(null) }}>
         <div className="relative flex max-h-[90vh] max-w-[min(92vw,900px)] items-center justify-center rounded-xl bg-white p-2 shadow-2xl">
           <button type="button" onClick={() => setZoomedImage(null)} className="absolute right-3 top-3 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-white/95 text-lg text-[#344054] shadow-md hover:bg-[#fff8dc]" aria-label="Close image preview">×</button>
@@ -301,6 +301,6 @@ export function ProductsTable({ initialProducts }: ProductsTableProps) {
           Showing {filtered.length} of {products.length} products
         </p>
       </div>
-    </>
+    </div>
   )
 }
