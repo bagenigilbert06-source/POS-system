@@ -165,6 +165,7 @@ export async function createSale(data: {
         .where(and(
           eq(product.id, item.productId),
           eq(product.orgId, orgId),
+          eq(product.isActive, true),
           sql`${product.stock} >= ${item.quantity}` // Conditional: only update if stock available
         ))
         .returning({ id: product.id })

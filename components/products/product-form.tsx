@@ -14,12 +14,13 @@ interface ProductFormProps {
   product?: Product
   categories: Array<{ id: string; name: string; parentCategoryId?: string | null; isActive?: boolean }>
   onClose?: () => void
+  initialCategoryId?: string
 }
 
 const SELLING_UNITS = ['bottle', 'can', 'carton', 'crate', 'pack', 'keg', 'piece', 'other']
 const VOLUME_UNITS = ['ml', 'litre']
 
-export function ProductForm({ product, categories, onClose }: ProductFormProps) {
+export function ProductForm({ product, categories, onClose, initialCategoryId }: ProductFormProps) {
   const router = useRouter()
   const closeEditor = () => {
     if (onClose) onClose()
@@ -42,7 +43,7 @@ export function ProductForm({ product, categories, onClose }: ProductFormProps) 
     barcode: product?.barcode ?? '',
     description: product?.description ?? '',
     imageUrl: product?.imageUrl ?? '',
-    categoryId: product?.categoryId ?? '',
+    categoryId: product?.categoryId ?? initialCategoryId ?? '',
     buyingPrice: product?.buyingPrice ?? '0',
     sellingPrice: product?.sellingPrice ?? '',
     stock: product?.stock ?? 0,

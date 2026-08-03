@@ -59,6 +59,14 @@ export async function getCategories(includeArchived = false) {
   return includeArchived ? rows : rows.filter((item) => item.isActive)
 }
 
+export async function getCategoryDetails(id: string) {
+  const { orgId } = await categoryContext()
+  const [selected] = await db.select({ id: category.id, name: category.name, slug: category.slug, description: category.description, imageUrl: category.imageUrl, parentCategoryId: category.parentCategoryId, isActive: category.isActive, productCount: count(product.id) }).from(category).leftJoin(product, and(eq(product.categoryId, category.id), eq(product.orgId, orgId), eq(product.isActive, true))).where(and(eq(category.id, id), eq(category.orgId, orgId))).groupBy(category.id).limit(1)
+  if (!selected) return null
+  const children = await db.select({ id: category.id, name: category.name, imageUrl: category.imageUrl, productCount: count(product.id) }).from(category).leftJoin(product, and(eq(product.categoryId, category.id), eq(product.orgId, orgId), eq(product.isActive, true))).where(and(eq(category.parentCategoryId, id), eq(category.orgId, orgId), eq(category.isActive, true))).groupBy(category.id).orderBy(category.name)
+  return { category: selected, children }
+}
+
 export async function createCategory(input: z.infer<typeof categoryInput>) {
   const data = categoryInput.parse(input)
   const { userId, orgId } = await categoryContext(true)

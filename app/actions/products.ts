@@ -88,6 +88,19 @@ export async function getProductsPageData() {
   return products.map((item) => ({ ...item, unitsSoldMonth: unitsSoldByProduct.get(item.id) ?? 0 }))
 }
 
+export async function getProductsForCategory(categoryId: string) {
+  const userId = await getUserId()
+  const orgId = await getOrgId(userId)
+  const now = new Date()
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
+  const [products, monthlySales] = await Promise.all([
+    db.select().from(product).where(and(eq(product.orgId, orgId), eq(product.categoryId, categoryId))).orderBy(desc(product.createdAt)),
+    db.select({ productId: saleItem.productId, unitsSoldMonth: sql<number>`coalesce(sum(${saleItem.quantity}), 0)` }).from(saleItem).innerJoin(sale, eq(sale.id, saleItem.saleId)).where(and(eq(saleItem.orgId, orgId), eq(sale.orgId, orgId), eq(sale.status, 'completed'), gte(sale.createdAt, monthStart))).groupBy(saleItem.productId),
+  ])
+  const unitsSoldByProduct = new Map(monthlySales.map((item) => [item.productId, Number(item.unitsSoldMonth)]))
+  return products.map((item) => ({ ...item, unitsSoldMonth: unitsSoldByProduct.get(item.id) ?? 0 }))
+}
+
 export async function getProductById(id: string) {
   const userId = await getUserId()
   const orgId = await getOrgId(userId)

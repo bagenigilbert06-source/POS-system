@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useCallback, useRef, useEffect } from 'react'
+import Image from 'next/image'
 import { createSale, type CartItem } from '@/app/actions/sales'
 import { createCustomer } from '@/app/actions/customers'
 import { formatCurrency, normalizeBarcode } from '@/lib/utils'
@@ -82,7 +83,15 @@ function createIdempotencyKey() {
 export function POSTerminal({ products, categories, customers, settings, requiresAgeVerification = false }: POSTerminalProps) {
   const [search, setSearch] = useState('')
   const [selectedCategory, setSelectedCategory] = useState<string>('')
-  const [cart, setCart] = useState<CartItem[]>([])
+  const [cart, setCart] = useState<CartItem[]>(() => {
+    if (typeof window === 'undefined') return []
+    try {
+      const saved = window.localStorage.getItem('pos-active-cart')
+      return saved ? JSON.parse(saved) as CartItem[] : []
+    } catch {
+      return []
+    }
+  })
   const [discount, setDiscount] = useState(0)
   const [discountType, setDiscountType] = useState<'fixed' | 'percentage'>('fixed')
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'mpesa' | 'card'>('cash')
@@ -111,6 +120,29 @@ export function POSTerminal({ products, categories, customers, settings, require
   const barcodeTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const lastScanRef = useRef<{ barcode: string; at: number } | null>(null)
   const checkoutIdempotencyKeyRef = useRef<string>('')
+
+  useEffect(() => {
+    window.localStorage.setItem('pos-active-cart', JSON.stringify(cart))
+  }, [cart])
+
+  useEffect(() => {
+    const handleShortcut = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && checkoutOpen) {
+        setCheckoutOpen(false)
+        return
+      }
+      if ((event.ctrlKey || event.metaKey) && event.key === 'Enter' && cart.length > 0 && !receipt) {
+        event.preventDefault()
+        setCheckoutOpen(true)
+      }
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
+        event.preventDefault()
+        searchInputRef.current?.focus()
+      }
+    }
+    window.addEventListener('keydown', handleShortcut)
+    return () => window.removeEventListener('keydown', handleShortcut)
+  }, [cart.length, checkoutOpen, receipt])
 
   const addToCart = useCallback((product: Product) => {
     setCart((previousCart) => {
@@ -310,6 +342,7 @@ export function POSTerminal({ products, categories, customers, settings, require
     setSearch('')
     setCheckoutOpen(false)
     checkoutIdempotencyKeyRef.current = '' // Reset for new sale
+    window.localStorage.removeItem('pos-active-cart')
   }
   
   const handleCreateCustomer = async () => {
@@ -614,7 +647,7 @@ export function POSTerminal({ products, categories, customers, settings, require
                     className={cn(
                       'group relative flex min-h-[240px] flex-col overflow-hidden rounded-xl border border-[#e5e7eb] bg-white text-left shadow-[0_1px_2px_rgba(16,24,40,.03)] transition-all duration-200 dark:border-[#303030] dark:bg-[#191919]',
                       'disabled:opacity-50 disabled:cursor-not-allowed',
-                      'hover:-translate-y-0.5 hover:border-[#d5bd42] hover:shadow-[0_10px_24px_rgba(16,24,40,.10)] dark:hover:bg-[#211e12]',
+                      'hover:border-[#d5bd42] dark:hover:bg-[#211e12]',
                       inCart
                         ? 'border-[#d5bd42] bg-[#fff8d6] ring-1 ring-[#e6c31d]/30 dark:bg-[#292513]'
                         : ''
@@ -630,9 +663,12 @@ export function POSTerminal({ products, categories, customers, settings, require
                     
                     {/* Product image or icon */}
                     {product.imageUrl ? (
-                      <img
+                      <Image
                         src={product.imageUrl}
                         alt={product.name}
+                        width={320}
+                        height={128}
+                        unoptimized
                         className="h-32 w-full object-cover"
                       />
                     ) : (
@@ -642,6 +678,7 @@ export function POSTerminal({ products, categories, customers, settings, require
                     )}
                     <div className="flex flex-1 flex-col p-3.5">
                       <p className="mb-1 text-sm font-semibold leading-tight line-clamp-2 text-[var(--dashboard-text)]">{product.name}</p>
+                      {(product.volume || product.unit) && <p className="text-[11px] text-muted-foreground">{product.volume ? `${product.volume} ${product.volumeUnit || ''}` : ''}{product.volume && product.unit ? ' · ' : ''}{product.unit}</p>}
                       {product.sku && <p className="text-[10px] text-muted-foreground">{product.sku}</p>}
                       <div className="mt-auto flex items-end justify-between gap-2 pt-3">
                         <p className="text-base font-bold text-[var(--dashboard-text)]">{formatCurrency(product.sellingPrice)}</p>
@@ -664,7 +701,7 @@ export function POSTerminal({ products, categories, customers, settings, require
       </section>
 
       {/* Right: Cart + Payment */}
-      <aside className="flex min-h-[520px] w-full flex-col overflow-hidden rounded-xl border border-[var(--dashboard-border)] bg-[var(--dashboard-surface)] shadow-[0_1px_3px_rgba(16,24,40,.06)] lg:sticky lg:top-5 lg:max-h-[calc(100vh-7rem)]">
+      <aside className="flex min-h-[520px] w-full flex-col overflow-y-auto rounded-xl border border-[var(--dashboard-border)] bg-[var(--dashboard-surface)] shadow-[0_1px_3px_rgba(16,24,40,.06)] lg:sticky lg:top-5 lg:max-h-[calc(100vh-7rem)]">
         {/* Cart header with quick actions */}
         <div className="border-b border-[var(--dashboard-border)] bg-[#fffdf7] p-4 dark:bg-[#191817] space-y-3">
           <div className="flex items-center justify-between">
@@ -714,10 +751,12 @@ export function POSTerminal({ products, categories, customers, settings, require
           ) : (
             <ul className="divide-y">
               {cart.map((item, idx) => (
-                <li key={item.productId} className="flex gap-2 p-3 hover:bg-muted/40 transition-colors group">
+                <li key={item.productId} className="flex gap-2 p-3 hover:bg-muted/40 group">
+                  {products.find((product) => product.id === item.productId)?.imageUrl ? <Image src={products.find((product) => product.id === item.productId)?.imageUrl ?? ''} alt="" width={40} height={40} unoptimized className="h-10 w-10 shrink-0 rounded-md object-cover" /> : <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-[#fff8d6] text-[#8a6500]"><Package className="h-4 w-4" /></div>}
                   {/* Item info */}
                   <div className="flex-1 min-w-0">
                     <p className="text-xs font-semibold leading-snug mb-0.5 truncate">{item.productName}</p>
+                    <p className="text-[10px] text-muted-foreground">{products.find((product) => product.id === item.productId)?.unit || 'unit'}</p>
                     <div className="flex items-baseline gap-1">
                       <span className="text-xs text-muted-foreground tabular-nums">{formatCurrency(item.unitPrice)}</span>
                       <span className="text-[9px] text-muted-foreground">× {item.quantity}</span>
@@ -770,7 +809,7 @@ export function POSTerminal({ products, categories, customers, settings, require
               <span className="text-xl font-bold tabular-nums text-[var(--dashboard-text)]">{formatCurrency(subtotal)}</span>
             </div>
             <button onClick={() => setCheckoutOpen(true)} className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#ffda32] px-4 py-3 text-sm font-bold text-[#050a1f] transition-colors hover:bg-[#f0c900]">
-              Review & checkout <ArrowRight className="h-4 w-4" />
+              Pay {formatCurrency(subtotal)} <ArrowRight className="h-4 w-4" />
             </button>
           </div>
         )}
@@ -938,6 +977,11 @@ export function POSTerminal({ products, categories, customers, settings, require
                   onChange={(e) => setAmountPaid(e.target.value)}
                   className={inputCls}
                 />
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {[total, 500, 1000, 2000, 5000].filter((amount, index, values) => amount >= total && values.indexOf(amount) === index).slice(0, 4).map((amount) => (
+                    <button key={amount} type="button" onClick={() => setAmountPaid(String(amount))} className="rounded-md border bg-background px-2.5 py-1.5 text-xs font-semibold text-muted-foreground hover:bg-muted">{amount === total ? 'Exact' : formatCurrency(amount)}</button>
+                  ))}
+                </div>
                 {parseFloat(amountPaid || '0') >= total && (
                   <p className="mt-1 text-xs font-medium text-[hsl(var(--success))]">
                     Change: {formatCurrency(change)}
@@ -994,7 +1038,7 @@ export function POSTerminal({ products, categories, customers, settings, require
               onClick={handleCheckout}
               disabled={processing || cart.length === 0}
               className={cn(
-                'flex w-full items-center justify-center gap-2 rounded-lg py-3 text-sm font-semibold',
+                'sticky bottom-0 flex w-full items-center justify-center gap-2 rounded-lg py-3 text-sm font-semibold shadow-[0_-6px_14px_rgba(255,255,255,.85)]',
                 'bg-primary text-primary-foreground hover:bg-primary/90',
                 'disabled:opacity-60 disabled:cursor-not-allowed transition-colors'
               )}
@@ -1004,7 +1048,7 @@ export function POSTerminal({ products, categories, customers, settings, require
               ) : (
                 <>
                   <CheckCircle2 className="h-4 w-4" />
-                  Charge {formatCurrency(total)}
+                  Pay {formatCurrency(total)}
                 </>
               )}
             </button>
