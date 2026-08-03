@@ -8,7 +8,6 @@ import { createCustomer } from '@/app/actions/customers'
 import { formatCurrency, normalizeBarcode } from '@/lib/utils'
 import { cn } from '@/lib/utils'
 import {
-  Search,
   Plus,
   Minus,
   Trash2,
@@ -537,22 +536,20 @@ export function POSTerminal({ products, categories, customers, settings, require
   }
 
   return (
-    <div className={cn('grid min-h-[calc(100vh-10.5rem)] gap-4 sm:gap-5 lg:grid-cols-[minmax(0,1fr)_420px] lg:items-stretch', checkoutOnly && 'w-full max-w-none lg:grid-cols-1')}>
+    <div className={cn('pos-terminal grid min-h-[calc(100vh-10.5rem)] gap-5 bg-[#f8f9fb] p-1 sm:gap-6 lg:grid-cols-[minmax(0,1fr)_400px] lg:items-stretch', checkoutOnly && 'w-full max-w-none bg-transparent lg:grid-cols-1')}>
       {/* Left: Product catalog */}
-      <section className={cn('flex min-h-[520px] min-w-0 flex-col overflow-hidden rounded-xl border border-[var(--dashboard-border)] bg-[var(--dashboard-surface)] shadow-[0_1px_3px_rgba(16,24,40,.05)]', checkoutOnly && 'hidden')}>
-        <div className="border-b border-[var(--dashboard-border)] px-4 py-4 sm:px-5">
-          <div className="mb-4 flex items-center justify-between gap-3">
+      <section className={cn('flex min-h-[520px] min-w-0 flex-col overflow-hidden rounded-2xl border border-[#e5e7eb] bg-white shadow-[0_8px_28px_rgba(16,24,40,.04)]', checkoutOnly && 'hidden')}>
+        <div className="border-b border-[#eef0f3] px-5 py-5 sm:px-6">
+          <div className="mb-5 flex items-center justify-between gap-3">
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="text-base font-bold text-[var(--dashboard-text)]">Shop products</h2>
-                <Sparkles className="h-4 w-4 text-[#e6b800]" />
+                <h2 className="text-lg font-bold tracking-tight text-[var(--dashboard-text)]">Products</h2>
               </div>
-              <p className="mt-0.5 text-xs text-[var(--dashboard-muted)]">Tap a product to add it to this sale.</p>
+              <p className="mt-1 text-sm text-[var(--dashboard-muted)]">Select an item to add it to the sale.</p>
             </div>
-            <span className="rounded-md bg-[#fff8d6] px-2 py-1 text-xs font-semibold text-[#5f4b00] dark:bg-[#292513] dark:text-[#ffdf45]">{filteredProducts.length} available</span>
+            <span className="rounded-md border border-[#f1d66a] bg-[#fff7d6] px-2 py-1 text-xs font-semibold text-[#9a6700] dark:border-[rgba(255,214,10,0.2)] dark:bg-[rgba(255,214,10,0.1)] dark:text-[#ffd60a]">{filteredProducts.length} available</span>
           </div>
           <div className="relative">
-          <Search aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 z-10 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <input
             ref={searchInputRef}
             type="text"
@@ -565,7 +562,7 @@ export function POSTerminal({ products, categories, customers, settings, require
               const match = products.find((product) => product.isActive && normalizeBarcode(product.barcode ?? '') === barcode)
               if (match) { e.preventDefault(); addToCart(match); setSearch(''); setScanMessage(`${match.name} added — quantity updated.`) }
             }}
-            className={cn(inputCls, 'h-11 border-[#d9dde5] bg-white pl-10 pr-10 dark:bg-[#171717]')}
+            className={cn(inputCls, 'h-12 rounded-xl border-[#e1e5eb] bg-[#f8f9fb] pr-10 shadow-none placeholder:text-[#98a2b3] dark:bg-[#171717]')}
             autoFocus
           />
           <p className="mt-2 text-xs text-muted-foreground" role="status" aria-live="polite">{scanMessage || 'Scanner ready · focus the POS screen and scan a barcode.'}</p>
@@ -580,7 +577,7 @@ export function POSTerminal({ products, categories, customers, settings, require
               className={cn(
                 'flex-shrink-0 rounded-md border px-3 py-1.5 text-xs font-semibold whitespace-nowrap transition-colors',
                 !selectedCategory
-                  ? 'border-[#e6c31d] bg-[#ffda32] text-[#050a1f]'
+                  ? 'border-[#f1d66a] bg-[#fff7d6] text-[#9a6700] dark:border-[rgba(255,214,10,0.2)] dark:bg-[rgba(255,214,10,0.1)] dark:text-[#ffd60a]'
                   : 'border-[var(--dashboard-border)] bg-[var(--dashboard-surface)] text-[var(--dashboard-muted)] hover:bg-[#f7f8fa] dark:hover:bg-white/5'
               )}
             >
@@ -593,7 +590,7 @@ export function POSTerminal({ products, categories, customers, settings, require
                 className={cn(
                   'flex-shrink-0 rounded-md border px-3 py-1.5 text-xs font-semibold whitespace-nowrap transition-colors',
                   selectedCategory === category.id
-                    ? 'border-[#e6c31d] bg-[#ffda32] text-[#050a1f]'
+                    ? 'border-[#f1d66a] bg-[#fff7d6] text-[#9a6700] dark:border-[rgba(255,214,10,0.2)] dark:bg-[rgba(255,214,10,0.1)] dark:text-[#ffd60a]'
                     : 'border-[var(--dashboard-border)] bg-[var(--dashboard-surface)] text-[var(--dashboard-muted)] hover:bg-[#f7f8fa] dark:hover:bg-white/5'
                 )}
               >
@@ -604,7 +601,7 @@ export function POSTerminal({ products, categories, customers, settings, require
         )}
 
         {/* Product grid */}
-        <div className="flex-1 overflow-y-auto bg-[#fafaf8] p-3 dark:bg-[#101010] sm:p-5">
+        <div className="flex-1 overflow-y-auto bg-[#fafbfc] p-4 dark:bg-[#101010] sm:p-6">
           {filteredProducts.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-48 text-center">
               <Package className="h-10 w-10 text-muted-foreground/40 mb-3" />
@@ -616,7 +613,7 @@ export function POSTerminal({ products, categories, customers, settings, require
               </p>
             </div>
           ) : (
-            <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 sm:gap-3 xl:grid-cols-4">
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-4">
               {filteredProducts.map((product) => {
                 const inCart = cart.find((i) => i.productId === product.id)
                 const outOfStock = product.stock === 0
@@ -626,25 +623,25 @@ export function POSTerminal({ products, categories, customers, settings, require
                     onClick={() => addToCart(product)}
                     disabled={outOfStock}
                     className={cn(
-                      'group relative flex min-h-[240px] flex-col overflow-hidden rounded-xl border border-[#e5e7eb] bg-white text-left shadow-[0_1px_2px_rgba(16,24,40,.03)] transition-all duration-200 dark:border-[#303030] dark:bg-[#191919]',
+                      'group relative flex min-h-[218px] flex-col overflow-hidden rounded-xl border border-[#e7e9ee] bg-white text-left transition-all duration-150',
                       'disabled:opacity-50 disabled:cursor-not-allowed',
-                      'hover:border-[#d5bd42] dark:hover:bg-[#211e12]',
+                      'hover:-translate-y-0.5 hover:border-[#e3bd00] hover:shadow-[0_8px_18px_rgba(16,24,40,.09)] dark:hover:bg-[#211e12]',
                       inCart
-                        ? 'border-[#d5bd42] bg-[#fff8d6] ring-1 ring-[#e6c31d]/30 dark:bg-[#292513]'
+                        ? 'border-[#e1b900] bg-[#fffdf2] ring-2 ring-[#f1d66a]/50 dark:border-[rgba(255,214,10,0.2)] dark:bg-[rgba(255,214,10,0.1)] dark:ring-[rgba(255,214,10,0.2)]'
                         : ''
                     )}
                   >
                     {/* Stock badge */}
                     {product.stock <= product.minStock && product.stock > 0 && (
-                      <div className="absolute top-1 right-1 text-[8px] font-bold rounded px-1.5 py-0.5 bg-amber-100 text-amber-800">Low</div>
+                      <div className="absolute right-2 top-2 z-10 rounded bg-amber-50 px-1.5 py-0.5 text-[9px] font-bold text-amber-800">Low</div>
                     )}
                     {outOfStock && (
-                      <div className="absolute top-1 right-1 text-[8px] font-bold rounded px-1 py-0.5 bg-red-100 text-red-800">OOS</div>
+                      <div className="absolute right-2 top-2 z-10 rounded bg-red-50 px-1.5 py-0.5 text-[9px] font-bold text-red-800">OOS</div>
                     )}
                     
                     {/* Product image or icon */}
                     {product.imageUrl ? (
-                      <span className="relative block h-32 w-full">
+                      <span className="relative block h-24 w-full bg-[#f5f6f8]">
                         <Image
                           src={product.imageUrl}
                           alt={product.name}
@@ -655,23 +652,22 @@ export function POSTerminal({ products, categories, customers, settings, require
                         />
                       </span>
                     ) : (
-                      <div className="flex h-32 w-full items-center justify-center bg-gradient-to-br from-[#fff7d3] via-[#f7f8fa] to-[#e9edf5] text-[#667085] dark:from-[#292513] dark:via-[#252525] dark:to-[#1b1b1b] dark:text-[#a7a7a7]">
-                        <Package className="h-9 w-9" />
+                      <div className="flex h-24 w-full items-center justify-center bg-[#f5f6f8] text-[#98a2b3] dark:bg-[#252525] dark:text-[#a7a7a7]">
+                        <Package className="h-8 w-8" strokeWidth={1.5} />
                       </div>
                     )}
-                    <div className="flex flex-1 flex-col p-3.5">
-                      <p className="mb-1 text-sm font-semibold leading-tight line-clamp-2 text-[var(--dashboard-text)]">{product.name}</p>
-                      {(product.volume || product.unit) && <p className="text-[11px] text-muted-foreground">{product.volume ? `${product.volume} ${product.volumeUnit || ''}` : ''}{product.volume && product.unit ? ' · ' : ''}{product.unit}</p>}
-                      {product.sku && <p className="text-[10px] text-muted-foreground">{product.sku}</p>}
-                      <div className="mt-auto flex items-end justify-between gap-2 pt-3">
-                        <p className="text-base font-bold text-[var(--dashboard-text)]">{formatCurrency(product.sellingPrice)}</p>
-                        <p className={cn('text-[10px]', outOfStock ? 'text-red-600 font-medium' : 'text-muted-foreground')}>{product.stock} {product.unit}</p>
+                    <div className="flex flex-1 flex-col p-3">
+                      <p className="mb-1 line-clamp-2 text-sm font-semibold leading-snug text-[var(--dashboard-text)]">{product.name}</p>
+                      {(product.volume || product.unit) && <p className="text-[11px] text-[#8a94a6]">{product.volume ? `${product.volume} ${product.volumeUnit || ''}` : ''}{product.volume && product.unit ? ' · ' : ''}{product.unit}</p>}
+                      <div className="mt-auto flex items-end justify-between gap-2 pt-2">
+                        <p className="text-sm font-bold text-[var(--dashboard-text)]">{formatCurrency(product.sellingPrice)}</p>
+                        <p className={cn('text-[10px]', outOfStock ? 'font-medium text-red-600' : 'text-[#8a94a6]')}>{product.stock} {product.unit}</p>
                       </div>
                     </div>
                     
                     {/* Cart badge */}
                     {inCart && (
-                      <div className="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-full bg-[#ffda32] text-xs font-bold text-[#050a1f] shadow-sm">
+                      <div className="absolute right-2 top-2 flex h-6 min-w-6 items-center justify-center rounded-full bg-[#ffd60a] px-1.5 text-xs font-bold text-[#111113] shadow-sm">
                         {inCart.quantity}
                       </div>
                     )}
@@ -684,12 +680,12 @@ export function POSTerminal({ products, categories, customers, settings, require
       </section>
 
       {/* Right: Cart + Payment */}
-      <aside className={cn('flex min-h-[520px] w-full flex-col overflow-y-auto rounded-xl border border-[var(--dashboard-border)] bg-[var(--dashboard-surface)] shadow-[0_1px_3px_rgba(16,24,40,.06)] lg:sticky lg:top-5 lg:max-h-[calc(100vh-7rem)]', checkoutOnly && 'min-h-0 w-full max-w-none gap-6 overflow-visible border-0 bg-transparent shadow-none lg:grid lg:grid-cols-[minmax(0,1.15fr)_minmax(500px,.85fr)] lg:items-start lg:static lg:max-h-none')}>
+      <aside className={cn('flex min-h-[520px] w-full flex-col overflow-y-auto rounded-2xl border border-[#e5e7eb] bg-white shadow-[0_8px_28px_rgba(16,24,40,.05)] lg:sticky lg:top-5 lg:max-h-[calc(100vh-7rem)]', checkoutOnly && 'min-h-0 w-full max-w-none gap-6 overflow-visible border-0 bg-transparent shadow-none lg:grid lg:grid-cols-[minmax(0,1.15fr)_minmax(500px,.85fr)] lg:items-start lg:static lg:max-h-none')}>
         {/* Cart header with quick actions */}
-        <div className={cn('border-b border-[var(--dashboard-border)] bg-[#fffdf7] p-4 dark:bg-[#191817] space-y-3', checkoutOnly && 'hidden')}>
+        <div className={cn('border-b border-[#eef0f3] bg-white p-5 dark:bg-[#191817] space-y-4', checkoutOnly && 'hidden')}>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <span className="flex h-8 w-8 items-center justify-center rounded-md bg-[#ffda32] text-[#050a1f]"><ShoppingCart className="h-4 w-4" /></span>
+              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#fff3bf] text-[#8a6500] dark:bg-[rgba(255,214,10,0.1)] dark:text-[#ffd60a]"><ShoppingCart className="h-4 w-4" /></span>
               <div><span className="block text-sm font-bold text-[var(--dashboard-text)]">{checkoutOpen ? 'Checkout' : 'Your basket'}</span><span className="block text-[11px] text-[var(--dashboard-muted)]">{cart.length ? `${cart.length} product${cart.length === 1 ? '' : 's'} selected` : 'Start a new sale'}</span></div>
             </div>
             {cart.length > 0 && (
@@ -793,7 +789,7 @@ export function POSTerminal({ products, categories, customers, settings, require
               <span className="font-medium text-muted-foreground">Basket total</span>
               <span className="text-xl font-bold tabular-nums text-[var(--dashboard-text)]">{formatCurrency(subtotal)}</span>
             </div>
-            <button onClick={() => router.push('/dashboard/pos/checkout')} className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#ffda32] px-4 py-3 text-sm font-bold text-[#050a1f] transition-colors hover:bg-[#f0c900]">
+            <button onClick={() => router.push('/dashboard/pos/checkout')} className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#ffd60a] px-4 py-3 text-sm font-bold text-[#111113] transition-colors hover:bg-[#ffdf3a]">
               Pay {formatCurrency(subtotal)} <ArrowRight className="h-4 w-4" />
             </button>
           </div>
@@ -944,7 +940,7 @@ export function POSTerminal({ products, categories, customers, settings, require
                     paymentMethod === key
                       ? key === 'mpesa'
                         ? 'border-[#24a148] bg-[#f1fbf4] text-[#176b31] ring-1 ring-[#24a148]/20 dark:bg-[#122318]'
-                        : 'border-[#e6c31d] bg-[#fff9df] text-[#5f4b00] ring-1 ring-[#e6c31d]/20 dark:bg-[#292513]'
+                        : 'border-[#f1d66a] bg-[#fff7d6] text-[#9a6700] ring-1 ring-[#f1d66a] dark:border-[rgba(255,214,10,0.2)] dark:bg-[rgba(255,214,10,0.1)] dark:text-[#ffd60a] dark:ring-[rgba(255,214,10,0.2)]'
                       : 'border-[var(--dashboard-border)] text-[var(--dashboard-muted)] hover:border-[#cbd2dc] hover:bg-[#fafbfc] dark:hover:bg-white/5'
                   )}
                 >

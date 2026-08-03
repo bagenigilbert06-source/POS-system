@@ -10,9 +10,10 @@ import type { BusinessSettings, Organization } from '@/lib/db/schema'
 interface EditableSettingsProps {
   businessSettings: BusinessSettings | null
   organization: Organization
+  buttonOnly?: boolean
 }
 
-export function EditableSettings({ businessSettings, organization }: EditableSettingsProps) {
+export function EditableSettings({ businessSettings, organization, buttonOnly = false }: EditableSettingsProps) {
   const [isEditing, setIsEditing] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [formData, setFormData] = useState({
@@ -65,8 +66,12 @@ export function EditableSettings({ businessSettings, organization }: EditableSet
     }
   }
 
+  if (buttonOnly && !isEditing) {
+    return <Button onClick={() => setIsEditing(true)} className="bg-[#050a1f] text-white hover:bg-[#1c2340]">Edit settings</Button>
+  }
+
   return (
-    <div className="space-y-6">
+    <div className={buttonOnly ? 'fixed inset-0 z-50 overflow-y-auto bg-[#f8f9fb] p-4 sm:p-8' : 'space-y-6'}>
       {isEditing ? (
         <div className="space-y-6 rounded-lg border bg-card p-6">
           <h3 className="text-lg font-semibold">Edit Business Settings</h3>

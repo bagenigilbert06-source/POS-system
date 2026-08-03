@@ -8,6 +8,7 @@ import { db } from '@/lib/db'
 import { branch, businessSettings } from '@/lib/db/schema'
 import { OrganizationService } from '@/lib/services/organization-service'
 import { DashboardPageHeading } from '@/components/dashboard/page-heading'
+import { EditableSettings } from '@/components/settings/editable-settings'
 
 export const metadata: Metadata = { title: 'Workspace settings | Pesaby' }
 
@@ -36,7 +37,12 @@ export default async function SettingsPage() {
 
   return (
     <div className="mx-auto w-full max-w-[1100px] space-y-5">
-      <DashboardPageHeading icon={Settings} title="Workspace settings" description="Review the business configuration applied during setup." />
+      <DashboardPageHeading
+        icon={Settings}
+        title="Workspace settings"
+        description="Review the business configuration applied during setup."
+        action={<EditableSettings businessSettings={settings ?? null} organization={organization} buttonOnly />}
+      />
 
       <div className="grid gap-4 lg:grid-cols-2">
         <SettingsCard icon={Building2} title="Business profile">

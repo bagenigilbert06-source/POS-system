@@ -57,18 +57,18 @@ export function BusinessOverview({ organizationName, userName, timeZone, currenc
   const transactionAverage = overview.today.transactions ? overview.today.revenue / overview.today.transactions : 0
   const commerceMetrics = experience.kind === 'retail' || experience.kind === 'hospitality'
   const metrics = [
-    { label: experience.metricLabels[0], value: formatCurrency(overview.today.revenue, currency), detail: `${formatNumber(overview.today.transactions)} completed`, icon: TrendingUp, href: '/dashboard/sales' },
+    { label: experience.metricLabels[0], value: formatCurrency(overview.today.revenue, currency), detail: `${formatNumber(overview.today.transactions)} completed`, meta: 'Gross sales recorded today', context: 'Today', icon: TrendingUp, href: '/dashboard/sales' },
     commerceMetrics
-      ? { label: experience.metricLabels[1], value: formatNumber(overview.today.transactions), detail: experience.kind === 'hospitality' ? 'Completed counter orders' : 'Completed sales', icon: ReceiptText, href: '/dashboard/sales' }
-      : { label: experience.metricLabels[1], value: formatCurrency(overview.today.expenses, currency), detail: 'Recorded today', icon: CreditCard, href: '/dashboard/expenses' },
+      ? { label: experience.metricLabels[1], value: formatNumber(overview.today.transactions), detail: experience.kind === 'hospitality' ? 'Completed counter orders' : 'Completed sales', meta: `${formatCurrency(overview.today.revenue, currency)} processed`, context: 'Today', icon: ReceiptText, href: '/dashboard/sales' }
+      : { label: experience.metricLabels[1], value: formatCurrency(overview.today.expenses, currency), detail: 'Recorded today', meta: 'Operating costs logged', context: 'Today', icon: CreditCard, href: '/dashboard/expenses' },
     commerceMetrics
-      ? { label: experience.metricLabels[2], value: formatCurrency(transactionAverage, currency), detail: experience.kind === 'hospitality' ? 'Per completed order' : 'Per completed sale', icon: BadgeDollarSign, href: '/dashboard/sales' }
-      : { label: experience.metricLabels[2], value: formatCurrency(overview.today.operatingPosition, currency), detail: 'Sales less expenses', icon: BadgeDollarSign, href: '/dashboard/reports' },
+      ? { label: experience.metricLabels[2], value: formatCurrency(transactionAverage, currency), detail: experience.kind === 'hospitality' ? 'Per completed order' : 'Per completed sale', meta: `${formatNumber(overview.today.transactions)} transactions`, context: 'Average', icon: BadgeDollarSign, href: '/dashboard/sales' }
+      : { label: experience.metricLabels[2], value: formatCurrency(overview.today.operatingPosition, currency), detail: 'Sales less expenses', meta: 'Net operating position', context: 'Today', icon: BadgeDollarSign, href: '/dashboard/reports' },
     ...(hasInventory && commerceMetrics
       ? experience.kind === 'hospitality'
         ? [{ label: experience.metricLabels[3], value: formatNumber(overview.records.products), detail: 'Available menu items', icon: Package, href: '/dashboard/products' }]
-        : [{ label: experience.metricLabels[3], value: formatNumber(overview.records.lowStock), detail: `${overview.records.outOfStock} out of stock`, icon: TriangleAlert, href: '/dashboard/inventory' }]
-      : hasInventory ? [{ label: 'Stock alerts', value: formatNumber(overview.records.lowStock), detail: `${overview.records.outOfStock} out of stock`, icon: TriangleAlert, href: '/dashboard/inventory' }] : []),
+        : [{ label: experience.metricLabels[3], value: formatNumber(overview.records.lowStock), detail: `${overview.records.outOfStock} out of stock`, meta: `${formatNumber(overview.records.products)} products tracked`, context: 'Needs attention', icon: TriangleAlert, href: '/dashboard/inventory' }]
+      : hasInventory ? [{ label: 'Stock alerts', value: formatNumber(overview.records.lowStock), detail: `${overview.records.outOfStock} out of stock`, meta: `${formatNumber(overview.records.products)} products tracked`, context: 'Needs attention', icon: TriangleAlert, href: '/dashboard/inventory' }] : []),
     ...(!hasInventory && hasCustomers ? [{ label: 'Customer records', value: formatNumber(overview.records.customers), detail: 'Available in this workspace', icon: UsersRound }] : []),
     ...(!hasInventory && !hasCustomers ? [{ label: 'Locations', value: formatNumber(overview.records.branches), detail: 'Active business locations', icon: Building2 }] : []),
   ]
@@ -76,9 +76,13 @@ export function BusinessOverview({ organizationName, userName, timeZone, currenc
   const updatedAt = generatedAt.toLocaleTimeString('en-KE', { hour: '2-digit', minute: '2-digit' })
 
   return (
-    <div className="mx-auto w-full max-w-[1440px] space-y-8 pb-12">
-      <header className="flex flex-col gap-6 border-b border-[rgba(255,214,10,0.1)] pb-8 pt-2 sm:flex-row sm:items-end sm:justify-between">
+    <div className="dashboard-overview mx-auto w-full max-w-[1440px] space-y-5 pb-8">
+      <header className="dashboard-welcome flex flex-col gap-5 border-b border-[rgba(255,214,10,0.1)] pb-5 pt-0 sm:flex-row sm:items-end sm:justify-between">
         <div>
+          <div className="mb-3 flex flex-wrap items-center gap-3">
+            <span className="dashboard-live-status"><i /> Live overview</span>
+            <span className="dashboard-updated">Updated {updatedAt}</span>
+          </div>
           <p className="text-[0.7rem] font-bold uppercase tracking-[0.14em] text-[#ffd60a]">{experience.label} · Operations</p>
           <h1 className="mt-3 text-2xl sm:text-3xl font-bold tracking-tight text-[#f5f5f7]"><TimeGreeting name={userName} timeZone={timeZone} /></h1>
           <p className="mt-2 text-sm text-[#a1a1a6]">Today&apos;s operating overview for {organizationName}.</p>
@@ -98,22 +102,27 @@ export function BusinessOverview({ organizationName, userName, timeZone, currenc
       </header>
 
       <section aria-label="Today's operating metrics">
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           {metrics.map((metric) => {
             const Icon = metric.icon
-            return (
-              <article key={metric.label} className="rounded-2xl border border-[rgba(255,214,10,0.08)] bg-[rgba(255,255,255,0.03)] px-6 py-5 shadow-dark-sm backdrop-blur-sm transition-all duration-200 hover:shadow-dark-md hover:border-[rgba(255,214,10,0.16)] hover:bg-[rgba(255,255,255,0.06)]">
-                <div className="flex items-center justify-between gap-4">
-                  <p className="text-xs font-semibold text-[#a1a1a6] uppercase tracking-wide">{metric.label}</p>
-                  <span className="flex h-10 w-10 items-center justify-center rounded-lg border border-[rgba(255,214,10,0.2)] bg-[rgba(255,214,10,0.08)] text-[#ffd60a]"><Icon className="h-5 w-5" strokeWidth={2} aria-hidden="true" /></span>
+            const metricTone = metric.label.toLowerCase().includes('reorder') || metric.label.toLowerCase().includes('stock') ? 'metric-alert' : 'metric-positive'
+            const card = (
+              <div className={cn('dashboard-metric-card', metricTone, 'rounded-xl border border-[rgba(255,214,10,0.08)] bg-[rgba(255,255,255,0.03)] px-4 py-3.5 shadow-dark-sm backdrop-blur-sm transition-all duration-200 hover:shadow-dark-md hover:border-[rgba(255,214,10,0.16)] hover:bg-[rgba(255,255,255,0.06)]')}>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><p className="truncate text-[0.68rem] font-semibold uppercase tracking-[0.08em] text-[#7d8da6]">{metric.label}</p>{metric.context && <span className="inline-flex rounded-full bg-[rgba(255,214,10,0.08)] px-1.5 py-0.5 text-[0.58rem] font-medium normal-case tracking-normal text-[#8795aa]">{metric.context}</span>}</div></div>
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-[rgba(255,214,10,0.16)] bg-[rgba(255,214,10,0.06)] text-[#ffd60a]"><Icon className="h-4 w-4" strokeWidth={2} aria-hidden="true" /></span>
                 </div>
-                <p className="mt-4 text-2xl sm:text-3xl font-bold tabular-nums tracking-tight text-[#f5f5f7]">{metric.value}</p>
-                <p className="mt-2 text-xs text-[#a1a1a6]">{metric.detail}</p>
-              </article>
+                <p className="mt-3 truncate text-[clamp(1.45rem,2.3vw,2rem)] font-semibold tabular-nums tracking-tight text-[#172033]">{metric.value}</p>
+                <p className="mt-1 text-[0.68rem] font-normal text-[#8795aa]">{metric.detail}</p>
+                {metric.href && <div className="mt-2 flex items-center justify-between gap-3"><span className="truncate text-[0.66rem] font-normal text-[#8795aa]">{metric.meta}</span><span className="inline-flex shrink-0 items-center gap-1 text-[0.66rem] font-semibold text-[#9a6700]">View details <ArrowRight className="h-3 w-3" /></span></div>}
+              </div>
             )
+            return metric.href ? <Link key={metric.label} href={metric.href} className="block rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-[#ffd60a] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0b0b0d]">{card}</Link> : <article key={metric.label}>{card}</article>
           })}
         </div>
       </section>
+
+      {!isNewWorkspace && <DashboardInsightCharts currency={currency} paymentMix={overview.paymentMix} topProducts={overview.topProducts} stock={{ healthy: overview.records.products - overview.records.lowStock, low: overview.records.lowStock - overview.records.outOfStock, out: overview.records.outOfStock }} productLabel={workspaceConfig.businessCategory === 'liquor_shop' ? 'drinks' : 'products'} />}
 
       {workspaceConfig.businessCategory === 'liquor_shop' && (
         <section className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto]" aria-label="Liquor-store controls">
@@ -139,8 +148,8 @@ export function BusinessOverview({ organizationName, userName, timeZone, currenc
               <p className="mt-1 text-xs text-[#a1a1a6]">Sales and recorded expenses · Live 30-day history</p>
             </div>
             <div className="flex items-center gap-4 text-xs font-medium text-[#a1a1a6]">
-              <span className="flex items-center gap-2"><i className="h-2 w-2 rounded-full bg-[#ff6961]" />Sales</span>
-              <span className="flex items-center gap-2"><i className="h-2 w-2 rounded-sm bg-[#ffd60a]" />Expenses</span>
+              <span className="flex items-center gap-2"><i className="h-2 w-2 rounded-full bg-[#d6a800]" />Sales</span>
+              <span className="flex items-center gap-2"><i className="h-2 w-2 rounded-sm bg-[#344b70]" />Expenses</span>
               <Link href="/dashboard/reports" className="ml-1 font-semibold text-[#ffd60a] hover:text-[#ffdf3a]">Reports</Link>
             </div>
           </div>
@@ -163,8 +172,6 @@ export function BusinessOverview({ organizationName, userName, timeZone, currenc
           </div>
         </aside>
       </section>
-
-      {!isNewWorkspace && <DashboardInsightCharts currency={currency} paymentMix={overview.paymentMix} topProducts={overview.topProducts} stock={{ healthy: overview.records.products - overview.records.lowStock, low: overview.records.lowStock - overview.records.outOfStock, out: overview.records.outOfStock }} productLabel={workspaceConfig.businessCategory === 'liquor_shop' ? 'drinks' : 'products'} />}
 
       <section className={cn('grid gap-6', hasInventory && 'xl:grid-cols-[minmax(0,1.45fr)_minmax(330px,.75fr)]')}>
         <article className="overflow-hidden rounded-2xl border border-[rgba(255,214,10,0.08)] bg-[rgba(255,255,255,0.03)] shadow-dark-sm backdrop-blur-sm">

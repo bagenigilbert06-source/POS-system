@@ -1,6 +1,6 @@
 'use client'
 
-import { Line, LineChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { formatCurrency } from '@/lib/utils/format'
 
 interface TrendAnalysisProps {
@@ -38,17 +38,16 @@ export function TrendAnalysis({ data, currency }: TrendAnalysisProps) {
       </div>
       <div className="h-[280px] px-2 pb-3 pt-5 sm:h-[320px] sm:px-4">
         <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={data} margin={{ top: 4, right: 8, left: -8, bottom: 0 }}>
-            <CartesianGrid vertical={false} stroke="var(--dashboard-chart-grid)" strokeDasharray="3 5" />
+          <BarChart data={data} margin={{ top: 12, right: 8, left: -8, bottom: 0 }} barCategoryGap="48%">
             <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fill: 'var(--dashboard-chart-tick)', fontSize: 12 }} dy={8} />
-            <YAxis axisLine={false} tickLine={false} tick={{ fill: 'var(--dashboard-chart-tick)', fontSize: 11 }} tickFormatter={compact} />
+            <YAxis axisLine={false} tickLine={false} tickCount={2} tick={{ fill: 'var(--dashboard-chart-tick)', fontSize: 11 }} tickFormatter={compact} />
             <Tooltip 
-              cursor={{ fill: 'var(--dashboard-surface-subtle)' }} 
-              contentStyle={{ background: 'var(--dashboard-chart-tooltip)', color: 'var(--dashboard-text)', border: '1px solid var(--dashboard-border)', borderRadius: 10, boxShadow: '0 12px 28px rgb(0 0 0 / .18)', fontSize: 12 }}
+              cursor={{ fill: 'rgb(255 122 0 / .10)' }} 
+              contentStyle={{ background: '#1d1d1f', color: '#fff', border: '1px solid #333', borderRadius: 8, boxShadow: '0 12px 28px rgb(0 0 0 / .22)', fontSize: 12 }}
               formatter={(value) => [formatCurrency(Number(value), currency), 'Revenue']}
             />
-            <Line type="monotone" dataKey="revenue" stroke="var(--dashboard-chart-revenue)" strokeWidth={2} dot={false} isAnimationActive={false} />
-          </LineChart>
+            <Bar dataKey="revenue" name="Revenue" fill="#ff7a00" radius={[4, 4, 0, 0]} maxBarSize={24} isAnimationActive={false} />
+          </BarChart>
         </ResponsiveContainer>
       </div>
     </article>

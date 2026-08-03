@@ -22,7 +22,7 @@ export default async function POSPage() {
 
   return (
     <div className="mx-auto max-w-[1480px] space-y-5">
-      <DashboardPageHeading icon={ReceiptText} title="Point of sale" description="Process complete sales with the payment methods configured for your workspace." />
+      <DashboardPageHeading theme="adaptive" icon={ReceiptText} title="Point of sale" description="Process complete sales with the payment methods configured for your workspace." />
       <POSTerminal products={products} categories={categories} customers={customers} settings={settings} requiresAgeVerification={config.businessCategory === 'liquor_shop'} />
     </div>
   )

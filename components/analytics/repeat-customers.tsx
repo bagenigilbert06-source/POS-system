@@ -1,6 +1,6 @@
 'use client'
 
-import { BarChart, Bar, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+import { BarChart, Bar, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { ShoppingBag, Percent } from 'lucide-react'
 
 interface RepeatData {
@@ -43,17 +43,16 @@ export function RepeatCustomers({ data }: RepeatCustomersProps) {
       <p className="sr-only">Repeat customer summary: {summary}</p>
       <div className="h-[280px] px-2 pb-3 pt-5 sm:h-[320px] sm:px-4">
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={data} margin={{ top: 4, right: 8, left: -8, bottom: 0 }}>
-            <CartesianGrid vertical={false} stroke="var(--dashboard-chart-grid)" strokeDasharray="3 5" />
+          <BarChart data={data} margin={{ top: 12, right: 8, left: -8, bottom: 0 }} barCategoryGap="40%">
             <XAxis dataKey="visits" axisLine={false} tickLine={false} tick={{ fill: 'var(--dashboard-chart-tick)', fontSize: 12 }} dy={8} />
-            <YAxis axisLine={false} tickLine={false} tick={{ fill: 'var(--dashboard-chart-tick)', fontSize: 11 }} />
+            <YAxis axisLine={false} tickLine={false} tickCount={2} tick={{ fill: 'var(--dashboard-chart-tick)', fontSize: 11 }} />
             <Tooltip 
-              cursor={{ fill: 'var(--dashboard-surface-subtle)' }} 
-              contentStyle={{ background: 'var(--dashboard-chart-tooltip)', color: 'var(--dashboard-text)', border: '1px solid var(--dashboard-border)', borderRadius: 10, boxShadow: '0 12px 28px rgb(0 0 0 / .18)', fontSize: 12 }}
+              cursor={{ fill: 'rgb(255 122 0 / .10)' }} 
+              contentStyle={{ background: '#1d1d1f', color: '#fff', border: '1px solid #333', borderRadius: 8, boxShadow: '0 12px 28px rgb(0 0 0 / .22)', fontSize: 12 }}
               formatter={(value) => [value, 'Customers']}
               labelFormatter={(label) => `${label} visits`}
             />
-            <Bar dataKey="count" fill="var(--dashboard-chart-revenue)" radius={[5, 5, 0, 0]} isAnimationActive={false} />
+            <Bar dataKey="count" fill="#ff7a00" radius={[4, 4, 0, 0]} maxBarSize={26} isAnimationActive={false} />
           </BarChart>
         </ResponsiveContainer>
       </div>

@@ -162,13 +162,14 @@
   --ring: 359 78% 52%;
   --accent: 48 100% 87%;
   --accent-foreground: 229 72% 7%;
-  --dashboard-canvas: #f4f6f8;
+  /* Neutral light surfaces let the yellow brand accents do the work. */
+  --dashboard-canvas: #f7f8fa;
   --dashboard-surface: #ffffff;
-  --dashboard-surface-subtle: #eef2f6;
+  --dashboard-surface-subtle: #f3f5f7;
   --dashboard-text: #0f172a;
   --dashboard-muted: #5f718d;
-  --dashboard-border: #dce3eb;
-  --dashboard-chart-grid: #e2e8f0;
+  --dashboard-border: #e2e6ec;
+  --dashboard-chart-grid: #e5e9ef;
   --dashboard-chart-tick: #64748b;
   --dashboard-chart-tooltip: #ffffff;
   --dashboard-chart-revenue: #e42527;
@@ -250,15 +251,45 @@ html:not(.dark) .dashboard-shell {
 }
 
 html:not(.dark) .dashboard-sidebar {
-  background: #f8fafc;
+  background: #ffffff;
   border-color: var(--dashboard-border);
 }
 
 html:not(.dark) .dashboard-navbar {
-  background: #f8fafc;
+  background: #ffffff;
   border-color: var(--dashboard-border);
   box-shadow: none;
   backdrop-filter: none;
+}
+
+/* Keep light-mode yellow accents as readable as the sidebar active state. */
+html:not(.dark) .dashboard-shell main [class*="text-[#ffd60a]"],
+html:not(.dark) .dashboard-shell main [class*="hover:text-[#ffdf3a]"]:hover {
+  color: #9a6700 !important;
+}
+
+html:not(.dark) .dashboard-shell main [class*="border-[rgba(255,214,10"] {
+  border-color: #e5e8ed !important;
+}
+
+html:not(.dark) .dashboard-shell main [class*="bg-[rgba(255,214,10"] {
+  background-color: #f8fafc !important;
+}
+
+html:not(.dark) .dashboard-shell main [class*="hover:bg-[rgba(255,255,255"]:hover {
+  background-color: #fffaf0 !important;
+}
+
+html:not(.dark) .dashboard-shell .dashboard-metric-card {
+  border-color: #e5e8ed !important;
+  background: #ffffff !important;
+  box-shadow: 0 4px 14px rgb(15 23 42 / 0.045) !important;
+}
+
+html:not(.dark) .dashboard-shell .dashboard-metric-card:hover {
+  border-color: #f1d66a !important;
+  background: #ffffff !important;
+  box-shadow: 0 8px 20px rgb(15 23 42 / 0.07) !important;
 }
 
 html:not(.dark) .dashboard-shell .app-panel,
@@ -340,6 +371,36 @@ html:not(.dark) .dashboard-shell .shadow-dark-md {
 
 .dark .dashboard-shell {
   background: #050505;
+}
+
+/* POS follows the sidebar hierarchy: dark surfaces, readable gray text, and
+   yellow reserved for active/primary actions. */
+.dark .pos-terminal .bg-white,
+.dark .pos-terminal .dark\:bg\-\[\#191919\],
+.dark .pos-terminal .dark\:bg\-\[\#1b1b1b\] {
+  background-color: #0d0d0d !important;
+}
+
+.dark .pos-terminal .bg-\[\#fafaf8\],
+.dark .pos-terminal .bg-\[\#fffdf7\],
+.dark .pos-terminal .bg-\[\#fafbfc\] {
+  background-color: #121212 !important;
+}
+
+.dark .pos-terminal .bg-\[\#fff8d6\],
+.dark .pos-terminal .bg-\[\#fff9df\],
+.dark .pos-terminal .bg-\[\#fff1c2\] {
+  background-color: #28240f !important;
+}
+
+.dark .pos-terminal .text-\[\#5f4b00\],
+.dark .pos-terminal .text-\[\#946d00\],
+.dark .pos-terminal .text-\[\#a47700\] {
+  color: #ffdf3a !important;
+}
+
+.dark .pos-terminal .shadow-\[0_-6px_14px_rgba\(255\,255\,255\,\.85\)\] {
+  box-shadow: 0 -6px 14px rgba(0, 0, 0, .28);
 }
 
 .dark .dashboard-sidebar {
@@ -756,6 +817,202 @@ html:not(.dark) .dashboard-shell .shadow-dark-md {
     @apply bg-gradient-to-br from-background to-card;
   }
 }
+
+/* Business overview: keep the older overview markup visually consistent with the light app shell. */
+.dashboard-overview {
+  color: var(--dashboard-text);
+}
+.dashboard-overview .dashboard-welcome {
+  position: relative;
+  border-color: var(--dashboard-border) !important;
+  padding: 1.5rem 1.25rem 2rem;
+  border-radius: 1.25rem;
+  background:
+    radial-gradient(circle at 88% 18%, rgba(255, 214, 10, .22), transparent 34%),
+    linear-gradient(115deg, #fff7d6 0%, #ffffff 48%, #e8edf5 100%);
+  box-shadow: 0 10px 28px rgba(16, 24, 40, .07);
+}
+.dashboard-overview .dashboard-welcome h1 { color: #f8fafc !important; }
+.dashboard-overview .dashboard-welcome > div:first-child > p:last-child { color: #b8c3d4 !important; }
+.dashboard-overview .dashboard-welcome .dashboard-live-status,
+.dashboard-overview .dashboard-welcome .dashboard-updated {
+  border-color: rgba(255,255,255,.16);
+  color: #d8e0eb;
+  background: rgba(255,255,255,.08);
+}
+.dashboard-overview .dashboard-welcome a:not(:first-child) {
+  border-color: rgba(255,255,255,.16);
+  color: #f8fafc;
+  background: rgba(255,255,255,.08);
+}
+.dashboard-overview .dashboard-welcome a:not(:first-child):hover { background: rgba(255,255,255,.14); }
+.dashboard-live-status, .dashboard-updated {
+  display: inline-flex;
+  align-items: center;
+  gap: .45rem;
+  border: 1px solid var(--dashboard-border);
+  border-radius: 999px;
+  padding: .35rem .65rem;
+  font-size: .68rem;
+  font-weight: 700;
+  color: var(--dashboard-muted);
+  background: rgba(255,255,255,.72);
+}
+.dashboard-live-status i { width: .42rem; height: .42rem; border-radius: 999px; background: #16a36a; box-shadow: 0 0 0 3px rgba(22,163,106,.12); }
+.dashboard-overview .dashboard-welcome h1,
+.dashboard-overview .dashboard-metric-card p,
+.dashboard-overview article h2,
+.dashboard-overview article td,
+.dashboard-overview article strong { color: var(--dashboard-text) !important; }
+.dashboard-overview .dashboard-metric-card,
+.dashboard-overview article:not(.dashboard-welcome) {
+  border-color: var(--dashboard-border) !important;
+  background: var(--dashboard-surface) !important;
+  box-shadow: 0 2px 8px rgba(16,24,40,.04) !important;
+}
+.dashboard-overview .dashboard-metric-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 22px rgba(16,24,40,.08) !important;
+}
+.dashboard-overview .dashboard-metric-card {
+  display: flex;
+  flex-direction: column;
+  min-height: 174px;
+  padding: .95rem 1.1rem .9rem;
+}
+.dashboard-overview .dashboard-metric-card.metric-alert { background: var(--dashboard-surface) !important; }
+.dashboard-overview .dashboard-metric-card > div:first-child > div:first-child p { letter-spacing: .08em; }
+.dashboard-overview .dashboard-metric-card > div:first-child > span {
+  height: 2.75rem;
+  width: 2.75rem;
+  border-radius: .85rem;
+  background: #f7fafc;
+  border-color: #e3e8ef;
+  color: #9a6700;
+}
+.dashboard-overview .dashboard-metric-card > p.mt-4 {
+  margin-top: .85rem;
+  font-size: clamp(1.3rem, 1.55vw, 1.7rem);
+  line-height: 1.1;
+  letter-spacing: -.045em;
+}
+.dashboard-overview .dashboard-metric-card > p.mt-2 { font-size: .74rem; }
+.dashboard-overview .dashboard-metric-card > div:last-child {
+  margin-top: auto;
+  padding-top: .55rem;
+}
+.dashboard-overview .dashboard-metric-card > p + p {
+  margin-top: .25rem;
+  color: var(--dashboard-muted) !important;
+}
+.dark .dashboard-overview .dashboard-metric-card > div:first-child > span {
+  background: rgba(255,214,10,.08);
+  border-color: rgba(255,214,10,.2);
+}
+.dark .dashboard-overview .dashboard-metric-card.metric-alert { background: linear-gradient(145deg, #111111 0%, #0b0b0b 100%) !important; }
+
+.dashboard-action-row { margin-top: -0.5rem; }
+.dashboard-action-card {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  gap: .8rem;
+  min-height: 188px;
+  padding: 1.15rem 1.25rem;
+  border: 1px solid var(--dashboard-border);
+  border-radius: 1rem;
+  background: var(--dashboard-surface);
+  box-shadow: 0 2px 8px rgba(16,24,40,.04);
+  transition: transform .2s ease, border-color .2s ease, box-shadow .2s ease;
+}
+.dashboard-action-card::before { content: ''; position: absolute; inset: 0 0 auto; height: 3px; background: linear-gradient(90deg, #16a36a, #8bd6b1); }
+.dashboard-action-stock::before { background: linear-gradient(90deg, #f0b90b, #ffdf6b); }
+.dashboard-action-card:hover { transform: translateY(-2px); border-color: #d7b83d; box-shadow: 0 8px 18px rgba(16,24,40,.08); }
+.dashboard-action-icon {
+  display: inline-flex;
+  height: 2.75rem;
+  width: 2.75rem;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border-radius: .85rem;
+  color: #9a6700;
+  background: #fff8d9;
+}
+.dashboard-action-card strong, .dashboard-action-card small { display: block; }
+.dashboard-action-card strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--dashboard-text); font-size: .78rem; font-weight: 700; }
+.dashboard-action-card small { margin-top: .25rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--dashboard-muted); font-size: .68rem; }
+.dashboard-action-arrow { flex: 0 0 auto; color: var(--dashboard-muted); transition: transform .2s ease, color .2s ease; }
+.dashboard-action-card:hover .dashboard-action-arrow { color: #9a6700; transform: translateX(3px); }
+.dark .dashboard-action-card { background: linear-gradient(145deg, #141414, #0b0b0b); box-shadow: 0 6px 16px rgba(0,0,0,.15); }
+.dark .dashboard-action-card::before { background: linear-gradient(90deg, #16a36a, #54c997); }
+.dark .dashboard-action-stock::before { background: linear-gradient(90deg, #ffd60a, #ff9f0a); }
+.dark .dashboard-action-icon { color: #ffd60a; background: rgba(255,214,10,.08); }
+.dashboard-overview .text-\[\#a1a1a6\] { color: var(--dashboard-muted) !important; }
+.dashboard-overview .text-\[\#f5f5f7\] { color: var(--dashboard-text) !important; }
+.dashboard-overview .bg-\[rgba\(255\,255\,255\,0\.03\)\] { background: var(--dashboard-surface) !important; }
+.dashboard-overview .border-\[rgba\(255\,214\,10\,0\.08\)\],
+.dashboard-overview .border-\[rgba\(255\,214\,10\,0\.1\)\] { border-color: var(--dashboard-border) !important; }
+.dashboard-overview .dashboard-welcome h1 { color: #172033 !important; }
+.dashboard-overview .dashboard-welcome > div:first-child > p:last-child { color: #5f718d !important; }
+.dashboard-overview .dashboard-welcome .dashboard-live-status,
+.dashboard-overview .dashboard-welcome .dashboard-updated {
+  border-color: var(--dashboard-border);
+  color: var(--dashboard-muted);
+  background: rgba(255,255,255,.72);
+}
+.dashboard-overview .dashboard-welcome a:not(:first-child) {
+  border-color: var(--dashboard-border);
+  color: #172033;
+  background: rgba(255,255,255,.72);
+}
+.dashboard-overview .dashboard-welcome a:not(:first-child):hover { background: rgba(255,255,255,.95); }
+@media (min-width: 640px) { .dashboard-overview .dashboard-welcome { padding-inline: 1.75rem; } }
+
+/* POS-style dark gradient treatment for the dashboard. */
+.dark .dashboard-overview .dashboard-welcome {
+  border-color: #252525 !important;
+  background:
+    radial-gradient(circle at 88% 18%, rgba(255, 214, 10, .12), transparent 34%),
+    linear-gradient(115deg, #171717 0%, #0d0d0d 58%, #191919 100%) !important;
+  box-shadow: 0 12px 30px rgba(0,0,0,.24);
+}
+.dark .dashboard-overview .dashboard-welcome h1 {
+  color: #f8fafc !important;
+}
+.dark .dashboard-overview .dashboard-welcome > div:first-child > p:last-child {
+  color: #b8c3d4 !important;
+}
+.dark .dashboard-overview .dashboard-live-status,
+.dark .dashboard-overview .dashboard-updated {
+  border-color: #3a3a3a !important;
+  color: #a3a3a3 !important;
+  background: rgba(255,255,255,.04) !important;
+}
+.dark .dashboard-overview .dashboard-welcome a:not(:first-child) {
+  border-color: rgba(255,255,255,.16) !important;
+  color: #f8fafc !important;
+  background: rgba(255,255,255,.08) !important;
+}
+.dark .dashboard-overview .dashboard-welcome a:not(:first-child):hover {
+  background: rgba(255,255,255,.14) !important;
+}
+.dark .dashboard-overview .dashboard-metric-card,
+.dark .dashboard-overview article:not(.dashboard-welcome) {
+  border-color: #252525 !important;
+  background: linear-gradient(145deg, #111111 0%, #0b0b0b 100%) !important;
+  box-shadow: 0 8px 18px rgba(0,0,0,.16) !important;
+}
+.dark .dashboard-overview .dashboard-metric-card:hover {
+  border-color: rgba(255,214,10,.28) !important;
+  background: linear-gradient(145deg, #171717 0%, #0d0d0d 100%) !important;
+  box-shadow: 0 12px 24px rgba(0,0,0,.28) !important;
+}
+.dark .dashboard-overview .dashboard-metric-card .text-\[\#a1a1a6\],
+.dark .dashboard-overview .text-\[\#a1a1a6\] { color: #a3a3a3 !important; }
+.dark .dashboard-overview .border-\[rgba\(255\,214\,10\,0\.08\)\],
+.dark .dashboard-overview .border-\[rgba\(255\,214\,10\,0\.1\)\] { border-color: #252525 !important; }
 
 .landing-green {
   --background: 60 14% 96%;
