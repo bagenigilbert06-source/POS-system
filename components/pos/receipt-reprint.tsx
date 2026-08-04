@@ -15,6 +15,9 @@ interface ReceiptReprintProps {
     receiptPhone: string
     receiptAddress: string
     receiptFooter: string
+    receiptLayout?: 'detailed' | 'thermal'
+    receiptTemplate?: 'classic' | 'logo' | 'cafe'
+    receiptLogoUrl?: string
     taxName: string
     receiptShowPhone?: boolean
     receiptShowAddress?: boolean
@@ -105,6 +108,9 @@ export function ReceiptReprint({ onClose, settings, onRefund }: ReceiptReprintPr
               businessPhone={settings.receiptPhone}
               businessAddress={settings.receiptAddress}
               receiptFooter={settings.receiptFooter}
+              layout={settings.receiptLayout}
+              template={settings.receiptTemplate}
+              logoUrl={settings.receiptLogoUrl}
               taxName={settings.taxName}
               showPhone={settings.receiptShowPhone}
               showAddress={settings.receiptShowAddress}

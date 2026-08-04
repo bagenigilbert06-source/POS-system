@@ -393,6 +393,54 @@ html:not(.dark) .dashboard-shell .shadow-dark-md {
   background-color: #28240f !important;
 }
 
+/* Receipts are paper previews, even when the application is in dark mode.
+   Keep the paper and its ink isolated from the POS surface overrides above. */
+.dark .pos-terminal .receipt-paper {
+  background-color: #ffffff !important;
+  color: #171717 !important;
+  border-color: #e4e4e7 !important;
+}
+
+.dark .pos-terminal .receipt-paper .bg-white {
+  background-color: #ffffff !important;
+}
+
+/* Keep nested receipt content readable too; dashboard dark-mode selectors use
+   broad attribute matching and otherwise recolor the receipt internals. */
+.dark .dashboard-shell .pos-terminal .receipt-paper,
+.dark .dashboard-shell .pos-terminal .receipt-paper * {
+  color: #171717 !important;
+}
+
+.dark .dashboard-shell .pos-terminal .receipt-paper,
+.dark .dashboard-shell .pos-terminal .receipt-paper .bg-white,
+.dark .dashboard-shell .pos-terminal .receipt-paper .bg-zinc-50 {
+  background-color: #ffffff !important;
+}
+
+.dark .dashboard-shell .pos-terminal .receipt-paper .border-zinc-200 {
+  border-color: #e4e4e7 !important;
+}
+
+.dark .dashboard-shell .pos-terminal .receipt-paper .text-emerald-700 {
+  color: #047857 !important;
+}
+
+.dark .dashboard-shell .pos-terminal .receipt-paper .bg-\[\#e42527\] {
+  background-color: #e42527 !important;
+  color: #ffffff !important;
+}
+
+.dark .dashboard-shell .pos-terminal .receipt-actions {
+  background-color: #ffffff !important;
+  border-color: #e4e4e7 !important;
+}
+
+.dark .dashboard-shell .pos-terminal .receipt-actions button:first-child {
+  color: #3f3f46 !important;
+  border-color: #d4d4d8 !important;
+}
+
 .dark .pos-terminal .text-\[\#5f4b00\],
 .dark .pos-terminal .text-\[\#946d00\],
 .dark .pos-terminal .text-\[\#a47700\] {
@@ -1162,4 +1210,51 @@ html:not(.dark) .dashboard-shell .shadow-dark-md {
     scroll-behavior: auto !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+/* Completed-sale receipt: it is intentionally a light document inside the
+   dark dashboard. This lives at the end so dashboard utility overrides cannot
+   recolor it. The completion overlay replaces the POS terminal in the DOM,
+   therefore these rules must not depend on a .pos-terminal ancestor. */
+.dark .dashboard-shell .receipt-paper,
+.dark .dashboard-shell .receipt-paper[class*='bg-white'] {
+  background-color: #ffffff !important;
+  color: #111827 !important;
+}
+
+.dark .dashboard-shell .receipt-paper [class*='bg-white'],
+.dark .dashboard-shell .receipt-paper .bg-zinc-50 {
+  background-color: #ffffff !important;
+}
+
+.dark .dashboard-shell .receipt-paper [class*='text-'] {
+  color: #111827 !important;
+}
+
+.dark .dashboard-shell .receipt-paper .text-zinc-500,
+.dark .dashboard-shell .receipt-paper .text-zinc-600 {
+  color: #667085 !important;
+}
+
+.dark .dashboard-shell .receipt-paper .text-emerald-700 {
+  color: #087443 !important;
+}
+
+.dark .dashboard-shell .receipt-paper .bg-\[\#e42527\] {
+  background-color: #e42527 !important;
+  color: #ffffff !important;
+}
+
+.dark .dashboard-shell .receipt-paper .border-zinc-200 {
+  border-color: #e4e4e7 !important;
+}
+
+.dark .dashboard-shell .receipt-actions {
+  background-color: #ffffff !important;
+  border-color: #e4e4e7 !important;
+}
+
+.dark .dashboard-shell .receipt-actions button:first-child {
+  color: #344054 !important;
+  border-color: #d0d5dd !important;
 }

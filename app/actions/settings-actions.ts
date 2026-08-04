@@ -1,10 +1,11 @@
 'use server'
 
 import { db } from '@/lib/db'
-import { businessSettings, organization } from '@/lib/db/schema'
+import { businessSettings, organization, user } from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
 import { auth } from '@/lib/auth'
 import { headers } from 'next/headers'
+import { revalidatePath } from 'next/cache'
 import { OrganizationService } from '@/lib/services/organization-service'
 
 async function getUserId() {
@@ -30,6 +31,16 @@ export async function updateBusinessSettings(data: {
   receiptPhone?: string
   receiptAddress?: string
   receiptFooter?: string
+  receiptLayout?: 'detailed' | 'thermal'
+  receiptTemplate?: 'classic' | 'logo' | 'cafe'
+  receiptLogoUrl?: string
+  receiptShowPhone?: boolean
+  receiptShowAddress?: boolean
+  receiptShowCashier?: boolean
+  receiptShowCustomer?: boolean
+  receiptShowPayment?: boolean
+  receiptShowQrCode?: boolean
+  receiptShowItemSku?: boolean
   defaultPaymentMethod?: string
 }) {
   const userId = await getUserId()
@@ -49,6 +60,16 @@ export async function updateBusinessSettings(data: {
         ...(data.receiptPhone && { receiptPhone: data.receiptPhone }),
         ...(data.receiptAddress && { receiptAddress: data.receiptAddress }),
         ...(data.receiptFooter && { receiptFooter: data.receiptFooter }),
+        ...(data.receiptLayout && { receiptLayout: data.receiptLayout }),
+        ...(data.receiptTemplate && { receiptTemplate: data.receiptTemplate }),
+        ...(data.receiptLogoUrl !== undefined && { receiptLogoUrl: data.receiptLogoUrl || null }),
+        ...(data.receiptShowPhone !== undefined && { receiptShowPhone: data.receiptShowPhone }),
+        ...(data.receiptShowAddress !== undefined && { receiptShowAddress: data.receiptShowAddress }),
+        ...(data.receiptShowCashier !== undefined && { receiptShowCashier: data.receiptShowCashier }),
+        ...(data.receiptShowCustomer !== undefined && { receiptShowCustomer: data.receiptShowCustomer }),
+        ...(data.receiptShowPayment !== undefined && { receiptShowPayment: data.receiptShowPayment }),
+        ...(data.receiptShowQrCode !== undefined && { receiptShowQrCode: data.receiptShowQrCode }),
+        ...(data.receiptShowItemSku !== undefined && { receiptShowItemSku: data.receiptShowItemSku }),
         ...(data.defaultPaymentMethod && { defaultPaymentMethod: data.defaultPaymentMethod }),
         updatedAt: new Date(),
       })
@@ -89,4 +110,14 @@ export async function updateOrganizationSettings(data: {
     console.error('[v0] Error updating organization settings:', error)
     throw new Error('Failed to update organization settings')
   }
+}
+
+export async function updateAccountName(name: string) {
+  const userId = await getUserId()
+  const nextName = name.trim()
+  if (nextName.length < 2 || nextName.length > 120) throw new Error('Enter a name between 2 and 120 characters')
+
+  await db.update(user).set({ name: nextName, updatedAt: new Date() }).where(eq(user.id, userId))
+  revalidatePath('/dashboard', 'layout')
+  return { success: true }
 }

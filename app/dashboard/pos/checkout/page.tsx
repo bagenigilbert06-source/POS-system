@@ -22,7 +22,7 @@ export default async function POSCheckoutPage() {
   ])
 
   return <div className="mx-auto max-w-[1480px] space-y-5">
-    <DashboardPageHeading icon={CreditCard} title="Checkout" description="Review the basket, choose a payment method, and complete the sale securely." action={<Link href="/dashboard/pos" className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-[#d0d5dd] bg-white px-4 text-sm font-semibold text-[#344054] shadow-sm transition-colors hover:bg-[#f9fafb]"><ArrowLeft className="h-4 w-4" />Back to POS</Link>} />
+    <DashboardPageHeading theme="adaptive" icon={CreditCard} title="Checkout" description="Review the basket, choose a payment method, and complete the sale securely." action={<Link href="/dashboard/pos" className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-[#d0d5dd] bg-white px-4 text-sm font-semibold text-[#344054] shadow-sm transition-colors hover:bg-[#f9fafb] dark:border-white/10 dark:bg-[#111113] dark:text-[#f5f5f7] dark:hover:bg-[#1d1d1f]"><ArrowLeft className="h-4 w-4" />Back to POS</Link>} />
     <POSTerminal products={products} categories={categories} customers={customers} settings={settings} requiresAgeVerification={config.businessCategory === 'liquor_shop'} startCheckout checkoutOnly />
   </div>
 }

@@ -45,6 +45,9 @@ interface POSTerminalProps {
     receiptPhone: string
     receiptAddress: string
     receiptFooter: string
+    receiptLayout: 'detailed' | 'thermal'
+    receiptTemplate: 'classic' | 'logo' | 'cafe'
+    receiptLogoUrl: string
     taxEnabled: boolean
     taxRate: number
     taxName: string
@@ -124,6 +127,7 @@ export function POSTerminal({ products, categories, customers, settings, require
   const [ageVerified, setAgeVerified] = useState(false)
   const [showAgeVerification, setShowAgeVerification] = useState(false)
   const [checkoutOpen, setCheckoutOpen] = useState(startCheckout)
+  const [openingCheckout, setOpeningCheckout] = useState(false)
   const [scanMessage, setScanMessage] = useState('')
   const searchInputRef = useRef<HTMLInputElement>(null)
   const barcodeBufferRef = useRef<string>('')
@@ -153,6 +157,11 @@ export function POSTerminal({ products, categories, customers, settings, require
     window.addEventListener('keydown', handleShortcut)
     return () => window.removeEventListener('keydown', handleShortcut)
   }, [cart.length, checkoutOpen, receipt])
+
+  // Warm the server-rendered checkout route while the cashier is reviewing the basket.
+  useEffect(() => {
+    if (cart.length > 0 && !checkoutOpen && !checkoutOnly) router.prefetch('/dashboard/pos/checkout')
+  }, [cart.length, checkoutOpen, checkoutOnly, router])
 
   const addToCart = useCallback((product: Product) => {
     setCart((previousCart) => {
@@ -474,27 +483,18 @@ export function POSTerminal({ products, categories, customers, settings, require
     }
 
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-        <div className="w-full max-w-xl rounded-xl bg-white shadow-2xl overflow-hidden">
-          {/* Success header */}
-          <div className="bg-gradient-to-r from-green-50 to-emerald-50 border-b p-4 text-center">
-            <p className="text-sm font-semibold text-foreground">{settings.receiptBusinessName}</p>
-            {settings.receiptPhone && <p className="text-xs text-muted-foreground">{settings.receiptPhone}</p>}
-            {settings.receiptAddress && <p className="text-xs text-muted-foreground">{settings.receiptAddress}</p>}
-            <div className="mx-auto mb-2 mt-3 flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100">
-              <CheckCircle2 className="h-6 w-6 text-emerald-600" />
-            </div>
-            <h2 className="text-lg font-bold text-foreground">Sale Complete</h2>
-            <p className="text-xs text-muted-foreground mt-0.5">Receipt #{receipt.receiptNo}</p>
-          </div>
-
-          <div className="max-h-[56vh] overflow-y-auto bg-zinc-100 p-4">
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+        <div className="w-full max-w-2xl overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-[0_24px_80px_rgba(15,23,42,.22)]">
+          <div className="max-h-[72vh] overflow-y-auto bg-white px-4 py-6 sm:px-8">
             <ReceiptTemplate
               sale={printableSale}
               businessName={settings.receiptBusinessName}
               businessPhone={settings.receiptPhone}
               businessAddress={settings.receiptAddress}
               receiptFooter={settings.receiptFooter}
+              layout={settings.receiptLayout}
+              template={settings.receiptTemplate}
+              logoUrl={settings.receiptLogoUrl}
               taxName={settings.taxName}
               showPhone={settings.receiptShowPhone}
               showAddress={settings.receiptShowAddress}
@@ -507,24 +507,24 @@ export function POSTerminal({ products, categories, customers, settings, require
           </div>
 
           {/* Actions */}
-          <div className="border-t bg-muted/30 p-4 flex gap-2 flex-wrap">
+          <div className="receipt-actions flex flex-wrap gap-2 border-t border-zinc-200 bg-white p-4">
             <button
               onClick={() => window.print()}
-              className="flex-1 min-w-[100px] flex items-center justify-center gap-2 py-2.5 rounded-lg border border-input hover:bg-muted transition-colors text-sm font-medium"
+              className="flex min-w-[100px] flex-1 items-center justify-center gap-2 rounded-lg border border-zinc-300 py-2.5 text-sm font-semibold text-zinc-700 transition-colors hover:bg-zinc-50"
             >
               <Printer className="h-4 w-4" />
               Print
             </button>
             <button
               onClick={() => setShowRefundDialog(true)}
-              className="flex-1 min-w-[100px] flex items-center justify-center gap-2 py-2.5 rounded-lg border border-destructive text-destructive hover:bg-destructive/10 transition-colors text-sm font-medium"
+              className="flex min-w-[100px] flex-1 items-center justify-center gap-2 rounded-lg border border-red-300 py-2.5 text-sm font-semibold text-red-600 transition-colors hover:bg-red-50"
             >
               <RotateCcw className="h-4 w-4" />
               Refund
             </button>
             <button
               onClick={handleNewSale}
-              className="flex-1 min-w-[100px] flex items-center justify-center gap-2 py-2.5 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors text-sm font-bold"
+              className="flex min-w-[100px] flex-1 items-center justify-center gap-2 rounded-lg bg-[#e42527] py-2.5 text-sm font-bold text-white transition-colors hover:bg-[#c91f21]"
             >
               <Plus className="h-4 w-4" />
               Next Sale
@@ -536,7 +536,8 @@ export function POSTerminal({ products, categories, customers, settings, require
   }
 
   return (
-    <div className={cn('pos-terminal grid min-h-[calc(100vh-10.5rem)] gap-5 bg-[#f8f9fb] p-1 sm:gap-6 lg:grid-cols-[minmax(0,1fr)_400px] lg:items-stretch', checkoutOnly && 'w-full max-w-none bg-transparent lg:grid-cols-1')}>
+    <div className={cn('pos-terminal relative grid min-h-[calc(100vh-10.5rem)] gap-5 bg-[#f8f9fb] p-1 sm:gap-6 lg:grid-cols-[minmax(0,1fr)_400px] lg:items-stretch', checkoutOnly && 'w-full max-w-none bg-transparent lg:grid-cols-1 lg:gap-6')}>
+      {openingCheckout && <div className="absolute inset-0 z-40 flex items-center justify-center rounded-2xl bg-black/45 backdrop-blur-[2px]"><div className="flex items-center gap-3 rounded-xl border border-white/10 bg-[#151515] px-5 py-4 shadow-2xl"><span className="flex h-9 w-9 items-center justify-center rounded-full bg-[#ffd60a] text-[#111113]"><Loader2 className="h-4 w-4 animate-spin" /></span><div><p className="text-sm font-bold text-white">Opening checkout</p><p className="mt-0.5 text-xs text-zinc-400">Preparing your sale securely…</p></div></div></div>}
       {/* Left: Product catalog */}
       <section className={cn('flex min-h-[520px] min-w-0 flex-col overflow-hidden rounded-2xl border border-[#e5e7eb] bg-white shadow-[0_8px_28px_rgba(16,24,40,.04)]', checkoutOnly && 'hidden')}>
         <div className="border-b border-[#eef0f3] px-5 py-5 sm:px-6">
@@ -720,8 +721,8 @@ export function POSTerminal({ products, categories, customers, settings, require
         </div>
 
         {/* Cart items */}
-        <div className={cn('min-h-[220px] flex-1 overflow-y-auto', checkoutOnly && 'flex min-h-0 flex-col self-start overflow-hidden rounded-xl border border-[var(--dashboard-border)] bg-[var(--dashboard-surface)] shadow-[0_1px_3px_rgba(16,24,40,.05)] lg:col-start-1 lg:row-start-1')}>
-          {checkoutOnly && <div className="flex items-center justify-between border-b border-[var(--dashboard-border)] px-5 py-4"><div><h2 className="text-base font-bold text-[var(--dashboard-text)]">Order summary</h2><p className="mt-1 text-sm text-[var(--dashboard-muted)]">{cart.length} item{cart.length === 1 ? '' : 's'} ready for payment</p></div><button type="button" onClick={() => router.push('/dashboard/pos')} className="rounded-md px-2.5 py-1.5 text-sm font-semibold text-primary hover:bg-primary/5">Edit basket</button></div>}
+        <div className={cn('min-h-[220px] flex-1 overflow-y-auto', checkoutOnly && 'flex min-h-0 flex-col self-start overflow-hidden rounded-2xl border border-[var(--dashboard-border)] bg-[var(--dashboard-surface)] shadow-[0_12px_36px_rgba(0,0,0,.12)] lg:col-start-1 lg:row-start-1')}>
+          {checkoutOnly && <div className="flex items-center justify-between border-b border-[var(--dashboard-border)] px-6 py-5"><div><h2 className="text-lg font-bold tracking-tight text-[var(--dashboard-text)]">Order summary</h2><p className="mt-1 text-sm text-[var(--dashboard-muted)]">{cart.length} item{cart.length === 1 ? '' : 's'} ready for payment</p></div><button type="button" onClick={() => router.push('/dashboard/pos')} className="rounded-lg px-3 py-2 text-sm font-semibold text-primary transition-colors hover:bg-primary/10">Edit basket</button></div>}
           {cart.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-center py-12 px-4">
               <ShoppingCart className="mb-3 h-11 w-11 text-[#d9dde5] dark:text-[#3a3a3a]" />
@@ -779,7 +780,7 @@ export function POSTerminal({ products, categories, customers, settings, require
               ))}
             </ul>
           )}
-          {checkoutOnly && cart.length > 0 && <div className="border-t border-[var(--dashboard-border)] bg-[#fafbfc] px-5 py-4"><div className="flex items-center justify-between"><span className="text-sm font-medium text-[var(--dashboard-muted)]">Items subtotal</span><span className="text-lg font-bold tabular-nums text-[var(--dashboard-text)]">{formatCurrency(subtotal)}</span></div><p className="mt-2 text-sm text-[var(--dashboard-muted)]">You can adjust quantities before completing payment.</p></div>}
+          {checkoutOnly && cart.length > 0 && <div className="border-t border-[var(--dashboard-border)] bg-[#fafbfc] px-6 py-5 dark:bg-[#111111]"><div className="flex items-center justify-between"><span className="text-sm font-medium text-[var(--dashboard-muted)]">Items subtotal</span><span className="text-xl font-bold tracking-tight tabular-nums text-[var(--dashboard-text)]">{formatCurrency(subtotal)}</span></div><p className="mt-2 text-sm text-[var(--dashboard-muted)]">You can adjust quantities before completing payment.</p></div>}
         </div>
 
         {/* Payment panel */}
@@ -789,15 +790,15 @@ export function POSTerminal({ products, categories, customers, settings, require
               <span className="font-medium text-muted-foreground">Basket total</span>
               <span className="text-xl font-bold tabular-nums text-[var(--dashboard-text)]">{formatCurrency(subtotal)}</span>
             </div>
-            <button onClick={() => router.push('/dashboard/pos/checkout')} className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#ffd60a] px-4 py-3 text-sm font-bold text-[#111113] transition-colors hover:bg-[#ffdf3a]">
-              Pay {formatCurrency(subtotal)} <ArrowRight className="h-4 w-4" />
+            <button onClick={() => { setOpeningCheckout(true); router.push('/dashboard/pos/checkout') }} disabled={openingCheckout} className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#ffd60a] px-4 py-3 text-sm font-bold text-[#111113] transition-colors hover:bg-[#ffdf3a] disabled:cursor-wait disabled:opacity-90">
+              {openingCheckout ? <><Loader2 className="h-4 w-4 animate-spin" />Opening checkout…</> : <>Pay {formatCurrency(subtotal)} <ArrowRight className="h-4 w-4" /></>}
             </button>
           </div>
         )}
 
         {cart.length > 0 && checkoutOpen && (
-          <div className={cn('border-t p-3 space-y-3 bg-muted/20', checkoutOnly && 'self-start rounded-xl border border-[var(--dashboard-border)] bg-[var(--dashboard-surface)] p-6 shadow-[0_1px_3px_rgba(16,24,40,.05)] lg:col-start-2 lg:row-start-1')}>
-            {checkoutOnly && <div className="border-b border-[var(--dashboard-border)] pb-4"><button onClick={() => router.push('/dashboard/pos')} className="text-sm font-semibold text-primary hover:underline">← Back to POS</button><p className="mt-4 text-xs font-bold uppercase tracking-[0.12em] text-[#a47700]">Payment</p><h2 className="mt-1 text-xl font-bold tracking-tight text-[var(--dashboard-text)]">Complete this sale</h2><p className="mt-1 text-sm text-[var(--dashboard-muted)]">Confirm the customer, total, and payment method.</p></div>}
+          <div className={cn('border-t p-3 space-y-3 bg-muted/20', checkoutOnly && 'self-start rounded-2xl border border-[var(--dashboard-border)] bg-[var(--dashboard-surface)] p-6 shadow-[0_12px_36px_rgba(0,0,0,.12)] lg:col-start-2 lg:row-start-1')}>
+            {checkoutOnly && <div className="border-b border-[var(--dashboard-border)] pb-5"><button onClick={() => router.push('/dashboard/pos')} className="text-sm font-semibold text-primary transition-colors hover:text-primary/80">← Back to POS</button><p className="mt-5 text-[11px] font-bold uppercase tracking-[0.16em] text-[#ffd60a]">Payment</p><h2 className="mt-2 text-2xl font-bold tracking-[-0.03em] text-[var(--dashboard-text)]">Complete this sale</h2><p className="mt-2 text-sm leading-6 text-[var(--dashboard-muted)]">Confirm the customer, total, and payment method.</p></div>}
             {!checkoutOnly && <button onClick={() => setCheckoutOpen(false)} className="text-sm font-semibold text-primary hover:underline">← Back to basket</button>}
             {/* Customer select */}
             <div>
