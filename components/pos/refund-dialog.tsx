@@ -7,11 +7,12 @@ import { cn } from '@/lib/utils'
 import { X, Loader2, CheckCircle2 } from 'lucide-react'
 import { toast } from 'sonner'
 import type { Sale, SaleItem } from '@/lib/db/schema'
+import { calculateRefundAmount } from '@/lib/pos/refund-calculation'
 
 interface RefundDialogProps {
   sale: Sale & { items: SaleItem[] }
   onClose: () => void
-  onSuccess: () => void
+  onSuccess: (items: SaleItem[]) => void
 }
 
 export function RefundDialog({ sale, onClose, onSuccess }: RefundDialogProps) {
@@ -23,15 +24,23 @@ export function RefundDialog({ sale, onClose, onSuccess }: RefundDialogProps) {
   const [success, setSuccess] = useState(false)
 
   const selectedSaleItems = sale.items.filter(i => selectedItems.has(i.id))
-  const refundAmount = selectedSaleItems.reduce((sum, item) => sum + parseFloat(item.totalPrice), 0)
+  const saleSubtotal = Number(sale.subtotal)
+  const saleTotal = Number(sale.total)
+  const refundAmount = saleSubtotal > 0 ? calculateRefundAmount(saleSubtotal, saleTotal, selectedSaleItems.map((item) => ({
+    lineSubtotal: Number(item.totalPrice), soldQuantity: item.quantity, refundQuantity: item.quantity,
+  }))) : 0
 
   const handleRefund = async () => {
     if (selectedSaleItems.length === 0) {
       toast.error('Select at least one item to refund')
       return
     }
-    if (!reason.trim()) {
-      toast.error('Please provide a refund reason')
+    if (reason.trim().length < 3) {
+      toast.error('Please provide a refund reason of at least 3 characters')
+      return
+    }
+    if (refundMethod === 'mpesa' && !refundReference.trim()) {
+      toast.error('Enter the confirmed M-Pesa refund reference')
       return
     }
 
@@ -55,7 +64,7 @@ export function RefundDialog({ sale, onClose, onSuccess }: RefundDialogProps) {
       setSuccess(true)
       toast.success('Refund processed successfully')
       setTimeout(() => {
-        onSuccess()
+        onSuccess(selectedSaleItems)
         onClose()
       }, 1500)
     } catch (error) {
@@ -129,7 +138,7 @@ export function RefundDialog({ sale, onClose, onSuccess }: RefundDialogProps) {
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium mb-2">Reference (Optional)</label>
+            <label className="block text-sm font-medium mb-2">Reference {refundMethod === 'mpesa' ? '(Required)' : '(Optional)'}</label>
             <input
               type="text"
               value={refundReference}
@@ -171,10 +180,10 @@ export function RefundDialog({ sale, onClose, onSuccess }: RefundDialogProps) {
           </button>
           <button
             onClick={handleRefund}
-            disabled={processing || selectedSaleItems.length === 0 || !reason.trim()}
+            disabled={processing || selectedSaleItems.length === 0 || reason.trim().length < 3 || (refundMethod === 'mpesa' && !refundReference.trim())}
             className={cn(
               'flex-1 px-4 py-2 rounded-lg text-white font-medium flex items-center justify-center gap-2',
-              processing || selectedSaleItems.length === 0 || !reason.trim()
+              processing || selectedSaleItems.length === 0 || reason.trim().length < 3 || (refundMethod === 'mpesa' && !refundReference.trim())
                 ? 'bg-gray-400 cursor-not-allowed'
                 : 'bg-green-600 hover:bg-green-700'
             )}

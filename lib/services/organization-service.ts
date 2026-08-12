@@ -1,6 +1,14 @@
 import { and, eq } from 'drizzle-orm'
+import { cache } from 'react'
 import { db } from '@/lib/db'
 import { organization, organizationMembership } from '@/lib/db/schema'
+
+const organizationsForUser = cache(async (userId: string) => {
+  const memberships = await db.select({ organization }).from(organizationMembership)
+    .innerJoin(organization, eq(organization.id, organizationMembership.organizationId))
+    .where(eq(organizationMembership.userId, userId))
+  return memberships.map((row) => row.organization)
+})
 
 /** Tenant-scoped organization reads. Persistence belongs to transactional services. */
 export class OrganizationService {
@@ -15,10 +23,7 @@ export class OrganizationService {
   }
 
   static async getOrganizationsForUser(userId: string) {
-    const memberships = await db.select({ organization }).from(organizationMembership)
-      .innerJoin(organization, eq(organization.id, organizationMembership.organizationId))
-      .where(eq(organizationMembership.userId, userId))
-    return memberships.map((row) => row.organization)
+    return organizationsForUser(userId)
   }
 
   static async getPrimaryOrganization(userId: string) {

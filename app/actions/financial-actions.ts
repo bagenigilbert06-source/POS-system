@@ -6,6 +6,8 @@ import { eq, gte, lte, and, sql } from 'drizzle-orm'
 import { auth } from '@/lib/auth'
 import { headers } from 'next/headers'
 import { OrganizationService } from '@/lib/services/organization-service'
+import { requirePermission } from '@/lib/auth/authorization'
+import { PermissionEnum } from '@/lib/types/permissions'
 
 async function getUserId() {
   const session = await auth.api.getSession({ headers: await headers() })
@@ -14,6 +16,7 @@ async function getUserId() {
 }
 
 async function getOrgId(userId: string) {
+  await requirePermission(PermissionEnum.FINANCE_VIEW)
   const org = await OrganizationService.getPrimaryOrganization(userId)
   if (!org) throw new Error('Organization not found')
   return org.id

@@ -373,8 +373,12 @@ html:not(.dark) .dashboard-shell .shadow-dark-md {
   background: #050505;
 }
 
-/* POS follows the sidebar hierarchy: dark surfaces, readable gray text, and
-   yellow reserved for active/primary actions. */
+.dark .pos-terminal {
+  --dashboard-border: #222222;
+  --border: 0 0% 13%;
+  --input: 0 0% 10%;
+}
+
 .dark .pos-terminal .bg-white,
 .dark .pos-terminal .dark\:bg\-\[\#191919\],
 .dark .pos-terminal .dark\:bg\-\[\#1b1b1b\] {
@@ -391,6 +395,12 @@ html:not(.dark) .dashboard-shell .shadow-dark-md {
 .dark .pos-terminal .bg-\[\#fff9df\],
 .dark .pos-terminal .bg-\[\#fff1c2\] {
   background-color: #28240f !important;
+}
+
+/* Explicit light border utilities otherwise appear too bright on the POS. */
+.dark .pos-terminal .border-\[\#e1e5eb\],
+.dark .pos-terminal .border-input {
+  border-color: #2a2a2a !important;
 }
 
 /* Receipts are paper previews, even when the application is in dark mode.
@@ -1210,6 +1220,12 @@ html:not(.dark) .dashboard-shell .shadow-dark-md {
     scroll-behavior: auto !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+/* Dashboard data is server-rendered. Keep any defensive placeholders static
+   so navigation never flashes or shimmers while a route is resolving. */
+.dashboard-shell .animate-pulse {
+  animation: none !important;
 }
 
 /* Completed-sale receipt: it is intentionally a light document inside the

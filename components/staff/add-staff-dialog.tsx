@@ -14,30 +14,34 @@ import {
 } from '@/components/ui/dialog'
 import { createEmployee } from '@/app/actions/staff-actions'
 
-export function AddStaffDialog() {
+export function AddStaffDialog({ branches, canCreateAdmin }: { branches: Array<{ id: string; name: string }>; canCreateAdmin: boolean }) {
+  type StaffRole = 'admin' | 'manager' | 'supervisor' | 'cashier' | 'inventory' | 'accountant'
   const [open, setOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [formData, setFormData] = useState({
     name: '',
     email: '',
     phone: '',
-    role: 'cashier',
+    role: 'cashier' as StaffRole,
+    branchId: branches[0]?.id ?? '',
     department: '',
     salary: '0',
   })
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!formData.name.trim()) return toast.error('Name is required')
+    if (!formData.name.trim() || !formData.email || !formData.branchId) return toast.error('Name, email and branch are required')
 
     setIsLoading(true)
     try {
-      await createEmployee({
+      const result = await createEmployee({
         ...formData,
         salary: parseFloat(formData.salary),
       })
-      toast.success('Employee added successfully')
-      setFormData({ name: '', email: '', phone: '', role: 'cashier', department: '', salary: '0' })
+      if (result.existingUser) toast.success('Existing Pesaby user added to this organization')
+      else if (result.invitationSent) toast.success('Employee created and invitation sent')
+      else toast.warning('Employee created as Invited, but email was not delivered. Configure Brevo or use Resend invitation.')
+      setFormData({ name: '', email: '', phone: '', role: 'cashier', branchId: branches[0]?.id ?? '', department: '', salary: '0' })
       setOpen(false)
       // Refresh page would happen automatically with server action
     } catch (error) {
@@ -58,7 +62,7 @@ export function AddStaffDialog() {
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Add New Staff Member</DialogTitle>
-          <DialogDescription>Create a new employee record in the system.</DialogDescription>
+          <DialogDescription>Create a login account and assign its role and branch access.</DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -76,13 +80,14 @@ export function AddStaffDialog() {
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <label className="text-sm font-medium">Email</label>
+              <label className="text-sm font-medium">Login email*</label>
               <input
                 type="email"
                 value={formData.email}
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                 placeholder="john@example.com"
                 className="w-full rounded-lg border px-3 py-2 text-sm"
+                required
               />
             </div>
             <div className="space-y-2">
@@ -97,18 +102,22 @@ export function AddStaffDialog() {
             </div>
           </div>
 
+          <div className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2.5 text-sm text-blue-900">The employee will receive a secure email link to choose their own password. The link expires in one hour.</div>
+
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <label className="text-sm font-medium">Role*</label>
               <select
                 value={formData.role}
-                onChange={(e) => setFormData({ ...formData, role: e.target.value })}
+                onChange={(e) => setFormData({ ...formData, role: e.target.value as StaffRole })}
                 className="w-full rounded-lg border px-3 py-2 text-sm"
               >
                 <option value="cashier">Cashier</option>
                 <option value="manager">Manager</option>
-                <option value="stock">Stock</option>
                 <option value="supervisor">Supervisor</option>
+                <option value="inventory">Inventory / Storekeeper</option>
+                <option value="accountant">Accountant / Finance</option>
+                {canCreateAdmin && <option value="admin">Admin</option>}
               </select>
             </div>
             <div className="space-y-2">
@@ -121,6 +130,14 @@ export function AddStaffDialog() {
                 className="w-full rounded-lg border px-3 py-2 text-sm"
               />
             </div>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Assigned branch*</label>
+            <select value={formData.branchId} onChange={(e) => setFormData({ ...formData, branchId: e.target.value })} className="w-full rounded-lg border px-3 py-2 text-sm" required>
+              <option value="" disabled>Choose branch</option>
+              {branches.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+            </select>
           </div>
 
           <div className="space-y-2">

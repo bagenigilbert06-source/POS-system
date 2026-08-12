@@ -9,6 +9,8 @@ import { db } from '@/lib/db'
 import { expense } from '@/lib/db/schema'
 import { OrganizationService } from '@/lib/services/organization-service'
 import { generateId } from '@/lib/utils'
+import { requirePermission } from '@/lib/auth/authorization'
+import { PermissionEnum } from '@/lib/types/permissions'
 
 const expenseSchema = z.object({
   title: z.string().trim().min(2, 'Enter a clear expense description').max(120),
@@ -26,11 +28,13 @@ async function context() {
 }
 
 export async function getExpenses() {
+  await requirePermission(PermissionEnum.EXPENSE_VIEW)
   const { orgId } = await context()
   return db.select().from(expense).where(eq(expense.orgId, orgId)).orderBy(desc(expense.createdAt)).limit(250)
 }
 
 export async function createExpense(input: z.input<typeof expenseSchema>) {
+  await requirePermission(PermissionEnum.EXPENSE_MANAGE)
   const data = expenseSchema.parse(input)
   const { userId, orgId } = await context()
   await db.insert(expense).values({
@@ -43,6 +47,7 @@ export async function createExpense(input: z.input<typeof expenseSchema>) {
 }
 
 export async function deleteExpense(id: string) {
+  await requirePermission(PermissionEnum.EXPENSE_MANAGE)
   if (!z.string().min(1).safeParse(id).success) throw new Error('Invalid expense')
   const { orgId } = await context()
   await db.delete(expense).where(and(eq(expense.id, id), eq(expense.orgId, orgId)))

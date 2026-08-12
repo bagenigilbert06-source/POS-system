@@ -239,7 +239,7 @@ export const product = pgTable('product', {
   orgId: text('orgId').notNull(),
   createdAt: timestamp('createdAt').notNull().defaultNow(),
   updatedAt: timestamp('updatedAt').notNull().defaultNow(),
-})
+}, (table) => ({ organizationActiveIndex: index('product_org_active_idx').on(table.orgId, table.isActive) }))
 
 export const customer = pgTable('customer', {
   id: text('id').primaryKey(),
@@ -261,6 +261,7 @@ export const sale = pgTable('sale', {
   subtotal: numeric('subtotal', { precision: 12, scale: 2 }).notNull(),
   taxAmount: numeric('taxAmount', { precision: 12, scale: 2 }).notNull().default('0'),
   discountAmount: numeric('discountAmount', { precision: 12, scale: 2 }).notNull().default('0'),
+  roundingAmount: numeric('roundingAmount', { precision: 12, scale: 2 }).notNull().default('0'),
   total: numeric('total', { precision: 12, scale: 2 }).notNull(),
   amountReceived: numeric('amountReceived', { precision: 12, scale: 2 }), // Cash only
   change: numeric('change', { precision: 12, scale: 2 }), // Cash only
@@ -276,7 +277,12 @@ export const sale = pgTable('sale', {
   userId: text('userId').notNull(),
   orgId: text('orgId').notNull(),
   createdAt: timestamp('createdAt').notNull().defaultNow(),
-})
+}, (table) => ({
+  organizationIndex: index('sale_org_idx').on(table.orgId),
+  organizationCreatedIndex: index('sale_org_created_idx').on(table.orgId, table.createdAt),
+  organizationIdempotencyUnique: uniqueIndex('sale_org_idempotency_unique').on(table.orgId, table.idempotencyKey),
+  organizationReceiptUnique: uniqueIndex('sale_org_receipt_unique').on(table.orgId, table.receiptNo),
+}))
 
 export const saleItem = pgTable('sale_item', {
   id: text('id').primaryKey(),
@@ -288,7 +294,7 @@ export const saleItem = pgTable('sale_item', {
   totalPrice: numeric('totalPrice', { precision: 12, scale: 2 }).notNull(),
   userId: text('userId').notNull(),
   orgId: text('orgId').notNull(),
-})
+}, (table) => ({ saleOrganizationIndex: index('sale_item_sale_org_idx').on(table.saleId, table.orgId) }))
 
 export const expense = pgTable('expense', {
   id: text('id').primaryKey(),
@@ -383,7 +389,43 @@ export const posSession = pgTable('pos_session', {
   openingCash: numeric('openingCash', { precision: 12, scale: 2 }).notNull().default('0'), expectedCash: numeric('expectedCash', { precision: 12, scale: 2 }),
   closingCash: numeric('closingCash', { precision: 12, scale: 2 }), variance: numeric('variance', { precision: 12, scale: 2 }), notes: text('notes'),
   openedBy: text('openedBy').notNull(), closedBy: text('closedBy'), orgId: text('orgId').notNull(), openedAt: timestamp('openedAt').notNull().defaultNow(), closedAt: timestamp('closedAt'),
-}, (table) => ({ organizationIndex: index('pos_session_org_idx').on(table.orgId) }))
+}, (table) => ({ organizationIndex: index('pos_session_org_idx').on(table.orgId), operatorStatusIndex: index('pos_session_operator_status_idx').on(table.orgId, table.openedBy, table.status) }))
+
+// POS-only authentication. Secrets are one-way hashes and never returned to clients.
+export const posPinCredential = pgTable('pos_pin_credential', {
+  userId: text('userId').primaryKey().references(() => user.id, { onDelete: 'cascade' }),
+  pinHash: text('pinHash').notNull(),
+  failedAttempts: integer('failedAttempts').notNull().default(0),
+  lockedUntil: timestamp('lockedUntil'),
+  enabled: boolean('enabled').notNull().default(true),
+  setAt: timestamp('setAt').notNull().defaultNow(),
+  updatedAt: timestamp('updatedAt').notNull().defaultNow(),
+})
+
+export const posTerminal = pgTable('pos_terminal', {
+  id: text('id').primaryKey(),
+  organizationId: text('organizationId').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  branchId: text('branchId').notNull().references(() => branch.id, { onDelete: 'cascade' }),
+  tokenHash: text('tokenHash').notNull().unique(),
+  name: text('name').notNull().default('POS terminal'),
+  status: text('status').notNull().default('active'),
+  registeredBy: text('registeredBy').notNull().references(() => user.id, { onDelete: 'restrict' }),
+  createdAt: timestamp('createdAt').notNull().defaultNow(),
+  lastSeenAt: timestamp('lastSeenAt').notNull().defaultNow(),
+}, (table) => ({ organizationIndex: index('pos_terminal_org_idx').on(table.organizationId), branchIndex: index('pos_terminal_branch_idx').on(table.branchId) }))
+
+export const posAuthSession = pgTable('pos_auth_session', {
+  id: text('id').primaryKey(),
+  tokenHash: text('tokenHash').notNull().unique(),
+  terminalId: text('terminalId').notNull().references(() => posTerminal.id, { onDelete: 'cascade' }),
+  userId: text('userId').notNull().references(() => user.id, { onDelete: 'cascade' }),
+  organizationId: text('organizationId').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  branchId: text('branchId').notNull().references(() => branch.id, { onDelete: 'cascade' }),
+  status: text('status').notNull().default('active'),
+  expiresAt: timestamp('expiresAt').notNull(),
+  createdAt: timestamp('createdAt').notNull().defaultNow(),
+  lastSeenAt: timestamp('lastSeenAt').notNull().defaultNow(),
+}, (table) => ({ terminalIndex: index('pos_auth_session_terminal_idx').on(table.terminalId), userIndex: index('pos_auth_session_user_idx').on(table.userId) }))
 
 export const cashMovement = pgTable('cash_movement', {
   id: text('id').primaryKey(), sessionId: text('sessionId').notNull().references(() => posSession.id, { onDelete: 'cascade' }), type: text('type').notNull(),
@@ -401,6 +443,54 @@ export const salePayment = pgTable('sale_payment', {
   orgId: text('orgId').notNull(),
   createdAt: timestamp('createdAt').notNull().defaultNow(),
 }, (table) => ({ organizationIndex: index('sale_payment_org_idx').on(table.orgId), saleIndex: index('sale_payment_sale_idx').on(table.saleId) }))
+
+/** A server-verified Daraja STK Push intent. A successful intent may fund one sale only. */
+export const mpesaPaymentRequest = pgTable('mpesa_payment_request', {
+  id: text('id').primaryKey(),
+  organizationId: text('organizationId').notNull(),
+  userId: text('userId').notNull(),
+  idempotencyKey: text('idempotencyKey').notNull(),
+  paymentMode: text('paymentMode').notNull().default('stk'),
+  accountReference: text('accountReference'),
+  phone: text('phone').notNull(),
+  amount: numeric('amount', { precision: 12, scale: 2 }).notNull(),
+  merchantRequestId: text('merchantRequestId'),
+  checkoutRequestId: text('checkoutRequestId'),
+  receiptNumber: text('receiptNumber'),
+  resultCode: text('resultCode'),
+  resultDescription: text('resultDescription'),
+  status: text('status').notNull().default('pending'),
+  saleId: text('saleId'),
+  callbackPayload: json('callbackPayload'),
+  expiresAt: timestamp('expiresAt').notNull(),
+  completedAt: timestamp('completedAt'),
+  createdAt: timestamp('createdAt').notNull().defaultNow(),
+  updatedAt: timestamp('updatedAt').notNull().defaultNow(),
+}, (table) => ({
+  organizationIndex: index('mpesa_payment_request_org_idx').on(table.organizationId),
+  checkoutRequestUnique: uniqueIndex('mpesa_payment_request_checkout_unique').on(table.checkoutRequestId),
+  accountReferenceUnique: uniqueIndex('mpesa_payment_request_account_reference_unique').on(table.accountReference),
+  receiptNumberUnique: uniqueIndex('mpesa_payment_request_receipt_unique').on(table.receiptNumber),
+  organizationIdempotencyUnique: uniqueIndex('mpesa_payment_request_org_idempotency_unique').on(table.organizationId, table.idempotencyKey),
+}))
+
+/** Immutable C2B receipts, including payments that need manual reconciliation. */
+export const mpesaIncomingPayment = pgTable('mpesa_incoming_payment', {
+  id: text('id').primaryKey(),
+  transactionId: text('transactionId').notNull(),
+  shortcode: text('shortcode').notNull(),
+  accountReference: text('accountReference'),
+  phone: text('phone'),
+  payerName: text('payerName'),
+  amount: numeric('amount', { precision: 12, scale: 2 }).notNull(),
+  matchedRequestId: text('matchedRequestId'),
+  status: text('status').notNull().default('unmatched'),
+  payload: json('payload'),
+  createdAt: timestamp('createdAt').notNull().defaultNow(),
+}, (table) => ({
+  transactionUnique: uniqueIndex('mpesa_incoming_payment_transaction_unique').on(table.transactionId),
+  referenceIndex: index('mpesa_incoming_payment_reference_idx').on(table.accountReference),
+}))
 
 export const creditSale = pgTable('credit_sale', {
   id: text('id').primaryKey(),
@@ -713,6 +803,9 @@ export type CustomerCreditLimit = typeof customerCreditLimit.$inferSelect
 export type CashierShift = typeof cashierShift.$inferSelect
 export type InventoryLoss = typeof inventoryLoss.$inferSelect
 export type PosSession = typeof posSession.$inferSelect
+export type PosPinCredential = typeof posPinCredential.$inferSelect
+export type PosTerminal = typeof posTerminal.$inferSelect
+export type PosAuthSession = typeof posAuthSession.$inferSelect
 export type Employee = typeof employee.$inferSelect
 export type Shift = typeof shift.$inferSelect
 export type ShiftAssignment = typeof shiftAssignment.$inferSelect

@@ -26,9 +26,10 @@ interface AppNavbarProps {
   branchName?: string | null
   workspaceDescription: string
   onOpenSidebar?: () => void
+  role?: string
 }
 
-export function AppNavbar({ userName, userEmail, organizationName, branchName, workspaceDescription, onOpenSidebar }: AppNavbarProps) {
+export function AppNavbar({ userName, userEmail, organizationName, branchName, workspaceDescription, onOpenSidebar, role }: AppNavbarProps) {
   const router = useRouter()
 
   const clearStoredAuthState = () => {
@@ -59,7 +60,7 @@ export function AppNavbar({ userName, userEmail, organizationName, branchName, w
         </button>
         <div className="hidden min-w-0 md:block">
           <p className="truncate text-sm font-bold text-[#f5f5f7]">{organizationName}{branchName ? ` · ${branchName}` : ''}</p>
-          <p className="max-w-[720px] truncate text-xs text-[#a1a1a6]">{workspaceDescription}</p>
+          <p className="max-w-[720px] truncate text-xs text-[#a1a1a6]">{role === 'cashier' ? 'Cashier POS · Sales, shift, receipts and customer checkout' : workspaceDescription}</p>
         </div>
         <div className="flex min-w-0 items-center gap-3 md:hidden">
           <PesabyLogoMark className="h-8 w-8" />

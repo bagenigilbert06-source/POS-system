@@ -6,6 +6,7 @@ import { AppNavbar } from './app-navbar'
 import { WorkspaceProvider } from '@/lib/context/workspace-context'
 import type { WorkspaceConfig } from '@/lib/types/workspace'
 import { getBusinessExperience } from '@/lib/workspace/business-experience'
+import type { PermissionEnum } from '@/lib/types/permissions'
 
 interface DashboardLayoutClientProps {
   userId: string
@@ -20,6 +21,8 @@ interface DashboardLayoutClientProps {
    */
   initialWorkspaceConfig?: WorkspaceConfig
   setupChecklist?: React.ReactNode
+  role?: string
+  permissions: readonly PermissionEnum[]
   children: React.ReactNode
 }
 
@@ -32,6 +35,8 @@ export function DashboardLayoutClient({
   branchName,
   initialWorkspaceConfig,
   setupChecklist,
+  role,
+  permissions,
   children,
 }: DashboardLayoutClientProps) {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
@@ -47,6 +52,8 @@ export function DashboardLayoutClient({
       <div className="dashboard-shell flex min-h-screen overflow-hidden font-sans">
         <a href="#dashboard-content" className="skip-link">Skip to main content</a>
         <DynamicAppSidebar
+          initialPermissions={permissions}
+          initialRole={role}
           mobileOpen={mobileSidebarOpen}
           onMobileClose={() => setMobileSidebarOpen(false)}
         />
@@ -57,10 +64,11 @@ export function DashboardLayoutClient({
             organizationName={organizationName}
             branchName={branchName}
             workspaceDescription={experience?.overviewDescription ?? 'Operating workspace'}
+            role={role}
             onOpenSidebar={() => setMobileSidebarOpen(true)}
           />
           <main id="dashboard-content" tabIndex={-1} className="flex-1 overflow-y-auto px-4 py-5 outline-none sm:px-6 lg:px-7 lg:py-7">
-            {Children.toArray(setupChecklist)}
+            {role !== 'cashier' && Children.toArray(setupChecklist)}
             {Children.toArray(children)}
           </main>
         </div>

@@ -9,6 +9,9 @@ import { db } from '@/lib/db'
 import { product, purchase, purchaseItem, stockMovement, supplier } from '@/lib/db/schema'
 import { OrganizationService } from '@/lib/services/organization-service'
 import { generateId } from '@/lib/utils'
+import { requirePermission } from '@/lib/auth/authorization'
+import { PermissionEnum } from '@/lib/types/permissions'
+import { invalidateProductReadCache } from '@/lib/cache/redis-cache'
 
 async function context() {
   const session = await auth.api.getSession({ headers: await headers() })
@@ -22,6 +25,7 @@ const supplierSchema = z.object({ name: z.string().trim().min(2).max(120), phone
 const receiptSchema = z.object({ supplierId: z.string().min(1), productId: z.string().min(1), quantity: z.coerce.number().int().positive().max(1_000_000), unitCost: z.coerce.number().nonnegative().max(999_999_999), reference: z.string().trim().max(80).optional(), paymentStatus: z.enum(['unpaid', 'partial', 'paid']), notes: z.string().trim().max(500).optional() })
 
 export async function getProcurementData() {
+  await requirePermission(PermissionEnum.PURCHASE_VIEW)
   const { orgId } = await context()
   const [suppliers, purchases, products, movements] = await Promise.all([
     db.select().from(supplier).where(eq(supplier.orgId, orgId)).orderBy(desc(supplier.createdAt)),
@@ -33,6 +37,7 @@ export async function getProcurementData() {
 }
 
 export async function createSupplier(input: z.input<typeof supplierSchema>) {
+  await requirePermission(PermissionEnum.PURCHASE_MANAGE)
   const data = supplierSchema.parse(input)
   const { userId, orgId } = await context()
   await db.insert(supplier).values({ id: generateId(), ...data, email: data.email || null, userId, orgId })
@@ -40,6 +45,7 @@ export async function createSupplier(input: z.input<typeof supplierSchema>) {
 }
 
 export async function receivePurchase(input: z.input<typeof receiptSchema>) {
+  await requirePermission(PermissionEnum.PURCHASE_MANAGE)
   const data = receiptSchema.parse(input)
   const { userId, orgId } = await context()
   await db.transaction(async (tx) => {
@@ -56,6 +62,7 @@ export async function receivePurchase(input: z.input<typeof receiptSchema>) {
     await tx.update(product).set({ stock: sql`${product.stock} + ${data.quantity}`, buyingPrice: String(data.unitCost), updatedAt: new Date() }).where(and(eq(product.id, item.id), eq(product.orgId, orgId)))
     await tx.insert(stockMovement).values({ id: generateId(), productId: item.id, productName: item.name, type: 'purchase_receipt', quantity: data.quantity, stockBefore: item.stock, stockAfter: item.stock + data.quantity, referenceType: 'purchase', referenceId: purchaseId, reason: data.reference || purchaseNo, userId, orgId })
   })
+  await invalidateProductReadCache(orgId)
   revalidatePath('/dashboard')
   revalidatePath('/dashboard/inventory')
   revalidatePath('/dashboard/products')

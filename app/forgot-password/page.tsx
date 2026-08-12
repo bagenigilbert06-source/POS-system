@@ -1,0 +1,3 @@
+import Link from 'next/link'
+import { ForgotPasswordForm } from '@/components/auth/forgot-password-form'
+export default function ForgotPasswordPage(){return <main className="flex min-h-screen items-center justify-center bg-[#fff4e8] p-5"><section className="w-full max-w-md rounded-2xl border bg-white p-8"><h1 className="text-2xl font-extrabold">Reset password</h1><p className="mb-6 mt-2 text-sm text-muted-foreground">We’ll email you a secure one-hour reset link.</p><ForgotPasswordForm/><Link href="/sign-in" className="mt-5 block text-center text-sm underline">Back to sign in</Link></section></main>}

@@ -7,9 +7,12 @@ import { OrganizationService } from '@/lib/services/organization-service'
 import { sale, expense, purchase, product, creditSale } from '@/lib/db/schema'
 import { and, eq, gte, lte, sum as dbSum, sql } from 'drizzle-orm'
 import Decimal from 'decimal.js'
+import { requirePermission } from '@/lib/auth/authorization'
+import { PermissionEnum } from '@/lib/types/permissions'
 
 // Helper to get current user's organization
 async function getUserOrganization() {
+  await requirePermission(PermissionEnum.FINANCE_VIEW)
   const session = await auth.api.getSession({ headers: await headers() })
   if (!session?.user) throw new Error('Unauthorized')
   const organization = await OrganizationService.getPrimaryOrganization(session.user.id)

@@ -10,6 +10,7 @@ import { generateId } from '@/lib/utils'
 import { OrganizationService } from '@/lib/services/organization-service'
 import { WorkspaceService } from '@/lib/services/workspace-service'
 import { z } from 'zod'
+import { invalidateCategoryCache, readThroughRedis } from '@/lib/cache/redis-cache'
 
 const categoryInput = z.object({ name: z.string().trim().min(2).max(80), description: z.string().trim().max(300).optional(), parentCategoryId: z.string().min(1).nullable().optional(), imageUrl: z.string().url().or(z.string().startsWith('/')).nullable().optional() })
 
@@ -55,16 +56,26 @@ async function ensureUnique(orgId: string, name: string, slug: string, parentCat
 
 export async function getCategories(includeArchived = false) {
   const { orgId } = await categoryContext()
-  const rows = await db.select({ id: category.id, name: category.name, slug: category.slug, description: category.description, imageUrl: category.imageUrl, parentCategoryId: category.parentCategoryId, isActive: category.isActive, createdAt: category.createdAt, updatedAt: category.updatedAt, productCount: count(product.id) }).from(category).leftJoin(product, and(eq(product.categoryId, category.id), eq(product.orgId, orgId), eq(product.isActive, true))).where(eq(category.orgId, orgId)).groupBy(category.id).orderBy(category.name)
-  return includeArchived ? rows : rows.filter((item) => item.isActive)
+  return readThroughRedis({
+    namespace: 'categories', organizationId: orgId, variant: `management-list:${includeArchived ? 'all' : 'active'}`, ttlSeconds: 600,
+    load: async () => {
+      const rows = await db.select({ id: category.id, name: category.name, slug: category.slug, description: category.description, imageUrl: category.imageUrl, parentCategoryId: category.parentCategoryId, isActive: category.isActive, createdAt: category.createdAt, updatedAt: category.updatedAt, productCount: count(product.id) }).from(category).leftJoin(product, and(eq(product.categoryId, category.id), eq(product.orgId, orgId), eq(product.isActive, true))).where(eq(category.orgId, orgId)).groupBy(category.id).orderBy(category.name)
+      return includeArchived ? rows : rows.filter((item) => item.isActive)
+    },
+  })
 }
 
 export async function getCategoryDetails(id: string) {
   const { orgId } = await categoryContext()
-  const [selected] = await db.select({ id: category.id, name: category.name, slug: category.slug, description: category.description, imageUrl: category.imageUrl, parentCategoryId: category.parentCategoryId, isActive: category.isActive, productCount: count(product.id) }).from(category).leftJoin(product, and(eq(product.categoryId, category.id), eq(product.orgId, orgId), eq(product.isActive, true))).where(and(eq(category.id, id), eq(category.orgId, orgId))).groupBy(category.id).limit(1)
-  if (!selected) return null
-  const children = await db.select({ id: category.id, name: category.name, imageUrl: category.imageUrl, productCount: count(product.id) }).from(category).leftJoin(product, and(eq(product.categoryId, category.id), eq(product.orgId, orgId), eq(product.isActive, true))).where(and(eq(category.parentCategoryId, id), eq(category.orgId, orgId), eq(category.isActive, true))).groupBy(category.id).orderBy(category.name)
-  return { category: selected, children }
+  return readThroughRedis({
+    namespace: 'categories', organizationId: orgId, variant: `details:${id}`, ttlSeconds: 600,
+    load: async () => {
+      const [selected] = await db.select({ id: category.id, name: category.name, slug: category.slug, description: category.description, imageUrl: category.imageUrl, parentCategoryId: category.parentCategoryId, isActive: category.isActive, productCount: count(product.id) }).from(category).leftJoin(product, and(eq(product.categoryId, category.id), eq(product.orgId, orgId), eq(product.isActive, true))).where(and(eq(category.id, id), eq(category.orgId, orgId))).groupBy(category.id).limit(1)
+      if (!selected) return null
+      const children = await db.select({ id: category.id, name: category.name, imageUrl: category.imageUrl, productCount: count(product.id) }).from(category).leftJoin(product, and(eq(product.categoryId, category.id), eq(product.orgId, orgId), eq(product.isActive, true))).where(and(eq(category.parentCategoryId, id), eq(category.orgId, orgId), eq(category.isActive, true))).groupBy(category.id).orderBy(category.name)
+      return { category: selected, children }
+    },
+  })
 }
 
 export async function createCategory(input: z.infer<typeof categoryInput>) {
@@ -79,6 +90,7 @@ export async function createCategory(input: z.infer<typeof categoryInput>) {
     await tx.insert(category).values({ id, name: data.name, slug, description: data.description || null, imageUrl: data.imageUrl || null, parentCategoryId: data.parentCategoryId || null, isActive: true, userId, orgId, updatedAt: new Date() })
     await tx.insert(auditEvent).values({ id: generateId(), organizationId: orgId, userId, action: 'category.created', metadata: { categoryId: id, name: data.name } })
   })
+  await invalidateCategoryCache(orgId)
   revalidatePath('/dashboard/products')
   revalidatePath('/dashboard/products/categories')
   return { id, name: data.name, slug, parentCategoryId: data.parentCategoryId || null, isActive: true }
@@ -97,6 +109,7 @@ export async function updateCategory(id: string, input: z.infer<typeof categoryI
     await tx.update(category).set({ name: data.name, slug, description: data.description || null, imageUrl: data.imageUrl || null, parentCategoryId: data.parentCategoryId || null, updatedAt: new Date() }).where(and(eq(category.id, id), eq(category.orgId, orgId)))
     await tx.insert(auditEvent).values({ id: generateId(), organizationId: orgId, userId, action: 'category.updated', metadata: { categoryId: id, name: data.name } })
   })
+  await invalidateCategoryCache(orgId)
   revalidatePath('/dashboard/products')
   revalidatePath('/dashboard/products/categories')
 }
@@ -110,6 +123,7 @@ export async function setCategoryActive(id: string, isActive: boolean) {
     await tx.update(category).set({ isActive, updatedAt: new Date() }).where(and(eq(category.id, id), eq(category.orgId, orgId)))
     await tx.insert(auditEvent).values({ id: generateId(), organizationId: orgId, userId, action: isActive ? 'category.restored' : 'category.archived', metadata: { categoryId: id } })
   })
+  await invalidateCategoryCache(orgId)
   revalidatePath('/dashboard/products')
   revalidatePath('/dashboard/products/categories')
 }

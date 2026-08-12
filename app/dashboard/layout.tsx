@@ -1,27 +1,32 @@
 import { Suspense } from 'react'
 import { redirect } from 'next/navigation'
-import { headers } from 'next/headers'
-import { auth } from '@/lib/auth'
+import { getCurrentSession } from '@/lib/auth'
 import { OrganizationService } from '@/lib/services/organization-service'
 import { WorkspaceService } from '@/lib/services/workspace-service'
 import { DashboardLayoutClient } from '@/components/layout/dashboard-layout-client'
 import { SetupChecklist } from '@/components/dashboard/setup-checklist'
 import { getSetupChecklist } from '@/lib/services/setup-checklist-service'
 import { db } from '@/lib/db'
-import { branch, user } from '@/lib/db/schema'
+import { branch, organization as organizationTable, user } from '@/lib/db/schema'
 import { and, desc, eq } from 'drizzle-orm'
+import { getAuthorizationContext } from '@/lib/auth/authorization'
+import { getPosAuthorizationContext } from '@/lib/pos/pos-auth'
 
 export default async function DashboardRouteLayout({ children }: { children: React.ReactNode }) {
-  const session = await auth.api.getSession({ headers: await headers() })
-  if (!session?.user) redirect('/sign-in')
+  const session = await getCurrentSession()
+  const posAuthorization = await getPosAuthorizationContext()
+  if (!session?.user && !posAuthorization) redirect('/sign-in')
+  const userId = posAuthorization?.userId ?? session!.user.id
 
-  const [account] = await db.select({ status: user.status }).from(user).where(eq(user.id, session.user.id)).limit(1)
+  const [account] = await db.select({ status: user.status, name: user.name, email: user.email }).from(user).where(eq(user.id, userId)).limit(1)
   if (account?.status && account.status !== 'active') redirect('/restricted')
 
-  const organization = await OrganizationService.getPrimaryOrganization(session.user.id)
+  const organization = posAuthorization
+    ? (await db.select().from(organizationTable).where(eq(organizationTable.id, posAuthorization.organizationId)).limit(1))[0]
+    : await OrganizationService.getPrimaryOrganization(userId)
 
   if (!organization) {
-    const ownedOrganization = await OrganizationService.getOwnedOrganization(session.user.id)
+    const ownedOrganization = await OrganizationService.getOwnedOrganization(userId)
     if (ownedOrganization) redirect('/workspace-recovery')
     redirect('/onboarding')
   }
@@ -29,23 +34,26 @@ export default async function DashboardRouteLayout({ children }: { children: Rea
 
   // Build a full WorkspaceConfig from the persisted businessType + businessCategory.
   // This is done once on the server so the client never needs to fetch it separately.
-  const workspaceConfig = await WorkspaceService.getWorkspaceConfig(organization.id, session.user.id)
+  const workspaceConfig = await WorkspaceService.getWorkspaceConfig(organization.id, userId)
   if (!workspaceConfig) redirect('/onboarding')
+  const authorization = posAuthorization ?? await getAuthorizationContext()
   const [activeBranch] = await db.select({ name: branch.name }).from(branch)
-      .where(and(eq(branch.organizationId, organization.id), eq(branch.isMain, true)))
+      .where(and(eq(branch.organizationId, organization.id), authorization.isOrganizationWide ? eq(branch.isMain, true) : eq(branch.id, authorization.branchIds[0] ?? '')))
       .orderBy(desc(branch.updatedAt))
       .limit(1)
 
   return (
     <DashboardLayoutClient
-      userId={session.user.id}
-      userName={session.user.name}
-      userEmail={session.user.email}
+      userId={userId}
+      userName={account?.name ?? session?.user.name ?? 'POS user'}
+      userEmail={account?.email ?? session?.user.email ?? ''}
       organizationId={organization.id}
       organizationName={organization.name}
       branchName={activeBranch?.name ?? null}
       initialWorkspaceConfig={workspaceConfig}
-      setupChecklist={<Suspense fallback={null}><DashboardSetupChecklist organizationId={organization.id} enabledModules={workspaceConfig.enabledModules} /></Suspense>}
+      setupChecklist={posAuthorization ? null : <Suspense fallback={null}><DashboardSetupChecklist organizationId={organization.id} enabledModules={workspaceConfig.enabledModules} /></Suspense>}
+      role={authorization.role}
+      permissions={authorization.permissions}
     >
       {children}
     </DashboardLayoutClient>

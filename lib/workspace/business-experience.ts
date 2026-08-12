@@ -51,7 +51,7 @@ export function getBusinessExperience(businessFamily: string, businessCategory: 
         label: 'Liquor shop',
         overviewTitle: 'Liquor shop overview',
         overviewDescription: 'Monitor daily sales, fast-moving drinks, payment mix and stock that needs reordering.',
-        navigation: { overview: 'Dashboard', pos: 'POS', sales: 'Sales', products: 'Products', inventory: 'Inventory', customers: 'Customers' },
+        navigation: { overview: 'Liquor dashboard', pos: 'POS', sales: 'Sales', products: 'Products', inventory: 'Inventory', customers: 'Customers' },
         actions: ['primary', 'products', 'inventory'],
         actionLabels: { primary: 'Start sale', products: 'Add drinks', inventory: 'Receive stock' },
         metricLabels: ["Today's sales", 'Transactions today', 'Average sale', 'Reorder alerts'],

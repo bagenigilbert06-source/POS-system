@@ -3,14 +3,15 @@
 import { useState } from 'react'
 import { formatCurrency } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
-import { Edit2, Trash2, CheckCircle2, AlertCircle } from 'lucide-react'
+import { Edit2, Trash2, CheckCircle2, AlertCircle, Mail } from 'lucide-react'
 import { toast } from 'sonner'
-import { deleteEmployee } from '@/app/actions/staff-actions'
+import { deleteEmployee, resendStaffInvitation } from '@/app/actions/staff-actions'
+import { resetStaffPosPin } from '@/app/actions/pos-pin'
 import { EditStaffDialog } from './edit-staff-dialog'
 import type { Employee } from '@/lib/db/schema'
 
 interface StaffManagementTableProps {
-  employees: Employee[]
+  employees: Array<Employee & { posPinSet?: boolean }>
   orgId: string
 }
 
@@ -20,18 +21,23 @@ export function StaffManagementTable({ employees, orgId }: StaffManagementTableP
   const [isDeleting, setIsDeleting] = useState(false)
 
   const handleDelete = async (employeeId: string) => {
-    if (!confirm('Are you sure you want to delete this employee?')) return
+    if (!confirm('Revoke this employee’s login access? Their employee record will be retained as inactive for audit history.')) return
 
     setIsDeleting(true)
     try {
       await deleteEmployee(employeeId)
-      toast.success('Employee deleted successfully')
+      toast.success('Employee access revoked')
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to delete employee')
     } finally {
       setIsDeleting(false)
     }
   }
+  const handleResend = async (employeeId: string) => {
+    try { const result = await resendStaffInvitation(employeeId); result.delivered ? toast.success('Invitation resent') : toast.warning('Invitation refreshed, but transactional email is not configured') }
+    catch (error) { toast.error(error instanceof Error ? error.message : 'Unable to resend invitation') }
+  }
+  const handlePinReset = async (employeeId: string) => { if (!confirm('Disable the existing PIN? The employee must create a new PIN after signing in with their password.')) return; try { await resetStaffPosPin(employeeId); toast.success('POS PIN reset') } catch(error) { toast.error(error instanceof Error?error.message:'Unable to reset PIN') } }
 
   if (!employees || employees.length === 0) {
     return (
@@ -57,6 +63,7 @@ export function StaffManagementTable({ employees, orgId }: StaffManagementTableP
               <th className="px-4 py-3 text-left font-medium text-muted-foreground">Email</th>
               <th className="px-4 py-3 text-left font-medium text-muted-foreground">Salary</th>
               <th className="px-4 py-3 text-left font-medium text-muted-foreground">Status</th>
+              <th className="px-4 py-3 text-left font-medium text-muted-foreground">POS PIN</th>
               <th className="px-4 py-3 text-right font-medium text-muted-foreground">Actions</th>
             </tr>
           </thead>
@@ -75,15 +82,17 @@ export function StaffManagementTable({ employees, orgId }: StaffManagementTableP
                         <CheckCircle2 className="h-4 w-4 text-green-600" />
                         <span className="text-xs font-medium text-green-700">Active</span>
                       </>
-                    ) : (
+                    ) : emp.status === 'invited' ? <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-medium text-blue-700"><Mail className="h-3 w-3" />Invited</span> : (
                       <span className="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-800">
                         {emp.status}
                       </span>
                     )}
                   </div>
                 </td>
+                <td className="px-4 py-3"><span className="text-xs font-medium">{emp.posPinSet ? 'Set' : 'Not set'}</span>{emp.posPinSet&&<button onClick={()=>handlePinReset(emp.id)} className="ml-2 text-xs text-destructive underline">Reset</button>}</td>
                 <td className="px-4 py-3 text-right">
                   <div className="flex justify-end gap-2">
+                    {emp.status === 'invited' && <Button size="sm" variant="ghost" onClick={() => handleResend(emp.id)} title="Resend invitation" className="h-8 px-2"><Mail className="mr-1 h-4 w-4" />Resend</Button>}
                     <Button
                       size="sm"
                       variant="ghost"

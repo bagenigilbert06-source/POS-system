@@ -1,10 +1,25 @@
 import { eq } from 'drizzle-orm'
+import { cache } from 'react'
 import { db } from '@/lib/db'
 import { workspace } from '@/lib/db/schema'
 import { getWorkspaceTemplate, resolveOnboardingTemplateId } from '@/lib/templates'
 import type { SidebarNavItem, WorkspaceConfig } from '@/lib/types/workspace'
 import { OrganizationService } from '@/lib/services/organization-service'
 import { getBusinessExperience } from '@/lib/workspace/business-experience'
+
+const workspaceConfigForUser = cache(async (organizationId: string, userId: string): Promise<WorkspaceConfig | null> => {
+  const org = await OrganizationService.getOrganization(organizationId, userId)
+  if (!org) return null
+  const [stored] = await db.select({ config: workspace.config }).from(workspace)
+    .where(eq(workspace.organizationId, organizationId)).limit(1)
+  return runtimeConfig({
+    organizationId: org.id,
+    name: org.name,
+    businessType: org.businessType,
+    businessCategory: org.businessCategory ?? 'custom',
+    stored: (stored?.config ?? {}) as StoredWorkspaceConfig,
+  })
+})
 
 type StoredWorkspaceConfig = {
   templateId?: string
@@ -107,17 +122,7 @@ export class WorkspaceService {
   }
 
   static async getWorkspaceConfig(organizationId: string, userId: string): Promise<WorkspaceConfig | null> {
-    const org = await OrganizationService.getOrganization(organizationId, userId)
-    if (!org) return null
-    const [stored] = await db.select({ config: workspace.config }).from(workspace)
-      .where(eq(workspace.organizationId, organizationId)).limit(1)
-    return runtimeConfig({
-      organizationId: org.id,
-      name: org.name,
-      businessType: org.businessType,
-      businessCategory: org.businessCategory ?? 'custom',
-      stored: (stored?.config ?? {}) as StoredWorkspaceConfig,
-    })
+    return workspaceConfigForUser(organizationId, userId)
   }
 
   static getDashboardRoute(): string {

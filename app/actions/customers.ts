@@ -10,15 +10,21 @@ import { generateId } from '@/lib/utils'
 import { OrganizationService } from '@/lib/services/organization-service'
 import { WorkspaceService } from '@/lib/services/workspace-service'
 import { z } from 'zod'
+import { getPosAuthorizationContext } from '@/lib/pos/pos-auth'
 
 async function getUserId() {
+  const pos = await getPosAuthorizationContext()
+  if (pos) return pos.userId
   const session = await auth.api.getSession({ headers: await headers() })
   if (!session?.user) throw new Error('Unauthorized')
   return session.user.id
 }
 
 async function getOrgId(userId: string) {
-  const organization = await OrganizationService.getPrimaryOrganization(userId)
+  const pos = await getPosAuthorizationContext()
+  const organization = pos
+    ? await OrganizationService.getOrganization(pos.organizationId, userId)
+    : await OrganizationService.getPrimaryOrganization(userId)
   if (!organization) throw new Error('No organization available')
   const config = await WorkspaceService.getWorkspaceConfig(organization.id, userId)
   if (!config?.enabledModules.includes('customers')) throw new Error('Customers are not enabled for this workspace')

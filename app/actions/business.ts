@@ -6,15 +6,21 @@ import { businessSettings } from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
 import { headers } from 'next/headers'
 import { OrganizationService } from '@/lib/services/organization-service'
+import { getPosAuthorizationContext } from '@/lib/pos/pos-auth'
 
 async function getUserId() {
+  const pos = await getPosAuthorizationContext()
+  if (pos) return pos.userId
   const session = await auth.api.getSession({ headers: await headers() })
   if (!session?.user) throw new Error('Unauthorized')
   return session.user.id
 }
 
 async function getOrgId(userId: string) {
-  const organization = await OrganizationService.getPrimaryOrganization(userId)
+  const pos = await getPosAuthorizationContext()
+  const organization = pos
+    ? await OrganizationService.getOrganization(pos.organizationId, userId)
+    : await OrganizationService.getPrimaryOrganization(userId)
   if (!organization) throw new Error('No organization available')
   return organization.id
 }
@@ -26,6 +32,8 @@ export async function getBusinessSettings() {
   const [settings] = await db.select().from(businessSettings)
     .where(eq(businessSettings.organizationId, orgId)).limit(1)
   
+  const configuredPaymentMethods = Array.isArray(settings?.paymentMethods) ? settings.paymentMethods as string[] : []
+
   // Return settings or safe defaults
   return {
     displayName: settings?.displayName || 'Business',
@@ -40,7 +48,7 @@ export async function getBusinessSettings() {
     taxRate: parseFloat(settings?.taxRate?.toString() || '0'),
     taxName: settings?.taxName || 'VAT',
     pricesIncludeTax: settings?.pricesIncludeTax || false,
-    paymentMethods: (Array.isArray(settings?.paymentMethods) ? settings.paymentMethods as string[] : ['cash']) || ['cash'],
+    paymentMethods: configuredPaymentMethods.length > 0 ? configuredPaymentMethods : ['cash'],
     showTaxOnReceipt: settings?.showTaxOnReceipt || false,
     receiptShowPhone: settings?.receiptShowPhone ?? true,
     receiptShowAddress: settings?.receiptShowAddress ?? true,

@@ -8,6 +8,7 @@ import { useEffect, useState } from 'react'
 import { useWorkspace } from '@/lib/context/workspace-context'
 import { ChevronLeft, ChevronRight, X } from 'lucide-react'
 import { PesabyLogoMark } from '@/components/brand/pesaby-logo'
+import { PermissionEnum } from '@/lib/types/permissions'
 
 type IconName = keyof typeof Icons
 
@@ -17,14 +18,16 @@ function getIcon(iconName: string): React.ElementType {
 }
 
 interface DynamicAppSidebarProps {
+  initialPermissions: readonly PermissionEnum[]
+  initialRole?: string
   mobileOpen?: boolean
   onMobileClose?: () => void
 }
 
-export function DynamicAppSidebar({ mobileOpen = false, onMobileClose }: DynamicAppSidebarProps) {
+export function DynamicAppSidebar({ initialPermissions: permissions, initialRole: role, mobileOpen = false, onMobileClose }: DynamicAppSidebarProps) {
   const pathname = usePathname()
   const [collapsed, setCollapsed] = useState(false)
-  const { config, isLoading } = useWorkspace()
+  const { config } = useWorkspace()
 
   useEffect(() => {
     setCollapsed(window.localStorage.getItem('pesaby-sidebar-collapsed') === 'true')
@@ -35,10 +38,12 @@ export function DynamicAppSidebar({ mobileOpen = false, onMobileClose }: Dynamic
     window.localStorage.setItem('pesaby-sidebar-collapsed', String(value))
   }
 
-  if (isLoading || !config) {
+  if (!config) {
     return (
       <aside className="dashboard-sidebar hidden w-64 flex-col border-r lg:flex">
-        <div className="h-16 border-b border-[hsl(var(--sidebar-border))] animate-pulse bg-[hsl(var(--sidebar-hover))]" />
+        <div className="flex h-16 items-center border-b border-[hsl(var(--sidebar-border))] px-4">
+          <PesabyLogoMark className="h-8 w-8" />
+        </div>
       </aside>
     )
   }
@@ -50,8 +55,47 @@ export function DynamicAppSidebar({ mobileOpen = false, onMobileClose }: Dynamic
     return pathname === href || pathname.startsWith(`${href}/`)
   }
 
-  const primaryNav = config.sidebarConfig.primaryNav
-  const secondaryNav = config.sidebarConfig.secondaryNav
+  const permissionForNavItem: Record<string, PermissionEnum> = {
+    pos: PermissionEnum.POS_VIEW,
+    'my-sales': PermissionEnum.SALES_VIEW_OWN,
+    dashboard: PermissionEnum.SALES_VIEW_ALL,
+    sales: PermissionEnum.SALES_VIEW_ALL,
+    products: PermissionEnum.PRODUCT_VIEW,
+    categories: PermissionEnum.PRODUCT_EDIT,
+    inventory: PermissionEnum.INVENTORY_VIEW,
+    customers: PermissionEnum.CUSTOMER_VIEW,
+    analytics: PermissionEnum.REPORT_VIEW,
+    reports: PermissionEnum.REPORT_VIEW,
+    purchases: PermissionEnum.PURCHASE_VIEW,
+    expenses: PermissionEnum.EXPENSE_VIEW,
+    operations: PermissionEnum.SHIFT_MANAGE,
+    settings: PermissionEnum.SETTINGS_VIEW,
+    staff: PermissionEnum.STAFF_MANAGE,
+  }
+  // Unknown workspace items are hidden until they have an explicit permission mapping.
+  const canView = (id: string) => Boolean(permissionForNavItem[id] && permissions.includes(permissionForNavItem[id]))
+  const posNav = { id: 'pos', label: 'Point of sale', icon: 'ReceiptText', route: '/dashboard/pos' }
+  const staffNav = { id: 'staff', label: 'Staff & access', icon: 'UsersRound', route: '/dashboard/staff' }
+  const composedPrimaryNav = [
+    ...(permissions.includes(PermissionEnum.POS_VIEW) || permissions.includes(PermissionEnum.POS_SELL) ? [posNav] : []),
+    ...config.sidebarConfig.primaryNav,
+    ...(permissions.includes(PermissionEnum.STAFF_MANAGE) ? [staffNav] : []),
+  ]
+  const primaryNav = composedPrimaryNav.filter((item, index, items) =>
+    items.findIndex((candidate) => candidate.id === item.id) === index &&
+    canView(item.id) &&
+    !(['cashier', 'supervisor', 'inventory', 'accountant'].includes(role ?? '') && item.id === 'dashboard')
+  )
+  // Keep the cashier workspace focused on counter work and their own records.
+  // Management, inventory and business-wide reporting remain unavailable here.
+  const cashierPrimaryNav = [
+    ...(canView('pos') ? [posNav] : []),
+    ...(permissions.includes(PermissionEnum.SALES_VIEW_OWN) ? [{ id: 'my-sales', label: 'My receipts', icon: 'ReceiptText', route: '/dashboard/pos/history' }] : []),
+    ...(config.enabledModules.includes('customers') && permissions.includes(PermissionEnum.CUSTOMER_VIEW) ? [{ id: 'customers', label: 'Customers', icon: 'Users', route: '/dashboard/customers' }] : []),
+  ]
+  const secondaryNav = config.sidebarConfig.secondaryNav.filter((item) => canView(item.id))
+  const visiblePrimaryNav = role === 'cashier' ? cashierPrimaryNav : primaryNav
+  const visibleSecondaryNav = role === 'cashier' ? [] : secondaryNav
   const sidebarWidth = collapsed ? 'lg:w-[68px]' : 'lg:w-[223px]'
 
   const sidebar = (
@@ -118,7 +162,7 @@ export function DynamicAppSidebar({ mobileOpen = false, onMobileClose }: Dynamic
           <p className="section-label mb-4 px-3 text-[#a1a1a6] text-xs font-semibold uppercase tracking-wider">Workspace</p>
         )}
         <ul className="space-y-1.5">
-          {primaryNav.map((item) => {
+          {visiblePrimaryNav.map((item) => {
             // Skip items that don't have a route
             if (!item.route) return null
             
@@ -151,7 +195,7 @@ export function DynamicAppSidebar({ mobileOpen = false, onMobileClose }: Dynamic
       {/* Bottom nav */}
       <div className="border-t border-[rgba(255,214,10,0.08)] py-4 px-3">
         <ul className="space-y-1">
-          {secondaryNav.map((item) => {
+          {visibleSecondaryNav.map((item) => {
             const IconComponent = getIcon(item.icon) as React.ElementType
             const active = item.route ? isActive(item.route) : false
 

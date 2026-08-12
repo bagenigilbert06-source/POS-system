@@ -1,6 +1,14 @@
 import { betterAuth } from 'better-auth'
 import { bearer, jwt } from 'better-auth/plugins'
+import { cache } from 'react'
+import { headers } from 'next/headers'
 import { pool } from '@/lib/db'
+import { db } from '@/lib/db'
+import { auditEvent, employee, user } from '@/lib/db/schema'
+import { eq } from 'drizzle-orm'
+import { generateId } from '@/lib/utils'
+import { sendStaffInvitation } from '@/lib/email/staff-invitation'
+import { sendEmail } from '@/lib/email/client'
 
 export const auth = betterAuth({
   database: pool,
@@ -14,6 +22,20 @@ export const auth = betterAuth({
   emailAndPassword: {
     enabled: true,
     autoSignIn: true,
+    resetPasswordTokenExpiresIn: 60 * 60,
+    async sendResetPassword({ user: authUser, url }) {
+      const [staff] = await db.select().from(employee).where(eq(employee.userId, authUser.id)).limit(1)
+      if (staff?.status === 'invited') await sendStaffInvitation({ userId: authUser.id, email: authUser.email, setupUrl: url })
+      else await sendEmail({ to: { email: authUser.email, name: authUser.name }, subject: 'Reset your Pesaby password', text: `Reset your password using this secure one-hour link: ${url}`, html: `<p>Hello ${authUser.name},</p><p><a href="${url}">Reset your Pesaby password</a></p><p>This secure link expires in one hour and can only be used once.</p>` })
+    },
+    async onPasswordReset({ user: authUser }) {
+      const [staff] = await db.select().from(employee).where(eq(employee.userId, authUser.id)).limit(1)
+      await db.update(user).set({ status: 'active', emailVerified: true, updatedAt: new Date() }).where(eq(user.id, authUser.id))
+      if (staff?.status === 'invited') {
+        await db.update(employee).set({ status: 'active', updatedAt: new Date() }).where(eq(employee.id, staff.id))
+        await db.insert(auditEvent).values({ id: generateId(), organizationId: staff.orgId, userId: authUser.id, action: 'staff.activated', metadata: { employeeId: staff.id } })
+      }
+    },
   },
   trustedOrigins: [
     'http://localhost:3000',
@@ -40,3 +62,6 @@ export const auth = betterAuth({
     }),
   ],
 })
+
+/** One request-scoped session lookup shared by dashboard layouts and pages. */
+export const getCurrentSession = cache(async () => auth.api.getSession({ headers: await headers() }))

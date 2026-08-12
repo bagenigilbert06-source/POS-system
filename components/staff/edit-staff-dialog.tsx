@@ -117,8 +117,9 @@ export function EditStaffDialog({ employee, open, onOpenChange }: EditStaffDialo
               >
                 <option value="cashier">Cashier</option>
                 <option value="manager">Manager</option>
-                <option value="stock">Stock</option>
                 <option value="supervisor">Supervisor</option>
+                <option value="inventory">Inventory / Storekeeper</option>
+                <option value="accountant">Accountant / Finance</option>
               </select>
             </div>
             <div className="space-y-2">

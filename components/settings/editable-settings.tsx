@@ -57,6 +57,7 @@ export function EditableSettings({ businessSettings, organization, buttonOnly = 
     subtotal: '2500.00',
     taxAmount: '400.00',
     discountAmount: '0.00',
+    roundingAmount: '0.00',
     total: '2900.00',
     paymentMethod: formData.defaultPaymentMethod,
     mpesaRef: formData.defaultPaymentMethod === 'mpesa' ? 'QWE123ABC' : null,

@@ -9,15 +9,22 @@ import { revalidatePath } from 'next/cache'
 import { generateId, normalizeBarcode, slugify } from '@/lib/utils'
 import { OrganizationService } from '@/lib/services/organization-service'
 import { WorkspaceService } from '@/lib/services/workspace-service'
+import { getPosAuthorizationContext } from '@/lib/pos/pos-auth'
+import { invalidateCategoryCache, invalidateProductCache, invalidateProductReadCache, readThroughRedis } from '@/lib/cache/redis-cache'
 
 async function getUserId() {
+  const pos = await getPosAuthorizationContext()
+  if (pos) return pos.userId
   const session = await auth.api.getSession({ headers: await headers() })
   if (!session?.user) throw new Error('Unauthorized')
   return session.user.id
 }
 
 async function getOrgId(userId: string) {
-  const organization = await OrganizationService.getPrimaryOrganization(userId)
+  const pos = await getPosAuthorizationContext()
+  const organization = pos
+    ? await OrganizationService.getOrganization(pos.organizationId, userId)
+    : await OrganizationService.getPrimaryOrganization(userId)
   if (!organization) throw new Error('No organization available')
   const config = await WorkspaceService.getWorkspaceConfig(organization.id, userId)
   if (!config?.enabledModules.includes('products')) throw new Error('Products are not enabled for this workspace')
@@ -39,24 +46,25 @@ export async function getProducts(search?: string, includeInactive = false) {
 }
 
 async function getProductsForOrg(orgId: string, search?: string, includeInactive = false) {
-
-  const conditions = [eq(product.orgId, orgId)]
-  if (!includeInactive) conditions.push(eq(product.isActive, true))
-  if (search) {
-    conditions.push(
-      or(
-        ilike(product.name, `%${search}%`),
-        ilike(product.sku, `%${search}%`),
-        ilike(product.barcode, `%${search}%`)
-      )!
-    )
-  }
-
-  return db
-    .select()
-    .from(product)
-    .where(and(...conditions))
-    .orderBy(desc(product.createdAt))
+  const normalizedSearch = search?.trim().toLowerCase().slice(0, 80) ?? ''
+  return readThroughRedis({
+    namespace: 'products',
+    organizationId: orgId,
+    variant: `list:${includeInactive ? 'all' : 'active'}:${normalizedSearch}`,
+    ttlSeconds: 120,
+    load: async () => {
+      const conditions = [eq(product.orgId, orgId)]
+      if (!includeInactive) conditions.push(eq(product.isActive, true))
+      if (normalizedSearch) {
+        conditions.push(or(
+          ilike(product.name, `%${normalizedSearch}%`),
+          ilike(product.sku, `%${normalizedSearch}%`),
+          ilike(product.barcode, `%${normalizedSearch}%`),
+        )!)
+      }
+      return db.select().from(product).where(and(...conditions)).orderBy(desc(product.createdAt))
+    },
+  })
 }
 
 export async function getProductMonthlySales() {
@@ -94,7 +102,7 @@ export async function getProductsForCategory(categoryId: string) {
   const now = new Date()
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
   const [products, monthlySales] = await Promise.all([
-    db.select().from(product).where(and(eq(product.orgId, orgId), eq(product.categoryId, categoryId))).orderBy(desc(product.createdAt)),
+    readThroughRedis({ namespace: 'products', organizationId: orgId, variant: `category:${categoryId}`, ttlSeconds: 120, load: () => db.select().from(product).where(and(eq(product.orgId, orgId), eq(product.categoryId, categoryId))).orderBy(desc(product.createdAt)) }),
     db.select({ productId: saleItem.productId, unitsSoldMonth: sql<number>`coalesce(sum(${saleItem.quantity}), 0)` }).from(saleItem).innerJoin(sale, eq(sale.id, saleItem.saleId)).where(and(eq(saleItem.orgId, orgId), eq(sale.orgId, orgId), eq(sale.status, 'completed'), gte(sale.createdAt, monthStart))).groupBy(saleItem.productId),
   ])
   const unitsSoldByProduct = new Map(monthlySales.map((item) => [item.productId, Number(item.unitsSoldMonth)]))
@@ -188,11 +196,10 @@ export async function getProductOverview(id: string) {
 export async function getProductCategories() {
   const userId = await getUserId()
   const orgId = await getOrgId(userId)
-  return db
-    .select({ id: category.id, name: category.name, parentCategoryId: category.parentCategoryId, isActive: category.isActive })
-    .from(category)
-    .where(eq(category.orgId, orgId))
-    .orderBy(category.name)
+  return readThroughRedis({
+    namespace: 'categories', organizationId: orgId, variant: 'pos-filter-list', ttlSeconds: 600,
+    load: () => db.select({ id: category.id, name: category.name, parentCategoryId: category.parentCategoryId, isActive: category.isActive }).from(category).where(eq(category.orgId, orgId)).orderBy(category.name),
+  })
 }
 
 export async function getLowStockProducts() {
@@ -222,6 +229,7 @@ export async function createCategory(name: string) {
   if (existing) return existing
   const id = generateId()
   await db.insert(category).values({ id, name: trimmedName, slug: `${trimmedName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')}-${id.slice(0, 8)}`, userId, orgId, updatedAt: new Date() })
+  await invalidateCategoryCache(orgId)
   revalidatePath('/dashboard/products')
   return { id }
 }
@@ -302,6 +310,7 @@ export async function createProduct(data: {
       })
     }
   })
+  await invalidateProductCache(orgId)
   revalidatePath('/dashboard/products')
   revalidatePath('/dashboard/inventory')
   return { id }
@@ -362,6 +371,8 @@ export async function updateProduct(
       updatedAt: new Date(),
     } as any)
     .where(and(eq(product.id, id), eq(product.orgId, orgId)))
+  if (data.categoryId !== undefined || data.isActive !== undefined) await invalidateProductCache(orgId)
+  else await invalidateProductReadCache(orgId)
   revalidatePath('/dashboard/products')
 }
 
@@ -371,6 +382,7 @@ export async function deleteProduct(id: string) {
   await db
     .delete(product)
     .where(and(eq(product.id, id), eq(product.orgId, orgId)))
+  await invalidateProductCache(orgId)
   revalidatePath('/dashboard/products')
 }
 
@@ -380,6 +392,7 @@ export async function archiveProduct(id: string) {
   await db.update(product)
     .set({ isActive: false, updatedAt: new Date() })
     .where(and(eq(product.id, id), eq(product.orgId, orgId)))
+  await invalidateProductCache(orgId)
   revalidatePath('/dashboard/products')
   revalidatePath('/dashboard/inventory')
 }

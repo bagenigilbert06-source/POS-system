@@ -1,12 +1,8 @@
 import { mkdir, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { NextResponse } from 'next/server'
-import { headers } from 'next/headers'
-import { auth } from '@/lib/auth'
-import { db } from '@/lib/db'
-import { organizationMembership } from '@/lib/db/schema'
-import { and, eq } from 'drizzle-orm'
-import { OrganizationService } from '@/lib/services/organization-service'
+import { AuthorizationError, requirePermission } from '@/lib/auth/authorization'
+import { PermissionEnum } from '@/lib/types/permissions'
 
 const MAX_BYTES = 5 * 1024 * 1024
 
@@ -15,13 +11,7 @@ function isPng(bytes: Uint8Array) { return bytes.slice(0, 8).every((value, index
 function isWebp(bytes: Uint8Array) { return String.fromCharCode(...bytes.slice(0, 4)) === 'RIFF' && String.fromCharCode(...bytes.slice(8, 12)) === 'WEBP' }
 
 export async function POST(request: Request) {
-  const session = await auth.api.getSession({ headers: await headers() })
-  if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  const organization = await OrganizationService.getPrimaryOrganization(session.user.id)
-  if (!organization) return NextResponse.json({ error: 'Workspace not found' }, { status: 403 })
-  const [membership] = await db.select({ role: organizationMembership.role }).from(organizationMembership)
-    .where(and(eq(organizationMembership.organizationId, organization.id), eq(organizationMembership.userId, session.user.id))).limit(1)
-  if (!membership || !['owner', 'admin', 'manager'].includes(membership.role)) return NextResponse.json({ error: 'You do not have permission to upload product images' }, { status: 403 })
+  try { await requirePermission(PermissionEnum.PRODUCT_EDIT) } catch (error) { return NextResponse.json({ error: error instanceof AuthorizationError ? error.message : 'Unauthorized' }, { status: 403 }) }
 
   const formData = await request.formData()
   const file = formData.get('file')

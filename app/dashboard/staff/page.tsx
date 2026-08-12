@@ -1,31 +1,28 @@
-import { headers } from 'next/headers'
-import { redirect } from 'next/navigation'
 import type { Metadata } from 'next'
-import { Users, Plus } from 'lucide-react'
-import { auth } from '@/lib/auth'
-import { OrganizationService } from '@/lib/services/organization-service'
+import { Users } from 'lucide-react'
 import { DashboardPageHeading } from '@/components/dashboard/page-heading'
 import { StaffManagementTable } from '@/components/staff/staff-management-table'
 import { AddStaffDialog } from '@/components/staff/add-staff-dialog'
 import { db } from '@/lib/db'
-import { employee } from '@/lib/db/schema'
-import { eq } from 'drizzle-orm'
+import { branch, employee, posPinCredential } from '@/lib/db/schema'
+import { eq, sql } from 'drizzle-orm'
+import { requirePermission } from '@/lib/auth/authorization'
+import { PermissionEnum } from '@/lib/types/permissions'
 
 export const metadata: Metadata = { title: 'Staff Management' }
 
 export default async function StaffPage() {
-  const session = await auth.api.getSession({ headers: await headers() })
-  if (!session?.user) redirect('/sign-in')
-  const organization = await OrganizationService.getPrimaryOrganization(session.user.id)
-  if (!organization) redirect('/onboarding')
+  const authorization = await requirePermission(PermissionEnum.STAFF_MANAGE)
 
   // Fetch all employees for this organization
   const employees = await db
-    .select()
+    .select({ employee, posPinSet: sql<boolean>`${posPinCredential.userId} is not null and ${posPinCredential.enabled} = true` })
     .from(employee)
-    .where(eq(employee.orgId, organization.id))
+    .leftJoin(posPinCredential, eq(posPinCredential.userId, employee.userId))
+    .where(eq(employee.orgId, authorization.organizationId))
     .orderBy(employee.createdAt)
     .catch(() => [])
+  const branches = await db.select({ id: branch.id, name: branch.name }).from(branch).where(eq(branch.organizationId, authorization.organizationId)).orderBy(branch.name)
 
   return (
     <div className="mx-auto max-w-6xl space-y-5 pb-8">
@@ -35,12 +32,12 @@ export default async function StaffPage() {
           title="Staff Management"
           description="Manage employees, assign shifts, and track performance."
         />
-        <AddStaffDialog />
+        <AddStaffDialog branches={branches} canCreateAdmin={authorization.role === 'owner'} />
       </div>
 
       {/* Staff List */}
       <section className="rounded-lg border bg-card p-6">
-        <StaffManagementTable employees={employees} orgId={organization.id} />
+        <StaffManagementTable employees={employees.map(row => ({ ...row.employee, posPinSet: row.posPinSet }))} orgId={authorization.organizationId} />
       </section>
     </div>
   )

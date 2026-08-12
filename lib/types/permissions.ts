@@ -4,6 +4,19 @@
  */
 
 export enum PermissionEnum {
+  // POS & shifts
+  POS_VIEW = 'pos:view',
+  POS_SELL = 'pos:sell',
+  POS_HOLD = 'pos:hold',
+  POS_DISCOUNT = 'pos:discount',
+  POS_VOID = 'pos:void',
+  POS_PIN_USE = 'pos:pin-use',
+  POS_PIN_RESET = 'pos:pin-reset',
+  POS_LOCK = 'pos:lock',
+  POS_SWITCH_USER = 'pos:switch-user',
+  SHIFT_OPEN = 'shift:open',
+  SHIFT_CLOSE = 'shift:close',
+  SHIFT_MANAGE = 'shift:manage',
   // Products
   PRODUCT_VIEW = 'product:view',
   PRODUCT_CREATE = 'product:create',
@@ -17,6 +30,8 @@ export enum PermissionEnum {
   SALE_EDIT = 'sale:edit',
   SALE_DELETE = 'sale:delete',
   SALE_REFUND = 'sale:refund',
+  SALES_VIEW_OWN = 'sales:view-own',
+  SALES_VIEW_ALL = 'sales:view-all',
   ORDER_VIEW = 'order:view',
   ORDER_CREATE = 'order:create',
   ORDER_EDIT = 'order:edit',
@@ -27,6 +42,8 @@ export enum PermissionEnum {
   INVENTORY_EDIT = 'inventory:edit',
   INVENTORY_TRANSFER = 'inventory:transfer',
   INVENTORY_ADJUST = 'inventory:adjust',
+  PURCHASE_VIEW = 'purchase:view',
+  PURCHASE_MANAGE = 'purchase:manage',
 
   // Customers
   CUSTOMER_VIEW = 'customer:view',
@@ -38,6 +55,10 @@ export enum PermissionEnum {
   REPORT_VIEW = 'report:view',
   REPORT_GENERATE = 'report:generate',
   REPORT_EXPORT = 'report:export',
+  FINANCE_VIEW = 'finance:view',
+  FINANCE_MANAGE = 'finance:manage',
+  EXPENSE_VIEW = 'expense:view',
+  EXPENSE_MANAGE = 'expense:manage',
 
   // Settings
   SETTINGS_VIEW = 'settings:view',
@@ -47,6 +68,8 @@ export enum PermissionEnum {
   // Admin
   ADMIN_ACCESS = 'admin:access',
   AUDIT_LOG_VIEW = 'audit:log-view',
+  STAFF_VIEW = 'staff:view',
+  STAFF_MANAGE = 'staff:manage',
 
   // Restaurant Specific
   TABLE_VIEW = 'table:view',
@@ -63,8 +86,12 @@ export enum PermissionEnum {
 
 export enum RoleEnum {
   OWNER = 'owner',
+  ADMIN = 'admin',
   MANAGER = 'manager',
+  SUPERVISOR = 'supervisor',
   CASHIER = 'cashier',
+  INVENTORY = 'inventory',
+  ACCOUNTANT = 'accountant',
   STAFF = 'staff',
   CHEF = 'chef',
   PHARMACIST = 'pharmacist',
@@ -112,7 +139,13 @@ export const ROLE_PERMISSIONS: Record<RoleEnum, PermissionEnum[]> = {
     PermissionEnum.PRESCRIPTION_CREATE,
     PermissionEnum.PRESCRIPTION_DISPENSE,
     PermissionEnum.BATCH_TRACKING_VIEW,
+    PermissionEnum.POS_VIEW, PermissionEnum.POS_SELL, PermissionEnum.POS_HOLD, PermissionEnum.POS_DISCOUNT, PermissionEnum.POS_VOID,
+    PermissionEnum.POS_PIN_USE, PermissionEnum.POS_PIN_RESET, PermissionEnum.POS_LOCK, PermissionEnum.POS_SWITCH_USER,
+    PermissionEnum.SHIFT_OPEN, PermissionEnum.SHIFT_CLOSE, PermissionEnum.SHIFT_MANAGE, PermissionEnum.SALES_VIEW_OWN, PermissionEnum.SALES_VIEW_ALL,
+    PermissionEnum.PURCHASE_VIEW, PermissionEnum.PURCHASE_MANAGE, PermissionEnum.FINANCE_VIEW, PermissionEnum.FINANCE_MANAGE,
+    PermissionEnum.EXPENSE_VIEW, PermissionEnum.EXPENSE_MANAGE, PermissionEnum.STAFF_VIEW, PermissionEnum.STAFF_MANAGE,
   ],
+  [RoleEnum.ADMIN]: [],
   [RoleEnum.MANAGER]: [
     PermissionEnum.PRODUCT_VIEW,
     PermissionEnum.PRODUCT_CREATE,
@@ -139,19 +172,39 @@ export const ROLE_PERMISSIONS: Record<RoleEnum, PermissionEnum[]> = {
     PermissionEnum.KITCHEN_QUEUE_MANAGE,
     PermissionEnum.PRESCRIPTION_VIEW,
     PermissionEnum.BATCH_TRACKING_VIEW,
+    PermissionEnum.POS_VIEW, PermissionEnum.POS_SELL, PermissionEnum.POS_HOLD, PermissionEnum.POS_DISCOUNT, PermissionEnum.POS_VOID,
+    PermissionEnum.POS_PIN_USE, PermissionEnum.POS_PIN_RESET, PermissionEnum.POS_LOCK, PermissionEnum.POS_SWITCH_USER,
+    PermissionEnum.SHIFT_OPEN, PermissionEnum.SHIFT_CLOSE, PermissionEnum.SHIFT_MANAGE, PermissionEnum.SALES_VIEW_OWN, PermissionEnum.SALES_VIEW_ALL,
+    PermissionEnum.PURCHASE_VIEW, PermissionEnum.PURCHASE_MANAGE, PermissionEnum.EXPENSE_VIEW, PermissionEnum.EXPENSE_MANAGE, PermissionEnum.STAFF_VIEW, PermissionEnum.STAFF_MANAGE,
+  ],
+  [RoleEnum.SUPERVISOR]: [
+    PermissionEnum.PRODUCT_VIEW, PermissionEnum.SALE_VIEW, PermissionEnum.SALE_CREATE, PermissionEnum.SALE_REFUND,
+    PermissionEnum.POS_VIEW, PermissionEnum.POS_SELL, PermissionEnum.POS_HOLD, PermissionEnum.POS_DISCOUNT,
+    PermissionEnum.POS_PIN_USE, PermissionEnum.POS_PIN_RESET, PermissionEnum.POS_LOCK, PermissionEnum.POS_SWITCH_USER,
+    PermissionEnum.SHIFT_OPEN, PermissionEnum.SHIFT_CLOSE, PermissionEnum.SHIFT_MANAGE, PermissionEnum.SALES_VIEW_OWN, PermissionEnum.SALES_VIEW_ALL,
+    PermissionEnum.INVENTORY_VIEW, PermissionEnum.CUSTOMER_VIEW, PermissionEnum.CUSTOMER_CREATE,
   ],
   [RoleEnum.CASHIER]: [
     PermissionEnum.PRODUCT_VIEW,
-    PermissionEnum.SALE_VIEW,
     PermissionEnum.SALE_CREATE,
     PermissionEnum.ORDER_VIEW,
     PermissionEnum.ORDER_CREATE,
-    PermissionEnum.INVENTORY_VIEW,
     PermissionEnum.CUSTOMER_VIEW,
     PermissionEnum.CUSTOMER_CREATE,
-    PermissionEnum.REPORT_VIEW,
     PermissionEnum.PRESCRIPTION_VIEW,
     PermissionEnum.PRESCRIPTION_DISPENSE,
+    PermissionEnum.POS_VIEW, PermissionEnum.POS_SELL, PermissionEnum.POS_HOLD, PermissionEnum.SHIFT_OPEN, PermissionEnum.SHIFT_CLOSE,
+    PermissionEnum.POS_PIN_USE, PermissionEnum.POS_LOCK,
+    PermissionEnum.SALES_VIEW_OWN,
+  ],
+  [RoleEnum.INVENTORY]: [
+    PermissionEnum.PRODUCT_VIEW, PermissionEnum.PRODUCT_CREATE, PermissionEnum.PRODUCT_EDIT,
+    PermissionEnum.INVENTORY_VIEW, PermissionEnum.INVENTORY_EDIT, PermissionEnum.INVENTORY_TRANSFER, PermissionEnum.INVENTORY_ADJUST,
+    PermissionEnum.PURCHASE_VIEW, PermissionEnum.PURCHASE_MANAGE,
+  ],
+  [RoleEnum.ACCOUNTANT]: [
+    PermissionEnum.SALE_VIEW, PermissionEnum.SALES_VIEW_ALL, PermissionEnum.REPORT_VIEW, PermissionEnum.REPORT_GENERATE, PermissionEnum.REPORT_EXPORT,
+    PermissionEnum.FINANCE_VIEW, PermissionEnum.FINANCE_MANAGE, PermissionEnum.EXPENSE_VIEW, PermissionEnum.EXPENSE_MANAGE, PermissionEnum.PURCHASE_VIEW,
   ],
   [RoleEnum.STAFF]: [
     PermissionEnum.PRODUCT_VIEW,

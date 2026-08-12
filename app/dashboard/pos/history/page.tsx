@@ -1,12 +1,16 @@
-import { getSales, getSaleWithItems } from '@/app/actions/sales'
+import { getRecentSales } from '@/app/actions/pos-queries'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { formatCurrency } from '@/lib/utils'
 import Link from 'next/link'
 import { ArrowLeft, Package, Clock } from 'lucide-react'
+import { getCurrentSession } from '@/lib/auth'
+import { redirect } from 'next/navigation'
+import { getPosAuthorizationContext } from '@/lib/pos/pos-auth'
 
 export default async function POSSalesHistoryPage() {
-  const sales = await getSales(100)
+  if (!(await getCurrentSession())?.user && !(await getPosAuthorizationContext())) redirect('/sign-in')
+  const sales = await getRecentSales(100)
 
   return (
     <div className="space-y-6">
@@ -31,8 +35,7 @@ export default async function POSSalesHistoryPage() {
       ) : (
         <div className="grid gap-4">
           {sales.map((s) => (
-            <Link key={s.id} href={`/dashboard/sales/${s.id}`}>
-              <Card className="p-4 hover:bg-accent/50 transition-colors cursor-pointer">
+            <Card key={s.id} className="p-4">
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-2">
@@ -49,14 +52,16 @@ export default async function POSSalesHistoryPage() {
                       <Clock className="h-3.5 w-3.5" />
                       {new Date(s.createdAt).toLocaleString()}
                     </div>
+                    <p className="mt-2 text-sm text-muted-foreground">
+                      {s.items.map((item) => `${item.quantity}× ${item.productName}`).join(', ') || 'No item details'}
+                    </p>
                   </div>
                   <div className="text-right">
                     <div className="text-lg font-bold">{formatCurrency(parseFloat(s.total))}</div>
                     <div className="text-xs text-muted-foreground capitalize">{s.paymentMethod}</div>
                   </div>
                 </div>
-              </Card>
-            </Link>
+            </Card>
           ))}
         </div>
       )}

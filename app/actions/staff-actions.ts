@@ -1,12 +1,24 @@
 'use server'
 
 import { db } from '@/lib/db'
-import { employee, shift, shiftAssignment, employeeCommission } from '@/lib/db/schema'
-import { eq, and } from 'drizzle-orm'
+import { auditEvent, branch, branchMembership, employee, organizationMembership, shift, shiftAssignment, employeeCommission, user } from '@/lib/db/schema'
+import { eq, and, inArray } from 'drizzle-orm'
 import { auth } from '@/lib/auth'
 import { headers } from 'next/headers'
 import { OrganizationService } from '@/lib/services/organization-service'
 import { nanoid } from 'nanoid'
+import { requirePermission } from '@/lib/auth/authorization'
+import { PermissionEnum } from '@/lib/types/permissions'
+import { z } from 'zod'
+import { revalidatePath } from 'next/cache'
+
+const staffRoles = ['admin', 'manager', 'supervisor', 'cashier', 'inventory', 'accountant'] as const
+const createStaffSchema = z.object({
+  name: z.string().trim().min(2).max(100), email: z.string().trim().toLowerCase().email(),
+  phone: z.string().trim().max(30).optional(),
+  role: z.enum(staffRoles), branchId: z.string().min(1), department: z.string().trim().max(80).optional(),
+  salary: z.coerce.number().nonnegative().max(999_999_999), status: z.enum(['active', 'inactive']).default('active'),
+})
 
 async function getUserId() {
   const session = await auth.api.getSession({ headers: await headers() })
@@ -22,37 +34,60 @@ async function getOrgId(userId: string) {
 
 export async function createEmployee(data: {
   name: string
-  email?: string
+  email: string
   phone?: string
-  role: string
+  role: typeof staffRoles[number]
+  branchId: string
   department?: string
   salary: number
   status?: string
 }) {
-  const userId = await getUserId()
-  const orgId = await getOrgId(userId)
+  const input = createStaffSchema.parse(data)
+  const authorization = await requirePermission(PermissionEnum.STAFF_MANAGE)
+  if (input.role === 'admin' && authorization.role !== 'owner') throw new Error('Only the owner can grant administrator access')
+  const [selectedBranch] = await db.select({ id: branch.id }).from(branch).where(and(eq(branch.id, input.branchId), eq(branch.organizationId, authorization.organizationId))).limit(1)
+  if (!selectedBranch) throw new Error('Choose a branch in this organization')
+  const result = await db.transaction(async (tx) => {
+    const [existingUser] = await tx.select().from(user).where(eq(user.email, input.email)).limit(1)
+    const staffUserId = existingUser?.id ?? nanoid()
+    const [existingMembership] = await tx.select().from(organizationMembership).where(and(eq(organizationMembership.organizationId, authorization.organizationId), eq(organizationMembership.userId, staffUserId))).limit(1)
+    if (existingMembership) throw new Error('This user already has access to the organization')
+    if (!existingUser) await tx.insert(user).values({ id: staffUserId, name: input.name, email: input.email, status: 'invited' })
+    const employeeId = nanoid()
+    await tx.insert(organizationMembership).values({ id: nanoid(), organizationId: authorization.organizationId, userId: staffUserId, role: input.role })
+    await tx.insert(branchMembership).values({ id: nanoid(), branchId: input.branchId, userId: staffUserId, role: input.role })
+    const status = existingUser ? 'active' : 'invited'
+    const [record] = await tx.insert(employee).values({ id: employeeId, userId: staffUserId, name: input.name, email: input.email, phone: input.phone || null, role: input.role, department: input.department || null, salary: String(input.salary), status, orgId: authorization.organizationId }).returning()
+    await tx.insert(auditEvent).values({ id: nanoid(), organizationId: authorization.organizationId, userId: authorization.userId, action: 'staff.created', metadata: { employeeId, staffUserId, role: input.role, branchId: input.branchId, existingUser: Boolean(existingUser) } })
+    return { record, existingUser: Boolean(existingUser) }
+  })
+  let invitationSent = false
+  if (!result.existingUser) {
+    try {
+      await auth.api.requestPasswordReset({ body: { email: input.email, redirectTo: `${process.env.BETTER_AUTH_URL ?? 'http://localhost:3000'}/setup-account` }, headers: await headers() })
+      invitationSent = Boolean(process.env.BREVO_API_KEY && process.env.EMAIL_FROM_ADDRESS)
+      await db.insert(auditEvent).values({ id: nanoid(), organizationId: authorization.organizationId, userId: authorization.userId, action: invitationSent ? 'staff.invitation_sent' : 'staff.invitation_failed', metadata: { employeeId: result.record.id, reason: invitationSent ? undefined : 'email_not_configured' } })
+    } catch {
+      await db.insert(auditEvent).values({ id: nanoid(), organizationId: authorization.organizationId, userId: authorization.userId, action: 'staff.invitation_failed', metadata: { employeeId: result.record.id, reason: 'delivery_failed' } })
+    }
+  }
+  revalidatePath('/dashboard/staff')
+  return { success: true, employee: result.record, invitationSent, existingUser: result.existingUser }
+}
 
+export async function resendStaffInvitation(employeeId: string) {
+  const authorization = await requirePermission(PermissionEnum.STAFF_MANAGE)
+  const [record] = await db.select().from(employee).where(and(eq(employee.id, employeeId), eq(employee.orgId, authorization.organizationId))).limit(1)
+  if (!record?.userId || !record.email) throw new Error('Staff account was not found')
+  if (record.status !== 'invited') throw new Error('Only pending invitations can be resent')
   try {
-    const newEmployee = await db
-      .insert(employee)
-      .values({
-        id: nanoid(),
-        name: data.name,
-        email: data.email,
-        phone: data.phone,
-        role: data.role,
-        department: data.department,
-        salary: data.salary.toString(),
-        status: data.status || 'active',
-        orgId,
-        userId,
-      })
-      .returning()
-
-    return { success: true, employee: newEmployee[0] }
-  } catch (error) {
-    console.error('[v0] Error creating employee:', error)
-    throw new Error('Failed to create employee')
+    await auth.api.requestPasswordReset({ body: { email: record.email, redirectTo: `${process.env.BETTER_AUTH_URL ?? 'http://localhost:3000'}/setup-account` }, headers: await headers() })
+    const delivered = Boolean(process.env.BREVO_API_KEY && process.env.EMAIL_FROM_ADDRESS)
+    await db.insert(auditEvent).values({ id: nanoid(), organizationId: authorization.organizationId, userId: authorization.userId, action: delivered ? 'staff.invitation_resent' : 'staff.invitation_failed', metadata: { employeeId } })
+    return { success: true, delivered }
+  } catch {
+    await db.insert(auditEvent).values({ id: nanoid(), organizationId: authorization.organizationId, userId: authorization.userId, action: 'staff.invitation_failed', metadata: { employeeId, reason: 'delivery_failed' } })
+    return { success: false, delivered: false }
   }
 }
 
@@ -65,12 +100,16 @@ export async function updateEmployee(employeeId: string, data: {
   salary?: number
   status?: string
 }) {
-  const userId = await getUserId()
-  const orgId = await getOrgId(userId)
+  const authorization = await requirePermission(PermissionEnum.STAFF_MANAGE)
+  const orgId = authorization.organizationId
+  if (data.role === 'owner') throw new Error('Ownership cannot be assigned from staff management')
+  if (data.role === 'admin' && authorization.role !== 'owner') throw new Error('Only the owner can grant administrator access')
 
   try {
-    const updated = await db
-      .update(employee)
+    const [current] = await db.select().from(employee).where(and(eq(employee.id, employeeId), eq(employee.orgId, orgId))).limit(1)
+    if (!current) throw new Error('Employee not found')
+    const updated = await db.transaction(async (tx) => {
+      const rows = await tx.update(employee)
       .set({
         ...(data.name && { name: data.name }),
         ...(data.email && { email: data.email }),
@@ -82,7 +121,12 @@ export async function updateEmployee(employeeId: string, data: {
       })
       .where(and(eq(employee.id, employeeId), eq(employee.orgId, orgId)))
       .returning()
-
+      if (current.userId && data.role) await tx.update(organizationMembership).set({ role: data.role, updatedAt: new Date() }).where(and(eq(organizationMembership.organizationId, orgId), eq(organizationMembership.userId, current.userId)))
+      if (current.userId && data.role) await tx.update(branchMembership).set({ role: data.role }).where(eq(branchMembership.userId, current.userId))
+      await tx.insert(auditEvent).values({ id: nanoid(), organizationId: orgId, userId: authorization.userId, action: 'staff_access_updated', metadata: { employeeId, previousRole: current.role, role: data.role ?? current.role, status: data.status ?? current.status } })
+      return rows
+    })
+    revalidatePath('/dashboard/staff')
     return { success: true, employee: updated[0] }
   } catch (error) {
     console.error('[v0] Error updating employee:', error)
@@ -91,14 +135,22 @@ export async function updateEmployee(employeeId: string, data: {
 }
 
 export async function deleteEmployee(employeeId: string) {
-  const userId = await getUserId()
-  const orgId = await getOrgId(userId)
+  const authorization = await requirePermission(PermissionEnum.STAFF_MANAGE)
+  const orgId = authorization.organizationId
 
   try {
-    await db
-      .delete(employee)
-      .where(and(eq(employee.id, employeeId), eq(employee.orgId, orgId)))
-
+    const [current] = await db.select().from(employee).where(and(eq(employee.id, employeeId), eq(employee.orgId, orgId))).limit(1)
+    if (!current) throw new Error('Employee not found')
+    await db.transaction(async (tx) => {
+      await tx.update(employee).set({ status: 'inactive', updatedAt: new Date() }).where(and(eq(employee.id, employeeId), eq(employee.orgId, orgId)))
+      if (current.userId) {
+        const organizationBranches = await tx.select({ id: branch.id }).from(branch).where(eq(branch.organizationId, orgId))
+        if (organizationBranches.length) await tx.delete(branchMembership).where(and(eq(branchMembership.userId, current.userId), inArray(branchMembership.branchId, organizationBranches.map(({ id }) => id))))
+        await tx.delete(organizationMembership).where(and(eq(organizationMembership.organizationId, orgId), eq(organizationMembership.userId, current.userId)))
+      }
+      await tx.insert(auditEvent).values({ id: nanoid(), organizationId: orgId, userId: authorization.userId, action: 'staff_access_revoked', metadata: { employeeId, staffUserId: current.userId, role: current.role } })
+    })
+    revalidatePath('/dashboard/staff')
     return { success: true }
   } catch (error) {
     console.error('[v0] Error deleting employee:', error)
@@ -111,6 +163,7 @@ export async function createShift(data: {
   startTime: string // HH:mm
   endTime: string   // HH:mm
 }) {
+  await requirePermission(PermissionEnum.SHIFT_MANAGE)
   const userId = await getUserId()
   const orgId = await getOrgId(userId)
 
@@ -138,6 +191,7 @@ export async function assignShift(data: {
   shiftId: string
   date: Date
 }) {
+  await requirePermission(PermissionEnum.SHIFT_MANAGE)
   const userId = await getUserId()
   const orgId = await getOrgId(userId)
 
@@ -165,6 +219,7 @@ export async function recordCommission(data: {
   amount: number
   period: string // YYYY-MM
 }) {
+  await requirePermission(PermissionEnum.STAFF_MANAGE)
   const userId = await getUserId()
   const orgId = await getOrgId(userId)
 

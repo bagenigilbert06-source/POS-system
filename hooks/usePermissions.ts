@@ -21,6 +21,7 @@ export function usePermissions() {
 
         const response = await fetch('/api/permissions', {
           method: 'GET',
+          cache: 'no-store',
         });
 
         if (!response.ok) {

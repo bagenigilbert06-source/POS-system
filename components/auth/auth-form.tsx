@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { authClient } from '@/lib/auth-client'
 import { cn } from '@/lib/utils'
 import { Loader2, Eye, EyeOff, Check } from 'lucide-react'
+import Link from 'next/link'
 
 interface AuthFormProps {
   mode: 'sign-in' | 'sign-up'
@@ -53,6 +54,13 @@ export function AuthForm({ mode }: AuthFormProps) {
     return tokens
   }
 
+  const getPostLoginDestination = async () => {
+    const response = await fetch('/api/auth/landing', { cache: 'no-store', credentials: 'include' })
+    if (!response.ok) return '/dashboard'
+    const data = await response.json()
+    return typeof data.destination === 'string' ? data.destination : '/dashboard'
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
@@ -84,7 +92,7 @@ export function AuthForm({ mode }: AuthFormProps) {
         })
         if (result.error) throw new Error(result.error.message)
         await loadAccessToken()
-        router.push('/dashboard')
+        router.push(await getPostLoginDestination())
       }
       router.refresh()
     } catch (err: unknown) {
@@ -258,12 +266,7 @@ export function AuthForm({ mode }: AuthFormProps) {
               />
               Remember me
             </label>
-            <a
-              href="mailto:support@pesaby.com?subject=Password%20reset"
-              className="font-semibold text-[#e42527] hover:underline"
-            >
-              Forgot password?
-            </a>
+            <Link href="/forgot-password" className="font-semibold text-[#b91c1c] hover:underline">Forgot password?</Link>
           </div>
         )}
 

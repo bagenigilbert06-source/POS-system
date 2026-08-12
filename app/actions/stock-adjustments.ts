@@ -8,6 +8,9 @@ import { headers } from 'next/headers'
 import { generateId } from '@/lib/utils'
 import { OrganizationService } from '@/lib/services/organization-service'
 import { WorkspaceService } from '@/lib/services/workspace-service'
+import { requirePermission } from '@/lib/auth/authorization'
+import { PermissionEnum } from '@/lib/types/permissions'
+import { invalidateProductReadCache } from '@/lib/cache/redis-cache'
 
 async function getUserId() {
   const session = await auth.api.getSession({ headers: await headers() })
@@ -35,6 +38,7 @@ export async function createStockAdjustment(data: {
   items: AdjustmentItem[]
   notes?: string
 }) {
+  await requirePermission(PermissionEnum.INVENTORY_ADJUST)
   const userId = await getUserId()
   const orgId = await getOrgId(userId, 'inventory')
 
@@ -88,6 +92,7 @@ export async function createStockAdjustment(data: {
 }
 
 export async function approveStockAdjustment(adjustmentId: string) {
+  await requirePermission(PermissionEnum.INVENTORY_ADJUST)
   const userId = await getUserId()
   const orgId = await getOrgId(userId, 'inventory')
 
@@ -154,10 +159,13 @@ export async function approveStockAdjustment(adjustmentId: string) {
     })
   })
 
+  await invalidateProductReadCache(orgId)
+
   return { status: 'approved' }
 }
 
 export async function rejectStockAdjustment(adjustmentId: string, reason: string) {
+  await requirePermission(PermissionEnum.INVENTORY_ADJUST)
   const userId = await getUserId()
   const orgId = await getOrgId(userId, 'inventory')
 

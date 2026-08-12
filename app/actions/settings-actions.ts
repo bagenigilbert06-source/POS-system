@@ -7,6 +7,8 @@ import { auth } from '@/lib/auth'
 import { headers } from 'next/headers'
 import { revalidatePath } from 'next/cache'
 import { OrganizationService } from '@/lib/services/organization-service'
+import { requirePermission } from '@/lib/auth/authorization'
+import { PermissionEnum } from '@/lib/types/permissions'
 
 async function getUserId() {
   const session = await auth.api.getSession({ headers: await headers() })
@@ -43,6 +45,7 @@ export async function updateBusinessSettings(data: {
   receiptShowItemSku?: boolean
   defaultPaymentMethod?: string
 }) {
+  await requirePermission(PermissionEnum.SETTINGS_EDIT)
   const userId = await getUserId()
   const orgId = await getOrgId(userId)
 
@@ -89,6 +92,7 @@ export async function updateOrganizationSettings(data: {
   currency?: string
   timezone?: string
 }) {
+  await requirePermission(PermissionEnum.SETTINGS_EDIT)
   const userId = await getUserId()
   const orgId = await getOrgId(userId)
 

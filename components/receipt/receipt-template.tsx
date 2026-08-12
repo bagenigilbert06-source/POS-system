@@ -4,7 +4,7 @@ import { ReceiptQrCode } from './receipt-qr-code'
 import Image from 'next/image'
 
 interface ReceiptTemplateProps {
-  sale: Pick<Sale, 'id' | 'receiptNo' | 'createdAt' | 'subtotal' | 'taxAmount' | 'discountAmount' | 'total' | 'paymentMethod' | 'mpesaRef'> & {
+  sale: Pick<Sale, 'id' | 'receiptNo' | 'createdAt' | 'subtotal' | 'taxAmount' | 'discountAmount' | 'roundingAmount' | 'total' | 'paymentMethod' | 'mpesaRef'> & {
     items: Array<Pick<SaleItem, 'id' | 'productName' | 'productId' | 'quantity' | 'totalPrice'>>
   }
   businessName?: string
@@ -49,6 +49,7 @@ export function ReceiptTemplate({
   const subtotal = parseFloat(sale.subtotal.toString())
   const taxAmount = parseFloat(sale.taxAmount.toString())
   const discountAmount = parseFloat(sale.discountAmount.toString())
+  const roundingAmount = parseFloat(sale.roundingAmount.toString())
   const total = parseFloat(sale.total.toString())
 
   if (layout === 'thermal') {
@@ -59,7 +60,7 @@ export function ReceiptTemplate({
       <div className="my-4 border-y-2 border-dotted border-zinc-900 py-2 text-center"><p className="font-bold tracking-wide">RECEIPT</p><p>{formatDateTime(sale.createdAt)}</p><p>#{sale.receiptNo}</p></div>
       <div className="mb-3 grid grid-cols-[1fr_32px_72px] gap-1 border-b border-dotted border-zinc-700 pb-1 text-[10px] font-bold uppercase"><span>Item</span><span className="text-center">Qty</span><span className="text-right">Total</span></div>
       <div className="space-y-1.5">{sale.items.map((item) => <div key={item.id} className="grid grid-cols-[1fr_32px_72px] gap-1"><span>{item.productName}{showItemSku && <span className="block text-[9px] text-zinc-500">{item.productId.slice(0, 8).toUpperCase()}</span>}</span><span className="text-center">{item.quantity}</span><span className="text-right">{formatCurrency(parseFloat(item.totalPrice.toString()))}</span></div>)}</div>
-      <div className="my-4 border-y-2 border-dotted border-zinc-900 py-2"><div className="flex justify-between"><span>Subtotal</span><span>{formatCurrency(subtotal)}</span></div>{taxAmount > 0 && <div className="flex justify-between"><span>{taxName}</span><span>{formatCurrency(taxAmount)}</span></div>}{discountAmount > 0 && <div className="flex justify-between"><span>Discount</span><span>-{formatCurrency(discountAmount)}</span></div>}<div className="mt-1 flex justify-between text-sm font-bold"><span>TOTAL</span><span>{formatCurrency(total)}</span></div></div>
+      <div className="my-4 border-y-2 border-dotted border-zinc-900 py-2"><div className="flex justify-between"><span>Subtotal</span><span>{formatCurrency(subtotal)}</span></div>{taxAmount > 0 && <div className="flex justify-between"><span>{taxName}</span><span>{formatCurrency(taxAmount)}</span></div>}{discountAmount > 0 && <div className="flex justify-between"><span>Discount</span><span>-{formatCurrency(discountAmount)}</span></div>}{roundingAmount !== 0 && <div className="flex justify-between"><span>M-Pesa rounding</span><span>{roundingAmount > 0 ? '+' : '-'}{formatCurrency(Math.abs(roundingAmount))}</span></div>}<div className="mt-1 flex justify-between text-sm font-bold"><span>TOTAL</span><span>{formatCurrency(total)}</span></div></div>
       {showPayment && <p className="text-center">Payment: <span className="font-bold capitalize">{sale.paymentMethod}</span>{sale.mpesaRef ? ` · ${sale.mpesaRef}` : ''}</p>}
       {showQrCode && <div className="mt-4 flex justify-center"><ReceiptQrCode saleId={sale.id} receiptNo={sale.receiptNo} total={formatCurrency(total)} paymentMethod={sale.paymentMethod} createdAt={sale.createdAt} /></div>}
       <div className="mt-4 border-t-2 border-dotted border-zinc-900 pt-3 text-center"><p className="font-bold">{receiptFooter}</p><p className="mt-1 text-[9px] text-zinc-500">Transaction: {sale.id.slice(0, 8).toUpperCase()}</p></div>
@@ -124,7 +125,7 @@ export function ReceiptTemplate({
           <div className="space-y-2 text-xs">
             {sale.items.map((item) => <div key={item.id} className="flex justify-between gap-4"><span className="font-medium">{item.productName} <span className="text-zinc-500">× {item.quantity}</span>{showItemSku && <span className="block text-[10px] font-normal text-zinc-500">Item {item.productId.slice(0, 8).toUpperCase()}</span>}</span><span className="font-semibold">{formatCurrency(parseFloat(item.totalPrice.toString()))}</span></div>)}
           </div>
-          <div className="mt-4 space-y-1 border-t border-zinc-200 pt-3 text-xs text-zinc-600"><div className="flex justify-between"><span>Subtotal</span><span>{formatCurrency(subtotal)}</span></div>{taxAmount > 0 && <div className="flex justify-between"><span>{taxName}</span><span>{formatCurrency(taxAmount)}</span></div>}{discountAmount > 0 && <div className="flex justify-between text-emerald-700"><span>Discount</span><span>-{formatCurrency(discountAmount)}</span></div>}<div className="mt-2 flex justify-between text-base font-bold text-zinc-950"><span>Total paid</span><span>{formatCurrency(total)}</span></div></div>
+          <div className="mt-4 space-y-1 border-t border-zinc-200 pt-3 text-xs text-zinc-600"><div className="flex justify-between"><span>Subtotal</span><span>{formatCurrency(subtotal)}</span></div>{taxAmount > 0 && <div className="flex justify-between"><span>{taxName}</span><span>{formatCurrency(taxAmount)}</span></div>}{discountAmount > 0 && <div className="flex justify-between text-emerald-700"><span>Discount</span><span>-{formatCurrency(discountAmount)}</span></div>}{roundingAmount !== 0 && <div className="flex justify-between"><span>M-Pesa rounding</span><span>{roundingAmount > 0 ? '+' : '-'}{formatCurrency(Math.abs(roundingAmount))}</span></div>}<div className="mt-2 flex justify-between text-base font-bold text-zinc-950"><span>Total paid</span><span>{formatCurrency(total)}</span></div></div>
         </div>
 
         {showQrCode && <div className="mb-3 flex justify-center"><ReceiptQrCode saleId={sale.id} receiptNo={sale.receiptNo} total={formatCurrency(total)} paymentMethod={sale.paymentMethod} createdAt={sale.createdAt} /></div>}
