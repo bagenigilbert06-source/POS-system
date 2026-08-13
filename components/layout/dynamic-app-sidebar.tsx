@@ -76,9 +76,16 @@ export function DynamicAppSidebar({ initialPermissions: permissions, initialRole
   const canView = (id: string) => Boolean(permissionForNavItem[id] && permissions.includes(permissionForNavItem[id]))
   const posNav = { id: 'pos', label: 'Point of sale', icon: 'ReceiptText', route: '/dashboard/pos' }
   const staffNav = { id: 'staff', label: 'Staff & access', icon: 'UsersRound', route: '/dashboard/staff' }
+  // Keep the navigation aligned with the way a shop is run: understand the
+  // business first, sell second, then manage the catalogue and operations.
+  // The workspace template still decides which entries exist; this only gives
+  // the common entries a consistent, easy-to-scan order.
+  const dashboardNav = config.sidebarConfig.primaryNav.filter((item) => item.id === 'dashboard')
+  const workspaceNav = config.sidebarConfig.primaryNav.filter((item) => item.id !== 'dashboard' && item.id !== 'pos')
   const composedPrimaryNav = [
+    ...dashboardNav,
     ...(permissions.includes(PermissionEnum.POS_VIEW) || permissions.includes(PermissionEnum.POS_SELL) ? [posNav] : []),
-    ...config.sidebarConfig.primaryNav,
+    ...workspaceNav,
     ...(permissions.includes(PermissionEnum.STAFF_MANAGE) ? [staffNav] : []),
   ]
   const primaryNav = composedPrimaryNav.filter((item, index, items) =>
