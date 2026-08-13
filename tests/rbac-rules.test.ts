@@ -10,6 +10,7 @@ assert.equal(has(RoleEnum.CASHIER, PermissionEnum.REPORT_VIEW), false, 'cashiers
 assert.equal(has(RoleEnum.CASHIER, PermissionEnum.PRODUCT_EDIT), false, 'cashiers must not manage the product catalogue')
 assert.equal(has(RoleEnum.CASHIER, PermissionEnum.SALE_REFUND), false, 'cashiers must not refund without elevated permission')
 assert.equal(has(RoleEnum.SUPERVISOR, PermissionEnum.SHIFT_MANAGE), true, 'supervisors must manage shifts')
+assert.equal(has(RoleEnum.SUPERVISOR, PermissionEnum.INVENTORY_ADJUST), true, 'supervisors must be able to record operational stock losses')
 assert.equal(has(RoleEnum.INVENTORY, PermissionEnum.INVENTORY_ADJUST), true, 'inventory staff must adjust inventory')
 assert.equal(has(RoleEnum.INVENTORY, PermissionEnum.FINANCE_VIEW), false, 'inventory staff must not see finance')
 assert.equal(has(RoleEnum.ACCOUNTANT, PermissionEnum.FINANCE_VIEW), true, 'accountants must see finance')

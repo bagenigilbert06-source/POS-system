@@ -182,7 +182,7 @@ export const ROLE_PERMISSIONS: Record<RoleEnum, PermissionEnum[]> = {
     PermissionEnum.POS_VIEW, PermissionEnum.POS_SELL, PermissionEnum.POS_HOLD, PermissionEnum.POS_DISCOUNT,
     PermissionEnum.POS_PIN_USE, PermissionEnum.POS_PIN_RESET, PermissionEnum.POS_LOCK, PermissionEnum.POS_SWITCH_USER,
     PermissionEnum.SHIFT_OPEN, PermissionEnum.SHIFT_CLOSE, PermissionEnum.SHIFT_MANAGE, PermissionEnum.SALES_VIEW_OWN, PermissionEnum.SALES_VIEW_ALL,
-    PermissionEnum.INVENTORY_VIEW, PermissionEnum.CUSTOMER_VIEW, PermissionEnum.CUSTOMER_CREATE,
+    PermissionEnum.INVENTORY_VIEW, PermissionEnum.INVENTORY_ADJUST, PermissionEnum.CUSTOMER_VIEW, PermissionEnum.CUSTOMER_CREATE,
   ],
   [RoleEnum.CASHIER]: [
     PermissionEnum.PRODUCT_VIEW,
