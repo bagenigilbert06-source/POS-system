@@ -1,13 +1,20 @@
 import { and, eq } from 'drizzle-orm'
 import { cache } from 'react'
 import { db } from '@/lib/db'
-import { organization, organizationMembership } from '@/lib/db/schema'
+import { employee, organization, organizationMembership } from '@/lib/db/schema'
 
 const organizationsForUser = cache(async (userId: string) => {
   const memberships = await db.select({ organization }).from(organizationMembership)
     .innerJoin(organization, eq(organization.id, organizationMembership.organizationId))
     .where(eq(organizationMembership.userId, userId))
-  return memberships.map((row) => row.organization)
+  if (memberships.length) return memberships.map((row) => row.organization)
+
+  // Compatibility for valid active employees created before membership records
+  // were consistently persisted. Authorization applies the same scoped fallback.
+  const staffOrganizations = await db.select({ organization }).from(employee)
+    .innerJoin(organization, eq(organization.id, employee.orgId))
+    .where(and(eq(employee.userId, userId), eq(employee.status, 'active')))
+  return staffOrganizations.map((row) => row.organization)
 })
 
 /** Tenant-scoped organization reads. Persistence belongs to transactional services. */
