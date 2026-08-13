@@ -19,7 +19,6 @@ import {
   Package,
   Printer,
   History,
-  RotateCcw,
   AlertTriangle,
   ShieldCheck,
   Search,
@@ -29,7 +28,6 @@ import {
   Banknote,
   UserRound,
   Tag,
-  ReceiptText,
 } from 'lucide-react'
 import type { Product, Customer, Sale, SaleItem } from '@/lib/db/schema'
 import { toast } from 'sonner'
@@ -810,34 +808,10 @@ export function POSTerminal({ products, categories, customers, settings, require
       })),
     }
 
-    const cashReceived = receipt.paymentMethod === 'cash' ? receipt.total + receipt.change : 0
-    const paymentLabel = receipt.paymentMethod === 'mpesa' ? 'M-Pesa' : receipt.paymentMethod === 'card' ? 'Card' : 'Cash'
     return (
-      <section aria-labelledby="sale-complete-title" className="pos-sale-complete mx-auto w-full max-w-6xl overflow-hidden rounded-xl border border-[#dfe3ea] bg-white shadow-sm dark:border-white/10 dark:bg-[#171717]">
-          <div className="flex items-center justify-between gap-4 border-b border-[#dfe3ea] bg-white px-5 py-4 dark:border-white/10 dark:bg-[#171717] sm:px-6">
-            <div className="flex min-w-0 items-center gap-3">
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#dcfae6] text-[#079455]"><CheckCircle2 className="h-5 w-5" /></span>
-              <div className="min-w-0"><h2 id="sale-complete-title" className="text-base font-bold text-[#101828] dark:text-white">Payment complete</h2><p className="truncate text-xs text-[#667085] dark:text-[#a1a1aa]">Receipt {receipt.receiptNo} · Stock updated</p></div>
-            </div>
-            <span className="hidden rounded-full bg-[#f2f4f7] px-3 py-1.5 text-xs font-semibold text-[#475467] sm:inline-flex">{receipt.items.length} item{receipt.items.length === 1 ? '' : 's'}</span>
-          </div>
-
-          <div className="grid min-h-0 lg:grid-cols-[minmax(0,1fr)_340px]">
-            <section className="bg-white px-5 py-7 dark:bg-[#171717] sm:px-8">
-              <div className="max-w-2xl">
-              <p className="text-[11px] font-bold uppercase tracking-[.14em] text-[#667085] dark:text-[#a1a1aa]">Total paid</p>
-              <p className="mt-2 text-4xl font-bold tracking-tight tabular-nums text-[#101828] dark:text-white sm:text-5xl">{formatCurrency(receipt.total)}</p>
-              <div className="mt-6 grid gap-3 sm:grid-cols-2">
-                <div className="rounded-xl border border-[#e4e7ec] bg-[#f9fafb] p-4 dark:border-white/10 dark:bg-white/5"><p className="text-xs font-medium text-[#667085] dark:text-[#a1a1aa]">Payment method</p><p className="mt-1.5 text-base font-bold text-[#101828] dark:text-white">{paymentLabel}</p>{receipt.mpesaRef && <p className="mt-1 truncate text-xs text-[#667085] dark:text-[#a1a1aa]">Ref: {receipt.mpesaRef}</p>}</div>
-                {receipt.paymentMethod === 'cash' ? <div className="rounded-xl border border-[#abe8c4] bg-[#ecfdf3] p-4"><p className="text-xs font-medium text-[#087443]">Change due</p><p className="mt-1.5 text-2xl font-bold tabular-nums text-[#067647]">{formatCurrency(receipt.change)}</p><p className="mt-1 text-xs text-[#087443]">Received {formatCurrency(cashReceived)}</p></div> : <div className="rounded-xl border border-[#d0d5dd] bg-[#f9fafb] p-4"><p className="text-xs font-medium text-[#667085]">Transaction</p><p className="mt-1.5 text-base font-bold text-[#101828]">Approved</p><p className="mt-1 text-xs text-[#667085]">{new Date(receipt.completedAt).toLocaleTimeString('en-KE', { hour: '2-digit', minute: '2-digit' })}</p></div>}
-                {receipt.paymentMethod === 'cash' ? <div className="rounded-xl border border-[#abe8c4] bg-[#ecfdf3] p-4"><p className="text-xs font-medium text-[#087443]">Change due</p><p className="mt-1.5 text-2xl font-bold tabular-nums text-[#067647]">{formatCurrency(receipt.change)}</p><p className="mt-1 text-xs text-[#087443]">Received {formatCurrency(cashReceived)}</p></div> : <div className="rounded-xl border border-[#d0d5dd] bg-[#f9fafb] p-4 dark:border-white/10 dark:bg-white/5"><p className="text-xs font-medium text-[#667085] dark:text-[#a1a1aa]">Transaction</p><p className="mt-1.5 text-base font-bold text-[#101828] dark:text-white">Approved</p><p className="mt-1 text-xs text-[#667085] dark:text-[#a1a1aa]">{new Date(receipt.completedAt).toLocaleTimeString('en-KE', { hour: '2-digit', minute: '2-digit' })}</p></div>}
-              </div>
-              <div className="mt-6 border-t border-[#eaecf0] pt-5 dark:border-white/10"><div className="flex items-center justify-between gap-4"><div><p className="text-sm font-bold text-[#101828] dark:text-white">Receipt ready</p><p className="mt-1 text-xs leading-5 text-[#667085] dark:text-[#a1a1aa]">Print a copy for the customer, then begin the next basket.</p></div><ReceiptText className="h-6 w-6 shrink-0 text-[#98a2b3]" /></div></div>
-              </div>
-            </section>
-            <aside className="border-t border-[#dfe3ea] bg-[#f2f4f7] px-5 py-5 dark:border-white/10 dark:bg-[#111111] lg:max-h-[560px] lg:overflow-y-auto lg:border-l lg:border-t-0">
-              <div className="mb-3 flex items-center justify-between"><p className="text-xs font-bold uppercase tracking-[.12em] text-[#667085]">Receipt preview</p><span className="text-xs font-medium text-[#667085]">{paymentLabel}</span></div>
-              <div className="receipt-preview-origin mx-auto max-w-[320px] overflow-hidden rounded-lg bg-white shadow-[0_8px_20px_rgba(16,24,40,.10)]">
+      <section aria-label="Completed sale receipt" className="pos-sale-complete mx-auto w-full max-w-xl overflow-hidden rounded-xl border border-[#dfe3ea] bg-white shadow-sm dark:border-white/10 dark:bg-[#171717]">
+          <div className="max-h-[min(680px,calc(100vh-15rem))] overflow-y-auto bg-[#f2f4f7] p-5 dark:bg-[#111111] sm:p-7">
+              <div className="receipt-preview-origin mx-auto w-full max-w-[360px] overflow-hidden rounded-lg bg-white shadow-[0_8px_20px_rgba(16,24,40,.10)]">
                 <ReceiptTemplate
                   sale={printableSale}
                   businessName={settings.receiptBusinessName}
@@ -857,7 +831,6 @@ export function POSTerminal({ products, categories, customers, settings, require
                   showItemSku={settings.receiptShowItemSku}
                 />
               </div>
-            </aside>
           </div>
 
           <div className="receipt-actions flex flex-wrap gap-2 border-t border-[#dfe3ea] bg-white p-4 dark:border-white/10 dark:bg-[#171717] sm:px-5">
@@ -868,15 +841,6 @@ export function POSTerminal({ products, categories, customers, settings, require
               <Printer className="h-4 w-4" />
               Print
             </button>
-            {canRefund && (
-              <button
-                onClick={() => setShowRefundDialog(true)}
-                className="flex min-w-[100px] flex-1 items-center justify-center gap-2 rounded-lg border border-[#fecdca] py-2.5 text-sm font-semibold text-[#d92d20] transition-colors hover:bg-[#fef3f2]"
-              >
-                <RotateCcw className="h-4 w-4" />
-                Refund
-              </button>
-            )}
             <button
               onClick={handleNewSale}
               style={{ backgroundColor: ui.primary, color: ui.primaryInk }}
