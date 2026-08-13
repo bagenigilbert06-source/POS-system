@@ -839,9 +839,10 @@ export function POSTerminal({ products, categories, customers, settings, require
     }
 
     return (
-      <section aria-label="Completed sale receipt" className="pos-sale-complete fixed inset-0 z-50 flex min-h-screen w-full items-start justify-center overflow-y-auto bg-[#f7f8fa] px-4 py-8 dark:bg-[#0c0c0c] sm:px-6 sm:py-10">
+      <section aria-label="Completed sale receipt" className="pos-sale-complete fixed inset-0 z-50 flex min-h-screen w-full items-center justify-center overflow-hidden bg-[#f7f8fa] px-3 py-3 dark:bg-[#0c0c0c] sm:px-6 sm:py-6">
         <div className="w-full max-w-xl overflow-hidden rounded-xl border border-[#dfe3ea] bg-white shadow-sm dark:border-white/10 dark:bg-[#171717]">
-          <div className="max-h-[min(680px,calc(100vh-15rem))] overflow-y-auto bg-[#f2f4f7] p-5 dark:bg-[#111111] sm:p-7">
+          <div className="bg-[#f2f4f7] px-4 py-3 dark:bg-[#111111] sm:px-6 sm:py-4">
+            <div className="receipt-screen-preview mx-auto w-fit">
               <div className="receipt-preview-origin mx-auto w-full max-w-[80mm] overflow-hidden rounded-lg bg-white shadow-[0_8px_20px_rgba(16,24,40,.10)]">
                 <ReceiptTemplate
                   sale={printableSale}
@@ -862,6 +863,7 @@ export function POSTerminal({ products, categories, customers, settings, require
                   showItemSku={settings.receiptShowItemSku}
                 />
               </div>
+            </div>
           </div>
 
           <div className="receipt-actions flex flex-wrap gap-2 border-t border-[#dfe3ea] bg-white p-4 dark:border-white/10 dark:bg-[#171717] sm:px-5">

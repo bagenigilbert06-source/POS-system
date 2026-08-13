@@ -1198,6 +1198,24 @@ html:not(.dark) .dashboard-shell .shadow-dark-md {
   animation: fade-up 0.5s ease-out forwards;
 }
 
+/* A receipt should be readable at a glance after checkout, not trapped in a
+   scrollable preview. This is display-only: printing always uses true paper size. */
+.receipt-screen-preview {
+  zoom: 0.76;
+}
+
+@media (min-height: 980px) {
+  .receipt-screen-preview {
+    zoom: 0.9;
+  }
+}
+
+@media (max-width: 640px), (max-height: 760px) {
+  .receipt-screen-preview {
+    zoom: 0.68;
+  }
+}
+
 @media print {
   /* Let the selected printer define the paper roll. The receipt then uses the
      printable area: up to 72mm on an 80mm roll and ~52mm on a 58mm roll. */
@@ -1229,6 +1247,9 @@ html:not(.dark) .dashboard-shell .shadow-dark-md {
     overflow: visible !important;
     border-radius: 0 !important;
     box-shadow: none !important;
+  }
+  .receipt-screen-preview {
+    zoom: 1 !important;
   }
 }
 
