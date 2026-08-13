@@ -29,6 +29,7 @@ import {
   Banknote,
   UserRound,
   Tag,
+  ReceiptText,
 } from 'lucide-react'
 import type { Product, Customer, Sale, SaleItem } from '@/lib/db/schema'
 import { toast } from 'sonner'
@@ -808,39 +809,55 @@ export function POSTerminal({ products, categories, customers, settings, require
       })),
     }
 
+    const cashReceived = receipt.paymentMethod === 'cash' ? receipt.total + receipt.change : 0
+    const paymentLabel = receipt.paymentMethod === 'mpesa' ? 'M-Pesa' : receipt.paymentMethod === 'card' ? 'Card' : 'Cash'
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0c111d]/60 p-4 backdrop-blur-sm">
-        <div className="flex w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-[#e4e7ec] bg-white shadow-[0_20px_60px_rgba(16,24,40,.28)]">
-          <div className="flex items-center gap-2 border-b border-[#e4e7ec] bg-[#f0fdf4] px-6 py-4">
-            <CheckCircle2 className="h-5 w-5 shrink-0 text-[#12a150]" />
-            <div>
-              <p className="text-sm font-semibold text-[#0c4a26]">Sale completed</p>
-              <p className="text-xs text-[#3a7a4f]">Receipt #{receipt.receiptNo} · inventory updated</p>
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#101828]/60 p-3 backdrop-blur-[2px] sm:p-6">
+        <div role="dialog" aria-modal="true" aria-labelledby="sale-complete-title" className="flex max-h-[min(760px,calc(100vh-1.5rem))] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-[#dfe3ea] bg-[#f8fafc] shadow-[0_24px_80px_rgba(16,24,40,.32)] sm:max-h-[calc(100vh-3rem)]">
+          <div className="flex items-center justify-between gap-4 border-b border-[#dfe3ea] bg-white px-5 py-4 sm:px-6">
+            <div className="flex min-w-0 items-center gap-3">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#dcfae6] text-[#079455]"><CheckCircle2 className="h-5 w-5" /></span>
+              <div className="min-w-0"><h2 id="sale-complete-title" className="text-base font-bold text-[#101828]">Payment complete</h2><p className="truncate text-xs text-[#667085]">Receipt {receipt.receiptNo} · Stock updated</p></div>
             </div>
-          </div>
-          <div className="max-h-[64vh] overflow-y-auto bg-white px-4 py-6 sm:px-8">
-            <ReceiptTemplate
-              sale={printableSale}
-              businessName={settings.receiptBusinessName}
-              businessPhone={settings.receiptPhone}
-              businessAddress={settings.receiptAddress}
-              receiptFooter={settings.receiptFooter}
-              layout={settings.receiptLayout}
-              template={settings.receiptTemplate}
-              logoUrl={settings.receiptLogoUrl}
-              taxName={settings.taxName}
-              showPhone={settings.receiptShowPhone}
-              showAddress={settings.receiptShowAddress}
-              showCashier={settings.receiptShowCashier}
-              showCustomer={settings.receiptShowCustomer}
-              showPayment={settings.receiptShowPayment}
-              showQrCode={settings.receiptShowQrCode}
-              showItemSku={settings.receiptShowItemSku}
-            />
+            <span className="hidden rounded-full bg-[#f2f4f7] px-3 py-1.5 text-xs font-semibold text-[#475467] sm:inline-flex">{receipt.items.length} item{receipt.items.length === 1 ? '' : 's'}</span>
           </div>
 
-          {/* Actions */}
-          <div className="receipt-actions flex flex-wrap gap-2 border-t border-[#e4e7ec] bg-white p-4">
+          <div className="grid min-h-0 flex-1 overflow-y-auto lg:grid-cols-[minmax(0,1fr)_360px] lg:overflow-hidden">
+            <section className="flex flex-col justify-center bg-white px-5 py-6 sm:px-8 lg:px-10">
+              <p className="text-[11px] font-bold uppercase tracking-[.14em] text-[#667085]">Total paid</p>
+              <p className="mt-2 text-4xl font-bold tracking-tight tabular-nums text-[#101828] sm:text-5xl">{formatCurrency(receipt.total)}</p>
+              <div className="mt-6 grid gap-3 sm:grid-cols-2">
+                <div className="rounded-xl border border-[#e4e7ec] bg-[#f9fafb] p-4"><p className="text-xs font-medium text-[#667085]">Payment method</p><p className="mt-1.5 text-base font-bold text-[#101828]">{paymentLabel}</p>{receipt.mpesaRef && <p className="mt-1 truncate text-xs text-[#667085]">Ref: {receipt.mpesaRef}</p>}</div>
+                {receipt.paymentMethod === 'cash' ? <div className="rounded-xl border border-[#abe8c4] bg-[#ecfdf3] p-4"><p className="text-xs font-medium text-[#087443]">Change due</p><p className="mt-1.5 text-2xl font-bold tabular-nums text-[#067647]">{formatCurrency(receipt.change)}</p><p className="mt-1 text-xs text-[#087443]">Received {formatCurrency(cashReceived)}</p></div> : <div className="rounded-xl border border-[#d0d5dd] bg-[#f9fafb] p-4"><p className="text-xs font-medium text-[#667085]">Transaction</p><p className="mt-1.5 text-base font-bold text-[#101828]">Approved</p><p className="mt-1 text-xs text-[#667085]">{new Date(receipt.completedAt).toLocaleTimeString('en-KE', { hour: '2-digit', minute: '2-digit' })}</p></div>}
+              </div>
+              <div className="mt-6 border-t border-[#eaecf0] pt-5"><div className="flex items-center justify-between gap-4"><div><p className="text-sm font-bold text-[#101828]">Give the customer their receipt</p><p className="mt-1 text-xs leading-5 text-[#667085]">Print a copy, then begin the next basket when ready.</p></div><ReceiptText className="h-6 w-6 shrink-0 text-[#98a2b3]" /></div></div>
+            </section>
+            <aside className="border-t border-[#dfe3ea] bg-[#f2f4f7] px-5 py-5 lg:overflow-y-auto lg:border-l lg:border-t-0">
+              <div className="mb-3 flex items-center justify-between"><p className="text-xs font-bold uppercase tracking-[.12em] text-[#667085]">Receipt preview</p><span className="text-xs font-medium text-[#667085]">{paymentLabel}</span></div>
+              <div className="receipt-preview-origin mx-auto max-w-[320px] overflow-hidden rounded-lg bg-white shadow-[0_8px_20px_rgba(16,24,40,.10)]">
+                <ReceiptTemplate
+                  sale={printableSale}
+                  businessName={settings.receiptBusinessName}
+                  businessPhone={settings.receiptPhone}
+                  businessAddress={settings.receiptAddress}
+                  receiptFooter={settings.receiptFooter}
+                  layout="thermal"
+                  template={settings.receiptTemplate}
+                  logoUrl={settings.receiptLogoUrl}
+                  taxName={settings.taxName}
+                  showPhone={settings.receiptShowPhone}
+                  showAddress={settings.receiptShowAddress}
+                  showCashier={settings.receiptShowCashier}
+                  showCustomer={settings.receiptShowCustomer}
+                  showPayment={settings.receiptShowPayment}
+                  showQrCode={settings.receiptShowQrCode}
+                  showItemSku={settings.receiptShowItemSku}
+                />
+              </div>
+            </aside>
+          </div>
+
+          <div className="receipt-actions flex flex-wrap gap-2 border-t border-[#dfe3ea] bg-white p-4 sm:px-5">
             <button
               onClick={() => window.print()}
               className="flex min-w-[100px] flex-1 items-center justify-center gap-2 rounded-lg border border-[#d0d5dd] py-2.5 text-sm font-semibold text-[#344054] transition-colors hover:bg-[#f9fafb]"

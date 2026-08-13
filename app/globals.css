@@ -1205,6 +1205,24 @@ html:not(.dark) .dashboard-shell .shadow-dark-md {
   .print-only {
     display: block !important;
   }
+  /* The completed-sale view has cashier controls around a receipt preview.
+     Thermal printers must receive the receipt only. */
+  body:has(.receipt-preview-origin) * {
+    visibility: hidden !important;
+  }
+  body:has(.receipt-preview-origin) .receipt-preview-origin,
+  body:has(.receipt-preview-origin) .receipt-preview-origin * {
+    visibility: visible !important;
+  }
+  body:has(.receipt-preview-origin) .receipt-preview-origin {
+    position: fixed !important;
+    inset: 0 auto auto 0 !important;
+    width: 80mm !important;
+    max-width: none !important;
+    overflow: visible !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
