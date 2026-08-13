@@ -787,7 +787,8 @@ export function POSTerminal({ products, categories, customers, settings, require
     )
   }
 
-  // Receipt overlay
+  // A completed sale stays in the register workspace. Cashiers should not have
+  // to work through a consumer-style modal or a blurred copy of the POS.
   if (receipt) {
     const printableSale = {
       id: receipt.saleId,
@@ -812,27 +813,29 @@ export function POSTerminal({ products, categories, customers, settings, require
     const cashReceived = receipt.paymentMethod === 'cash' ? receipt.total + receipt.change : 0
     const paymentLabel = receipt.paymentMethod === 'mpesa' ? 'M-Pesa' : receipt.paymentMethod === 'card' ? 'Card' : 'Cash'
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#101828]/60 p-3 backdrop-blur-[2px] sm:p-6">
-        <div role="dialog" aria-modal="true" aria-labelledby="sale-complete-title" className="flex max-h-[min(760px,calc(100vh-1.5rem))] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-[#dfe3ea] bg-[#f8fafc] shadow-[0_24px_80px_rgba(16,24,40,.32)] sm:max-h-[calc(100vh-3rem)]">
-          <div className="flex items-center justify-between gap-4 border-b border-[#dfe3ea] bg-white px-5 py-4 sm:px-6">
+      <section aria-labelledby="sale-complete-title" className="pos-sale-complete mx-auto w-full max-w-6xl overflow-hidden rounded-xl border border-[#dfe3ea] bg-white shadow-sm dark:border-white/10 dark:bg-[#171717]">
+          <div className="flex items-center justify-between gap-4 border-b border-[#dfe3ea] bg-white px-5 py-4 dark:border-white/10 dark:bg-[#171717] sm:px-6">
             <div className="flex min-w-0 items-center gap-3">
               <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#dcfae6] text-[#079455]"><CheckCircle2 className="h-5 w-5" /></span>
-              <div className="min-w-0"><h2 id="sale-complete-title" className="text-base font-bold text-[#101828]">Payment complete</h2><p className="truncate text-xs text-[#667085]">Receipt {receipt.receiptNo} · Stock updated</p></div>
+              <div className="min-w-0"><h2 id="sale-complete-title" className="text-base font-bold text-[#101828] dark:text-white">Payment complete</h2><p className="truncate text-xs text-[#667085] dark:text-[#a1a1aa]">Receipt {receipt.receiptNo} · Stock updated</p></div>
             </div>
             <span className="hidden rounded-full bg-[#f2f4f7] px-3 py-1.5 text-xs font-semibold text-[#475467] sm:inline-flex">{receipt.items.length} item{receipt.items.length === 1 ? '' : 's'}</span>
           </div>
 
-          <div className="grid min-h-0 flex-1 overflow-y-auto lg:grid-cols-[minmax(0,1fr)_360px] lg:overflow-hidden">
-            <section className="flex flex-col justify-center bg-white px-5 py-6 sm:px-8 lg:px-10">
-              <p className="text-[11px] font-bold uppercase tracking-[.14em] text-[#667085]">Total paid</p>
-              <p className="mt-2 text-4xl font-bold tracking-tight tabular-nums text-[#101828] sm:text-5xl">{formatCurrency(receipt.total)}</p>
+          <div className="grid min-h-0 lg:grid-cols-[minmax(0,1fr)_340px]">
+            <section className="bg-white px-5 py-7 dark:bg-[#171717] sm:px-8">
+              <div className="max-w-2xl">
+              <p className="text-[11px] font-bold uppercase tracking-[.14em] text-[#667085] dark:text-[#a1a1aa]">Total paid</p>
+              <p className="mt-2 text-4xl font-bold tracking-tight tabular-nums text-[#101828] dark:text-white sm:text-5xl">{formatCurrency(receipt.total)}</p>
               <div className="mt-6 grid gap-3 sm:grid-cols-2">
-                <div className="rounded-xl border border-[#e4e7ec] bg-[#f9fafb] p-4"><p className="text-xs font-medium text-[#667085]">Payment method</p><p className="mt-1.5 text-base font-bold text-[#101828]">{paymentLabel}</p>{receipt.mpesaRef && <p className="mt-1 truncate text-xs text-[#667085]">Ref: {receipt.mpesaRef}</p>}</div>
+                <div className="rounded-xl border border-[#e4e7ec] bg-[#f9fafb] p-4 dark:border-white/10 dark:bg-white/5"><p className="text-xs font-medium text-[#667085] dark:text-[#a1a1aa]">Payment method</p><p className="mt-1.5 text-base font-bold text-[#101828] dark:text-white">{paymentLabel}</p>{receipt.mpesaRef && <p className="mt-1 truncate text-xs text-[#667085] dark:text-[#a1a1aa]">Ref: {receipt.mpesaRef}</p>}</div>
                 {receipt.paymentMethod === 'cash' ? <div className="rounded-xl border border-[#abe8c4] bg-[#ecfdf3] p-4"><p className="text-xs font-medium text-[#087443]">Change due</p><p className="mt-1.5 text-2xl font-bold tabular-nums text-[#067647]">{formatCurrency(receipt.change)}</p><p className="mt-1 text-xs text-[#087443]">Received {formatCurrency(cashReceived)}</p></div> : <div className="rounded-xl border border-[#d0d5dd] bg-[#f9fafb] p-4"><p className="text-xs font-medium text-[#667085]">Transaction</p><p className="mt-1.5 text-base font-bold text-[#101828]">Approved</p><p className="mt-1 text-xs text-[#667085]">{new Date(receipt.completedAt).toLocaleTimeString('en-KE', { hour: '2-digit', minute: '2-digit' })}</p></div>}
+                {receipt.paymentMethod === 'cash' ? <div className="rounded-xl border border-[#abe8c4] bg-[#ecfdf3] p-4"><p className="text-xs font-medium text-[#087443]">Change due</p><p className="mt-1.5 text-2xl font-bold tabular-nums text-[#067647]">{formatCurrency(receipt.change)}</p><p className="mt-1 text-xs text-[#087443]">Received {formatCurrency(cashReceived)}</p></div> : <div className="rounded-xl border border-[#d0d5dd] bg-[#f9fafb] p-4 dark:border-white/10 dark:bg-white/5"><p className="text-xs font-medium text-[#667085] dark:text-[#a1a1aa]">Transaction</p><p className="mt-1.5 text-base font-bold text-[#101828] dark:text-white">Approved</p><p className="mt-1 text-xs text-[#667085] dark:text-[#a1a1aa]">{new Date(receipt.completedAt).toLocaleTimeString('en-KE', { hour: '2-digit', minute: '2-digit' })}</p></div>}
               </div>
-              <div className="mt-6 border-t border-[#eaecf0] pt-5"><div className="flex items-center justify-between gap-4"><div><p className="text-sm font-bold text-[#101828]">Give the customer their receipt</p><p className="mt-1 text-xs leading-5 text-[#667085]">Print a copy, then begin the next basket when ready.</p></div><ReceiptText className="h-6 w-6 shrink-0 text-[#98a2b3]" /></div></div>
+              <div className="mt-6 border-t border-[#eaecf0] pt-5 dark:border-white/10"><div className="flex items-center justify-between gap-4"><div><p className="text-sm font-bold text-[#101828] dark:text-white">Receipt ready</p><p className="mt-1 text-xs leading-5 text-[#667085] dark:text-[#a1a1aa]">Print a copy for the customer, then begin the next basket.</p></div><ReceiptText className="h-6 w-6 shrink-0 text-[#98a2b3]" /></div></div>
+              </div>
             </section>
-            <aside className="border-t border-[#dfe3ea] bg-[#f2f4f7] px-5 py-5 lg:overflow-y-auto lg:border-l lg:border-t-0">
+            <aside className="border-t border-[#dfe3ea] bg-[#f2f4f7] px-5 py-5 dark:border-white/10 dark:bg-[#111111] lg:max-h-[560px] lg:overflow-y-auto lg:border-l lg:border-t-0">
               <div className="mb-3 flex items-center justify-between"><p className="text-xs font-bold uppercase tracking-[.12em] text-[#667085]">Receipt preview</p><span className="text-xs font-medium text-[#667085]">{paymentLabel}</span></div>
               <div className="receipt-preview-origin mx-auto max-w-[320px] overflow-hidden rounded-lg bg-white shadow-[0_8px_20px_rgba(16,24,40,.10)]">
                 <ReceiptTemplate
@@ -857,7 +860,7 @@ export function POSTerminal({ products, categories, customers, settings, require
             </aside>
           </div>
 
-          <div className="receipt-actions flex flex-wrap gap-2 border-t border-[#dfe3ea] bg-white p-4 sm:px-5">
+          <div className="receipt-actions flex flex-wrap gap-2 border-t border-[#dfe3ea] bg-white p-4 dark:border-white/10 dark:bg-[#171717] sm:px-5">
             <button
               onClick={() => window.print()}
               className="flex min-w-[100px] flex-1 items-center justify-center gap-2 rounded-lg border border-[#d0d5dd] py-2.5 text-sm font-semibold text-[#344054] transition-colors hover:bg-[#f9fafb]"
@@ -883,8 +886,7 @@ export function POSTerminal({ products, categories, customers, settings, require
               Start next sale
             </button>
           </div>
-        </div>
-      </div>
+      </section>
     )
   }
 
