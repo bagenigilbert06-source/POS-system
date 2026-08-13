@@ -15,9 +15,6 @@ import {
   ShoppingCart,
   Loader2,
   CheckCircle2,
-  Smartphone,
-  Banknote,
-  CreditCard,
   X,
   Package,
   Printer,
@@ -25,7 +22,7 @@ import {
   RotateCcw,
   AlertTriangle,
   ShieldCheck,
-  Sparkles,
+  Search,
 } from 'lucide-react'
 import type { Product, Customer, Sale, SaleItem } from '@/lib/db/schema'
 import { toast } from 'sonner'
@@ -103,10 +100,42 @@ function createIdempotencyKey() {
   return crypto.randomUUID()
 }
 
+/**
+ * Shared design tokens. Centralising these keeps every surface (cards, pills,
+ * inputs, buttons) visually consistent instead of one-off hex values scattered
+ * through the JSX.
+ */
+const ui = {
+  card: 'rounded-xl border border-[#e4e7ec] bg-white dark:border-white/10 dark:bg-[#161616]',
+  panel: 'rounded-xl border border-[#e4e7ec] bg-[#fbfbfc] dark:border-white/10 dark:bg-[#131313]',
+  subtleBtn:
+    'rounded-lg border border-[#d8dce3] bg-white px-3 py-2 text-xs font-medium text-[#344054] transition-colors hover:bg-[#f9fafb] disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/10 dark:bg-transparent dark:text-[#d0d5dd] dark:hover:bg-white/5',
+  input:
+    'w-full rounded-lg border border-[#d0d5dd] bg-white px-3 py-2 text-sm text-[#101828] outline-none transition-shadow placeholder:text-[#98a2b3] focus:border-[#101828] focus:ring-4 focus:ring-[#101828]/[0.06] disabled:bg-[#f9fafb] disabled:text-[#98a2b3] dark:border-white/10 dark:bg-[#1c1c1c] dark:text-[#f2f2f2]',
+  label: 'mb-1.5 block text-[11px] font-semibold uppercase tracking-wide text-[#667085] dark:text-[#8b8b8b]',
+  divider: 'border-[#e4e7ec] dark:border-white/10',
+  primary: '#F2B705',
+  primaryHover: '#E0A800',
+  primaryInk: '#241D00',
+}
+
 function PaymentBrand({ method }: { method: 'cash' | 'mpesa' | 'card' }) {
-  if (method === 'cash') return <Banknote className="h-4 w-4" aria-hidden="true" />
-  if (method === 'mpesa') return <Image src="/payment-logos/mpesa.svg" alt="M-Pesa" width={62} height={28} className="h-5 w-auto object-contain" />
-  return <span className="flex items-center gap-1"><Image src="/payment-logos/visa.svg" alt="Visa" width={32} height={18} className="h-4 w-auto object-contain" /><Image src="/payment-logos/mastercard.svg" alt="Mastercard" width={32} height={18} className="h-4 w-auto object-contain" /></span>
+  if (method === 'cash') return (
+    <span className="flex h-[88px] w-full items-center justify-center overflow-hidden rounded-xl bg-[#f7e5c9]">
+      <Image src="/payment-logos/cash-ksh-note.png" alt="" width={1665} height={945} className="h-[112px] w-full scale-[1.18] object-cover" />
+    </span>
+  )
+  if (method === 'mpesa') return (
+    <span style={{ backgroundColor: '#11ad2d' }} className="flex h-[88px] w-full items-center justify-center rounded-xl px-4">
+      <Image src="/payment-logos/mpesa.svg" alt="" width={132} height={54} className="h-10 w-auto object-contain brightness-0 invert" />
+    </span>
+  )
+  return (
+    <span style={{ backgroundColor: '#1a4f9a' }} className="flex h-[88px] w-full items-center justify-center gap-3 rounded-xl px-4">
+      <Image src="/payment-logos/visa.svg" alt="" width={70} height={40} className="h-9 w-auto object-contain brightness-0 invert" />
+      <Image src="/payment-logos/mastercard-color.svg" alt="" width={52} height={32} className="h-8 w-auto object-contain" />
+    </span>
+  )
 }
 
 export function POSTerminal({ products, categories, customers, settings, requiresAgeVerification = false, startCheckout = false, checkoutOnly = false, hasActiveShift = false, canDiscount = false, canRefund = false, canHold = false }: POSTerminalProps) {
@@ -247,6 +276,10 @@ export function POSTerminal({ products, categories, customers, settings, require
       toast.error('Finish the current M-Pesa payment before changing the basket')
       return
     }
+    if (product.stock <= 0) {
+      toast.error(`${product.name} is out of stock`)
+      return
+    }
     setCart((previousCart) => {
       const existing = previousCart.find((item) => item.productId === product.id)
       const price = parseFloat(product.sellingPrice)
@@ -264,16 +297,16 @@ export function POSTerminal({ products, categories, customers, settings, require
   }, [paymentMethod, mpesaStatus])
 
   const SCANNER_INACTIVITY_MS = 450
-  
-  const availableCategories = categories.filter((category) => catalogProducts.some((product) => product.categoryId === category.id))
-  
+
+  const availableCategories = categories.filter((category) => category.name.trim() && catalogProducts.some((product) => product.categoryId === category.id))
+
   // USB scanners type rapidly like a keyboard and normally finish with Enter.
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null
       const editable = target?.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target?.tagName ?? '')
       if (receipt || processing || checkoutOpen || editable) return
-      
+
       if (e.key === 'Enter' && barcodeBufferRef.current) {
         e.preventDefault()
         const barcode = normalizeBarcode(barcodeBufferRef.current)
@@ -282,7 +315,7 @@ export function POSTerminal({ products, categories, customers, settings, require
         const now = Date.now()
         if (lastScanRef.current && lastScanRef.current.barcode === barcode && now - lastScanRef.current.at < 350) return
         lastScanRef.current = { barcode, at: now }
-        
+
         // Find product by barcode
         const product = catalogProducts.find(p => normalizeBarcode(p.barcode ?? '') === barcode && p.isActive)
         if (product) {
@@ -295,11 +328,11 @@ export function POSTerminal({ products, categories, customers, settings, require
         }
         return
       }
-      
+
       // Collect barcode characters (numbers, usually 5-20 chars)
       if (e.key.length === 1 && /[0-9a-zA-Z]/.test(e.key) && !e.ctrlKey && !e.metaKey && !e.altKey) {
         barcodeBufferRef.current += e.key
-        
+
         // Clear buffer after 2 seconds without input
         if (barcodeTimeoutRef.current) clearTimeout(barcodeTimeoutRef.current)
         barcodeTimeoutRef.current = setTimeout(() => {
@@ -307,7 +340,7 @@ export function POSTerminal({ products, categories, customers, settings, require
         }, SCANNER_INACTIVITY_MS)
       }
     }
-    
+
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [catalogProducts, receipt, processing, checkoutOpen, addToCart])
@@ -355,7 +388,7 @@ export function POSTerminal({ products, categories, customers, settings, require
     ? settings.pricesIncludeTax ? subtotal - (subtotal / (1 + TAX_RATE)) : subtotal * TAX_RATE
     : 0
   const grossBeforeDiscount = settings.pricesIncludeTax ? subtotal : subtotal + taxAmount
-  
+
   // Calculate discount based on type
   let discountAmount = 0
   if (discountType === 'percentage') {
@@ -363,7 +396,7 @@ export function POSTerminal({ products, categories, customers, settings, require
   } else {
     discountAmount = canDiscount ? Math.min(discount, grossBeforeDiscount) : 0
   }
-  
+
   const unroundedTotal = Number((grossBeforeDiscount - discountAmount).toFixed(2))
   const mpesaAmount = calculateMpesaAmount(unroundedTotal)
   const total = paymentMethod === 'mpesa' ? mpesaAmount.amount : unroundedTotal
@@ -390,12 +423,12 @@ export function POSTerminal({ products, categories, customers, settings, require
     }
 
     setProcessing(true)
-    
+
     // Generate idempotency key on first attempt
     if (!checkoutIdempotencyKeyRef.current) {
       checkoutIdempotencyKeyRef.current = createIdempotencyKey()
     }
-    
+
     try {
       const { saleId, receiptNo, tax, rounding: returnedRounding, total: returnedTotal, items: savedItems } = await createSale({
         customerId: selectedCustomer || undefined,
@@ -434,7 +467,7 @@ export function POSTerminal({ products, categories, customers, settings, require
         const sold = cart.find((item) => item.productId === product.id)
         return sold ? { ...product, stock: Math.max(0, product.stock - sold.quantity) } : product
       }))
-      
+
       // Show success toast with inventory update notification
       toast.success('Sale completed & inventory updated', {
         description: `${cart.length} product(s) - Receipt #${receiptNo}`,
@@ -560,13 +593,13 @@ export function POSTerminal({ products, categories, customers, settings, require
     setCheckoutOpen(false)
     toast.success('Held sale restored')
   }
-  
+
   const handleCreateCustomer = async () => {
     if (!newCustomerName.trim()) {
       toast.error('Customer name is required')
       return
     }
-    
+
     setCreatingCustomer(true)
     try {
       const { id } = await createCustomer({
@@ -574,7 +607,7 @@ export function POSTerminal({ products, categories, customers, settings, require
         phone: newCustomerPhone || undefined,
         email: newCustomerEmail || undefined,
       })
-      
+
       // Add new customer to list
       const newCust = {
         id,
@@ -590,13 +623,13 @@ export function POSTerminal({ products, categories, customers, settings, require
       }
       setAvailableCustomers([...availableCustomers, newCust])
       setSelectedCustomer(id)
-      
+
       // Reset form
       setNewCustomerName('')
       setNewCustomerPhone('')
       setNewCustomerEmail('')
       setShowNewCustomer(false)
-      
+
       toast.success('Customer created successfully')
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to create customer')
@@ -605,7 +638,7 @@ export function POSTerminal({ products, categories, customers, settings, require
     }
   }
 
-  const inputCls = 'w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-colors'
+  const inputCls = ui.input
 
   // Show refund dialog if refund sale is set
   if (showRefundDialog && receipt) {
@@ -643,21 +676,19 @@ export function POSTerminal({ products, categories, customers, settings, require
     }
 
     return (
-      <>
-        <RefundDialog
-          sale={saleWithItems}
-          onClose={() => setShowRefundDialog(false)}
-          onSuccess={(returnedItems) => {
-            setCatalogProducts((current) => current.map((product) => {
-              const returned = returnedItems.find((item) => item.productId === product.id)
-              return returned ? { ...product, stock: product.stock + returned.quantity } : product
-            }))
-            setShowRefundDialog(false)
-            handleNewSale()
-            toast.success('Refund processed successfully')
-          }}
-        />
-      </>
+      <RefundDialog
+        sale={saleWithItems}
+        onClose={() => setShowRefundDialog(false)}
+        onSuccess={(returnedItems) => {
+          setCatalogProducts((current) => current.map((product) => {
+            const returned = returnedItems.find((item) => item.productId === product.id)
+            return returned ? { ...product, stock: product.stock + returned.quantity } : product
+          }))
+          setShowRefundDialog(false)
+          handleNewSale()
+          toast.success('Refund processed successfully')
+        }}
+      />
     )
   }
 
@@ -684,9 +715,16 @@ export function POSTerminal({ products, categories, customers, settings, require
     }
 
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
-        <div className="w-full max-w-2xl overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-[0_24px_80px_rgba(15,23,42,.22)]">
-          <div className="max-h-[72vh] overflow-y-auto bg-white px-4 py-6 sm:px-8">
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0c111d]/60 p-4 backdrop-blur-sm">
+        <div className="flex w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-[#e4e7ec] bg-white shadow-[0_20px_60px_rgba(16,24,40,.28)]">
+          <div className="flex items-center gap-2 border-b border-[#e4e7ec] bg-[#f0fdf4] px-6 py-4">
+            <CheckCircle2 className="h-5 w-5 shrink-0 text-[#12a150]" />
+            <div>
+              <p className="text-sm font-semibold text-[#0c4a26]">Sale completed</p>
+              <p className="text-xs text-[#3a7a4f]">Receipt #{receipt.receiptNo} · inventory updated</p>
+            </div>
+          </div>
+          <div className="max-h-[64vh] overflow-y-auto bg-white px-4 py-6 sm:px-8">
             <ReceiptTemplate
               sale={printableSale}
               businessName={settings.receiptBusinessName}
@@ -708,27 +746,30 @@ export function POSTerminal({ products, categories, customers, settings, require
           </div>
 
           {/* Actions */}
-          <div className="receipt-actions flex flex-wrap gap-2 border-t border-zinc-200 bg-white p-4">
+          <div className="receipt-actions flex flex-wrap gap-2 border-t border-[#e4e7ec] bg-white p-4">
             <button
               onClick={() => window.print()}
-              className="flex min-w-[100px] flex-1 items-center justify-center gap-2 rounded-lg border border-zinc-300 py-2.5 text-sm font-semibold text-zinc-700 transition-colors hover:bg-zinc-50"
+              className="flex min-w-[100px] flex-1 items-center justify-center gap-2 rounded-lg border border-[#d0d5dd] py-2.5 text-sm font-semibold text-[#344054] transition-colors hover:bg-[#f9fafb]"
             >
               <Printer className="h-4 w-4" />
               Print
             </button>
-            {canRefund && <button
-              onClick={() => setShowRefundDialog(true)}
-              className="flex min-w-[100px] flex-1 items-center justify-center gap-2 rounded-lg border border-red-300 py-2.5 text-sm font-semibold text-red-600 transition-colors hover:bg-red-50"
-            >
-              <RotateCcw className="h-4 w-4" />
-              Refund
-            </button>}
+            {canRefund && (
+              <button
+                onClick={() => setShowRefundDialog(true)}
+                className="flex min-w-[100px] flex-1 items-center justify-center gap-2 rounded-lg border border-[#fecdca] py-2.5 text-sm font-semibold text-[#d92d20] transition-colors hover:bg-[#fef3f2]"
+              >
+                <RotateCcw className="h-4 w-4" />
+                Refund
+              </button>
+            )}
             <button
               onClick={handleNewSale}
-              className="flex min-w-[100px] flex-1 items-center justify-center gap-2 rounded-lg bg-[#e42527] py-2.5 text-sm font-bold text-white transition-colors hover:bg-[#c91f21]"
+              style={{ backgroundColor: ui.primary, color: ui.primaryInk }}
+              className="flex min-w-[100px] flex-1 items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-bold transition-opacity hover:opacity-90"
             >
               <Plus className="h-4 w-4" />
-              Next Sale
+              Start next sale
             </button>
           </div>
         </div>
@@ -737,49 +778,52 @@ export function POSTerminal({ products, categories, customers, settings, require
   }
 
   return (
-    <div className={cn('pos-terminal relative grid min-h-[calc(100vh-10.5rem)] gap-5 bg-[#f8f9fb] p-1 sm:gap-6 lg:grid-cols-[minmax(0,1fr)_420px] xl:grid-cols-[minmax(0,1fr)_460px] lg:items-stretch', checkoutOnly && 'w-full max-w-none bg-transparent lg:grid-cols-1 lg:gap-6')}>
+    <div className={cn('pos-terminal relative grid min-h-[calc(100vh-10.5rem)] gap-4 bg-[#f7f8fa] dark:bg-[#0c0c0c] sm:gap-5 lg:grid-cols-[minmax(0,1fr)_460px] xl:grid-cols-[minmax(0,1fr)_520px] lg:items-stretch', checkoutOnly && 'w-full max-w-none bg-transparent lg:grid-cols-1 lg:gap-6')}>
       {/* Left: Product catalog */}
-      <section className={cn('flex min-h-[520px] min-w-0 flex-col overflow-hidden rounded-2xl border border-[#e5e7eb] bg-white shadow-[0_8px_28px_rgba(16,24,40,.04)]', checkoutOnly && 'hidden')}>
-        <div className="border-b border-[#eef0f3] px-5 py-5 sm:px-6">
-          <div className="mb-5 flex items-center justify-between gap-3">
+      <section className={cn(ui.card, 'flex min-h-[520px] min-w-0 flex-col overflow-hidden', checkoutOnly && 'hidden')}>
+        <div className="border-b border-[#eef0f3] px-5 py-4 dark:border-white/10 sm:px-6">
+          <div className="mb-4 flex items-center justify-between gap-3">
             <div>
-              <div className="flex items-center gap-2">
-                <h2 className="text-lg font-bold tracking-tight text-[var(--dashboard-text)]">Products</h2>
-              </div>
-              <p className="mt-1 text-sm text-[var(--dashboard-muted)]">Select an item to add it to the sale.</p>
+              <h2 className="text-base font-semibold tracking-tight text-[#101828] dark:text-white">Catalog</h2>
+              <p className="mt-0.5 text-xs text-[#667085] dark:text-[#8b8b8b]">Tap a product to add it to the sale</p>
             </div>
-            <span className="rounded-md border border-[#f1d66a] bg-[#fff7d6] px-2 py-1 text-xs font-semibold text-[#9a6700] dark:border-[rgba(255,214,10,0.2)] dark:bg-[rgba(255,214,10,0.1)] dark:text-[#ffd60a]">{filteredProducts.length} available</span>
+            <span className="rounded-full border border-[#e4e7ec] bg-[#f9fafb] px-2.5 py-1 text-xs font-medium text-[#475467] dark:border-white/10 dark:bg-white/5 dark:text-[#c4c4c4]">
+              {filteredProducts.length} available
+            </span>
           </div>
           <div className="relative">
-          <input
-            ref={searchInputRef}
-            type="text"
-            placeholder="Search by name, SKU or barcode..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key !== 'Enter') return
-              const barcode = normalizeBarcode(search)
-              const match = catalogProducts.find((product) => product.isActive && normalizeBarcode(product.barcode ?? '') === barcode)
-              if (match) { e.preventDefault(); addToCart(match); setSearch(''); setScanMessage(`${match.name} added — quantity updated.`) }
-            }}
-            className={cn(inputCls, 'h-12 rounded-xl border-[#e1e5eb] bg-[#f8f9fb] pr-10 shadow-none placeholder:text-[#98a2b3] dark:bg-[#171717]')}
-            autoFocus
-          />
-          <p className="mt-2 text-xs text-muted-foreground" role="status" aria-live="polite">{scanMessage || 'Scanner ready · focus the POS screen and scan a barcode.'}</p>
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#98a2b3]" />
+            <input
+              ref={searchInputRef}
+              type="text"
+              placeholder="Search by name, SKU or barcode…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key !== 'Enter') return
+                const barcode = normalizeBarcode(search)
+                const match = catalogProducts.find((product) => product.isActive && normalizeBarcode(product.barcode ?? '') === barcode)
+                if (match) { e.preventDefault(); addToCart(match); setSearch(''); setScanMessage(`${match.name} added — quantity updated.`) }
+              }}
+              className={cn(inputCls, 'h-11 rounded-lg pl-9')}
+              autoFocus
+            />
           </div>
+          <p className="mt-2 text-xs text-[#667085] dark:text-[#8b8b8b]" role="status" aria-live="polite">
+            {scanMessage || 'Scanner ready — focus this screen and scan a barcode'}
+          </p>
         </div>
-        
+
         {/* Category filter */}
         {availableCategories.length > 0 && (
-          <div className="flex gap-2 overflow-x-auto border-b border-[var(--dashboard-border)] px-4 py-3 sm:px-5">
+          <div className="flex gap-2 overflow-x-auto border-b border-[#eef0f3] px-4 py-3 dark:border-white/10 sm:px-5">
             <button
               onClick={() => setSelectedCategory('')}
               className={cn(
-                'flex-shrink-0 rounded-md border px-3 py-1.5 text-xs font-semibold whitespace-nowrap transition-colors',
+                'flex-shrink-0 rounded-full border px-3 py-1.5 text-xs font-medium whitespace-nowrap transition-colors',
                 !selectedCategory
-                  ? 'border-[#f1d66a] bg-[#fff7d6] text-[#9a6700] dark:border-[rgba(255,214,10,0.2)] dark:bg-[rgba(255,214,10,0.1)] dark:text-[#ffd60a]'
-                  : 'border-[var(--dashboard-border)] bg-[var(--dashboard-surface)] text-[var(--dashboard-muted)] hover:bg-[#f7f8fa] dark:hover:bg-white/5'
+                  ? 'border-[#101828] !bg-[#101828] !text-white shadow-sm dark:border-white dark:!bg-white dark:!text-[#101828]'
+                  : 'border-[#e4e7ec] bg-white text-[#475467] hover:bg-[#f9fafb] dark:border-white/10 dark:bg-transparent dark:text-[#c4c4c4] dark:hover:bg-white/5'
               )}
             >
               All products
@@ -789,10 +833,10 @@ export function POSTerminal({ products, categories, customers, settings, require
                 key={category.id}
                 onClick={() => setSelectedCategory(category.id)}
                 className={cn(
-                  'flex-shrink-0 rounded-md border px-3 py-1.5 text-xs font-semibold whitespace-nowrap transition-colors',
+                  'flex-shrink-0 rounded-full border px-3 py-1.5 text-xs font-medium whitespace-nowrap transition-colors',
                   selectedCategory === category.id
-                    ? 'border-[#f1d66a] bg-[#fff7d6] text-[#9a6700] dark:border-[rgba(255,214,10,0.2)] dark:bg-[rgba(255,214,10,0.1)] dark:text-[#ffd60a]'
-                    : 'border-[var(--dashboard-border)] bg-[var(--dashboard-surface)] text-[var(--dashboard-muted)] hover:bg-[#f7f8fa] dark:hover:bg-white/5'
+                    ? 'border-[#101828] !bg-[#101828] !text-white shadow-sm dark:border-white dark:!bg-white dark:!text-[#101828]'
+                    : 'border-[#e4e7ec] bg-white text-[#475467] hover:bg-[#f9fafb] dark:border-white/10 dark:bg-transparent dark:text-[#c4c4c4] dark:hover:bg-white/5'
                 )}
               >
                 {category.name}
@@ -802,14 +846,14 @@ export function POSTerminal({ products, categories, customers, settings, require
         )}
 
         {/* Product grid */}
-        <div className="flex-1 overflow-y-auto bg-[#fafbfc] p-4 dark:bg-[#101010] sm:p-6">
+        <div className="flex-1 overflow-y-auto bg-[#fbfbfc] p-4 dark:bg-[#0f0f0f] sm:p-5">
           {filteredProducts.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-48 text-center">
-              <Package className="h-10 w-10 text-muted-foreground/40 mb-3" />
-              <p className="text-sm text-muted-foreground font-medium">
+            <div className="flex h-48 flex-col items-center justify-center text-center">
+              <Package className="mb-3 h-9 w-9 text-[#d0d5dd]" strokeWidth={1.5} />
+              <p className="text-sm font-medium text-[#344054]">
                 {search ? 'No products match your search' : 'No active products with stock'}
               </p>
-              <p className="text-xs text-muted-foreground mt-1">
+              <p className="mt-1 text-xs text-[#98a2b3]">
                 {search ? 'Try a different search term' : 'Add products to begin selling'}
               </p>
             </div>
@@ -832,25 +876,28 @@ export function POSTerminal({ products, categories, customers, settings, require
                     aria-disabled={outOfStock}
                     aria-label={`Add ${product.name} to basket${inCart ? `, currently ${inCart.quantity}` : ''}`}
                     className={cn(
-                      'group relative flex min-h-[210px] flex-col overflow-hidden rounded-xl border border-[#e7e9ee] bg-white text-left transition-colors duration-75',
-                      'disabled:opacity-50 disabled:cursor-not-allowed',
-                      'hover:border-[#d7b640] hover:bg-[#fffef9] focus-visible:border-[#d7b640] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#f1d66a]/50 dark:hover:bg-[#211e12]',
+                      'group relative flex min-h-[208px] flex-col overflow-hidden rounded-xl border bg-white text-left shadow-[0_1px_2px_rgba(16,24,40,.03)] transition-[background-color,border-color,box-shadow] duration-150 ease-out',
+                      'disabled:cursor-not-allowed disabled:opacity-50',
+                      outOfStock
+                        ? 'cursor-not-allowed opacity-65'
+                        : 'cursor-pointer hover:border-[#dfcf91] hover:bg-[#fffdf7] hover:shadow-[0_4px_12px_rgba(16,24,40,.06)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c9a227]/35 focus-visible:ring-offset-2 dark:hover:border-[#f1d66a]/50',
+                      'dark:bg-[#161616]',
                       inCart
-                        ? 'border-[#e1b900] bg-[#fffdf2] ring-2 ring-[#f1d66a]/50 dark:border-[rgba(255,214,10,0.2)] dark:bg-[rgba(255,214,10,0.1)] dark:ring-[rgba(255,214,10,0.2)]'
-                        : ''
+                        ? 'border-[#f1d66a] bg-[#fff8dc] ring-1 ring-[#f1d66a]/60 dark:border-[#f1d66a]/50 dark:bg-[#2b260f] dark:ring-[#f1d66a]/30'
+                        : 'border-[#e4e7ec] dark:border-white/10'
                     )}
                   >
                     {/* Stock badge */}
                     {product.stock <= product.minStock && product.stock > 0 && (
-                      <div className="absolute right-2 top-2 z-10 rounded bg-amber-50 px-1.5 py-0.5 text-[9px] font-bold text-amber-800">Low</div>
+                      <div className="absolute left-2 top-2 z-10 rounded-full bg-[#fffaeb] px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-[#b54708] ring-1 ring-inset ring-[#fedf89]">Low</div>
                     )}
                     {outOfStock && (
-                      <div className="absolute right-2 top-2 z-10 rounded bg-red-50 px-1.5 py-0.5 text-[9px] font-bold text-red-800">OOS</div>
+                      <div className="absolute left-2 top-2 z-10 rounded-full bg-[#fef3f2] px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-[#b42318] ring-1 ring-inset ring-[#fecdca]">Sold out</div>
                     )}
-                    
+
                     {/* Product image or icon */}
                     {product.imageUrl ? (
-                      <span className="relative block h-[104px] w-full bg-[#f5f6f8]">
+                      <span className="relative block h-[104px] w-full overflow-hidden bg-[#f2f4f7]">
                         <Image
                           src={product.imageUrl}
                           alt={product.name}
@@ -861,38 +908,42 @@ export function POSTerminal({ products, categories, customers, settings, require
                         />
                       </span>
                     ) : (
-                      <div className="flex h-[104px] w-full items-center justify-center bg-[#f5f6f8] text-[#98a2b3] dark:bg-[#252525] dark:text-[#a7a7a7]">
-                        <Package className="h-8 w-8" strokeWidth={1.5} />
+                      <div className="flex h-[104px] w-full items-center justify-center bg-[#f2f4f7] text-[#98a2b3] dark:bg-[#1f1f1f]">
+                        <Package className="h-7 w-7" strokeWidth={1.5} />
                       </div>
                     )}
                     <div className="flex flex-1 flex-col px-3 pb-3 pt-2.5">
-                      <p className="mb-1 line-clamp-2 text-sm font-semibold leading-snug text-[var(--dashboard-text)]">{product.name}</p>
-                      {(product.volume || product.unit) && <p className="text-[11px] text-[#8a94a6]">{product.volume ? `${product.volume} ${product.volumeUnit || ''}` : ''}{product.volume && product.unit ? ' · ' : ''}{product.unit}</p>}
+                      <p className="mb-0.5 line-clamp-2 text-sm font-semibold leading-snug text-[#101828] dark:text-white">{product.name}</p>
+                      {(product.volume || product.unit) && (
+                        <p className="text-[11px] text-[#667085] dark:text-[#8b8b8b]">
+                          {product.volume ? `${product.volume} ${product.volumeUnit || ''}` : ''}{product.volume && product.unit ? ' · ' : ''}{product.unit}
+                        </p>
+                      )}
                       <div className="mt-auto flex items-end justify-between gap-2 pt-2">
-                        <p className="text-sm font-bold text-[var(--dashboard-text)]">{formatCurrency(product.sellingPrice)}</p>
+                        <p className="text-sm font-bold tabular-nums text-[#101828] dark:text-white">{formatCurrency(product.sellingPrice)}</p>
                         {inCart ? (
                           <div
-                            className="relative z-20 flex h-8 shrink-0 items-center overflow-hidden rounded-lg border border-[#e4c64d] bg-[#fff9dc] shadow-sm dark:border-[rgba(255,214,10,0.28)] dark:bg-[#2b2716]"
+                            className="relative z-20 flex h-8 shrink-0 items-center overflow-hidden rounded-lg border border-[#101828] dark:border-white"
                             onClick={(event) => event.stopPropagation()}
                             title={`${product.stock} ${product.unit} in stock`}
                           >
                             <button
                               type="button"
                               onClick={() => updateQty(product.id, -1)}
-                              className="flex h-full w-8 items-center justify-center text-[#715a00] transition-colors hover:bg-[#fff0a8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#d7b640] dark:text-[#ffe45b] dark:hover:bg-white/10"
+                              className="flex h-full w-7 items-center justify-center text-[#101828] transition-colors hover:bg-[#f2f4f7] focus-visible:outline-none dark:text-white dark:hover:bg-white/10"
                               aria-label={`Reduce ${product.name} quantity`}
                               title="Reduce quantity"
                             >
                               <Minus className="h-3.5 w-3.5" strokeWidth={2.5} />
                             </button>
-                            <span className="min-w-7 border-x border-[#ead676] px-1 text-center text-xs font-bold tabular-nums text-[#312700] dark:border-[rgba(255,214,10,0.2)] dark:text-[#fff4b0]" aria-live="polite">
+                            <span className="min-w-6 border-x border-[#101828]/15 px-1 text-center text-xs font-bold tabular-nums text-[#101828] dark:border-white/15 dark:text-white" aria-live="polite">
                               {inCart.quantity}
                             </span>
                             <button
                               type="button"
                               onClick={() => updateQty(product.id, 1)}
                               disabled={inCart.quantity >= product.stock}
-                              className="flex h-full w-8 items-center justify-center text-[#715a00] transition-colors hover:bg-[#fff0a8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#d7b640] disabled:cursor-not-allowed disabled:opacity-35 dark:text-[#ffe45b] dark:hover:bg-white/10"
+                              className="flex h-full w-7 items-center justify-center text-[#101828] transition-colors hover:bg-[#f2f4f7] focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-35 dark:text-white dark:hover:bg-white/10"
                               aria-label={`Increase ${product.name} quantity`}
                               title={inCart.quantity >= product.stock ? 'Maximum available stock reached' : 'Increase quantity'}
                             >
@@ -900,14 +951,14 @@ export function POSTerminal({ products, categories, customers, settings, require
                             </button>
                           </div>
                         ) : (
-                          <p className={cn('text-[10px]', outOfStock ? 'font-medium text-red-600' : 'text-[#8a94a6]')}>{product.stock} {product.unit}</p>
+                          <p className={cn('text-[10px] font-medium', outOfStock ? 'text-[#d92d20]' : 'text-[#667085] dark:text-[#8b8b8b]')}>{product.stock} {product.unit}</p>
                         )}
                       </div>
                     </div>
-                    
+
                     {/* Cart badge */}
                     {inCart && (
-                      <div className="absolute right-2 top-2 flex h-6 min-w-6 items-center justify-center rounded-full bg-[#ffd60a] px-1.5 text-xs font-bold text-[#111113] shadow-sm">
+                      <div style={{ backgroundColor: ui.primary, color: ui.primaryInk }} className="absolute right-2 top-2 flex h-6 min-w-6 items-center justify-center rounded-full px-1.5 text-xs font-bold shadow-sm">
                         {inCart.quantity}
                       </div>
                     )}
@@ -920,16 +971,21 @@ export function POSTerminal({ products, categories, customers, settings, require
       </section>
 
       {/* Right: Cart + Payment */}
-      <aside className={cn('flex min-h-[520px] w-full flex-col overflow-hidden rounded-2xl border border-[#e5e7eb] bg-white shadow-[0_8px_28px_rgba(16,24,40,.05)] lg:sticky lg:top-5 lg:max-h-[calc(100vh-7rem)]', checkoutOnly && 'min-h-0 w-full max-w-none gap-6 overflow-visible border-0 bg-transparent shadow-none lg:grid lg:grid-cols-[minmax(0,1.15fr)_minmax(500px,.85fr)] lg:items-start lg:static lg:max-h-none')}>
+      <aside className={cn(ui.card, 'flex min-h-[520px] w-full flex-col overflow-hidden lg:sticky lg:top-5 lg:max-h-[calc(100vh-7rem)]', checkoutOnly && 'min-h-0 w-full max-w-none gap-6 overflow-visible border-0 bg-transparent shadow-none lg:grid lg:grid-cols-[minmax(0,1.15fr)_minmax(480px,.85fr)] lg:items-start lg:static lg:max-h-none')}>
         {/* Cart header with quick actions */}
-        <div className={cn('border-b border-[#eef0f3] bg-white p-5 dark:bg-[#191817]', checkoutOnly && 'hidden')}>
+        <div className={cn('border-b border-[#eef0f3] bg-white p-5 dark:border-white/10 dark:bg-[#161616]', checkoutOnly && 'hidden')}>
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#fff3bf] text-[#8a6500] dark:bg-[rgba(255,214,10,0.1)] dark:text-[#ffd60a]"><ShoppingCart className="h-4 w-4" /></span>
-              <div><span className="block text-sm font-bold text-[var(--dashboard-text)]">{checkoutOpen ? 'Checkout' : 'Your basket'}</span><span className="block text-[11px] text-[var(--dashboard-muted)]">{cart.length ? `${cart.length} item${cart.length === 1 ? '' : 's'} in this sale` : 'Start a new sale'}</span></div>
+            <div className="flex items-center gap-2.5">
+              <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#f2f4f7] text-[#344054] dark:bg-white/10 dark:text-white">
+                <ShoppingCart className="h-4 w-4" />
+              </span>
+              <div>
+                <span className="block text-sm font-semibold text-[#101828] dark:text-white">{checkoutOpen ? 'Checkout' : 'Basket'}</span>
+                <span className="block text-xs text-[#667085] dark:text-[#8b8b8b]">{cart.length ? `${cart.length} item${cart.length === 1 ? '' : 's'} in this sale` : 'Start a new sale'}</span>
+              </div>
             </div>
             {checkoutOpen ? (
-              <button onClick={() => setCheckoutOpen(false)} className="rounded-lg px-2.5 py-1.5 text-xs font-semibold text-primary transition-colors hover:bg-primary/10">
+              <button onClick={() => setCheckoutOpen(false)} className="rounded-lg px-2.5 py-1.5 text-xs font-semibold text-[#344054] transition-colors hover:bg-[#f2f4f7] dark:text-[#c4c4c4] dark:hover:bg-white/10">
                 ← Edit basket
               </button>
             ) : cart.length > 0 && (
@@ -937,98 +993,108 @@ export function POSTerminal({ products, categories, customers, settings, require
                 onClick={() => {
                   if (confirm('Clear all items from cart?')) setCart([])
                 }}
-                className="text-xs font-medium text-muted-foreground hover:text-destructive transition-colors"
+                className="text-xs font-medium text-[#98a2b3] transition-colors hover:text-[#d92d20]"
               >
                 Clear
               </button>
             )}
           </div>
-          
-          {!checkoutOpen && <div className="mt-4 space-y-2">
-            <div className="flex gap-2">
-              <button
-                onClick={() => setShowSalesHistory(true)}
-                className="flex-1 flex items-center justify-center gap-1 py-1.5 rounded-lg border border-input hover:bg-accent/50 transition-colors text-xs font-medium"
-              >
-                <History className="h-3 w-3" />
-                History
-              </button>
-              <button
-                onClick={() => setShowReceiptReprint(true)}
-                className="flex-1 flex items-center justify-center gap-1 py-1.5 rounded-lg border border-input hover:bg-accent/50 transition-colors text-xs font-medium"
-              >
-                <Printer className="h-3 w-3" />
-                Reprint
-              </button>
-            </div>
-            {canHold && cart.length > 0 && (
+
+          {!checkoutOpen && (
+            <div className="mt-4 space-y-2">
               <div className="flex gap-2">
-                <button onClick={holdSale} className="flex-1 rounded-lg border border-input py-1.5 text-xs font-medium transition-colors hover:bg-accent/50">
-                  Hold sale
+                <button onClick={() => setShowSalesHistory(true)} className={cn(ui.subtleBtn, 'flex flex-1 items-center justify-center gap-1.5')}>
+                  <History className="h-3.5 w-3.5" />
+                  History
                 </button>
-                <button onClick={() => setShowHeldSales(true)} className="flex-1 rounded-lg border border-input py-1.5 text-xs font-medium transition-colors hover:bg-accent/50">
-                  Held sales{heldSales.length ? ` (${heldSales.length})` : ''}
+                <button onClick={() => setShowReceiptReprint(true)} className={cn(ui.subtleBtn, 'flex flex-1 items-center justify-center gap-1.5')}>
+                  <Printer className="h-3.5 w-3.5" />
+                  Reprint
                 </button>
               </div>
-            )}
-            {canHold && cart.length === 0 && heldSales.length > 0 && (
-              <button onClick={() => setShowHeldSales(true)} className="w-full rounded-lg border border-input py-1.5 text-xs font-medium transition-colors hover:bg-accent/50">
-                Resume held sale ({heldSales.length})
-              </button>
-            )}
-          </div>}
+              {canHold && cart.length > 0 && (
+                <div className="flex gap-2">
+                  <button onClick={holdSale} className={cn(ui.subtleBtn, 'flex-1')}>Hold sale</button>
+                  <button onClick={() => setShowHeldSales(true)} className={cn(ui.subtleBtn, 'flex-1')}>
+                    Held sales{heldSales.length ? ` (${heldSales.length})` : ''}
+                  </button>
+                </div>
+              )}
+              {canHold && cart.length === 0 && heldSales.length > 0 && (
+                <button onClick={() => setShowHeldSales(true)} className={cn(ui.subtleBtn, 'w-full')}>
+                  Resume held sale ({heldSales.length})
+                </button>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Cart items */}
-        <div className={cn('min-h-[220px] flex-1 overflow-y-auto', checkoutOpen && !checkoutOnly && 'max-h-[252px] flex-none border-b border-[#eef0f3]', checkoutOnly && 'flex min-h-0 flex-col self-start overflow-hidden rounded-2xl border border-[var(--dashboard-border)] bg-[var(--dashboard-surface)] shadow-[0_12px_36px_rgba(0,0,0,.12)] lg:col-start-1 lg:row-start-1')}>
-          {checkoutOnly && <div className="flex items-center justify-between border-b border-[var(--dashboard-border)] px-6 py-5"><div><h2 className="text-lg font-bold tracking-tight text-[var(--dashboard-text)]">Order summary</h2><p className="mt-1 text-sm text-[var(--dashboard-muted)]">{cart.length} item{cart.length === 1 ? '' : 's'} ready for payment</p></div><button type="button" onClick={() => router.push('/dashboard/pos')} className="rounded-lg px-3 py-2 text-sm font-semibold text-primary transition-colors hover:bg-primary/10">Edit basket</button></div>}
+        <div className={cn('min-h-[220px] flex-1 overflow-y-auto', checkoutOpen && !checkoutOnly && 'max-h-[240px] flex-none border-b border-[#eef0f3] dark:border-white/10', checkoutOnly && cn(ui.card, 'flex min-h-0 flex-col self-start overflow-hidden lg:col-start-1 lg:row-start-1'))}>
+          {checkoutOnly && (
+            <div className="flex items-center justify-between border-b border-[#eef0f3] px-6 py-5 dark:border-white/10">
+              <div>
+                <h2 className="text-base font-semibold tracking-tight text-[#101828] dark:text-white">Order summary</h2>
+                <p className="mt-0.5 text-xs text-[#667085] dark:text-[#8b8b8b]">{cart.length} item{cart.length === 1 ? '' : 's'} ready for payment</p>
+              </div>
+              <button type="button" onClick={() => router.push('/dashboard/pos')} className="rounded-lg px-3 py-2 text-sm font-semibold text-[#344054] transition-colors hover:bg-[#f2f4f7] dark:text-[#c4c4c4] dark:hover:bg-white/10">
+                Edit basket
+              </button>
+            </div>
+          )}
           {cart.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full text-center py-12 px-4">
-              <ShoppingCart className="mb-3 h-11 w-11 text-[#d9dde5] dark:text-[#3a3a3a]" />
-              <p className="text-sm font-semibold text-[var(--dashboard-text)]">Your basket is empty</p>
-              <p className="mt-1 max-w-[220px] text-xs leading-5 text-[var(--dashboard-muted)]">Select products from the catalog to build this sale.</p>
+            <div className="flex h-full flex-col items-center justify-center px-4 py-12 text-center">
+              <ShoppingCart className="mb-3 h-10 w-10 text-[#d0d5dd]" strokeWidth={1.5} />
+              <p className="text-sm font-semibold text-[#101828] dark:text-white">Basket is empty</p>
+              <p className="mt-1 max-w-[220px] text-xs leading-5 text-[#98a2b3]">Select products from the catalog to build this sale.</p>
             </div>
           ) : (
-            <ul className="divide-y">
+            <ul className="divide-y divide-[#eef0f3] dark:divide-white/10">
               {cart.map((item) => (
-                <li key={item.productId} className="group flex min-h-[76px] items-center gap-3 px-3 py-3 transition-colors duration-75 hover:bg-[#fafbfc] dark:hover:bg-white/5">
-                  {productsById.get(item.productId)?.imageUrl ? <Image src={productsById.get(item.productId)?.imageUrl ?? ''} alt="" width={44} height={44} unoptimized className="h-11 w-11 shrink-0 rounded-lg object-cover" /> : <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-[#fff8d6] text-[#8a6500]"><Package className="h-4 w-4" /></div>}
+                <li key={item.productId} className="group flex min-h-[72px] items-center gap-3 px-4 py-3 transition-colors duration-75 hover:bg-[#fbfbfc] dark:hover:bg-white/5">
+                  {productsById.get(item.productId)?.imageUrl ? (
+                    <Image src={productsById.get(item.productId)?.imageUrl ?? ''} alt="" width={40} height={40} unoptimized className="h-10 w-10 shrink-0 rounded-lg object-cover" />
+                  ) : (
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#f2f4f7] text-[#667085] dark:bg-white/10 dark:text-[#c4c4c4]">
+                      <Package className="h-4 w-4" />
+                    </div>
+                  )}
                   {/* Item info */}
-                  <div className="flex-1 min-w-0">
-                    <p className="mb-0.5 truncate text-xs font-semibold leading-snug text-[var(--dashboard-text)]">{item.productName}</p>
-                    <p className="text-[10px] text-muted-foreground">{formatCurrency(item.unitPrice)} · {productsById.get(item.productId)?.unit || 'unit'}</p>
+                  <div className="min-w-0 flex-1">
+                    <p className="mb-0.5 truncate text-xs font-semibold leading-snug text-[#101828] dark:text-white">{item.productName}</p>
+                    <p className="text-[11px] text-[#98a2b3]">{formatCurrency(item.unitPrice)} · {productsById.get(item.productId)?.unit || 'unit'}</p>
                   </div>
-                  
+
                   {/* Quantity controls */}
-                  <div className="flex h-9 shrink-0 items-center self-center overflow-hidden rounded-lg border border-[#dde1e7] bg-[#f8f9fb] shadow-sm dark:border-white/10 dark:bg-white/5">
+                  <div className="flex h-8 shrink-0 items-center self-center overflow-hidden rounded-lg border border-[#e4e7ec] bg-white dark:border-white/10 dark:bg-transparent">
                     <button
                       onClick={() => updateQty(item.productId, -1)}
-                      className="flex h-full w-8 items-center justify-center text-muted-foreground transition-colors duration-75 hover:bg-[#eceff3] hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/40 dark:hover:bg-white/10"
+                      className="flex h-full w-7 items-center justify-center text-[#667085] transition-colors duration-75 hover:bg-[#f2f4f7] hover:text-[#101828] focus-visible:outline-none dark:text-[#c4c4c4] dark:hover:bg-white/10"
                       title="Decrease quantity"
                       aria-label={`Reduce ${item.productName} quantity`}
                     >
                       <Minus className="h-3.5 w-3.5" strokeWidth={2.5} />
                     </button>
-                    <span className="flex h-full min-w-8 items-center justify-center border-x border-[#dde1e7] bg-white px-1 text-center text-xs font-bold tabular-nums dark:border-white/10 dark:bg-transparent" aria-live="polite">
+                    <span className="flex h-full min-w-7 items-center justify-center border-x border-[#e4e7ec] px-1 text-center text-xs font-bold tabular-nums text-[#101828] dark:border-white/10 dark:text-white" aria-live="polite">
                       {item.quantity}
                     </span>
                     <button
                       onClick={() => updateQty(item.productId, 1)}
                       disabled={item.quantity >= (productsById.get(item.productId)?.stock ?? item.quantity)}
-                      className="flex h-full w-8 items-center justify-center text-muted-foreground transition-colors duration-75 hover:bg-[#eceff3] hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/40 disabled:cursor-not-allowed disabled:opacity-35 dark:hover:bg-white/10"
+                      className="flex h-full w-7 items-center justify-center text-[#667085] transition-colors duration-75 hover:bg-[#f2f4f7] hover:text-[#101828] focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-35 dark:text-[#c4c4c4] dark:hover:bg-white/10"
                       title={item.quantity >= (productsById.get(item.productId)?.stock ?? item.quantity) ? 'Maximum available stock reached' : 'Increase quantity'}
                       aria-label={`Increase ${item.productName} quantity`}
                     >
                       <Plus className="h-3.5 w-3.5" strokeWidth={2.5} />
                     </button>
                   </div>
-                  
+
                   {/* Total & remove */}
-                  <div className="flex min-w-[72px] flex-col items-end justify-between self-stretch">
-                    <span className="text-xs font-bold tabular-nums text-[var(--dashboard-text)]">{formatCurrency(item.totalPrice)}</span>
+                  <div className="flex min-w-[68px] flex-col items-end justify-between self-stretch">
+                    <span className="text-xs font-bold tabular-nums text-[#101828] dark:text-white">{formatCurrency(item.totalPrice)}</span>
                     <button
                       onClick={() => removeFromCart(item.productId)}
-                      className="inline-flex items-center gap-1 text-[10px] font-medium text-muted-foreground transition-colors hover:text-destructive focus-visible:rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-destructive/30"
+                      className="inline-flex items-center gap-1 text-[10px] font-medium text-[#98a2b3] transition-colors hover:text-[#d92d20] focus-visible:rounded focus-visible:outline-none"
                       title="Remove item"
                       aria-label={`Remove ${item.productName} from basket`}
                     >
@@ -1039,77 +1105,75 @@ export function POSTerminal({ products, categories, customers, settings, require
               ))}
             </ul>
           )}
-          {checkoutOnly && cart.length > 0 && <div className="border-t border-[var(--dashboard-border)] bg-[#fafbfc] px-6 py-5 dark:bg-[#111111]"><div className="flex items-center justify-between"><span className="text-sm font-medium text-[var(--dashboard-muted)]">Items subtotal</span><span className="text-xl font-bold tracking-tight tabular-nums text-[var(--dashboard-text)]">{formatCurrency(subtotal)}</span></div><p className="mt-2 text-sm text-[var(--dashboard-muted)]">You can adjust quantities before completing payment.</p></div>}
+          {checkoutOnly && cart.length > 0 && (
+            <div className="border-t border-[#eef0f3] bg-[#fbfbfc] px-6 py-5 dark:border-white/10 dark:bg-[#111111]">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium text-[#667085] dark:text-[#8b8b8b]">Items subtotal</span>
+                <span className="text-xl font-bold tracking-tight tabular-nums text-[#101828] dark:text-white">{formatCurrency(subtotal)}</span>
+              </div>
+              <p className="mt-2 text-sm text-[#667085] dark:text-[#8b8b8b]">You can adjust quantities before completing payment.</p>
+            </div>
+          )}
         </div>
 
         {/* Payment panel */}
         {cart.length > 0 && !checkoutOpen && (
-          <div className={cn('border-t bg-white p-4 dark:bg-[#191919]', checkoutOnly && 'md:col-start-2 md:row-start-2 md:border-l')}>
-            <div className="mb-4 flex items-center justify-between text-sm">
-              <span className="font-medium text-muted-foreground">Basket total</span>
-              <span className="text-xl font-bold tabular-nums text-[var(--dashboard-text)]">{formatCurrency(subtotal)}</span>
+          <div className={cn('border-t border-[#eef0f3] bg-white p-4 dark:border-white/10 dark:bg-[#161616]', checkoutOnly && 'md:col-start-2 md:row-start-2 md:border-l')}>
+            <div className="mb-3 flex items-center justify-between text-sm">
+              <span className="font-medium text-[#667085] dark:text-[#8b8b8b]">Basket total</span>
+              <span className="text-xl font-bold tabular-nums text-[#101828] dark:text-white">{formatCurrency(subtotal)}</span>
             </div>
-            <button onClick={openCheckout} disabled={!hasActiveShift} title={!hasActiveShift ? 'Start a shift before taking payment' : undefined} className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#ffd60a] px-4 py-3 text-sm font-bold text-[#111113] transition-colors hover:bg-[#ffdf3a] disabled:cursor-not-allowed disabled:opacity-60">
+            <button
+              onClick={openCheckout}
+              disabled={!hasActiveShift}
+              title={!hasActiveShift ? 'Start a shift before taking payment' : undefined}
+              style={hasActiveShift ? { backgroundColor: ui.primary, color: ui.primaryInk } : undefined}
+              className={cn(
+                'flex w-full items-center justify-center gap-2 rounded-lg px-4 py-3 text-sm font-bold transition-opacity',
+                hasActiveShift ? 'hover:opacity-90' : 'cursor-not-allowed bg-[#f2f4f7] text-[#98a2b3] dark:bg-white/5 dark:text-[#666]'
+              )}
+            >
               {hasActiveShift ? `Pay ${formatCurrency(subtotal)}` : 'Start shift to take payment'}
             </button>
           </div>
         )}
 
         {cart.length > 0 && checkoutOpen && (
-          <div className={cn('min-h-0 flex-1 overflow-y-auto border-t border-[#eef0f3] bg-[#fafbfc] p-4 space-y-4 dark:bg-[#151515]', checkoutOnly && 'self-start rounded-2xl border border-[var(--dashboard-border)] bg-[var(--dashboard-surface)] p-6 shadow-[0_12px_36px_rgba(0,0,0,.12)] lg:col-start-2 lg:row-start-1')}>
-            {checkoutOnly && <div className="border-b border-[var(--dashboard-border)] pb-5"><button onClick={() => router.push('/dashboard/pos')} className="text-sm font-semibold text-primary transition-colors hover:text-primary/80">← Back to POS</button><p className="mt-5 text-[11px] font-bold uppercase tracking-[0.16em] text-[#ffd60a]">Payment</p><h2 className="mt-2 text-2xl font-bold tracking-[-0.03em] text-[var(--dashboard-text)]">Complete this sale</h2><p className="mt-2 text-sm leading-6 text-[var(--dashboard-muted)]">Confirm the customer, total, and payment method.</p></div>}
+          <div className={cn('min-h-0 flex-1 space-y-4 overflow-y-auto border-t border-[#eef0f3] bg-[#fbfbfc] p-4 dark:border-white/10 dark:bg-[#111111]', checkoutOnly && cn(ui.card, 'self-start p-6 lg:col-start-2 lg:row-start-1'))}>
+            {checkoutOnly && (
+              <div className="border-b border-[#eef0f3] pb-5 dark:border-white/10">
+                <button onClick={() => router.push('/dashboard/pos')} className="text-sm font-semibold text-[#344054] transition-colors hover:text-[#101828] dark:text-[#c4c4c4] dark:hover:text-white">
+                  ← Back to POS
+                </button>
+                <p className="mt-5 text-[11px] font-bold uppercase tracking-[0.14em]" style={{ color: ui.primaryHover }}>Payment</p>
+                <h2 className="mt-1.5 text-2xl font-bold tracking-tight text-[#101828] dark:text-white">Complete this sale</h2>
+                <p className="mt-2 text-sm leading-6 text-[#667085] dark:text-[#8b8b8b]">Confirm the customer, total, and payment method.</p>
+              </div>
+            )}
             {/* Customer select */}
             <div>
-              <div className="flex items-center justify-between mb-1">
-                <label className="block text-xs font-medium text-muted-foreground">Customer</label>
-                <button
-                  onClick={() => setShowNewCustomer(!showNewCustomer)}
-                  className="text-xs text-primary hover:underline font-medium"
-                >
-                  {showNewCustomer ? 'Cancel' : '+New'}
+              <div className="mb-1.5 flex items-center justify-between">
+                <label className={cn(ui.label, 'mb-0')}>Customer</label>
+                <button onClick={() => setShowNewCustomer(!showNewCustomer)} className="text-xs font-semibold text-[#344054] hover:underline dark:text-[#c4c4c4]">
+                  {showNewCustomer ? 'Cancel' : '+ New'}
                 </button>
               </div>
               {showNewCustomer ? (
                 <div className="space-y-2">
-                  <input
-                    type="text"
-                    placeholder="Full name"
-                    value={newCustomerName}
-                    onChange={(e) => setNewCustomerName(e.target.value)}
-                    className={cn(inputCls, 'text-xs h-8')}
-                    disabled={creatingCustomer}
-                  />
-                  <input
-                    type="tel"
-                    placeholder="Phone (optional)"
-                    value={newCustomerPhone}
-                    onChange={(e) => setNewCustomerPhone(e.target.value)}
-                    className={cn(inputCls, 'text-xs h-8')}
-                    disabled={creatingCustomer}
-                  />
-                  <input
-                    type="email"
-                    placeholder="Email (optional)"
-                    value={newCustomerEmail}
-                    onChange={(e) => setNewCustomerEmail(e.target.value)}
-                    className={cn(inputCls, 'text-xs h-8')}
-                    disabled={creatingCustomer}
-                  />
+                  <input type="text" placeholder="Full name" value={newCustomerName} onChange={(e) => setNewCustomerName(e.target.value)} className={cn(inputCls, 'h-9 text-xs')} disabled={creatingCustomer} />
+                  <input type="tel" placeholder="Phone (optional)" value={newCustomerPhone} onChange={(e) => setNewCustomerPhone(e.target.value)} className={cn(inputCls, 'h-9 text-xs')} disabled={creatingCustomer} />
+                  <input type="email" placeholder="Email (optional)" value={newCustomerEmail} onChange={(e) => setNewCustomerEmail(e.target.value)} className={cn(inputCls, 'h-9 text-xs')} disabled={creatingCustomer} />
                   <button
                     onClick={handleCreateCustomer}
                     disabled={creatingCustomer || !newCustomerName.trim()}
-                    className="w-full py-1.5 px-2 rounded text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors"
+                    className="w-full rounded-lg bg-[#101828] px-2 py-2 text-xs font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-40 dark:bg-white dark:text-[#101828]"
                   >
-                    {creatingCustomer ? 'Creating...' : 'Save Customer'}
+                    {creatingCustomer ? 'Creating…' : 'Save customer'}
                   </button>
                 </div>
               ) : (
-                <select
-                  value={selectedCustomer}
-                  onChange={(e) => setSelectedCustomer(e.target.value)}
-                  className={cn(inputCls, 'text-sm')}
-                >
-                  <option value="">Walk-in Customer</option>
+                <select value={selectedCustomer} onChange={(e) => setSelectedCustomer(e.target.value)} className={cn(inputCls, 'h-10')}>
+                  <option value="">Walk-in customer</option>
                   {availableCustomers.map((c) => (
                     <option key={c.id} value={c.id}>{c.name}{c.phone ? ` (${c.phone})` : ''}</option>
                   ))}
@@ -1117,16 +1181,10 @@ export function POSTerminal({ products, categories, customers, settings, require
               )}
             </div>
 
-            {/* Sale adjustments */}
-            {(settings.taxEnabled || canDiscount) && <div className="space-y-2">
-              {settings.taxEnabled && (
-                <div className="flex items-center justify-between rounded-lg border border-[#dde3eb] bg-white px-3 py-2 text-xs dark:bg-[#1b1b1b]">
-                  <span className="font-medium text-[var(--dashboard-text)]">{settings.taxName || 'Tax'} ({settings.taxRate.toFixed(1)}%)</span>
-                  <span className="text-[var(--dashboard-muted)]">Included as configured</span>
-                </div>
-              )}
-              {canDiscount && <div>
-                <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Discount</label>
+            {/* Discount */}
+            {canDiscount && (
+              <div>
+                <label className={ui.label}>Discount</label>
                 <div className="flex gap-2">
                   <select
                     value={discountType}
@@ -1135,7 +1193,7 @@ export function POSTerminal({ products, categories, customers, settings, require
                       setDiscountType(e.target.value as 'fixed' | 'percentage')
                       setDiscount(0)
                     }}
-                    className={cn(inputCls, 'h-9 w-28 text-xs')}
+                    className={cn(inputCls, 'h-10 w-28 text-xs')}
                   >
                     <option value="fixed">KES amount</option>
                     <option value="percentage">Percentage</option>
@@ -1148,80 +1206,88 @@ export function POSTerminal({ products, categories, customers, settings, require
                     value={discount || ''}
                     disabled={mpesaLocksBasket}
                     onChange={(e) => setDiscount(parseFloat(e.target.value) || 0)}
-                    className={cn(inputCls, 'h-9 flex-1 text-xs')}
+                    className={cn(inputCls, 'h-10 flex-1 text-xs')}
                   />
                 </div>
-              </div>}
-            </div>}
+              </div>
+            )}
 
             {/* Totals */}
-            <div className="space-y-1.5 rounded-xl border border-[#dfe4eb] bg-white p-3 text-xs shadow-sm dark:bg-[#1b1b1b]">
-              <div className="flex justify-between text-muted-foreground">
+            <div className={cn(ui.card, 'space-y-1.5 p-3.5 text-xs')}>
+              <div className="flex justify-between text-[#667085] dark:text-[#8b8b8b]">
                 <span>Subtotal</span>
-                <span className="tabular-nums font-medium">{formatCurrency(subtotal)}</span>
+                <span className="tabular-nums font-medium text-[#344054] dark:text-[#e2e2e2]">{formatCurrency(subtotal)}</span>
               </div>
               {settings.taxEnabled && settings.showTaxOnReceipt && (
-                <div className="flex justify-between text-muted-foreground">
-                  <span>{settings.taxName || 'Tax'} ({(settings.taxRate).toFixed(1)}%)</span>
-                  <span className="tabular-nums font-medium text-amber-600">{formatCurrency(taxAmount)}</span>
+                <div className="flex justify-between text-[#667085] dark:text-[#8b8b8b]">
+                  <span>{settings.taxName || 'Tax'} ({settings.taxRate.toFixed(1)}%)</span>
+                  <span className="tabular-nums font-medium text-[#344054] dark:text-[#e2e2e2]">{formatCurrency(taxAmount)}</span>
                 </div>
               )}
               {discountAmount > 0 && (
-                <div className="flex justify-between">
+                <div className="flex justify-between text-[#12a150]">
                   <span>Discount {discountType === 'percentage' ? `(${discount.toFixed(1)}%)` : ''}</span>
-                  <span className="tabular-nums">-{formatCurrency(discountAmount)}</span>
+                  <span className="tabular-nums font-medium">−{formatCurrency(discountAmount)}</span>
                 </div>
               )}
               {roundingAmount !== 0 && (
-                <div className="flex justify-between text-muted-foreground">
+                <div className="flex justify-between text-[#667085] dark:text-[#8b8b8b]">
                   <span>M-Pesa rounding</span>
-                  <span className="tabular-nums font-medium">{roundingAmount > 0 ? '+' : '−'}{formatCurrency(Math.abs(roundingAmount))}</span>
+                  <span className="tabular-nums font-medium text-[#344054] dark:text-[#e2e2e2]">{roundingAmount > 0 ? '+' : '−'}{formatCurrency(Math.abs(roundingAmount))}</span>
                 </div>
               )}
-              <div className="mt-2 flex justify-between border-t border-[#e8ebef] pt-2.5 text-sm font-bold dark:border-white/10">
-                <span>Total due</span>
-                <span className="tabular-nums text-base text-[#d92d20] dark:text-[#ff6b61]">{formatCurrency(total)}</span>
+              <div className="mt-2 flex items-baseline justify-between border-t border-[#e4e7ec] pt-2.5 dark:border-white/10">
+                <span className="text-sm font-bold text-[#101828] dark:text-white">Total due</span>
+                <span className="text-lg font-bold tabular-nums text-[#101828] dark:text-white">{formatCurrency(total)}</span>
               </div>
             </div>
 
             {/* Payment method */}
             <div>
-              <div className="mb-2 flex items-center justify-between"><label className="text-xs font-semibold text-[var(--dashboard-text)]">Payment method</label><span className="text-[10px] text-[var(--dashboard-muted)]">Use F3–F5 for a faster sale</span></div>
-              <div className="grid gap-2 sm:grid-cols-3">
-              {([
-                { key: 'cash', label: 'Cash', description: 'Pay at the counter', shortcut: 'F3' },
-                { key: 'mpesa', label: 'M-Pesa', description: 'Mobile money', shortcut: 'F4' },
-                { key: 'card', label: 'Card', description: 'Visa or Mastercard', shortcut: 'F5' },
-              ] as const)
-                .filter(({ key }) => settings.paymentMethods.includes(key))
-                .map(({ key, label, description, shortcut }) => (
-                <button
-                  key={key}
-                  onClick={() => setPaymentMethod(key)}
-                  disabled={mpesaLocksBasket && paymentMethod !== key}
-                  aria-pressed={paymentMethod === key}
-                  className={cn(
-                    'group flex min-h-[92px] flex-col items-start justify-between rounded-xl border bg-white p-3 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-50 dark:bg-[#1b1b1b]',
-                    paymentMethod === key
-                      ? key === 'mpesa'
-                        ? 'border-[#24a148] bg-[#f1fbf4] text-[#176b31] ring-1 ring-[#24a148]/20 dark:bg-[#122318]'
-                        : 'border-[#f1d66a] bg-[#fff7d6] text-[#9a6700] ring-1 ring-[#f1d66a] dark:border-[rgba(255,214,10,0.2)] dark:bg-[rgba(255,214,10,0.1)] dark:text-[#ffd60a] dark:ring-[rgba(255,214,10,0.2)]'
-                      : 'border-[var(--dashboard-border)] text-[var(--dashboard-muted)] hover:border-[#cbd2dc] hover:bg-[#fafbfc] dark:hover:bg-white/5'
-                  )}
-                >
-                  <span className="flex w-full items-center justify-between">
-                    <span className={cn('flex h-8 min-w-8 items-center justify-center rounded-lg px-1.5', key === 'mpesa' ? 'bg-[#e1f5e6] text-[#24a148]' : key === 'card' ? 'bg-[#eef3ff] text-[#3157a6]' : 'bg-[#fff1c2] text-[#946d00]')}><PaymentBrand method={key} /></span>
-                    <span className={cn('h-4 w-4 rounded-full border-2', paymentMethod === key ? 'border-current bg-current ring-2 ring-white ring-inset' : 'border-[#b8c0cc')} />
-                  </span>
-                  <span><span className="block text-sm font-bold text-[var(--dashboard-text)]">{label} <kbd className="ml-1 rounded border px-1 py-0.5 text-[9px] font-medium text-[var(--dashboard-muted)]">{shortcut}</kbd></span><span className="mt-0.5 block text-[11px] text-[var(--dashboard-muted)]">{description}</span></span>
-                </button>
-              ))}
+              <div className="mb-2 flex items-center justify-between">
+                <label className={cn(ui.label, 'mb-0')}>Payment method</label>
+                <span className="text-[10px] text-[#667085] dark:text-[#8b8b8b]">F3–F5 to switch</span>
+              </div>
+              <div className="grid grid-cols-3 gap-2" role="group" aria-label="Payment method">
+                {([
+                  { key: 'cash', label: 'Cash', shortcut: 'F3' },
+                  { key: 'mpesa', label: 'M-Pesa', shortcut: 'F4' },
+                  { key: 'card', label: 'Card', shortcut: 'F5' },
+                ] as const)
+                  .filter(({ key }) => settings.paymentMethods.includes(key))
+                  .map(({ key, label, shortcut }) => (
+                    <button
+                      key={key}
+                      onClick={() => setPaymentMethod(key)}
+                      disabled={mpesaLocksBasket && paymentMethod !== key}
+                      aria-pressed={paymentMethod === key}
+                      aria-label={`${label} payment (${shortcut})`}
+                      title={`${label} (${shortcut})`}
+                      style={key === 'mpesa' ? { backgroundColor: '#11ad2d' } : undefined}
+                      className={cn(
+                        'group relative flex h-[88px] items-center justify-center rounded-xl border-2 bg-white px-3 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-[#1c1c1c]',
+                        (key === 'cash' || key === 'mpesa' || key === 'card') && '!border-transparent !bg-transparent px-0 hover:!border-transparent hover:!bg-transparent dark:!bg-transparent',
+                        paymentMethod === key
+                          ? key === 'mpesa'
+                            ? '!border-transparent !bg-transparent text-white'
+                            : '!border-transparent !bg-transparent text-[#5f4600]'
+                          : key === 'mpesa'
+                            ? 'text-white'
+                            : key === 'card'
+                              ? 'text-white'
+                              : 'text-[#5f4600]'
+                      )}
+                    >
+                      <PaymentBrand method={key} />
+                      <span className="sr-only">{label}</span>
+                    </button>
+                  ))}
               </div>
             </div>
 
             {paymentMethod === 'cash' && (
-              <div className="rounded-xl border border-[#dfe4eb] bg-white p-3 dark:bg-[#1b1b1b]">
-                <label className="mb-1.5 block text-xs font-semibold text-[var(--dashboard-text)]">Cash received (KES)</label>
+              <div className={cn(ui.card, 'p-3.5')}>
+                <label className={ui.label}>Cash received (KES)</label>
                 <input
                   type="number"
                   min={total}
@@ -1229,15 +1295,17 @@ export function POSTerminal({ products, categories, customers, settings, require
                   placeholder={formatCurrency(total).replace('KES', '').trim()}
                   value={amountPaid}
                   onChange={(e) => setAmountPaid(e.target.value)}
-                  className={inputCls}
+                  className={cn(inputCls, 'h-10')}
                 />
                 <div className="mt-2 flex flex-wrap gap-1.5">
                   {[total, ...[1000, 2000, 5000, 10000, 20000, 50000].filter((amount) => amount >= total)].filter((amount, index, values) => values.indexOf(amount) === index).slice(0, 5).map((amount) => (
-                    <button key={amount} type="button" onClick={() => setAmountPaid(String(amount))} className="rounded-md border bg-background px-2.5 py-1.5 text-xs font-semibold text-muted-foreground hover:bg-muted">{amount === total ? 'Exact' : formatCurrency(amount)}</button>
+                    <button key={amount} type="button" onClick={() => setAmountPaid(String(amount))} className="rounded-md border border-[#e4e7ec] bg-white px-2.5 py-1.5 text-xs font-semibold text-[#475467] transition-colors hover:bg-[#f9fafb] dark:border-white/10 dark:bg-transparent dark:text-[#c4c4c4] dark:hover:bg-white/5">
+                      {amount === total ? 'Exact' : formatCurrency(amount)}
+                    </button>
                   ))}
                 </div>
                 {parseFloat(amountPaid || '0') >= total && (
-                  <p className="mt-2 flex items-center justify-between rounded-lg bg-emerald-50 px-2.5 py-2 text-xs font-semibold text-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-300">
+                  <p className="mt-2 flex items-center justify-between rounded-lg bg-[#effbf3] px-2.5 py-2 text-xs font-semibold text-[#0c4a26] dark:bg-emerald-950/30 dark:text-emerald-300">
                     <span>Change due</span><span className="tabular-nums">{formatCurrency(change)}</span>
                   </p>
                 )}
@@ -1245,82 +1313,111 @@ export function POSTerminal({ products, categories, customers, settings, require
             )}
 
             {paymentMethod === 'mpesa' && (
-              <div className="space-y-3 rounded-xl border border-[#b8e1c4] bg-[#f5fcf7] p-3 dark:border-emerald-900 dark:bg-emerald-950/20">
+              <div className="space-y-3 rounded-xl border border-[#bbf0d0] bg-[#f5fcf7] p-3.5 dark:border-emerald-900 dark:bg-emerald-950/20">
                 <div className="flex items-start gap-2.5">
-                  <span className="flex h-8 min-w-8 items-center justify-center rounded-lg bg-[#dff5e5]"><Image src="/payment-logos/mpesa.svg" alt="" width={54} height={22} className="h-4 w-auto" /></span>
-                  <div><p className="text-xs font-bold text-[#176b31] dark:text-emerald-300">Collect M-Pesa payment</p><p className="mt-0.5 text-[11px] leading-4 text-[#39734a] dark:text-emerald-400">The sale completes only after Safaricom confirms payment.</p></div>
-                </div>
-                <div className="grid grid-cols-2 rounded-lg bg-[#e7f6eb] p-1 dark:bg-emerald-950/40">
-                  <button type="button" onClick={() => { if (!mpesaLocksBasket) setMpesaFlow('stk') }} disabled={mpesaLocksBasket && mpesaFlow !== 'stk'} className={cn('rounded-md px-2 py-1.5 text-[11px] font-semibold transition-colors', mpesaFlow === 'stk' ? 'bg-white text-[#176b31] shadow-sm dark:bg-[#1d3022] dark:text-emerald-300' : 'text-[#39734a] disabled:opacity-50')}>Send phone prompt</button>
-                  <button type="button" onClick={() => { if (!mpesaLocksBasket) setMpesaFlow('paybill') }} disabled={mpesaLocksBasket && mpesaFlow !== 'paybill'} className={cn('rounded-md px-2 py-1.5 text-[11px] font-semibold transition-colors', mpesaFlow === 'paybill' ? 'bg-white text-[#176b31] shadow-sm dark:bg-[#1d3022] dark:text-emerald-300' : 'text-[#39734a] disabled:opacity-50')}>Customer uses PayBill</button>
-                </div>
-                {mpesaFlow === 'stk' ? <div>
-                  <label className="mb-1.5 block text-xs font-semibold text-[var(--dashboard-text)]">Customer phone number</label>
-                  <div className="flex gap-2">
-                    <input
-                      type="tel"
-                      inputMode="tel"
-                      autoComplete="tel"
-                      placeholder="e.g. 0712 345 678"
-                      value={mpesaPhone}
-                      onChange={(event) => setMpesaPhone(event.target.value)}
-                      disabled={mpesaStatus === 'initiating' || mpesaStatus === 'pending' || mpesaStatus === 'success'}
-                      className={cn(inputCls, 'h-10 flex-1 bg-white dark:bg-[#171717]')}
-                    />
-                    <button
-                      type="button"
-                      onClick={handleMpesaPrompt}
-                      disabled={mpesaStatus === 'initiating' || mpesaStatus === 'pending' || mpesaStatus === 'success' || (requiresAgeVerification && !ageVerified)}
-                      className="inline-flex min-w-[112px] items-center justify-center gap-2 rounded-lg bg-[#24a148] px-3 text-xs font-bold text-white transition-colors hover:bg-[#1d863c] disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      {(mpesaStatus === 'initiating' || mpesaStatus === 'pending') && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-                      {mpesaStatus === 'pending' ? 'Waiting…' : mpesaStatus === 'initiating' ? 'Sending…' : mpesaStatus === 'failed' || mpesaStatus === 'timeout' ? 'Try again' : mpesaStatus === 'success' ? 'Paid' : 'Send prompt'}
-                    </button>
+                  <span className="flex h-8 min-w-8 items-center justify-center rounded-lg bg-white ring-1 ring-[#bbf0d0]">
+                    <Image src="/payment-logos/mpesa.svg" alt="" width={48} height={20} className="h-4 w-auto" />
+                  </span>
+                  <div>
+                    <p className="text-xs font-bold text-[#0c4a26] dark:text-emerald-300">Collect M-Pesa payment</p>
+                    <p className="mt-0.5 text-[11px] leading-4 text-[#3a7a4f] dark:text-emerald-400">The sale completes only after Safaricom confirms payment.</p>
                   </div>
-                </div> : <div className="space-y-2">
-                  {!mpesaAccountReference || mpesaStatus === 'failed' || mpesaStatus === 'timeout' ? <button
-                    type="button"
-                    onClick={handlePaybillPayment}
-                    disabled={mpesaStatus === 'initiating' || mpesaStatus === 'pending' || mpesaStatus === 'success' || (requiresAgeVerification && !ageVerified)}
-                    className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-[#24a148] px-3 text-xs font-bold text-white transition-colors hover:bg-[#1d863c] disabled:cursor-not-allowed disabled:opacity-50"
+                </div>
+                <div className="grid grid-cols-2 rounded-lg bg-[#e5f8ea] p-1 dark:bg-emerald-950/40">
+                  <button type="button" onClick={() => { if (!mpesaLocksBasket) setMpesaFlow('stk') }} disabled={mpesaLocksBasket && mpesaFlow !== 'stk'} className={cn('rounded-md px-2 py-1.5 text-[11px] font-semibold transition-colors', mpesaFlow === 'stk' ? 'bg-white text-[#0c4a26] shadow-sm dark:bg-[#1d3022] dark:text-emerald-300' : 'text-[#3a7a4f] disabled:opacity-50')}>Send phone prompt</button>
+                  <button type="button" onClick={() => { if (!mpesaLocksBasket) setMpesaFlow('paybill') }} disabled={mpesaLocksBasket && mpesaFlow !== 'paybill'} className={cn('rounded-md px-2 py-1.5 text-[11px] font-semibold transition-colors', mpesaFlow === 'paybill' ? 'bg-white text-[#0c4a26] shadow-sm dark:bg-[#1d3022] dark:text-emerald-300' : 'text-[#3a7a4f] disabled:opacity-50')}>Customer uses PayBill</button>
+                </div>
+                {mpesaFlow === 'stk' ? (
+                  <div>
+                    <label className="mb-1.5 block text-xs font-semibold text-[#0c4a26] dark:text-emerald-300">Customer phone number</label>
+                    <div className="flex gap-2">
+                      <input
+                        type="tel"
+                        inputMode="tel"
+                        autoComplete="tel"
+                        placeholder="e.g. 0712 345 678"
+                        value={mpesaPhone}
+                        onChange={(event) => setMpesaPhone(event.target.value)}
+                        disabled={mpesaStatus === 'initiating' || mpesaStatus === 'pending' || mpesaStatus === 'success'}
+                        className={cn(inputCls, 'h-10 flex-1 border-[#bbf0d0] bg-white focus:border-[#12a150] focus:ring-[#12a150]/10 dark:bg-[#171717]')}
+                      />
+                      <button
+                        type="button"
+                        onClick={handleMpesaPrompt}
+                        disabled={mpesaStatus === 'initiating' || mpesaStatus === 'pending' || mpesaStatus === 'success' || (requiresAgeVerification && !ageVerified)}
+                        className="inline-flex min-w-[112px] items-center justify-center gap-2 rounded-lg bg-[#12a150] px-3 text-xs font-bold text-white transition-colors hover:bg-[#0e8a43] disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        {(mpesaStatus === 'initiating' || mpesaStatus === 'pending') && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                        {mpesaStatus === 'pending' ? 'Waiting…' : mpesaStatus === 'initiating' ? 'Sending…' : mpesaStatus === 'failed' || mpesaStatus === 'timeout' ? 'Try again' : mpesaStatus === 'success' ? 'Paid' : 'Send prompt'}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {!mpesaAccountReference || mpesaStatus === 'failed' || mpesaStatus === 'timeout' ? (
+                      <button
+                        type="button"
+                        onClick={handlePaybillPayment}
+                        disabled={mpesaStatus === 'initiating' || mpesaStatus === 'pending' || mpesaStatus === 'success' || (requiresAgeVerification && !ageVerified)}
+                        className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-[#12a150] px-3 text-xs font-bold text-white transition-colors hover:bg-[#0e8a43] disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        {mpesaStatus === 'initiating' && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                        {mpesaStatus === 'initiating' ? 'Preparing PayBill…' : 'Generate payment details'}
+                      </button>
+                    ) : (
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="rounded-lg border border-[#bbf0d0] bg-white p-2.5 dark:border-emerald-900 dark:bg-[#171717]">
+                          <span className="block text-[9px] font-bold uppercase tracking-wider text-[#98a2b3]">PayBill</span>
+                          <strong className="mt-1 block text-base tabular-nums text-[#101828] dark:text-white">{mpesaShortcode}</strong>
+                        </div>
+                        <div className="rounded-lg border border-[#bbf0d0] bg-white p-2.5 dark:border-emerald-900 dark:bg-[#171717]">
+                          <span className="block text-[9px] font-bold uppercase tracking-wider text-[#98a2b3]">Account number</span>
+                          <strong className="mt-1 block text-base tracking-wide text-[#101828] dark:text-white">{mpesaAccountReference}</strong>
+                        </div>
+                        <p className="col-span-2 text-[11px] leading-4 text-[#3a7a4f] dark:text-emerald-400">
+                          Ask the customer to pay exactly <strong>{formatCurrency(total)}</strong>. This screen updates automatically after confirmation.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
+                {requiresAgeVerification && !ageVerified && (
+                  <p className="flex items-center gap-1.5 text-[11px] font-medium text-[#b54708]">
+                    <AlertTriangle className="h-3.5 w-3.5 shrink-0" /> Complete the age check before sending the payment prompt
+                  </p>
+                )}
+                {mpesaStatus !== 'idle' && (
+                  <div
+                    className={cn(
+                      'flex items-start gap-2 rounded-lg border px-2.5 py-2 text-[11px] font-medium',
+                      mpesaStatus === 'success' ? 'border-[#bbf0d0] bg-white text-[#0c4a26] dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-300' :
+                      mpesaStatus === 'failed' || mpesaStatus === 'timeout' ? 'border-[#fecdca] bg-[#fef3f2] text-[#b42318] dark:border-red-900 dark:bg-red-950/30 dark:text-red-300' :
+                      'border-[#bbf0d0] bg-white text-[#3a7a4f] dark:border-blue-900 dark:bg-blue-950/30 dark:text-blue-300'
+                    )}
+                    role="status"
+                    aria-live="polite"
                   >
-                    {mpesaStatus === 'initiating' && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-                    {mpesaStatus === 'initiating' ? 'Preparing PayBill…' : 'Generate payment details'}
-                  </button> : <div className="grid grid-cols-2 gap-2">
-                    <div className="rounded-lg border border-emerald-200 bg-white p-2.5 dark:border-emerald-900 dark:bg-[#171717]"><span className="block text-[9px] font-bold uppercase tracking-wider text-muted-foreground">PayBill</span><strong className="mt-1 block text-base tabular-nums text-[var(--dashboard-text)]">{mpesaShortcode}</strong></div>
-                    <div className="rounded-lg border border-emerald-200 bg-white p-2.5 dark:border-emerald-900 dark:bg-[#171717]"><span className="block text-[9px] font-bold uppercase tracking-wider text-muted-foreground">Account number</span><strong className="mt-1 block text-base tracking-wide text-[var(--dashboard-text)]">{mpesaAccountReference}</strong></div>
-                    <p className="col-span-2 text-[11px] leading-4 text-[#39734a] dark:text-emerald-400">Ask the customer to pay exactly <strong>{formatCurrency(total)}</strong>. This screen updates automatically after confirmation.</p>
-                  </div>}
-                </div>}
-                {requiresAgeVerification && !ageVerified && <p className="text-[11px] font-medium text-amber-700 dark:text-amber-300">Complete the age check before sending the payment prompt.</p>}
-                {mpesaStatus !== 'idle' && <div className={cn(
-                  'flex items-start gap-2 rounded-lg border px-2.5 py-2 text-[11px] font-medium',
-                  mpesaStatus === 'success' ? 'border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-300' :
-                  mpesaStatus === 'failed' || mpesaStatus === 'timeout' ? 'border-red-200 bg-red-50 text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300' :
-                  'border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-900 dark:bg-blue-950/30 dark:text-blue-300'
-                )} role="status" aria-live="polite">
-                  {mpesaStatus === 'success' ? <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0" /> : mpesaStatus === 'failed' || mpesaStatus === 'timeout' ? <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" /> : <Loader2 className="mt-0.5 h-3.5 w-3.5 shrink-0 animate-spin" />}
-                  <span>{mpesaStatus === 'success' ? `Payment confirmed · ${mpesaRef}` : mpesaMessage}</span>
-                </div>}
+                    {mpesaStatus === 'success' ? <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0" /> : mpesaStatus === 'failed' || mpesaStatus === 'timeout' ? <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" /> : <Loader2 className="mt-0.5 h-3.5 w-3.5 shrink-0 animate-spin" />}
+                    <span>{mpesaStatus === 'success' ? `Payment confirmed · ${mpesaRef}` : mpesaMessage}</span>
+                  </div>
+                )}
               </div>
             )}
 
             {paymentMethod === 'card' && (
-              <div className="space-y-2">
-                <div className="flex gap-2 rounded-lg border border-amber-200 bg-amber-50 p-2">
-                  <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0 text-amber-600" />
-                  <p className="text-xs font-medium text-amber-800">Confirm approval on the card terminal before completing this sale.</p>
+              <div className={cn(ui.card, 'space-y-3 p-3.5')}>
+                <div className="flex gap-2 rounded-lg bg-[#fffaeb] p-2.5 ring-1 ring-inset ring-[#fedf89]">
+                  <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0 text-[#b54708]" />
+                  <p className="text-xs font-medium text-[#93370d]">Confirm approval on the card terminal before completing this sale.</p>
                 </div>
                 <div>
-                  <label className="mb-1 block text-xs font-medium text-muted-foreground">
-                    Approval / terminal reference <span className="text-destructive">*</span>
-                  </label>
+                  <label className={ui.label}>Approval / terminal reference <span className="text-[#d92d20]">*</span></label>
                   <input
                     type="text"
                     placeholder="Enter terminal approval reference"
                     value={mpesaRef}
                     onChange={(event) => setMpesaRef(event.target.value.toUpperCase())}
-                    className={inputCls}
+                    className={cn(inputCls, 'h-10')}
                   />
                 </div>
               </div>
@@ -1331,10 +1428,10 @@ export function POSTerminal({ products, categories, customers, settings, require
                 type="button"
                 onClick={() => setShowAgeVerification(true)}
                 className={cn(
-                  'flex w-full items-center gap-2 rounded-lg border px-3 py-2 text-left text-xs font-medium',
+                  'flex w-full items-center gap-2 rounded-lg border px-3 py-2.5 text-left text-xs font-medium transition-colors',
                   ageVerified
-                    ? 'border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-300'
-                    : 'border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-300'
+                    ? 'border-[#bbf0d0] bg-[#effbf3] text-[#0c4a26] dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-300'
+                    : 'border-[#fedf89] bg-[#fffaeb] text-[#93370d] hover:bg-[#fef3d6] dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-300'
                 )}
               >
                 <ShieldCheck className="h-4 w-4 shrink-0" />
@@ -1346,13 +1443,14 @@ export function POSTerminal({ products, categories, customers, settings, require
               onClick={handleCheckout}
               disabled={processing || cart.length === 0 || !hasActiveShift || (paymentMethod === 'mpesa' && mpesaStatus !== 'success')}
               className={cn(
-                'sticky bottom-0 flex w-full items-center justify-center gap-2 rounded-xl border border-transparent py-3.5 text-sm font-bold shadow-[0_8px_18px_rgba(0,0,0,.12)]',
-                'bg-primary text-primary-foreground hover:bg-primary/90',
-                'disabled:opacity-60 disabled:cursor-not-allowed transition-colors'
+                'sticky bottom-0 flex w-full items-center justify-center gap-2 rounded-lg py-3.5 text-sm font-bold shadow-[0_4px_12px_rgba(16,24,40,.16)] transition-colors',
+                processing || cart.length === 0 || !hasActiveShift || (paymentMethod === 'mpesa' && mpesaStatus !== 'success')
+                  ? 'cursor-not-allowed !bg-[#e4e7ec] !text-[#667085] shadow-none dark:!bg-white/10 dark:!text-[#8b8b8b]'
+                  : '!bg-[#101828] !text-white hover:!bg-[#344054]'
               )}
             >
               {processing ? (
-                <><Loader2 className="h-4 w-4 animate-spin" /> Processing...</>
+                <><Loader2 className="h-4 w-4 animate-spin" /> Processing…</>
               ) : (
                 <>
                   <CheckCircle2 className="h-4 w-4" />
@@ -1365,25 +1463,70 @@ export function POSTerminal({ products, categories, customers, settings, require
       </aside>
 
       {showAgeVerification && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4" role="dialog" aria-modal="true" aria-labelledby="age-check-title">
-          <div className="w-full max-w-md rounded-xl border border-[#e3dfd2] bg-white p-6 shadow-2xl dark:border-[#343434] dark:bg-[#1c1c1e]">
-            <span className="flex h-11 w-11 items-center justify-center rounded-lg bg-[#fff8d6] text-[#5f4b00] dark:bg-[#292513] dark:text-[#ffdf45]"><ShieldCheck className="h-5 w-5" /></span>
-            <h2 id="age-check-title" className="mt-4 text-lg font-bold text-[var(--dashboard-text)]">Verify customer age</h2>
-            <p className="mt-2 text-sm leading-6 text-[var(--dashboard-muted)]">Check a valid photo ID where required and confirm the customer meets the legal drinking age before completing this sale.</p>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0c111d]/50 p-4" role="dialog" aria-modal="true" aria-labelledby="age-check-title">
+          <div className="w-full max-w-md rounded-2xl border border-[#e4e7ec] bg-white p-6 shadow-[0_20px_60px_rgba(16,24,40,.28)] dark:border-white/10 dark:bg-[#1c1c1e]">
+            <span className="flex h-11 w-11 items-center justify-center rounded-lg bg-[#fffaeb] text-[#93370d] dark:bg-amber-950/30 dark:text-amber-300">
+              <ShieldCheck className="h-5 w-5" />
+            </span>
+            <h2 id="age-check-title" className="mt-4 text-lg font-bold text-[#101828] dark:text-white">Verify customer age</h2>
+            <p className="mt-2 text-sm leading-6 text-[#667085] dark:text-[#8b8b8b]">Check a valid photo ID where required and confirm the customer meets the legal drinking age before completing this sale.</p>
             <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-              <button type="button" onClick={() => setShowAgeVerification(false)} className="min-h-10 rounded-lg border border-[var(--dashboard-border)] px-4 text-sm font-semibold text-[var(--dashboard-text)] hover:bg-[#f7f8fa] dark:hover:bg-white/5">Cancel</button>
-              <button type="button" onClick={() => { setAgeVerified(true); setShowAgeVerification(false); if (paymentMethod !== 'mpesa' || mpesaStatus === 'success') void processCheckout(true) }} className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-[#ffda32] px-4 text-sm font-bold text-[#050a1f] hover:bg-[#f0c900]"><ShieldCheck className="h-4 w-4" />Age verified — continue</button>
+              <button type="button" onClick={() => setShowAgeVerification(false)} className="min-h-10 rounded-lg border border-[#d0d5dd] px-4 text-sm font-semibold text-[#344054] transition-colors hover:bg-[#f9fafb] dark:border-white/10 dark:text-[#c4c4c4] dark:hover:bg-white/5">
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => { setAgeVerified(true); setShowAgeVerification(false); if (paymentMethod !== 'mpesa' || mpesaStatus === 'success') void processCheckout(true) }}
+                style={{ backgroundColor: ui.primary, color: ui.primaryInk }}
+                className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg px-4 text-sm font-bold transition-opacity hover:opacity-90"
+              >
+                <ShieldCheck className="h-4 w-4" />Age verified — continue
+              </button>
             </div>
           </div>
         </div>
       )}
 
       {showHeldSales && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4" role="dialog" aria-modal="true" aria-labelledby="held-sales-title">
-          <div className="w-full max-w-md overflow-hidden rounded-xl border border-[#e5e7eb] bg-white shadow-2xl">
-            <div className="flex items-center justify-between border-b px-5 py-4"><div><h2 id="held-sales-title" className="font-bold">Held sales</h2><p className="mt-1 text-xs text-muted-foreground">Stored on this POS browser until resumed or cleared.</p></div><button type="button" onClick={() => setShowHeldSales(false)} className="rounded p-1 hover:bg-muted" aria-label="Close held sales"><X className="h-4 w-4" /></button></div>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0c111d]/50 p-4" role="dialog" aria-modal="true" aria-labelledby="held-sales-title">
+          <div className="w-full max-w-md overflow-hidden rounded-2xl border border-[#e4e7ec] bg-white shadow-[0_20px_60px_rgba(16,24,40,.28)]">
+            <div className="flex items-center justify-between border-b border-[#e4e7ec] px-5 py-4">
+              <div>
+                <h2 id="held-sales-title" className="text-sm font-bold text-[#101828]">Held sales</h2>
+                <p className="mt-0.5 text-xs text-[#98a2b3]">Stored on this POS browser until resumed or cleared</p>
+              </div>
+              <button type="button" onClick={() => setShowHeldSales(false)} className="rounded-lg p-1.5 text-[#667085] hover:bg-[#f2f4f7]" aria-label="Close held sales">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
             <div className="max-h-[55vh] overflow-y-auto p-3">
-              {heldSales.length === 0 ? <p className="py-8 text-center text-sm text-muted-foreground">No held sales.</p> : <div className="space-y-2">{heldSales.map((heldSale) => <div key={heldSale.id} className="flex items-center justify-between gap-3 rounded-lg border p-3"><div><p className="text-sm font-semibold">{heldSale.cart.length} item{heldSale.cart.length === 1 ? '' : 's'} · {formatCurrency(heldSale.cart.reduce((sum, item) => sum + item.totalPrice, 0))}</p><p className="mt-1 text-xs text-muted-foreground">Held {new Date(heldSale.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p></div><div className="flex gap-2"><button type="button" onClick={() => setHeldSales((previous) => previous.filter((sale) => sale.id !== heldSale.id))} className="rounded-md border px-2 py-2 text-xs font-semibold text-muted-foreground hover:bg-muted">Discard</button><button type="button" onClick={() => resumeHeldSale(heldSale)} className="rounded-md bg-[#ffd60a] px-3 py-2 text-xs font-bold text-[#111113] hover:bg-[#ffdf3a]">Resume</button></div></div>)}</div>}
+              {heldSales.length === 0 ? (
+                <p className="py-8 text-center text-sm text-[#98a2b3]">No held sales</p>
+              ) : (
+                <div className="space-y-2">
+                  {heldSales.map((heldSale) => (
+                    <div key={heldSale.id} className="flex items-center justify-between gap-3 rounded-xl border border-[#e4e7ec] p-3">
+                      <div>
+                        <p className="text-sm font-semibold text-[#101828]">{heldSale.cart.length} item{heldSale.cart.length === 1 ? '' : 's'} · {formatCurrency(heldSale.cart.reduce((sum, item) => sum + item.totalPrice, 0))}</p>
+                        <p className="mt-1 text-xs text-[#98a2b3]">Held {new Date(heldSale.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                      </div>
+                      <div className="flex gap-2">
+                        <button type="button" onClick={() => setHeldSales((previous) => previous.filter((sale) => sale.id !== heldSale.id))} className="rounded-lg border border-[#d0d5dd] px-2.5 py-2 text-xs font-semibold text-[#667085] transition-colors hover:bg-[#f9fafb]">
+                          Discard
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => resumeHeldSale(heldSale)}
+                          style={{ backgroundColor: ui.primary, color: ui.primaryInk }}
+                          className="rounded-lg px-3 py-2 text-xs font-bold transition-opacity hover:opacity-90"
+                        >
+                          Resume
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </div>
