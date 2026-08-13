@@ -1,7 +1,7 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { and, desc, eq, inArray } from 'drizzle-orm'
+import { and, desc, eq, inArray, sql } from 'drizzle-orm'
 import { z } from 'zod'
 import { db } from '@/lib/db'
 import { auditEvent, product, stockAdjustment, stockAdjustmentItem, stockMovement } from '@/lib/db/schema'
@@ -106,26 +106,25 @@ export async function approveStockAdjustment(adjustmentId: string) {
   if (adjustment.status !== 'pending') throw new Error(`This stock count is already ${adjustment.status}`)
 
   await db.transaction(async (tx) => {
+    const [claimed] = await tx.update(stockAdjustment).set({ status: 'approved', approvedBy: userId, approvedAt: new Date() }).where(and(eq(stockAdjustment.id, id), eq(stockAdjustment.orgId, orgId), eq(stockAdjustment.status, 'pending'))).returning({ id: stockAdjustment.id })
+    if (!claimed) throw new Error('This stock count has already been reviewed')
     const items = await tx.select().from(stockAdjustmentItem).where(and(eq(stockAdjustmentItem.adjustmentId, id), eq(stockAdjustmentItem.orgId, orgId)))
     if (!items.length) throw new Error('This stock count has no items')
 
     for (const item of items) {
-      const [current] = await tx.select().from(product).where(and(eq(product.id, item.productId), eq(product.orgId, orgId), eq(product.isActive, true))).limit(1)
-      if (!current) throw new Error(`${item.productName} is no longer active`)
       // Apply the variance captured when the physical count was submitted.
       // This preserves sales and receipts that may happen while approval is pending.
       const variance = item.variance
-      const stockAfter = current.stock + variance
-      if (stockAfter < 0) throw new Error(`${item.productName} changed after this count. Record a fresh physical count.`)
-      await tx.update(product).set({ stock: stockAfter, updatedAt: new Date() }).where(and(eq(product.id, item.productId), eq(product.orgId, orgId)))
+      const [updated] = await tx.update(product).set({ stock: sql`${product.stock} + ${variance}`, updatedAt: new Date() }).where(and(eq(product.id, item.productId), eq(product.orgId, orgId), eq(product.isActive, true), sql`${product.stock} + ${variance} >= 0`)).returning({ id: product.id, name: product.name, stockAfter: product.stock })
+      if (!updated) throw new Error(`${item.productName} changed after this count. Record a fresh physical count.`)
       await tx.insert(stockMovement).values({
         id: generateId(),
-        productId: current.id,
-        productName: current.name,
+        productId: updated.id,
+        productName: updated.name,
         type: adjustment.type === 'stocktake' ? 'stock_count' : `adjustment_${adjustment.type}`,
         quantity: variance,
-        stockBefore: current.stock,
-        stockAfter,
+        stockBefore: updated.stockAfter - variance,
+        stockAfter: updated.stockAfter,
         referenceType: 'adjustment',
         referenceId: id,
         reason: adjustment.notes || `Approved ${adjustment.type}`,
@@ -133,8 +132,6 @@ export async function approveStockAdjustment(adjustmentId: string) {
         orgId,
       })
     }
-    const [approved] = await tx.update(stockAdjustment).set({ status: 'approved', approvedBy: userId, approvedAt: new Date() }).where(and(eq(stockAdjustment.id, id), eq(stockAdjustment.orgId, orgId), eq(stockAdjustment.status, 'pending'))).returning({ id: stockAdjustment.id })
-    if (!approved) throw new Error('This stock count has already been reviewed')
     await tx.insert(auditEvent).values({ id: generateId(), organizationId: orgId, userId, action: 'stock_adjustment_approved', metadata: { adjustmentId: id, itemsCount: items.length } })
   })
   await refreshInventory(orgId)

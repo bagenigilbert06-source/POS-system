@@ -25,7 +25,7 @@ export default async function InventoryPage() {
   const lowStock = activeProducts.filter((item) => item.stock > 0 && item.stock <= item.minStock)
   const pendingCounts = control.adjustments.filter((item) => item.status === 'pending')
   const canAdjust = authorization.permissions.includes(PermissionEnum.INVENTORY_ADJUST)
-  const canPurchase = authorization.permissions.includes(PermissionEnum.PURCHASE_VIEW)
+  const canPurchase = authorization.permissions.includes(PermissionEnum.PURCHASE_MANAGE)
 
   const metrics = [
     { label: 'Inventory value', value: formatCurrency(totalValue, organization.currency), detail: 'Current buying cost on hand', icon: WalletCards, tone: 'default' },

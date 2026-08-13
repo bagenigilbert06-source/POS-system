@@ -16,6 +16,8 @@ assert.equal(has(RoleEnum.INVENTORY, PermissionEnum.FINANCE_VIEW), false, 'inven
 assert.equal(has(RoleEnum.ACCOUNTANT, PermissionEnum.FINANCE_VIEW), true, 'accountants must see finance')
 assert.equal(has(RoleEnum.ACCOUNTANT, PermissionEnum.POS_SELL), false, 'accountants must not operate POS by default')
 assert.equal(has(RoleEnum.MANAGER, PermissionEnum.STAFF_MANAGE), true, 'managers must be able to create and manage permitted staff roles')
+assert.equal(has(RoleEnum.MANAGER, PermissionEnum.INVENTORY_ADJUST), true, 'managers must be able to count, correct, and approve stock')
+assert.equal(has(RoleEnum.MANAGER, PermissionEnum.PURCHASE_MANAGE), true, 'managers must be able to receive replenishment stock')
 assert.equal(has(RoleEnum.OWNER, PermissionEnum.STAFF_MANAGE), true, 'owners must administer access')
 
 console.log('RBAC rules unit test passed')

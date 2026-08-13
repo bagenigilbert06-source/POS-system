@@ -160,6 +160,7 @@ export const ROLE_PERMISSIONS: Record<RoleEnum, PermissionEnum[]> = {
     PermissionEnum.INVENTORY_VIEW,
     PermissionEnum.INVENTORY_EDIT,
     PermissionEnum.INVENTORY_TRANSFER,
+    PermissionEnum.INVENTORY_ADJUST,
     PermissionEnum.CUSTOMER_VIEW,
     PermissionEnum.CUSTOMER_CREATE,
     PermissionEnum.CUSTOMER_EDIT,
