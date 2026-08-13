@@ -12,13 +12,17 @@ export function WirelessScannerPairing({ open, onClose, onBarcode }: { open: boo
   const [error, setError] = useState('')
   const handledEventsRef = useRef(new Set<string>())
   const onBarcodeRef = useRef(onBarcode)
+  const onCloseRef = useRef(onClose)
+  const connectionHandledRef = useRef(false)
 
   useEffect(() => { onBarcodeRef.current = onBarcode }, [onBarcode])
+  useEffect(() => { onCloseRef.current = onClose }, [onClose])
 
   useEffect(() => {
-    if (!open) return
+    if (!open || session) return
     let cancelled = false
     setSession(null); setPairUrl(''); setQrUrl(''); setConnected(false); setError(''); handledEventsRef.current.clear()
+    connectionHandledRef.current = false
     void fetch('/api/pos/scanner/session', { method: 'POST' }).then(async (response) => {
       const result = await response.json()
       if (!response.ok) throw new Error(result.error || 'Could not create scanner session')
@@ -32,10 +36,10 @@ export function WirelessScannerPairing({ open, onClose, onBarcode }: { open: boo
       if (!cancelled) setQrUrl(await QRCode.toDataURL(url, { width: 280, margin: 1, errorCorrectionLevel: 'M' }))
     }).catch((cause) => !cancelled && setError(cause instanceof Error ? cause.message : 'Could not create scanner session'))
     return () => { cancelled = true }
-  }, [open])
+  }, [open, session])
 
   useEffect(() => {
-    if (!open || !session) return
+    if (!session) return
     let stopped = false
     const poll = async () => {
       try {
@@ -44,6 +48,12 @@ export function WirelessScannerPairing({ open, onClose, onBarcode }: { open: boo
         const result = await response.json() as { connected: boolean; events: Array<{ id: string; barcode: string }> }
         if (stopped) return
         setConnected(result.connected)
+        if (result.connected && !connectionHandledRef.current) {
+          connectionHandledRef.current = true
+          // The phone is paired; hide only the QR dialog. Polling stays active so
+          // its scans continue to arrive on this PC in the background.
+          onCloseRef.current()
+        }
         result.events.forEach((event) => {
           if (handledEventsRef.current.has(event.id)) return
           handledEventsRef.current.add(event.id)
@@ -56,10 +66,11 @@ export function WirelessScannerPairing({ open, onClose, onBarcode }: { open: boo
     void poll()
     const timer = window.setInterval(poll, 700)
     return () => { stopped = true; window.clearInterval(timer) }
-  }, [open, session])
+  }, [session])
 
   const close = () => {
     if (session) void fetch(`/api/pos/scanner/session?sessionId=${encodeURIComponent(session.id)}`, { method: 'DELETE' })
+    setSession(null); setPairUrl(''); setQrUrl(''); setConnected(false); setError('')
     onClose()
   }
   if (!open) return null
@@ -73,7 +84,7 @@ export function WirelessScannerPairing({ open, onClose, onBarcode }: { open: boo
         <div className={`mt-4 flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold ${connected ? 'bg-emerald-50 text-emerald-700' : 'bg-muted text-muted-foreground'}`}>{connected ? <><CheckCircle2 className="h-4 w-4" /> Phone connected</> : <><Loader2 className="h-4 w-4 animate-spin" /> Waiting for phone</>}</div>
         {localOnly && <p className="mt-3 rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs leading-5 text-amber-900">This QR uses localhost, which a phone cannot reach. Open the POS using its HTTPS network/deployed address, or configure NEXT_PUBLIC_APP_URL.</p>}
         <button type="button" onClick={() => navigator.clipboard.writeText(pairUrl)} className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-lg border px-3 py-2 text-sm font-semibold hover:bg-muted"><Copy className="h-4 w-4" /> Copy phone link</button>
-        <p className="mt-3 text-center text-xs text-muted-foreground">Pairing expires after 30 minutes. Keep this window open while scanning.</p>
+        <p className="mt-3 text-center text-xs text-muted-foreground">Once connected this window closes automatically. The phone stays paired for up to 12 hours.</p>
       </>}
     </div>
   </div>

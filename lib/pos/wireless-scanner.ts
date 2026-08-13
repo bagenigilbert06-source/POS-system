@@ -1,6 +1,7 @@
 import { createHash, randomBytes } from 'node:crypto'
 
-export const WIRELESS_SCANNER_TTL_MS = 30 * 60 * 1000
+/** Long enough for a full trading day, while still limiting the lifetime of a shared QR link. */
+export const WIRELESS_SCANNER_TTL_MS = 12 * 60 * 60 * 1000
 
 export function createWirelessScannerToken() {
   return randomBytes(32).toString('base64url')
