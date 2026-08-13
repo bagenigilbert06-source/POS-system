@@ -107,9 +107,20 @@ export function DynamicAppSidebar({ initialPermissions: permissions, initialRole
     ...(permissions.includes(PermissionEnum.SALES_VIEW_OWN) ? [{ id: 'my-sales', label: 'My receipts', icon: 'ReceiptText', route: '/dashboard/pos/history' }] : []),
     ...(config.enabledModules.includes('customers') && permissions.includes(PermissionEnum.CUSTOMER_VIEW) ? [{ id: 'customers', label: 'Customers', icon: 'Users', route: '/dashboard/customers' }] : []),
   ]
+  // A supervisor's workspace is deliberately operational: approve and review
+  // register activity, sell when needed, check stock, and assist customers.
+  // Configuration, staff administration and financial settings stay hidden.
+  const supervisorPrimaryNav = [
+    ...(permissions.includes(PermissionEnum.SHIFT_MANAGE) ? [{ id: 'operations', label: 'Operations', icon: 'ClipboardCheck', route: '/dashboard/operations' }] : []),
+    ...(canView('pos') ? [posNav] : []),
+    ...(permissions.includes(PermissionEnum.SALES_VIEW_ALL) ? [{ id: 'sales', label: 'Sales', icon: 'ReceiptText', route: '/dashboard/sales' }] : []),
+    ...(permissions.includes(PermissionEnum.INVENTORY_VIEW) ? [{ id: 'inventory', label: 'Inventory', icon: 'Boxes', route: '/dashboard/inventory' }] : []),
+    ...(permissions.includes(PermissionEnum.PRODUCT_VIEW) ? [{ id: 'products', label: 'Products', icon: 'Package', route: '/dashboard/products' }] : []),
+    ...(config.enabledModules.includes('customers') && permissions.includes(PermissionEnum.CUSTOMER_VIEW) ? [{ id: 'customers', label: 'Customers', icon: 'Users', route: '/dashboard/customers' }] : []),
+  ]
   const secondaryNav = config.sidebarConfig.secondaryNav.filter((item) => canView(item.id))
-  const visiblePrimaryNav = role === 'cashier' ? cashierPrimaryNav : primaryNav
-  const visibleSecondaryNav = role === 'cashier' ? [] : secondaryNav
+  const visiblePrimaryNav = role === 'cashier' ? cashierPrimaryNav : role === 'supervisor' ? supervisorPrimaryNav : primaryNav
+  const visibleSecondaryNav = role === 'cashier' || role === 'supervisor' ? [] : secondaryNav
   const sidebarWidth = collapsed ? 'lg:w-[68px]' : 'lg:w-[223px]'
 
   const sidebar = (
