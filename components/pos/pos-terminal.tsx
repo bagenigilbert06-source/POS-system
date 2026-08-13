@@ -29,7 +29,6 @@ import {
   Banknote,
   UserRound,
   Tag,
-  ScanLine,
 } from 'lucide-react'
 import type { Product, Customer, Sale, SaleItem } from '@/lib/db/schema'
 import { toast } from 'sonner'
@@ -38,7 +37,6 @@ import { ReceiptReprint } from './receipt-reprint'
 import { SalesHistoryModal } from './sales-history-modal'
 import { ReceiptTemplate } from '@/components/receipt/receipt-template'
 import { calculateMpesaAmount } from '@/lib/mpesa/amount'
-import { BarcodeScannerDialog } from '@/components/barcode/barcode-scanner-dialog'
 import { WirelessScannerPairing } from '@/components/barcode/wireless-scanner-pairing'
 
 interface POSTerminalProps {
@@ -201,7 +199,6 @@ export function POSTerminal({ products, categories, customers, settings, require
   const [showAgeVerification, setShowAgeVerification] = useState(false)
   const [checkoutOpen, setCheckoutOpen] = useState(startCheckout)
   const [scanMessage, setScanMessage] = useState('')
-  const [showCameraScanner, setShowCameraScanner] = useState(false)
   const [showWirelessScanner, setShowWirelessScanner] = useState(false)
   const searchInputRef = useRef<HTMLInputElement>(null)
   const barcodeBufferRef = useRef<string>('')
@@ -901,16 +898,13 @@ export function POSTerminal({ products, categories, customers, settings, require
                 const barcode = normalizeBarcode(search)
                 if (barcode) { e.preventDefault(); handleBarcodeScan(barcode) }
               }}
-              className={cn(inputCls, 'h-11 rounded-lg pl-9 pr-48')}
+              className={cn(inputCls, 'h-11 rounded-lg pl-9 pr-36')}
               autoFocus
             />
-            <div className="absolute right-1.5 top-1/2 flex -translate-y-1/2 gap-1.5">
-              <button type="button" onClick={() => setShowCameraScanner(true)} className="inline-flex h-8 items-center gap-1.5 rounded-md border border-[#e4e7ec] bg-white px-2.5 text-xs font-semibold text-[#344054] shadow-sm transition-colors hover:border-[#f9b21d] hover:bg-[#fff8e6] dark:border-white/15 dark:bg-[#1c1c1c] dark:text-white dark:hover:border-[#f9b21d]"><ScanLine className="h-4 w-4" /> Camera</button>
-              <button type="button" onClick={() => setShowWirelessScanner(true)} className="inline-flex h-8 items-center gap-1.5 rounded-md border border-[#e4e7ec] bg-white px-2.5 text-xs font-semibold text-[#344054] shadow-sm transition-colors hover:border-[#f9b21d] hover:bg-[#fff8e6] dark:border-white/15 dark:bg-[#1c1c1c] dark:text-white dark:hover:border-[#f9b21d]"><Smartphone className="h-4 w-4" /> Phone</button>
-            </div>
+            <button type="button" onClick={() => setShowWirelessScanner(true)} className="absolute right-1.5 top-1/2 inline-flex h-8 -translate-y-1/2 items-center gap-1.5 rounded-md border border-[#e4e7ec] bg-white px-2.5 text-xs font-semibold text-[#344054] shadow-sm transition-colors hover:border-[#f9b21d] hover:bg-[#fff8e6] dark:border-white/15 dark:bg-[#1c1c1c] dark:text-white dark:hover:border-[#f9b21d]"><Smartphone className="h-4 w-4" /> Pair phone</button>
           </div>
           <p className="mt-2 text-xs text-[#667085] dark:text-[#8b8b8b]" role="status" aria-live="polite">
-            {scanMessage || 'Scanner ready — focus this screen and scan a barcode'}
+            {scanMessage || 'USB scanner ready — scan an item, or pair a phone scanner'}
           </p>
         </div>
 
@@ -1717,15 +1711,6 @@ export function POSTerminal({ products, categories, customers, settings, require
           }}
         />
       )}
-      <BarcodeScannerDialog
-        open={showCameraScanner}
-        onClose={() => setShowCameraScanner(false)}
-        title="Scan product to basket"
-        onScan={(barcode) => {
-          setShowCameraScanner(false)
-          handleBarcodeScan(barcode)
-        }}
-      />
       <WirelessScannerPairing
         open={showWirelessScanner}
         onClose={() => setShowWirelessScanner(false)}
