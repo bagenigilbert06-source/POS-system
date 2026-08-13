@@ -188,6 +188,8 @@ export function DynamicAppSidebar({ initialPermissions: permissions, initialRole
                 <Link
                   href={item.route}
                   prefetch
+                  onMouseEnter={() => router.prefetch(item.route!)}
+                  onFocus={() => router.prefetch(item.route!)}
                   onClick={onMobileClose}
                   title={collapsed ? item.label : undefined}
                   className={cn(
@@ -219,6 +221,8 @@ export function DynamicAppSidebar({ initialPermissions: permissions, initialRole
                 <Link
                   href={item.route || '/dashboard/settings'}
                   prefetch
+                  onMouseEnter={() => router.prefetch(item.route || '/dashboard/settings')}
+                  onFocus={() => router.prefetch(item.route || '/dashboard/settings')}
                   onClick={onMobileClose}
                   title={collapsed ? item.label : undefined}
                   className={cn(
