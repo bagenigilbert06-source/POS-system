@@ -18,6 +18,7 @@ import { getAuthorizationContext } from '@/lib/auth/authorization'
 import { getPosAuthorizationContext } from '@/lib/pos/pos-auth'
 import { getCurrentSession } from '@/lib/auth'
 import { redirect } from 'next/navigation'
+import Link from 'next/link'
 
 export const metadata: Metadata = { title: 'POS Terminal' }
 export const dynamic = 'force-dynamic'
@@ -43,8 +44,20 @@ export default async function POSPage() {
 
   return (
     <div className="mx-auto max-w-[1480px] space-y-5">
-      <DashboardPageHeading theme="adaptive" icon={ReceiptText} title="Point of sale" description="Process complete sales with the payment methods configured for your workspace." />
-      <PosSecurity branchId={activeBranch.id} />
+      <DashboardPageHeading
+        theme="adaptive"
+        icon={ReceiptText}
+        title="Point of sale"
+        description="Process complete sales with the payment methods configured for your workspace."
+        action={
+          <div className="flex flex-wrap items-center justify-end gap-3">
+            {(operator.permissions.includes(PermissionEnum.SHIFT_MANAGE) || operator.permissions.includes(PermissionEnum.AUDIT_LOG_VIEW)) && (
+              <Link href="/dashboard/pos/mpesa-reconciliation" className="text-sm font-semibold text-emerald-700 transition-colors hover:text-emerald-800 hover:underline dark:text-emerald-400 dark:hover:text-emerald-300">M-Pesa reconciliation</Link>
+            )}
+            <PosSecurity branchId={activeBranch.id} />
+          </div>
+        }
+      />
       <CashierShiftStrip workspace={cashierWorkspace} />
       <POSTerminal products={products} categories={categories} customers={customers} settings={settings} requiresAgeVerification={config.businessCategory === 'liquor_shop'} hasActiveShift={Boolean(cashierWorkspace.session)} canDiscount={operator.permissions.includes(PermissionEnum.POS_DISCOUNT)} canRefund={operator.permissions.includes(PermissionEnum.SALE_REFUND)} canHold={operator.permissions.includes(PermissionEnum.POS_HOLD)} />
     </div>

@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { normalizeKenyanPhone, validCallbackToken } from '../lib/mpesa/daraja'
 import { calculateMpesaAmount } from '../lib/mpesa/amount'
+import { selectUnambiguousTillCandidate } from '../lib/mpesa/matching'
 
 assert.equal(normalizeKenyanPhone('0712 345 678'), '254712345678')
 assert.equal(normalizeKenyanPhone('+254 712 345 678'), '254712345678')
@@ -9,6 +10,10 @@ assert.throws(() => normalizeKenyanPhone('020 123 4567'), /valid Kenyan M-Pesa n
 assert.deepEqual(calculateMpesaAmount(2917.4), { amount: 2917, roundingAmount: -0.4 })
 assert.deepEqual(calculateMpesaAmount(2917.6), { amount: 2918, roundingAmount: 0.4 })
 assert.deepEqual(calculateMpesaAmount(2917), { amount: 2917, roundingAmount: 0 })
+assert.equal(selectUnambiguousTillCandidate([], 1500), null)
+assert.equal(selectUnambiguousTillCandidate([{ id: 'one', amount: '1500.00' }], 1500)?.id, 'one')
+assert.equal(selectUnambiguousTillCandidate([{ id: 'one', amount: '1500.00' }, { id: 'two', amount: '1500.00' }], 1500), null)
+assert.equal(selectUnambiguousTillCandidate([{ id: 'wrong', amount: '1499.00' }], 1500), null)
 
 const previousEnvironment = process.env.MPESA_ENV
 const previousSecret = process.env.MPESA_CALLBACK_SECRET

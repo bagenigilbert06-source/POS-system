@@ -126,7 +126,8 @@ function c2bCallbackUrl(pathname: string) {
 
 export function mpesaPaybillDetails() {
   const config = configuration(false)
-  return { shortcode: config.shortcode }
+  const accountType = (process.env.MPESA_C2B_TYPE || 'paybill').toLowerCase() === 'till' ? 'till' : 'paybill'
+  return { shortcode: config.shortcode, accountType: accountType as 'paybill' | 'till' }
 }
 
 export function validC2bShortcode(value: string) {

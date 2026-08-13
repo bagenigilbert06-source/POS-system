@@ -241,6 +241,29 @@ export const product = pgTable('product', {
   updatedAt: timestamp('updatedAt').notNull().defaultNow(),
 }, (table) => ({ organizationActiveIndex: index('product_org_active_idx').on(table.orgId, table.isActive) }))
 
+export const wirelessScannerSession = pgTable('wireless_scanner_session', {
+  id: text('id').primaryKey(),
+  organizationId: text('organizationId').notNull(),
+  userId: text('userId').notNull(),
+  tokenHash: text('tokenHash').notNull().unique(),
+  status: text('status').notNull().default('active'),
+  expiresAt: timestamp('expiresAt').notNull(),
+  lastSeenAt: timestamp('lastSeenAt'),
+  createdAt: timestamp('createdAt').notNull().defaultNow(),
+}, (table) => ({ ownerIndex: index('wireless_scanner_session_owner_idx').on(table.organizationId, table.userId, table.status) }))
+
+export const wirelessScannerEvent = pgTable('wireless_scanner_event', {
+  id: text('id').primaryKey(),
+  sessionId: text('sessionId').notNull().references(() => wirelessScannerSession.id, { onDelete: 'cascade' }),
+  barcode: text('barcode').notNull(),
+  clientEventId: text('clientEventId').notNull(),
+  createdAt: timestamp('createdAt').notNull().defaultNow(),
+  consumedAt: timestamp('consumedAt'),
+}, (table) => ({
+  sessionCreatedIndex: index('wireless_scanner_event_session_created_idx').on(table.sessionId, table.createdAt),
+  clientEventUnique: uniqueIndex('wireless_scanner_event_client_unique').on(table.sessionId, table.clientEventId),
+}))
+
 export const customer = pgTable('customer', {
   id: text('id').primaryKey(),
   name: text('name').notNull(),
@@ -276,6 +299,8 @@ export const sale = pgTable('sale', {
   idempotencyKey: text('idempotencyKey'), // For duplicate prevention
   userId: text('userId').notNull(),
   orgId: text('orgId').notNull(),
+  branchId: text('branchId'),
+  posSessionId: text('posSessionId'),
   createdAt: timestamp('createdAt').notNull().defaultNow(),
 }, (table) => ({
   organizationIndex: index('sale_org_idx').on(table.orgId),
@@ -449,6 +474,10 @@ export const mpesaPaymentRequest = pgTable('mpesa_payment_request', {
   id: text('id').primaryKey(),
   organizationId: text('organizationId').notNull(),
   userId: text('userId').notNull(),
+  branchId: text('branchId'),
+  posSessionId: text('posSessionId'),
+  customerId: text('customerId'),
+  checkoutPayload: json('checkoutPayload'),
   idempotencyKey: text('idempotencyKey').notNull(),
   paymentMode: text('paymentMode').notNull().default('stk'),
   accountReference: text('accountReference'),
@@ -478,6 +507,8 @@ export const mpesaPaymentRequest = pgTable('mpesa_payment_request', {
 export const mpesaIncomingPayment = pgTable('mpesa_incoming_payment', {
   id: text('id').primaryKey(),
   transactionId: text('transactionId').notNull(),
+  organizationId: text('organizationId'),
+  branchId: text('branchId'),
   shortcode: text('shortcode').notNull(),
   accountReference: text('accountReference'),
   phone: text('phone'),
@@ -486,10 +517,26 @@ export const mpesaIncomingPayment = pgTable('mpesa_incoming_payment', {
   matchedRequestId: text('matchedRequestId'),
   status: text('status').notNull().default('unmatched'),
   payload: json('payload'),
+  transactionAt: timestamp('transactionAt'),
   createdAt: timestamp('createdAt').notNull().defaultNow(),
 }, (table) => ({
   transactionUnique: uniqueIndex('mpesa_incoming_payment_transaction_unique').on(table.transactionId),
   referenceIndex: index('mpesa_incoming_payment_reference_idx').on(table.accountReference),
+}))
+
+/** Maps a Daraja shortcode to the tenant and branch that own its callbacks. */
+export const mpesaBusinessAccount = pgTable('mpesa_business_account', {
+  id: text('id').primaryKey(),
+  organizationId: text('organizationId').notNull(),
+  branchId: text('branchId').notNull(),
+  shortcode: text('shortcode').notNull(),
+  accountType: text('accountType').notNull(),
+  active: boolean('active').notNull().default(true),
+  createdAt: timestamp('createdAt').notNull().defaultNow(),
+  updatedAt: timestamp('updatedAt').notNull().defaultNow(),
+}, (table) => ({
+  shortcodeUnique: uniqueIndex('mpesa_business_account_shortcode_unique').on(table.shortcode),
+  organizationIndex: index('mpesa_business_account_org_idx').on(table.organizationId),
 }))
 
 export const creditSale = pgTable('credit_sale', {

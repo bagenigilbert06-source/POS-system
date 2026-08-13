@@ -2,7 +2,7 @@
 
 import { db } from '@/lib/db'
 import { auditEvent, branch, branchMembership, employee, organizationMembership, shift, shiftAssignment, employeeCommission, user } from '@/lib/db/schema'
-import { eq, and, inArray } from 'drizzle-orm'
+import { eq, and, inArray, ne } from 'drizzle-orm'
 import { auth } from '@/lib/auth'
 import { headers } from 'next/headers'
 import { OrganizationService } from '@/lib/services/organization-service'
@@ -18,6 +18,15 @@ const createStaffSchema = z.object({
   phone: z.string().trim().max(30).optional(),
   role: z.enum(staffRoles), branchId: z.string().min(1), department: z.string().trim().max(80).optional(),
   salary: z.coerce.number().nonnegative().max(999_999_999), status: z.enum(['active', 'inactive']).default('active'),
+})
+const updateStaffSchema = z.object({
+  name: z.string().trim().min(2).max(100).optional(),
+  email: z.string().trim().toLowerCase().email().optional(),
+  phone: z.string().trim().max(30).optional(),
+  role: z.enum(staffRoles).optional(),
+  department: z.string().trim().max(80).optional(),
+  salary: z.coerce.number().nonnegative().max(999_999_999).optional(),
+  status: z.enum(['active', 'inactive', 'invited', 'terminated']).optional(),
 })
 
 async function getUserId() {
@@ -100,30 +109,46 @@ export async function updateEmployee(employeeId: string, data: {
   salary?: number
   status?: string
 }) {
+  const input = updateStaffSchema.parse(data)
   const authorization = await requirePermission(PermissionEnum.STAFF_MANAGE)
   const orgId = authorization.organizationId
-  if (data.role === 'owner') throw new Error('Ownership cannot be assigned from staff management')
-  if (data.role === 'admin' && authorization.role !== 'owner') throw new Error('Only the owner can grant administrator access')
+  if (input.role === 'admin' && authorization.role !== 'owner') throw new Error('Only the owner can grant administrator access')
 
   try {
     const [current] = await db.select().from(employee).where(and(eq(employee.id, employeeId), eq(employee.orgId, orgId))).limit(1)
     if (!current) throw new Error('Employee not found')
     const updated = await db.transaction(async (tx) => {
+      const emailChanged = Boolean(input.email && input.email !== current.email)
+      if (emailChanged) {
+        const emailOwnerQuery = current.userId
+          ? and(eq(user.email, input.email!), ne(user.id, current.userId))
+          : eq(user.email, input.email!)
+        const [emailOwner] = await tx.select({ id: user.id }).from(user).where(emailOwnerQuery).limit(1)
+        if (emailOwner) throw new Error('That email address is already used by another account')
+      }
+      if (current.userId && (emailChanged || input.name)) {
+        const syncedUser = await tx.update(user).set({
+          ...(emailChanged && { email: input.email! }),
+          ...(input.name && { name: input.name }),
+          updatedAt: new Date(),
+        }).where(eq(user.id, current.userId)).returning({ id: user.id })
+        if (syncedUser.length !== 1) throw new Error('The staff login account is missing and cannot be updated')
+      }
       const rows = await tx.update(employee)
       .set({
-        ...(data.name && { name: data.name }),
-        ...(data.email && { email: data.email }),
-        ...(data.phone && { phone: data.phone }),
-        ...(data.role && { role: data.role }),
-        ...(data.department && { department: data.department }),
-        ...(data.salary !== undefined && { salary: data.salary.toString() }),
-        ...(data.status && { status: data.status }),
+        ...(input.name && { name: input.name }),
+        ...(input.email && { email: input.email }),
+        ...(input.phone && { phone: input.phone }),
+        ...(input.role && { role: input.role }),
+        ...(input.department && { department: input.department }),
+        ...(input.salary !== undefined && { salary: input.salary.toString() }),
+        ...(input.status && { status: input.status }),
       })
       .where(and(eq(employee.id, employeeId), eq(employee.orgId, orgId)))
       .returning()
-      if (current.userId && data.role) await tx.update(organizationMembership).set({ role: data.role, updatedAt: new Date() }).where(and(eq(organizationMembership.organizationId, orgId), eq(organizationMembership.userId, current.userId)))
-      if (current.userId && data.role) await tx.update(branchMembership).set({ role: data.role }).where(eq(branchMembership.userId, current.userId))
-      await tx.insert(auditEvent).values({ id: nanoid(), organizationId: orgId, userId: authorization.userId, action: 'staff_access_updated', metadata: { employeeId, previousRole: current.role, role: data.role ?? current.role, status: data.status ?? current.status } })
+      if (current.userId && input.role) await tx.update(organizationMembership).set({ role: input.role, updatedAt: new Date() }).where(and(eq(organizationMembership.organizationId, orgId), eq(organizationMembership.userId, current.userId)))
+      if (current.userId && input.role) await tx.update(branchMembership).set({ role: input.role }).where(eq(branchMembership.userId, current.userId))
+      await tx.insert(auditEvent).values({ id: nanoid(), organizationId: orgId, userId: authorization.userId, action: 'staff_access_updated', metadata: { employeeId, previousRole: current.role, role: input.role ?? current.role, status: input.status ?? current.status, emailChanged } })
       return rows
     })
     revalidatePath('/dashboard/staff')

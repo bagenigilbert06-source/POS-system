@@ -7,13 +7,15 @@ import type { Metadata } from 'next'
 
 export const metadata: Metadata = { title: 'Add product' }
 
-export default async function NewProductPage({ searchParams }: { searchParams?: Promise<{ categoryId?: string }> }) {
+export default async function NewProductPage({ searchParams }: { searchParams?: Promise<{ categoryId?: string; barcode?: string }> }) {
   await requireWorkspaceModule('products')
   const categories = await getProductCategories()
 
-  const categoryId = (await searchParams)?.categoryId
+  const query = await searchParams
+  const categoryId = query?.categoryId
+  const barcode = query?.barcode
   return <div className="mx-auto max-w-[1480px] space-y-5">
     <DashboardPageHeading icon={PackagePlus} title="Add product" description="Create a POS-ready item with pricing, stock, an image and reorder settings." />
-    <ProductForm categories={categories} initialCategoryId={categoryId} />
+    <ProductForm categories={categories} initialCategoryId={categoryId} initialBarcode={barcode} />
   </div>
 }

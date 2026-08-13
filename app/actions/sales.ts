@@ -2,8 +2,8 @@
 
 import { auth } from '@/lib/auth'
 import { db } from '@/lib/db'
-import { sale, saleItem, salePayment, product, businessSettings, stockMovement, auditEvent, posSession, customer, mpesaPaymentRequest } from '@/lib/db/schema'
-import { and, desc, eq, gte, inArray, isNull, sql } from 'drizzle-orm'
+import { branch, sale, saleItem, salePayment, product, businessSettings, stockMovement, auditEvent, posSession, customer } from '@/lib/db/schema'
+import { and, desc, eq, gte, inArray, sql } from 'drizzle-orm'
 import { headers } from 'next/headers'
 import { revalidatePath } from 'next/cache'
 import { generateId, generateReceiptNo } from '@/lib/utils'
@@ -126,6 +126,12 @@ export async function createSale(data: {
 
   const [activeShift] = await db.select({ id: posSession.id }).from(posSession).where(and(eq(posSession.orgId, orgId), eq(posSession.openedBy, userId), eq(posSession.status, 'open'))).limit(1)
   if (!activeShift) throw new Error('Start your shift before completing a sale')
+  let saleBranchId = posAuthorization?.branchId ?? saleAuthorization.branchIds[0]
+  if (!saleBranchId) {
+    const [mainBranch] = await db.select({ id: branch.id }).from(branch).where(and(eq(branch.organizationId, orgId), eq(branch.isMain, true))).limit(1)
+    saleBranchId = mainBranch?.id
+  }
+  if (!saleBranchId) throw new Error('No authorized branch is available for this sale')
   const workspace = await WorkspaceService.getWorkspaceConfig(orgId, userId)
   const requiresAgeVerification = workspace?.businessCategory === 'liquor_shop'
   if (requiresAgeVerification && !data.ageVerified) {
@@ -194,22 +200,8 @@ export async function createSale(data: {
   const calculatedTotal = data.paymentMethod === 'mpesa' ? mpesaAmount.amount : unroundedTotal
   const roundingAmount = data.paymentMethod === 'mpesa' ? mpesaAmount.roundingAmount : 0
 
-  // M-Pesa sales are funded only by a successful, unconsumed Daraja callback.
-  let verifiedMpesaRequestId: string | null = null
   if (data.paymentMethod === 'mpesa') {
-    if (!data.mpesaPaymentRequestId) throw new Error('Send and confirm the M-Pesa prompt before completing this sale')
-    const [verifiedPayment] = await db.select().from(mpesaPaymentRequest).where(and(
-      eq(mpesaPaymentRequest.id, data.mpesaPaymentRequestId),
-      eq(mpesaPaymentRequest.organizationId, orgId),
-      eq(mpesaPaymentRequest.userId, userId),
-      eq(mpesaPaymentRequest.idempotencyKey, idempotencyKey),
-      eq(mpesaPaymentRequest.status, 'success'),
-      isNull(mpesaPaymentRequest.saleId),
-    )).limit(1)
-    if (!verifiedPayment?.receiptNumber) throw new Error('M-Pesa payment is not confirmed')
-    if (Math.abs(Number(verifiedPayment.amount) - calculatedTotal) > 0.001) throw new Error('Confirmed M-Pesa amount does not match this sale')
-    verifiedMpesaRequestId = verifiedPayment.id
-    paymentReference = verifiedPayment.receiptNumber
+    throw new Error('M-Pesa sales are completed automatically by the verified Daraja callback')
   }
   
   // Validate cash payment
@@ -228,12 +220,6 @@ export async function createSale(data: {
 
   try {
     await db.transaction(async (tx) => {
-    if (verifiedMpesaRequestId) {
-      const consumed = await tx.update(mpesaPaymentRequest).set({ saleId, updatedAt: new Date() }).where(and(
-        eq(mpesaPaymentRequest.id, verifiedMpesaRequestId), eq(mpesaPaymentRequest.status, 'success'), isNull(mpesaPaymentRequest.saleId),
-      )).returning({ id: mpesaPaymentRequest.id })
-      if (consumed.length !== 1) throw new Error('This M-Pesa payment has already been used')
-    }
     // Verify and deduct stock using atomic conditional update
     const stockAfterByProduct = new Map<string, number>()
     for (const item of saleItems) {
@@ -275,6 +261,8 @@ export async function createSale(data: {
       idempotencyKey,
       userId,
       orgId,
+      branchId: saleBranchId,
+      posSessionId: activeShift.id,
     })
 
     // Process each item to create sale items and stock movements

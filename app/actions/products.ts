@@ -274,12 +274,13 @@ export async function createProduct(data: {
   const generatedSku = data.sku?.trim().toUpperCase() || await generateProductSku({ brand: data.brand, name: data.name, volume: data.volume, volumeUnit: data.volumeUnit, unit: data.unit, unitsPerPack: data.unitsPerPack })
   safeData.sku = generatedSku
   safeData.barcode = normalizeBarcode(data.barcode ?? '') || undefined
-  const duplicateFilters = [eq(product.orgId, orgId)]
-  if (data.sku?.trim()) duplicateFilters.push(eq(product.sku, data.sku.trim()))
-  if (data.barcode?.trim()) duplicateFilters.push(eq(product.barcode, data.barcode.trim()))
-  if (data.sku?.trim() || data.barcode?.trim()) {
-    const [duplicate] = await db.select({ id: product.id }).from(product).where(and(...duplicateFilters)).limit(1)
-    if (duplicate) throw new Error(data.sku?.trim() ? 'This product code is already being used by another product.' : 'A product with this barcode already exists')
+  const [duplicateSku] = await db.select({ id: product.id }).from(product)
+    .where(and(eq(product.orgId, orgId), eq(product.sku, generatedSku), eq(product.isActive, true))).limit(1)
+  if (duplicateSku) throw new Error('This product code is already being used by another product.')
+  if (safeData.barcode) {
+    const [duplicateBarcode] = await db.select({ id: product.id }).from(product)
+      .where(and(eq(product.orgId, orgId), eq(product.barcode, safeData.barcode), eq(product.isActive, true))).limit(1)
+    if (duplicateBarcode) throw new Error('A product with this barcode already exists.')
   }
   await db.transaction(async (tx) => {
     await tx.insert(product).values({
@@ -362,10 +363,25 @@ export async function updateProduct(
     const [duplicate] = await db.select({ id: product.id }).from(product).where(and(eq(product.orgId, orgId), eq(product.sku, safeData.sku), sql`${product.id} <> ${id}`)).limit(1)
     if (duplicate) throw new Error('This product code is already being used by another product.')
   }
+  let normalizedBarcode: string | null | undefined
+  if (safeData.barcode !== undefined) {
+    normalizedBarcode = normalizeBarcode(safeData.barcode) || null
+    delete safeData.barcode
+    if (normalizedBarcode) {
+      const [duplicate] = await db.select({ id: product.id }).from(product).where(and(
+        eq(product.orgId, orgId),
+        eq(product.barcode, normalizedBarcode),
+        eq(product.isActive, true),
+        sql`${product.id} <> ${id}`,
+      )).limit(1)
+      if (duplicate) throw new Error('A product with this barcode already exists.')
+    }
+  }
   await db
     .update(product)
     .set({
       ...safeData,
+      ...(normalizedBarcode !== undefined ? { barcode: normalizedBarcode } : {}),
       ...(safeData.buyingPrice !== undefined ? { buyingPrice: String(safeData.buyingPrice) } : {}),
       ...(safeData.sellingPrice !== undefined ? { sellingPrice: String(safeData.sellingPrice) } : {}),
       updatedAt: new Date(),

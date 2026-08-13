@@ -5,22 +5,24 @@ import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { createProduct, findProductByBarcode, updateProduct } from '@/app/actions/products'
 import { createCategory } from '@/app/actions/categories'
-import { cn, formatCurrency } from '@/lib/utils'
-import { Barcode, Boxes, Check, CircleDollarSign, ImageIcon, Loader2, Package2, Tag, Upload, X } from 'lucide-react'
+import { cn, formatCurrency, normalizeBarcode } from '@/lib/utils'
+import { Barcode, Boxes, Check, CircleDollarSign, ImageIcon, Loader2, Package2, ScanLine, Tag, Upload, X } from 'lucide-react'
 import type { Product } from '@/lib/db/schema'
 import { toast } from 'sonner'
+import { BarcodeScannerDialog } from '@/components/barcode/barcode-scanner-dialog'
 
 interface ProductFormProps {
   product?: Product
   categories: Array<{ id: string; name: string; parentCategoryId?: string | null; isActive?: boolean }>
   onClose?: () => void
   initialCategoryId?: string
+  initialBarcode?: string
 }
 
 const SELLING_UNITS = ['bottle', 'can', 'carton', 'crate', 'pack', 'keg', 'piece', 'other']
 const VOLUME_UNITS = ['ml', 'litre']
 
-export function ProductForm({ product, categories, onClose, initialCategoryId }: ProductFormProps) {
+export function ProductForm({ product, categories, onClose, initialCategoryId, initialBarcode }: ProductFormProps) {
   const router = useRouter()
   const closeEditor = () => {
     if (onClose) onClose()
@@ -31,16 +33,18 @@ export function ProductForm({ product, categories, onClose, initialCategoryId }:
   const [step, setStep] = useState(1)
   const [errors, setErrors] = useState<{ name?: string; categoryId?: string; sellingPrice?: string; buyingPrice?: string; stock?: string; barcode?: string }>({})
   const [barcodeMatch, setBarcodeMatch] = useState<{ id: string; name: string } | null>(null)
+  const [showBarcodeScanner, setShowBarcodeScanner] = useState(false)
   const [availableCategories, setAvailableCategories] = useState(categories)
   const [categoryDialogOpen, setCategoryDialogOpen] = useState(false)
   const [newCategory, setNewCategory] = useState({ name: '', parentCategoryId: '', description: '' })
   const [creatingCategory, setCreatingCategory] = useState(false)
   const imageInputRef = useRef<HTMLInputElement>(null)
+  const barcodeCheckRef = useRef(0)
   const [form, setForm] = useState({
     name: product?.name ?? '',
     brand: product?.brand ?? '',
     sku: product?.sku ?? '',
-    barcode: product?.barcode ?? '',
+    barcode: product?.barcode ?? normalizeBarcode(initialBarcode ?? ''),
     description: product?.description ?? '',
     imageUrl: product?.imageUrl ?? '',
     categoryId: product?.categoryId ?? initialCategoryId ?? '',
@@ -113,12 +117,14 @@ export function ProductForm({ product, categories, onClose, initialCategoryId }:
   }
 
   const checkBarcode = async (value: string) => {
-    const normalized = value.replace(/[\u0000-\u001F\u007F]/g, '').trim()
+    const requestId = ++barcodeCheckRef.current
+    const normalized = normalizeBarcode(value)
     set('barcode', normalized)
     setBarcodeMatch(null)
     setErrors((current) => ({ ...current, barcode: undefined }))
     if (normalized) {
       const match = await findProductByBarcode(normalized, product?.id)
+      if (requestId !== barcodeCheckRef.current) return
       if (match) { setBarcodeMatch(match); setErrors((current) => ({ ...current, barcode: `This barcode already belongs to ${match.name}.` })) }
     }
   }
@@ -250,17 +256,22 @@ export function ProductForm({ product, categories, onClose, initialCategoryId }:
               </div>
               <div>
                     <FieldLabel>Barcode number</FieldLabel><p className="mb-1 text-xs text-muted-foreground">Scan the barcode on the bottle or type the number printed below it.</p>
-                <input
-                  id="product-barcode"
-                  type="text"
-                  placeholder="Scan or enter barcode"
-                  value={form.barcode}
-                  onChange={(e) => void checkBarcode(e.target.value)}
-                  onPaste={(e) => { e.preventDefault(); void checkBarcode(e.clipboardData.getData('text')) }}
-                  aria-invalid={Boolean(errors.barcode)}
-                  className={cn(inputCls, errors.barcode && 'border-destructive')}
-                />
-                    <p className="mt-2 inline-flex items-center gap-1 text-xs text-muted-foreground"><Barcode className="h-3.5 w-3.5" /> USB scanners can type directly into this field.</p>
+                <div className="flex gap-2">
+                  <input
+                    id="product-barcode"
+                    type="text"
+                    inputMode="numeric"
+                    autoComplete="off"
+                    placeholder="Scan or enter barcode"
+                    value={form.barcode}
+                    onChange={(e) => void checkBarcode(e.target.value)}
+                    onPaste={(e) => { e.preventDefault(); void checkBarcode(e.clipboardData.getData('text')) }}
+                    aria-invalid={Boolean(errors.barcode)}
+                    className={cn(inputCls, errors.barcode && 'border-destructive')}
+                  />
+                  <button type="button" onClick={() => setShowBarcodeScanner(true)} className="inline-flex shrink-0 items-center gap-1.5 rounded-md border bg-background px-3 py-2 text-sm font-semibold hover:border-[#f9b21d] hover:bg-[#fff8e6] dark:hover:bg-[#2a2111]"><ScanLine className="h-4 w-4" /> Scan</button>
+                </div>
+                    <p className="mt-2 inline-flex items-center gap-1 text-xs text-muted-foreground"><Barcode className="h-3.5 w-3.5" /> Use your phone camera, a USB scanner, or enter the printed number.</p>
                     {errors.barcode && <p role="alert" className="mt-1 text-xs text-destructive">{errors.barcode}</p>}
                     {barcodeMatch && <button type="button" onClick={() => router.push(`/dashboard/products/${barcodeMatch.id}`)} className="mt-1 text-xs font-medium text-primary hover:underline">View existing product</button>}
               </div>
@@ -386,6 +397,15 @@ export function ProductForm({ product, categories, onClose, initialCategoryId }:
           </div>
         </form>
       </div>
+      <BarcodeScannerDialog
+        open={showBarcodeScanner}
+        onClose={() => setShowBarcodeScanner(false)}
+        title="Scan product barcode"
+        onScan={(barcode) => {
+          setShowBarcodeScanner(false)
+          void checkBarcode(barcode)
+        }}
+      />
     </div>
   )
 }
