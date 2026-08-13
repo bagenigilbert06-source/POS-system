@@ -55,7 +55,7 @@ export function ReceiptTemplate({
   if (layout === 'thermal') {
     const cafe = template === 'cafe'
     const logo = template === 'logo'
-    return <div className="receipt-paper mx-auto w-full max-w-[320px] bg-white px-5 py-6 font-mono text-[11px] leading-5 text-zinc-900 print:max-w-none print:p-0">
+    return <div className="receipt-paper mx-auto w-[80mm] max-w-full bg-white px-[4mm] py-[5mm] font-mono text-[11px] leading-5 text-zinc-900 print:w-full print:max-w-none print:px-[3mm] print:py-[4mm]">
       <div className="text-center">{logo && (logoUrl ? <span className="mb-2 flex h-14 items-center justify-center"><Image src={logoUrl} alt={`${businessName} logo`} width={180} height={56} unoptimized className="h-14 w-auto max-w-[180px] object-contain" /></span> : <div className="mb-2 text-2xl font-black tracking-[0.22em]">LOGO</div>)}<h1 className={`text-sm font-bold uppercase tracking-wide ${cafe ? 'text-base' : ''}`}>{businessName}</h1>{showAddress && businessAddress && <p>{businessAddress}</p>}{showPhone && businessPhone && <p>{businessPhone}</p>}{cafe && <p className="mt-2">Store #{sale.id.slice(0, 5).toUpperCase()} · {formatDateTime(sale.createdAt)}</p>}</div>
       <div className="my-4 border-y-2 border-dotted border-zinc-900 py-2 text-center"><p className="font-bold tracking-wide">RECEIPT</p><p>{formatDateTime(sale.createdAt)}</p><p>#{sale.receiptNo}</p></div>
       <div className="mb-3 grid grid-cols-[1fr_32px_72px] gap-1 border-b border-dotted border-zinc-700 pb-1 text-[10px] font-bold uppercase"><span>Item</span><span className="text-center">Qty</span><span className="text-right">Total</span></div>

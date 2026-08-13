@@ -811,7 +811,7 @@ export function POSTerminal({ products, categories, customers, settings, require
     return (
       <section aria-label="Completed sale receipt" className="pos-sale-complete mx-auto w-full max-w-xl overflow-hidden rounded-xl border border-[#dfe3ea] bg-white shadow-sm dark:border-white/10 dark:bg-[#171717]">
           <div className="max-h-[min(680px,calc(100vh-15rem))] overflow-y-auto bg-[#f2f4f7] p-5 dark:bg-[#111111] sm:p-7">
-              <div className="receipt-preview-origin mx-auto w-full max-w-[360px] overflow-hidden rounded-lg bg-white shadow-[0_8px_20px_rgba(16,24,40,.10)]">
+              <div className="receipt-preview-origin mx-auto w-full max-w-[80mm] overflow-hidden rounded-lg bg-white shadow-[0_8px_20px_rgba(16,24,40,.10)]">
                 <ReceiptTemplate
                   sale={printableSale}
                   businessName={settings.receiptBusinessName}
