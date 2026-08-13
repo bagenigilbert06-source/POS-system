@@ -1,6 +1,7 @@
 import { mkdir, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { NextResponse } from 'next/server'
+import { put } from '@vercel/blob'
 import { AuthorizationError, requirePermission } from '@/lib/auth/authorization'
 import { PermissionEnum } from '@/lib/types/permissions'
 
@@ -11,18 +12,30 @@ function isPng(bytes: Uint8Array) { return bytes.slice(0, 8).every((value, index
 function isWebp(bytes: Uint8Array) { return String.fromCharCode(...bytes.slice(0, 4)) === 'RIFF' && String.fromCharCode(...bytes.slice(8, 12)) === 'WEBP' }
 
 export async function POST(request: Request) {
-  try { await requirePermission(PermissionEnum.PRODUCT_EDIT) } catch (error) { return NextResponse.json({ error: error instanceof AuthorizationError ? error.message : 'Unauthorized' }, { status: 403 }) }
+  try {
+    await requirePermission(PermissionEnum.PRODUCT_EDIT)
+    const formData = await request.formData()
+    const file = formData.get('file')
+    if (!(file instanceof File)) return NextResponse.json({ error: 'Choose an image file' }, { status: 400 })
+    if (file.size > MAX_BYTES) return NextResponse.json({ error: 'Image is too large. Choose an image smaller than 5 MB.' }, { status: 413 })
+    const bytes = new Uint8Array(await file.arrayBuffer())
+    if (!isJpeg(bytes) && !isPng(bytes) && !isWebp(bytes)) return NextResponse.json({ error: 'This file type is not supported. Upload JPG, PNG or WebP.' }, { status: 415 })
+    const extension = isWebp(bytes) ? 'webp' : isPng(bytes) ? 'png' : 'jpg'
+    const filename = `${crypto.randomUUID()}.${extension}`
+    const contentType = extension === 'jpg' ? 'image/jpeg' : `image/${extension}`
 
-  const formData = await request.formData()
-  const file = formData.get('file')
-  if (!(file instanceof File)) return NextResponse.json({ error: 'Choose an image file' }, { status: 400 })
-  if (file.size > MAX_BYTES) return NextResponse.json({ error: 'Image is too large. Choose an image smaller than 5 MB.' }, { status: 413 })
-  const bytes = new Uint8Array(await file.arrayBuffer())
-  if (!isJpeg(bytes) && !isPng(bytes) && !isWebp(bytes)) return NextResponse.json({ error: 'This file type is not supported. Upload JPG, PNG or WebP.' }, { status: 415 })
-  const extension = isWebp(bytes) ? 'webp' : isPng(bytes) ? 'png' : 'jpg'
-  const filename = `${crypto.randomUUID()}.${extension}`
-  const directory = path.join(process.cwd(), 'public', 'uploads', 'products')
-  await mkdir(directory, { recursive: true })
-  await writeFile(path.join(directory, filename), bytes, { flag: 'wx' })
-  return NextResponse.json({ url: `/uploads/products/${filename}`, size: bytes.byteLength, contentType: file.type || 'image/webp' })
+    if (process.env.BLOB_READ_WRITE_TOKEN) {
+      const blob = await put(`products/${filename}`, Buffer.from(bytes), { access: 'public', contentType, addRandomSuffix: false })
+      return NextResponse.json({ url: blob.url, size: bytes.byteLength, contentType })
+    }
+
+    if (process.env.VERCEL) return NextResponse.json({ error: 'Image storage is not configured. Add a Vercel Blob store and the BLOB_READ_WRITE_TOKEN environment variable.' }, { status: 503 })
+    const directory = path.join(process.cwd(), 'public', 'uploads', 'products')
+    await mkdir(directory, { recursive: true })
+    await writeFile(path.join(directory, filename), bytes, { flag: 'wx' })
+    return NextResponse.json({ url: `/uploads/products/${filename}`, size: bytes.byteLength, contentType })
+  } catch (error) {
+    const message = error instanceof AuthorizationError ? error.message : error instanceof Error ? error.message : 'Image upload failed'
+    return NextResponse.json({ error: message }, { status: error instanceof AuthorizationError ? 403 : 500 })
+  }
 }

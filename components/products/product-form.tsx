@@ -99,8 +99,11 @@ export function ProductForm({ product, categories, onClose, initialCategoryId, i
       const blob = await new Promise<Blob>((resolve, reject) => canvas.toBlob((value) => value ? resolve(value) : reject(new Error('Could not optimize image')), 'image/webp', 0.84))
       const body = new FormData(); body.append('file', new File([blob], 'product.webp', { type: 'image/webp' }))
       const response = await fetch('/api/products/images', { method: 'POST', body })
-      const result = await response.json()
-      if (!response.ok) throw new Error(result.error || 'Image upload failed. Try again.')
+      const responseText = await response.text()
+      let result: { url?: string; error?: string } = {}
+      try { result = responseText ? JSON.parse(responseText) : {} } catch { /* A proxy/server error can return HTML or an empty body. */ }
+      if (!response.ok) throw new Error(result.error || `Image upload failed (${response.status}). Try again.`)
+      if (!result.url) throw new Error('Image upload did not return a file URL. Try again.')
       set('imageUrl', result.url); toast.success('Image uploaded successfully.')
     } catch (err) { toast.error(err instanceof Error ? err.message : 'Image upload failed. Try again.') }
     finally { setUploadingImage(false) }
