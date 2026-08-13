@@ -8,6 +8,7 @@ import { PermissionEnum } from '@/lib/types/permissions'
 import { CashierShiftStrip } from '@/components/pos/cashier-shift-strip'
 import { PosSecurity } from '@/components/pos/pos-security'
 import { getPosAuthorizationContext } from '@/lib/pos/pos-auth'
+import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { getPosPageData } from '@/lib/services/pos-page-service'
 
