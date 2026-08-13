@@ -184,14 +184,33 @@ export function BusinessOverview({ organizationName, userName, timeZone, currenc
           ) : <EmptyState message="No transactions yet" detail="Completed sales will appear here automatically." href={saleHref} action="Record the first sale" />}
         </article>
 
-        {hasInventory && <article className="self-start overflow-hidden rounded-2xl border border-[rgba(255,214,10,0.08)] bg-[rgba(255,255,255,0.03)] shadow-dark-sm backdrop-blur-sm">
-          <SectionHeader title={experience.stockTitle} description={experience.stockDescription} href="/dashboard/inventory" />
-          {overview.lowStockProducts.length ? <div className="divide-y divide-[rgba(255,214,10,0.08)] px-5">{overview.lowStockProducts.map((item) => <div key={item.id} className="flex items-center gap-3 py-4"><span className={item.stock <= 0 ? 'h-2.5 w-2.5 shrink-0 rounded-full bg-[#ff6961]' : 'h-2.5 w-2.5 shrink-0 rounded-full bg-[#ffd60a]'} /><div className="min-w-0 flex-1"><p className="truncate text-sm font-semibold text-[#f5f5f7]">{item.name}</p><p className="mt-1 truncate text-xs text-[#a1a1a6]">{item.sku || 'No SKU'} · reorder at {item.minStock}</p></div><span className={item.stock <= 0 ? 'shrink-0 rounded-lg bg-[rgba(255,105,107,0.15)] px-3 py-1.5 text-xs font-semibold text-[#ff6961]' : 'shrink-0 rounded-lg bg-[rgba(255,214,10,0.15)] px-3 py-1.5 text-xs font-semibold text-[#ffd60a]'}>{item.stock} left</span></div>)}</div> : <EmptyState message="Stock levels look healthy" detail="No active products currently need attention." href="/dashboard/inventory" action="Review inventory" icon="stock" />}
-        </article>}
+        {hasInventory && <aside className="space-y-4">
+          <article className="overflow-hidden rounded-2xl border border-[rgba(255,214,10,0.08)] bg-[rgba(255,255,255,0.03)] shadow-dark-sm backdrop-blur-sm">
+            <SectionHeader title={experience.stockTitle} description={experience.stockDescription} href="/dashboard/inventory" />
+            {overview.lowStockProducts.length ? <div className="divide-y divide-[rgba(255,214,10,0.08)] px-5">{overview.lowStockProducts.map((item) => <div key={item.id} className="flex items-center gap-3 py-4"><span className={item.stock <= 0 ? 'h-2.5 w-2.5 shrink-0 rounded-full bg-[#ff6961]' : 'h-2.5 w-2.5 shrink-0 rounded-full bg-[#ffd60a]'} /><div className="min-w-0 flex-1"><p className="truncate text-sm font-semibold text-[#f5f5f7]">{item.name}</p><p className="mt-1 truncate text-xs text-[#a1a1a6]">{item.sku || 'No SKU'} · reorder at {item.minStock}</p></div><span className={item.stock <= 0 ? 'shrink-0 rounded-lg bg-[rgba(255,105,107,0.15)] px-3 py-1.5 text-xs font-semibold text-[#ff6961]' : 'shrink-0 rounded-lg bg-[rgba(255,214,10,0.15)] px-3 py-1.5 text-xs font-semibold text-[#ffd60a]'}>{item.stock} left</span></div>)}</div> : <EmptyState message="Stock levels look healthy" detail="No active products currently need attention." href="/dashboard/inventory" action="Review inventory" icon="stock" />}
+          </article>
+          <TodayRegisterCard currency={currency} revenue={overview.today.revenue} transactions={overview.today.transactions} expenses={overview.today.expenses} saleHref={saleHref} />
+        </aside>}
       </section>
 
     </div>
   )
+}
+
+function TodayRegisterCard({ currency, revenue, transactions, expenses, saleHref }: { currency: string; revenue: number; transactions: number; expenses: number; saleHref: string }) {
+  const averageSale = transactions ? revenue / transactions : 0
+  return <article className="overflow-hidden rounded-2xl border border-[rgba(255,214,10,0.08)] bg-[rgba(255,255,255,0.03)] shadow-dark-sm backdrop-blur-sm">
+    <div className="flex items-start justify-between gap-3 border-b border-[rgba(255,214,10,0.08)] px-5 py-4">
+      <div><h2 className="text-[1rem] font-bold text-[#f5f5f7]">Today&apos;s register</h2><p className="mt-1 text-xs text-[#a1a1a6]">A quick view of counter activity.</p></div>
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[rgba(255,214,10,0.08)] text-[#ffd60a]"><ReceiptText className="h-4 w-4" /></span>
+    </div>
+    <dl className="grid grid-cols-2 divide-x divide-[rgba(255,214,10,0.08)] border-b border-[rgba(255,214,10,0.08)]">
+      <div className="px-5 py-4"><dt className="text-[0.68rem] font-medium uppercase tracking-[.08em] text-[#a1a1a6]">Sales</dt><dd className="mt-1 text-lg font-bold tabular-nums text-[#f5f5f7]">{formatCurrency(revenue, currency)}</dd></div>
+      <div className="px-5 py-4"><dt className="text-[0.68rem] font-medium uppercase tracking-[.08em] text-[#a1a1a6]">Receipts</dt><dd className="mt-1 text-lg font-bold tabular-nums text-[#f5f5f7]">{formatNumber(transactions)}</dd></div>
+    </dl>
+    <div className="space-y-2 px-5 py-4 text-sm"><div className="flex items-center justify-between gap-3"><span className="text-[#a1a1a6]">Average sale</span><strong className="tabular-nums text-[#f5f5f7]">{formatCurrency(averageSale, currency)}</strong></div><div className="flex items-center justify-between gap-3"><span className="text-[#a1a1a6]">Recorded expenses</span><strong className="tabular-nums text-[#f5f5f7]">{formatCurrency(expenses, currency)}</strong></div></div>
+    <div className="grid grid-cols-2 gap-2 border-t border-[rgba(255,214,10,0.08)] bg-[rgba(255,214,10,0.04)] p-3"><Link href={saleHref} className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-[#ffd60a] px-3 text-xs font-bold text-[#0b0b0d] transition-colors hover:bg-[#ffdf3a]"><ShoppingBag className="h-3.5 w-3.5" />Start sale</Link><Link href="/dashboard/sales" className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-[rgba(255,214,10,0.16)] bg-[rgba(255,255,255,0.04)] px-3 text-xs font-semibold text-[#f5f5f7] transition-colors hover:bg-[rgba(255,255,255,0.08)]">View receipts <ArrowRight className="h-3.5 w-3.5" /></Link></div>
+  </article>
 }
 
 function SummaryRow({ label, value, emphasis = false }: { label: string; value: string; emphasis?: boolean }) {
