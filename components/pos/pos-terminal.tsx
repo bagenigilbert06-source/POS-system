@@ -199,6 +199,7 @@ export function POSTerminal({ products, categories, customers, settings, require
   const [checkoutOpen, setCheckoutOpen] = useState(startCheckout)
   const [scanMessage, setScanMessage] = useState('')
   const [showWirelessScanner, setShowWirelessScanner] = useState(false)
+  const [receiptPaperWidth, setReceiptPaperWidth] = useState<58 | 80>(80)
   const searchInputRef = useRef<HTMLInputElement>(null)
   const barcodeBufferRef = useRef<string>('')
   const barcodeTimeoutRef = useRef<NodeJS.Timeout | null>(null)
@@ -655,6 +656,35 @@ export function POSTerminal({ products, categories, customers, settings, require
     window.localStorage.removeItem('pos-active-mpesa')
   }
 
+  const handlePrintReceipt = useCallback(() => {
+    const paper = document.querySelector<HTMLElement>('.receipt-preview-origin .receipt-paper')
+    if (!paper) {
+      window.print()
+      return
+    }
+
+    // Print preview otherwise uses the browser's A4/PDF default. Measure the
+    // receipt at the chosen roll width so the page matches its real length.
+    const originalWidth = paper.style.width
+    const originalMaxWidth = paper.style.maxWidth
+    paper.style.width = `${receiptPaperWidth}mm`
+    paper.style.maxWidth = `${receiptPaperWidth}mm`
+    const receiptHeightMm = Math.max(70, Math.ceil((paper.scrollHeight / 96) * 25.4) + 8)
+    const printableWidthMm = receiptPaperWidth - 6
+    const pageStyle = document.createElement('style')
+    pageStyle.dataset.receiptPrintSize = 'true'
+    pageStyle.textContent = `@media print { @page { size: ${receiptPaperWidth}mm ${receiptHeightMm}mm; margin: 0; } body:has(.receipt-preview-origin) .receipt-preview-origin { width: ${printableWidthMm}mm !important; } }`
+    document.head.appendChild(pageStyle)
+
+    const cleanup = () => {
+      pageStyle.remove()
+      paper.style.width = originalWidth
+      paper.style.maxWidth = originalMaxWidth
+    }
+    window.addEventListener('afterprint', cleanup, { once: true })
+    window.print()
+  }, [receiptPaperWidth])
+
   const holdSale = () => {
     if (!canHold || cart.length === 0) return
     setHeldSales((previous) => [{
@@ -834,12 +864,19 @@ export function POSTerminal({ products, categories, customers, settings, require
           </div>
 
           <div className="receipt-actions flex flex-wrap gap-2 border-t border-[#dfe3ea] bg-white p-4 dark:border-white/10 dark:bg-[#171717] sm:px-5">
+            <label className="flex items-center rounded-lg border border-[#d0d5dd] bg-white px-3 text-sm font-semibold text-[#344054] dark:border-white/10 dark:bg-white/5 dark:text-white">
+              <span className="sr-only">Receipt paper width</span>
+              <select value={receiptPaperWidth} onChange={(event) => setReceiptPaperWidth(Number(event.target.value) as 58 | 80)} className="h-10 cursor-pointer appearance-none bg-transparent pr-5 outline-none">
+                <option value={80}>80 mm</option>
+                <option value={58}>58 mm</option>
+              </select>
+            </label>
             <button
-              onClick={() => window.print()}
+              onClick={handlePrintReceipt}
               className="flex min-w-[100px] flex-1 items-center justify-center gap-2 rounded-lg border border-[#d0d5dd] py-2.5 text-sm font-semibold text-[#344054] transition-colors hover:bg-[#f9fafb]"
             >
               <Printer className="h-4 w-4" />
-              Print
+              Print receipt
             </button>
             <button
               onClick={handleNewSale}
