@@ -6,10 +6,13 @@ import { DashboardPageHeading } from '@/components/dashboard/page-heading'
 import { ExpenseManager } from '@/components/expenses/expense-manager'
 import { requireWorkspaceModule } from '@/lib/onboarding/require-module'
 import { formatCurrency } from '@/lib/utils'
+import { requireDashboardPermission } from '@/lib/auth/dashboard-access'
+import { PermissionEnum } from '@/lib/types/permissions'
 
 export const metadata: Metadata = { title: 'Expenses | Pesaby' }
 
 export default async function ExpensesPage() {
+  await requireDashboardPermission(PermissionEnum.EXPENSE_VIEW)
   const { organization } = await requireWorkspaceModule('expenses')
   const expenses = await getExpenses()
   const now = new Date()

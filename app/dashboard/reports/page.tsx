@@ -9,10 +9,13 @@ import { formatCurrency, formatNumber } from '@/lib/utils/format'
 import { ReportsCharts } from '@/components/reports/reports-charts'
 import { DashboardPageHeading } from '@/components/dashboard/page-heading'
 import { requireWorkspaceModule } from '@/lib/onboarding/require-module'
+import { requireDashboardPermission } from '@/lib/auth/dashboard-access'
+import { PermissionEnum } from '@/lib/types/permissions'
 
 export const metadata: Metadata = { title: 'Reports' }
 
 export default async function ReportsPage() {
+  await requireDashboardPermission(PermissionEnum.REPORT_VIEW)
   await requireWorkspaceModule('reports')
   const session = await auth.api.getSession({ headers: await headers() })
   if (!session?.user) redirect('/sign-in')

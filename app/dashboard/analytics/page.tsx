@@ -13,6 +13,8 @@ import { ProductPerformance } from '@/components/analytics/product-performance'
 import { StaffKPIs } from '@/components/analytics/staff-kpis'
 import { HourlyPatterns } from '@/components/analytics/hourly-patterns'
 import { Forecasting } from '@/components/analytics/forecasting'
+import { requireDashboardPermission } from '@/lib/auth/dashboard-access'
+import { PermissionEnum } from '@/lib/types/permissions'
 import {
   getSalesTrendData,
   getCustomerCohorts,
@@ -26,6 +28,7 @@ import {
 export const metadata: Metadata = { title: 'Analytics' }
 
 export default async function AnalyticsPage() {
+  await requireDashboardPermission(PermissionEnum.REPORT_VIEW)
   await requireWorkspaceModule('analytics')
   const session = await auth.api.getSession({ headers: await headers() })
   if (!session?.user) redirect('/sign-in')

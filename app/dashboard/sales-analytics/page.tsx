@@ -10,10 +10,13 @@ import { SalesHourlyChart } from '@/components/dashboards/sales-hourly-chart'
 import { SalesByCategoryChart } from '@/components/dashboards/sales-by-category'
 import { TopProductsTable } from '@/components/dashboards/top-products-table'
 import { SalesByPaymentChart } from '@/components/dashboards/sales-by-payment'
+import { requireDashboardPermission } from '@/lib/auth/dashboard-access'
+import { PermissionEnum } from '@/lib/types/permissions'
 
 export const metadata: Metadata = { title: 'Sales Analytics' }
 
 export default async function SalesAnalyticsPage() {
+  await requireDashboardPermission(PermissionEnum.REPORT_VIEW)
   const session = await auth.api.getSession({ headers: await headers() })
   if (!session?.user) redirect('/sign-in')
   

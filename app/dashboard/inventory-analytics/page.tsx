@@ -10,10 +10,13 @@ import { InventoryMetricsCards } from '@/components/dashboards/inventory-metrics
 import { StockStatusChart } from '@/components/dashboards/stock-status-chart'
 import { SlowMoversTable } from '@/components/dashboards/slow-movers-table'
 import { FastMoversTable } from '@/components/dashboards/fast-movers-table'
+import { requireDashboardPermission } from '@/lib/auth/dashboard-access'
+import { PermissionEnum } from '@/lib/types/permissions'
 
 export const metadata: Metadata = { title: 'Inventory Analytics' }
 
 export default async function InventoryAnalyticsPage() {
+  await requireDashboardPermission(PermissionEnum.REPORT_VIEW)
   const session = await auth.api.getSession({ headers: await headers() })
   if (!session?.user) redirect('/sign-in')
   

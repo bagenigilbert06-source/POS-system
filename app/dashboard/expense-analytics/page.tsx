@@ -9,10 +9,13 @@ import { getExpenseDashboardData } from '@/app/actions/dashboard-enhanced-action
 import { ExpenseByCategoryChart } from '@/components/dashboards/expense-by-category'
 import { ExpenseTrendChart } from '@/components/dashboards/expense-trend-chart'
 import { TopExpensesTable } from '@/components/dashboards/top-expenses-table'
+import { requireDashboardPermission } from '@/lib/auth/dashboard-access'
+import { PermissionEnum } from '@/lib/types/permissions'
 
 export const metadata: Metadata = { title: 'Expense Analytics' }
 
 export default async function ExpenseAnalyticsPage() {
+  await requireDashboardPermission(PermissionEnum.EXPENSE_VIEW)
   const session = await auth.api.getSession({ headers: await headers() })
   if (!session?.user) redirect('/sign-in')
   

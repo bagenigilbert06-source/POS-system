@@ -10,10 +10,13 @@ import { BalanceSheet } from '@/components/financials/balance-sheet'
 import { CashFlowStatement } from '@/components/financials/cash-flow-statement'
 import { getFinancialStatements } from '@/app/actions/financial-actions'
 import { Button } from '@/components/ui/button'
+import { requireDashboardPermission } from '@/lib/auth/dashboard-access'
+import { PermissionEnum } from '@/lib/types/permissions'
 
 export const metadata: Metadata = { title: 'Financial Statements' }
 
 export default async function FinancialsPage() {
+  await requireDashboardPermission(PermissionEnum.FINANCE_VIEW)
   const session = await auth.api.getSession({ headers: await headers() })
   if (!session?.user) redirect('/sign-in')
   const organization = await OrganizationService.getPrimaryOrganization(session.user.id)

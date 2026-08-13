@@ -9,10 +9,13 @@ import { getStaffPerformanceData } from '@/app/actions/staff-dashboard-actions'
 import { StaffMetricsCards } from '@/components/dashboards/staff-metrics-cards'
 import { TopStaffTable } from '@/components/dashboards/top-staff-table'
 import { StaffActivityChart } from '@/components/dashboards/staff-activity-chart'
+import { requireDashboardPermission } from '@/lib/auth/dashboard-access'
+import { PermissionEnum } from '@/lib/types/permissions'
 
 export const metadata: Metadata = { title: 'Staff Performance' }
 
 export default async function StaffPerformancePage() {
+  await requireDashboardPermission(PermissionEnum.STAFF_VIEW)
   const session = await auth.api.getSession({ headers: await headers() })
   if (!session?.user) redirect('/sign-in')
   

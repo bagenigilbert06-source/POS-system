@@ -68,7 +68,7 @@ export function DashboardLayoutClient({
             onOpenSidebar={() => setMobileSidebarOpen(true)}
           />
           <main id="dashboard-content" tabIndex={-1} className="flex-1 overflow-y-auto px-4 py-4 outline-none sm:px-6 sm:py-5 lg:px-7 lg:py-5">
-            {role !== 'cashier' && Children.toArray(setupChecklist)}
+            {role !== 'cashier' && role !== 'supervisor' && Children.toArray(setupChecklist)}
             {Children.toArray(children)}
           </main>
         </div>

@@ -9,10 +9,13 @@ import { getCustomerDashboardData } from '@/app/actions/dashboard-enhanced-actio
 import { CustomerMetricsCards } from '@/components/dashboards/customer-metrics-cards'
 import { TopCustomersTable } from '@/components/dashboards/top-customers-table'
 import { CreditSalesStatusChart } from '@/components/dashboards/credit-sales-status'
+import { requireDashboardPermission } from '@/lib/auth/dashboard-access'
+import { PermissionEnum } from '@/lib/types/permissions'
 
 export const metadata: Metadata = { title: 'Customer Analytics' }
 
 export default async function CustomerAnalyticsPage() {
+  await requireDashboardPermission(PermissionEnum.REPORT_VIEW)
   const session = await auth.api.getSession({ headers: await headers() })
   if (!session?.user) redirect('/sign-in')
   

@@ -11,10 +11,13 @@ import { db } from '@/lib/db'
 import { invoice } from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
 import { Button } from '@/components/ui/button'
+import { requireDashboardPermission } from '@/lib/auth/dashboard-access'
+import { PermissionEnum } from '@/lib/types/permissions'
 
 export const metadata: Metadata = { title: 'Invoices' }
 
 export default async function InvoicesPage() {
+  await requireDashboardPermission(PermissionEnum.FINANCE_VIEW)
   const session = await auth.api.getSession({ headers: await headers() })
   if (!session?.user) redirect('/sign-in')
   const organization = await OrganizationService.getPrimaryOrganization(session.user.id)

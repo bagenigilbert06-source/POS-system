@@ -5,10 +5,13 @@ import { DashboardPageHeading } from '@/components/dashboard/page-heading'
 import { ProcurementManager } from '@/components/purchases/procurement-manager'
 import { requireWorkspaceModule } from '@/lib/onboarding/require-module'
 import { formatCurrency } from '@/lib/utils'
+import { requireDashboardPermission } from '@/lib/auth/dashboard-access'
+import { PermissionEnum } from '@/lib/types/permissions'
 
 export const metadata: Metadata = { title: 'Purchases & suppliers | Pesaby' }
 
 export default async function PurchasesPage() {
+  await requireDashboardPermission(PermissionEnum.PURCHASE_VIEW)
   const { organization } = await requireWorkspaceModule('purchases')
   const data = await getProcurementData()
   const currency = organization.currency || 'KES'

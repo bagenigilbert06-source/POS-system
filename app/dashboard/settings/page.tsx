@@ -9,6 +9,8 @@ import { branch, businessSettings } from '@/lib/db/schema'
 import { OrganizationService } from '@/lib/services/organization-service'
 import { DashboardPageHeading } from '@/components/dashboard/page-heading'
 import { EditableSettings } from '@/components/settings/editable-settings'
+import { requireDashboardPermission } from '@/lib/auth/dashboard-access'
+import { PermissionEnum } from '@/lib/types/permissions'
 
 export const metadata: Metadata = { title: 'Workspace settings | Pesaby' }
 
@@ -24,6 +26,7 @@ function financialYearStartLabel(value: string | null | undefined) {
 }
 
 export default async function SettingsPage() {
+  await requireDashboardPermission(PermissionEnum.SETTINGS_VIEW)
   const session = await auth.api.getSession({ headers: await headers() })
   if (!session?.user) redirect('/sign-in')
   const organization = await OrganizationService.getPrimaryOrganization(session.user.id)

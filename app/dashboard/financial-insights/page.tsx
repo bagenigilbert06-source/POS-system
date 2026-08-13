@@ -11,10 +11,13 @@ import { CashFlowChart } from '@/components/dashboards/cash-flow-chart'
 import { ProfitTrendChart } from '@/components/dashboards/profit-trend-chart'
 import { CreditSalesCard } from '@/components/dashboards/credit-sales-card'
 import { ExpenseBreakdownChart } from '@/components/dashboards/expense-breakdown-chart'
+import { requireDashboardPermission } from '@/lib/auth/dashboard-access'
+import { PermissionEnum } from '@/lib/types/permissions'
 
 export const metadata: Metadata = { title: 'Financial Insights' }
 
 export default async function FinancialInsightsPage() {
+  await requireDashboardPermission(PermissionEnum.FINANCE_VIEW)
   const session = await auth.api.getSession({ headers: await headers() })
   if (!session?.user) redirect('/sign-in')
   
