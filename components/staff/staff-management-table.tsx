@@ -19,6 +19,7 @@ export function StaffManagementTable({ employees, orgId }: StaffManagementTableP
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null)
   const [showEditDialog, setShowEditDialog] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [resendingEmployeeId, setResendingEmployeeId] = useState<string | null>(null)
 
   const handleDelete = async (employeeId: string) => {
     if (!confirm('Revoke this employee’s login access? Their employee record will be retained as inactive for audit history.')) return
@@ -34,8 +35,10 @@ export function StaffManagementTable({ employees, orgId }: StaffManagementTableP
     }
   }
   const handleResend = async (employeeId: string) => {
-    try { const result = await resendStaffInvitation(employeeId); result.delivered ? toast.success('Invitation resent') : toast.warning('Invitation refreshed, but transactional email is not configured') }
+    setResendingEmployeeId(employeeId)
+    try { const result = await resendStaffInvitation(employeeId); result.reused ? toast.info('A current invitation was already sent. Wait one minute before resending.') : result.delivered ? toast.success('Invitation resent — previous links are no longer valid') : toast.warning('Invitation refreshed, but transactional email is not configured') }
     catch (error) { toast.error(error instanceof Error ? error.message : 'Unable to resend invitation') }
+    finally { setResendingEmployeeId(null) }
   }
   const handlePinReset = async (employeeId: string) => { if (!confirm('Disable the existing PIN? The employee must create a new PIN after signing in with their password.')) return; try { await resetStaffPosPin(employeeId); toast.success('POS PIN reset') } catch(error) { toast.error(error instanceof Error?error.message:'Unable to reset PIN') } }
 
@@ -92,7 +95,7 @@ export function StaffManagementTable({ employees, orgId }: StaffManagementTableP
                 <td className="px-4 py-3"><span className="text-xs font-medium">{emp.posPinSet ? 'Set' : 'Not set'}</span>{emp.posPinSet&&<button onClick={()=>handlePinReset(emp.id)} className="ml-2 text-xs text-destructive underline">Reset</button>}</td>
                 <td className="px-4 py-3 text-right">
                   <div className="flex justify-end gap-2">
-                    {emp.status === 'invited' && <Button size="sm" variant="ghost" onClick={() => handleResend(emp.id)} title="Resend invitation" className="h-8 px-2"><Mail className="mr-1 h-4 w-4" />Resend</Button>}
+                    {emp.status === 'invited' && <Button size="sm" variant="ghost" disabled={resendingEmployeeId === emp.id} onClick={() => handleResend(emp.id)} title="Resend invitation" className="h-8 px-2"><Mail className="mr-1 h-4 w-4" />{resendingEmployeeId === emp.id ? 'Sending…' : 'Resend'}</Button>}
                     <Button
                       size="sm"
                       variant="ghost"

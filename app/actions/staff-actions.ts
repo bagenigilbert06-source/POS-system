@@ -1,8 +1,8 @@
 'use server'
 
 import { db } from '@/lib/db'
-import { auditEvent, branch, branchMembership, employee, organizationMembership, shift, shiftAssignment, employeeCommission, user } from '@/lib/db/schema'
-import { eq, and, inArray, ne } from 'drizzle-orm'
+import { auditEvent, branch, branchMembership, employee, organizationMembership, shift, shiftAssignment, employeeCommission, user, verification } from '@/lib/db/schema'
+import { eq, and, desc, gte, inArray, like, ne } from 'drizzle-orm'
 import { auth } from '@/lib/auth'
 import { headers } from 'next/headers'
 import { OrganizationService } from '@/lib/services/organization-service'
@@ -28,6 +28,36 @@ const updateStaffSchema = z.object({
   salary: z.coerce.number().nonnegative().max(999_999_999).optional(),
   status: z.enum(['active', 'inactive', 'invited', 'terminated']).optional(),
 })
+const INVITATION_COOLDOWN_MS = 60_000
+
+function invitationRedirectUrl() {
+  return `${(process.env.BETTER_AUTH_URL || 'https://pesaby.vercel.app').replace(/\/$/, '')}/setup-account`
+}
+
+async function invitationWasRecentlySent(organizationId: string, employeeId: string) {
+  const since = new Date(Date.now() - INVITATION_COOLDOWN_MS)
+  const recentEvents = await db.select({ metadata: auditEvent.metadata }).from(auditEvent).where(and(
+    eq(auditEvent.organizationId, organizationId),
+    inArray(auditEvent.action, ['staff.invitation_sent', 'staff.invitation_resent']),
+    gte(auditEvent.createdAt, since),
+  )).orderBy(desc(auditEvent.createdAt)).limit(20)
+  return recentEvents.some(({ metadata }) => (metadata as { employeeId?: string } | null)?.employeeId === employeeId)
+}
+
+async function issueStaffInvitation(input: { employeeId: string; employeeUserId: string; email: string; organizationId: string }) {
+  if (await invitationWasRecentlySent(input.organizationId, input.employeeId)) return { delivered: true, reused: true }
+  // A resend must leave exactly one usable setup link. Better Auth tokens are
+  // intentionally one-use, so revoke every earlier unconsumed invitation first.
+  await db.delete(verification).where(and(
+    eq(verification.value, input.employeeUserId),
+    like(verification.identifier, 'reset-password:%'),
+  ))
+  await auth.api.requestPasswordReset({
+    body: { email: input.email, redirectTo: invitationRedirectUrl() },
+    headers: await headers(),
+  })
+  return { delivered: Boolean(process.env.BREVO_API_KEY && process.env.EMAIL_FROM_ADDRESS), reused: false }
+}
 
 async function getUserId() {
   const session = await auth.api.getSession({ headers: await headers() })
@@ -73,8 +103,8 @@ export async function createEmployee(data: {
   let invitationSent = false
   if (!result.existingUser) {
     try {
-      await auth.api.requestPasswordReset({ body: { email: input.email, redirectTo: `${process.env.BETTER_AUTH_URL ?? 'http://localhost:3000'}/setup-account` }, headers: await headers() })
-      invitationSent = Boolean(process.env.BREVO_API_KEY && process.env.EMAIL_FROM_ADDRESS)
+      const invitation = await issueStaffInvitation({ employeeId: result.record.id, employeeUserId: result.record.userId!, email: input.email, organizationId: authorization.organizationId })
+      invitationSent = invitation.delivered
       await db.insert(auditEvent).values({ id: nanoid(), organizationId: authorization.organizationId, userId: authorization.userId, action: invitationSent ? 'staff.invitation_sent' : 'staff.invitation_failed', metadata: { employeeId: result.record.id, reason: invitationSent ? undefined : 'email_not_configured' } })
     } catch {
       await db.insert(auditEvent).values({ id: nanoid(), organizationId: authorization.organizationId, userId: authorization.userId, action: 'staff.invitation_failed', metadata: { employeeId: result.record.id, reason: 'delivery_failed' } })
@@ -90,8 +120,9 @@ export async function resendStaffInvitation(employeeId: string) {
   if (!record?.userId || !record.email) throw new Error('Staff account was not found')
   if (record.status !== 'invited') throw new Error('Only pending invitations can be resent')
   try {
-    await auth.api.requestPasswordReset({ body: { email: record.email, redirectTo: `${process.env.BETTER_AUTH_URL ?? 'http://localhost:3000'}/setup-account` }, headers: await headers() })
-    const delivered = Boolean(process.env.BREVO_API_KEY && process.env.EMAIL_FROM_ADDRESS)
+    const invitation = await issueStaffInvitation({ employeeId: record.id, employeeUserId: record.userId, email: record.email, organizationId: authorization.organizationId })
+    if (invitation.reused) return { success: true, delivered: true, reused: true }
+    const delivered = invitation.delivered
     await db.insert(auditEvent).values({ id: nanoid(), organizationId: authorization.organizationId, userId: authorization.userId, action: delivered ? 'staff.invitation_resent' : 'staff.invitation_failed', metadata: { employeeId } })
     return { success: true, delivered }
   } catch {
