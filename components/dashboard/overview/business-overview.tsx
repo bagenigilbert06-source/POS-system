@@ -76,15 +76,15 @@ export function BusinessOverview({ organizationName, userName, timeZone, currenc
   const updatedAt = generatedAt.toLocaleTimeString('en-KE', { hour: '2-digit', minute: '2-digit' })
 
   return (
-    <div className="dashboard-overview mx-auto w-full max-w-[1440px] space-y-5 pb-8">
-      <header className="dashboard-welcome flex flex-col gap-5 border-b border-[rgba(255,214,10,0.1)] pb-5 pt-0 sm:flex-row sm:items-end sm:justify-between">
+    <div className="dashboard-overview mx-auto w-full max-w-[1440px] space-y-4 pb-7">
+      <header className="dashboard-welcome flex flex-col gap-4 border-b border-[rgba(255,214,10,0.1)] pb-5 pt-0 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <div className="mb-3 flex flex-wrap items-center gap-3">
             <span className="dashboard-live-status"><i /> Live overview</span>
             <span className="dashboard-updated">Updated {updatedAt}</span>
           </div>
           <p className="text-[0.7rem] font-bold uppercase tracking-[0.14em] text-[#ffd60a]">{experience.label} · Operations</p>
-          <h1 className="mt-3 text-2xl sm:text-3xl font-bold tracking-tight text-[#f5f5f7]"><TimeGreeting name={userName} timeZone={timeZone} /></h1>
+          <h1 className="mt-2 text-2xl sm:text-3xl font-bold tracking-tight text-[#f5f5f7]"><TimeGreeting name={userName} timeZone={timeZone} /></h1>
           <p className="mt-2 text-sm text-[#a1a1a6]">Today&apos;s operating overview for {organizationName}.</p>
         </div>
         <div>
