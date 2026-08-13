@@ -7,16 +7,16 @@ import { getOwnPosPinStatus, lockPos, registerCurrentPosTerminal, setOwnPosPin }
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 
-export function PosSecurity({ branchId }: { branchId: string }) {
+export function PosSecurity({ branchId, initialPinSet = false }: { branchId: string; initialPinSet?: boolean }) {
   const router = useRouter()
   const [pending, start] = useTransition()
   const [pin, setPin] = useState('')
   const [confirm, setConfirm] = useState('')
   const [setup, setSetup] = useState(false)
-  const [pinSet, setPinSet] = useState(false)
+  const [pinSet, setPinSet] = useState(initialPinSet)
   const [error, setError] = useState('')
 
-  useEffect(() => { start(async () => { await registerCurrentPosTerminal(branchId); const status = await getOwnPosPinStatus(); setPinSet(status.isSet) }) }, [branchId])
+  useEffect(() => { start(async () => { await registerCurrentPosTerminal(branchId); if (!initialPinSet) { const status = await getOwnPosPinStatus(); setPinSet(status.isSet) } }) }, [branchId, initialPinSet])
   const run = (task: () => Promise<void>) => start(async () => { try { setError(''); await task() } catch (cause) { setError(cause instanceof Error ? cause.message : 'Unable to continue') } })
   const lock = () => run(async () => { await lockPos(); router.replace('/sign-in?pos=1') })
   const savePin = () => run(async () => { if (pin !== confirm) throw new Error('PINs do not match'); await setOwnPosPin(pin); setPinSet(true); setSetup(false); setPin(''); setConfirm('') })

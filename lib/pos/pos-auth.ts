@@ -1,4 +1,5 @@
 import { createHash, randomBytes } from 'node:crypto'
+import { cache } from 'react'
 import { cookies } from 'next/headers'
 import { and, eq, gt } from 'drizzle-orm'
 import { db } from '@/lib/db'
@@ -18,7 +19,7 @@ export async function getTerminal() {
   return (await db.select().from(posTerminal).where(and(eq(posTerminal.tokenHash, tokenHash(token)), eq(posTerminal.status, 'active'))).limit(1))[0] ?? null
 }
 
-export async function getPosAuthorizationContext(): Promise<(AuthorizationContext & { authMethod: 'pos_pin'; branchId: string; terminalId: string }) | null> {
+export const getPosAuthorizationContext = cache(async (): Promise<(AuthorizationContext & { authMethod: 'pos_pin'; branchId: string; terminalId: string }) | null> => {
   const token = (await cookies()).get(POS_AUTH_COOKIE)?.value
   if (!token) return null
   const [record] = await db.select().from(posAuthSession).where(and(eq(posAuthSession.tokenHash, tokenHash(token)), eq(posAuthSession.status, 'active'), gt(posAuthSession.expiresAt, new Date()))).limit(1)
@@ -33,7 +34,7 @@ export async function getPosAuthorizationContext(): Promise<(AuthorizationContex
   const role = normalizeRole(membership.role), permissions = role === RoleEnum.ADMIN ? ROLE_PERMISSIONS[RoleEnum.OWNER] : ROLE_PERMISSIONS[role]
   if (!permissions.includes(PermissionEnum.POS_PIN_USE)) return null
   return { userId: record.userId, organizationId: record.organizationId, role, permissions, branchIds: [record.branchId], isOrganizationWide: false, authMethod: 'pos_pin', branchId: record.branchId, terminalId: record.terminalId }
-}
+})
 
 export async function requirePointOfSaleAuthorization(permission: PermissionEnum) {
   const context = await getPosAuthorizationContext()
