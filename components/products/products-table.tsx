@@ -1,21 +1,24 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
 import { archiveProduct } from '@/app/actions/products'
-import { formatCurrency } from '@/lib/utils'
+import { formatCurrency, normalizeBarcode } from '@/lib/utils'
 import { cn } from '@/lib/utils'
-import { Archive, Pencil, Plus, Search, Package, AlertTriangle, ArrowUpRight, Tag, Grid2X2, List, ShoppingCart, CircleAlert } from 'lucide-react'
+import { Archive, Pencil, Plus, Search, Package, AlertTriangle, ArrowUpRight, Tag, Grid2X2, List, ShoppingCart, CircleAlert, Smartphone } from 'lucide-react'
 import type { Product } from '@/lib/db/schema'
 import { toast } from 'sonner'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
+import { WirelessScannerPairing } from '@/components/barcode/wireless-scanner-pairing'
 
 interface ProductsTableProps {
   initialProducts: Array<Product & { unitsSoldMonth: number }>
 }
 
 export function ProductsTable({ initialProducts }: ProductsTableProps) {
+  const router = useRouter()
   const [products, setProducts] = useState(initialProducts)
   const [search, setSearch] = useState('')
   const [archiving, setArchiving] = useState<string | null>(null)
@@ -24,6 +27,7 @@ export function ProductsTable({ initialProducts }: ProductsTableProps) {
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
   const [sort, setSort] = useState<'newest' | 'name' | 'price-low' | 'stock-low'>('newest')
   const [zoomedImage, setZoomedImage] = useState<{ src: string; name: string } | null>(null)
+  const [showPhoneScanner, setShowPhoneScanner] = useState(false)
 
   useEffect(() => {
     setProducts(initialProducts)
@@ -41,6 +45,25 @@ export function ProductsTable({ initialProducts }: ProductsTableProps) {
   const changeView = (nextView: 'grid' | 'list') => {
     setViewMode(nextView)
     window.localStorage.setItem('products-view', nextView)
+  }
+
+  const openScannedProduct = (rawBarcode: string) => {
+    const barcode = normalizeBarcode(rawBarcode)
+    if (!barcode) return false
+    const matches = products.filter((item) => item.isActive && normalizeBarcode(item.barcode ?? '') === barcode)
+    setShowPhoneScanner(false)
+    if (matches.length === 1) {
+      toast.success(`${matches[0].name} found`)
+      router.push(`/dashboard/products/${matches[0].id}?edit=true`)
+      return true
+    }
+    if (matches.length > 1) {
+      toast.error('This barcode is assigned to multiple products. Correct the duplicate records first.')
+      return false
+    }
+    toast.info('New barcode scanned', { description: 'Complete the product details to add it to your catalogue.' })
+    router.push(`/dashboard/products/new?barcode=${encodeURIComponent(barcode)}`)
+    return true
   }
 
   const stockStatus = (p: Product) => {
@@ -140,10 +163,17 @@ export function ProductsTable({ initialProducts }: ProductsTableProps) {
               placeholder="Search products, SKU, barcode..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
+              onKeyDown={(event) => {
+                if (event.key !== 'Enter') return
+                const barcode = normalizeBarcode(search)
+                if (!barcode) return
+                event.preventDefault()
+                openScannedProduct(barcode)
+              }}
               className="w-full rounded-md border bg-background py-2 pl-9 pr-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-colors"
             />
           </div>
-          <div className="flex items-center gap-2"><Link href="/dashboard/products/categories" className="rounded-md border bg-background px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-secondary">Categories</Link><Link
+          <div className="flex flex-wrap items-center gap-2"><button type="button" onClick={() => setShowPhoneScanner(true)} className="inline-flex items-center gap-2 rounded-md border bg-background px-3 py-2 text-sm font-semibold text-foreground hover:border-[#f9b21d] hover:bg-[#fff8e6] dark:hover:bg-[#2a2111]"><Smartphone className="h-4 w-4" /> Scan to add</button><Link href="/dashboard/products/categories" className="rounded-md border bg-background px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-secondary">Categories</Link><Link
             href="/dashboard/products/new"
             className="flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors flex-shrink-0"
           >
@@ -301,6 +331,7 @@ export function ProductsTable({ initialProducts }: ProductsTableProps) {
           Showing {filtered.length} of {products.length} products
         </p>
       </div>
+      <WirelessScannerPairing open={showPhoneScanner} onClose={() => setShowPhoneScanner(false)} onBarcode={openScannedProduct} />
     </div>
   )
 }

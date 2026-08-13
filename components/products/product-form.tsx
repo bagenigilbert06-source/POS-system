@@ -6,10 +6,10 @@ import Image from 'next/image'
 import { createProduct, findProductByBarcode, updateProduct } from '@/app/actions/products'
 import { createCategory } from '@/app/actions/categories'
 import { cn, formatCurrency, normalizeBarcode } from '@/lib/utils'
-import { Barcode, Boxes, Check, CircleDollarSign, ImageIcon, Loader2, Package2, ScanLine, Tag, Upload, X } from 'lucide-react'
+import { Barcode, Boxes, Check, CircleDollarSign, ImageIcon, Loader2, Package2, Smartphone, Tag, Upload, X } from 'lucide-react'
 import type { Product } from '@/lib/db/schema'
 import { toast } from 'sonner'
-import { BarcodeScannerDialog } from '@/components/barcode/barcode-scanner-dialog'
+import { WirelessScannerPairing } from '@/components/barcode/wireless-scanner-pairing'
 
 interface ProductFormProps {
   product?: Product
@@ -33,7 +33,7 @@ export function ProductForm({ product, categories, onClose, initialCategoryId, i
   const [step, setStep] = useState(1)
   const [errors, setErrors] = useState<{ name?: string; categoryId?: string; sellingPrice?: string; buyingPrice?: string; stock?: string; barcode?: string }>({})
   const [barcodeMatch, setBarcodeMatch] = useState<{ id: string; name: string } | null>(null)
-  const [showBarcodeScanner, setShowBarcodeScanner] = useState(false)
+  const [showPhoneScanner, setShowPhoneScanner] = useState(false)
   const [availableCategories, setAvailableCategories] = useState(categories)
   const [categoryDialogOpen, setCategoryDialogOpen] = useState(false)
   const [newCategory, setNewCategory] = useState({ name: '', parentCategoryId: '', description: '' })
@@ -269,9 +269,9 @@ export function ProductForm({ product, categories, onClose, initialCategoryId, i
                     aria-invalid={Boolean(errors.barcode)}
                     className={cn(inputCls, errors.barcode && 'border-destructive')}
                   />
-                  <button type="button" onClick={() => setShowBarcodeScanner(true)} className="inline-flex shrink-0 items-center gap-1.5 rounded-md border bg-background px-3 py-2 text-sm font-semibold hover:border-[#f9b21d] hover:bg-[#fff8e6] dark:hover:bg-[#2a2111]"><ScanLine className="h-4 w-4" /> Scan</button>
+                  <button type="button" onClick={() => setShowPhoneScanner(true)} className="inline-flex shrink-0 items-center gap-1.5 rounded-md border bg-background px-3 py-2 text-sm font-semibold hover:border-[#f9b21d] hover:bg-[#fff8e6] dark:hover:bg-[#2a2111]"><Smartphone className="h-4 w-4" /> Pair phone</button>
                 </div>
-                    <p className="mt-2 inline-flex items-center gap-1 text-xs text-muted-foreground"><Barcode className="h-3.5 w-3.5" /> Use your phone camera, a USB scanner, or enter the printed number.</p>
+                    <p className="mt-2 inline-flex items-center gap-1 text-xs text-muted-foreground"><Barcode className="h-3.5 w-3.5" /> USB scanner ready. You can also pair your phone or enter the printed number.</p>
                     {errors.barcode && <p role="alert" className="mt-1 text-xs text-destructive">{errors.barcode}</p>}
                     {barcodeMatch && <button type="button" onClick={() => router.push(`/dashboard/products/${barcodeMatch.id}`)} className="mt-1 text-xs font-medium text-primary hover:underline">View existing product</button>}
               </div>
@@ -397,12 +397,11 @@ export function ProductForm({ product, categories, onClose, initialCategoryId, i
           </div>
         </form>
       </div>
-      <BarcodeScannerDialog
-        open={showBarcodeScanner}
-        onClose={() => setShowBarcodeScanner(false)}
-        title="Scan product barcode"
-        onScan={(barcode) => {
-          setShowBarcodeScanner(false)
+      <WirelessScannerPairing
+        open={showPhoneScanner}
+        onClose={() => setShowPhoneScanner(false)}
+        onBarcode={(barcode) => {
+          setShowPhoneScanner(false)
           void checkBarcode(barcode)
         }}
       />

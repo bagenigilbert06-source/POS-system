@@ -8,7 +8,7 @@ import { getPosAuthorizationContext } from '@/lib/pos/pos-auth'
 import { createWirelessScannerToken, hashWirelessScannerToken, WIRELESS_SCANNER_TTL_MS } from '@/lib/pos/wireless-scanner'
 import { generateId } from '@/lib/utils'
 
-const permissions = [PermissionEnum.POS_VIEW, PermissionEnum.POS_SELL, PermissionEnum.SALE_CREATE]
+const permissions = [PermissionEnum.POS_VIEW, PermissionEnum.POS_SELL, PermissionEnum.SALE_CREATE, PermissionEnum.PRODUCT_CREATE, PermissionEnum.PRODUCT_EDIT]
 
 async function authorizeScanner() {
   const posAuthorization = await getPosAuthorizationContext()
