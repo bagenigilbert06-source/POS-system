@@ -34,7 +34,7 @@ export default async function InventoryPage() {
 
   return (
     <div className="mx-auto max-w-[1480px] space-y-5">
-      <DashboardPageHeading icon={Boxes} title="Inventory" description="Track stock levels, reorder needs and recorded inventory cost." />
+      <DashboardPageHeading theme="adaptive" icon={Boxes} title="Inventory" description="Track stock levels, reorder needs and recorded inventory cost." />
 
       {/* Summary cards */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

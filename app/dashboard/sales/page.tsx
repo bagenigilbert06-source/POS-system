@@ -42,7 +42,7 @@ export default async function SalesPage() {
 
   return (
     <div className="mx-auto w-full max-w-[1440px] space-y-5">
-      <DashboardPageHeading icon={Receipt} title="Sales" description="Track completed transactions, payments and recorded revenue." action={config.enabledModules.includes('pos') ? <Link
+      <DashboardPageHeading theme="adaptive" icon={Receipt} title="Sales" description="Track completed transactions, payments and recorded revenue." action={config.enabledModules.includes('pos') ? <Link
           href="/dashboard/pos"
           className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-[#e42527] px-4 text-sm font-bold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#050a1f] focus-visible:ring-offset-2"
         >

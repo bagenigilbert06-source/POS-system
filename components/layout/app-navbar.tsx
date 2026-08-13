@@ -7,6 +7,7 @@ import {
   ChevronDown,
   User,
   Menu,
+  ShieldCheck,
 } from 'lucide-react'
 import { PesabyLogoMark } from '@/components/brand/pesaby-logo'
 import { ThemeSwitcher } from '@/components/theme-switcher'
@@ -29,8 +30,17 @@ interface AppNavbarProps {
   role?: string
 }
 
+function formatRole(role?: string) {
+  if (!role) return 'Team member'
+  return role
+    .replace(/[_-]+/g, ' ')
+    .replace(/\b\w/g, (letter) => letter.toUpperCase())
+}
+
 export function AppNavbar({ userName, userEmail, organizationName, branchName, workspaceDescription, onOpenSidebar, role }: AppNavbarProps) {
   const router = useRouter()
+  const roleLabel = formatRole(role)
+  const dashboardLabel = `${roleLabel} dashboard`
 
   const clearStoredAuthState = () => {
     if (typeof window !== 'undefined') {
@@ -59,12 +69,17 @@ export function AppNavbar({ userName, userEmail, organizationName, branchName, w
           <Menu className="h-5 w-5" />
         </button>
         <div className="hidden min-w-0 md:block">
-          <p className="truncate text-sm font-bold text-[#f5f5f7]">{organizationName}{branchName ? ` · ${branchName}` : ''}</p>
-          <p className="max-w-[720px] truncate text-xs text-[#a1a1a6]">{role === 'cashier' ? 'Cashier POS · Sales, shift, receipts and customer checkout' : workspaceDescription}</p>
+          <div className="flex min-w-0 items-center gap-2.5">
+            <p className="truncate text-sm font-bold text-[#f5f5f7]">{organizationName}{branchName ? ` · ${branchName}` : ''}</p>
+            <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-[rgba(255,214,10,0.18)] bg-[rgba(255,214,10,0.08)] px-2.5 py-1 text-[0.64rem] font-bold uppercase tracking-[0.08em] text-[#ffd60a]">
+              <ShieldCheck className="h-3 w-3" aria-hidden="true" />{dashboardLabel}
+            </span>
+          </div>
+          <p className="mt-0.5 max-w-[720px] truncate text-xs text-[#a1a1a6]">{role === 'cashier' ? 'Sales, shifts, receipts and customer checkout' : workspaceDescription}</p>
         </div>
         <div className="flex min-w-0 items-center gap-3 md:hidden">
           <PesabyLogoMark className="h-8 w-8" />
-          <div><p className="truncate text-sm font-bold text-[#f5f5f7]">{organizationName}</p><p className="truncate text-[10px] font-bold uppercase tracking-[0.12em] text-[#a1a1a6]">Business OS</p></div>
+          <div className="min-w-0"><p className="truncate text-sm font-bold text-[#f5f5f7]">{organizationName}</p><p className="truncate text-[10px] font-bold uppercase tracking-[0.12em] text-[#ffd60a]">{dashboardLabel}</p></div>
         </div>
       </div>
 
@@ -89,6 +104,7 @@ export function AppNavbar({ userName, userEmail, organizationName, branchName, w
             <DropdownMenuLabel className="px-3 py-3 font-normal">
               <p className="truncate text-sm font-semibold text-[#f5f5f7]">{userName || 'Pesaby account'}</p>
               <p className="mt-1 truncate text-xs text-[#a1a1a6]">{userEmail}</p>
+              <span className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-[rgba(255,214,10,0.18)] bg-[rgba(255,214,10,0.08)] px-2.5 py-1 text-[0.64rem] font-bold uppercase tracking-[0.08em] text-[#ffd60a]"><ShieldCheck className="h-3 w-3" />{roleLabel}</span>
             </DropdownMenuLabel>
             <DropdownMenuSeparator className="bg-[rgba(255,214,10,0.08)]" />
             <DropdownMenuItem onSelect={handleSignOut} className="gap-3 rounded-lg px-3 py-2.5 text-[#a1a1a6] focus:bg-[rgba(255,76,77,0.1)] focus:text-[#ff6961]">
