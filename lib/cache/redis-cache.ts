@@ -37,7 +37,9 @@ async function redisClient(): Promise<RedisClient | null> {
     const client = createClient({
       url,
       socket: {
-        connectTimeout: 1_000,
+        // Redis is an optimization. Never make a cashier wait on a cache
+        // connection when PostgreSQL can serve the authoritative data.
+        connectTimeout: 300,
         reconnectStrategy: false,
       },
     })

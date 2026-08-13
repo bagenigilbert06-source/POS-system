@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import * as Icons from 'lucide-react'
 import { useEffect, useState } from 'react'
@@ -26,12 +26,19 @@ interface DynamicAppSidebarProps {
 
 export function DynamicAppSidebar({ initialPermissions: permissions, initialRole: role, mobileOpen = false, onMobileClose }: DynamicAppSidebarProps) {
   const pathname = usePathname()
+  const router = useRouter()
   const [collapsed, setCollapsed] = useState(false)
   const { config } = useWorkspace()
 
   useEffect(() => {
     setCollapsed(window.localStorage.getItem('pesaby-sidebar-collapsed') === 'true')
   }, [])
+
+  // The register is the highest-frequency destination. Warm its RSC request as
+  // soon as the authenticated dashboard shell becomes interactive.
+  useEffect(() => {
+    if (pathname !== '/dashboard/pos') router.prefetch('/dashboard/pos')
+  }, [pathname, router])
 
   const setSidebarCollapsed = (value: boolean) => {
     setCollapsed(value)
@@ -180,6 +187,7 @@ export function DynamicAppSidebar({ initialPermissions: permissions, initialRole
               <li key={item.id}>
                 <Link
                   href={item.route}
+                  prefetch
                   onClick={onMobileClose}
                   title={collapsed ? item.label : undefined}
                   className={cn(
@@ -210,6 +218,7 @@ export function DynamicAppSidebar({ initialPermissions: permissions, initialRole
               <li key={item.id}>
                 <Link
                   href={item.route || '/dashboard/settings'}
+                  prefetch
                   onClick={onMobileClose}
                   title={collapsed ? item.label : undefined}
                   className={cn(
