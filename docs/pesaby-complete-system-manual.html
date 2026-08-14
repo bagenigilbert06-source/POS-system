@@ -1,0 +1,919 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Pesaby Complete System Manual</title>
+    <style>
+      :root {
+        --ink: #102033;
+        --muted: #64748b;
+        --brand: #e42527;
+        --gold: #f3b700;
+        --nav: #0d2338;
+        --paper: #fff;
+        --wash: #f5f7fa;
+        --line: #dce3ea;
+        --green: #087f5b;
+        --shadow: 0 18px 50px rgba(15, 35, 55, 0.1);
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html {
+        scroll-behavior: smooth;
+      }
+      body {
+        margin: 0;
+        background: var(--wash);
+        color: var(--ink);
+        font:
+          15px/1.65 Inter,
+          Arial,
+          sans-serif;
+      }
+      .sidebar {
+        position: fixed;
+        inset: 0 auto 0 0;
+        width: 280px;
+        background: var(--nav);
+        color: #fff;
+        padding: 26px 20px;
+        overflow: auto;
+      }
+      .logo {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        font-size: 20px;
+        font-weight: 900;
+      }
+      .mark {
+        display: grid;
+        place-items: center;
+        width: 42px;
+        height: 42px;
+        border-radius: 12px;
+        background: var(--gold);
+        color: var(--nav);
+        font-size: 24px;
+      }
+      .side-note {
+        color: #a9bdcf;
+        font-size: 12px;
+        margin: 10px 0 20px;
+      }
+      .search {
+        width: 100%;
+        padding: 11px 12px;
+        border: 1px solid #385066;
+        border-radius: 10px;
+        background: #142e45;
+        color: white;
+        outline: none;
+      }
+      .nav {
+        margin-top: 18px;
+      }
+      .nav a {
+        display: block;
+        padding: 8px 10px;
+        border-radius: 8px;
+        color: #c6d4df;
+        text-decoration: none;
+        font-size: 13px;
+      }
+      .nav a:hover {
+        background: #193b56;
+        color: #fff;
+      }
+      .main {
+        margin-left: 280px;
+      }
+      .hero {
+        padding: 72px max(5vw, 36px);
+        background: linear-gradient(130deg, #fff 0 62%, #fff3ba 62%);
+        border-bottom: 1px solid var(--line);
+      }
+      .eyebrow {
+        color: #9a7100;
+        font-size: 12px;
+        font-weight: 900;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+      }
+      .hero h1 {
+        max-width: 850px;
+        margin: 10px 0;
+        font-size: clamp(36px, 5vw, 68px);
+        line-height: 1.02;
+        letter-spacing: -0.045em;
+      }
+      .hero p {
+        max-width: 760px;
+        color: #53657a;
+        font-size: 18px;
+      }
+      .chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 24px;
+      }
+      .chip {
+        padding: 7px 12px;
+        border: 1px solid #e3c95d;
+        border-radius: 999px;
+        background: #fffdf4;
+        font-size: 12px;
+        font-weight: 700;
+      }
+      .content {
+        max-width: 1100px;
+        margin: auto;
+        padding: 40px;
+      }
+      .section {
+        scroll-margin-top: 20px;
+        margin: 0 0 32px;
+        padding: 32px;
+        background: var(--paper);
+        border: 1px solid var(--line);
+        border-radius: 20px;
+        box-shadow: var(--shadow);
+      }
+      h2 {
+        margin: 0 0 14px;
+        font-size: 29px;
+        letter-spacing: -0.025em;
+      }
+      h3 {
+        margin: 24px 0 8px;
+        font-size: 18px;
+      }
+      p {
+        margin: 7px 0 12px;
+      }
+      .lead {
+        font-size: 17px;
+        color: #475569;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 14px;
+      }
+      .card {
+        padding: 18px;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        background: #fbfcfd;
+      }
+      .card strong {
+        display: block;
+        margin-bottom: 4px;
+      }
+      .step {
+        display: grid;
+        grid-template-columns: 38px 1fr;
+        gap: 12px;
+        margin: 14px 0;
+      }
+      .num {
+        display: grid;
+        place-items: center;
+        width: 34px;
+        height: 34px;
+        border-radius: 10px;
+        background: var(--nav);
+        color: #fff;
+        font-weight: 900;
+      }
+      .tip,
+      .warn {
+        margin: 16px 0;
+        padding: 14px 16px;
+        border-left: 4px solid var(--green);
+        border-radius: 8px;
+        background: #eaf8f3;
+      }
+      .warn {
+        border-color: #d99a00;
+        background: #fff7df;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 14px 0;
+      }
+      th,
+      td {
+        padding: 10px;
+        border: 1px solid var(--line);
+        text-align: left;
+        vertical-align: top;
+      }
+      th {
+        background: var(--nav);
+        color: #fff;
+      }
+      .flow {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px;
+        margin: 18px 0;
+      }
+      .flow span {
+        padding: 9px 12px;
+        border-radius: 9px;
+        background: #edf2f6;
+        font-weight: 800;
+      }
+      .flow b {
+        color: var(--brand);
+      }
+      ul,
+      ol {
+        padding-left: 22px;
+      }
+      .check li {
+        margin: 7px 0;
+      }
+      .top {
+        position: fixed;
+        right: 22px;
+        bottom: 22px;
+        width: 44px;
+        height: 44px;
+        border: 0;
+        border-radius: 50%;
+        background: var(--brand);
+        color: #fff;
+        font-size: 20px;
+        cursor: pointer;
+        box-shadow: var(--shadow);
+      }
+      .hidden {
+        display: none !important;
+      }
+      @media (max-width: 850px) {
+        .sidebar {
+          position: relative;
+          width: auto;
+          max-height: none;
+        }
+        .nav {
+          columns: 2;
+        }
+        .main {
+          margin: 0;
+        }
+        .hero {
+          padding: 45px 24px;
+        }
+        .content {
+          padding: 20px;
+        }
+        .section {
+          padding: 23px;
+        }
+        .grid {
+          grid-template-columns: 1fr;
+        }
+      }
+      @media print {
+        .sidebar,
+        .top {
+          display: none;
+        }
+        .main {
+          margin: 0;
+        }
+        .section {
+          box-shadow: none;
+          break-inside: avoid;
+        }
+        .hero {
+          background: #fff;
+        }
+        .content {
+          max-width: none;
+        }
+      }
+    </style>
+  </head>
+  <body id="top">
+    <aside class="sidebar">
+      <div class="logo"><span class="mark">P</span>Pesaby Manual</div>
+      <p class="side-note">
+        Complete guide · simple English · manager and staff edition
+      </p>
+      <input class="search" id="search" placeholder="Search this manual…" />
+      <nav class="nav" id="nav">
+        <a href="#overview">1. System overview</a
+        ><a href="#start">2. First-time setup</a
+        ><a href="#roles">3. Staff and access</a
+        ><a href="#catalogue">4. Products and categories</a
+        ><a href="#pos">5. Point of sale</a
+        ><a href="#payments">6. Payments and M-Pesa</a
+        ><a href="#sales">7. Sales and refunds</a
+        ><a href="#inventory">8. Inventory</a
+        ><a href="#customers">10. Customers and credit</a
+        ><a href="#expenses">11. Expenses</a
+        ><a href="#operations">12. Operations</a
+        ><a href="#reports">13. Reports and analytics</a
+        ><a href="#settings">14. Settings</a
+        ><a href="#routine">15. Daily workflow</a
+        ><a href="#controls">16. Safety and troubleshooting</a
+        ><a href="#glossary">17. Glossary</a>
+      </nav>
+    </aside>
+    <main class="main">
+      <header class="hero">
+        <span class="eyebrow">Official user guide</span>
+        <h1>How to run your business with Pesaby</h1>
+        <p>
+          A complete, start-to-finish guide to setting up the system, selling,
+          buying, controlling stock, managing staff, and understanding your
+          business.
+        </p>
+        <div class="chips">
+          <span class="chip">Owners</span><span class="chip">Managers</span
+          ><span class="chip">Cashiers</span
+          ><span class="chip">Liquor & retail shops</span
+          ><span class="chip">Multi-branch businesses</span>
+        </div>
+      </header>
+      <div class="content">
+        <section class="section" id="overview">
+          <h2>1. What Pesaby is and who it is for</h2>
+          <p class="lead">
+            Pesaby is a back-office and point-of-sale system. It joins sales,
+            payments, products, stock, purchasing, customers, expenses, staff,
+            and reports in one workspace.
+          </p>
+          <div class="grid">
+            <div class="card">
+              <strong>Business owners</strong>See sales, profit, cash movement,
+              stock value, expenses, and staff activity.
+            </div>
+            <div class="card">
+              <strong>Managers</strong>Control products, prices, purchasing,
+              inventory counts, transfers, refunds, and daily operations.
+            </div>
+            <div class="card">
+              <strong>Cashiers</strong>Find products, make sales, accept
+              approved payments, print receipts, and view allowed history.
+            </div>
+            <div class="card">
+              <strong>Stock and purchasing staff</strong>Order from suppliers,
+              receive deliveries, count stock, and move goods between branches.
+            </div>
+          </div>
+          <div class="flow">
+            <span>Setup</span><b>→</b><span>Add products</span><b>→</b
+            ><span>Receive stock</span><b>→</b><span>Sell</span><b>→</b
+            ><span>Review reports</span>
+          </div>
+        </section>
+
+        <section class="section" id="start">
+          <h2>2. First-time setup</h2>
+          <p>
+            Complete the setup checklist before normal trading. The workspace
+            header shows the current business and location.
+          </p>
+          <div class="step">
+            <span class="num">1</span>
+            <div>
+              <strong>Create the business workspace.</strong>
+              <p>
+                Enter the business name, type, contact information, currency,
+                country, and timezone.
+              </p>
+            </div>
+          </div>
+          <div class="step">
+            <span class="num">2</span>
+            <div>
+              <strong>Create the main location.</strong>
+              <p>
+                Add its name, code, address, phone, and receipt information. Add
+                other branches later if needed.
+              </p>
+            </div>
+          </div>
+          <div class="step">
+            <span class="num">3</span>
+            <div>
+              <strong>Choose modules.</strong>
+              <p>
+                Enable the business tools you use, such as POS, inventory,
+                purchases, customers, expenses, and analytics.
+              </p>
+            </div>
+          </div>
+          <div class="step">
+            <span class="num">4</span>
+            <div>
+              <strong>Configure payments and receipt settings.</strong>
+              <p>
+                Confirm cash, card, M-Pesa, credit, tax, logo, and receipt
+                details.
+              </p>
+            </div>
+          </div>
+          <div class="step">
+            <span class="num">5</span>
+            <div>
+              <strong>Add staff and products.</strong>
+              <p>
+                Give each employee only the permissions required for their job,
+                then build the product catalogue.
+              </p>
+            </div>
+          </div>
+          <div class="tip">
+            <strong>Good practice:</strong> finish setup, create a test product,
+            receive a small quantity, make a test sale, and verify the receipt
+            and stock before opening for customers.
+          </div>
+        </section>
+
+        <section class="section" id="roles">
+          <h2>3. Staff and access</h2>
+          <table>
+            <tr>
+              <th>Role</th>
+              <th>Normal responsibilities</th>
+            </tr>
+            <tr>
+              <td>Owner / administrator</td>
+              <td>
+                Full workspace, settings, staff, finance, inventory, and
+                reporting control.
+              </td>
+            </tr>
+            <tr>
+              <td>Manager</td>
+              <td>
+                Daily dashboard, products, purchases, inventory approval,
+                refunds, expenses, and reports.
+              </td>
+            </tr>
+            <tr>
+              <td>Supervisor</td>
+              <td>
+                Operational review, counts, selected approvals, and branch
+                activity.
+              </td>
+            </tr>
+            <tr>
+              <td>Cashier</td>
+              <td>
+                POS sales, customer selection, approved payment methods, and
+                permitted sale history.
+              </td>
+            </tr>
+          </table>
+          <p>
+            Permissions are checked on the server. Hiding a button is not the
+            only protection. Branch access can also restrict a user to one or
+            more locations.
+          </p>
+          <div class="warn">
+            Never share accounts or PINs. Deactivate a staff member immediately
+            when they leave. Review powerful permissions regularly.
+          </div>
+        </section>
+
+        <section class="section" id="catalogue">
+          <h2>4. Products and categories</h2>
+          <h3>Create categories first</h3>
+          <p>
+            Categories make products easier to find at the POS and easier to
+            report on. Examples are Beer, Wine, Spirits, Soft Drinks, Food, or
+            Electronics.
+          </p>
+          <h3>Create a product</h3>
+          <ol class="check">
+            <li>Enter a clear product name and select its category.</li>
+            <li>
+              Add an SKU and barcode where available. Active products must not
+              share the same SKU or barcode.
+            </li>
+            <li>
+              Enter buying price, selling price, unit, pack details, and reorder
+              level.
+            </li>
+            <li>Choose tracking: none, lot/expiry, or serial number.</li>
+            <li>
+              Add shelf life and expiry warning days for perishable items.
+            </li>
+            <li>Add opening stock only when it has been physically checked.</li>
+          </ol>
+          <p>
+            Archive products that are no longer sold. Archiving keeps old sales
+            and reports correct.
+          </p>
+        </section>
+
+        <section class="section" id="pos">
+          <h2>5. Point of sale: making a sale</h2>
+          <div class="step">
+            <span class="num">1</span>
+            <div>
+              <strong>Open Point of sale.</strong> Confirm the correct branch
+              and cashier.
+            </div>
+          </div>
+          <div class="step">
+            <span class="num">2</span>
+            <div>
+              <strong>Add items.</strong> Search, browse categories, click a
+              product, or scan its barcode.
+            </div>
+          </div>
+          <div class="step">
+            <span class="num">3</span>
+            <div>
+              <strong>Review the cart.</strong> Check quantities, prices,
+              discounts, customer, and totals.
+            </div>
+          </div>
+          <div class="step">
+            <span class="num">4</span>
+            <div>
+              <strong>Choose payment.</strong> Select cash, M-Pesa, card, or an
+              allowed credit method.
+            </div>
+          </div>
+          <div class="step">
+            <span class="num">5</span>
+            <div>
+              <strong>Complete once.</strong> Wait for confirmation, then print
+              or share the receipt.
+            </div>
+          </div>
+          <p>
+            The system checks available stock at the active branch. A completed
+            sale reduces that branch’s inventory and records cost of goods sold.
+          </p>
+          <div class="warn">
+            If payment is processing, do not click repeatedly. Check the
+            transaction status before starting a second sale.
+          </div>
+        </section>
+
+        <section class="section" id="payments">
+          <h2>6. Payments and M-Pesa</h2>
+          <div class="grid">
+            <div class="card">
+              <strong>Cash</strong>Enter cash received and confirm the change
+              shown by the system.
+            </div>
+            <div class="card">
+              <strong>M-Pesa</strong>Start the payment request, confirm the
+              customer phone, and wait for the callback result.
+            </div>
+            <div class="card">
+              <strong>Card or other electronic payment</strong>Confirm the
+              external terminal result before completing the sale.
+            </div>
+            <div class="card">
+              <strong>Credit</strong>Select an approved customer and follow the
+              permitted credit workflow.
+            </div>
+          </div>
+          <p>
+            M-Pesa reconciliation helps find payments that are pending, failed,
+            unmatched, or completed. A payment confirmation should finalize the
+            related sale only once.
+          </p>
+        </section>
+
+        <section class="section" id="sales">
+          <h2>7. Sales history, receipts, and refunds</h2>
+          <p>
+            Sales history shows each transaction, cashier, items, payment,
+            total, and time. Open a sale to review or reprint its receipt.
+          </p>
+          <h3>Refund process</h3>
+          <ol>
+            <li>Find the original sale.</li>
+            <li>Select the returned items and quantities.</li>
+            <li>
+              Enter a clear reason and choose whether sellable goods return to
+              stock.
+            </li>
+            <li>Ask an authorized person to approve when required.</li>
+            <li>Return money through the correct business procedure.</li>
+          </ol>
+          <p>
+            A restocked refund increases stock at the original selling branch
+            and creates a traceable return movement. Damaged returns must not be
+            marked sellable.
+          </p>
+        </section>
+
+        <section class="section" id="inventory">
+          <h2>8. Inventory control</h2>
+          <table>
+            <tr>
+              <th>Stock value</th>
+              <th>Meaning</th>
+            </tr>
+            <tr>
+              <td>On hand</td>
+              <td>Physical quantity expected at the branch.</td>
+            </tr>
+            <tr>
+              <td>Reserved</td>
+              <td>Set aside for a transfer or unfinished operation.</td>
+            </tr>
+            <tr>
+              <td>Unavailable</td>
+              <td>Damaged, quarantined, or otherwise not sellable.</td>
+            </tr>
+            <tr>
+              <td>Incoming</td>
+              <td>Ordered or transferred but not received.</td>
+            </tr>
+            <tr>
+              <td>Available</td>
+              <td>On hand minus reserved and unavailable.</td>
+            </tr>
+          </table>
+          <h3>Stock counts</h3>
+          <p>
+            Select a branch, count physical products, submit the count, and
+            approve the differences. The system records the correction and
+            reason; never change stock directly.
+          </p>
+          <h3>Branch transfers</h3>
+          <p>
+            Create → approve (reserve) → dispatch (leave source) → receive
+            (enter destination). Partial receipt is supported. Cancel before
+            dispatch when the move will not happen.
+          </p>
+          <h3>Lots, expiry, serials, and cost</h3>
+          <p>
+            Expiry goods use the earliest-expiring valid lot first. Serial goods
+            keep one identity per unit. Cost layers preserve the receiving cost,
+            allowing historical margin and stock valuation.
+          </p>
+        </section>
+
+        <section class="section" id="customers">
+          <h2>10. Customers, credit, and invoices</h2>
+          <p>
+            Create customer profiles for contact details, purchase history,
+            loyalty, invoices, or credit. Select the customer before completing
+            the sale so the transaction is linked correctly.
+          </p>
+          <ul>
+            <li>Review outstanding credit regularly.</li>
+            <li>
+              Record collections against the correct customer and document.
+            </li>
+            <li>Do not extend credit without the business owner’s rules.</li>
+            <li>
+              Keep phone and email details accurate for receipts and follow-up.
+            </li>
+          </ul>
+        </section>
+
+        <section class="section" id="expenses">
+          <h2>11. Expenses</h2>
+          <p>
+            Record business money going out: rent, wages, transport, utilities,
+            repairs, licenses, or other costs. Enter the date, category, amount,
+            description, and supporting reference.
+          </p>
+          <div class="tip">
+            Stock bought for resale belongs in Purchases, not normal Expenses.
+            This keeps inventory value and gross profit correct.
+          </div>
+        </section>
+
+        <section class="section" id="operations">
+          <h2>12. Operations</h2>
+          <p>
+            Operations records exceptional activity such as damaged stock, loss,
+            wastage, adjustments, and reviews. Always choose the correct branch
+            and write a useful reason.
+          </p>
+          <p>
+            The audit trail answers: who acted, what changed, when it changed,
+            where it happened, and which sale, purchase, transfer, or adjustment
+            caused it.
+          </p>
+        </section>
+
+        <section class="section" id="reports">
+          <h2>13. Reports and analytics</h2>
+          <div class="grid">
+            <div class="card">
+              <strong>Sales</strong>Revenue, transactions, average sale, product
+              and category performance.
+            </div>
+            <div class="card">
+              <strong>Profit</strong>Sales minus recorded cost of goods and
+              operating expenses.
+            </div>
+            <div class="card">
+              <strong>Inventory</strong>On-hand quantity, stock value, low
+              stock, movements, expiry, and adjustments.
+            </div>
+            <div class="card">
+              <strong>Customers and staff</strong>Buying behavior, credit,
+              cashier activity, and performance.
+            </div>
+          </div>
+          <p>
+            Always check the date range, branch, and status filters before using
+            a report. Historical margin uses the cost stored at the time of
+            sale, not today’s buying price.
+          </p>
+        </section>
+
+        <section class="section" id="settings">
+          <h2>14. Settings</h2>
+          <p>
+            Settings control the organization, branches, currency, timezone,
+            receipt identity, taxes, payment methods, modules, and access. Test
+            changes that affect checkout or accounting before using them during
+            business hours.
+          </p>
+          <ul>
+            <li>Keep the business name and receipt contacts current.</li>
+            <li>Use the correct timezone for daily totals.</li>
+            <li>Review branch access and permissions.</li>
+            <li>
+              Keep M-Pesa credentials private and configured only in secure
+              environment settings.
+            </li>
+          </ul>
+        </section>
+
+        <section class="section" id="routine">
+          <h2>15. Recommended daily workflow</h2>
+          <h3>Opening</h3>
+          <ol>
+            <li>
+              Confirm the correct branch, logged-in staff, internet, payment
+              devices, and receipt printer.
+            </li>
+            <li>
+              Check pending M-Pesa transactions, incoming deliveries, low stock,
+              and urgent expiry warnings.
+            </li>
+            <li>Count controlled cash according to your business procedure.</li>
+          </ol>
+          <h3>During the day</h3>
+          <ol>
+            <li>Complete each sale once and issue a receipt.</li>
+            <li>Receive only goods physically delivered and checked.</li>
+            <li>
+              Record every refund, expense, loss, payment, and stock move
+              immediately.
+            </li>
+            <li>Investigate warnings instead of bypassing them.</li>
+          </ol>
+          <h3>Closing</h3>
+          <ol>
+            <li>Compare cash, M-Pesa, card, credit, and system sales.</li>
+            <li>Resolve pending or unmatched payments.</li>
+            <li>Review refunds, discounts, voids, losses, and adjustments.</li>
+            <li>Check low stock and prepare purchase orders.</li>
+            <li>
+              Save or review the day’s sales, expense, profit, and inventory
+              reports.
+            </li>
+          </ol>
+        </section>
+
+        <section class="section" id="controls">
+          <h2>16. Data safety and troubleshooting</h2>
+          <h3>If a page does not load</h3>
+          <ol>
+            <li>Refresh once and confirm the internet connection.</li>
+            <li>Check that the user still has permission and branch access.</li>
+            <li>Try signing out and back in.</li>
+            <li>
+              Record the page, time, action, and visible error for support.
+            </li>
+          </ol>
+          <h3>If stock looks wrong</h3>
+          <ol>
+            <li>Confirm the branch and stock state.</li>
+            <li>
+              Review sales, receipts, transfers, refunds, and adjustments in the
+              movement ledger.
+            </li>
+            <li>
+              Perform a physical count and submit the difference with a reason.
+            </li>
+          </ol>
+          <h3>Important controls</h3>
+          <ul>
+            <li>Use individual accounts and strong passwords.</li>
+            <li>Back up the database before schema changes.</li>
+            <li>
+              Deploy application code and its database migration together.
+            </li>
+            <li>
+              Never edit production data directly when a normal workflow exists.
+            </li>
+            <li>
+              Restrict financial, refund, purchase, inventory approval, and
+              staff-management permissions.
+            </li>
+          </ul>
+        </section>
+
+        <section class="section" id="glossary">
+          <h2>17. Simple glossary</h2>
+          <table>
+            <tr>
+              <th>Term</th>
+              <th>Meaning</th>
+            </tr>
+            <tr>
+              <td>POS</td>
+              <td>The screen used to sell to customers.</td>
+            </tr>
+            <tr>
+              <td>SKU</td>
+              <td>Your internal product code.</td>
+            </tr>
+            <tr>
+              <td>PO</td>
+              <td>Purchase order sent to a supplier.</td>
+            </tr>
+            <tr>
+              <td>GRN</td>
+              <td>Goods received note proving what arrived.</td>
+            </tr>
+            <tr>
+              <td>COGS</td>
+              <td>Cost of goods sold—the inventory cost of sold items.</td>
+            </tr>
+            <tr>
+              <td>FIFO</td>
+              <td>Oldest received cost is used first.</td>
+            </tr>
+            <tr>
+              <td>FEFO</td>
+              <td>Stock expiring first is sold first.</td>
+            </tr>
+            <tr>
+              <td>Reorder point</td>
+              <td>Stock level that warns you to replenish.</td>
+            </tr>
+            <tr>
+              <td>Audit trail</td>
+              <td>History showing who changed what and when.</td>
+            </tr>
+            <tr>
+              <td>Outstanding</td>
+              <td>Money still unpaid.</td>
+            </tr>
+          </table>
+          <div class="tip">
+            <strong>You are ready when:</strong> setup is complete, staff access
+            is correct, products and opening stock are verified, payments are
+            tested, a sample purchase and sale work, and the manager can
+            reconcile the reports.
+          </div>
+        </section>
+      </div>
+    </main>
+    <button
+      class="top"
+      onclick="location.href = '#top'"
+      aria-label="Back to top"
+    >
+      ↑
+    </button>
+    <script>
+      const q = document.getElementById('search'),
+        sections = [...document.querySelectorAll('.section')],
+        links = [...document.querySelectorAll('.nav a')];
+      q.addEventListener('input', () => {
+        const value = q.value.toLowerCase().trim();
+        sections.forEach((s) =>
+          s.classList.toggle(
+            'hidden',
+            value && !s.innerText.toLowerCase().includes(value)
+          )
+        );
+        links.forEach((a) => {
+          const target = document.querySelector(a.getAttribute('href'));
+          a.classList.toggle('hidden', target.classList.contains('hidden'));
+        });
+      });
+    </script>
+  </body>
+</html>

@@ -57,6 +57,7 @@ export function InventoryLifecycleManager({
   canPurchase,
   canTransfer,
   showTransfers = true,
+  showPurchases = true,
 }: {
   products: Product[];
   suppliers: Supplier[];
@@ -69,6 +70,7 @@ export function InventoryLifecycleManager({
   canPurchase: boolean;
   canTransfer: boolean;
   showTransfers?: boolean;
+  showPurchases?: boolean;
 }) {
   const router = useRouter(),
     [pending, startTransition] = useTransition();
@@ -201,7 +203,7 @@ export function InventoryLifecycleManager({
   return (
     <section className="space-y-5">
       <div className="flex flex-wrap gap-2">
-        {canPurchase && (
+        {showPurchases && canPurchase && (
           <Dialog open={poOpen} onOpenChange={setPoOpen}>
             <DialogTrigger asChild>
               <Button className="gap-2">
@@ -523,119 +525,127 @@ export function InventoryLifecycleManager({
       <div
         className={showTransfers ? 'grid gap-5 xl:grid-cols-2' : 'grid gap-5'}
       >
-        <div className="overflow-hidden rounded-2xl border bg-card">
-          <div className="border-b px-5 py-4">
-            <h2 className="font-bold">Purchase orders</h2>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Draft, approve and receive supplier orders.
-            </p>
-          </div>
-          {purchaseOrders.length ? (
-            <div className="divide-y">
-              {purchaseOrders.map((po) => {
-                const lines = byPo.get(po.id) ?? [],
-                  open = lines.reduce(
-                    (sum, item) =>
-                      sum +
-                      item.quantity -
-                      Number(item.receivedQuantity) -
-                      Number(item.rejectedQuantity),
-                    0
-                  );
-                return (
-                  <article key={po.id} className="space-y-3 px-5 py-4">
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <p className="font-bold">{po.poNo}</p>
-                        <p className="mt-1 text-xs text-muted-foreground">
-                          {formatDateTime(po.createdAt)} · {lines.length} lines
-                          · {open} open units
-                        </p>
+        {showPurchases && (
+          <div className="overflow-hidden rounded-2xl border bg-card">
+            <div className="border-b px-5 py-4">
+              <h2 className="font-bold">Purchase orders</h2>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Draft, approve and receive supplier orders.
+              </p>
+            </div>
+            {purchaseOrders.length ? (
+              <div className="divide-y">
+                {purchaseOrders.map((po) => {
+                  const lines = byPo.get(po.id) ?? [],
+                    open = lines.reduce(
+                      (sum, item) =>
+                        sum +
+                        item.quantity -
+                        Number(item.receivedQuantity) -
+                        Number(item.rejectedQuantity),
+                      0
+                    );
+                  return (
+                    <article key={po.id} className="space-y-3 px-5 py-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="font-bold">{po.poNo}</p>
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            {formatDateTime(po.createdAt)} · {lines.length}{' '}
+                            lines · {open} open units
+                          </p>
+                        </div>
+                        <span className="rounded-full bg-muted px-2 py-1 text-xs font-bold capitalize">
+                          {po.status.replaceAll('_', ' ')}
+                        </span>
                       </div>
-                      <span className="rounded-full bg-muted px-2 py-1 text-xs font-bold capitalize">
-                        {po.status.replaceAll('_', ' ')}
-                      </span>
-                    </div>
-                    <p className="text-sm font-semibold">
-                      {formatCurrency(Number(po.total), currency)}
-                    </p>
-                    <div className="flex flex-wrap gap-2">
-                      {po.status === 'draft' && (
-                        <>
+                      <p className="text-sm font-semibold">
+                        {formatCurrency(Number(po.total), currency)}
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {po.status === 'draft' && (
+                          <>
+                            <Button
+                              size="sm"
+                              disabled={pending}
+                              onClick={() =>
+                                run(
+                                  () => setPurchaseOrderStatus(po.id, 'sent'),
+                                  'Purchase order marked sent'
+                                )
+                              }
+                            >
+                              <Send className="mr-1 h-3.5 w-3.5" />
+                              Send
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              disabled={pending}
+                              onClick={() =>
+                                run(
+                                  () =>
+                                    setPurchaseOrderStatus(po.id, 'confirmed'),
+                                  'Purchase order confirmed'
+                                )
+                              }
+                            >
+                              Confirm
+                            </Button>
+                          </>
+                        )}
+                        {['confirmed', 'partially_received'].includes(
+                          po.status
+                        ) && (
                           <Button
                             size="sm"
                             disabled={pending}
-                            onClick={() =>
-                              run(
-                                () => setPurchaseOrderStatus(po.id, 'sent'),
-                                'Purchase order marked sent'
-                              )
-                            }
+                            onClick={() => {
+                              try {
+                                receiveRemainingOrder(po, lines);
+                              } catch (error) {
+                                toast.error(
+                                  error instanceof Error
+                                    ? error.message
+                                    : 'Could not prepare receipt'
+                                );
+                              }
+                            }}
                           >
-                            <Send className="mr-1 h-3.5 w-3.5" />
-                            Send
+                            Receive remaining
                           </Button>
+                        )}
+                        {[
+                          'draft',
+                          'sent',
+                          'confirmed',
+                          'partially_received',
+                        ].includes(po.status) && (
                           <Button
                             size="sm"
-                            variant="outline"
+                            variant="ghost"
                             disabled={pending}
                             onClick={() =>
                               run(
                                 () =>
-                                  setPurchaseOrderStatus(po.id, 'confirmed'),
-                                'Purchase order confirmed'
+                                  setPurchaseOrderStatus(po.id, 'cancelled'),
+                                'Purchase order cancelled'
                               )
                             }
                           >
-                            Confirm
+                            Cancel
                           </Button>
-                        </>
-                      )}
-                      {['confirmed', 'partially_received'].includes(
-                        po.status
-                      ) && (
-                        <Button
-                          size="sm"
-                          disabled={pending}
-                          onClick={() => {
-                            try {
-                              receiveRemainingOrder(po, lines);
-                            } catch (error) {
-                              toast.error(
-                                error instanceof Error
-                                  ? error.message
-                                  : 'Could not prepare receipt'
-                              );
-                            }
-                          }}
-                        >
-                          Receive remaining
-                        </Button>
-                      )}
-                      {['draft', 'sent', 'confirmed', 'partially_received'].includes(po.status) && (
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          disabled={pending}
-                          onClick={() =>
-                            run(
-                              () => setPurchaseOrderStatus(po.id, 'cancelled'),
-                              'Purchase order cancelled'
-                            )
-                          }
-                        >
-                          Cancel
-                        </Button>
-                      )}
-                    </div>
-                  </article>
-                );
-              })}
-            </div>
-          ) : (
-            <Empty text="No purchase orders yet" />
-          )}
-        </div>
+                        )}
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            ) : (
+              <Empty text="No purchase orders yet" />
+            )}
+          </div>
+        )}
         {showTransfers && (
           <div className="overflow-hidden rounded-2xl border bg-card">
             <div className="border-b px-5 py-4">

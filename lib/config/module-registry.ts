@@ -1,20 +1,25 @@
 export interface ModuleDefinition {
-  id: string
-  name: string
-  description: string
-  icon: string
-  route: string
-  enabled: boolean
+  id: string;
+  name: string;
+  description: string;
+  icon: string;
+  route: string;
+  enabled: boolean;
 }
 
 export const MODULE_REGISTRY: Record<string, ModuleDefinition> = {
   products: {
-    id: 'products', name: 'Products', description: 'Manage products, prices, and catalogues', icon: 'Package', route: '/dashboard/products', enabled: true,
+    id: 'products',
+    name: 'Products',
+    description: 'Manage products, prices, and catalogues',
+    icon: 'Package',
+    route: '/dashboard/products',
+    enabled: true,
   },
   inventory: {
     id: 'inventory',
     name: 'Inventory Management',
-    description: 'Manage products, stock levels, and suppliers',
+    description: 'Manage products and stock levels',
     icon: 'Package',
     route: '/dashboard/inventory',
     enabled: true,
@@ -51,23 +56,30 @@ export const MODULE_REGISTRY: Record<string, ModuleDefinition> = {
     route: '/dashboard/analytics',
     enabled: true,
   },
-  purchases: {
-    id: 'purchases', name: 'Purchases', description: 'Suppliers, receiving, and procurement history', icon: 'Truck', route: '/dashboard/purchases', enabled: true,
-  },
   expenses: {
-    id: 'expenses', name: 'Expenses', description: 'Operating costs and cash outflows', icon: 'Wallet', route: '/dashboard/expenses', enabled: true,
+    id: 'expenses',
+    name: 'Expenses',
+    description: 'Operating costs and cash outflows',
+    icon: 'Wallet',
+    route: '/dashboard/expenses',
+    enabled: true,
   },
   reports: {
-    id: 'reports', name: 'Reports', description: 'Operational reporting', icon: 'FileText', route: '/dashboard/reports', enabled: true,
+    id: 'reports',
+    name: 'Reports',
+    description: 'Operational reporting',
+    icon: 'FileText',
+    route: '/dashboard/reports',
+    enabled: true,
   },
-}
+};
 
 export function getModule(moduleId: string): ModuleDefinition | null {
-  return MODULE_REGISTRY[moduleId] || null
+  return MODULE_REGISTRY[moduleId] || null;
 }
 
 export function getEnabledModules(moduleIds: string[]): ModuleDefinition[] {
   return moduleIds
     .map((id) => MODULE_REGISTRY[id])
-    .filter((module): module is ModuleDefinition => module !== undefined)
+    .filter((module): module is ModuleDefinition => module !== undefined);
 }
