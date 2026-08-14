@@ -1,0 +1,226 @@
+'use client';
+
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
+import {
+  Activity,
+  Building2,
+  ChevronRight,
+  CreditCard,
+  FileClock,
+  KeyRound,
+  Landmark,
+  LayoutDashboard,
+  Settings,
+  ShieldCheck,
+  UsersRound,
+} from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
+import { cn } from '@/lib/utils';
+
+type AdminNavItem = {
+  label: string;
+  href: string;
+  icon: LucideIcon;
+  exact?: boolean;
+};
+
+const sections: ReadonlyArray<{
+  label: string;
+  items: readonly AdminNavItem[];
+}> = [
+  {
+    label: 'Overview',
+    items: [
+      {
+        label: 'Control center',
+        href: '/dashboard/admin',
+        icon: LayoutDashboard,
+        exact: true,
+      },
+    ],
+  },
+  {
+    label: 'Business setup',
+    items: [
+      {
+        label: 'Business profile',
+        href: '/dashboard/settings',
+        icon: Settings,
+      },
+      {
+        label: 'Branches & locations',
+        href: '/dashboard/admin/branches',
+        icon: Building2,
+      },
+    ],
+  },
+  {
+    label: 'People & access',
+    items: [
+      { label: 'Staff accounts', href: '/dashboard/staff', icon: UsersRound },
+      {
+        label: 'Roles & permissions',
+        href: '/dashboard/admin/roles',
+        icon: KeyRound,
+      },
+    ],
+  },
+  {
+    label: 'Payments & operations',
+    items: [
+      {
+        label: 'M-Pesa reconciliation',
+        href: '/dashboard/pos/mpesa-reconciliation',
+        icon: Landmark,
+      },
+      {
+        label: 'Registers & shifts',
+        href: '/dashboard/operations',
+        icon: CreditCard,
+      },
+    ],
+  },
+  {
+    label: 'System & security',
+    items: [
+      {
+        label: 'Integrations',
+        href: '/dashboard/admin/integrations',
+        icon: Activity,
+      },
+      {
+        label: 'Security',
+        href: '/dashboard/admin/security',
+        icon: ShieldCheck,
+      },
+      {
+        label: 'Audit activity',
+        href: '/dashboard/admin/audit',
+        icon: FileClock,
+      },
+    ],
+  },
+] as const;
+
+function AdminLink({
+  item,
+  pathname,
+  compact = false,
+}: {
+  item: AdminNavItem;
+  pathname: string;
+  compact?: boolean;
+}) {
+  const active =
+    'exact' in item && item.exact
+      ? pathname === item.href
+      : pathname.startsWith(item.href);
+  const Icon = item.icon;
+  return (
+    <Link
+      href={item.href}
+      aria-current={active ? 'page' : undefined}
+      className={cn(
+        'group flex items-center gap-3 border-l-2 text-sm transition-colors',
+        compact ? 'shrink-0 rounded-lg border px-3 py-2' : 'px-4 py-2.5',
+        active
+          ? 'border-primary bg-primary/10 font-semibold text-foreground'
+          : 'border-transparent text-muted-foreground hover:bg-muted/60 hover:text-foreground'
+      )}
+    >
+      <Icon
+        className={cn(
+          'h-4 w-4 shrink-0',
+          active
+            ? 'text-primary'
+            : 'text-muted-foreground group-hover:text-foreground'
+        )}
+      />
+      <span className="whitespace-nowrap">{item.label}</span>
+      {!compact && (
+        <ChevronRight
+          className={cn(
+            'ml-auto h-3.5 w-3.5 opacity-0 transition-all group-hover:translate-x-0.5 group-hover:opacity-60',
+            active && 'opacity-60'
+          )}
+        />
+      )}
+    </Link>
+  );
+}
+
+export function AdminControlShell({
+  organizationName,
+  children,
+}: {
+  organizationName: string;
+  children: React.ReactNode;
+}) {
+  const pathname = usePathname();
+  const items = sections.flatMap((section) => section.items);
+
+  return (
+    <div className="-mx-4 -my-4 min-h-[calc(100vh-4rem)] bg-[var(--dashboard-canvas)] sm:-mx-6 sm:-my-5 lg:-mx-7 lg:-my-5">
+      <div className="flex min-h-[calc(100vh-4rem)] min-w-0 flex-col lg:flex-row">
+        <aside className="hidden w-64 shrink-0 border-r border-[var(--dashboard-border)] bg-[var(--dashboard-surface)] lg:block">
+          <div className="sticky top-0 max-h-[calc(100vh-4rem)] overflow-y-auto py-5">
+            <div className="border-b border-[var(--dashboard-border)] px-5 pb-5">
+              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-foreground text-background">
+                <ShieldCheck className="h-5 w-5" />
+              </span>
+              <h1 className="mt-3 text-base font-bold">Admin control</h1>
+              <p className="mt-1 truncate text-xs text-muted-foreground">
+                {organizationName}
+              </p>
+            </div>
+            <nav className="py-3" aria-label="Admin control navigation">
+              {sections.map((section) => (
+                <div key={section.label} className="py-2">
+                  <p className="px-5 pb-1.5 text-[10px] font-bold uppercase tracking-[0.13em] text-muted-foreground">
+                    {section.label}
+                  </p>
+                  {section.items.map((item) => (
+                    <AdminLink
+                      key={item.href}
+                      item={item}
+                      pathname={pathname}
+                    />
+                  ))}
+                </div>
+              ))}
+            </nav>
+          </div>
+        </aside>
+
+        <div className="min-w-0 flex-1">
+          <div className="border-b border-[var(--dashboard-border)] bg-[var(--dashboard-surface)] p-3 lg:hidden">
+            <div className="mb-3 flex items-center gap-2 px-1">
+              <ShieldCheck className="h-4 w-4" />
+              <span className="text-sm font-bold">Admin control</span>
+              <span className="truncate text-xs text-muted-foreground">
+                · {organizationName}
+              </span>
+            </div>
+            <nav
+              className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+              aria-label="Admin control navigation"
+            >
+              {items.map((item) => (
+                <AdminLink
+                  key={item.href}
+                  item={item}
+                  pathname={pathname}
+                  compact
+                />
+              ))}
+            </nav>
+          </div>
+          <div className="mx-auto w-full max-w-[1280px] p-4 sm:p-6 xl:p-8">
+            {children}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

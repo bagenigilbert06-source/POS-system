@@ -1,7 +1,26 @@
-import { requireDashboardPermission } from '@/lib/auth/dashboard-access'
-import { PermissionEnum } from '@/lib/types/permissions'
+import { requireDashboardPermission } from '@/lib/auth/dashboard-access';
+import { PermissionEnum } from '@/lib/types/permissions';
+import { db } from '@/lib/db';
+import { organization } from '@/lib/db/schema';
+import { eq } from 'drizzle-orm';
+import { AdminControlShell } from '@/components/admin/admin-control-shell';
 
-export default async function AdminLayout({ children }: { children: React.ReactNode }) {
-  await requireDashboardPermission(PermissionEnum.ADMIN_ACCESS)
-  return children
+export default async function AdminLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  const authorization = await requireDashboardPermission(
+    PermissionEnum.ADMIN_ACCESS
+  );
+  const [record] = await db
+    .select({ name: organization.name })
+    .from(organization)
+    .where(eq(organization.id, authorization.organizationId))
+    .limit(1);
+  return (
+    <AdminControlShell organizationName={record?.name ?? 'Pesaby workspace'}>
+      {children}
+    </AdminControlShell>
+  );
 }
