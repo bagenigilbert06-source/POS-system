@@ -255,22 +255,6 @@ html:not(.dark) .dashboard-sidebar {
   border-color: var(--dashboard-border);
 }
 
-/* Admin settings uses a compact dark product rail beside its own white
-   settings navigation, matching the visual separation of a full POS console. */
-html:not(.dark) .dashboard-sidebar.dashboard-admin-rail,
-.dark .dashboard-sidebar.dashboard-admin-rail {
-  background: #091827;
-  border-color: #14283b;
-}
-
-html:not(.dark) .dashboard-sidebar.dashboard-admin-rail .text-\[\#a1a1a6\] {
-  color: #9fb0c2 !important;
-}
-
-html:not(.dark) .dashboard-sidebar.dashboard-admin-rail .text-\[\#ffd60a\] {
-  color: #ffd60a !important;
-}
-
 html:not(.dark) .dashboard-navbar {
   background: #ffffff;
   border-color: var(--dashboard-border);

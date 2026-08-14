@@ -95,10 +95,10 @@ export function DynamicAppSidebar({ initialPermissions: permissions, initialRole
   const workspaceNav = config.sidebarConfig.primaryNav.filter((item) => item.id !== 'dashboard' && item.id !== 'pos' && item.id !== 'admin')
   const composedPrimaryNav = [
     ...dashboardNav,
-    ...(permissions.includes(PermissionEnum.ADMIN_ACCESS) ? [adminNav] : []),
     ...(permissions.includes(PermissionEnum.POS_VIEW) || permissions.includes(PermissionEnum.POS_SELL) ? [posNav] : []),
     ...workspaceNav,
     ...(permissions.includes(PermissionEnum.STAFF_MANAGE) ? [staffNav] : []),
+    ...(permissions.includes(PermissionEnum.ADMIN_ACCESS) ? [adminNav] : []),
   ]
   const primaryNav = composedPrimaryNav.filter((item, index, items) =>
     items.findIndex((candidate) => candidate.id === item.id) === index &&
@@ -132,8 +132,7 @@ export function DynamicAppSidebar({ initialPermissions: permissions, initialRole
         'dashboard-sidebar flex h-full flex-col border-r',
         'transition-all duration-200 ease-in-out',
         'w-[223px] max-w-[85vw]',
-        sidebarWidth,
-        adminMode && 'dashboard-admin-rail'
+        sidebarWidth
       )}
     >
       {/* Logo */}
