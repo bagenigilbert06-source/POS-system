@@ -197,12 +197,11 @@ function runtimeConfig(input: {
   ];
   const enabledModules = Array.from(
     new Set([
-      ...storedModules.filter(
-        (module) => module !== 'purchases' && module !== 'operations'
-      ),
+      ...storedModules.filter((module) => module !== 'purchases'),
       'expenses',
       'reports',
       'analytics',
+      'operations',
     ])
   );
   const storedTemplateId = input.stored?.templateId;

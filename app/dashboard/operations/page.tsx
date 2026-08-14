@@ -26,9 +26,16 @@ import { formatNumber } from '@/lib/utils/format';
 
 export default async function OperationsPage() {
   const authorization = await getAuthorizationContext();
-  if (authorization.role !== RoleEnum.SUPERVISOR) {
+  const allowedRoles = [
+    RoleEnum.OWNER,
+    RoleEnum.ADMIN,
+    RoleEnum.MANAGER,
+    RoleEnum.SUPERVISOR,
+  ];
+  if (!allowedRoles.includes(authorization.role)) {
     redirect(getDefaultWorkspaceRoute(authorization));
   }
+  const isSupervisor = authorization.role === RoleEnum.SUPERVISOR;
   const [{ organization }, session] = await Promise.all([
     requireWorkspaceModule('pos'),
     getCurrentSession(),
@@ -95,10 +102,15 @@ export default async function OperationsPage() {
             <span className="dashboard-updated">Updated {updatedAt}</span>
           </div>
           <p className="text-[0.7rem] font-bold uppercase tracking-[0.14em] text-[#9a6700] dark:text-[#ffd60a]">
-            Supervisor workspace · {organization.name}
+            {isSupervisor ? 'Supervisor workspace' : 'Management workspace'} ·{' '}
+            {organization.name}
           </p>
           <h1 className="mt-2 text-2xl font-bold tracking-tight sm:text-3xl">
-            <TimeGreeting name={session?.user.name} timeZone={timeZone} />
+            {isSupervisor ? (
+              <TimeGreeting name={session?.user.name} timeZone={timeZone} />
+            ) : (
+              'Operations control'
+            )}
           </h1>
           <p className="mt-2 text-sm">
             Here&apos;s what needs your attention across registers, refunds and
@@ -124,7 +136,7 @@ export default async function OperationsPage() {
       </header>
 
       <section
-        aria-label="Today's supervisor overview"
+        aria-label="Today's operations overview"
         className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4"
       >
         {metrics.map((metric) => (
@@ -159,6 +171,7 @@ export default async function OperationsPage() {
         products={data.products}
         sales={data.sales}
         openSessions={data.openSessions}
+        isSupervisor={isSupervisor}
       />
 
       <section aria-labelledby="recent-activity-title">
@@ -179,51 +192,45 @@ export default async function OperationsPage() {
             icon={Banknote}
             title="Register sessions"
             empty="No register sessions yet."
-            rows={data.sessions
-              .slice(0, 8)
-              .map((record) => ({
-                title: record.sessionNo,
-                detail: `${formatDateTime(record.openedAt)}${record.closedAt ? ` · Closed ${formatDateTime(record.closedAt)}` : ''}`,
-                value:
-                  record.status === 'closed'
-                    ? `Variance ${formatCurrency(Number(record.variance || 0), organization.currency)}`
-                    : `Opening ${formatCurrency(Number(record.openingCash), organization.currency)}`,
-                status: record.status,
-              }))}
+            rows={data.sessions.slice(0, 8).map((record) => ({
+              title: record.sessionNo,
+              detail: `${formatDateTime(record.openedAt)}${record.closedAt ? ` · Closed ${formatDateTime(record.closedAt)}` : ''}`,
+              value:
+                record.status === 'closed'
+                  ? `Variance ${formatCurrency(Number(record.variance || 0), organization.currency)}`
+                  : `Opening ${formatCurrency(Number(record.openingCash), organization.currency)}`,
+              status: record.status,
+            }))}
           />
           <History
             id="recent-credit-notes"
             icon={ReceiptText}
             title="Credit notes"
             empty="No refunds have been issued."
-            rows={data.returns
-              .slice(0, 8)
-              .map((record) => ({
-                title: record.returnNo,
-                detail: `${record.receiptNo} · ${record.reason}`,
-                value: formatCurrency(
-                  Number(record.amount),
-                  organization.currency
-                ),
-                status: 'refunded',
-              }))}
+            rows={data.returns.slice(0, 8).map((record) => ({
+              title: record.returnNo,
+              detail: `${record.receiptNo} · ${record.reason}`,
+              value: formatCurrency(
+                Number(record.amount),
+                organization.currency
+              ),
+              status: 'refunded',
+            }))}
           />
           <History
             id="recent-stock-losses"
             icon={Boxes}
             title="Inventory losses"
             empty="No inventory losses recorded."
-            rows={data.losses
-              .slice(0, 8)
-              .map((record) => ({
-                title: record.productName,
-                detail: `${record.type.replace('_', ' ')} · ${formatNumber(record.quantity)} units · ${record.reason}`,
-                value: formatCurrency(
-                  Number(record.totalCost),
-                  organization.currency
-                ),
-                status: record.type,
-              }))}
+            rows={data.losses.slice(0, 8).map((record) => ({
+              title: record.productName,
+              detail: `${record.type.replace('_', ' ')} · ${formatNumber(record.quantity)} units · ${record.reason}`,
+              value: formatCurrency(
+                Number(record.totalCost),
+                organization.currency
+              ),
+              status: record.type,
+            }))}
           />
         </div>
       </section>
