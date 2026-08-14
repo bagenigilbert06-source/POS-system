@@ -15,6 +15,13 @@
       "when": 1786669000000,
       "tag": "0011_inventory_foundation",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1786670000000,
+      "tag": "0012_purchase_workflow",
+      "breakpoints": true
     }
   ]
 }

@@ -24,7 +24,7 @@ export default async function InventoryPage() {
     getProductsPageData(),
     getInventoryControlData(),
     getInventoryLifecycleData(),
-    canViewPurchases ? getProcurementData() : Promise.resolve({ suppliers: [], purchases: [], products: [], movements: [], branches: [], supplierProducts: [] }),
+    canViewPurchases ? getProcurementData() : Promise.resolve({ suppliers: [], purchases: [], purchaseItems: [], receipts: [], products: [], movements: [], branches: [], supplierProducts: [] }),
   ])
   const activeProducts = products.filter((item) => item.isActive)
   const totalValue = activeProducts.reduce((sum, item) => sum + Number(item.buyingPrice) * item.stock, 0)
