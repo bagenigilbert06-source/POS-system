@@ -233,13 +233,20 @@ export const product = pgTable('product', {
   countryOfOrigin: text('countryOfOrigin'),
   unitsPerPack: integer('unitsPerPack'),
   preferredSupplierId: text('preferredSupplierId'),
+  trackingMode: text('trackingMode').notNull().default('none'),
+  costingMethod: text('costingMethod').notNull().default('weighted_average'),
+  allowDecimalQuantity: boolean('allowDecimalQuantity').notNull().default(false),
+  shelfLifeDays: integer('shelfLifeDays'),
+  expiryAlertDays: integer('expiryAlertDays'),
   imageUrl: text('imageUrl'),
   isActive: boolean('isActive').notNull().default(true),
   userId: text('userId').notNull(),
   orgId: text('orgId').notNull(),
   createdAt: timestamp('createdAt').notNull().defaultNow(),
   updatedAt: timestamp('updatedAt').notNull().defaultNow(),
-}, (table) => ({ organizationActiveIndex: index('product_org_active_idx').on(table.orgId, table.isActive) }))
+}, (table) => ({
+  organizationActiveIndex: index('product_org_active_idx').on(table.orgId, table.isActive),
+}))
 
 export const wirelessScannerSession = pgTable('wireless_scanner_session', {
   id: text('id').primaryKey(),
@@ -317,6 +324,8 @@ export const saleItem = pgTable('sale_item', {
   quantity: integer('quantity').notNull(),
   unitPrice: numeric('unitPrice', { precision: 12, scale: 2 }).notNull(),
   totalPrice: numeric('totalPrice', { precision: 12, scale: 2 }).notNull(),
+  unitCostAtSale: numeric('unitCostAtSale', { precision: 12, scale: 4 }).notNull().default('0'),
+  totalCost: numeric('totalCost', { precision: 12, scale: 4 }).notNull().default('0'),
   userId: text('userId').notNull(),
   orgId: text('orgId').notNull(),
 }, (table) => ({ saleOrganizationIndex: index('sale_item_sale_org_idx').on(table.saleId, table.orgId) }))
@@ -339,6 +348,10 @@ export const supplier = pgTable('supplier', {
   email: text('email'),
   taxId: text('taxId'),
   address: text('address'),
+  contactPerson: text('contactPerson'),
+  paymentTermsDays: integer('paymentTermsDays').notNull().default(0),
+  leadTimeDays: integer('leadTimeDays').notNull().default(0),
+  notes: text('notes'),
   status: text('status').notNull().default('active'),
   userId: text('userId').notNull(),
   orgId: text('orgId').notNull(),
@@ -385,10 +398,107 @@ export const stockMovement = pgTable('stock_movement', {
   referenceType: text('referenceType'),
   referenceId: text('referenceId'),
   reason: text('reason'),
+  branchId: text('branchId').references(() => branch.id, { onDelete: 'restrict' }),
+  lotId: text('lotId'),
+  serialId: text('serialId'),
+  unitCost: numeric('unitCost', { precision: 12, scale: 4 }),
   userId: text('userId').notNull(),
   orgId: text('orgId').notNull(),
   createdAt: timestamp('createdAt').notNull().defaultNow(),
 }, (table) => ({ organizationIndex: index('stock_movement_org_idx').on(table.orgId), productIndex: index('stock_movement_product_idx').on(table.productId) }))
+
+/** Per-location source of truth. product.stock remains a synchronized organization
+ * aggregate during the backwards-compatible migration of legacy consumers. */
+export const inventoryBalance = pgTable('inventory_balance', {
+  id: text('id').primaryKey(),
+  productId: text('productId').notNull().references(() => product.id, { onDelete: 'cascade' }),
+  branchId: text('branchId').notNull().references(() => branch.id, { onDelete: 'cascade' }),
+  onHand: numeric('onHand', { precision: 16, scale: 3 }).notNull().default('0'),
+  reserved: numeric('reserved', { precision: 16, scale: 3 }).notNull().default('0'),
+  unavailable: numeric('unavailable', { precision: 16, scale: 3 }).notNull().default('0'),
+  incoming: numeric('incoming', { precision: 16, scale: 3 }).notNull().default('0'),
+  reorderPoint: numeric('reorderPoint', { precision: 16, scale: 3 }),
+  reorderTarget: numeric('reorderTarget', { precision: 16, scale: 3 }),
+  safetyStock: numeric('safetyStock', { precision: 16, scale: 3 }).notNull().default('0'),
+  orgId: text('orgId').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  updatedAt: timestamp('updatedAt').notNull().defaultNow(),
+}, (table) => ({
+  productBranchUnique: uniqueIndex('inventory_balance_product_branch_unique').on(table.productId, table.branchId),
+  organizationBranchIndex: index('inventory_balance_org_branch_idx').on(table.orgId, table.branchId),
+}))
+
+export const inventoryCostLayer = pgTable('inventory_cost_layer', {
+  id: text('id').primaryKey(),
+  productId: text('productId').notNull().references(() => product.id, { onDelete: 'restrict' }),
+  branchId: text('branchId').notNull().references(() => branch.id, { onDelete: 'restrict' }),
+  sourceType: text('sourceType').notNull(),
+  sourceId: text('sourceId').notNull(),
+  quantityReceived: numeric('quantityReceived', { precision: 16, scale: 3 }).notNull(),
+  quantityRemaining: numeric('quantityRemaining', { precision: 16, scale: 3 }).notNull(),
+  unitCost: numeric('unitCost', { precision: 12, scale: 4 }).notNull(),
+  landedUnitCost: numeric('landedUnitCost', { precision: 12, scale: 4 }).notNull(),
+  orgId: text('orgId').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  receivedAt: timestamp('receivedAt').notNull().defaultNow(),
+}, (table) => ({ productBranchIndex: index('inventory_cost_layer_product_branch_idx').on(table.productId, table.branchId, table.receivedAt) }))
+
+export const inventoryLot = pgTable('inventory_lot', {
+  id: text('id').primaryKey(),
+  productId: text('productId').notNull().references(() => product.id, { onDelete: 'restrict' }),
+  branchId: text('branchId').notNull().references(() => branch.id, { onDelete: 'restrict' }),
+  lotNumber: text('lotNumber').notNull(),
+  quantity: numeric('quantity', { precision: 16, scale: 3 }).notNull().default('0'),
+  receivedAt: timestamp('receivedAt').notNull().defaultNow(),
+  manufacturedAt: timestamp('manufacturedAt'),
+  bestBeforeAt: timestamp('bestBeforeAt'),
+  expiresAt: timestamp('expiresAt'),
+  alertAt: timestamp('alertAt'),
+  status: text('status').notNull().default('available'),
+  supplierId: text('supplierId').references(() => supplier.id, { onDelete: 'set null' }),
+  unitCost: numeric('unitCost', { precision: 12, scale: 4 }).notNull().default('0'),
+  orgId: text('orgId').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  createdAt: timestamp('createdAt').notNull().defaultNow(),
+}, (table) => ({ lotBranchUnique: uniqueIndex('inventory_lot_product_branch_number_unique').on(table.productId, table.branchId, table.lotNumber), expiryIndex: index('inventory_lot_org_expiry_idx').on(table.orgId, table.expiresAt) }))
+
+export const inventorySerial = pgTable('inventory_serial', {
+  id: text('id').primaryKey(),
+  productId: text('productId').notNull().references(() => product.id, { onDelete: 'restrict' }),
+  branchId: text('branchId').notNull().references(() => branch.id, { onDelete: 'restrict' }),
+  lotId: text('lotId').references(() => inventoryLot.id, { onDelete: 'set null' }),
+  serialNumber: text('serialNumber').notNull(),
+  status: text('status').notNull().default('available'),
+  warrantyEndsAt: timestamp('warrantyEndsAt'),
+  soldAt: timestamp('soldAt'),
+  saleId: text('saleId'),
+  orgId: text('orgId').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  createdAt: timestamp('createdAt').notNull().defaultNow(),
+  updatedAt: timestamp('updatedAt').notNull().defaultNow(),
+}, (table) => ({ organizationSerialUnique: uniqueIndex('inventory_serial_org_number_unique').on(table.orgId, table.serialNumber), productBranchIndex: index('inventory_serial_product_branch_idx').on(table.productId, table.branchId) }))
+
+export const productPackaging = pgTable('product_packaging', {
+  id: text('id').primaryKey(),
+  productId: text('productId').notNull().references(() => product.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  barcode: text('barcode'),
+  quantityInBaseUnit: numeric('quantityInBaseUnit', { precision: 16, scale: 3 }).notNull(),
+  purpose: text('purpose').notNull().default('both'),
+  isDefaultPurchase: boolean('isDefaultPurchase').notNull().default(false),
+  isDefaultSale: boolean('isDefaultSale').notNull().default(false),
+  orgId: text('orgId').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+}, (table) => ({ productNameUnique: uniqueIndex('product_packaging_product_name_unique').on(table.productId, table.name), organizationBarcodeUnique: uniqueIndex('product_packaging_org_barcode_unique').on(table.orgId, table.barcode) }))
+
+export const supplierProduct = pgTable('supplier_product', {
+  id: text('id').primaryKey(),
+  supplierId: text('supplierId').notNull().references(() => supplier.id, { onDelete: 'cascade' }),
+  productId: text('productId').notNull().references(() => product.id, { onDelete: 'cascade' }),
+  supplierCode: text('supplierCode'),
+  unitCost: numeric('unitCost', { precision: 12, scale: 4 }).notNull().default('0'),
+  minimumOrderQuantity: numeric('minimumOrderQuantity', { precision: 16, scale: 3 }).notNull().default('1'),
+  leadTimeDays: integer('leadTimeDays').notNull().default(0),
+  packSize: numeric('packSize', { precision: 16, scale: 3 }).notNull().default('1'),
+  isPreferred: boolean('isPreferred').notNull().default(false),
+  orgId: text('orgId').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  updatedAt: timestamp('updatedAt').notNull().defaultNow(),
+}, (table) => ({ supplierProductUnique: uniqueIndex('supplier_product_unique').on(table.supplierId, table.productId), organizationCodeIndex: index('supplier_product_org_code_idx').on(table.orgId, table.supplierCode) }))
 
 export const salesReturn = pgTable('sales_return', {
   id: text('id').primaryKey(), returnNo: text('returnNo').notNull(), saleId: text('saleId').notNull(), receiptNo: text('receiptNo').notNull(),
@@ -571,6 +681,10 @@ export const stockAdjustment = pgTable('stock_adjustment', {
   status: text('status').notNull().default('pending'),
   notes: text('notes'),
   approvedBy: text('approvedBy'),
+  branchId: text('branchId').references(() => branch.id, { onDelete: 'restrict' }),
+  countMode: text('countMode').notNull().default('cycle'),
+  blindCount: boolean('blindCount').notNull().default(false),
+  submittedAt: timestamp('submittedAt'),
   userId: text('userId').notNull(),
   orgId: text('orgId').notNull(),
   createdAt: timestamp('createdAt').notNull().defaultNow(),
@@ -755,12 +869,20 @@ export const purchaseOrder = pgTable('purchase_order', {
   total: numeric('total', { precision: 12, scale: 2 }).notNull(),
   status: text('status').notNull().default('draft'), // draft, sent, confirmed, received, cancelled
   expectedDelivery: timestamp('expectedDelivery'),
+  branchId: text('branchId').references(() => branch.id, { onDelete: 'restrict' }),
+  supplierReference: text('supplierReference'),
+  discountAmount: numeric('discountAmount', { precision: 12, scale: 2 }).notNull().default('0'),
+  shippingAmount: numeric('shippingAmount', { precision: 12, scale: 2 }).notNull().default('0'),
+  otherCosts: numeric('otherCosts', { precision: 12, scale: 2 }).notNull().default('0'),
+  sentAt: timestamp('sentAt'),
+  confirmedAt: timestamp('confirmedAt'),
+  closedAt: timestamp('closedAt'),
   notes: text('notes'),
   orgId: text('orgId').notNull().references(() => organization.id, { onDelete: 'cascade' }),
   userId: text('userId').notNull(),
   createdAt: timestamp('createdAt').notNull().defaultNow(),
   updatedAt: timestamp('updatedAt').notNull().defaultNow(),
-}, (table) => ({ organizationIndex: index('purchase_order_org_idx').on(table.orgId) }))
+}, (table) => ({ organizationIndex: index('purchase_order_org_idx').on(table.orgId), organizationNumberUnique: uniqueIndex('purchase_order_org_number_unique').on(table.orgId, table.poNo) }))
 
 export const purchaseOrderItem = pgTable('purchase_order_item', {
   id: text('id').primaryKey(),
@@ -768,9 +890,41 @@ export const purchaseOrderItem = pgTable('purchase_order_item', {
   productId: text('productId'),
   description: text('description').notNull(),
   quantity: integer('quantity').notNull(),
+  receivedQuantity: numeric('receivedQuantity', { precision: 16, scale: 3 }).notNull().default('0'),
+  rejectedQuantity: numeric('rejectedQuantity', { precision: 16, scale: 3 }).notNull().default('0'),
+  packagingId: text('packagingId').references(() => productPackaging.id, { onDelete: 'set null' }),
   unitPrice: numeric('unitPrice', { precision: 12, scale: 2 }).notNull(),
   total: numeric('total', { precision: 12, scale: 2 }).notNull(),
   orgId: text('orgId').notNull(),
+})
+
+export const purchaseReceipt = pgTable('purchase_receipt', {
+  id: text('id').primaryKey(),
+  receiptNo: text('receiptNo').notNull(),
+  poId: text('poId').notNull().references(() => purchaseOrder.id, { onDelete: 'restrict' }),
+  branchId: text('branchId').notNull().references(() => branch.id, { onDelete: 'restrict' }),
+  supplierInvoice: text('supplierInvoice'),
+  idempotencyKey: text('idempotencyKey').notNull(),
+  status: text('status').notNull().default('received'),
+  notes: text('notes'),
+  receivedBy: text('receivedBy').notNull(),
+  orgId: text('orgId').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  createdAt: timestamp('createdAt').notNull().defaultNow(),
+}, (table) => ({ organizationReceiptUnique: uniqueIndex('purchase_receipt_org_number_unique').on(table.orgId, table.receiptNo), organizationIdempotencyUnique: uniqueIndex('purchase_receipt_org_idempotency_unique').on(table.orgId, table.idempotencyKey) }))
+
+export const purchaseReceiptItem = pgTable('purchase_receipt_item', {
+  id: text('id').primaryKey(),
+  receiptId: text('receiptId').notNull().references(() => purchaseReceipt.id, { onDelete: 'cascade' }),
+  poItemId: text('poItemId').notNull().references(() => purchaseOrderItem.id, { onDelete: 'restrict' }),
+  productId: text('productId').notNull().references(() => product.id, { onDelete: 'restrict' }),
+  acceptedQuantity: numeric('acceptedQuantity', { precision: 16, scale: 3 }).notNull().default('0'),
+  rejectedQuantity: numeric('rejectedQuantity', { precision: 16, scale: 3 }).notNull().default('0'),
+  rejectionReason: text('rejectionReason'),
+  baseQuantity: numeric('baseQuantity', { precision: 16, scale: 3 }).notNull(),
+  unitCost: numeric('unitCost', { precision: 12, scale: 4 }).notNull(),
+  lotNumber: text('lotNumber'),
+  expiresAt: timestamp('expiresAt'),
+  orgId: text('orgId').notNull().references(() => organization.id, { onDelete: 'cascade' }),
 })
 
 // --- Inventory & Process Management ---
@@ -782,10 +936,19 @@ export const inventoryTransfer = pgTable('inventory_transfer', {
   status: text('status').notNull().default('pending'), // pending, in_transit, received
   userId: text('userId').notNull(),
   approvedBy: text('approvedBy'),
+  dispatchedBy: text('dispatchedBy'),
+  receivedBy: text('receivedBy'),
+  reference: text('reference'),
+  notes: text('notes'),
+  trackingNumber: text('trackingNumber'),
+  idempotencyKey: text('idempotencyKey'),
   orgId: text('orgId').notNull().references(() => organization.id, { onDelete: 'cascade' }),
   createdAt: timestamp('createdAt').notNull().defaultNow(),
   approvedAt: timestamp('approvedAt'),
-}, (table) => ({ organizationIndex: index('inventory_transfer_org_idx').on(table.orgId) }))
+  dispatchedAt: timestamp('dispatchedAt'),
+  receivedAt: timestamp('receivedAt'),
+  updatedAt: timestamp('updatedAt').notNull().defaultNow(),
+}, (table) => ({ organizationIndex: index('inventory_transfer_org_idx').on(table.orgId), organizationNumberUnique: uniqueIndex('inventory_transfer_org_number_unique').on(table.orgId, table.transferNo), organizationIdempotencyUnique: uniqueIndex('inventory_transfer_org_idempotency_unique').on(table.orgId, table.idempotencyKey) }))
 
 export const inventoryTransferItem = pgTable('inventory_transfer_item', {
   id: text('id').primaryKey(),
@@ -793,6 +956,9 @@ export const inventoryTransferItem = pgTable('inventory_transfer_item', {
   productId: text('productId').notNull(),
   productName: text('productName').notNull(),
   quantity: integer('quantity').notNull(),
+  dispatchedQuantity: numeric('dispatchedQuantity', { precision: 16, scale: 3 }).notNull().default('0'),
+  receivedQuantity: numeric('receivedQuantity', { precision: 16, scale: 3 }).notNull().default('0'),
+  rejectedQuantity: numeric('rejectedQuantity', { precision: 16, scale: 3 }).notNull().default('0'),
   orgId: text('orgId').notNull(),
 })
 
@@ -840,6 +1006,12 @@ export type Supplier = typeof supplier.$inferSelect
 export type Purchase = typeof purchase.$inferSelect
 export type PurchaseItem = typeof purchaseItem.$inferSelect
 export type StockMovement = typeof stockMovement.$inferSelect
+export type InventoryBalance = typeof inventoryBalance.$inferSelect
+export type InventoryCostLayer = typeof inventoryCostLayer.$inferSelect
+export type InventoryLot = typeof inventoryLot.$inferSelect
+export type InventorySerial = typeof inventorySerial.$inferSelect
+export type ProductPackaging = typeof productPackaging.$inferSelect
+export type SupplierProduct = typeof supplierProduct.$inferSelect
 export type SalesReturn = typeof salesReturn.$inferSelect
 export type SalePayment = typeof salePayment.$inferSelect
 export type CreditSale = typeof creditSale.$inferSelect
@@ -866,6 +1038,8 @@ export type Quotation = typeof quotation.$inferSelect
 export type QuotationItem = typeof quotationItem.$inferSelect
 export type PurchaseOrder = typeof purchaseOrder.$inferSelect
 export type PurchaseOrderItem = typeof purchaseOrderItem.$inferSelect
+export type PurchaseReceipt = typeof purchaseReceipt.$inferSelect
+export type PurchaseReceiptItem = typeof purchaseReceiptItem.$inferSelect
 export type InventoryTransfer = typeof inventoryTransfer.$inferSelect
 export type InventoryTransferItem = typeof inventoryTransferItem.$inferSelect
 export type Task = typeof task.$inferSelect

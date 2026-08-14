@@ -59,6 +59,10 @@ export function ProductForm({ product, categories, onClose, initialCategoryId, i
     countryOfOrigin: product?.countryOfOrigin ?? '',
     unitsPerPack: product?.unitsPerPack ?? '',
     preferredSupplierId: product?.preferredSupplierId ?? '',
+    trackingMode: product?.trackingMode ?? 'none',
+    costingMethod: product?.costingMethod ?? 'weighted_average',
+    shelfLifeDays: product?.shelfLifeDays ?? '',
+    expiryAlertDays: product?.expiryAlertDays ?? '',
   })
 
   const set = (k: string, v: string | number) => setForm((f) => ({ ...f, [k]: v }))
@@ -169,6 +173,10 @@ export function ProductForm({ product, categories, onClose, initialCategoryId, i
         countryOfOrigin: form.countryOfOrigin || undefined,
         unitsPerPack: form.unitsPerPack === '' ? undefined : Number(form.unitsPerPack),
         preferredSupplierId: form.preferredSupplierId || undefined,
+        trackingMode: form.trackingMode as 'none' | 'lot' | 'serial',
+        costingMethod: form.costingMethod as 'weighted_average' | 'fifo' | 'standard',
+        shelfLifeDays: form.shelfLifeDays === '' ? undefined : Number(form.shelfLifeDays),
+        expiryAlertDays: form.expiryAlertDays === '' ? undefined : Number(form.expiryAlertDays),
         confirmLoss: loss,
       }
       if (product) {
@@ -293,6 +301,11 @@ export function ProductForm({ product, categories, onClose, initialCategoryId, i
                     <div className="flex min-w-0 flex-1 flex-col gap-2"><input ref={imageInputRef} type="file" accept="image/png,image/jpeg,image/webp" onChange={(e) => void handleImageSelection(e.target.files?.[0])} className="sr-only" /><button type="button" disabled={uploadingImage} onClick={() => imageInputRef.current?.click()} className="inline-flex w-fit items-center gap-2 rounded-md border bg-background px-3 py-2 text-sm font-medium hover:bg-secondary disabled:opacity-60"><Upload className="h-4 w-4" />{uploadingImage ? 'Uploading…' : 'Upload from computer'}</button><input type="url" placeholder="Or paste an image URL" value={form.imageUrl.startsWith('data:') ? '' : form.imageUrl} onChange={(e) => set('imageUrl', e.target.value)} className={inputCls} /></div>
                   </div>
                   <p className="mt-1.5 text-xs text-muted-foreground">Upload a JPG, PNG or WebP image up to 5 MB. Large images will be optimized automatically.</p>
+                </div>
+                <div className="mt-5 grid gap-4 border-t pt-5 sm:grid-cols-2 lg:grid-cols-4">
+                  <div><FieldLabel>Traceability</FieldLabel><select value={form.trackingMode} onChange={(event) => set('trackingMode', event.target.value)} className={inputCls}><option value="none">Quantity only</option><option value="lot">Batch / lot and expiry</option><option value="serial">Unique serial numbers</option></select></div>
+                  <div><FieldLabel>Costing method</FieldLabel><select value={form.costingMethod} onChange={(event) => set('costingMethod', event.target.value)} className={inputCls}><option value="weighted_average">Weighted average</option><option value="fifo">FIFO</option><option value="standard">Standard cost</option></select></div>
+                  {form.trackingMode === 'lot' && <><div><FieldLabel>Shelf life (days)</FieldLabel><input type="number" min="1" value={form.shelfLifeDays} onChange={(event) => set('shelfLifeDays', event.target.value)} className={inputCls} /></div><div><FieldLabel>Expiry warning (days)</FieldLabel><input type="number" min="0" value={form.expiryAlertDays} onChange={(event) => set('expiryAlertDays', event.target.value)} className={inputCls} /></div></>}
                 </div>
               </div>
               {categoryDialogOpen && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"><div className="w-full max-w-md rounded-xl bg-white p-5 shadow-xl"><div className="flex items-center justify-between"><h3 className="text-lg font-bold">Create category</h3><button type="button" onClick={() => setCategoryDialogOpen(false)} className="text-muted-foreground">×</button></div><label className="mt-4 block text-sm font-medium">Category name<input autoFocus value={newCategory.name} onChange={(event) => setNewCategory((current) => ({ ...current, name: event.target.value }))} className={`mt-1 ${inputCls}`} /></label><label className="mt-4 block text-sm font-medium">Parent category <span className="font-normal text-muted-foreground">(optional)</span><select value={newCategory.parentCategoryId} onChange={(event) => setNewCategory((current) => ({ ...current, parentCategoryId: event.target.value }))} className={`mt-1 ${inputCls}`}><option value="">No parent</option>{selectableCategories.map((item) => <option key={item.id} value={item.id}>{categoryLabel(item)}</option>)}</select></label><label className="mt-4 block text-sm font-medium">Description <span className="font-normal text-muted-foreground">(optional)</span><textarea value={newCategory.description} onChange={(event) => setNewCategory((current) => ({ ...current, description: event.target.value }))} className={`mt-1 ${inputCls}`} /></label><div className="mt-5 flex justify-end gap-2"><button type="button" onClick={() => setCategoryDialogOpen(false)} className="rounded-md border px-3 py-2 text-sm">Cancel</button><button type="button" onClick={addCategory} disabled={creatingCategory || !newCategory.name.trim()} className="rounded-md bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50">{creatingCategory ? 'Creating…' : 'Create category'}</button></div></div></div>}

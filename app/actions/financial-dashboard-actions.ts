@@ -4,7 +4,7 @@ import { headers } from 'next/headers'
 import { auth } from '@/lib/auth'
 import { db } from '@/lib/db'
 import { OrganizationService } from '@/lib/services/organization-service'
-import { sale, expense, purchase, product, creditSale } from '@/lib/db/schema'
+import { sale, saleItem, expense, purchase, creditSale } from '@/lib/db/schema'
 import { and, eq, gte, lte, sum as dbSum, sql } from 'drizzle-orm'
 import Decimal from 'decimal.js'
 import { requirePermission } from '@/lib/auth/authorization'
@@ -26,25 +26,20 @@ export async function getFinancialInsightData(dateFrom: Date, dateTo: Date) {
   
   const [profitLossData, cashFlowData, creditAnalysis] = await Promise.all([
     // Profit & Loss Summary
-    db.select({
-      totalRevenue: dbSum(sale.total),
-      totalExpenses: dbSum(expense.amount),
-      totalCogs: dbSum(sql`(SELECT SUM(${product.buyingPrice} * qty) FROM (
-        SELECT SUM(quantity) as qty FROM sale_item 
-        WHERE sale_id IN (SELECT id FROM sale WHERE org_id = ${org.id} AND created_at >= ${dateFrom} AND created_at <= ${dateTo})
-      ) subq)`),
-    })
-    .from(sale)
-    .leftJoin(expense, eq(sale.orgId, expense.orgId))
-    .where(and(
-      eq(sale.orgId, org.id),
-      gte(sale.createdAt, dateFrom),
-      lte(sale.createdAt, dateTo)
-    ))
-    .then(rows => {
-      const revenue = new Decimal(rows[0]?.totalRevenue || 0)
-      const expenses = new Decimal(rows[0]?.totalExpenses || 0)
-      const cogs = new Decimal(rows[0]?.totalCogs || 0)
+    Promise.all([
+      db.select({ value: dbSum(sale.total) }).from(sale).where(and(
+        eq(sale.orgId, org.id), gte(sale.createdAt, dateFrom), lte(sale.createdAt, dateTo)
+      )),
+      db.select({ value: dbSum(expense.amount) }).from(expense).where(and(
+        eq(expense.orgId, org.id), gte(expense.createdAt, dateFrom), lte(expense.createdAt, dateTo)
+      )),
+      db.select({ value: dbSum(saleItem.totalCost) }).from(saleItem)
+        .innerJoin(sale, eq(saleItem.saleId, sale.id))
+        .where(and(eq(sale.orgId, org.id), gte(sale.createdAt, dateFrom), lte(sale.createdAt, dateTo))),
+    ]).then(([revenueRows, expenseRows, cogsRows]) => {
+      const revenue = new Decimal(revenueRows[0]?.value || 0)
+      const expenses = new Decimal(expenseRows[0]?.value || 0)
+      const cogs = new Decimal(cogsRows[0]?.value || 0)
       const grossProfit = revenue.minus(cogs)
       const operatingProfit = grossProfit.minus(expenses)
       const profitMargin = revenue.gt(0) ? operatingProfit.dividedBy(revenue).times(100) : new Decimal(0)

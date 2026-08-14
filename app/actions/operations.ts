@@ -6,13 +6,14 @@ import { and, desc, eq, gte, inArray, lt, sql } from 'drizzle-orm'
 import { z } from 'zod'
 import { auth } from '@/lib/auth'
 import { db } from '@/lib/db'
-import { auditEvent, cashMovement, inventoryLoss, posSession, product, sale, saleItem, salesReturn, salesReturnItem, stockMovement } from '@/lib/db/schema'
+import { auditEvent, branch, cashMovement, inventoryLoss, posSession, product, sale, saleItem, salesReturn, salesReturnItem } from '@/lib/db/schema'
 import { OrganizationService } from '@/lib/services/organization-service'
 import { generateId } from '@/lib/utils'
 import { getAuthorizationContext, requirePermission } from '@/lib/auth/authorization'
 import { PermissionEnum } from '@/lib/types/permissions'
 import { getPosAuthorizationContext } from '@/lib/pos/pos-auth'
 import { invalidateProductReadCache } from '@/lib/cache/redis-cache'
+import { applyInventoryMovement } from '@/lib/inventory/inventory-service'
 
 async function context() { const session = await auth.api.getSession({ headers: await headers() }); if (!session?.user) throw new Error('Unauthorized'); const organization = await OrganizationService.getPrimaryOrganization(session.user.id); if (!organization) throw new Error('No organization'); return { userId: session.user.id, orgId: organization.id } }
 async function posOperator(permission: PermissionEnum) { const pos = await getPosAuthorizationContext(); if (pos) { if (!pos.permissions.includes(permission)) throw new Error('Permission denied'); return { userId: pos.userId, orgId: pos.organizationId, permissions: pos.permissions } } const full = await requirePermission(permission); return { userId: full.userId, orgId: full.organizationId, permissions: full.permissions } }
@@ -82,15 +83,34 @@ export async function getCashierWorkspace() {
 
 export async function recordInventoryLoss(input: { productId: string; quantity: number; type: string; reason: string }) {
   const data = z.object({ productId: z.string().min(1), quantity: z.coerce.number().int().positive(), type: z.enum(['damaged','expired','lost','theft','count_adjustment']), reason: z.string().trim().min(3).max(300) }).parse(input)
-  const { userId, organizationId: orgId } = await requirePermission(PermissionEnum.INVENTORY_ADJUST)
-  await db.transaction(async (tx) => { const [item] = await tx.select().from(product).where(and(eq(product.id, data.productId), eq(product.orgId, orgId))).limit(1); if (!item) throw new Error('Product not found'); if (item.stock < data.quantity) throw new Error('Loss quantity exceeds available stock'); const id = generateId(); const after = item.stock - data.quantity; await tx.insert(inventoryLoss).values({ id, lossNo: `LOSS-${Date.now().toString().slice(-8)}`, productId: item.id, productName: item.name, quantity: data.quantity, type: data.type, unitCost: item.buyingPrice, totalCost: String(Number(item.buyingPrice) * data.quantity), reason: data.reason, userId, orgId }); await tx.update(product).set({ stock: after, updatedAt: new Date() }).where(and(eq(product.id, item.id), eq(product.orgId, orgId))); await tx.insert(stockMovement).values({ id: generateId(), productId: item.id, productName: item.name, type: `loss_${data.type}`, quantity: -data.quantity, stockBefore: item.stock, stockAfter: after, referenceType: 'inventory_loss', referenceId: id, reason: data.reason, userId, orgId }) })
+  const authorization = await requirePermission(PermissionEnum.INVENTORY_ADJUST)
+  const { userId, organizationId: orgId } = authorization
+  await db.transaction(async (tx) => {
+    const [item] = await tx.select().from(product).where(and(eq(product.id, data.productId), eq(product.orgId, orgId))).limit(1)
+    const [location] = await tx.select({ id: branch.id }).from(branch).where(and(eq(branch.organizationId, orgId), authorization.isOrganizationWide ? undefined : eq(branch.id, authorization.branchIds[0] ?? ''))).orderBy(desc(branch.isMain), branch.createdAt).limit(1)
+    if (!item || !location) throw new Error('Product or inventory location not found')
+    const id = generateId(), lossNo = `LOSS-${Date.now().toString().slice(-8)}`
+    await tx.insert(inventoryLoss).values({ id, lossNo, productId: item.id, productName: item.name, quantity: data.quantity, type: data.type, unitCost: item.buyingPrice, totalCost: String(Number(item.buyingPrice) * data.quantity), reason: data.reason, userId, orgId })
+    await applyInventoryMovement(tx, { productId: item.id, productName: item.name, branchId: location.id, quantity: -data.quantity, type: `loss_${data.type}`, referenceType: 'inventory_loss', referenceId: id, reason: data.reason, userId, orgId, unitCost: Number(item.buyingPrice) })
+  })
   await invalidateProductReadCache(orgId); refresh()
 }
 
 export async function refundSale(input: { saleId: string; refundMethod: string; reason: string; disposition: string }) {
   const data = z.object({ saleId: z.string().min(1), refundMethod: z.enum(['cash','mpesa','card','store_credit']), reason: z.string().trim().min(3).max(300), disposition: z.enum(['restock','damaged']) }).parse(input)
   const { userId, organizationId: orgId } = await requirePermission(PermissionEnum.SALE_REFUND)
-  await db.transaction(async (tx) => { const [[record], prior, items] = await Promise.all([tx.select().from(sale).where(and(eq(sale.id, data.saleId), eq(sale.orgId, orgId))).limit(1), tx.select().from(salesReturn).where(and(eq(salesReturn.saleId, data.saleId), eq(salesReturn.orgId, orgId))).limit(1), tx.select().from(saleItem).where(and(eq(saleItem.saleId, data.saleId), eq(saleItem.orgId, orgId)))]); if (!record) throw new Error('Sale not found'); if (prior.length) throw new Error('This sale has already been refunded'); const returnId = generateId(); const returnNo = `CN-${Date.now().toString().slice(-8)}`; await tx.insert(salesReturn).values({ id: returnId, returnNo, saleId: record.id, receiptNo: record.receiptNo, amount: record.total, refundMethod: data.refundMethod, reason: data.reason, userId, orgId }); for (const line of items) { await tx.insert(salesReturnItem).values({ id: generateId(), returnId, productId: line.productId, productName: line.productName, quantity: line.quantity, unitPrice: line.unitPrice, total: line.totalPrice, disposition: data.disposition, orgId }); const [stock] = await tx.select().from(product).where(and(eq(product.id, line.productId), eq(product.orgId, orgId))).limit(1); if (stock && data.disposition === 'restock') { await tx.update(product).set({ stock: sql`${product.stock} + ${line.quantity}`, updatedAt: new Date() }).where(and(eq(product.id, line.productId), eq(product.orgId, orgId))); await tx.insert(stockMovement).values({ id: generateId(), productId: line.productId, productName: line.productName, type: 'sales_return', quantity: line.quantity, stockBefore: stock.stock, stockAfter: stock.stock + line.quantity, referenceType: 'credit_note', referenceId: returnId, reason: returnNo, userId, orgId }) } } await tx.update(sale).set({ status: 'refunded' }).where(and(eq(sale.id, record.id), eq(sale.orgId, orgId))) })
+  await db.transaction(async (tx) => {
+    const [[record], prior, items] = await Promise.all([tx.select().from(sale).where(and(eq(sale.id, data.saleId), eq(sale.orgId, orgId))).limit(1), tx.select().from(salesReturn).where(and(eq(salesReturn.saleId, data.saleId), eq(salesReturn.orgId, orgId))).limit(1), tx.select().from(saleItem).where(and(eq(saleItem.saleId, data.saleId), eq(saleItem.orgId, orgId)))])
+    if (!record?.branchId) throw new Error('Sale or inventory location not found')
+    if (prior.length) throw new Error('This sale has already been refunded')
+    const returnId = generateId(), returnNo = `CN-${Date.now().toString().slice(-8)}`
+    await tx.insert(salesReturn).values({ id: returnId, returnNo, saleId: record.id, receiptNo: record.receiptNo, amount: record.total, refundMethod: data.refundMethod, reason: data.reason, userId, orgId })
+    for (const line of items) {
+      await tx.insert(salesReturnItem).values({ id: generateId(), returnId, productId: line.productId, productName: line.productName, quantity: line.quantity, unitPrice: line.unitPrice, total: line.totalPrice, disposition: data.disposition, orgId })
+      if (data.disposition === 'restock') await applyInventoryMovement(tx, { productId: line.productId, productName: line.productName, branchId: record.branchId, quantity: line.quantity, type: 'sales_return', referenceType: 'credit_note', referenceId: returnId, reason: returnNo, userId, orgId })
+    }
+    await tx.update(sale).set({ status: 'refunded' }).where(and(eq(sale.id, record.id), eq(sale.orgId, orgId)))
+  })
   await invalidateProductReadCache(orgId); refresh()
 }
 

@@ -1,11 +1,12 @@
-import { and, eq, inArray, isNull, sql } from 'drizzle-orm'
+import { and, eq, inArray, isNull } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import {
   auditEvent, businessSettings, customer, mpesaIncomingPayment, mpesaPaymentRequest,
-  product, sale, saleItem, salePayment, stockMovement,
+  product, sale, saleItem, salePayment,
 } from '@/lib/db/schema'
 import { calculateMpesaAmount } from '@/lib/mpesa/amount'
 import { generateId, generateReceiptNo } from '@/lib/utils'
+import { applyInventoryMovement, consumeInventoryCost } from '@/lib/inventory/inventory-service'
 
 export type MpesaCheckoutPayload = {
   items: Array<{ productId: string; quantity: number }>
@@ -68,14 +69,10 @@ export async function finalizeConfirmedMpesaPayment(requestId: string) {
     )).returning({ id: mpesaPaymentRequest.id })
     if (claimed.length !== 1) throw new Error('M-Pesa payment has already been claimed')
 
-    const stockAfter = new Map<string, number>()
+    const costByProduct = new Map<string, { unitCost: number; totalCost: number }>()
     for (const line of lines) {
-      const updated = await tx.update(product).set({ stock: sql`${product.stock} - ${line.quantity}` }).where(and(
-        eq(product.id, line.productId), eq(product.orgId, intent.organizationId), eq(product.isActive, true),
-        sql`${product.stock} >= ${line.quantity}`,
-      )).returning({ stock: product.stock })
-      if (updated.length !== 1) throw new Error(`Insufficient stock for paid item ${line.productName}`)
-      stockAfter.set(line.productId, updated[0].stock)
+      await applyInventoryMovement(tx, { productId: line.productId, productName: line.productName, branchId: intent.branchId, quantity: -line.quantity, type: 'sale', referenceType: 'sale', referenceId: saleId, reason: receiptNo, userId: intent.userId, orgId: intent.organizationId })
+      costByProduct.set(line.productId, await consumeInventoryCost(tx, { productId: line.productId, branchId: intent.branchId, orgId: intent.organizationId, quantity: line.quantity }))
     }
 
     await tx.insert(sale).values({
@@ -89,13 +86,8 @@ export async function finalizeConfirmedMpesaPayment(requestId: string) {
     await tx.insert(saleItem).values(lines.map((line) => ({
       id: line.saleItemId, saleId, productId: line.productId, productName: line.productName, quantity: line.quantity,
       unitPrice: String(line.unitPrice), totalPrice: String(line.totalPrice), userId: intent.userId, orgId: intent.organizationId,
+      unitCostAtSale: String(costByProduct.get(line.productId)?.unitCost ?? 0), totalCost: String(costByProduct.get(line.productId)?.totalCost ?? 0),
     })))
-    await tx.insert(stockMovement).values(lines.map((line) => {
-      const after = stockAfter.get(line.productId)!
-      return { id: generateId(), productId: line.productId, productName: line.productName, type: 'sale', quantity: -line.quantity,
-        stockBefore: after + line.quantity, stockAfter: after, referenceType: 'sale', referenceId: saleId, reason: receiptNo,
-        userId: intent.userId, orgId: intent.organizationId }
-    }))
     await tx.insert(salePayment).values({ id: generateId(), saleId, method: 'mpesa', amount: String(rounded.amount),
       reference: intent.receiptNumber, status: 'completed', userId: intent.userId, orgId: intent.organizationId })
     await tx.update(mpesaIncomingPayment).set({ status: 'MATCHED', matchedRequestId: intent.id })

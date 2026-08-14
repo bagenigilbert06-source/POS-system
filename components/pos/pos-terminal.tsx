@@ -793,6 +793,8 @@ export function POSTerminal({ products, categories, customers, settings, require
         quantity: item.quantity,
         unitPrice: item.unitPrice.toString(),
         totalPrice: item.totalPrice.toString(),
+        unitCostAtSale: '0',
+        totalCost: '0',
         userId: '',
         orgId: '',
       })),

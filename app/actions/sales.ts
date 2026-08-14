@@ -2,7 +2,7 @@
 
 import { auth } from '@/lib/auth'
 import { db } from '@/lib/db'
-import { branch, sale, saleItem, salePayment, product, businessSettings, stockMovement, auditEvent, posSession, customer } from '@/lib/db/schema'
+import { branch, sale, saleItem, salePayment, product, businessSettings, auditEvent, posSession, customer } from '@/lib/db/schema'
 import { and, desc, eq, gte, inArray, sql } from 'drizzle-orm'
 import { headers } from 'next/headers'
 import { revalidatePath } from 'next/cache'
@@ -15,6 +15,7 @@ import { PermissionEnum } from '@/lib/types/permissions'
 import { getPosAuthorizationContext } from '@/lib/pos/pos-auth'
 import { invalidateProductReadCache } from '@/lib/cache/redis-cache'
 import { calculateMpesaAmount } from '@/lib/mpesa/amount'
+import { applyInventoryMovement, consumeInventoryCost } from '@/lib/inventory/inventory-service'
 
 async function getUserId() {
   const session = await auth.api.getSession({ headers: await headers() })
@@ -220,24 +221,11 @@ export async function createSale(data: {
 
   try {
     await db.transaction(async (tx) => {
-    // Verify and deduct stock using atomic conditional update
-    const stockAfterByProduct = new Map<string, number>()
+    // Verify and deduct branch stock atomically through the inventory ledger.
+    const costByProduct = new Map<string, { unitCost: number; totalCost: number }>()
     for (const item of saleItems) {
-      // Atomic update: only deduct if stock is sufficient
-      const result = await tx
-        .update(product)
-        .set({ stock: sql`${product.stock} - ${item.quantity}` })
-        .where(and(
-          eq(product.id, item.productId),
-          eq(product.orgId, orgId),
-          eq(product.isActive, true),
-          sql`${product.stock} >= ${item.quantity}` // Conditional: only update if stock available
-        ))
-        .returning({ id: product.id, stockAfter: product.stock })
-      
-      // Check if update succeeded
-      if (result.length === 0) throw new Error(`Insufficient stock for ${item.productName}`)
-      stockAfterByProduct.set(item.productId, result[0].stockAfter)
+      await applyInventoryMovement(tx, { productId: item.productId, productName: item.productName, branchId: saleBranchId, quantity: -item.quantity, type: 'sale', referenceType: 'sale', referenceId: saleId, reason: receiptNo, userId, orgId })
+      costByProduct.set(item.productId, await consumeInventoryCost(tx, { productId: item.productId, branchId: saleBranchId, orgId, quantity: item.quantity }))
     }
     
     // Create the sale
@@ -274,28 +262,11 @@ export async function createSale(data: {
         quantity: item.quantity,
         unitPrice: String(item.unitPrice),
         totalPrice: String(item.totalPrice),
+        unitCostAtSale: String(costByProduct.get(item.productId)?.unitCost ?? 0),
+        totalCost: String(costByProduct.get(item.productId)?.totalCost ?? 0),
         userId,
         orgId,
       })))
-
-    for (const item of saleItems) {
-      const stockAfter = stockAfterByProduct.get(item.productId) ?? 0
-      // Record stock movement
-      await tx.insert(stockMovement).values({
-        id: generateId(), 
-        productId: item.productId, 
-        productName: item.productName,
-        type: 'sale',
-        quantity: -item.quantity,
-        stockBefore: stockAfter + item.quantity,
-        stockAfter,
-        referenceType: 'sale', 
-        referenceId: saleId, 
-        reason: receiptNo, 
-        userId, 
-        orgId 
-      })
-    }
 
     await tx.insert(salePayment).values({
       id: generateId(), saleId, method: data.paymentMethod, amount: String(calculatedTotal),

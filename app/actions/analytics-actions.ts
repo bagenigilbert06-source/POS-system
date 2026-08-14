@@ -120,12 +120,12 @@ export async function getProductPerformance() {
         unitsSold: sql<number>`SUM(${saleItem.quantity})`,
         revenue: sql<number>`SUM(CAST(${saleItem.totalPrice} AS FLOAT))`,
         averagePrice: sql<number>`AVG(CAST(${saleItem.unitPrice} AS FLOAT))`,
-        margin: sql<number>`AVG(CAST(${saleItem.unitPrice} AS FLOAT)) - ${product.buyingPrice}`,
+        margin: sql<number>`(SUM(CAST(${saleItem.totalPrice} AS FLOAT)) - SUM(CAST(${saleItem.totalCost} AS FLOAT))) / NULLIF(SUM(${saleItem.quantity}), 0)`,
       })
       .from(saleItem)
       .innerJoin(product, eq(saleItem.productId, product.id))
       .where(eq(product.orgId, orgId))
-      .groupBy(product.id, product.name, product.buyingPrice)
+      .groupBy(product.id, product.name)
       .orderBy(desc(sql`SUM(CAST(${saleItem.totalPrice} AS FLOAT))`))
       .limit(20)
 

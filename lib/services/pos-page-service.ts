@@ -1,6 +1,6 @@
 import { and, desc, eq, gte, inArray, sql } from 'drizzle-orm'
 import { db } from '@/lib/db'
-import { branch, businessSettings, category, customer, posPinCredential, posSession, product, sale, salesReturn } from '@/lib/db/schema'
+import { branch, businessSettings, category, customer, inventoryBalance, posPinCredential, posSession, product, sale, salesReturn } from '@/lib/db/schema'
 import { readThroughRedis } from '@/lib/cache/redis-cache'
 import type { AuthorizationContext } from '@/lib/auth/authorization'
 
@@ -44,9 +44,14 @@ export async function getPosPageData(authorization: AuthorizationContext, includ
     db.select({ id: branch.id }).from(branch).where(and(eq(branch.organizationId, orgId), branchFilter)).limit(1),
     db.select({ enabled: posPinCredential.enabled }).from(posPinCredential).where(eq(posPinCredential.userId, authorization.userId)).limit(1),
   ])
+  const locationBalances = branchRows[0]
+    ? await db.select({ productId: inventoryBalance.productId, onHand: inventoryBalance.onHand, reserved: inventoryBalance.reserved, unavailable: inventoryBalance.unavailable }).from(inventoryBalance).where(and(eq(inventoryBalance.orgId, orgId), eq(inventoryBalance.branchId, branchRows[0].id)))
+    : []
+  const availableByProduct = new Map(locationBalances.map((item) => [item.productId, Math.max(0, Number(item.onHand) - Number(item.reserved) - Number(item.unavailable))]))
+  const branchProducts = products.map((item) => ({ ...item, stock: availableByProduct.get(item.id) ?? 0 }))
   const summary = summaryRows[0], refunds = refundRows[0]
   return {
-    products, categories, customers, settings: receiptSettings(settingsRows[0]), activeBranch: branchRows[0] ?? null,
+    products: branchProducts, categories, customers, settings: receiptSettings(settingsRows[0]), activeBranch: branchRows[0] ?? null,
     pinSet: Boolean(pinRows[0]?.enabled),
     cashierWorkspace: { session: sessionRows[0] ?? null, todaySales: Number(summary?.total ?? 0) - Number(refunds?.total ?? 0), transactionCount: Number(summary?.count ?? 0), recentSales },
   }

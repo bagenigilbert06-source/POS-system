@@ -2,7 +2,7 @@
 
 import { auth } from '@/lib/auth'
 import { db } from '@/lib/db'
-import { category, organizationMembership, product, purchase, purchaseItem, sale, saleItem, stockMovement } from '@/lib/db/schema'
+import { branch, category, organizationMembership, product, purchase, purchaseItem, sale, saleItem, stockMovement } from '@/lib/db/schema'
 import { and, desc, eq, gte, ilike, or, sql } from 'drizzle-orm'
 import { headers } from 'next/headers'
 import { revalidatePath } from 'next/cache'
@@ -11,6 +11,7 @@ import { OrganizationService } from '@/lib/services/organization-service'
 import { WorkspaceService } from '@/lib/services/workspace-service'
 import { getPosAuthorizationContext } from '@/lib/pos/pos-auth'
 import { invalidateCategoryCache, invalidateProductCache, invalidateProductReadCache, readThroughRedis } from '@/lib/cache/redis-cache'
+import { addCostLayer, applyInventoryMovement } from '@/lib/inventory/inventory-service'
 
 async function getUserId() {
   const pos = await getPosAuthorizationContext()
@@ -163,14 +164,14 @@ export async function getProductOverview(id: string) {
   const [[categoryRecord], [todayMetrics], [monthMetrics], movements, purchases] = await Promise.all([
     item.categoryId ? db.select({ name: category.name }).from(category).where(and(eq(category.id, item.categoryId), eq(category.orgId, orgId))).limit(1) : Promise.resolve([]),
     db.select({ units: sql<number>`coalesce(sum(${saleItem.quantity}), 0)`, revenue: sql<string>`coalesce(sum(${saleItem.totalPrice}), 0)` }).from(saleItem).innerJoin(sale, eq(sale.id, saleItem.saleId)).where(and(completedSales, gte(sale.createdAt, today))),
-    db.select({ units: sql<number>`coalesce(sum(${saleItem.quantity}), 0)`, revenue: sql<string>`coalesce(sum(${saleItem.totalPrice}), 0)` }).from(saleItem).innerJoin(sale, eq(sale.id, saleItem.saleId)).where(and(completedSales, gte(sale.createdAt, monthStart))),
+    db.select({ units: sql<number>`coalesce(sum(${saleItem.quantity}), 0)`, revenue: sql<string>`coalesce(sum(${saleItem.totalPrice}), 0)`, cost: sql<string>`coalesce(sum(${saleItem.totalCost}), 0)` }).from(saleItem).innerJoin(sale, eq(sale.id, saleItem.saleId)).where(and(completedSales, gte(sale.createdAt, monthStart))),
     db.select().from(stockMovement).where(and(eq(stockMovement.productId, item.id), eq(stockMovement.orgId, orgId))).orderBy(desc(stockMovement.createdAt)).limit(20),
     db.select({ id: purchase.id, purchaseNo: purchase.purchaseNo, supplierName: purchase.supplierName, reference: purchase.reference, receivedAt: purchase.createdAt, quantity: purchaseItem.quantity, unitCost: purchaseItem.unitCost, totalCost: purchaseItem.totalCost }).from(purchaseItem).innerJoin(purchase, eq(purchase.id, purchaseItem.purchaseId)).where(and(eq(purchaseItem.productId, item.id), eq(purchaseItem.orgId, orgId), eq(purchase.orgId, orgId))).orderBy(desc(purchase.createdAt)).limit(10),
   ])
   const monthlyUnits = Number(monthMetrics?.units ?? 0)
   const monthlyRevenue = Number(monthMetrics?.revenue ?? 0)
   const unitCost = Number(item.buyingPrice)
-  const grossProfit = monthlyRevenue - (monthlyUnits * unitCost)
+  const grossProfit = monthlyRevenue - Number(monthMetrics?.cost ?? 0)
   const daysElapsed = Math.max(1, Math.ceil((now.getTime() - monthStart.getTime()) / 86_400_000) + 1)
   const averageDailySales = monthlyUnits / daysElapsed
 
@@ -253,6 +254,10 @@ export async function createProduct(data: {
   countryOfOrigin?: string
   unitsPerPack?: number
   preferredSupplierId?: string
+  trackingMode?: 'none' | 'lot' | 'serial'
+  costingMethod?: 'weighted_average' | 'fifo' | 'standard'
+  shelfLifeDays?: number
+  expiryAlertDays?: number
   confirmLoss?: boolean
 }) {
   const userId = await getUserId()
@@ -295,20 +300,10 @@ export async function createProduct(data: {
       orgId,
     } as any)
     if (data.stock > 0) {
-      await tx.insert(stockMovement).values({
-        id: generateId(),
-        productId: id,
-        productName: data.name.trim(),
-        type: 'opening_stock',
-        quantity: data.stock,
-        stockBefore: 0,
-        stockAfter: data.stock,
-        referenceType: 'product',
-        referenceId: id,
-        reason: 'Opening stock',
-        userId,
-        orgId,
-      })
+      const [location] = await tx.select({ id: branch.id }).from(branch).where(eq(branch.organizationId, orgId)).orderBy(desc(branch.isMain), branch.createdAt).limit(1)
+      if (!location) throw new Error('Create an inventory location before adding opening stock')
+      await applyInventoryMovement(tx, { productId: id, productName: data.name.trim(), branchId: location.id, quantity: data.stock, type: 'opening_stock', referenceType: 'product', referenceId: id, reason: 'Opening stock', userId, orgId, unitCost: data.buyingPrice })
+      await addCostLayer(tx, { productId: id, branchId: location.id, sourceType: 'opening_stock', sourceId: id, quantity: data.stock, unitCost: data.buyingPrice, orgId })
     }
   })
   await invalidateProductCache(orgId)
@@ -337,6 +332,10 @@ export async function updateProduct(
     countryOfOrigin: string
     unitsPerPack: number
     preferredSupplierId: string
+    trackingMode: 'none' | 'lot' | 'serial'
+    costingMethod: 'weighted_average' | 'fifo' | 'standard'
+    shelfLifeDays: number
+    expiryAlertDays: number
     isActive: boolean
     confirmLoss: boolean
   }>
@@ -351,6 +350,8 @@ export async function updateProduct(
   if (data.minStock !== undefined && (!Number.isInteger(data.minStock) || data.minStock < 0)) throw new Error('Low-stock alert level cannot be negative')
   if (data.volume !== undefined && (!Number.isFinite(data.volume) || data.volume <= 0)) throw new Error('Bottle or package size must be greater than zero')
   if (data.unitsPerPack !== undefined && (!Number.isInteger(data.unitsPerPack) || data.unitsPerPack <= 0)) throw new Error('Units per pack must be a positive whole number')
+  if (data.shelfLifeDays !== undefined && (!Number.isInteger(data.shelfLifeDays) || data.shelfLifeDays <= 0)) throw new Error('Shelf life must be a positive number of days')
+  if (data.expiryAlertDays !== undefined && (!Number.isInteger(data.expiryAlertDays) || data.expiryAlertDays < 0)) throw new Error('Expiry alert days cannot be negative')
   const [current] = await db.select({ buyingPrice: product.buyingPrice, sellingPrice: product.sellingPrice }).from(product).where(and(eq(product.id, id), eq(product.orgId, orgId))).limit(1)
   if (!current) throw new Error('Product not found')
   const buying = data.buyingPrice ?? Number(current.buyingPrice)

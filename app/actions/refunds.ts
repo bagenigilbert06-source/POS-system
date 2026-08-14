@@ -1,7 +1,7 @@
 'use server'
 
 import { db } from '@/lib/db'
-import { sale, saleItem, salesReturn, salesReturnItem, product, stockMovement, auditEvent } from '@/lib/db/schema'
+import { sale, saleItem, salesReturn, salesReturnItem, auditEvent } from '@/lib/db/schema'
 import { eq, and, sql } from 'drizzle-orm'
 import { generateId } from '@/lib/utils'
 import { requirePermission } from '@/lib/auth/authorization'
@@ -10,6 +10,7 @@ import { getPosAuthorizationContext } from '@/lib/pos/pos-auth'
 import { revalidatePath } from 'next/cache'
 import { calculateRefundAmount, roundCurrency } from '@/lib/pos/refund-calculation'
 import { invalidateProductReadCache } from '@/lib/cache/redis-cache'
+import { applyInventoryMovement } from '@/lib/inventory/inventory-service'
 
 interface RefundItem {
   saleItemId: string
@@ -37,6 +38,7 @@ export async function processRefund(data: {
   // Get the original sale
   const [originalSale] = await db.select().from(sale).where(and(eq(sale.id, data.saleId), eq(sale.orgId, orgId))).limit(1)
   if (!originalSale) throw new Error('Sale not found')
+  if (!originalSale.branchId) throw new Error('The original sale has no inventory location')
   if (originalSale.receiptNo !== data.receiptNo) throw new Error('Receipt does not match this sale')
   if (!data.reason.trim() || data.reason.trim().length < 3) throw new Error('Enter a refund reason')
   if (!data.items.length) throw new Error('Select at least one item to refund')
@@ -118,28 +120,7 @@ export async function processRefund(data: {
         orgId,
       })
 
-      // Restore stock
-      const [productRecord] = await tx.update(product)
-        .set({ stock: sql`${product.stock} + ${item.quantity}` })
-        .where(and(eq(product.id, original.productId), eq(product.orgId, orgId)))
-        .returning({ stockAfter: product.stock })
-      if (!productRecord) throw new Error(`Product ${original.productName} not found`)
-
-      // Record stock movement
-      await tx.insert(stockMovement).values({
-        id: generateId(),
-        productId: original.productId,
-        productName: original.productName,
-        type: 'return',
-        quantity: item.quantity,
-        stockBefore: productRecord.stockAfter - item.quantity,
-        stockAfter: productRecord.stockAfter,
-        referenceType: 'refund',
-        referenceId: returnId,
-        reason: `Refund: ${data.reason}`,
-        userId,
-        orgId,
-      })
+      await applyInventoryMovement(tx, { productId: original.productId, productName: original.productName, branchId: originalSale.branchId!, quantity: item.quantity, type: 'return', referenceType: 'refund', referenceId: returnId, reason: `Refund: ${data.reason}`, userId, orgId })
     }
 
     const allItemsReturned = originalItems.every((item) =>
