@@ -28,13 +28,18 @@ export function DynamicAppSidebar({ initialPermissions: permissions, initialRole
   const pathname = usePathname()
   const router = useRouter()
   const [collapsed, setCollapsed] = useState(false)
+  const [adminExpanded, setAdminExpanded] = useState(false)
   const { config } = useWorkspace()
   const adminMode = pathname === '/dashboard/admin' || pathname.startsWith('/dashboard/admin/')
-  const sidebarCollapsed = adminMode || collapsed
+  const sidebarCollapsed = adminMode ? !adminExpanded : collapsed
 
   useEffect(() => {
     setCollapsed(window.localStorage.getItem('pesaby-sidebar-collapsed') === 'true')
   }, [])
+
+  useEffect(() => {
+    if (adminMode) setAdminExpanded(false)
+  }, [adminMode])
 
   // The register is the highest-frequency destination. Warm its RSC request as
   // soon as the authenticated dashboard shell becomes interactive.
@@ -45,6 +50,14 @@ export function DynamicAppSidebar({ initialPermissions: permissions, initialRole
   const setSidebarCollapsed = (value: boolean) => {
     setCollapsed(value)
     window.localStorage.setItem('pesaby-sidebar-collapsed', String(value))
+  }
+
+  const setVisibleSidebarCollapsed = (value: boolean) => {
+    if (adminMode) {
+      setAdminExpanded(!value)
+      return
+    }
+    setSidebarCollapsed(value)
   }
 
   if (!config) {
@@ -155,13 +168,12 @@ export function DynamicAppSidebar({ initialPermissions: permissions, initialRole
           <PesabyLogoMark className="h-8 w-8" />
         )}
         <button
-          onClick={() => setSidebarCollapsed(!collapsed)}
+          onClick={() => setVisibleSidebarCollapsed(!sidebarCollapsed)}
           className={cn(
             'hidden rounded-lg p-1.5 text-[#a1a1a6] hover:bg-[rgba(255,255,255,0.08)] hover:text-[#f5f5f7] transition-all lg:inline-flex',
-            sidebarCollapsed && 'lg:hidden',
-            adminMode && 'lg:hidden'
+            sidebarCollapsed && 'lg:hidden'
           )}
-          aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
         >
           <ChevronLeft className="h-4 w-4" />
         </button>
@@ -175,9 +187,9 @@ export function DynamicAppSidebar({ initialPermissions: permissions, initialRole
       </div>
 
       {/* Expand button when collapsed */}
-      {sidebarCollapsed && !adminMode && (
+      {sidebarCollapsed && (
         <button
-          onClick={() => setSidebarCollapsed(false)}
+          onClick={() => setVisibleSidebarCollapsed(false)}
           className="mx-auto mt-4 hidden rounded-lg p-1.5 text-[#a1a1a6] hover:bg-[rgba(255,255,255,0.08)] hover:text-[#f5f5f7] transition-all lg:inline-flex"
           aria-label="Expand sidebar"
         >
