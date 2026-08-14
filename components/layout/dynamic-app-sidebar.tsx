@@ -78,19 +78,22 @@ export function DynamicAppSidebar({ initialPermissions: permissions, initialRole
     operations: PermissionEnum.SHIFT_MANAGE,
     settings: PermissionEnum.SETTINGS_VIEW,
     staff: PermissionEnum.STAFF_MANAGE,
+    admin: PermissionEnum.ADMIN_ACCESS,
   }
   // Unknown workspace items are hidden until they have an explicit permission mapping.
   const canView = (id: string) => Boolean(permissionForNavItem[id] && permissions.includes(permissionForNavItem[id]))
   const posNav = { id: 'pos', label: 'Point of sale', icon: 'ReceiptText', route: '/dashboard/pos' }
   const staffNav = { id: 'staff', label: 'Staff & access', icon: 'UsersRound', route: '/dashboard/staff' }
+  const adminNav = { id: 'admin', label: 'Admin control', icon: 'ShieldCheck', route: '/dashboard/admin' }
   // Keep the navigation aligned with the way a shop is run: understand the
   // business first, sell second, then manage the catalogue and operations.
   // The workspace template still decides which entries exist; this only gives
   // the common entries a consistent, easy-to-scan order.
   const dashboardNav = config.sidebarConfig.primaryNav.filter((item) => item.id === 'dashboard')
-  const workspaceNav = config.sidebarConfig.primaryNav.filter((item) => item.id !== 'dashboard' && item.id !== 'pos')
+  const workspaceNav = config.sidebarConfig.primaryNav.filter((item) => item.id !== 'dashboard' && item.id !== 'pos' && item.id !== 'admin')
   const composedPrimaryNav = [
     ...dashboardNav,
+    ...(permissions.includes(PermissionEnum.ADMIN_ACCESS) ? [adminNav] : []),
     ...(permissions.includes(PermissionEnum.POS_VIEW) || permissions.includes(PermissionEnum.POS_SELL) ? [posNav] : []),
     ...workspaceNav,
     ...(permissions.includes(PermissionEnum.STAFF_MANAGE) ? [staffNav] : []),

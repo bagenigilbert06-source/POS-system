@@ -44,10 +44,22 @@ export async function updateBusinessSettings(data: {
   receiptShowQrCode?: boolean
   receiptShowItemSku?: boolean
   defaultPaymentMethod?: string
+  paymentMethods?: string[]
+  taxEnabled?: boolean
+  pricesIncludeTax?: boolean
+  showTaxOnReceipt?: boolean
+  financialYearStart?: string
 }) {
   await requirePermission(PermissionEnum.SETTINGS_EDIT)
   const userId = await getUserId()
   const orgId = await getOrgId(userId)
+
+  const paymentMethods = data.paymentMethods
+    ? Array.from(new Set(data.paymentMethods.filter((method) => ['cash', 'card', 'mpesa'].includes(method))))
+    : undefined
+  if (paymentMethods && paymentMethods.length === 0) throw new Error('Enable at least one payment method')
+  if (data.defaultPaymentMethod && paymentMethods && !paymentMethods.includes(data.defaultPaymentMethod)) throw new Error('The default payment method must be enabled')
+  if (data.financialYearStart && !/^\d{2}-\d{2}$/.test(data.financialYearStart)) throw new Error('Invalid financial year start')
 
   try {
     const updated = await db
@@ -74,6 +86,11 @@ export async function updateBusinessSettings(data: {
         ...(data.receiptShowQrCode !== undefined && { receiptShowQrCode: data.receiptShowQrCode }),
         ...(data.receiptShowItemSku !== undefined && { receiptShowItemSku: data.receiptShowItemSku }),
         ...(data.defaultPaymentMethod && { defaultPaymentMethod: data.defaultPaymentMethod }),
+        ...(paymentMethods && { paymentMethods }),
+        ...(data.taxEnabled !== undefined && { taxEnabled: data.taxEnabled }),
+        ...(data.pricesIncludeTax !== undefined && { pricesIncludeTax: data.pricesIncludeTax }),
+        ...(data.showTaxOnReceipt !== undefined && { showTaxOnReceipt: data.showTaxOnReceipt }),
+        ...(data.financialYearStart && { financialYearStart: data.financialYearStart }),
         updatedAt: new Date(),
       })
       .where(eq(businessSettings.organizationId, orgId))

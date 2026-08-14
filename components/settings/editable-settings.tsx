@@ -46,6 +46,11 @@ export function EditableSettings({ businessSettings, organization, buttonOnly = 
     receiptShowQrCode: businessSettings?.receiptShowQrCode ?? false,
     receiptShowItemSku: businessSettings?.receiptShowItemSku ?? false,
     defaultPaymentMethod: businessSettings?.defaultPaymentMethod || 'cash',
+    paymentMethods: (Array.isArray(businessSettings?.paymentMethods) && businessSettings.paymentMethods.length ? businessSettings.paymentMethods : ['cash']) as string[],
+    taxEnabled: businessSettings?.taxEnabled ?? false,
+    pricesIncludeTax: businessSettings?.pricesIncludeTax ?? false,
+    showTaxOnReceipt: businessSettings?.showTaxOnReceipt ?? false,
+    financialYearStart: businessSettings?.financialYearStart || '07-01',
     currency: organization.currency,
     timezone: organization.timezone || 'Africa/Nairobi',
   })
@@ -93,6 +98,11 @@ export function EditableSettings({ businessSettings, organization, buttonOnly = 
           receiptShowQrCode: formData.receiptShowQrCode,
           receiptShowItemSku: formData.receiptShowItemSku,
           defaultPaymentMethod: formData.defaultPaymentMethod,
+          paymentMethods: formData.paymentMethods,
+          taxEnabled: formData.taxEnabled,
+          pricesIncludeTax: formData.pricesIncludeTax,
+          showTaxOnReceipt: formData.showTaxOnReceipt,
+          financialYearStart: formData.financialYearStart,
         }),
         updateOrganizationSettings({
           name: formData.displayName,
@@ -197,7 +207,18 @@ export function EditableSettings({ businessSettings, organization, buttonOnly = 
 
           {/* Tax Settings */}
           {(!section || section === 'operating') && <div className="space-y-4 border-b pb-6">
-            <h4 className="font-medium">Tax Settings</h4>
+            <div><h4 className="font-medium">Operating defaults</h4><p className="mt-1 text-sm text-muted-foreground">Control payments, tax, timezone and financial reporting defaults.</p></div>
+            <div className="grid grid-cols-2 gap-4">
+              <div><label className="text-sm font-medium">Timezone</label><input type="text" value={formData.timezone} onChange={(e) => setFormData({ ...formData, timezone: e.target.value })} className="mt-1 w-full rounded-lg border px-3 py-2 text-sm" /></div>
+              <div><label className="text-sm font-medium">Financial year starts</label><input type="text" inputMode="numeric" placeholder="07-01" value={formData.financialYearStart} onChange={(e) => setFormData({ ...formData, financialYearStart: e.target.value })} pattern="\d{2}-\d{2}" className="mt-1 w-full rounded-lg border px-3 py-2 text-sm" /><p className="mt-1 text-xs text-muted-foreground">MM-DD, for example 07-01</p></div>
+            </div>
+            <div><label className="text-sm font-medium">Enabled payment methods</label><div className="mt-2 grid gap-2 sm:grid-cols-3">{(['cash', 'card', 'mpesa'] as const).map((method) => { const checked = formData.paymentMethods.includes(method); return <label key={method} className="flex cursor-pointer items-center gap-3 rounded-lg border p-3 capitalize"><input type="checkbox" checked={checked} onChange={(event) => { const methods = event.target.checked ? [...formData.paymentMethods, method] : formData.paymentMethods.filter((item) => item !== method); const defaultPaymentMethod = methods.includes(formData.defaultPaymentMethod) ? formData.defaultPaymentMethod : methods[0] || ''; setFormData({ ...formData, paymentMethods: methods, defaultPaymentMethod }) }} className="h-4 w-4 accent-[#e42527]" />{method === 'mpesa' ? 'M-Pesa' : method}</label> })}</div></div>
+            <div><label className="text-sm font-medium">Default payment method</label><select value={formData.defaultPaymentMethod} onChange={(e) => setFormData({ ...formData, defaultPaymentMethod: e.target.value })} className="mt-1 w-full rounded-lg border px-3 py-2 text-sm">{formData.paymentMethods.map((method) => <option key={method} value={method}>{method === 'mpesa' ? 'M-Pesa' : method.replace(/\b\w/g, (letter) => letter.toUpperCase())}</option>)}</select></div>
+            <div className="grid gap-2 sm:grid-cols-3">{([
+              ['taxEnabled', 'Enable tax', 'Calculate tax on new sales.'],
+              ['pricesIncludeTax', 'Prices include tax', 'Treat catalogue prices as tax-inclusive.'],
+              ['showTaxOnReceipt', 'Show tax on receipts', 'Print the calculated tax line.'],
+            ] as const).map(([key, title, detail]) => <label key={key} className="flex cursor-pointer items-start gap-3 rounded-lg border p-3"><input type="checkbox" checked={formData[key]} onChange={(event) => setFormData({ ...formData, [key]: event.target.checked })} className="mt-0.5 h-4 w-4 accent-[#e42527]" /><span><span className="block text-sm font-medium">{title}</span><span className="mt-0.5 block text-xs text-muted-foreground">{detail}</span></span></label>)}</div>
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="text-sm font-medium">Tax Name</label>
