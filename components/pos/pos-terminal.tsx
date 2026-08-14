@@ -996,7 +996,7 @@ export function POSTerminal({ products, categories, customers, settings, require
                     aria-disabled={outOfStock}
                     aria-label={`Add ${product.name} to basket${inCart ? `, currently ${inCart.quantity}` : ''}`}
                     className={cn(
-                      'group relative flex min-h-[224px] flex-col overflow-hidden rounded-xl border bg-white text-left shadow-[0_1px_2px_rgba(16,24,40,.03)] transition-[background-color,border-color,box-shadow] duration-200 ease-[cubic-bezier(0.2,0,0,1)] motion-reduce:transition-none after:pointer-events-none after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:bg-[#f9b21d] after:opacity-0 after:transition-opacity after:duration-200 after:ease-out motion-reduce:after:transition-none',
+                      'group relative flex min-h-[224px] flex-col overflow-hidden rounded-xl border bg-white text-left shadow-[0_1px_2px_rgba(16,24,40,.03)] transition-[background-color,border-color,box-shadow] duration-200 [transition-timing-function:cubic-bezier(0.2,0,0,1)] motion-reduce:transition-none after:pointer-events-none after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:bg-[#f9b21d] after:opacity-0 after:transition-opacity after:duration-200 after:ease-out motion-reduce:after:transition-none',
                       'disabled:cursor-not-allowed disabled:opacity-50',
                       outOfStock
                         ? 'cursor-not-allowed opacity-65'
