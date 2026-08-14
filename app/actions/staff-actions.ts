@@ -8,7 +8,7 @@ import { headers } from 'next/headers'
 import { OrganizationService } from '@/lib/services/organization-service'
 import { nanoid } from 'nanoid'
 import { requirePermission } from '@/lib/auth/authorization'
-import { PermissionEnum } from '@/lib/types/permissions'
+import { canAssignRole, canManageExistingRole, PermissionEnum, RoleEnum } from '@/lib/types/permissions'
 import { z } from 'zod'
 import { revalidatePath } from 'next/cache'
 
@@ -29,6 +29,25 @@ const updateStaffSchema = z.object({
   status: z.enum(['active', 'inactive', 'invited', 'terminated']).optional(),
 })
 const INVITATION_COOLDOWN_MS = 60_000
+
+function assertAssignableRole(actor: RoleEnum, role: typeof staffRoles[number]) {
+  if (!canAssignRole(actor, role as RoleEnum)) throw new Error(`A ${actor} cannot assign the ${role} role`)
+}
+
+async function assertCanManageEmployee(
+  authorization: Awaited<ReturnType<typeof requirePermission>>,
+  record: { userId: string | null; role: string },
+) {
+  if (record.userId === authorization.userId) throw new Error('You cannot change your own role or access')
+  if (!canManageExistingRole(authorization.role, record.role as RoleEnum)) throw new Error(`A ${authorization.role} cannot manage an existing ${record.role}`)
+  if (!authorization.isOrganizationWide) {
+    if (!record.userId || !authorization.branchIds.length) throw new Error('This staff member is outside your assigned branches')
+    const assignments = await db.select({ branchId: branchMembership.branchId }).from(branchMembership).where(eq(branchMembership.userId, record.userId))
+    if (!assignments.length || assignments.some(({ branchId }) => !authorization.branchIds.includes(branchId))) {
+      throw new Error('This staff member is outside your assigned branches')
+    }
+  }
+}
 
 function invitationRedirectUrl() {
   return `${(process.env.BETTER_AUTH_URL || 'https://pesaby.vercel.app').replace(/\/$/, '')}/setup-account`
@@ -83,8 +102,12 @@ export async function createEmployee(data: {
 }) {
   const input = createStaffSchema.parse(data)
   const authorization = await requirePermission(PermissionEnum.STAFF_MANAGE)
-  if (input.role === 'admin' && authorization.role !== 'owner') throw new Error('Only the owner can grant administrator access')
-  const [selectedBranch] = await db.select({ id: branch.id }).from(branch).where(and(eq(branch.id, input.branchId), eq(branch.organizationId, authorization.organizationId))).limit(1)
+  assertAssignableRole(authorization.role, input.role)
+  const [selectedBranch] = await db.select({ id: branch.id }).from(branch).where(and(
+    eq(branch.id, input.branchId),
+    eq(branch.organizationId, authorization.organizationId),
+    authorization.isOrganizationWide ? undefined : inArray(branch.id, authorization.branchIds),
+  )).limit(1)
   if (!selectedBranch) throw new Error('Choose a branch in this organization')
   const result = await db.transaction(async (tx) => {
     const [existingUser] = await tx.select().from(user).where(eq(user.email, input.email)).limit(1)
@@ -118,6 +141,7 @@ export async function resendStaffInvitation(employeeId: string) {
   const authorization = await requirePermission(PermissionEnum.STAFF_MANAGE)
   const [record] = await db.select().from(employee).where(and(eq(employee.id, employeeId), eq(employee.orgId, authorization.organizationId))).limit(1)
   if (!record?.userId || !record.email) throw new Error('Staff account was not found')
+  await assertCanManageEmployee(authorization, record)
   if (record.status !== 'invited') throw new Error('Only pending invitations can be resent')
   try {
     const invitation = await issueStaffInvitation({ employeeId: record.id, employeeUserId: record.userId, email: record.email, organizationId: authorization.organizationId })
@@ -143,11 +167,11 @@ export async function updateEmployee(employeeId: string, data: {
   const input = updateStaffSchema.parse(data)
   const authorization = await requirePermission(PermissionEnum.STAFF_MANAGE)
   const orgId = authorization.organizationId
-  if (input.role === 'admin' && authorization.role !== 'owner') throw new Error('Only the owner can grant administrator access')
+  const [current] = await db.select().from(employee).where(and(eq(employee.id, employeeId), eq(employee.orgId, orgId))).limit(1)
+  if (!current) throw new Error('Employee not found')
+  await assertCanManageEmployee(authorization, current)
+  if (input.role) assertAssignableRole(authorization.role, input.role)
 
-  try {
-    const [current] = await db.select().from(employee).where(and(eq(employee.id, employeeId), eq(employee.orgId, orgId))).limit(1)
-    if (!current) throw new Error('Employee not found')
     const updated = await db.transaction(async (tx) => {
       const emailChanged = Boolean(input.email && input.email !== current.email)
       if (emailChanged) {
@@ -178,25 +202,27 @@ export async function updateEmployee(employeeId: string, data: {
       .where(and(eq(employee.id, employeeId), eq(employee.orgId, orgId)))
       .returning()
       if (current.userId && input.role) await tx.update(organizationMembership).set({ role: input.role, updatedAt: new Date() }).where(and(eq(organizationMembership.organizationId, orgId), eq(organizationMembership.userId, current.userId)))
-      if (current.userId && input.role) await tx.update(branchMembership).set({ role: input.role }).where(eq(branchMembership.userId, current.userId))
+      if (current.userId && input.role) {
+        const organizationBranches = await tx.select({ id: branch.id }).from(branch).where(eq(branch.organizationId, orgId))
+        if (organizationBranches.length) await tx.update(branchMembership).set({ role: input.role }).where(and(
+          eq(branchMembership.userId, current.userId),
+          inArray(branchMembership.branchId, organizationBranches.map(({ id }) => id)),
+        ))
+      }
       await tx.insert(auditEvent).values({ id: nanoid(), organizationId: orgId, userId: authorization.userId, action: 'staff_access_updated', metadata: { employeeId, previousRole: current.role, role: input.role ?? current.role, status: input.status ?? current.status, emailChanged } })
       return rows
     })
     revalidatePath('/dashboard/staff')
-    return { success: true, employee: updated[0] }
-  } catch (error) {
-    console.error('[v0] Error updating employee:', error)
-    throw new Error('Failed to update employee')
-  }
+  return { success: true, employee: updated[0] }
 }
 
 export async function deleteEmployee(employeeId: string) {
   const authorization = await requirePermission(PermissionEnum.STAFF_MANAGE)
   const orgId = authorization.organizationId
 
-  try {
-    const [current] = await db.select().from(employee).where(and(eq(employee.id, employeeId), eq(employee.orgId, orgId))).limit(1)
-    if (!current) throw new Error('Employee not found')
+  const [current] = await db.select().from(employee).where(and(eq(employee.id, employeeId), eq(employee.orgId, orgId))).limit(1)
+  if (!current) throw new Error('Employee not found')
+  await assertCanManageEmployee(authorization, current)
     await db.transaction(async (tx) => {
       await tx.update(employee).set({ status: 'inactive', updatedAt: new Date() }).where(and(eq(employee.id, employeeId), eq(employee.orgId, orgId)))
       if (current.userId) {
@@ -207,11 +233,7 @@ export async function deleteEmployee(employeeId: string) {
       await tx.insert(auditEvent).values({ id: nanoid(), organizationId: orgId, userId: authorization.userId, action: 'staff_access_revoked', metadata: { employeeId, staffUserId: current.userId, role: current.role } })
     })
     revalidatePath('/dashboard/staff')
-    return { success: true }
-  } catch (error) {
-    console.error('[v0] Error deleting employee:', error)
-    throw new Error('Failed to delete employee')
-  }
+  return { success: true }
 }
 
 export async function createShift(data: {

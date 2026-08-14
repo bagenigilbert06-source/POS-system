@@ -47,7 +47,7 @@ export const getAuthorizationContext = cache(async (): Promise<AuthorizationCont
         userId: session.user.id,
         organizationId: activeEmployee.organizationId,
         role,
-        permissions: role === RoleEnum.ADMIN ? ROLE_PERMISSIONS[RoleEnum.OWNER] : ROLE_PERMISSIONS[role],
+        permissions: ROLE_PERMISSIONS[role],
         branchIds: branches.map(({ branchId }) => branchId),
         isOrganizationWide: role === RoleEnum.OWNER || role === RoleEnum.ADMIN,
         authMethod: 'password',
@@ -61,7 +61,7 @@ export const getAuthorizationContext = cache(async (): Promise<AuthorizationCont
   const branches = await db.select({ branchId: branchMembership.branchId }).from(branchMembership)
     .where(eq(branchMembership.userId, session.user.id))
   const isOrganizationWide = role === RoleEnum.OWNER || role === RoleEnum.ADMIN
-  const permissions = role === RoleEnum.ADMIN ? ROLE_PERMISSIONS[RoleEnum.OWNER] : ROLE_PERMISSIONS[role]
+  const permissions = ROLE_PERMISSIONS[role]
   return { userId: session.user.id, organizationId: membership.organizationId, role, permissions, branchIds: branches.map(({ branchId }) => branchId), isOrganizationWide, authMethod: 'password' }
 })
 
@@ -97,6 +97,10 @@ export function getDefaultWorkspaceRoute(context: AuthorizationContext) {
     case RoleEnum.SUPERVISOR: return '/dashboard/operations'
     case RoleEnum.INVENTORY: return '/dashboard/inventory'
     case RoleEnum.ACCOUNTANT: return '/dashboard/financials'
+    case RoleEnum.PHARMACIST:
+    case RoleEnum.PHARMACY_STAFF: return '/dashboard/inventory'
+    case RoleEnum.STAFF:
+    case RoleEnum.CHEF: return '/restricted'
     default: return '/dashboard'
   }
 }

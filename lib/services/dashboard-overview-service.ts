@@ -1,6 +1,6 @@
-import { and, asc, desc, eq, gte, lt, lte, sql } from 'drizzle-orm'
+import { and, asc, desc, eq, gte, inArray, lt, lte, sql } from 'drizzle-orm'
 import { db } from '@/lib/db'
-import { branch, customer, expense, product, sale, saleItem } from '@/lib/db/schema'
+import { branch, customer, expense, inventoryBalance, product, sale, saleItem } from '@/lib/db/schema'
 
 export interface DashboardOverview {
   today: {
@@ -91,7 +91,7 @@ function calendarKey(parts: { year: number; month: number; day: number }) {
  * The organization id passed here is resolved by authenticated server routes,
  * never accepted from the browser.
  */
-export async function getDashboardOverview(organizationId: string, timeZone = 'Africa/Nairobi'): Promise<DashboardOverview> {
+export async function getDashboardOverview(organizationId: string, timeZone = 'Africa/Nairobi', branchIds?: readonly string[]): Promise<DashboardOverview> {
   let safeTimeZone = timeZone
   try {
     new Intl.DateTimeFormat('en', { timeZone: safeTimeZone }).format()
@@ -109,7 +109,13 @@ export async function getDashboardOverview(organizationId: string, timeZone = 'A
   const saleLocalDate = sql`((${sale.createdAt} at time zone 'UTC') at time zone ${safeTimeZone})::date`
   const expenseLocalDate = sql`((${expense.createdAt} at time zone 'UTC') at time zone ${safeTimeZone})::date`
 
-  const completedSale = and(eq(sale.orgId, organizationId), eq(sale.status, 'completed'))
+  const saleBranchScope = branchIds === undefined
+    ? undefined
+    : branchIds.length ? inArray(sale.branchId, [...branchIds]) : sql`false`
+  const expenseBranchScope = branchIds === undefined
+    ? undefined
+    : branchIds.length ? inArray(expense.branchId, [...branchIds]) : sql`false`
+  const completedSale = and(eq(sale.orgId, organizationId), eq(sale.status, 'completed'), saleBranchScope)
 
   const [
     todaySalesRows,
@@ -135,7 +141,7 @@ export async function getDashboardOverview(organizationId: string, timeZone = 'A
     db
       .select({ amount: sql<string>`coalesce(sum(${expense.amount}), 0)` })
       .from(expense)
-      .where(and(eq(expense.orgId, organizationId), gte(expense.createdAt, today), lt(expense.createdAt, tomorrow))),
+      .where(and(eq(expense.orgId, organizationId), expenseBranchScope, gte(expense.createdAt, today), lt(expense.createdAt, tomorrow))),
     db
       .select({ revenue: sql<string>`coalesce(sum(${sale.total}), 0)` })
       .from(sale)
@@ -143,11 +149,11 @@ export async function getDashboardOverview(organizationId: string, timeZone = 'A
     db
       .select({ amount: sql<string>`coalesce(sum(${expense.amount}), 0)` })
       .from(expense)
-      .where(and(eq(expense.orgId, organizationId), gte(expense.createdAt, monthStart))),
+      .where(and(eq(expense.orgId, organizationId), expenseBranchScope, gte(expense.createdAt, monthStart))),
     Promise.all([
       db.select({ count: sql<number>`count(*)` }).from(product).where(and(eq(product.orgId, organizationId), eq(product.isActive, true))),
       db.select({ count: sql<number>`count(*)` }).from(customer).where(eq(customer.orgId, organizationId)),
-      db.select({ count: sql<number>`count(*)` }).from(branch).where(eq(branch.organizationId, organizationId)),
+      db.select({ count: sql<number>`count(*)` }).from(branch).where(and(eq(branch.organizationId, organizationId), branchIds === undefined ? undefined : branchIds.length ? inArray(branch.id, [...branchIds]) : sql`false`)),
       db.select({ count: sql<number>`count(*)` }).from(product).where(and(eq(product.orgId, organizationId), eq(product.isActive, true), sql`${product.stock} <= ${product.minStock}`)),
       db.select({ count: sql<number>`count(*)` }).from(product).where(and(eq(product.orgId, organizationId), eq(product.isActive, true), lte(product.stock, 0))),
       db.select({ value: sql<string>`coalesce(sum(${product.buyingPrice} * ${product.stock}), 0)` }).from(product).where(and(eq(product.orgId, organizationId), eq(product.isActive, true))),
@@ -167,7 +173,7 @@ export async function getDashboardOverview(organizationId: string, timeZone = 'A
         amount: sql<string>`coalesce(sum(${expense.amount}), 0)`,
       })
       .from(expense)
-      .where(and(eq(expense.orgId, organizationId), gte(expense.createdAt, seriesStart)))
+      .where(and(eq(expense.orgId, organizationId), expenseBranchScope, gte(expense.createdAt, seriesStart)))
       .groupBy(sql.raw('1'))
       .orderBy(asc(sql.raw('1'))),
     db
@@ -190,7 +196,7 @@ export async function getDashboardOverview(organizationId: string, timeZone = 'A
         createdAt: sale.createdAt,
       })
       .from(sale)
-      .where(eq(sale.orgId, organizationId))
+      .where(and(eq(sale.orgId, organizationId), saleBranchScope))
       .orderBy(desc(sale.createdAt))
       .limit(6),
     db
@@ -207,7 +213,7 @@ export async function getDashboardOverview(organizationId: string, timeZone = 'A
       })
       .from(saleItem)
       .innerJoin(sale, and(eq(sale.id, saleItem.saleId), eq(sale.orgId, organizationId), eq(sale.status, 'completed')))
-      .where(and(eq(saleItem.orgId, organizationId), gte(sale.createdAt, monthStart)))
+      .where(and(eq(saleItem.orgId, organizationId), saleBranchScope, gte(sale.createdAt, monthStart)))
       .groupBy(saleItem.productName)
       .orderBy(desc(sql`sum(${saleItem.totalPrice})`))
       .limit(5),
@@ -225,6 +231,23 @@ export async function getDashboardOverview(organizationId: string, timeZone = 'A
   const monthRevenue = number(monthSalesRows[0]?.revenue)
   const monthExpenses = number(monthExpenseRows[0]?.amount)
   const [products, customers, branches, lowStock, outOfStock, inventoryCost] = recordRows
+  const branchInventoryRows = branchIds === undefined || branchIds.length === 0 ? [] : await db
+    .select({
+      id: product.id,
+      name: product.name,
+      sku: product.sku,
+      stock: sql<string>`coalesce(sum(${inventoryBalance.onHand} - ${inventoryBalance.reserved} - ${inventoryBalance.unavailable}), 0)`,
+      minStock: sql<string>`coalesce(sum(coalesce(${inventoryBalance.reorderPoint}, ${product.minStock})), 0)`,
+      buyingPrice: product.buyingPrice,
+    })
+    .from(inventoryBalance)
+    .innerJoin(product, and(eq(product.id, inventoryBalance.productId), eq(product.orgId, organizationId), eq(product.isActive, true)))
+    .where(and(eq(inventoryBalance.orgId, organizationId), inArray(inventoryBalance.branchId, [...branchIds])))
+    .groupBy(product.id, product.name, product.sku, product.buyingPrice)
+  const scopedInventory = branchIds === undefined ? null : branchInventoryRows.map((row) => ({
+    id: row.id, name: row.name, sku: row.sku, stock: number(row.stock), minStock: number(row.minStock), buyingPrice: number(row.buyingPrice),
+  }))
+  const scopedLowStock = scopedInventory?.filter((row) => row.stock <= row.minStock).sort((a, b) => a.stock - b.stock) ?? null
 
   const revenueByDate = new Map(revenueRows.map((row) => [row.date, number(row.amount)]))
   const expensesByDate = new Map(expenseRows.map((row) => [row.date, number(row.amount)]))
@@ -246,17 +269,17 @@ export async function getDashboardOverview(organizationId: string, timeZone = 'A
       operatingPosition: monthRevenue - monthExpenses,
     },
     records: {
-      products: number(products[0]?.count),
+      products: scopedInventory ? scopedInventory.length : number(products[0]?.count),
       customers: number(customers[0]?.count),
       branches: number(branches[0]?.count),
-      lowStock: number(lowStock[0]?.count),
-      outOfStock: number(outOfStock[0]?.count),
-      inventoryCost: number(inventoryCost[0]?.value),
+      lowStock: scopedLowStock ? scopedLowStock.length : number(lowStock[0]?.count),
+      outOfStock: scopedInventory ? scopedInventory.filter((row) => row.stock <= 0).length : number(outOfStock[0]?.count),
+      inventoryCost: scopedInventory ? scopedInventory.reduce((sum, row) => sum + row.stock * row.buyingPrice, 0) : number(inventoryCost[0]?.value),
     },
     revenueSeries,
     paymentMix: paymentRows.map((row) => ({ method: row.method, amount: number(row.amount), transactions: number(row.transactions) })),
     recentSales: recentRows.map((row) => ({ ...row, total: number(row.total) })),
-    lowStockProducts: lowStockRows,
+    lowStockProducts: scopedLowStock ? scopedLowStock.slice(0, 6).map((row) => ({ id: row.id, name: row.name, sku: row.sku, stock: row.stock, minStock: row.minStock })) : lowStockRows,
     topProducts: topProductRows.map((row) => ({ name: row.name, quantity: number(row.quantity), revenue: number(row.revenue) })),
     liquorCompliance: {
       verifiedToday: number(complianceRows[0]?.verified),

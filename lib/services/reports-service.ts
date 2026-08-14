@@ -1,6 +1,6 @@
-import { and, desc, eq, gte, sql } from 'drizzle-orm'
+import { and, desc, eq, gte, inArray, sql } from 'drizzle-orm'
 import { db } from '@/lib/db'
-import { businessSettings, product, sale, saleItem } from '@/lib/db/schema'
+import { businessSettings, inventoryBalance, product, sale, saleItem } from '@/lib/db/schema'
 import { fiscalYearLabel, fiscalYearStart } from '@/lib/finance/fiscal-year'
 
 export interface ReportsOverview {
@@ -27,7 +27,7 @@ function numeric(value: unknown) {
  * Bounded, organization-scoped reporting data. The organization id is resolved
  * from the authenticated session by the calling server component.
  */
-export async function getReportsOverview(organizationId: string, timeZone = 'Africa/Nairobi'): Promise<ReportsOverview> {
+export async function getReportsOverview(organizationId: string, timeZone = 'Africa/Nairobi', branchIds?: readonly string[]): Promise<ReportsOverview> {
   let safeTimeZone = timeZone
   try {
     new Intl.DateTimeFormat('en', { timeZone: safeTimeZone }).format()
@@ -38,7 +38,8 @@ export async function getReportsOverview(organizationId: string, timeZone = 'Afr
   const [settings] = await db.select({ financialYearStart: businessSettings.financialYearStart })
     .from(businessSettings).where(eq(businessSettings.organizationId, organizationId)).limit(1)
   const from = fiscalYearStart(now, settings?.financialYearStart)
-  const completed = and(eq(sale.orgId, organizationId), eq(sale.status, 'completed'), gte(sale.createdAt, from))
+  const saleBranchScope = branchIds === undefined ? undefined : branchIds.length ? inArray(sale.branchId, [...branchIds]) : sql`false`
+  const completed = and(eq(sale.orgId, organizationId), saleBranchScope, eq(sale.status, 'completed'), gte(sale.createdAt, from))
   const localMonth = sql`date_trunc('month', ((${sale.createdAt} at time zone 'UTC') at time zone ${safeTimeZone}))`
 
   const [totalRows, monthlyRows, paymentRows, inventoryRows, topProductRows] = await Promise.all([
@@ -58,18 +59,27 @@ export async function getReportsOverview(organizationId: string, timeZone = 'Afr
       amount: sql<string>`coalesce(sum(${sale.total}), 0)`,
       transactions: sql<number>`count(*)`,
     }).from(sale).where(completed).groupBy(sale.paymentMethod).orderBy(desc(sql`sum(${sale.total})`)),
-    db.select({
-      cost: sql<string>`coalesce(sum(${product.buyingPrice} * ${product.stock}), 0)`,
-      retailValue: sql<string>`coalesce(sum(${product.sellingPrice} * ${product.stock}), 0)`,
-      products: sql<number>`count(*)`,
-    }).from(product).where(and(eq(product.orgId, organizationId), eq(product.isActive, true))),
+    branchIds === undefined
+      ? db.select({
+          cost: sql<string>`coalesce(sum(${product.buyingPrice} * ${product.stock}), 0)`,
+          retailValue: sql<string>`coalesce(sum(${product.sellingPrice} * ${product.stock}), 0)`,
+          products: sql<number>`count(*)`,
+        }).from(product).where(and(eq(product.orgId, organizationId), eq(product.isActive, true)))
+      : db.select({
+          cost: sql<string>`coalesce(sum(${product.buyingPrice} * (${inventoryBalance.onHand} - ${inventoryBalance.reserved} - ${inventoryBalance.unavailable})), 0)`,
+          retailValue: sql<string>`coalesce(sum(${product.sellingPrice} * (${inventoryBalance.onHand} - ${inventoryBalance.reserved} - ${inventoryBalance.unavailable})), 0)`,
+          products: sql<number>`count(distinct ${inventoryBalance.productId})`,
+        }).from(inventoryBalance).innerJoin(product, and(eq(product.id, inventoryBalance.productId), eq(product.orgId, organizationId), eq(product.isActive, true))).where(and(
+          eq(inventoryBalance.orgId, organizationId),
+          branchIds.length ? inArray(inventoryBalance.branchId, [...branchIds]) : sql`false`,
+        )),
     db.select({
       name: saleItem.productName,
       quantity: sql<number>`coalesce(sum(${saleItem.quantity}), 0)`,
       revenue: sql<string>`coalesce(sum(${saleItem.totalPrice}), 0)`,
     }).from(saleItem)
       .innerJoin(sale, and(eq(sale.id, saleItem.saleId), eq(sale.orgId, organizationId)))
-      .where(and(eq(saleItem.orgId, organizationId), eq(sale.status, 'completed'), gte(sale.createdAt, from)))
+      .where(and(eq(saleItem.orgId, organizationId), saleBranchScope, eq(sale.status, 'completed'), gte(sale.createdAt, from)))
       .groupBy(saleItem.productName)
       .orderBy(desc(sql`sum(${saleItem.totalPrice})`))
       .limit(8),

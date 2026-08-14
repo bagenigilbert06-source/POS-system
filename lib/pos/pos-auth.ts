@@ -31,7 +31,7 @@ export const getPosAuthorizationContext = cache(async (): Promise<(Authorization
     db.select({ status: employee.status }).from(employee).where(and(eq(employee.orgId, record.organizationId), eq(employee.userId, record.userId))).limit(1),
   ])
   if (account?.status !== 'active' || staff?.status !== 'active' || !membership || !assigned) return null
-  const role = normalizeRole(membership.role), permissions = role === RoleEnum.ADMIN ? ROLE_PERMISSIONS[RoleEnum.OWNER] : ROLE_PERMISSIONS[role]
+  const role = normalizeRole(membership.role), permissions = ROLE_PERMISSIONS[role]
   if (!permissions.includes(PermissionEnum.POS_PIN_USE)) return null
   return { userId: record.userId, organizationId: record.organizationId, role, permissions, branchIds: [record.branchId], isOrganizationWide: false, authMethod: 'pos_pin', branchId: record.branchId, terminalId: record.terminalId }
 })

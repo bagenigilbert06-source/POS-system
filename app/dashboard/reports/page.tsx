@@ -1,8 +1,6 @@
-import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
 import type { Metadata } from 'next'
 import { BarChart3, CalendarDays, Package, ReceiptText, Tags } from 'lucide-react'
-import { auth } from '@/lib/auth'
 import { OrganizationService } from '@/lib/services/organization-service'
 import { getReportsOverview } from '@/lib/services/reports-service'
 import { formatCurrency, formatNumber } from '@/lib/utils/format'
@@ -10,19 +8,17 @@ import { ReportsCharts } from '@/components/reports/reports-charts'
 import { DashboardPageHeading } from '@/components/dashboard/page-heading'
 import { requireWorkspaceModule } from '@/lib/onboarding/require-module'
 import { requireDashboardPermission } from '@/lib/auth/dashboard-access'
-import { PermissionEnum } from '@/lib/types/permissions'
+import { PermissionEnum, RoleEnum } from '@/lib/types/permissions'
 
 export const metadata: Metadata = { title: 'Reports' }
 
 export default async function ReportsPage() {
-  await requireDashboardPermission(PermissionEnum.REPORT_VIEW)
+  const authorization = await requireDashboardPermission(PermissionEnum.REPORT_VIEW)
   await requireWorkspaceModule('reports')
-  const session = await auth.api.getSession({ headers: await headers() })
-  if (!session?.user) redirect('/sign-in')
-  const organization = await OrganizationService.getPrimaryOrganization(session.user.id)
+  const organization = await OrganizationService.getOrganization(authorization.organizationId, authorization.userId)
   if (!organization) redirect('/onboarding')
 
-  const report = await getReportsOverview(organization.id, organization.timezone || 'Africa/Nairobi')
+  const report = await getReportsOverview(organization.id, organization.timezone || 'Africa/Nairobi', authorization.role === RoleEnum.MANAGER ? authorization.branchIds : undefined)
   const currency = organization.currency || 'KES'
 
   const metrics = [

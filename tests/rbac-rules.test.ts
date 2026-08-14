@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { PermissionEnum, ROLE_PERMISSIONS, RoleEnum } from '../lib/types/permissions'
+import { canAssignRole, canManageExistingRole, PermissionEnum, ROLE_PERMISSIONS, RoleEnum } from '../lib/types/permissions'
 
 const has = (role: RoleEnum, permission: PermissionEnum) => ROLE_PERMISSIONS[role].includes(permission)
 
@@ -18,6 +18,18 @@ assert.equal(has(RoleEnum.ACCOUNTANT, PermissionEnum.POS_SELL), false, 'accounta
 assert.equal(has(RoleEnum.MANAGER, PermissionEnum.STAFF_MANAGE), true, 'managers must be able to create and manage permitted staff roles')
 assert.equal(has(RoleEnum.MANAGER, PermissionEnum.INVENTORY_ADJUST), true, 'managers must be able to count, correct, and approve stock')
 assert.equal(has(RoleEnum.MANAGER, PermissionEnum.PURCHASE_MANAGE), true, 'managers must be able to receive replenishment stock')
+assert.equal(has(RoleEnum.MANAGER, PermissionEnum.SALE_REFUND), true, 'managers must handle returns and refunds')
+assert.equal(has(RoleEnum.MANAGER, PermissionEnum.FINANCE_VIEW), true, 'managers must see branch financial performance')
+assert.equal(has(RoleEnum.MANAGER, PermissionEnum.SETTINGS_VIEW), false, 'managers must not see organization configuration')
+assert.equal(has(RoleEnum.MANAGER, PermissionEnum.ADMIN_ACCESS), false, 'managers must not access administration')
+assert.equal(has(RoleEnum.ADMIN, PermissionEnum.SETTINGS_EDIT), true, 'admins must configure the organization')
+assert.equal(has(RoleEnum.ADMIN, PermissionEnum.OWNER_ACCESS), false, 'admins must not receive ownership-only controls')
 assert.equal(has(RoleEnum.OWNER, PermissionEnum.STAFF_MANAGE), true, 'owners must administer access')
+assert.equal(has(RoleEnum.OWNER, PermissionEnum.OWNER_ACCESS), true, 'owners retain ownership-only controls')
+assert.equal(canAssignRole(RoleEnum.MANAGER, RoleEnum.ADMIN), false, 'managers must never create administrators')
+assert.equal(canAssignRole(RoleEnum.MANAGER, RoleEnum.MANAGER), false, 'managers must never promote staff to manager')
+assert.equal(canAssignRole(RoleEnum.ADMIN, RoleEnum.MANAGER), true, 'admins must create branch managers')
+assert.equal(canManageExistingRole(RoleEnum.ADMIN, RoleEnum.ADMIN), false, 'only owners may alter an existing administrator')
+assert.equal(canManageExistingRole(RoleEnum.MANAGER, RoleEnum.CASHIER), true, 'managers must manage branch cashiers')
 
 console.log('RBAC rules unit test passed')

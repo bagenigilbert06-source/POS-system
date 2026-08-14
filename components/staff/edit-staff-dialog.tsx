@@ -18,9 +18,10 @@ interface EditStaffDialogProps {
   employee: Employee
   open: boolean
   onOpenChange: (open: boolean) => void
+  assignableRoles: string[]
 }
 
-export function EditStaffDialog({ employee, open, onOpenChange }: EditStaffDialogProps) {
+export function EditStaffDialog({ employee, open, onOpenChange, assignableRoles }: EditStaffDialogProps) {
   const [isLoading, setIsLoading] = useState(false)
   const [formData, setFormData] = useState({
     name: employee.name,
@@ -115,11 +116,12 @@ export function EditStaffDialog({ employee, open, onOpenChange }: EditStaffDialo
                 onChange={(e) => setFormData({ ...formData, role: e.target.value })}
                 className="w-full rounded-lg border px-3 py-2 text-sm"
               >
-                <option value="cashier">Cashier</option>
-                <option value="manager">Manager</option>
-                <option value="supervisor">Supervisor</option>
-                <option value="inventory">Inventory / Storekeeper</option>
-                <option value="accountant">Accountant / Finance</option>
+                {assignableRoles.includes('cashier') && <option value="cashier">Cashier</option>}
+                {assignableRoles.includes('manager') && <option value="manager">Manager</option>}
+                {assignableRoles.includes('supervisor') && <option value="supervisor">Supervisor</option>}
+                {assignableRoles.includes('inventory') && <option value="inventory">Inventory / Storekeeper</option>}
+                {assignableRoles.includes('accountant') && <option value="accountant">Accountant / Finance</option>}
+                {assignableRoles.includes('admin') && <option value="admin">Admin</option>}
               </select>
             </div>
             <div className="space-y-2">

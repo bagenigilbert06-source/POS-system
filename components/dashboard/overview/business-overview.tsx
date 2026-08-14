@@ -25,6 +25,7 @@ import { getBusinessExperience } from '@/lib/workspace/business-experience'
 import { DashboardInsightCharts } from './dashboard-insight-charts'
 import { POSOperationsDashboard } from './pos-operations-dashboard'
 import { TimeGreeting } from '../time-greeting'
+import { PermissionEnum, RoleEnum } from '@/lib/types/permissions'
 
 interface BusinessOverviewProps {
   organizationName: string
@@ -34,13 +35,15 @@ interface BusinessOverviewProps {
   overview: DashboardOverview
   workspaceConfig: WorkspaceConfig
   generatedAt: Date
+  role: RoleEnum
+  permissions: readonly PermissionEnum[]
 }
 
 function methodLabel(method: string) {
   return method.replace(/[_-]/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase())
 }
 
-export function BusinessOverview({ organizationName, userName, timeZone, currency, overview, workspaceConfig, generatedAt }: BusinessOverviewProps) {
+export function BusinessOverview({ organizationName, userName, timeZone, currency, overview, workspaceConfig, generatedAt, role, permissions }: BusinessOverviewProps) {
   const experience = getBusinessExperience(workspaceConfig.businessType, workspaceConfig.businessCategory)
   const hasProducts = workspaceConfig.enabledModules.includes('products')
   const hasInventory = workspaceConfig.enabledModules.includes('inventory')
@@ -48,11 +51,11 @@ export function BusinessOverview({ organizationName, userName, timeZone, currenc
   const saleHref = workspaceConfig.enabledModules.includes('pos') ? '/dashboard/pos' : '/dashboard/sales'
   const isNewWorkspace = overview.recentSales.length === 0
   const availableActions = [
-    ...(workspaceConfig.enabledModules.includes('pos') || workspaceConfig.enabledModules.includes('sales') ? [{ id: 'primary', label: experience.actionLabels.primary, href: saleHref, icon: ShoppingBag, primary: true, description: 'Record a new sale' }] : []),
-    ...(hasProducts ? [{ id: 'products', label: experience.actionLabels.products, href: '/dashboard/products', icon: Package, primary: false, description: 'Manage products' }] : []),
-    ...(hasInventory ? [{ id: 'inventory', label: experience.actionLabels.inventory, href: '/dashboard/inventory', icon: Boxes, primary: false, description: 'Check stock levels' }] : []),
-    ...(hasCustomers ? [{ id: 'customers', label: 'Customers', href: '/dashboard/customers', icon: UsersRound, primary: false, description: 'Manage customers' }] : []),
-    ...(workspaceConfig.enabledModules.includes('reports') ? [{ id: 'reports', label: 'Reports', href: '/dashboard/reports', icon: BarChart3, primary: false, description: 'View insights' }] : []),
+    ...((workspaceConfig.enabledModules.includes('pos') || workspaceConfig.enabledModules.includes('sales')) && permissions.includes(PermissionEnum.POS_VIEW) ? [{ id: 'primary', label: experience.actionLabels.primary, href: saleHref, icon: ShoppingBag, primary: true, description: 'Record a new sale' }] : []),
+    ...(hasProducts && permissions.includes(PermissionEnum.PRODUCT_VIEW) ? [{ id: 'products', label: experience.actionLabels.products, href: '/dashboard/products', icon: Package, primary: false, description: 'Manage products' }] : []),
+    ...(hasInventory && permissions.includes(PermissionEnum.INVENTORY_VIEW) ? [{ id: 'inventory', label: experience.actionLabels.inventory, href: '/dashboard/inventory', icon: Boxes, primary: false, description: 'Check stock levels' }] : []),
+    ...(hasCustomers && permissions.includes(PermissionEnum.CUSTOMER_VIEW) ? [{ id: 'customers', label: 'Customers', href: '/dashboard/customers', icon: UsersRound, primary: false, description: 'Manage customers' }] : []),
+    ...(workspaceConfig.enabledModules.includes('reports') && permissions.includes(PermissionEnum.REPORT_VIEW) ? [{ id: 'reports', label: 'Reports', href: '/dashboard/reports', icon: BarChart3, primary: false, description: 'View insights' }] : []),
   ]
   const transactionAverage = overview.today.transactions ? overview.today.revenue / overview.today.transactions : 0
   const commerceMetrics = experience.kind === 'retail' || experience.kind === 'hospitality'
@@ -83,9 +86,9 @@ export function BusinessOverview({ organizationName, userName, timeZone, currenc
             <span className="dashboard-live-status"><i /> Live overview</span>
             <span className="dashboard-updated">Updated {updatedAt}</span>
           </div>
-          <p className="text-[0.7rem] font-bold uppercase tracking-[0.14em] text-[#ffd60a]">{experience.label} · Operations</p>
+          <p className="text-[0.7rem] font-bold uppercase tracking-[0.14em] text-[#ffd60a]">{role === RoleEnum.MANAGER ? 'Manager · Branch operations' : role === RoleEnum.ADMIN ? 'Admin · Organization overview' : 'Owner · Organization overview'}</p>
           <h1 className="mt-2 text-2xl sm:text-3xl font-bold tracking-tight text-[#f5f5f7]"><TimeGreeting name={userName} timeZone={timeZone} /></h1>
-          <p className="mt-2 text-sm text-[#a1a1a6]">Today&apos;s operating overview for {organizationName}.</p>
+          <p className="mt-2 text-sm text-[#a1a1a6]">{role === RoleEnum.MANAGER ? `Today's performance and attention items for your assigned ${overview.records.branches === 1 ? 'branch' : 'branches'}.` : `Today's organization-wide overview for ${organizationName}.`}</p>
         </div>
         <div>
           <div className="flex flex-wrap gap-3">
@@ -168,7 +171,7 @@ export function BusinessOverview({ organizationName, userName, timeZone, currenc
           <div className={cn('grid border-t border-[rgba(255,214,10,0.08)] bg-[rgba(255,214,10,0.04)]', hasProducts && hasCustomers ? 'grid-cols-3' : hasProducts || hasCustomers ? 'grid-cols-2' : 'grid-cols-1')}>
             {hasProducts && <MiniRecord label="Products" value={formatNumber(overview.records.products)} href="/dashboard/products" />}
             {hasCustomers && <MiniRecord label="Customers" value={formatNumber(overview.records.customers)} href="/dashboard/customers" />}
-            <MiniRecord label="Locations" value={formatNumber(overview.records.branches)} href="/dashboard/settings" />
+            <MiniRecord label="Locations" value={formatNumber(overview.records.branches)} href={permissions.includes(PermissionEnum.SETTINGS_VIEW) ? '/dashboard/settings' : '/dashboard/operations'} />
           </div>
         </aside>
       </section>

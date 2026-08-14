@@ -48,7 +48,7 @@ const manualSaleSchema = z.object({
 export async function createManualSale(input: z.input<typeof manualSaleSchema>) {
   const data = manualSaleSchema.parse(input)
   const userId = await getUserId()
-  await requirePermission(PermissionEnum.SALE_CREATE)
+  const authorization = await requirePermission(PermissionEnum.SALE_CREATE)
   const orgId = await getOrgId(userId, 'sales')
   const [settings] = await db.select({
     paymentMethods: businessSettings.paymentMethods,
@@ -64,10 +64,12 @@ export async function createManualSale(input: z.input<typeof manualSaleSchema>) 
   const total = settings?.pricesIncludeTax ? data.amount : data.amount + taxAmount
   const saleId = generateId()
   const receiptNo = generateReceiptNo()
+  const branchId = authorization.isOrganizationWide ? null : authorization.branchIds[0]
+  if (!authorization.isOrganizationWide && !branchId) throw new Error('No assigned branch is available')
   await db.transaction(async (tx) => {
     await tx.insert(sale).values({
       id: saleId, receiptNo, subtotal: String(data.amount), taxAmount: String(taxAmount), discountAmount: '0', total: String(total),
-      paymentMethod: data.paymentMethod, status: 'completed', userId, orgId,
+      paymentMethod: data.paymentMethod, status: 'completed', userId, orgId, branchId,
     })
     await tx.insert(saleItem).values({
       id: generateId(), saleId, productId: `manual-${saleId}`, productName: data.description, quantity: 1,
@@ -326,10 +328,14 @@ export async function getSales(limit = 50) {
   const userId = await getUserId()
   const authorization = await requireAnyPermission([PermissionEnum.SALES_VIEW_OWN, PermissionEnum.SALES_VIEW_ALL, PermissionEnum.SALE_VIEW])
   const orgId = await getOrgId(userId)
+  const canViewAll = authorization.permissions.includes(PermissionEnum.SALES_VIEW_ALL)
+  const accessScope = canViewAll
+    ? authorization.isOrganizationWide ? undefined : authorization.branchIds.length ? inArray(sale.branchId, authorization.branchIds) : sql`false`
+    : eq(sale.userId, userId)
   const query = db
     .select()
     .from(sale)
-    .where(and(eq(sale.orgId, orgId), authorization.permissions.includes(PermissionEnum.SALES_VIEW_ALL) ? undefined : eq(sale.userId, userId)))
+    .where(and(eq(sale.orgId, orgId), accessScope))
     .orderBy(desc(sale.createdAt))
     .limit(limit)
   return query
@@ -339,10 +345,14 @@ export async function getSaleWithItems(saleId: string) {
   const userId = await getUserId()
   const authorization = await requireAnyPermission([PermissionEnum.SALES_VIEW_OWN, PermissionEnum.SALES_VIEW_ALL, PermissionEnum.SALE_VIEW])
   const orgId = await getOrgId(userId)
+  const canViewAll = authorization.permissions.includes(PermissionEnum.SALES_VIEW_ALL)
+  const accessScope = canViewAll
+    ? authorization.isOrganizationWide ? undefined : authorization.branchIds.length ? inArray(sale.branchId, authorization.branchIds) : sql`false`
+    : eq(sale.userId, userId)
   const [saleRecord] = await db
     .select()
     .from(sale)
-    .where(and(eq(sale.id, saleId), eq(sale.orgId, orgId), authorization.permissions.includes(PermissionEnum.SALES_VIEW_ALL) ? undefined : eq(sale.userId, userId)))
+    .where(and(eq(sale.id, saleId), eq(sale.orgId, orgId), accessScope))
     .limit(1)
   if (!saleRecord) return null
   const items = await db
@@ -354,8 +364,9 @@ export async function getSaleWithItems(saleId: string) {
 
 export async function getDashboardStats() {
   const userId = await getUserId()
-  await requireAnyPermission([PermissionEnum.SALES_VIEW_ALL, PermissionEnum.REPORT_VIEW])
+  const authorization = await requireAnyPermission([PermissionEnum.SALES_VIEW_ALL, PermissionEnum.REPORT_VIEW])
   const orgId = await getOrgId(userId)
+  const saleScope = authorization.isOrganizationWide ? undefined : authorization.branchIds.length ? inArray(sale.branchId, authorization.branchIds) : sql`false`
 
   const today = new Date()
   today.setHours(0, 0, 0, 0)
@@ -364,12 +375,12 @@ export async function getDashboardStats() {
   const [todaySales] = await db
     .select({ total: sql<string>`COALESCE(SUM(${sale.total}), 0)`, count: sql<number>`COUNT(*)` })
     .from(sale)
-    .where(and(eq(sale.orgId, orgId), gte(sale.createdAt, today)))
+    .where(and(eq(sale.orgId, orgId), saleScope, gte(sale.createdAt, today)))
 
   const [monthSales] = await db
     .select({ total: sql<string>`COALESCE(SUM(${sale.total}), 0)`, count: sql<number>`COUNT(*)` })
     .from(sale)
-    .where(and(eq(sale.orgId, orgId), gte(sale.createdAt, monthStart)))
+    .where(and(eq(sale.orgId, orgId), saleScope, gte(sale.createdAt, monthStart)))
 
   const [productCount] = await db
     .select({ count: sql<number>`COUNT(*)` })
@@ -391,14 +402,14 @@ export async function getDashboardStats() {
       revenue: sql<string>`COALESCE(SUM(${sale.total}), 0)`,
     })
     .from(sale)
-    .where(and(eq(sale.orgId, orgId), gte(sale.createdAt, sevenDaysAgo)))
+    .where(and(eq(sale.orgId, orgId), saleScope, gte(sale.createdAt, sevenDaysAgo)))
     .groupBy(sql`DATE(${sale.createdAt})`)
     .orderBy(sql`DATE(${sale.createdAt})`)
 
   const recentSales = await db
     .select()
     .from(sale)
-    .where(eq(sale.orgId, orgId))
+    .where(and(eq(sale.orgId, orgId), saleScope))
     .orderBy(desc(sale.createdAt))
     .limit(5)
 

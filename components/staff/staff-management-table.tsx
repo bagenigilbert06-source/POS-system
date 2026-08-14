@@ -9,13 +9,15 @@ import { deleteEmployee, resendStaffInvitation } from '@/app/actions/staff-actio
 import { resetStaffPosPin } from '@/app/actions/pos-pin'
 import { EditStaffDialog } from './edit-staff-dialog'
 import type { Employee } from '@/lib/db/schema'
+import { canManageExistingRole, RoleEnum } from '@/lib/types/permissions'
 
 interface StaffManagementTableProps {
   employees: Array<Employee & { posPinSet?: boolean }>
-  orgId: string
+  actorRole: RoleEnum
+  assignableRoles: string[]
 }
 
-export function StaffManagementTable({ employees, orgId }: StaffManagementTableProps) {
+export function StaffManagementTable({ employees, actorRole, assignableRoles }: StaffManagementTableProps) {
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null)
   const [showEditDialog, setShowEditDialog] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
@@ -71,7 +73,9 @@ export function StaffManagementTable({ employees, orgId }: StaffManagementTableP
             </tr>
           </thead>
           <tbody>
-            {employees.map((emp) => (
+            {employees.map((emp) => {
+              const canManage = canManageExistingRole(actorRole, emp.role as RoleEnum)
+              return (
               <tr key={emp.id} className="border-b border-muted/50 hover:bg-muted/50 transition-colors">
                 <td className="px-4 py-3 font-medium">{emp.name}</td>
                 <td className="px-4 py-3 capitalize">{emp.role}</td>
@@ -92,10 +96,11 @@ export function StaffManagementTable({ employees, orgId }: StaffManagementTableP
                     )}
                   </div>
                 </td>
-                <td className="px-4 py-3"><span className="text-xs font-medium">{emp.posPinSet ? 'Set' : 'Not set'}</span>{emp.posPinSet&&<button onClick={()=>handlePinReset(emp.id)} className="ml-2 text-xs text-destructive underline">Reset</button>}</td>
+                <td className="px-4 py-3"><span className="text-xs font-medium">{emp.posPinSet ? 'Set' : 'Not set'}</span>{canManage && emp.posPinSet&&<button onClick={()=>handlePinReset(emp.id)} className="ml-2 text-xs text-destructive underline">Reset</button>}</td>
                 <td className="px-4 py-3 text-right">
                   <div className="flex justify-end gap-2">
-                    {emp.status === 'invited' && <Button size="sm" variant="ghost" disabled={resendingEmployeeId === emp.id} onClick={() => handleResend(emp.id)} title="Resend invitation" className="h-8 px-2"><Mail className="mr-1 h-4 w-4" />{resendingEmployeeId === emp.id ? 'Sending…' : 'Resend'}</Button>}
+                    {canManage && emp.status === 'invited' && <Button size="sm" variant="ghost" disabled={resendingEmployeeId === emp.id} onClick={() => handleResend(emp.id)} title="Resend invitation" className="h-8 px-2"><Mail className="mr-1 h-4 w-4" />{resendingEmployeeId === emp.id ? 'Sending…' : 'Resend'}</Button>}
+                    {canManage && <>
                     <Button
                       size="sm"
                       variant="ghost"
@@ -116,10 +121,11 @@ export function StaffManagementTable({ employees, orgId }: StaffManagementTableP
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>
+                    </>}
                   </div>
                 </td>
               </tr>
-            ))}
+            )})}
           </tbody>
         </table>
       </div>
@@ -129,6 +135,7 @@ export function StaffManagementTable({ employees, orgId }: StaffManagementTableP
           employee={selectedEmployee}
           open={showEditDialog}
           onOpenChange={setShowEditDialog}
+          assignableRoles={assignableRoles}
         />
       )}
     </>

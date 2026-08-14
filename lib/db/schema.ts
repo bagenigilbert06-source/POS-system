@@ -487,6 +487,7 @@ export const expense = pgTable('expense', {
   notes: text('notes'),
   userId: text('userId').notNull(),
   orgId: text('orgId').notNull(),
+  branchId: text('branchId').references(() => branch.id, { onDelete: 'restrict' }),
   createdAt: timestamp('createdAt').notNull().defaultNow(),
 });
 
@@ -888,6 +889,7 @@ export const inventoryLoss = pgTable(
     reason: text('reason').notNull(),
     userId: text('userId').notNull(),
     orgId: text('orgId').notNull(),
+    branchId: text('branchId').references(() => branch.id, { onDelete: 'restrict' }),
     createdAt: timestamp('createdAt').notNull().defaultNow(),
   },
   (table) => ({
@@ -911,6 +913,7 @@ export const posSession = pgTable(
     openedBy: text('openedBy').notNull(),
     closedBy: text('closedBy'),
     orgId: text('orgId').notNull(),
+    branchId: text('branchId').references(() => branch.id, { onDelete: 'restrict' }),
     openedAt: timestamp('openedAt').notNull().defaultNow(),
     closedAt: timestamp('closedAt'),
   },

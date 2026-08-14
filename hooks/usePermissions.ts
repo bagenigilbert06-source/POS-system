@@ -70,8 +70,10 @@ export function usePermissions() {
   }, [role]);
 
   const isManager = useCallback((): boolean => {
-    return role === 'owner' || role === 'manager';
+    return role === 'manager';
   }, [role]);
+
+  const isAdmin = useCallback((): boolean => role === 'admin', [role]);
 
   return {
     permissions,
@@ -83,5 +85,6 @@ export function usePermissions() {
     hasAllPermissions,
     isOwner,
     isManager,
+    isAdmin,
   };
 }

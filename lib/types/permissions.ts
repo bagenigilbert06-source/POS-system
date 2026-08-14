@@ -67,6 +67,7 @@ export enum PermissionEnum {
 
   // Admin
   ADMIN_ACCESS = 'admin:access',
+  OWNER_ACCESS = 'owner:access',
   AUDIT_LOG_VIEW = 'audit:log-view',
   STAFF_VIEW = 'staff:view',
   STAFF_MANAGE = 'staff:manage',
@@ -130,6 +131,7 @@ export const ROLE_PERMISSIONS: Record<RoleEnum, PermissionEnum[]> = {
     PermissionEnum.SETTINGS_EDIT,
     PermissionEnum.SETTINGS_MANAGE_USERS,
     PermissionEnum.ADMIN_ACCESS,
+    PermissionEnum.OWNER_ACCESS,
     PermissionEnum.AUDIT_LOG_VIEW,
     PermissionEnum.TABLE_VIEW,
     PermissionEnum.TABLE_EDIT,
@@ -145,7 +147,25 @@ export const ROLE_PERMISSIONS: Record<RoleEnum, PermissionEnum[]> = {
     PermissionEnum.PURCHASE_VIEW, PermissionEnum.PURCHASE_MANAGE, PermissionEnum.FINANCE_VIEW, PermissionEnum.FINANCE_MANAGE,
     PermissionEnum.EXPENSE_VIEW, PermissionEnum.EXPENSE_MANAGE, PermissionEnum.STAFF_VIEW, PermissionEnum.STAFF_MANAGE,
   ],
-  [RoleEnum.ADMIN]: [],
+  [RoleEnum.ADMIN]: [
+    // Organization administration, excluding ownership-only controls.
+    PermissionEnum.PRODUCT_VIEW, PermissionEnum.PRODUCT_CREATE, PermissionEnum.PRODUCT_EDIT, PermissionEnum.PRODUCT_DELETE, PermissionEnum.PRODUCT_EXPORT,
+    PermissionEnum.SALE_VIEW, PermissionEnum.SALE_CREATE, PermissionEnum.SALE_EDIT, PermissionEnum.SALE_DELETE, PermissionEnum.SALE_REFUND,
+    PermissionEnum.ORDER_VIEW, PermissionEnum.ORDER_CREATE, PermissionEnum.ORDER_EDIT, PermissionEnum.ORDER_DELETE,
+    PermissionEnum.INVENTORY_VIEW, PermissionEnum.INVENTORY_EDIT, PermissionEnum.INVENTORY_TRANSFER, PermissionEnum.INVENTORY_ADJUST,
+    PermissionEnum.PURCHASE_VIEW, PermissionEnum.PURCHASE_MANAGE,
+    PermissionEnum.CUSTOMER_VIEW, PermissionEnum.CUSTOMER_CREATE, PermissionEnum.CUSTOMER_EDIT, PermissionEnum.CUSTOMER_DELETE,
+    PermissionEnum.REPORT_VIEW, PermissionEnum.REPORT_GENERATE, PermissionEnum.REPORT_EXPORT,
+    PermissionEnum.FINANCE_VIEW, PermissionEnum.FINANCE_MANAGE, PermissionEnum.EXPENSE_VIEW, PermissionEnum.EXPENSE_MANAGE,
+    PermissionEnum.SETTINGS_VIEW, PermissionEnum.SETTINGS_EDIT, PermissionEnum.SETTINGS_MANAGE_USERS,
+    PermissionEnum.ADMIN_ACCESS, PermissionEnum.AUDIT_LOG_VIEW, PermissionEnum.STAFF_VIEW, PermissionEnum.STAFF_MANAGE,
+    PermissionEnum.POS_VIEW, PermissionEnum.POS_SELL, PermissionEnum.POS_HOLD, PermissionEnum.POS_DISCOUNT, PermissionEnum.POS_VOID,
+    PermissionEnum.POS_PIN_USE, PermissionEnum.POS_PIN_RESET, PermissionEnum.POS_LOCK, PermissionEnum.POS_SWITCH_USER,
+    PermissionEnum.SHIFT_OPEN, PermissionEnum.SHIFT_CLOSE, PermissionEnum.SHIFT_MANAGE,
+    PermissionEnum.SALES_VIEW_OWN, PermissionEnum.SALES_VIEW_ALL,
+    PermissionEnum.TABLE_VIEW, PermissionEnum.TABLE_EDIT, PermissionEnum.KITCHEN_QUEUE_VIEW, PermissionEnum.KITCHEN_QUEUE_MANAGE,
+    PermissionEnum.PRESCRIPTION_VIEW, PermissionEnum.PRESCRIPTION_CREATE, PermissionEnum.PRESCRIPTION_DISPENSE, PermissionEnum.BATCH_TRACKING_VIEW,
+  ],
   [RoleEnum.MANAGER]: [
     PermissionEnum.PRODUCT_VIEW,
     PermissionEnum.PRODUCT_CREATE,
@@ -154,6 +174,7 @@ export const ROLE_PERMISSIONS: Record<RoleEnum, PermissionEnum[]> = {
     PermissionEnum.SALE_VIEW,
     PermissionEnum.SALE_CREATE,
     PermissionEnum.SALE_EDIT,
+    PermissionEnum.SALE_REFUND,
     PermissionEnum.ORDER_VIEW,
     PermissionEnum.ORDER_CREATE,
     PermissionEnum.ORDER_EDIT,
@@ -167,7 +188,8 @@ export const ROLE_PERMISSIONS: Record<RoleEnum, PermissionEnum[]> = {
     PermissionEnum.REPORT_VIEW,
     PermissionEnum.REPORT_GENERATE,
     PermissionEnum.REPORT_EXPORT,
-    PermissionEnum.SETTINGS_VIEW,
+    PermissionEnum.FINANCE_VIEW,
+    PermissionEnum.AUDIT_LOG_VIEW,
     PermissionEnum.TABLE_VIEW,
     PermissionEnum.KITCHEN_QUEUE_VIEW,
     PermissionEnum.KITCHEN_QUEUE_MANAGE,
@@ -240,6 +262,27 @@ export const ROLE_PERMISSIONS: Record<RoleEnum, PermissionEnum[]> = {
     PermissionEnum.CUSTOMER_VIEW,
   ],
 };
+
+/** Roles an actor may assign when creating or promoting a staff member. */
+export const ASSIGNABLE_ROLES: Readonly<Record<RoleEnum, readonly RoleEnum[]>> = {
+  [RoleEnum.OWNER]: [RoleEnum.ADMIN, RoleEnum.MANAGER, RoleEnum.SUPERVISOR, RoleEnum.CASHIER, RoleEnum.INVENTORY, RoleEnum.ACCOUNTANT],
+  [RoleEnum.ADMIN]: [RoleEnum.ADMIN, RoleEnum.MANAGER, RoleEnum.SUPERVISOR, RoleEnum.CASHIER, RoleEnum.INVENTORY, RoleEnum.ACCOUNTANT],
+  [RoleEnum.MANAGER]: [RoleEnum.SUPERVISOR, RoleEnum.CASHIER, RoleEnum.INVENTORY, RoleEnum.ACCOUNTANT],
+  [RoleEnum.SUPERVISOR]: [], [RoleEnum.CASHIER]: [], [RoleEnum.INVENTORY]: [], [RoleEnum.ACCOUNTANT]: [],
+  [RoleEnum.STAFF]: [], [RoleEnum.CHEF]: [], [RoleEnum.PHARMACIST]: [], [RoleEnum.PHARMACY_STAFF]: [],
+}
+
+export function canAssignRole(actor: RoleEnum, role: RoleEnum) {
+  return ASSIGNABLE_ROLES[actor].includes(role)
+}
+
+/** Existing admins are owner-controlled; managers may only manage branch staff below them. */
+export function canManageExistingRole(actor: RoleEnum, target: RoleEnum) {
+  if (actor === RoleEnum.OWNER) return target !== RoleEnum.OWNER
+  if (actor === RoleEnum.ADMIN) return target !== RoleEnum.OWNER && target !== RoleEnum.ADMIN
+  if (actor === RoleEnum.MANAGER) return ASSIGNABLE_ROLES[RoleEnum.MANAGER].includes(target)
+  return false
+}
 
 export interface UserRole {
   userId: string;

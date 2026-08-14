@@ -6,7 +6,7 @@ import { auth } from '@/lib/auth'
 import { db } from '@/lib/db'
 import { auditEvent, branch, branchMembership, employee, organizationMembership, posAuthSession, posPinCredential, posTerminal, user } from '@/lib/db/schema'
 import { getAuthorizationContext, requirePermission } from '@/lib/auth/authorization'
-import { PermissionEnum, ROLE_PERMISSIONS } from '@/lib/types/permissions'
+import { canManageExistingRole, PermissionEnum, ROLE_PERMISSIONS, RoleEnum } from '@/lib/types/permissions'
 import { generateId } from '@/lib/utils'
 import { POS_PIN_LOCK_MINUTES, POS_PIN_MAX_ATTEMPTS, validatePosPin } from '@/lib/pos/pin-policy'
 import { getTerminal, newToken, POS_AUTH_COOKIE, POS_TERMINAL_COOKIE, posCookieOptions, tokenHash } from '@/lib/pos/pos-auth'
@@ -29,6 +29,11 @@ export async function resetStaffPosPin(employeeId: string) {
   const context = await requirePermission(PermissionEnum.POS_PIN_RESET)
   const [record] = await db.select().from(employee).where(and(eq(employee.id, employeeId), eq(employee.orgId, context.organizationId))).limit(1)
   if (!record?.userId) throw new Error('Employee account not found')
+  if (record.userId === context.userId || !canManageExistingRole(context.role, record.role as RoleEnum)) throw new Error('You cannot reset this staff member’s PIN')
+  if (!context.isOrganizationWide) {
+    const assignments = await db.select({ branchId: branchMembership.branchId }).from(branchMembership).where(eq(branchMembership.userId, record.userId))
+    if (!assignments.length || assignments.some(({ branchId }) => !context.branchIds.includes(branchId))) throw new Error('This staff member is outside your assigned branches')
+  }
   await db.delete(posPinCredential).where(eq(posPinCredential.userId, record.userId))
   await db.update(posAuthSession).set({ status: 'revoked' }).where(and(eq(posAuthSession.userId, record.userId), eq(posAuthSession.organizationId, context.organizationId)))
   await db.insert(auditEvent).values({ id: generateId(), organizationId: context.organizationId, userId: context.userId, action: 'pos.pin.reset_requested', metadata: { employeeId } })

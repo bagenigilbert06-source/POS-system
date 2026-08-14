@@ -1,13 +1,10 @@
 'use server'
 
-import { headers } from 'next/headers'
 import { revalidatePath } from 'next/cache'
-import { and, desc, eq } from 'drizzle-orm'
+import { and, desc, eq, inArray, sql } from 'drizzle-orm'
 import { z } from 'zod'
-import { auth } from '@/lib/auth'
 import { db } from '@/lib/db'
 import { expense } from '@/lib/db/schema'
-import { OrganizationService } from '@/lib/services/organization-service'
 import { generateId } from '@/lib/utils'
 import { requirePermission } from '@/lib/auth/authorization'
 import { PermissionEnum } from '@/lib/types/permissions'
@@ -19,27 +16,27 @@ const expenseSchema = z.object({
   notes: z.string().trim().max(500).optional(),
 })
 
-async function context() {
-  const session = await auth.api.getSession({ headers: await headers() })
-  if (!session?.user) throw new Error('Unauthorized')
-  const organization = await OrganizationService.getPrimaryOrganization(session.user.id)
-  if (!organization) throw new Error('No organization available')
-  return { userId: session.user.id, orgId: organization.id }
+async function context(permission = PermissionEnum.EXPENSE_VIEW) {
+  const authorization = await requirePermission(permission)
+  return { userId: authorization.userId, orgId: authorization.organizationId, authorization }
 }
 
 export async function getExpenses() {
-  await requirePermission(PermissionEnum.EXPENSE_VIEW)
-  const { orgId } = await context()
-  return db.select().from(expense).where(eq(expense.orgId, orgId)).orderBy(desc(expense.createdAt)).limit(250)
+  const { orgId, authorization } = await context()
+  return db.select().from(expense).where(and(
+    eq(expense.orgId, orgId),
+    authorization.isOrganizationWide ? undefined : authorization.branchIds.length ? inArray(expense.branchId, authorization.branchIds) : sql`false`,
+  )).orderBy(desc(expense.createdAt)).limit(250)
 }
 
 export async function createExpense(input: z.input<typeof expenseSchema>) {
-  await requirePermission(PermissionEnum.EXPENSE_MANAGE)
   const data = expenseSchema.parse(input)
-  const { userId, orgId } = await context()
+  const { userId, orgId, authorization } = await context(PermissionEnum.EXPENSE_MANAGE)
+  const branchId = authorization.isOrganizationWide ? null : authorization.branchIds[0]
+  if (!authorization.isOrganizationWide && !branchId) throw new Error('No assigned branch is available')
   await db.insert(expense).values({
     id: generateId(), userId, orgId, title: data.title, amount: String(data.amount),
-    category: data.category, notes: data.notes || null,
+    category: data.category, notes: data.notes || null, branchId,
   })
   revalidatePath('/dashboard')
   revalidatePath('/dashboard/expenses')
@@ -47,10 +44,12 @@ export async function createExpense(input: z.input<typeof expenseSchema>) {
 }
 
 export async function deleteExpense(id: string) {
-  await requirePermission(PermissionEnum.EXPENSE_MANAGE)
   if (!z.string().min(1).safeParse(id).success) throw new Error('Invalid expense')
-  const { orgId } = await context()
-  await db.delete(expense).where(and(eq(expense.id, id), eq(expense.orgId, orgId)))
+  const { orgId, authorization } = await context(PermissionEnum.EXPENSE_MANAGE)
+  await db.delete(expense).where(and(
+    eq(expense.id, id), eq(expense.orgId, orgId),
+    authorization.isOrganizationWide ? undefined : authorization.branchIds.length ? inArray(expense.branchId, authorization.branchIds) : sql`false`,
+  ))
   revalidatePath('/dashboard')
   revalidatePath('/dashboard/expenses')
   revalidatePath('/dashboard/reports')
