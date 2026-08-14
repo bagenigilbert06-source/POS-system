@@ -7,10 +7,10 @@ import {
   Building2,
   ChevronRight,
   CreditCard,
+  MonitorSmartphone,
   FileClock,
   KeyRound,
   Landmark,
-  LayoutDashboard,
   Settings,
   ShieldCheck,
   UsersRound,
@@ -30,22 +30,11 @@ const sections: ReadonlyArray<{
   items: readonly AdminNavItem[];
 }> = [
   {
-    label: 'Overview',
-    items: [
-      {
-        label: 'Control center',
-        href: '/dashboard/admin',
-        icon: LayoutDashboard,
-        exact: true,
-      },
-    ],
-  },
-  {
     label: 'Business setup',
     items: [
       {
         label: 'Business profile',
-        href: '/dashboard/settings',
+        href: '/dashboard/admin/profile',
         icon: Settings,
       },
       {
@@ -53,12 +42,22 @@ const sections: ReadonlyArray<{
         href: '/dashboard/admin/branches',
         icon: Building2,
       },
+      {
+        label: 'Payment methods',
+        href: '/dashboard/admin/payment-methods',
+        icon: CreditCard,
+      },
+      {
+        label: 'POS devices',
+        href: '/dashboard/admin/devices',
+        icon: MonitorSmartphone,
+      },
     ],
   },
   {
     label: 'People & access',
     items: [
-      { label: 'Staff accounts', href: '/dashboard/staff', icon: UsersRound },
+      { label: 'Staff accounts', href: '/dashboard/admin/staff', icon: UsersRound },
       {
         label: 'Roles & permissions',
         href: '/dashboard/admin/roles',
@@ -71,12 +70,12 @@ const sections: ReadonlyArray<{
     items: [
       {
         label: 'M-Pesa reconciliation',
-        href: '/dashboard/pos/mpesa-reconciliation',
+        href: '/dashboard/admin/mpesa',
         icon: Landmark,
       },
       {
         label: 'Registers & shifts',
-        href: '/dashboard/operations',
+        href: '/dashboard/admin/operations',
         icon: CreditCard,
       },
     ],
@@ -164,30 +163,14 @@ export function AdminControlShell({
     <div className="-mx-4 -my-4 min-h-[calc(100vh-4rem)] bg-[var(--dashboard-canvas)] sm:-mx-6 sm:-my-5 lg:-mx-7 lg:-my-5">
       <div className="flex min-h-[calc(100vh-4rem)] min-w-0 flex-col lg:flex-row">
         <aside className="hidden w-64 shrink-0 border-r border-[var(--dashboard-border)] bg-[var(--dashboard-surface)] lg:block">
-          <div className="sticky top-0 max-h-[calc(100vh-4rem)] overflow-y-auto py-5">
-            <div className="border-b border-[var(--dashboard-border)] px-5 pb-5">
-              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-foreground text-background">
-                <ShieldCheck className="h-5 w-5" />
-              </span>
-              <h1 className="mt-3 text-base font-bold">Admin control</h1>
-              <p className="mt-1 truncate text-xs text-muted-foreground">
-                {organizationName}
-              </p>
+          <div className="sticky top-0 max-h-[calc(100vh-4rem)] overflow-y-auto py-3">
+            <div className="border-b border-[var(--dashboard-border)] px-4 pb-3 pt-1">
+              <p className="text-xs font-semibold text-foreground">Admin settings</p>
+              <p className="mt-0.5 truncate text-[11px] text-muted-foreground">{organizationName}</p>
             </div>
-            <nav className="py-3" aria-label="Admin control navigation">
-              {sections.map((section) => (
-                <div key={section.label} className="py-2">
-                  <p className="px-5 pb-1.5 text-[10px] font-bold uppercase tracking-[0.13em] text-muted-foreground">
-                    {section.label}
-                  </p>
-                  {section.items.map((item) => (
-                    <AdminLink
-                      key={item.href}
-                      item={item}
-                      pathname={pathname}
-                    />
-                  ))}
-                </div>
+            <nav className="py-2" aria-label="Admin control navigation">
+              {items.map((item) => (
+                <AdminLink key={item.href} item={item} pathname={pathname} />
               ))}
             </nav>
           </div>

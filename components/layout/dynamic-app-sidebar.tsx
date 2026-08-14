@@ -29,6 +29,8 @@ export function DynamicAppSidebar({ initialPermissions: permissions, initialRole
   const router = useRouter()
   const [collapsed, setCollapsed] = useState(false)
   const { config } = useWorkspace()
+  const adminMode = pathname === '/dashboard/admin' || pathname.startsWith('/dashboard/admin/')
+  const sidebarCollapsed = adminMode || collapsed
 
   useEffect(() => {
     setCollapsed(window.localStorage.getItem('pesaby-sidebar-collapsed') === 'true')
@@ -122,7 +124,7 @@ export function DynamicAppSidebar({ initialPermissions: permissions, initialRole
   const secondaryNav = config.sidebarConfig.secondaryNav.filter((item) => canView(item.id))
   const visiblePrimaryNav = role === 'cashier' ? cashierPrimaryNav : role === 'supervisor' ? supervisorPrimaryNav : primaryNav
   const visibleSecondaryNav = role === 'cashier' || role === 'supervisor' ? [] : secondaryNav
-  const sidebarWidth = collapsed ? 'lg:w-[68px]' : 'lg:w-[223px]'
+  const sidebarWidth = sidebarCollapsed ? 'lg:w-[68px]' : 'lg:w-[223px]'
 
   const sidebar = (
     <aside
@@ -130,17 +132,18 @@ export function DynamicAppSidebar({ initialPermissions: permissions, initialRole
         'dashboard-sidebar flex h-full flex-col border-r',
         'transition-all duration-200 ease-in-out',
         'w-[223px] max-w-[85vw]',
-        sidebarWidth
+        sidebarWidth,
+        adminMode && 'dashboard-admin-rail'
       )}
     >
       {/* Logo */}
       <div
         className={cn(
           'flex h-16 items-center border-b border-[rgba(255,214,10,0.08)] px-4 gap-3',
-          collapsed ? 'justify-center' : 'justify-between'
+          sidebarCollapsed ? 'justify-center' : 'justify-between'
         )}
       >
-        {!collapsed && (
+        {!sidebarCollapsed && (
           <div className="flex items-center gap-3 flex-1">
             <PesabyLogoMark className="h-8 w-8 flex-shrink-0" />
             <div>
@@ -149,14 +152,15 @@ export function DynamicAppSidebar({ initialPermissions: permissions, initialRole
             </div>
           </div>
         )}
-        {collapsed && (
+        {sidebarCollapsed && (
           <PesabyLogoMark className="h-8 w-8" />
         )}
         <button
           onClick={() => setSidebarCollapsed(!collapsed)}
           className={cn(
             'hidden rounded-lg p-1.5 text-[#a1a1a6] hover:bg-[rgba(255,255,255,0.08)] hover:text-[#f5f5f7] transition-all lg:inline-flex',
-            collapsed && 'lg:hidden'
+            sidebarCollapsed && 'lg:hidden',
+            adminMode && 'lg:hidden'
           )}
           aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
         >
@@ -172,7 +176,7 @@ export function DynamicAppSidebar({ initialPermissions: permissions, initialRole
       </div>
 
       {/* Expand button when collapsed */}
-      {collapsed && (
+      {sidebarCollapsed && !adminMode && (
         <button
           onClick={() => setSidebarCollapsed(false)}
           className="mx-auto mt-4 hidden rounded-lg p-1.5 text-[#a1a1a6] hover:bg-[rgba(255,255,255,0.08)] hover:text-[#f5f5f7] transition-all lg:inline-flex"
@@ -184,7 +188,7 @@ export function DynamicAppSidebar({ initialPermissions: permissions, initialRole
 
       {/* Main nav */}
       <nav className="flex-1 overflow-y-auto py-6 px-3">
-        {!collapsed && (
+        {!sidebarCollapsed && (
           <p className="section-label mb-4 px-3 text-[#a1a1a6] text-xs font-semibold uppercase tracking-wider">Workspace</p>
         )}
         <ul className="space-y-1.5">
@@ -203,17 +207,17 @@ export function DynamicAppSidebar({ initialPermissions: permissions, initialRole
                   onMouseEnter={() => router.prefetch(item.route!)}
                   onFocus={() => router.prefetch(item.route!)}
                   onClick={onMobileClose}
-                  title={collapsed ? item.label : undefined}
+                  title={sidebarCollapsed ? item.label : undefined}
                   className={cn(
                     'sidebar-item rounded-lg transition-all',
-                    collapsed ? 'lg:justify-center lg:px-3 lg:py-2.5' : 'px-3 py-2.5',
+                    sidebarCollapsed ? 'lg:justify-center lg:px-3 lg:py-2.5' : 'px-3 py-2.5',
                     active 
                       ? 'bg-[rgba(255,214,10,0.1)] text-[#ffd60a] border border-[rgba(255,214,10,0.2)]' 
                       : 'text-[#a1a1a6] hover:bg-[rgba(255,255,255,0.05)] hover:text-[#f5f5f7]'
                   )}
                 >
                   <IconComponent className="h-5 w-5 flex-shrink-0" />
-                  <span className={cn('text-sm font-medium', collapsed && 'lg:hidden')}>{item.label}</span>
+                  <span className={cn('text-sm font-medium', sidebarCollapsed && 'lg:hidden')}>{item.label}</span>
                 </Link>
               </li>
             )
@@ -236,17 +240,17 @@ export function DynamicAppSidebar({ initialPermissions: permissions, initialRole
                   onMouseEnter={() => router.prefetch(item.route || '/dashboard/settings')}
                   onFocus={() => router.prefetch(item.route || '/dashboard/settings')}
                   onClick={onMobileClose}
-                  title={collapsed ? item.label : undefined}
+                  title={sidebarCollapsed ? item.label : undefined}
                   className={cn(
                     'sidebar-item rounded-lg transition-all',
-                    collapsed ? 'lg:justify-center lg:px-3 lg:py-2.5' : 'px-3 py-2.5',
+                    sidebarCollapsed ? 'lg:justify-center lg:px-3 lg:py-2.5' : 'px-3 py-2.5',
                     active 
                       ? 'bg-[rgba(255,214,10,0.1)] text-[#ffd60a] border border-[rgba(255,214,10,0.2)]' 
                       : 'text-[#a1a1a6] hover:bg-[rgba(255,255,255,0.05)] hover:text-[#f5f5f7]'
                   )}
                 >
                   <IconComponent className="h-4 w-4 flex-shrink-0" />
-                  <span className={cn('text-sm font-medium', collapsed && 'lg:hidden')}>{item.label}</span>
+                  <span className={cn('text-sm font-medium', sidebarCollapsed && 'lg:hidden')}>{item.label}</span>
                 </Link>
               </li>
             )
