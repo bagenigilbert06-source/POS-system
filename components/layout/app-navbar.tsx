@@ -40,7 +40,8 @@ function formatRole(role?: string) {
 export function AppNavbar({ userName, userEmail, organizationName, branchName, workspaceDescription, onOpenSidebar, role }: AppNavbarProps) {
   const router = useRouter()
   const roleLabel = formatRole(role)
-  const dashboardLabel = `${roleLabel} dashboard`
+  const roleTitle = role === 'admin' ? 'Administrator' : role === 'owner' ? 'Business owner' : roleLabel
+  const roleScope = role === 'admin' || role === 'owner' ? 'Organization access' : role === 'manager' ? 'Branch operations' : 'Assigned workspace'
 
   const clearStoredAuthState = () => {
     if (typeof window !== 'undefined') {
@@ -60,7 +61,7 @@ export function AppNavbar({ userName, userEmail, organizationName, branchName, w
 
   return (
     <header className="dashboard-navbar sticky top-0 z-30 flex h-16 items-center justify-between border-b px-4 sm:px-6 lg:px-8">
-      <div className="flex min-w-0 flex-1 items-center gap-4">
+      <div className="flex min-w-0 flex-1 items-center gap-4 xl:max-w-[40%]">
         <button
           onClick={onOpenSidebar}
           className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-[rgba(255,214,10,0.12)] bg-[rgba(255,255,255,0.05)] text-[#a1a1a6] hover:text-[#f5f5f7] hover:bg-[rgba(255,255,255,0.08)] transition-all lg:hidden"
@@ -71,16 +72,26 @@ export function AppNavbar({ userName, userEmail, organizationName, branchName, w
         <div className="hidden min-w-0 md:block">
           <div className="flex min-w-0 items-center gap-2.5">
             <p className="truncate text-sm font-bold text-[#f5f5f7]">{organizationName}{branchName ? ` · ${branchName}` : ''}</p>
-            <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-[rgba(255,214,10,0.18)] bg-[rgba(255,214,10,0.08)] px-2.5 py-1 text-[0.64rem] font-bold uppercase tracking-[0.08em] text-[#ffd60a]">
-              <ShieldCheck className="h-3 w-3" aria-hidden="true" />{dashboardLabel}
+            <span className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-border bg-muted/70 px-2 py-1 text-[0.64rem] font-semibold uppercase tracking-[0.07em] text-foreground xl:hidden">
+              <ShieldCheck className="h-3 w-3 text-muted-foreground" aria-hidden="true" />{roleTitle}
             </span>
           </div>
           <p className="mt-0.5 max-w-[720px] truncate text-xs text-[#a1a1a6]">{role === 'cashier' ? 'Sales, shifts, receipts and customer checkout' : workspaceDescription}</p>
         </div>
         <div className="flex min-w-0 items-center gap-3 md:hidden">
           <PesabyLogoMark className="h-8 w-8" />
-          <div className="min-w-0"><p className="truncate text-sm font-bold text-[#f5f5f7]">{organizationName}</p><p className="truncate text-[10px] font-bold uppercase tracking-[0.12em] text-[#ffd60a]">{dashboardLabel}</p></div>
+          <div className="min-w-0"><p className="truncate text-sm font-bold text-[#f5f5f7]">{organizationName}</p><p className="truncate text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">{roleTitle}</p></div>
         </div>
+      </div>
+
+      <div className="pointer-events-none absolute left-1/2 hidden -translate-x-1/2 items-center gap-2.5 rounded-xl border border-border bg-background/90 px-3 py-1.5 shadow-sm backdrop-blur xl:flex" aria-label={`${roleTitle}, ${roleScope}`}>
+        <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-foreground text-background">
+          <ShieldCheck className="h-4 w-4" aria-hidden="true" />
+        </span>
+        <span className="leading-tight">
+          <span className="block text-xs font-bold text-foreground">{roleTitle}</span>
+          <span className="block text-[10px] font-medium text-muted-foreground">{roleScope}</span>
+        </span>
       </div>
 
       <div className="flex items-center gap-3 sm:gap-4">
@@ -104,7 +115,7 @@ export function AppNavbar({ userName, userEmail, organizationName, branchName, w
             <DropdownMenuLabel className="px-3 py-3 font-normal">
               <p className="truncate text-sm font-semibold text-[#f5f5f7]">{userName || 'Pesaby account'}</p>
               <p className="mt-1 truncate text-xs text-[#a1a1a6]">{userEmail}</p>
-              <span className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-[rgba(255,214,10,0.18)] bg-[rgba(255,214,10,0.08)] px-2.5 py-1 text-[0.64rem] font-bold uppercase tracking-[0.08em] text-[#ffd60a]"><ShieldCheck className="h-3 w-3" />{roleLabel}</span>
+              <span className="mt-2 inline-flex items-center gap-1.5 rounded-md border border-border bg-muted px-2.5 py-1 text-[0.64rem] font-semibold uppercase tracking-[0.07em] text-foreground"><ShieldCheck className="h-3 w-3 text-muted-foreground" />{roleTitle}</span>
             </DropdownMenuLabel>
             <DropdownMenuSeparator className="bg-[rgba(255,214,10,0.08)]" />
             <DropdownMenuItem onSelect={handleSignOut} className="gap-3 rounded-lg px-3 py-2.5 text-[#a1a1a6] focus:bg-[rgba(255,76,77,0.1)] focus:text-[#ff6961]">
