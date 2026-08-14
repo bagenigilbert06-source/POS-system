@@ -8,30 +8,32 @@ import { headers } from 'next/headers'
 import { OrganizationService } from '@/lib/services/organization-service'
 import { nanoid } from 'nanoid'
 import { requirePermission } from '@/lib/auth/authorization'
-import { canAssignRole, canManageExistingRole, PermissionEnum, RoleEnum } from '@/lib/types/permissions'
+import { canAssignRole, canManageExistingRole, PermissionEnum, RoleEnum, STAFF_MANAGED_ROLES, type StaffManagedRole } from '@/lib/types/permissions'
 import { z } from 'zod'
 import { revalidatePath } from 'next/cache'
 
-const staffRoles = ['admin', 'manager', 'supervisor', 'cashier', 'inventory', 'accountant'] as const
+// Admin is intentionally absent. The primary admin is created with the
+// organization and cannot be created or assigned by Staff & Access actions.
+const staffRoleSchema = z.enum(STAFF_MANAGED_ROLES)
 const createStaffSchema = z.object({
   name: z.string().trim().min(2).max(100), email: z.string().trim().toLowerCase().email(),
   phone: z.string().trim().max(30).optional(),
-  role: z.enum(staffRoles), branchId: z.string().min(1), department: z.string().trim().max(80).optional(),
+  role: staffRoleSchema, branchId: z.string().min(1), department: z.string().trim().max(80).optional(),
   salary: z.coerce.number().nonnegative().max(999_999_999), status: z.enum(['active', 'inactive']).default('active'),
 })
 const updateStaffSchema = z.object({
   name: z.string().trim().min(2).max(100).optional(),
   email: z.string().trim().toLowerCase().email().optional(),
   phone: z.string().trim().max(30).optional(),
-  role: z.enum(staffRoles).optional(),
+  role: staffRoleSchema.optional(),
   department: z.string().trim().max(80).optional(),
   salary: z.coerce.number().nonnegative().max(999_999_999).optional(),
   status: z.enum(['active', 'inactive', 'invited', 'terminated']).optional(),
 })
 const INVITATION_COOLDOWN_MS = 60_000
 
-function assertAssignableRole(actor: RoleEnum, role: typeof staffRoles[number]) {
-  if (!canAssignRole(actor, role as RoleEnum)) throw new Error(`A ${actor} cannot assign the ${role} role`)
+function assertAssignableRole(actor: RoleEnum, role: StaffManagedRole) {
+  if (!canAssignRole(actor, role)) throw new Error(`A ${actor} cannot assign the ${role} role`)
 }
 
 async function assertCanManageEmployee(
@@ -94,7 +96,7 @@ export async function createEmployee(data: {
   name: string
   email: string
   phone?: string
-  role: typeof staffRoles[number]
+  role: StaffManagedRole
   branchId: string
   department?: string
   salary: number
@@ -159,7 +161,7 @@ export async function updateEmployee(employeeId: string, data: {
   name?: string
   email?: string
   phone?: string
-  role?: string
+  role?: StaffManagedRole
   department?: string
   salary?: number
   status?: string

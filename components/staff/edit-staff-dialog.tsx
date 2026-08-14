@@ -13,12 +13,18 @@ import {
 } from '@/components/ui/dialog'
 import { updateEmployee } from '@/app/actions/staff-actions'
 import type { Employee } from '@/lib/db/schema'
+import { RoleEnum, STAFF_ROLE_LABELS, isStaffManagedRole, type StaffManagedRole } from '@/lib/types/permissions'
 
 interface EditStaffDialogProps {
   employee: Employee
   open: boolean
   onOpenChange: (open: boolean) => void
-  assignableRoles: string[]
+  assignableRoles: StaffManagedRole[]
+}
+
+function editableRole(role: string): StaffManagedRole | '' {
+  const normalized = role as RoleEnum
+  return isStaffManagedRole(normalized) ? normalized : ''
 }
 
 export function EditStaffDialog({ employee, open, onOpenChange, assignableRoles }: EditStaffDialogProps) {
@@ -27,7 +33,7 @@ export function EditStaffDialog({ employee, open, onOpenChange, assignableRoles 
     name: employee.name,
     email: employee.email || '',
     phone: employee.phone || '',
-    role: employee.role,
+    role: editableRole(employee.role),
     department: employee.department || '',
     salary: employee.salary.toString(),
     status: employee.status,
@@ -38,7 +44,7 @@ export function EditStaffDialog({ employee, open, onOpenChange, assignableRoles 
       name: employee.name,
       email: employee.email || '',
       phone: employee.phone || '',
-      role: employee.role,
+      role: editableRole(employee.role),
       department: employee.department || '',
       salary: employee.salary.toString(),
       status: employee.status,
@@ -47,12 +53,14 @@ export function EditStaffDialog({ employee, open, onOpenChange, assignableRoles 
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!formData.name.trim()) return toast.error('Name is required')
+    const role = formData.role
+    if (!formData.name.trim() || !role) return toast.error('Name and role are required')
 
     setIsLoading(true)
     try {
       await updateEmployee(employee.id, {
         ...formData,
+        role,
         salary: parseFloat(formData.salary),
       })
       toast.success('Employee updated successfully')
@@ -113,15 +121,12 @@ export function EditStaffDialog({ employee, open, onOpenChange, assignableRoles 
               <label className="text-sm font-medium">Role*</label>
               <select
                 value={formData.role}
-                onChange={(e) => setFormData({ ...formData, role: e.target.value })}
+                onChange={(e) => setFormData({ ...formData, role: e.target.value as StaffManagedRole | '' })}
                 className="w-full rounded-lg border px-3 py-2 text-sm"
+                required
               >
-                {assignableRoles.includes('cashier') && <option value="cashier">Cashier</option>}
-                {assignableRoles.includes('manager') && <option value="manager">Manager</option>}
-                {assignableRoles.includes('supervisor') && <option value="supervisor">Supervisor</option>}
-                {assignableRoles.includes('inventory') && <option value="inventory">Inventory / Storekeeper</option>}
-                {assignableRoles.includes('accountant') && <option value="accountant">Accountant / Finance</option>}
-                {assignableRoles.includes('admin') && <option value="admin">Admin</option>}
+                <option value="" disabled>Select role...</option>
+                {assignableRoles.map((role) => <option key={role} value={role}>{STAFF_ROLE_LABELS[role]}</option>)}
               </select>
             </div>
             <div className="space-y-2">

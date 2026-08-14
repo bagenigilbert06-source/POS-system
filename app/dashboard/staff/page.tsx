@@ -7,7 +7,7 @@ import { db } from '@/lib/db'
 import { branch, branchMembership, employee, posPinCredential } from '@/lib/db/schema'
 import { and, eq, inArray, sql } from 'drizzle-orm'
 import { requirePermission } from '@/lib/auth/authorization'
-import { ASSIGNABLE_ROLES, PermissionEnum, RoleEnum, canManageExistingRole } from '@/lib/types/permissions'
+import { ASSIGNABLE_ROLES, PermissionEnum, RoleEnum, canManageExistingRole, isStaffManagedRole } from '@/lib/types/permissions'
 
 export const metadata: Metadata = { title: 'Staff Management' }
 
@@ -31,7 +31,7 @@ export default async function StaffPage() {
     eq(branch.organizationId, authorization.organizationId),
     authorization.isOrganizationWide ? undefined : inArray(branch.id, authorization.branchIds),
   )).orderBy(branch.name)
-  const assignableRoles = ASSIGNABLE_ROLES[authorization.role].map(String)
+  const assignableRoles = ASSIGNABLE_ROLES[authorization.role].filter(isStaffManagedRole)
 
   return (
     <div className="mx-auto max-w-6xl space-y-5 pb-8">

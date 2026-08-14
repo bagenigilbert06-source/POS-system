@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { canAssignRole, canManageExistingRole, PermissionEnum, ROLE_PERMISSIONS, RoleEnum } from '../lib/types/permissions'
+import { ASSIGNABLE_ROLES, STAFF_MANAGED_ROLES, canAssignRole, canManageExistingRole, isStaffManagedRole, PermissionEnum, ROLE_PERMISSIONS, RoleEnum } from '../lib/types/permissions'
 
 const has = (role: RoleEnum, permission: PermissionEnum) => ROLE_PERMISSIONS[role].includes(permission)
 
@@ -29,7 +29,15 @@ assert.equal(has(RoleEnum.OWNER, PermissionEnum.OWNER_ACCESS), true, 'owners ret
 assert.equal(canAssignRole(RoleEnum.MANAGER, RoleEnum.ADMIN), false, 'managers must never create administrators')
 assert.equal(canAssignRole(RoleEnum.MANAGER, RoleEnum.MANAGER), false, 'managers must never promote staff to manager')
 assert.equal(canAssignRole(RoleEnum.ADMIN, RoleEnum.MANAGER), true, 'admins must create branch managers')
-assert.equal(canManageExistingRole(RoleEnum.ADMIN, RoleEnum.ADMIN), false, 'only owners may alter an existing administrator')
+assert.equal(canAssignRole(RoleEnum.ADMIN, RoleEnum.ADMIN), false, 'admins must never create another administrator')
+assert.equal(canAssignRole(RoleEnum.OWNER, RoleEnum.ADMIN), false, 'owners must not create admins through Staff & Access')
+assert.equal(isStaffManagedRole(RoleEnum.ADMIN), false, 'admin must be rejected as a managed staff role')
+assert.equal(canManageExistingRole(RoleEnum.ADMIN, RoleEnum.ADMIN), false, 'admins must not alter the primary administrator through staff management')
+assert.equal(canManageExistingRole(RoleEnum.OWNER, RoleEnum.ADMIN), false, 'owners must not alter the primary administrator through staff management')
 assert.equal(canManageExistingRole(RoleEnum.MANAGER, RoleEnum.CASHIER), true, 'managers must manage branch cashiers')
+assert.deepEqual(ASSIGNABLE_ROLES[RoleEnum.ADMIN], STAFF_MANAGED_ROLES, 'admins may assign exactly the five managed staff roles')
+for (const role of [RoleEnum.SUPERVISOR, RoleEnum.CASHIER, RoleEnum.INVENTORY, RoleEnum.ACCOUNTANT]) {
+  assert.equal(ASSIGNABLE_ROLES[role].length, 0, `${role} must not assign any staff role`)
+}
 
 console.log('RBAC rules unit test passed')

@@ -9,12 +9,12 @@ import { deleteEmployee, resendStaffInvitation } from '@/app/actions/staff-actio
 import { resetStaffPosPin } from '@/app/actions/pos-pin'
 import { EditStaffDialog } from './edit-staff-dialog'
 import type { Employee } from '@/lib/db/schema'
-import { canManageExistingRole, RoleEnum } from '@/lib/types/permissions'
+import { canManageExistingRole, RoleEnum, type StaffManagedRole } from '@/lib/types/permissions'
 
 interface StaffManagementTableProps {
   employees: Array<Employee & { posPinSet?: boolean }>
   actorRole: RoleEnum
-  assignableRoles: string[]
+  assignableRoles: StaffManagedRole[]
 }
 
 export function StaffManagementTable({ employees, actorRole, assignableRoles }: StaffManagementTableProps) {

@@ -263,10 +263,37 @@ export const ROLE_PERMISSIONS: Record<RoleEnum, PermissionEnum[]> = {
   ],
 };
 
+/**
+ * Roles managed through Staff & Access. Admin/owner is deliberately excluded:
+ * the primary account is established during organization onboarding and is not
+ * a normal staff role.
+ */
+export const STAFF_MANAGED_ROLES = [
+  RoleEnum.MANAGER,
+  RoleEnum.SUPERVISOR,
+  RoleEnum.CASHIER,
+  RoleEnum.INVENTORY,
+  RoleEnum.ACCOUNTANT,
+] as const
+
+export type StaffManagedRole = (typeof STAFF_MANAGED_ROLES)[number]
+
+export const STAFF_ROLE_LABELS: Readonly<Record<StaffManagedRole, string>> = {
+  [RoleEnum.MANAGER]: 'Manager',
+  [RoleEnum.SUPERVISOR]: 'Supervisor',
+  [RoleEnum.CASHIER]: 'Cashier',
+  [RoleEnum.INVENTORY]: 'Inventory / Storekeeper',
+  [RoleEnum.ACCOUNTANT]: 'Accountant / Finance',
+}
+
+export function isStaffManagedRole(role: RoleEnum): role is StaffManagedRole {
+  return STAFF_MANAGED_ROLES.includes(role as StaffManagedRole)
+}
+
 /** Roles an actor may assign when creating or promoting a staff member. */
 export const ASSIGNABLE_ROLES: Readonly<Record<RoleEnum, readonly RoleEnum[]>> = {
-  [RoleEnum.OWNER]: [RoleEnum.ADMIN, RoleEnum.MANAGER, RoleEnum.SUPERVISOR, RoleEnum.CASHIER, RoleEnum.INVENTORY, RoleEnum.ACCOUNTANT],
-  [RoleEnum.ADMIN]: [RoleEnum.ADMIN, RoleEnum.MANAGER, RoleEnum.SUPERVISOR, RoleEnum.CASHIER, RoleEnum.INVENTORY, RoleEnum.ACCOUNTANT],
+  [RoleEnum.OWNER]: STAFF_MANAGED_ROLES,
+  [RoleEnum.ADMIN]: STAFF_MANAGED_ROLES,
   [RoleEnum.MANAGER]: [RoleEnum.SUPERVISOR, RoleEnum.CASHIER, RoleEnum.INVENTORY, RoleEnum.ACCOUNTANT],
   [RoleEnum.SUPERVISOR]: [], [RoleEnum.CASHIER]: [], [RoleEnum.INVENTORY]: [], [RoleEnum.ACCOUNTANT]: [],
   [RoleEnum.STAFF]: [], [RoleEnum.CHEF]: [], [RoleEnum.PHARMACIST]: [], [RoleEnum.PHARMACY_STAFF]: [],
@@ -276,9 +303,9 @@ export function canAssignRole(actor: RoleEnum, role: RoleEnum) {
   return ASSIGNABLE_ROLES[actor].includes(role)
 }
 
-/** Existing admins are owner-controlled; managers may only manage branch staff below them. */
+/** Primary admin/owner accounts are never managed through the normal staff editor. */
 export function canManageExistingRole(actor: RoleEnum, target: RoleEnum) {
-  if (actor === RoleEnum.OWNER) return target !== RoleEnum.OWNER
+  if (actor === RoleEnum.OWNER) return target !== RoleEnum.OWNER && target !== RoleEnum.ADMIN
   if (actor === RoleEnum.ADMIN) return target !== RoleEnum.OWNER && target !== RoleEnum.ADMIN
   if (actor === RoleEnum.MANAGER) return ASSIGNABLE_ROLES[RoleEnum.MANAGER].includes(target)
   return false

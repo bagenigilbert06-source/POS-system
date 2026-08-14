@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { Plus, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -13,16 +14,17 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog'
 import { createEmployee } from '@/app/actions/staff-actions'
+import { STAFF_ROLE_LABELS, type StaffManagedRole } from '@/lib/types/permissions'
 
-export function AddStaffDialog({ branches, assignableRoles }: { branches: Array<{ id: string; name: string }>; assignableRoles: string[] }) {
-  type StaffRole = 'admin' | 'manager' | 'supervisor' | 'cashier' | 'inventory' | 'accountant'
+export function AddStaffDialog({ branches, assignableRoles }: { branches: Array<{ id: string; name: string }>; assignableRoles: StaffManagedRole[] }) {
+  const router = useRouter()
   const [open, setOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [formData, setFormData] = useState({
     name: '',
     email: '',
     phone: '',
-    role: 'cashier' as StaffRole,
+    role: '' as StaffManagedRole | '',
     branchId: branches[0]?.id ?? '',
     department: '',
     salary: '0',
@@ -30,20 +32,22 @@ export function AddStaffDialog({ branches, assignableRoles }: { branches: Array<
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!formData.name.trim() || !formData.email || !formData.branchId) return toast.error('Name, email and branch are required')
+    const role = formData.role
+    if (!formData.name.trim() || !formData.email || !formData.branchId || !role) return toast.error('Name, email, role and branch are required')
 
     setIsLoading(true)
     try {
       const result = await createEmployee({
         ...formData,
+        role,
         salary: parseFloat(formData.salary),
       })
       if (result.existingUser) toast.success('Existing Pesaby user added to this organization')
       else if (result.invitationSent) toast.success('Employee created and invitation sent')
       else toast.warning('Employee created as Invited, but email was not delivered. Configure Brevo or use Resend invitation.')
-      setFormData({ name: '', email: '', phone: '', role: 'cashier', branchId: branches[0]?.id ?? '', department: '', salary: '0' })
+      setFormData({ name: '', email: '', phone: '', role: '', branchId: branches[0]?.id ?? '', department: '', salary: '0' })
       setOpen(false)
-      // Refresh page would happen automatically with server action
+      router.refresh()
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to add employee')
     } finally {
@@ -109,15 +113,12 @@ export function AddStaffDialog({ branches, assignableRoles }: { branches: Array<
               <label className="text-sm font-medium">Role*</label>
               <select
                 value={formData.role}
-                onChange={(e) => setFormData({ ...formData, role: e.target.value as StaffRole })}
+                onChange={(e) => setFormData({ ...formData, role: e.target.value as StaffManagedRole | '' })}
                 className="w-full rounded-lg border px-3 py-2 text-sm"
+                required
               >
-                {assignableRoles.includes('cashier') && <option value="cashier">Cashier</option>}
-                {assignableRoles.includes('manager') && <option value="manager">Manager</option>}
-                {assignableRoles.includes('supervisor') && <option value="supervisor">Supervisor</option>}
-                {assignableRoles.includes('inventory') && <option value="inventory">Inventory / Storekeeper</option>}
-                {assignableRoles.includes('accountant') && <option value="accountant">Accountant / Finance</option>}
-                {assignableRoles.includes('admin') && <option value="admin">Admin</option>}
+                <option value="" disabled>Select role...</option>
+                {assignableRoles.map((role) => <option key={role} value={role}>{STAFF_ROLE_LABELS[role]}</option>)}
               </select>
             </div>
             <div className="space-y-2">
