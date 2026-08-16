@@ -1,5 +1,4 @@
 import type { Metadata, Viewport } from 'next';
-import { GeistSans } from 'geist/font/sans';
 import './globals.css';
 import { ThemeProvider } from '@/components/providers/theme-provider';
 import { Toaster } from 'sonner';
@@ -42,7 +41,7 @@ export default function RootLayout({
       lang="en"
       suppressHydrationWarning
       data-scroll-behavior="smooth"
-      className={`bg-background ${GeistSans.variable}`}
+      className="bg-background"
     >
       <body className="font-sans text-base antialiased" suppressHydrationWarning>
         <ThemeProvider
