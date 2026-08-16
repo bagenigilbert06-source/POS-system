@@ -396,6 +396,9 @@ export const customer = pgTable('customer', {
   email: text('email'),
   address: text('address'),
   loyaltyPoints: integer('loyaltyPoints').notNull().default(0),
+  isBanned: boolean('isBanned').notNull().default(false),
+  banReason: text('banReason'),
+  bannedAt: timestamp('bannedAt'),
   userId: text('userId').notNull(),
   orgId: text('orgId').notNull(),
   createdAt: timestamp('createdAt').notNull().defaultNow(),
@@ -1725,6 +1728,68 @@ export const performanceGoal = pgTable(
   })
 );
 
+// --- Liquor compliance ------------------------------------------------------
+export const ageVerificationLog = pgTable(
+  'age_verification_log',
+  {
+    id: text('id').primaryKey(),
+    transactionId: text('transactionId').references(() => sale.id, { onDelete: 'set null' }),
+    cashierId: text('cashierId').notNull().references(() => user.id, { onDelete: 'restrict' }),
+    customerId: text('customerId').references(() => customer.id, { onDelete: 'set null' }),
+    method: text('method').notNull().default('manual'),
+    dob: timestamp('dob'),
+    idReference: text('idReference'),
+    verified: boolean('verified').notNull().default(true),
+    orgId: text('orgId').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+    createdAt: timestamp('createdAt').notNull().defaultNow(),
+  },
+  (table) => ({
+    organizationIndex: index('age_verification_log_org_idx').on(table.orgId, table.createdAt),
+    transactionIndex: index('age_verification_log_transaction_idx').on(table.transactionId),
+  })
+);
+
+export const complianceLicense = pgTable(
+  'compliance_license',
+  {
+    id: text('id').primaryKey(),
+    name: text('name').notNull(),
+    licenseNumber: text('licenseNumber').notNull(),
+    issuingAuthority: text('issuingAuthority').notNull(),
+    issueDate: timestamp('issueDate').notNull(),
+    expiryDate: timestamp('expiryDate').notNull(),
+    documentUrl: text('documentUrl'),
+    status: text('status').notNull().default('active'),
+    notes: text('notes'),
+    orgId: text('orgId').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+    createdBy: text('createdBy').notNull().references(() => user.id, { onDelete: 'restrict' }),
+    createdAt: timestamp('createdAt').notNull().defaultNow(),
+    updatedAt: timestamp('updatedAt').notNull().defaultNow(),
+  },
+  (table) => ({
+    organizationIndex: index('compliance_license_org_idx').on(table.orgId, table.expiryDate),
+    licenseNumberUnique: uniqueIndex('compliance_license_org_number_unique').on(table.orgId, table.licenseNumber),
+  })
+);
+
+export const alcoholSaleHours = pgTable(
+  'alcohol_sale_hours',
+  {
+    id: text('id').primaryKey(),
+    dayOfWeek: integer('dayOfWeek').notNull(),
+    startTime: text('startTime').notNull(),
+    endTime: text('endTime').notNull(),
+    enforcement: text('enforcement').notNull().default('block'),
+    enabled: boolean('enabled').notNull().default(true),
+    orgId: text('orgId').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+    updatedBy: text('updatedBy').notNull().references(() => user.id, { onDelete: 'restrict' }),
+    updatedAt: timestamp('updatedAt').notNull().defaultNow(),
+  },
+  (table) => ({
+    organizationDayIndex: uniqueIndex('alcohol_sale_hours_org_day_unique').on(table.orgId, table.dayOfWeek),
+  })
+);
+
 // --- Type exports ----------------------------------------------------------
 export type User = typeof user.$inferSelect;
 export type Organization = typeof organization.$inferSelect;
@@ -1781,3 +1846,6 @@ export type InventoryTransfer = typeof inventoryTransfer.$inferSelect;
 export type InventoryTransferItem = typeof inventoryTransferItem.$inferSelect;
 export type Task = typeof task.$inferSelect;
 export type PerformanceGoal = typeof performanceGoal.$inferSelect;
+export type AgeVerificationLog = typeof ageVerificationLog.$inferSelect;
+export type ComplianceLicense = typeof complianceLicense.$inferSelect;
+export type AlcoholSaleHours = typeof alcoholSaleHours.$inferSelect;

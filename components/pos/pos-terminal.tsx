@@ -6,6 +6,7 @@ import Image from 'next/image'
 import { createSale, type CartItem } from '@/app/actions/sales'
 import { getMpesaPaymentStatus, initiateMpesaPaybillPayment, initiateMpesaPayment } from '@/app/actions/mpesa'
 import { createCustomer } from '@/app/actions/customers'
+import { recordAgeVerification } from '@/app/actions/compliance'
 import { formatCurrency, normalizeBarcode } from '@/lib/utils'
 import { cn } from '@/lib/utils'
 import {
@@ -483,6 +484,8 @@ export function POSTerminal({ products, categories, customers, settings, require
   const processCheckout = async (verified = ageVerified, serverAlreadyConfirmed = false) => {
     if (!hasActiveShift) return toast.error('Start your shift before completing a sale')
     if (cart.length === 0) return toast.error('Cart is empty')
+    const customer = selectedCustomer ? availableCustomers.find((candidate) => candidate.id === selectedCustomer) : undefined
+    if (customer?.isBanned) return toast.error(`Sale blocked: ${customer.name} is on the banned customer list`)
     if (paymentMethod === 'mpesa' && ((!serverAlreadyConfirmed && mpesaStatus !== 'success') || !mpesaRequestId || !mpesaRef)) return toast.error('Wait for M-Pesa payment confirmation')
     if (paymentMethod === 'card' && !mpesaRef) return toast.error('Enter the card approval or terminal reference')
     if (paymentMethod === 'cash' && parseFloat(amountPaid || '0') < total) {
@@ -518,9 +521,16 @@ export function POSTerminal({ products, categories, customers, settings, require
         mpesaPaymentRequestId: paymentMethod === 'mpesa' ? mpesaRequestId : undefined,
         amountReceived: paymentMethod === 'cash' ? parseFloat(amountPaid || '0') : undefined,
         idempotencyKey: checkoutIdempotencyKeyRef.current,
-        ageVerified: requiresAgeVerification ? verified : undefined,
-      })
-      setReceipt({
+  ageVerified: requiresAgeVerification ? verified : undefined,
+  })
+  if (requiresAgeVerification && verified) {
+    await recordAgeVerification({
+      transactionId: saleId,
+      customerId: selectedCustomer || undefined,
+      method: 'manual',
+    })
+  }
+  setReceipt({
         saleId,
         receiptNo,
         items: cart.map((item) => {
@@ -737,6 +747,9 @@ export function POSTerminal({ products, categories, customers, settings, require
         email: newCustomerEmail || null,
         address: null,
         loyaltyPoints: 0,
+        isBanned: false,
+        banReason: null,
+        bannedAt: null,
         userId: '',
         orgId: '',
         createdAt: new Date(),

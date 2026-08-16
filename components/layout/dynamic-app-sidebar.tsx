@@ -93,6 +93,7 @@ export function DynamicAppSidebar({ initialPermissions: permissions, initialRole
     operations: PermissionEnum.SHIFT_MANAGE,
     settings: PermissionEnum.SETTINGS_VIEW,
     staff: PermissionEnum.STAFF_MANAGE,
+    compliance: PermissionEnum.AUDIT_LOG_VIEW,
     admin: PermissionEnum.ADMIN_ACCESS,
   }
   // Unknown workspace items are hidden until they have an explicit permission mapping.
@@ -100,6 +101,7 @@ export function DynamicAppSidebar({ initialPermissions: permissions, initialRole
   const posNav = { id: 'pos', label: 'Point of sale', icon: 'ReceiptText', route: '/dashboard/pos' }
   const staffNav = { id: 'staff', label: 'Staff & access', icon: 'UsersRound', route: '/dashboard/staff' }
   const adminNav = { id: 'admin', label: 'Admin control', icon: 'ShieldCheck', route: '/dashboard/admin' }
+  const complianceNav = { id: 'compliance', label: 'Compliance', icon: 'ShieldCheck', route: '/dashboard/compliance' }
   // Keep the navigation aligned with the way a shop is run: understand the
   // business first, sell second, then manage the catalogue and operations.
   // The workspace template still decides which entries exist; this only gives
@@ -111,6 +113,7 @@ export function DynamicAppSidebar({ initialPermissions: permissions, initialRole
     ...(permissions.includes(PermissionEnum.POS_VIEW) || permissions.includes(PermissionEnum.POS_SELL) ? [posNav] : []),
     ...workspaceNav,
     ...(permissions.includes(PermissionEnum.STAFF_MANAGE) ? [staffNav] : []),
+    ...(permissions.includes(PermissionEnum.AUDIT_LOG_VIEW) ? [complianceNav] : []),
     ...(permissions.includes(PermissionEnum.ADMIN_ACCESS) ? [adminNav] : []),
   ]
   const primaryNav = composedPrimaryNav.filter((item, index, items) =>
