@@ -28,7 +28,7 @@ module.exports = {
     },
     extend: {
       fontFamily: {
-        sans: ['var(--font-geist-sans)', 'Geist Sans', ...defaultTheme.fontFamily.sans],
+        sans: ['var(--font-sans)', 'Poppins', ...defaultTheme.fontFamily.sans],
         mono: ['var(--font-mono)', 'ui-monospace', ...defaultTheme.fontFamily.mono],
       },
       colors: {
