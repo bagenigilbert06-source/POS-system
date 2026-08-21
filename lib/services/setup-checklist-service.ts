@@ -25,7 +25,9 @@ export async function getSetupChecklist(organizationId: string, enabledModules: 
   const [[products], [stock], [customers], [sales], [employees], [branches], [suppliers]] = await Promise.all([
     db.select({ value: count() }).from(product).where(eq(product.orgId, organizationId)),
     db.select({ value: count() }).from(product).where(and(eq(product.orgId, organizationId), gt(product.stock, 0))),
-    hasCustomers ? db.select({ value: count() }).from(customer).where(eq(customer.orgId, organizationId)) : Promise.resolve([{ value: 0 }]),
+    // The checklist is auxiliary UI. Keep it from blocking the dashboard if an
+    // older workspace has not received the optional customer migration yet.
+    hasCustomers ? db.select({ value: count() }).from(customer).where(eq(customer.orgId, organizationId)).catch(() => [{ value: 0 }]) : Promise.resolve([{ value: 0 }]),
     db.select({ value: count() }).from(sale).where(eq(sale.orgId, organizationId)),
     hasTeam ? db.select({ value: count() }).from(employee).where(eq(employee.orgId, organizationId)) : Promise.resolve([{ value: 0 }]),
     hasMultipleLocations ? db.select({ value: count() }).from(branch).where(eq(branch.organizationId, organizationId)) : Promise.resolve([{ value: 1 }]),

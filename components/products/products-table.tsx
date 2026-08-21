@@ -10,18 +10,17 @@ import { getGrossMargin } from '@/lib/pricing/gross-margin';
 import { cn } from '@/lib/utils';
 import {
   Archive,
+  Eye,
   Pencil,
   Plus,
   Search,
   Package,
   AlertTriangle,
-  ArrowUpRight,
   Tag,
   Grid2X2,
   List,
   ShoppingCart,
   Smartphone,
-  AlertCircle,
 } from 'lucide-react';
 import type { Product } from '@/lib/db/schema';
 import { toast } from 'sonner';
@@ -387,7 +386,7 @@ export function ProductsTable({ initialProducts }: ProductsTableProps) {
               className={cn(
                 'rounded p-1.5',
                 viewMode === 'grid'
-                  ? 'bg-[#fff3bd] text-[#765800]'
+                  ? 'bg-[#fff3bd] text-[#765800] dark:bg-[#332b10] dark:text-[#f5c542]'
                   : 'text-muted-foreground hover:bg-muted'
               )}
             >
@@ -401,7 +400,7 @@ export function ProductsTable({ initialProducts }: ProductsTableProps) {
               className={cn(
                 'rounded p-1.5',
                 viewMode === 'list'
-                  ? 'bg-[#fff3bd] text-[#765800]'
+                  ? 'bg-[#fff3bd] text-[#765800] dark:bg-[#332b10] dark:text-[#f5c542]'
                   : 'text-muted-foreground hover:bg-muted'
               )}
             >
@@ -411,21 +410,21 @@ export function ProductsTable({ initialProducts }: ProductsTableProps) {
         </div>
         {filter === 'low-stock' && (
           <div className="grid gap-3 sm:grid-cols-3">
-            <div className="rounded-lg border bg-amber-50 px-4 py-3">
-              <p className="text-xs text-amber-800">Low-stock products</p>
-              <p className="mt-1 text-xl font-bold text-amber-900">
+            <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 dark:border-amber-900/70 dark:bg-amber-950/30">
+              <p className="text-xs font-medium text-amber-800 dark:text-amber-300">Low-stock products</p>
+              <p className="mt-1 text-xl font-semibold text-amber-900 dark:text-amber-200">
                 {lowStockCount}
               </p>
             </div>
-            <div className="rounded-lg border bg-orange-50 px-4 py-3">
-              <p className="text-xs text-orange-800">Critical products</p>
-              <p className="mt-1 text-xl font-bold text-orange-900">
+            <div className="rounded-lg border border-orange-200 bg-orange-50 px-4 py-3 dark:border-orange-900/70 dark:bg-orange-950/30">
+              <p className="text-xs font-medium text-orange-800 dark:text-orange-300">Critical products</p>
+              <p className="mt-1 text-xl font-semibold text-orange-900 dark:text-orange-200">
                 {criticalCount}
               </p>
             </div>
-            <div className="rounded-lg border bg-red-50 px-4 py-3">
-              <p className="text-xs text-red-800">Out of stock</p>
-              <p className="mt-1 text-xl font-bold text-red-900">
+            <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 dark:border-red-900/70 dark:bg-red-950/30">
+              <p className="text-xs font-medium text-red-800 dark:text-red-300">Out of stock</p>
+              <p className="mt-1 text-xl font-semibold text-red-900 dark:text-red-200">
                 {outOfStockCount}
               </p>
             </div>
@@ -453,9 +452,9 @@ export function ProductsTable({ initialProducts }: ProductsTableProps) {
               return (
                 <article
                   key={`card-${p.id}`}
-                  className="group relative w-full min-w-0 self-start overflow-hidden rounded-xl border border-[#e4e7ec] bg-white text-sm shadow-[0_1px_3px_rgba(16,24,40,.05)] hover:border-[#d8b92e]"
+                  className="relative flex h-full w-full min-w-0 flex-col overflow-hidden rounded-xl border border-[#e4e7ec] bg-white text-sm shadow-[0_1px_2px_rgba(16,24,40,.04)] dark:border-white/10 dark:bg-[#121212] dark:shadow-none"
                 >
-                  <div className="relative overflow-hidden border-b border-[#f0e7d5] bg-[#fffaf0]">
+                  <div className="relative overflow-hidden bg-[#fffaf0] dark:bg-[#101010]">
                     <Link
                       href={`/dashboard/products/${p.id}`}
                       className="block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#e42527]"
@@ -476,7 +475,7 @@ export function ProductsTable({ initialProducts }: ProductsTableProps) {
                           className={`h-36 w-full cursor-zoom-in object-cover sm:h-40 lg:h-44 ${p.stock !== 0 ? '' : 'opacity-50'}`}
                         />
                       ) : (
-                        <div className="flex h-36 items-center justify-center text-[#8a6500] sm:h-40 lg:h-44">
+                        <div className="flex h-36 items-center justify-center text-[#8a6500] dark:bg-[#1b180d] dark:text-[#d5aa2e] sm:h-40 lg:h-44">
                           <Package className="h-12 w-12 stroke-[1.35]" />
                         </div>
                       )}
@@ -484,12 +483,12 @@ export function ProductsTable({ initialProducts }: ProductsTableProps) {
                     <div className="absolute left-2 top-2 z-10 flex flex-col items-start gap-1.5">
                       <span
                         className={cn(
-                          'inline-flex items-center gap-1 rounded-full bg-white px-2 py-1 text-xs font-semibold shadow-sm',
+                          'inline-flex items-center gap-1 rounded-full bg-white/90 px-2 py-1 text-[11px] font-medium shadow-sm backdrop-blur-sm dark:bg-black/65',
                           status === 'ok'
-                            ? 'text-[#28743c]'
+                            ? 'text-[#28743c] dark:text-emerald-400'
                             : status === 'low'
-                              ? 'text-[#9a6900]'
-                              : 'text-destructive'
+                              ? 'text-[#9a6900] dark:text-amber-400'
+                              : 'text-destructive dark:text-red-400'
                         )}
                       >
                         <Tag className="h-3.5 w-3.5" />
@@ -499,51 +498,39 @@ export function ProductsTable({ initialProducts }: ProductsTableProps) {
                   </div>
                   <Link
                     href={`/dashboard/products/${p.id}`}
-                    className="flex min-w-0 flex-col gap-2 p-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#e42527]"
+                    className="flex min-w-0 flex-1 flex-col gap-2 px-3 pb-2 pt-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#e42527]"
                     aria-label={`View ${p.name} details`}
                   >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <h3 className="line-clamp-1 font-semibold leading-5 text-[#101828]">
-                          {p.name}
-                        </h3>
-                        <div className="mt-1 flex flex-wrap gap-1.5">
-                          {p.categoryName && <span className="inline-flex items-center rounded-lg border border-[#f2cf70] bg-[#fff8e6] px-2.5 py-1 text-[10px] font-bold text-[#875b00] shadow-[0_1px_1px_rgba(133,91,0,.08)] transition-colors group-hover:border-[#e4b53e] group-hover:bg-[#fff1bf]">{p.categoryName}</span>}
-                          {incompleteData && <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-800"><AlertCircle className="h-3 w-3" />Incomplete data</span>}
-                        </div>
-                      </div>
-                      <ArrowUpRight className="h-4 w-4 shrink-0 text-muted-foreground transition group-hover:text-[#e42527]" />
+                    <div className="min-w-0">
+                      <h3 className="line-clamp-1 font-semibold leading-5 text-[#101828] dark:text-slate-100">
+                        {p.name}
+                      </h3>
+                    </div>
+                    <div className="flex min-h-5 min-w-0 items-center gap-1.5 overflow-hidden">
+                      {p.categoryName && <span className="truncate text-[10px] font-medium text-[#875b00] dark:text-[#d6aa2d]">{p.categoryName}</span>}
+                      {incompleteData && <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-orange-200 bg-orange-50 px-2 py-0.5 text-[10px] font-medium text-orange-700 dark:border-orange-900/70 dark:bg-orange-950/35 dark:text-orange-300"><AlertTriangle className="h-3 w-3" />Incomplete data</span>}
                     </div>
                     <div className="flex items-center justify-between gap-2 pt-0.5">
-                      <p className="text-base font-bold tabular-nums text-[#9a6900]">
+                      <p className="text-[15px] font-semibold tabular-nums text-[#8a6200] dark:text-[#e6b832]">
                         {formatCurrency(selling)}
                       </p>
                       <span
                         className={cn(
-                          'text-xs font-semibold',
+                          'text-[11px] font-medium',
                           profit >= 0
-                            ? 'text-[hsl(var(--success))]'
+                            ? 'text-emerald-600 dark:text-emerald-400'
                             : 'text-destructive'
                         )}
                       >
                         {grossMargin.valid ? `${grossMargin.percent.toFixed(1)}% profit` : 'Check cost price'}
                       </span>
                     </div>
-                    <p className="pt-1 text-[11px] text-muted-foreground">
-                      {p.stock} {p.unit}{p.stock === 1 ? '' : 's'} available
-                    </p>
                   </Link>
-                  <div className="flex min-h-11 items-center justify-between bg-[#fafbfc] px-3 py-2">
-                    {status === 'ok' ? (
-                      <Link href={`/dashboard/products/${p.id}`} className="text-xs font-medium text-muted-foreground hover:text-[#101828] hover:underline">
-                        View details
-                      </Link>
-                    ) : (
-                      <span className="text-xs text-muted-foreground" title={status !== 'out' ? `Low-stock alert: ${unitLabel(p.unit, p.minStock)}` : 'This product needs restocking'}>
-                        {status === 'out' ? 'Restock needed' : `Alert at ${unitLabel(p.unit, p.minStock)}`}
-                      </span>
-                    )}
-                    <div className="flex items-center gap-1">
+                  <div className="flex min-h-10 items-center justify-between gap-2 px-3 pb-2 pt-1">
+                    <span className="truncate text-[11px] text-muted-foreground">
+                      {p.stock} {p.unit}{p.stock === 1 ? '' : 's'} available
+                    </span>
+                    <div className="flex shrink-0 items-center gap-2">
                       {p.isActive && status !== 'ok' && (
                         <button
                           type="button"
@@ -557,28 +544,41 @@ export function ProductsTable({ initialProducts }: ProductsTableProps) {
                           Restock
                         </button>
                       )}
-                      <Link
-                        href={`/dashboard/products/${p.id}?edit=true`}
-                        onClick={(event) => event.stopPropagation()}
-                        className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground"
-                        aria-label={`Edit ${p.name}`}
-                      >
-                        <Pencil className="h-3.5 w-3.5" />
-                      </Link>
-                      {p.isActive && (
-                        <button
-                          type="button"
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            setArchiveTarget(p);
-                          }}
-                          disabled={archiving === p.id}
-                          className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground disabled:opacity-40"
-                          aria-label={`Archive ${p.name}`}
+                      <div className="inline-flex items-center overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-[#171717]">
+                        <Link
+                          href={`/dashboard/products/${p.id}`}
+                          onClick={(event) => event.stopPropagation()}
+                          className="inline-flex h-8 w-8 items-center justify-center text-slate-500 transition-colors hover:bg-slate-50 hover:text-slate-900 focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary dark:text-slate-400 dark:hover:bg-white/10 dark:hover:text-white"
+                          aria-label={`View ${p.name}`}
+                          title="View product"
                         >
-                          <Archive className="h-3.5 w-3.5" />
-                        </button>
-                      )}
+                          <Eye className="h-4 w-4" aria-hidden="true" />
+                        </Link>
+                        <Link
+                          href={`/dashboard/products/${p.id}?edit=true`}
+                          onClick={(event) => event.stopPropagation()}
+                          className="inline-flex h-8 w-8 items-center justify-center border-l border-slate-200 text-slate-500 transition-colors hover:bg-slate-50 hover:text-slate-900 focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary dark:border-white/10 dark:text-slate-400 dark:hover:bg-white/10 dark:hover:text-white"
+                          aria-label={`Edit ${p.name}`}
+                          title="Edit product"
+                        >
+                          <Pencil className="h-4 w-4" aria-hidden="true" />
+                        </Link>
+                        {p.isActive && (
+                          <button
+                            type="button"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              setArchiveTarget(p);
+                            }}
+                            disabled={archiving === p.id}
+                            className="inline-flex h-8 w-8 items-center justify-center border-l border-slate-200 text-slate-500 transition-colors hover:bg-red-50 hover:text-red-600 focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-red-500 disabled:opacity-40 dark:border-white/10 dark:text-slate-400 dark:hover:bg-red-950/35 dark:hover:text-red-400"
+                            aria-label={`Archive ${p.name}`}
+                            title="Archive product"
+                          >
+                            <Archive className="h-4 w-4" aria-hidden="true" />
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </article>
@@ -747,7 +747,7 @@ export function ProductsTable({ initialProducts }: ProductsTableProps) {
                                 <p className="text-xs text-muted-foreground">
                                   {p.sku ? `SKU: ${p.sku}` : 'No SKU'}
                                 </p>
-                                {(buying <= 0 || !p.sku) && <span className="mt-1 inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-800"><AlertCircle className="h-3 w-3" />Incomplete data</span>}
+                                {(buying <= 0 || !p.sku) && <span className="mt-1 inline-flex items-center gap-1 rounded-full border border-orange-200 bg-orange-50 px-2 py-0.5 text-[10px] font-medium text-orange-700 dark:border-orange-900/70 dark:bg-orange-950/35 dark:text-orange-300"><AlertTriangle className="h-3 w-3" />Incomplete data</span>}
                               </div>
                             </div>
                           </td>
@@ -788,22 +788,32 @@ export function ProductsTable({ initialProducts }: ProductsTableProps) {
                             {p.unit}
                           </td>
                           <td className="px-4 py-3 text-right">
-                            <div className="flex items-center justify-end gap-1">
+                            <div className="inline-flex items-center overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-[#171717]">
+                              <Link
+                                href={`/dashboard/products/${p.id}`}
+                                className="inline-flex h-8 w-8 items-center justify-center text-slate-500 transition-colors hover:bg-slate-50 hover:text-slate-900 focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary dark:text-slate-400 dark:hover:bg-white/10 dark:hover:text-white"
+                                aria-label={`View ${p.name}`}
+                                title="View product"
+                              >
+                                <Eye className="h-4 w-4" aria-hidden="true" />
+                              </Link>
                               <Link
                                 href={`/dashboard/products/${p.id}?edit=true`}
-                                className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
+                                className="inline-flex h-8 w-8 items-center justify-center border-l border-slate-200 text-slate-500 transition-colors hover:bg-slate-50 hover:text-slate-900 focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary dark:border-white/10 dark:text-slate-400 dark:hover:bg-white/10 dark:hover:text-white"
                                 aria-label={`Edit ${p.name}`}
+                                title="Edit product"
                               >
-                                <Pencil className="h-3.5 w-3.5" />
+                                <Pencil className="h-4 w-4" aria-hidden="true" />
                               </Link>
                               {p.isActive && (
                                 <button
                                   onClick={() => setArchiveTarget(p)}
                                   disabled={archiving === p.id}
-                                  className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors disabled:opacity-40"
+                                  className="inline-flex h-8 w-8 items-center justify-center border-l border-slate-200 text-slate-500 transition-colors hover:bg-red-50 hover:text-red-600 focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-red-500 disabled:opacity-40 dark:border-white/10 dark:text-slate-400 dark:hover:bg-red-950/35 dark:hover:text-red-400"
                                   aria-label={`Archive ${p.name}`}
+                                  title="Archive product"
                                 >
-                                  <Archive className="h-3.5 w-3.5" />
+                                  <Archive className="h-4 w-4" aria-hidden="true" />
                                 </button>
                               )}
                             </div>

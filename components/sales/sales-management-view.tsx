@@ -172,12 +172,6 @@ export function SalesManagementView({
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
-  const [detail, setDetail] = useState<Detail>(null);
-  const [loadingDetail, setLoadingDetail] = useState(false);
-  const [settings, setSettings] = useState<Awaited<
-    ReturnType<typeof getBusinessSettings>
-  > | null>(null);
-  const [refund, setRefund] = useState(false);
   const [exporting, setExporting] = useState(false);
   const url = (change: Record<string, string | undefined>) => {
     const p = new URLSearchParams();
@@ -204,19 +198,7 @@ export function SalesManagementView({
   };
   const navigate = (change: Record<string, string | undefined>) =>
     startTransition(() => router.push(url(change)));
-  const openDetail = async (saleId: string) => {
-    setLoadingDetail(true);
-    try {
-      const [nextDetail, business] = await Promise.all([
-        getSaleWithItems(saleId),
-        getBusinessSettings(),
-      ]);
-      setDetail(nextDetail);
-      setSettings(business);
-    } finally {
-      setLoadingDetail(false);
-    }
-  };
+  const openDetail = (saleId: string) => router.push(`/dashboard/sales/${saleId}`);
   const exportSales = async (format: ExportFormat) => {
     setExporting(true);
     try {
@@ -274,13 +256,13 @@ export function SalesManagementView({
   ] as const;
   return (
     <div className="mx-auto w-full max-w-[1440px] space-y-5">
-      <header className="flex flex-wrap items-start justify-between gap-4 rounded-xl border bg-gradient-to-r from-[#fffdf0] to-[#fff6c8] p-6">
+      <header className="flex flex-wrap items-start justify-between gap-4 rounded-xl border bg-gradient-to-r from-[#fffdf0] to-[#fff6c8] p-6 dark:border-[#3a3520] dark:from-[#211d0d] dark:to-[#17140c]">
         <div>
           <p className="text-xs font-bold uppercase tracking-[.18em] text-[#9b7000]">
             Pesaby workspace
           </p>
-          <h1 className="mt-1 text-2xl font-bold">Sales</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <h1 className="mt-1 text-2xl font-bold text-slate-950 dark:text-slate-100">Sales</h1>
+          <p className="mt-1 text-sm text-muted-foreground dark:text-slate-300">
             A complete view of transactions, returns and profitability.
           </p>
         </div>
@@ -362,8 +344,8 @@ export function SalesManagementView({
           value={String(totals.refundCount ?? 0)}
         />
       </section>
-      <section className="relative overflow-hidden rounded-xl border bg-white shadow-sm">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b p-4">
+      <section className="relative overflow-hidden rounded-xl border bg-white shadow-sm dark:border-slate-800 dark:bg-[#111111]">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b p-4 dark:border-slate-800">
           <div>
             <h2 className="font-semibold">Transactions</h2>
             <p className="text-xs text-muted-foreground">
@@ -375,15 +357,14 @@ export function SalesManagementView({
           <select
             value={String(data.pageSize)}
             onChange={(event) => navigate({ pageSize: event.target.value })}
-            className="rounded-lg border px-2.5 py-2 text-sm"
+            className="rounded-lg border bg-white px-2.5 py-2 text-sm dark:border-slate-700 dark:bg-[#202020] dark:text-slate-100"
           >
             <option value="25">25 rows</option>
             <option value="50">50 rows</option>
             <option value="100">100 rows</option>
           </select>
         </div>
-        {loadingDetail && <DetailLoadingOverlay />}
-        {!loadingDetail && data.rows.length === 0 && (
+        {data.rows.length === 0 && (
           <div className="p-12 text-center">
             <Receipt className="mx-auto h-8 w-8 text-muted-foreground" />
             <p className="mt-3 font-semibold">No sales match these filters</p>
@@ -409,7 +390,7 @@ export function SalesManagementView({
         {data.rows.length > 0 && (
           <div className="overflow-x-auto">
             <table className="w-full min-w-[1080px] text-sm">
-              <thead className="sticky top-0 z-10 bg-[#fafaf8] text-left text-xs text-muted-foreground shadow-[0_1px_0_rgba(226,232,240,.9)]">
+              <thead className="sticky top-0 z-10 bg-[#fafaf8] text-left text-xs text-muted-foreground shadow-[0_1px_0_rgba(226,232,240,.9)] dark:bg-[#171717] dark:shadow-[0_1px_0_rgba(71,85,105,.45)]">
                 <tr>
                   <SortHeader label="Receipt" />
                   <SortHeader
@@ -448,7 +429,7 @@ export function SalesManagementView({
                     <tr
                       key={record.id}
                       onClick={() => openDetail(record.id)}
-                      className="cursor-pointer border-t hover:bg-muted/40"
+                      className="cursor-pointer border-t border-slate-200 hover:bg-muted/40 dark:border-slate-800 dark:hover:bg-slate-900/70"
                     >
                       <td className="px-4 py-3 font-mono text-xs font-semibold">
                         {record.receiptNo}
@@ -466,12 +447,7 @@ export function SalesManagementView({
                       </td>
                       <td className="px-4 py-3">{cashierName ?? '—'}</td>
                       <td className="px-4 py-3">
-                        <PaymentMark method={record.paymentMethod} />
-                        {record.mpesaRef && (
-                          <span className="block text-xs text-muted-foreground">
-                            {record.mpesaRef}
-                          </span>
-                        )}
+                        <PaymentMark method={record.paymentMethod} reference={record.mpesaRef} />
                       </td>
                       <td className="px-4 py-3 text-right font-semibold tabular-nums">
                         {formatCurrency(record.total)}
@@ -485,7 +461,7 @@ export function SalesManagementView({
                             event.stopPropagation();
                             openDetail(record.id);
                           }}
-                          className="rounded-md p-2 text-blue-700 hover:bg-blue-50"
+                          className="rounded-md p-2 text-blue-700 hover:bg-blue-50 dark:text-blue-300 dark:hover:bg-blue-950/50"
                           aria-label={`View ${record.receiptNo}`}
                         >
                           <ChevronRight className="h-4 w-4 text-slate-400" />
@@ -501,32 +477,6 @@ export function SalesManagementView({
         <Pagination data={data} onNavigate={navigate} />
       </section>
       <SalesAnalyticsPanels analytics={analytics} />
-      {detail && settings && (
-        <SaleDetail
-          detail={detail}
-          settings={settings}
-          onClose={() => {
-            setDetail(null);
-            setRefund(false);
-          }}
-          onRefund={() => setRefund(true)}
-          onVoided={() => {
-            setDetail(null);
-            router.refresh();
-          }}
-        />
-      )}
-      {detail && refund && (
-        <RefundDialog
-          sale={{ ...detail.record, items: detail.items }}
-          onClose={() => setRefund(false)}
-          onSuccess={() => {
-            setRefund(false);
-            setDetail(null);
-            router.refresh();
-          }}
-        />
-      )}
     </div>
   );
 }
@@ -566,7 +516,7 @@ function SalesFilters({
         event.preventDefault();
         apply(new FormData(event.currentTarget));
       }}
-      className="rounded-xl border bg-white p-4 shadow-sm"
+      className="rounded-xl border bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-[#111111]"
     >
       <div className="grid gap-3 md:grid-cols-4 xl:grid-cols-8">
         <label className="relative md:col-span-2">
@@ -576,7 +526,7 @@ function SalesFilters({
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Receipt or payment reference"
-            className="w-full rounded-lg border px-9 py-2.5 text-sm"
+            className="w-full rounded-lg border bg-white px-9 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 dark:border-slate-700 dark:bg-[#202020] dark:text-slate-100 dark:placeholder:text-slate-500"
           />
         </label>
         <Select
@@ -630,19 +580,19 @@ function SalesFilters({
           name="from"
           type="date"
           defaultValue={filters.from ? dateString(filters.from) : ''}
-          className="rounded-lg border px-3 py-2 text-sm"
+          className="rounded-lg border bg-white px-3 py-2 text-sm text-slate-900 [color-scheme:light] dark:border-slate-700 dark:bg-[#202020] dark:text-slate-100 dark:[color-scheme:dark]"
         />
         <input
           name="to"
           type="date"
           defaultValue={filters.to ? dateString(filters.to) : ''}
-          className="rounded-lg border px-3 py-2 text-sm"
+          className="rounded-lg border bg-white px-3 py-2 text-sm text-slate-900 [color-scheme:light] dark:border-slate-700 dark:bg-[#202020] dark:text-slate-100 dark:[color-scheme:dark]"
         />
       </div>
       <div className="mt-3 flex flex-wrap gap-2">
         <button
           disabled={pending}
-          className="rounded-lg bg-[#050a1f] px-4 py-2 text-sm font-semibold text-white"
+          className="rounded-lg bg-[#050a1f] px-4 py-2 text-sm font-semibold text-white dark:bg-[#f0bd2f] dark:text-[#171100]"
         >
           {pending ? 'Loading…' : 'Apply filters'}
         </button>
@@ -657,7 +607,7 @@ function SalesFilters({
             type="button"
             key={preset}
             onClick={() => onNavigate(presetRange(preset))}
-            className="rounded-lg border px-3 py-2 text-xs font-semibold"
+            className="rounded-lg border bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-[#151515] dark:text-slate-200 dark:hover:border-slate-600 dark:hover:bg-[#222222]"
           >
             {label}
           </button>
@@ -667,21 +617,21 @@ function SalesFilters({
             type="button"
             onClick={() => setExportOpen((open) => !open)}
             disabled={exporting}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-[#ead48d] bg-[#fffdf5] px-3 py-2 text-sm font-semibold text-[#5f4900] disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-[#ead48d] bg-[#fffdf5] px-3 py-2 text-sm font-semibold text-[#5f4900] disabled:opacity-50 dark:border-[#80651d] dark:bg-[#241e0d] dark:text-[#f5c542]"
           >
             <Download className="h-3.5 w-3.5" />
             {exporting ? 'Exporting…' : 'Export'}
             <ChevronDown className="h-3.5 w-3.5" />
           </button>
           {exportOpen && (
-            <div className="absolute left-0 z-30 mt-2 w-44 rounded-lg border border-slate-200 bg-white p-1 shadow-lg">
+            <div className="absolute left-0 z-30 mt-2 w-44 rounded-lg border border-slate-200 bg-white p-1 text-slate-800 shadow-lg dark:border-slate-700 dark:bg-[#181818] dark:text-slate-100">
               <button
                 type="button"
                 onClick={() => {
                   setExportOpen(false);
                   onExport('csv');
                 }}
-                className="w-full rounded-md px-3 py-2 text-left text-sm hover:bg-[#fff8e8]"
+                className="w-full rounded-md px-3 py-2 text-left text-sm hover:bg-[#fff8e8] focus:bg-[#fff3bd] focus:outline-none dark:hover:bg-[#29240f] dark:focus:bg-[#332b10]"
               >
                 Download CSV
               </button>
@@ -691,7 +641,7 @@ function SalesFilters({
                   setExportOpen(false);
                   onExport('excel');
                 }}
-                className="w-full rounded-md px-3 py-2 text-left text-sm hover:bg-[#fff8e8]"
+                className="w-full rounded-md px-3 py-2 text-left text-sm hover:bg-[#fff8e8] focus:bg-[#fff3bd] focus:outline-none dark:hover:bg-[#29240f] dark:focus:bg-[#332b10]"
               >
                 Download Excel
               </button>
@@ -701,7 +651,7 @@ function SalesFilters({
                   setExportOpen(false);
                   onExport('pdf');
                 }}
-                className="w-full rounded-md px-3 py-2 text-left text-sm hover:bg-[#fff8e8]"
+                className="w-full rounded-md px-3 py-2 text-left text-sm hover:bg-[#fff8e8] focus:bg-[#fff3bd] focus:outline-none dark:hover:bg-[#29240f] dark:focus:bg-[#332b10]"
               >
                 Print / save PDF
               </button>
@@ -723,7 +673,7 @@ function SalesFilters({
               to: undefined,
             })
           }
-          className="ml-auto inline-flex items-center gap-1 rounded-lg border px-3 py-2 text-sm font-semibold"
+          className="ml-auto inline-flex items-center gap-1 rounded-lg border bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-[#151515] dark:text-slate-200 dark:hover:bg-[#222222]"
         >
           <FilterX className="h-3.5 w-3.5" />
           Clear
@@ -762,11 +712,11 @@ function Select({
       <button
         type="button"
         onClick={() => setOpen((current) => !current)}
-        className="flex w-full items-center justify-between gap-2 rounded-lg border border-[#dfe3ea] bg-white px-3 py-2 text-left text-sm font-medium text-[#344054] shadow-[0_1px_1px_rgba(16,24,40,.02)] transition-colors hover:border-[#e5bf46] focus:outline-none focus:ring-2 focus:ring-[#f9b21d]/25"
+        className="flex w-full items-center justify-between gap-2 rounded-lg border border-[#dfe3ea] bg-white px-3 py-2 text-left text-sm font-medium text-[#344054] shadow-[0_1px_1px_rgba(16,24,40,.02)] transition-colors hover:border-[#e5bf46] focus:outline-none focus:ring-2 focus:ring-[#f9b21d]/25 dark:border-slate-700 dark:bg-[#151515] dark:text-slate-100 dark:hover:border-[#80651d]"
       >
         <span className="truncate capitalize">{selectedLabel}</span>
         <ChevronDown
-          className={`h-4 w-4 shrink-0 transition-transform ${open ? 'rotate-180 text-[#9a6900]' : 'text-[#667085]'}`}
+          className={`h-4 w-4 shrink-0 transition-transform ${open ? 'rotate-180 text-[#9a6900] dark:text-[#f5c542]' : 'text-[#667085] dark:text-slate-400'}`}
         />
       </button>
       {open && (
@@ -777,14 +727,14 @@ function Select({
             onClick={() => setOpen(false)}
             className="fixed inset-0 z-10 cursor-default"
           />
-          <div className="absolute z-20 mt-1 max-h-64 w-full overflow-y-auto rounded-lg border border-[#ead48d] bg-white p-1 shadow-[0_12px_24px_rgba(16,24,40,.14)]">
+          <div className="absolute z-20 mt-1 max-h-64 w-full overflow-y-auto rounded-lg border border-[#ead48d] bg-white p-1 shadow-[0_12px_24px_rgba(16,24,40,.14)] dark:border-slate-700 dark:bg-[#181818]">
             <button
               type="button"
               onClick={() => {
                 setSelected('');
                 setOpen(false);
               }}
-              className={`w-full rounded-md px-3 py-2 text-left text-sm transition-colors ${!selected ? 'bg-[#fff3bd] font-semibold text-[#765800]' : 'text-[#344054] hover:bg-[#fff8e8]'}`}
+              className={`w-full rounded-md px-3 py-2 text-left text-sm transition-colors ${!selected ? 'bg-[#fff3bd] font-semibold text-[#765800] dark:bg-[#332b10] dark:text-[#f5c542]' : 'text-[#344054] hover:bg-[#fff8e8] dark:text-slate-200 dark:hover:bg-[#242424]'}`}
             >
               {label}
             </button>
@@ -796,7 +746,7 @@ function Select({
                   setSelected(id);
                   setOpen(false);
                 }}
-                className={`w-full rounded-md px-3 py-2 text-left text-sm capitalize transition-colors ${selected === id ? 'bg-[#fff3bd] font-semibold text-[#765800]' : 'text-[#344054] hover:bg-[#fff8e8]'}`}
+                className={`w-full rounded-md px-3 py-2 text-left text-sm capitalize transition-colors ${selected === id ? 'bg-[#fff3bd] font-semibold text-[#765800] dark:bg-[#332b10] dark:text-[#f5c542]' : 'text-[#344054] hover:bg-[#fff8e8] dark:text-slate-200 dark:hover:bg-[#242424]'}`}
               >
                 {text}
               </button>
@@ -807,9 +757,8 @@ function Select({
     </div>
   );
 }
-function PaymentMark({ method }: { method: string }) {
+function PaymentMark({ method, reference }: { method: string; reference?: string | null }) {
   const logos: Record<string, string> = {
-    cash: '/payment-logos/cash-kes.svg',
     mpesa: '/payment-logos/mpesa.svg',
     card: '/payment-logos/visa.svg',
   };
@@ -819,9 +768,14 @@ function PaymentMark({ method }: { method: string }) {
       ? 'M-Pesa'
       : method.charAt(0).toUpperCase() + method.slice(1);
   return (
-    <span className="inline-flex items-center gap-2">
-      <span className="inline-flex h-7 min-w-14 items-center justify-center rounded-md border border-slate-200 bg-white px-1.5">
-        {logos[method] ? (
+    <span
+      className="group relative inline-flex items-center gap-2"
+      tabIndex={method === 'mpesa' ? 0 : undefined}
+    >
+      <span className={`inline-flex h-7 min-w-14 items-center justify-center gap-1.5 rounded-md border px-2 ${method === 'card' ? 'border-[#9bbcf4] bg-[#ffffff] dark:border-[#78a9ff] dark:bg-[#ffffff]' : method === 'mpesa' ? 'border-[#9cdbb3] bg-white dark:border-[#2f7650] dark:bg-[#202020]' : 'border-[#e1c66e] bg-white dark:border-[#80651d] dark:bg-[#202020]'}`}>
+        {method === 'cash' ? (
+          <span className="text-[11px] font-semibold text-[#9a6900] dark:text-[#f5c542]">Cash</span>
+        ) : logos[method] ? (
           <Image
             src={logos[method]}
             alt=""
@@ -833,7 +787,8 @@ function PaymentMark({ method }: { method: string }) {
           <Icon className="h-3.5 w-3.5" />
         )}
       </span>
-      <span className="text-xs font-medium text-slate-700">{label}</span>
+      {method !== 'mpesa' && method !== 'cash' && <span className={`text-xs font-medium ${method === 'card' ? 'text-[#3267c8] dark:text-[#78a9ff]' : 'text-slate-700 dark:text-slate-300'}`}>{label}</span>}
+      {method === 'mpesa' && reference && <span className="pointer-events-none absolute left-0 top-full z-20 mt-2 hidden whitespace-nowrap rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-[11px] font-medium text-slate-700 shadow-lg group-hover:block dark:border-slate-700 dark:bg-[#202020] dark:text-slate-200">{reference}</span>}
     </span>
   );
 }
@@ -853,44 +808,44 @@ function MetricCard({
   primary?: boolean;
 }) {
   const tones = {
-    plain: 'border-slate-200 bg-white',
-    slate: 'border-slate-200 bg-white',
-    gold: 'border-[#f0d77f] bg-gradient-to-br from-[#fffefa] to-[#fff5ca]',
-    cash: 'border-[#f2d27b] bg-gradient-to-br from-[#fffefa] via-[#fff9e8] to-[#fff0bd]',
+    plain: 'border-slate-200 bg-white dark:border-slate-700 dark:bg-[#111111]',
+    slate: 'border-slate-200 bg-white dark:border-slate-700 dark:bg-[#111111]',
+    gold: 'border-[#f0d77f] bg-gradient-to-br from-[#fffefa] to-[#fff5ca] dark:border-[#80651d] dark:from-[#30270f] dark:via-[#24200f] dark:to-[#1b180d]',
+    cash: 'border-[#f2d27b] bg-gradient-to-br from-[#fffefa] via-[#fff9e8] to-[#fff0bd] dark:border-[#80651d] dark:from-[#30270f] dark:via-[#24200f] dark:to-[#1b180d]',
     mpesa:
-      'border-[#9cdbb3] bg-gradient-to-br from-[#ffffff] via-[#f4fff7] to-[#dcf6e5]',
-    card: 'border-[#9bbcf4] bg-gradient-to-br from-[#ffffff] via-[#f4f8ff] to-[#dce9ff]',
+      'border-[#9cdbb3] bg-gradient-to-br from-[#ffffff] via-[#f4fff7] to-[#dcf6e5] dark:border-[#2f7650] dark:from-[#10261b] dark:via-[#102019] dark:to-[#102b1d]',
+    card: 'border-[#9bbcf4] bg-gradient-to-br from-[#ffffff] via-[#f4f8ff] to-[#dce9ff] dark:border-[#365b9a] dark:from-[#111b30] dark:via-[#111a2a] dark:to-[#162443]',
   };
   return (
     <div
-      className={`min-w-0 rounded-xl border px-5 py-5 shadow-[0_1px_2px_rgba(16,24,40,.04)] ${primary ? 'min-h-[104px]' : 'min-h-[84px]'} ${tones[tone]}`}
+      className={`min-w-0 rounded-xl border px-5 shadow-[0_1px_2px_rgba(16,24,40,.04)] transition-shadow duration-150 hover:shadow-[0_4px_12px_rgba(15,23,42,.07)] dark:hover:shadow-[0_6px_16px_rgba(0,0,0,.2)] motion-reduce:transition-none ${primary ? 'min-h-[104px] py-5' : 'min-h-[84px] py-[18px]'} ${tones[tone]}`}
     >
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-xs font-semibold tracking-wide text-slate-600">
+          <p className="text-xs font-semibold tracking-wide text-slate-600 dark:text-slate-300">
             {label}
           </p>
           <p
-            className={`${primary ? 'mt-1.5 text-[16px]' : 'mt-1 text-[15px]'} whitespace-nowrap font-semibold leading-tight tracking-[-.01em] text-slate-950 tabular-nums`}
+            className={`${primary ? 'mt-1.5 text-[16px]' : 'mt-1 text-[15px]'} whitespace-nowrap font-semibold leading-tight tracking-[-.01em] text-slate-950 dark:text-slate-100 tabular-nums`}
           >
             {value}
           </p>
         </div>
         {logo && (
-          <span className="flex h-7 w-10 shrink-0 items-center justify-center rounded-lg border border-white bg-white p-1 shadow-sm">
+          <span className={`flex h-10 w-14 shrink-0 items-center justify-center rounded-lg border p-1.5 shadow-sm ${logo.includes('visa') ? 'border-[#b8c9ef] bg-[#ffffff] dark:border-[#78a9ff] dark:bg-[#ffffff]' : logo.includes('mpesa') ? 'border-[#b8e2c7] bg-white dark:border-[#2f7650] dark:bg-[#18251d]' : 'border-[#ead48d] bg-white dark:border-[#80651d] dark:bg-[#211d12]'}`}>
             <Image
               src={logo}
-              alt=""
-              width={38}
-              height={24}
-              className="h-4 w-auto object-contain"
+              alt={`${label} payment method`}
+              width={52}
+              height={30}
+              className="max-h-7 w-full object-contain"
             />
           </span>
         )}
       </div>
       {comparison !== undefined && comparison !== null && (
         <p
-          className={`mt-2 text-xs font-medium ${comparison >= 0 ? 'text-emerald-700' : 'text-red-700'}`}
+          className={`mt-2 text-xs font-medium ${comparison >= 0 ? 'text-emerald-700 dark:text-emerald-300' : 'text-red-700 dark:text-red-300'}`}
         >
           {comparison >= 0 ? '+' : ''}
           {comparison.toFixed(1)}% vs prior period
@@ -942,20 +897,20 @@ function SortHeader({
 function Status({ status }: { status: string }) {
   const style =
     status === 'completed'
-      ? 'bg-emerald-100 text-emerald-800'
+      ? 'bg-emerald-100 text-emerald-800 dark:border-emerald-800/70 dark:bg-emerald-950/45 dark:text-emerald-300'
       : status === 'pending'
-        ? 'bg-blue-100 text-blue-800'
+        ? 'bg-blue-100 text-blue-800 dark:border-blue-800/70 dark:bg-blue-950/45 dark:text-blue-300'
         : status === 'refunded'
-          ? 'bg-orange-100 text-orange-800'
+          ? 'bg-orange-100 text-orange-800 dark:border-orange-800/70 dark:bg-orange-950/45 dark:text-orange-300'
           : status === 'partially_refunded'
-            ? 'bg-amber-100 text-amber-800'
+            ? 'bg-amber-100 text-amber-800 dark:border-amber-800/70 dark:bg-amber-950/45 dark:text-amber-300'
             : status === 'cancelled' || status === 'voided'
-              ? 'bg-slate-100 text-slate-700'
-              : 'bg-slate-100 text-slate-700';
+              ? 'bg-slate-100 text-slate-700 dark:border-slate-700 dark:bg-slate-800/60 dark:text-slate-300'
+              : 'bg-slate-100 text-slate-700 dark:border-slate-700 dark:bg-slate-800/60 dark:text-slate-300';
   const label = status === 'partially_refunded' ? 'Partial' : status;
   return (
     <span
-      className={`rounded-full px-2 py-1 text-xs font-semibold capitalize ${style}`}
+      className={`inline-flex rounded-full border border-transparent px-2 py-1 text-xs font-semibold capitalize ${style}`}
     >
       {label.replaceAll('_', ' ')}
     </span>
@@ -994,25 +949,25 @@ function Pagination({
 }) {
   const pages = Math.max(1, Math.ceil(data.total / data.pageSize));
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 border-t bg-slate-50/70 px-4 py-3">
-      <p className="text-xs font-medium text-slate-500">
+    <div className="flex flex-wrap items-center justify-between gap-3 border-t bg-slate-50/70 px-4 py-3 dark:border-slate-800 dark:bg-[#151515]">
+      <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
         Page {data.page} of {pages}
       </p>
       <div className="flex items-center gap-2">
         <button
           disabled={data.page <= 1}
           onClick={() => onNavigate({ page: String(data.page - 1) })}
-          className="rounded-lg border bg-white px-3 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-40"
+          className="rounded-lg border bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-[#202020] dark:text-slate-200 dark:hover:bg-[#2a2a2a] disabled:cursor-not-allowed disabled:opacity-40"
         >
           Previous
         </button>
-        <span className="min-w-8 rounded-lg bg-[#050a1f] px-2 py-2 text-center text-sm font-bold text-white">
+        <span className="min-w-8 rounded-lg bg-[#050a1f] px-2 py-2 text-center text-sm font-bold text-white dark:bg-[#f5c542] dark:text-[#201800]">
           {data.page}
         </span>
         <button
           disabled={data.page >= pages}
           onClick={() => onNavigate({ page: String(data.page + 1) })}
-          className="rounded-lg border bg-white px-3 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-40"
+          className="rounded-lg border bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-[#202020] dark:text-slate-200 dark:hover:bg-[#2a2a2a] disabled:cursor-not-allowed disabled:opacity-40"
         >
           Next
         </button>
@@ -1175,7 +1130,7 @@ function SaleDetail({
                   <p className="font-medium">{item.productName}</p>
                   <p className="text-xs text-muted-foreground">
                     {item.quantity} × {formatCurrency(item.unitPrice)} · cost{' '}
-                    {formatCurrency(item.unitCostAtSale)}
+                    {'unitCostAtSale' in item ? formatCurrency(item.unitCostAtSale) : 'Restricted'}
                     <span className="block">
                       SKU: {item.sku ?? '—'} · Category:{' '}
                       {item.categoryName ?? 'Uncategorized'}

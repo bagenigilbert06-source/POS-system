@@ -15,6 +15,8 @@ import {
 } from '@/components/ui/dialog'
 import { createEmployee } from '@/app/actions/staff-actions'
 import { STAFF_ROLE_LABELS, type StaffManagedRole } from '@/lib/types/permissions'
+import { STAFF_DEPARTMENTS, STAFF_DEPARTMENT_LABELS, type StaffDepartment } from '@/lib/types/staff'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
 export function AddStaffDialog({ branches, assignableRoles }: { branches: Array<{ id: string; name: string }>; assignableRoles: StaffManagedRole[] }) {
   const router = useRouter()
@@ -26,7 +28,7 @@ export function AddStaffDialog({ branches, assignableRoles }: { branches: Array<
     phone: '',
     role: '' as StaffManagedRole | '',
     branchId: branches[0]?.id ?? '',
-    department: '',
+    department: 'unassigned' as StaffDepartment,
     salary: '0',
   })
 
@@ -45,7 +47,7 @@ export function AddStaffDialog({ branches, assignableRoles }: { branches: Array<
       if (result.existingUser) toast.success('Existing Pesaby user added to this organization')
       else if (result.invitationSent) toast.success('Employee created and invitation sent')
       else toast.warning('Employee created as Invited, but email was not delivered. Configure Brevo or use Resend invitation.')
-      setFormData({ name: '', email: '', phone: '', role: '', branchId: branches[0]?.id ?? '', department: '', salary: '0' })
+      setFormData({ name: '', email: '', phone: '', role: '', branchId: branches[0]?.id ?? '', department: 'unassigned', salary: '0' })
       setOpen(false)
       router.refresh()
     } catch (error) {
@@ -90,7 +92,7 @@ export function AddStaffDialog({ branches, assignableRoles }: { branches: Array<
                 value={formData.email}
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                 placeholder="john@example.com"
-                className="w-full rounded-lg border px-3 py-2 text-sm"
+                className="w-full rounded-lg border bg-background px-3 py-2 text-sm text-foreground accent-amber-500 focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-500/20"
                 required
               />
             </div>
@@ -106,39 +108,37 @@ export function AddStaffDialog({ branches, assignableRoles }: { branches: Array<
             </div>
           </div>
 
-          <div className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2.5 text-sm text-blue-900">The employee will receive a secure email link to choose their own password. The link expires in one hour.</div>
+          <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-sm text-amber-900 dark:border-amber-900/70 dark:bg-amber-950/30 dark:text-amber-200">The employee will receive a secure email link to choose their own password. The link expires in one hour.</div>
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <label className="text-sm font-medium">Role*</label>
-              <select
-                value={formData.role}
-                onChange={(e) => setFormData({ ...formData, role: e.target.value as StaffManagedRole | '' })}
-                className="w-full rounded-lg border px-3 py-2 text-sm"
-                required
-              >
-                <option value="" disabled>Select role...</option>
-                {assignableRoles.map((role) => <option key={role} value={role}>{STAFF_ROLE_LABELS[role]}</option>)}
-              </select>
+              <Select value={formData.role} onValueChange={(value) => setFormData({ ...formData, role: value as StaffManagedRole })}>
+                <SelectTrigger className="w-full !border-0 bg-background text-sm text-foreground !shadow-none outline-none ring-0 focus:!border-0 focus:ring-2 focus:ring-amber-500/20"><SelectValue placeholder="Select role..." /></SelectTrigger>
+                <SelectContent className="!border-0 bg-popover text-popover-foreground shadow-lg">
+                  {assignableRoles.map((role) => <SelectItem key={role} value={role} className="focus:bg-amber-100 focus:text-amber-950 dark:focus:bg-amber-400/15 dark:focus:text-amber-100">{STAFF_ROLE_LABELS[role]}</SelectItem>)}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium">Department</label>
-              <input
-                type="text"
-                value={formData.department}
-                onChange={(e) => setFormData({ ...formData, department: e.target.value })}
-                placeholder="Sales"
-                className="w-full rounded-lg border px-3 py-2 text-sm"
-              />
+              <Select value={formData.department} onValueChange={(value) => setFormData({ ...formData, department: value as StaffDepartment })}>
+                <SelectTrigger className="w-full !border-0 bg-background text-sm text-foreground !shadow-none outline-none ring-0 focus:!border-0 focus:ring-2 focus:ring-amber-500/20"><SelectValue placeholder="Choose department" /></SelectTrigger>
+                <SelectContent className="!border-0 bg-popover text-popover-foreground shadow-lg">
+                  {STAFF_DEPARTMENTS.map((department) => <SelectItem key={department} value={department} className="focus:bg-amber-100 focus:text-amber-950 dark:focus:bg-amber-400/15 dark:focus:text-amber-100">{STAFF_DEPARTMENT_LABELS[department]}</SelectItem>)}
+                </SelectContent>
+              </Select>
             </div>
           </div>
 
           <div className="space-y-2">
             <label className="text-sm font-medium">Assigned branch*</label>
-            <select value={formData.branchId} onChange={(e) => setFormData({ ...formData, branchId: e.target.value })} className="w-full rounded-lg border px-3 py-2 text-sm" required>
-              <option value="" disabled>Choose branch</option>
-              {branches.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
-            </select>
+            <Select value={formData.branchId} onValueChange={(value) => setFormData({ ...formData, branchId: value })}>
+              <SelectTrigger className="w-full !border-0 bg-background text-sm text-foreground !shadow-none outline-none ring-0 focus:!border-0 focus:ring-2 focus:ring-amber-500/20"><SelectValue placeholder="Choose branch" /></SelectTrigger>
+              <SelectContent className="!border-0 bg-popover text-popover-foreground shadow-lg">
+                {branches.map((item) => <SelectItem key={item.id} value={item.id} className="focus:bg-amber-100 focus:text-amber-950 dark:focus:bg-amber-400/15 dark:focus:text-amber-100">{item.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="space-y-2">

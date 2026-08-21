@@ -9,6 +9,7 @@ import { eq } from 'drizzle-orm'
 import { generateId } from '@/lib/utils'
 import { sendStaffInvitation } from '@/lib/email/staff-invitation'
 import { sendEmail } from '@/lib/email/client'
+import { withDatabaseRetry } from '@/lib/db/retry'
 
 export const auth = betterAuth({
   database: pool,
@@ -69,4 +70,6 @@ export const auth = betterAuth({
 })
 
 /** One request-scoped session lookup shared by dashboard layouts and pages. */
-export const getCurrentSession = cache(async () => auth.api.getSession({ headers: await headers() }))
+export const getCurrentSession = cache(async () =>
+  withDatabaseRetry(async () => auth.api.getSession({ headers: await headers() }))
+)

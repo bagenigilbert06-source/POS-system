@@ -17,7 +17,7 @@ export default async function EditProductPage({ params, searchParams }: { params
   const item = overview.product
   const categories = editing ? await getProductCategories() : []
   return <div className="mx-auto max-w-[1480px] space-y-5">
-    <DashboardPageHeading icon={Package} title={editing ? 'Edit product' : item.name} description={editing ? 'Update the catalogue, price, stock controls and POS image for this item.' : 'Product overview, pricing and inventory status.'} />
+    <DashboardPageHeading icon={Package} eyebrow={editing ? 'Edit product' : 'Pesaby workspace'} title={item.name} description={editing ? 'Update product details, pricing, stock controls and POS image.' : 'Product overview, pricing and inventory status.'} theme="adaptive" />
     {editing ? <ProductForm product={item} categories={categories} /> : <ProductDetails overview={overview} />}
   </div>
 }

@@ -28,8 +28,8 @@ module.exports = {
     },
     extend: {
       fontFamily: {
-        sans: ['var(--font-sans)', 'Poppins', ...defaultTheme.fontFamily.sans],
-        display: ['var(--font-display)', 'Poppins', ...defaultTheme.fontFamily.sans],
+        sans: ['var(--font-sans)', 'Inter', ...defaultTheme.fontFamily.sans],
+        display: ['var(--font-display)', 'Inter', ...defaultTheme.fontFamily.sans],
         mono: ['var(--font-mono)', 'ui-monospace', ...defaultTheme.fontFamily.mono],
       },
       colors: {

@@ -11,6 +11,7 @@ import { branch, organization as organizationTable, user } from '@/lib/db/schema
 import { and, desc, eq } from 'drizzle-orm'
 import { getAuthorizationContext } from '@/lib/auth/authorization'
 import { getPosAuthorizationContext } from '@/lib/pos/pos-auth'
+import { withDatabaseRetry } from '@/lib/db/retry'
 
 export default async function DashboardRouteLayout({ children }: { children: React.ReactNode }) {
   const session = await getCurrentSession()
@@ -18,7 +19,9 @@ export default async function DashboardRouteLayout({ children }: { children: Rea
   if (!session?.user && !posAuthorization) redirect('/sign-in')
   const userId = posAuthorization?.userId ?? session!.user.id
 
-  const [account] = await db.select({ status: user.status, name: user.name, email: user.email }).from(user).where(eq(user.id, userId)).limit(1)
+  const [account] = await withDatabaseRetry(() =>
+    db.select({ status: user.status, name: user.name, email: user.email }).from(user).where(eq(user.id, userId)).limit(1)
+  )
   if (account?.status && account.status !== 'active') redirect('/restricted')
 
   const organization = posAuthorization

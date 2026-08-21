@@ -8,6 +8,8 @@ import {
   User,
   Menu,
   ShieldCheck,
+  UserRound,
+  Settings,
 } from 'lucide-react'
 import { PesabyLogoMark } from '@/components/brand/pesaby-logo'
 import { ThemeSwitcher } from '@/components/theme-switcher'
@@ -99,7 +101,7 @@ export function AppNavbar({ userName, userEmail, organizationName, branchName, w
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
           <button
-            className="group flex items-center gap-2 rounded-lg border border-[rgba(255,214,10,0.12)] bg-[rgba(255,255,255,0.05)] px-3 py-2 text-sm text-[#f5f5f7] transition-all hover:bg-[rgba(255,255,255,0.08)] hover:border-[rgba(255,214,10,0.16)]"
+            className="group flex items-center gap-2 rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground transition-colors hover:border-primary/40 hover:bg-muted"
             aria-label="Open account menu"
           >
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#ffd60a] text-[#0b0b0d]">
@@ -108,17 +110,26 @@ export function AppNavbar({ userName, userEmail, organizationName, branchName, w
             <span className="hidden max-w-[140px] truncate font-medium md:block">
               {userName ?? 'Account'}
             </span>
-            <ChevronDown className="h-4 w-4 text-[#a1a1a6]" />
+            <ChevronDown className="h-4 w-4 text-muted-foreground" />
           </button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-64 rounded-2xl border border-[rgba(255,214,10,0.12)] bg-[#1c1c1e] p-2 text-[#f5f5f7] shadow-dark-lg">
+          <DropdownMenuContent align="end" className="w-64 rounded-2xl border border-border bg-popover p-2 text-popover-foreground shadow-lg">
             <DropdownMenuLabel className="px-3 py-3 font-normal">
-              <p className="truncate text-sm font-semibold text-[#f5f5f7]">{userName || 'Pesaby account'}</p>
-              <p className="mt-1 truncate text-xs text-[#a1a1a6]">{userEmail}</p>
+              <p className="truncate text-sm font-semibold text-foreground">{userName || 'Pesaby account'}</p>
+              <p className="mt-1 truncate text-xs text-muted-foreground">{userEmail}</p>
               <span className="mt-2 inline-flex items-center gap-1.5 rounded-md border border-border bg-muted px-2.5 py-1 text-[0.64rem] font-semibold uppercase tracking-[0.07em] text-foreground"><ShieldCheck className="h-3 w-3 text-muted-foreground" />{roleTitle}</span>
             </DropdownMenuLabel>
-            <DropdownMenuSeparator className="bg-[rgba(255,214,10,0.08)]" />
-            <DropdownMenuItem onSelect={handleSignOut} className="gap-3 rounded-lg px-3 py-2.5 text-[#a1a1a6] focus:bg-[rgba(255,76,77,0.1)] focus:text-[#ff6961]">
+            <DropdownMenuSeparator className="bg-border" />
+            <DropdownMenuItem onSelect={() => router.push('/dashboard/admin/profile')} className="gap-3 rounded-lg px-3 py-2.5 text-muted-foreground focus:bg-muted focus:text-foreground">
+              <UserRound className="h-4 w-4" />
+              <span>Profile</span>
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => router.push('/dashboard/settings')} className="gap-3 rounded-lg px-3 py-2.5 text-muted-foreground focus:bg-muted focus:text-foreground">
+              <Settings className="h-4 w-4" />
+              <span>Settings</span>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator className="bg-border" />
+            <DropdownMenuItem onSelect={handleSignOut} className="gap-3 rounded-lg px-3 py-2.5 text-muted-foreground focus:bg-red-50 focus:text-red-600 dark:focus:bg-red-950/30 dark:focus:text-red-300">
               <LogOut className="h-4 w-4" />Sign out
             </DropdownMenuItem>
           </DropdownMenuContent>

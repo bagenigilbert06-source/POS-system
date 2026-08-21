@@ -2,20 +2,28 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { formatDate } from '@/lib/utils'
-import { Search, Plus, Pencil, Users, Phone, Mail, MapPin, Loader2 } from 'lucide-react'
+import { Search, Plus, Pencil, Users, Loader2, X, Eye, Trash2, LockKeyhole } from 'lucide-react'
 import type { Customer } from '@/lib/db/schema'
 import { useCustomersStore, OptimisticItem } from '@/lib/stores/customers-store'
-import { createCustomer } from '@/app/actions/customers'
+import { createCustomer, deleteCustomer } from '@/app/actions/customers'
 import { useDebounce } from 'use-debounce'
+import { toast } from 'sonner'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
+import { GmailMark, GoogleMapsMark, PhoneMark } from '@/components/ui/contact-marks'
 
 interface CustomersClientProps {
   initialCustomers: Customer[]
 }
 
 export function CustomersClient({ initialCustomers }: CustomersClientProps) {
+  const router = useRouter()
   const [customers, setCustomers] = useState<any[]>(initialCustomers)
   const [search, setSearch] = useState('')
+  const [deleteTarget, setDeleteTarget] = useState<any | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
   const [debouncedSearch] = useDebounce(search, 250)
   const optimistic = useCustomersStore((s) => s.optimistic)
   const canonical = useCustomersStore((s) => s.canonical)
@@ -48,95 +56,117 @@ export function CustomersClient({ initialCustomers }: CustomersClientProps) {
       (c.phone ?? '').includes(debouncedSearch) || (c.email ?? '').toLowerCase().includes(debouncedSearch.toLowerCase())
   )
 
+  const toTitleCase = (value: string) => value.toLocaleLowerCase().replace(/\b\p{L}/gu, (letter) => letter.toLocaleUpperCase())
+  const displayName = (value: string) => toTitleCase(value.trim())
+  const isMaskedName = (value: string) => /[•*]{2,}/.test(value)
+  const initials = (value: string) => value.trim().split(/\s+/).slice(0, 2).map((part) => part.charAt(0)).join('').toUpperCase() || '?'
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return
+    setIsDeleting(true)
+    try {
+      await deleteCustomer(deleteTarget.id)
+      setCustomers((items) => items.filter((item) => item.id !== deleteTarget.id))
+      useCustomersStore.getState().setCanonical(canonical.filter((item) => item.id !== deleteTarget.id))
+      toast.success('Customer deleted')
+      setDeleteTarget(null)
+      router.refresh()
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Could not delete customer')
+    } finally {
+      setIsDeleting(false)
+    }
+  }
+
   return (
-    <>
-      <div className="space-y-4">
+    <TooltipProvider delayDuration={250}>
+      <div className="overflow-hidden rounded-xl bg-white shadow-[0_8px_30px_rgba(15,23,42,0.06)] dark:bg-card/80 dark:shadow-sm">
         {/* Toolbar */}
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="relative flex-1 max-w-sm">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <div className="flex flex-col gap-3 bg-slate-50/60 p-3 dark:bg-white/[0.015] sm:flex-row sm:items-center">
+          <div className="relative w-full sm:max-w-md">
+            <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <input aria-label="Search customers"
               type="text"
               placeholder="Search by name, phone, email..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full rounded-md border bg-background py-2 pl-9 pr-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-colors"
+              style={{ paddingLeft: '2.75rem', paddingRight: '2.5rem' }}
+              className="h-11 w-full rounded-xl border border-border bg-card py-2 text-sm text-foreground shadow-sm outline-none transition-all placeholder:text-muted-foreground focus:border-primary focus:ring-4 focus:ring-primary/10 dark:border-white/10 dark:bg-[#121212] dark:focus:border-[#ffd60a]/50 dark:focus:ring-[#ffd60a]/10"
             />
+            {search && (
+              <button type="button" onClick={() => setSearch('')} aria-label="Clear search" className="absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+                <X className="h-4 w-4" />
+              </button>
+            )}
           </div>
+          <span className="text-xs text-muted-foreground sm:ml-1 sm:mr-auto" aria-live="polite">
+            Showing {filtered.length} of {customers.length} {customers.length === 1 ? 'customer' : 'customers'}
+          </span>
           <Link
             href="/dashboard/customers/new"
-            className="flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors flex-shrink-0"
+            className="inline-flex h-10 flex-shrink-0 items-center justify-center gap-2 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-sm transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background"
           >
             <Plus className="h-4 w-4" />
             Add Customer
           </Link>
         </div>
 
-        {/* Grid */}
+        {/* Contact directory */}
         {filtered.length === 0 ? (
-          <div className="flex min-h-72 flex-col items-center justify-center rounded-xl border border-dashed bg-card px-6 py-12 text-center">
-            <span className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary"><Users className="h-6 w-6" /></span>
-            <p className="text-base font-semibold">{search ? 'No matching customers' : 'Start your customer list'}</p>
+          <div className="flex min-h-72 flex-col items-center justify-center border-t border-dashed border-border bg-card/70 px-6 py-12 text-center">
+            <span className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-primary ring-1 ring-primary/15"><Users className="h-6 w-6" /></span>
+            <p className="text-base font-semibold">{search ? 'No results match your search' : 'No customers yet'}</p>
             <p className="mt-1 max-w-sm text-sm text-muted-foreground">
               {search ? 'Try a different search term.' : 'Add a customer once, then select them again during checkout for faster service.'}
             </p>
             {!search && <Link href="/dashboard/customers/new" className="mt-5 inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"><Plus className="h-4 w-4" />Add your first customer</Link>}
           </div>
         ) : (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {filtered.map((c) => (
-              <div key={c.id} className={`rounded-lg border bg-white p-4 shadow-sm hover:shadow-md transition-shadow ${ (c as any).optimistic ? 'opacity-90' : ''}`}>
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-[#fff3bd] text-sm font-semibold text-[#765800]">
-                      {c.name ? c.name.charAt(0).toUpperCase() : '?'}
+          <section className="border-t border-border dark:border-white/[0.07]">
+            <div className="hidden min-h-11 grid-cols-[minmax(220px,1.4fr)_minmax(220px,1.4fr)_minmax(140px,.8fr)_minmax(160px,1fr)_100px_104px] items-center gap-4 border-b border-border bg-secondary/40 px-5 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground dark:border-white/[0.07] dark:bg-white/[0.025] lg:grid">
+              <span>Name</span><span>Email</span><span>Phone</span><span>Location</span><span>Added</span><span className="sr-only">Actions</span>
+            </div>
+            <div className="divide-y divide-border dark:divide-white/[0.07]">
+              {filtered.map((c) => (
+                <article key={c.id} className={`group grid min-h-[68px] grid-cols-[minmax(0,1fr)_104px] items-center gap-3 px-4 py-3 transition-colors hover:bg-secondary/50 dark:hover:bg-white/[0.035] lg:grid-cols-[minmax(220px,1.4fr)_minmax(220px,1.4fr)_minmax(140px,.8fr)_minmax(160px,1fr)_100px_104px] lg:gap-4 lg:px-5 lg:py-3.5 ${ (c as any).optimistic ? 'opacity-75' : ''}`}>
+                  <div className="flex min-w-0 items-center gap-3">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#fff3bd] text-sm font-bold text-[#765800] dark:bg-[#ffd60a]/15 dark:text-[#ffe35c]">
+                      {initials(c.name)}
                     </div>
                     <div className="min-w-0">
-                      <p className="font-medium truncate">{c.name}</p>
-                      <p className="text-xs text-muted-foreground">Since {formatDate(c.createdAt)}</p>
+                      <p className="flex min-w-0 items-center gap-1.5 truncate text-sm font-medium text-foreground">
+                        <span className="truncate">{displayName(c.name)}</span>
+                        {isMaskedName(c.name) && <Tooltip><TooltipTrigger asChild><span tabIndex={0} className="shrink-0 text-muted-foreground"><LockKeyhole className="h-3 w-3" aria-label="Partially hidden name" /></span></TooltipTrigger><TooltipContent>Name appears partially hidden for privacy</TooltipContent></Tooltip>}
+                      </p>
+                      <p className="mt-0.5 truncate text-xs text-muted-foreground lg:hidden">{c.email || c.phone || 'No contact details'}</p>
                     </div>
                   </div>
-                  <div className="flex gap-1 flex-shrink-0 ml-2 items-center">
+                  <div className="hidden min-w-0 items-center gap-1.5 text-sm text-muted-foreground lg:flex">
+                    {c.email ? <><GmailMark /><a href={`mailto:${c.email}`} className="truncate hover:text-foreground hover:underline focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40">{c.email}</a></> : <span>—</span>}
+                  </div>
+                  <div className="hidden min-w-0 items-center gap-1.5 text-sm text-muted-foreground lg:flex">
+                    {c.phone ? <><PhoneMark /><a href={`tel:${c.phone}`} className="truncate hover:text-foreground hover:underline focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40">{c.phone}</a></> : <span>—</span>}
+                  </div>
+                  <div className="hidden min-w-0 items-center gap-1.5 text-sm text-muted-foreground lg:flex">
+                    {c.address ? <><GoogleMapsMark /><a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(c.address)}`} target="_blank" rel="noreferrer" className="truncate hover:text-foreground hover:underline focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40">{c.address}</a></> : <span>—</span>}
+                  </div>
+                  <span className="hidden text-right text-[11px] text-muted-foreground lg:block">{formatDate(c.createdAt)}</span>
+                  <div className="flex items-center justify-end">
                     {(c as any).optimistic && (c as any).status === 'pending' && (
-                      <div className="mr-2 flex items-center gap-2 text-xs text-muted-foreground"><svg className="h-4 w-4 animate-spin text-muted-foreground" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path></svg>Saving…</div>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin text-muted-foreground" aria-label="Saving" />
                     )}
                     {(c as any).optimistic && (c as any).status === 'failed' && (
-                      <div className="mr-2 flex items-center gap-2 text-xs text-destructive">Save failed</div>
+                      <span className="mr-2 text-xs text-destructive">Failed</span>
                     )}
-                    <Link
-                      href={`/dashboard/customers/${c.id}`}
-                      className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
-                      aria-label={`Edit ${c.name}`}
-                    >
-                      <Pencil className="h-4 w-4" />
-                    </Link>
+                    <div className="flex items-center rounded-lg border border-border bg-background/70 p-0.5 shadow-sm dark:border-white/10 dark:bg-white/[0.025]">
+                      <Tooltip><TooltipTrigger asChild><Link href={`/dashboard/customers/${c.id}?mode=view`} className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary" aria-label={`View ${displayName(c.name)}`}><Eye className="h-3.5 w-3.5" /></Link></TooltipTrigger><TooltipContent>View details</TooltipContent></Tooltip>
+                      <Tooltip><TooltipTrigger asChild><Link href={`/dashboard/customers/${c.id}`} className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary" aria-label={`Edit ${displayName(c.name)}`}><Pencil className="h-3.5 w-3.5" /></Link></TooltipTrigger><TooltipContent>Edit customer</TooltipContent></Tooltip>
+                      <Tooltip><TooltipTrigger asChild><button type="button" onClick={() => setDeleteTarget(c)} className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-red-50 hover:text-red-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 dark:hover:bg-red-400/10 dark:hover:text-red-300" aria-label={`Delete ${displayName(c.name)}`}><Trash2 className="h-3.5 w-3.5" /></button></TooltipTrigger><TooltipContent>Delete customer</TooltipContent></Tooltip>
+                    </div>
                   </div>
-                </div>
-
-                <div className="mt-3 space-y-2 text-sm text-muted-foreground" aria-busy={(c as any).status === 'pending'}>
-                  {c.phone && (
-                    <div className="flex items-center gap-2">
-                      <Phone className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
-                      <span className="truncate">{c.phone}</span>
-                    </div>
-                  )}
-                  {c.email && (
-                    <div className="flex items-center gap-2">
-                      <Mail className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
-                      <span className="truncate">{c.email}</span>
-                    </div>
-                  )}
-                  {c.address && (
-                    <div className="flex items-center gap-2">
-                      <MapPin className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
-                      <span className="truncate">{c.address}</span>
-                    </div>
-                  )}
-                  {!c.phone && !c.email && !c.address && <span className="italic">No contact details</span>}
-                </div>
                 {/* Retry button for failed optimistic saves */}
                 {(c as any).optimistic && (c as any).status === 'failed' && (
-                  <div className="mt-3 flex items-center gap-2">
+                  <div className="col-span-full flex items-center gap-2 pb-2 pl-[52px] md:pl-0">
                       <button disabled={(c as any).status === 'pending'}
                       onClick={async () => {
                         // retry: call server action and update store
@@ -163,15 +193,19 @@ export function CustomersClient({ initialCustomers }: CustomersClientProps) {
                     </button>
                   </div>
                 )}
-              </div>
-            ))}
-          </div>
+                </article>
+              ))}
+            </div>
+          </section>
         )}
 
-        <p className="text-xs text-muted-foreground">
-          {filtered.length} of {customers.length} customers
-        </p>
       </div>
-    </>
+      <AlertDialog open={Boolean(deleteTarget)} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader><AlertDialogTitle>Delete this customer?</AlertDialogTitle><AlertDialogDescription>This permanently removes {deleteTarget ? displayName(deleteTarget.name) : 'this customer'} from the customer directory. Existing sales records are not changed.</AlertDialogDescription></AlertDialogHeader>
+          <AlertDialogFooter><AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel><AlertDialogAction disabled={isDeleting} onClick={(event) => { event.preventDefault(); void handleDelete() }} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">{isDeleting ? 'Deleting…' : 'Delete customer'}</AlertDialogAction></AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </TooltipProvider>
   )
 }

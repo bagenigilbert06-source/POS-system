@@ -11,7 +11,7 @@ import { OrganizationService } from '@/lib/services/organization-service'
 import { WorkspaceService } from '@/lib/services/workspace-service'
 import { z } from 'zod'
 import { requireAnyPermission, requirePermission } from '@/lib/auth/authorization'
-import { PermissionEnum } from '@/lib/types/permissions'
+import { PermissionEnum, RoleEnum } from '@/lib/types/permissions'
 import { getPosAuthorizationContext } from '@/lib/pos/pos-auth'
 import { invalidateProductReadCache } from '@/lib/cache/redis-cache'
 import { calculateMpesaAmount } from '@/lib/mpesa/amount'
@@ -531,6 +531,7 @@ export async function getSaleWithItems(saleId: string) {
   const authorization = await requireAnyPermission([PermissionEnum.SALES_VIEW_OWN, PermissionEnum.SALES_VIEW_ALL, PermissionEnum.SALE_VIEW])
   const orgId = await getOrgId(userId)
   const canViewAll = authorization.permissions.includes(PermissionEnum.SALES_VIEW_ALL)
+  const canViewCost = authorization.role === RoleEnum.OWNER || authorization.role === RoleEnum.ADMIN
   const accessScope = canViewAll
     ? authorization.isOrganizationWide ? undefined : authorization.branchIds.length ? inArray(sale.branchId, authorization.branchIds) : sql`false`
     : eq(sale.userId, userId)
@@ -551,7 +552,13 @@ export async function getSaleWithItems(saleId: string) {
     db.select({ item: salesReturnItem, returnNo: salesReturn.returnNo }).from(salesReturnItem).innerJoin(salesReturn, eq(salesReturn.id, salesReturnItem.returnId)).where(and(eq(salesReturnItem.orgId, orgId), eq(salesReturn.saleId, saleId))),
     db.select({ event: auditEvent, userName: user.name }).from(auditEvent).leftJoin(user, eq(user.id, auditEvent.userId)).where(and(eq(auditEvent.organizationId, orgId), sql`${auditEvent.metadata}->>'saleId' = ${saleId}`)).orderBy(desc(auditEvent.createdAt)).limit(50),
   ])
-  return { ...saleRecord, items: items.map(({ item, ...meta }) => ({ ...item, ...meta })), payments, returns: returns.map(({ refund, ...meta }) => ({ ...refund, ...meta })), session: session[0] ?? null, refundItems, audit }
+  const safeItems = items.map(({ item, ...meta }) => {
+    const { unitCostAtSale, totalCost, ...publicItem } = item
+    return canViewCost
+      ? { ...publicItem, ...meta, unitCostAtSale, totalCost }
+      : { ...publicItem, ...meta }
+  })
+  return { ...saleRecord, items: safeItems, canViewCost, payments, returns: returns.map(({ refund, ...meta }) => ({ ...refund, ...meta })), session: session[0] ?? null, refundItems, audit }
 }
 
 export async function getDashboardStats() {

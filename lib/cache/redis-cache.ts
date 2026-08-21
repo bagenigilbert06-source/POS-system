@@ -3,6 +3,7 @@ import { deserialize, serialize } from 'node:v8'
 import { createClient } from 'redis'
 
 interface RedisClient {
+  readonly isOpen: boolean
   readonly isReady: boolean
   connect(): Promise<unknown>
   get(key: string): Promise<string | null>
@@ -27,6 +28,21 @@ function markRedisUnavailable() {
   globalThis.__pesabyRedisDisabledUntil = Date.now() + REDIS_RETRY_COOLDOWN_MS
 }
 
+function safelyDestroyRedisClient(client: RedisClient) {
+  if (globalThis.__pesabyRedisClient === client) {
+    globalThis.__pesabyRedisClient = undefined
+  }
+
+  // node-redis may close the socket itself when connect() fails. destroy()
+  // throws ClientClosedError when called afterward, so cleanup must be guarded.
+  if (!client.isOpen) return
+  try {
+    client.destroy()
+  } catch {
+    // Redis is an optional cache; cleanup failures must not block DB reads.
+  }
+}
+
 async function redisClient(): Promise<RedisClient | null> {
   const url = process.env.REDIS_URL?.trim()
   if (!url || (globalThis.__pesabyRedisDisabledUntil ?? 0) > Date.now()) return null
@@ -43,14 +59,17 @@ async function redisClient(): Promise<RedisClient | null> {
         reconnectStrategy: false,
       },
     })
-    client.on('error', markRedisUnavailable)
+    client.on('error', () => {
+      markRedisUnavailable()
+      if (!client.isOpen) safelyDestroyRedisClient(client)
+    })
     try {
       await client.connect()
       globalThis.__pesabyRedisClient = client
       return client
     } catch {
       markRedisUnavailable()
-      client.destroy()
+      safelyDestroyRedisClient(client)
       return null
     } finally {
       globalThis.__pesabyRedisConnecting = undefined

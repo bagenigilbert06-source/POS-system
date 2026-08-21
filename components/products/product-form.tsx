@@ -224,8 +224,8 @@ export function ProductForm({ product, categories, onClose, initialCategoryId, i
               <Package2 className="h-5 w-5" />
             </div>
             <div>
-              <h2 className="text-base font-semibold">{product ? 'Edit product' : 'New product'}</h2>
-              <p className="mt-0.5 text-sm text-muted-foreground">Set up the product, price and stock levels for your catalogue.</p>
+              <h2 className="text-base font-semibold">{product ? 'Product setup' : 'New product'}</h2>
+              <p className="mt-0.5 text-sm text-muted-foreground">Manage the product information, pricing and stock levels.</p>
             </div>
           </div>
           <button type="button" onClick={closeEditor} className="ml-4 inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-secondary hover:text-foreground"><X className="h-4 w-4" />Cancel</button>

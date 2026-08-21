@@ -14,6 +14,8 @@ import {
 import { updateEmployee } from '@/app/actions/staff-actions'
 import type { Employee } from '@/lib/db/schema'
 import { RoleEnum, STAFF_ROLE_LABELS, isStaffManagedRole, type StaffManagedRole } from '@/lib/types/permissions'
+import { STAFF_DEPARTMENTS, STAFF_DEPARTMENT_LABELS, normalizeStaffDepartment, type StaffDepartment } from '@/lib/types/staff'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
 interface EditStaffDialogProps {
   employee: Employee
@@ -34,7 +36,7 @@ export function EditStaffDialog({ employee, open, onOpenChange, assignableRoles 
     email: employee.email || '',
     phone: employee.phone || '',
     role: editableRole(employee.role),
-    department: employee.department || '',
+    department: normalizeStaffDepartment(employee.department),
     salary: employee.salary.toString(),
     status: employee.status,
   })
@@ -45,7 +47,7 @@ export function EditStaffDialog({ employee, open, onOpenChange, assignableRoles 
       email: employee.email || '',
       phone: employee.phone || '',
       role: editableRole(employee.role),
-      department: employee.department || '',
+      department: normalizeStaffDepartment(employee.department),
       salary: employee.salary.toString(),
       status: employee.status,
     })
@@ -101,7 +103,7 @@ export function EditStaffDialog({ employee, open, onOpenChange, assignableRoles 
                 value={formData.email}
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                 placeholder="john@example.com"
-                className="w-full rounded-lg border px-3 py-2 text-sm"
+                className="w-full rounded-lg border bg-background px-3 py-2 text-sm text-foreground accent-amber-500 focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-500/20"
               />
             </div>
             <div className="space-y-2">
@@ -119,25 +121,21 @@ export function EditStaffDialog({ employee, open, onOpenChange, assignableRoles 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <label className="text-sm font-medium">Role*</label>
-              <select
-                value={formData.role}
-                onChange={(e) => setFormData({ ...formData, role: e.target.value as StaffManagedRole | '' })}
-                className="w-full rounded-lg border px-3 py-2 text-sm"
-                required
-              >
-                <option value="" disabled>Select role...</option>
-                {assignableRoles.map((role) => <option key={role} value={role}>{STAFF_ROLE_LABELS[role]}</option>)}
-              </select>
+              <Select value={formData.role} onValueChange={(value) => setFormData({ ...formData, role: value as StaffManagedRole })}>
+                <SelectTrigger className="w-full !border-0 bg-background text-sm text-foreground !shadow-none outline-none ring-0 focus:!border-0 focus:ring-2 focus:ring-amber-500/20"><SelectValue placeholder="Select role..." /></SelectTrigger>
+                <SelectContent className="!border-0 bg-popover text-popover-foreground shadow-lg">
+                  {assignableRoles.map((role) => <SelectItem key={role} value={role} className="focus:bg-amber-100 focus:text-amber-950 dark:focus:bg-amber-400/15 dark:focus:text-amber-100">{STAFF_ROLE_LABELS[role]}</SelectItem>)}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium">Department</label>
-              <input
-                type="text"
-                value={formData.department}
-                onChange={(e) => setFormData({ ...formData, department: e.target.value })}
-                placeholder="Sales"
-                className="w-full rounded-lg border px-3 py-2 text-sm"
-              />
+              <Select value={formData.department} onValueChange={(value) => setFormData({ ...formData, department: value as StaffDepartment })}>
+                <SelectTrigger className="w-full !border-0 bg-background text-sm text-foreground !shadow-none outline-none ring-0 focus:!border-0 focus:ring-2 focus:ring-amber-500/20"><SelectValue placeholder="Choose department" /></SelectTrigger>
+                <SelectContent className="!border-0 bg-popover text-popover-foreground shadow-lg">
+                  {STAFF_DEPARTMENTS.map((department) => <SelectItem key={department} value={department} className="focus:bg-amber-100 focus:text-amber-950 dark:focus:bg-amber-400/15 dark:focus:text-amber-100">{STAFF_DEPARTMENT_LABELS[department]}</SelectItem>)}
+                </SelectContent>
+              </Select>
             </div>
           </div>
 
@@ -154,15 +152,14 @@ export function EditStaffDialog({ employee, open, onOpenChange, assignableRoles 
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium">Status</label>
-              <select
-                value={formData.status}
-                onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                className="w-full rounded-lg border px-3 py-2 text-sm"
-              >
-                <option value="active">Active</option>
-                <option value="inactive">Inactive</option>
-                <option value="terminated">Terminated</option>
-              </select>
+              <Select value={formData.status} onValueChange={(value) => setFormData({ ...formData, status: value })}>
+                <SelectTrigger className="w-full !border-0 bg-background text-sm text-foreground !shadow-none outline-none ring-0 focus:!border-0 focus:ring-2 focus:ring-amber-500/20"><SelectValue /></SelectTrigger>
+                <SelectContent className="!border-0 bg-popover text-popover-foreground shadow-lg">
+                  <SelectItem value="active" className="focus:bg-amber-100 focus:text-amber-950 dark:focus:bg-amber-400/15 dark:focus:text-amber-100">Active</SelectItem>
+                  <SelectItem value="inactive" className="focus:bg-amber-100 focus:text-amber-950 dark:focus:bg-amber-400/15 dark:focus:text-amber-100">Inactive</SelectItem>
+                  <SelectItem value="terminated" className="focus:bg-amber-100 focus:text-amber-950 dark:focus:bg-amber-400/15 dark:focus:text-amber-100">Terminated</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
 
