@@ -152,7 +152,8 @@ export default function Detail({
             padding: 4mm;
             border: none;
             font-size: 12px;
-            font-family: 'Courier New', Courier, monospace;
+            font-family: var(--font-sans);
+            font-variant-numeric: tabular-nums lining-nums;
           }
           .print-card-header {
             background-color: #f0f0f0;
@@ -164,7 +165,7 @@ export default function Detail({
       `}</style>
       {/* Card component for displaying receipt details */}
       <Card
-        className="print-card overflow-hidden print:w-full print:max-w-[80mm] print:p-4 print:border print:text-[12px] print:font-mono"
+        className="print-card overflow-hidden print:w-full print:max-w-[80mm] print:p-4 print:border print:text-[12px]"
         ref={componentRef}
       >
         {/* Card header */}

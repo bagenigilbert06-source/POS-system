@@ -8,7 +8,7 @@ export const initialChartoneOptions: ApexOptions = {
   },
   colors: ['#80CAEE'],
   chart: {
-    fontFamily: 'Satoshi, sans-serif',
+    fontFamily: 'var(--font-inter)',
     height: 335,
     type: 'area',
     dropShadow: {
@@ -102,7 +102,7 @@ export const initialCharttwoOptions: ApexOptions = {
   },
   colors: ['#3C50E0', '#80CAEE'],
   chart: {
-    fontFamily: 'Satoshi, sans-serif',
+    fontFamily: 'var(--font-inter)',
     height: 335,
     type: 'area',
     dropShadow: {
@@ -192,7 +192,7 @@ export const initialCharttwoOptions: ApexOptions = {
 export const initialChartThreeOptions: ApexOptions = {
   colors: ['#3C50E0'],
   chart: {
-    fontFamily: 'Satoshi, sans-serif',
+    fontFamily: 'var(--font-inter)',
     type: 'bar',
     height: 335,
     stacked: true,
@@ -236,7 +236,7 @@ export const initialChartThreeOptions: ApexOptions = {
   legend: {
     position: 'top',
     horizontalAlign: 'left',
-    fontFamily: 'Satoshi',
+    fontFamily: 'var(--font-inter)',
     fontWeight: 500,
     fontSize: '14px',
 
@@ -257,7 +257,7 @@ export const initialChartfourOptions: ApexOptions = {
   },
   colors: ['#3f4', '#DC143C', '#80CAEE'],
   chart: {
-    fontFamily: 'Satoshi, sans-serif',
+    fontFamily: 'var(--font-inter)',
     height: 335,
     type: 'area',
     dropShadow: {

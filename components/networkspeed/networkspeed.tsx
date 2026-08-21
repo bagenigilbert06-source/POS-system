@@ -67,7 +67,7 @@ function NetworkSpeed() {
   return (
     <div className="flex flex-1 justify-center items-center w-full h-full min-h-[6rem] rounded-xl dark:bg-dot-white/[0.2] [mask-image:radial-gradient(ellipse_at_center,white,transparent)] border border-transparent dark:border-white/[0.2] bg-gray-400/[0.7] dark:bg-black">
       <motion.div
-        className="text-2xl font-medium font-roboto flex items-center"
+        className="text-2xl font-medium flex items-center"
         style={{ textShadow: '0 0 5px rgba(255, 255, 255, 0.7)' }}
         animate={{ color: networkQuality === 'good' ? '#00CC19' : '#FF0000' }}
         transition={{ duration: 0.5 }}

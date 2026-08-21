@@ -442,6 +442,11 @@ export const sale = pgTable(
       table.orgId,
       table.createdAt
     ),
+    organizationStatusCreatedIndex: index('sale_org_status_created_idx').on(table.orgId, table.status, table.createdAt),
+    organizationPaymentCreatedIndex: index('sale_org_payment_created_idx').on(table.orgId, table.paymentMethod, table.createdAt),
+    organizationCustomerCreatedIndex: index('sale_org_customer_created_idx').on(table.orgId, table.customerId, table.createdAt),
+    organizationCashierCreatedIndex: index('sale_org_cashier_created_idx').on(table.orgId, table.userId, table.createdAt),
+    organizationBranchCreatedIndex: index('sale_org_branch_created_idx').on(table.orgId, table.branchId, table.createdAt),
     organizationIdempotencyUnique: uniqueIndex(
       'sale_org_idempotency_unique'
     ).on(table.orgId, table.idempotencyKey),
@@ -1024,6 +1029,7 @@ export const salePayment = pgTable(
   (table) => ({
     organizationIndex: index('sale_payment_org_idx').on(table.orgId),
     saleIndex: index('sale_payment_sale_idx').on(table.saleId),
+    referenceIndex: index('sale_payment_org_reference_idx').on(table.orgId, table.reference),
   })
 );
 

@@ -17,6 +17,7 @@ interface RefundDialogProps {
 
 export function RefundDialog({ sale, onClose, onSuccess }: RefundDialogProps) {
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set(sale.items.map(i => i.id)))
+  const [quantities, setQuantities] = useState<Record<string, number>>(() => Object.fromEntries(sale.items.map((item) => [item.id, item.quantity])))
   const [refundMethod, setRefundMethod] = useState<'cash' | 'mpesa' | 'credit'>('cash')
   const [refundReference, setRefundReference] = useState('')
   const [reason, setReason] = useState('')
@@ -27,7 +28,7 @@ export function RefundDialog({ sale, onClose, onSuccess }: RefundDialogProps) {
   const saleSubtotal = Number(sale.subtotal)
   const saleTotal = Number(sale.total)
   const refundAmount = saleSubtotal > 0 ? calculateRefundAmount(saleSubtotal, saleTotal, selectedSaleItems.map((item) => ({
-    lineSubtotal: Number(item.totalPrice), soldQuantity: item.quantity, refundQuantity: item.quantity,
+    lineSubtotal: Number(item.totalPrice), soldQuantity: item.quantity, refundQuantity: quantities[item.id] ?? item.quantity,
   }))) : 0
 
   const handleRefund = async () => {
@@ -53,7 +54,7 @@ export function RefundDialog({ sale, onClose, onSuccess }: RefundDialogProps) {
           saleItemId: item.id,
           productId: item.productId,
           productName: item.productName,
-          quantity: item.quantity,
+          quantity: quantities[item.id] ?? item.quantity,
           unitPrice: parseFloat(item.unitPrice),
         })),
         totalAmount: refundAmount,
@@ -115,8 +116,9 @@ export function RefundDialog({ sale, onClose, onSuccess }: RefundDialogProps) {
                 />
                 <div className="flex-1">
                   <div className="font-medium text-sm">{item.productName}</div>
-                  <div className="text-xs text-gray-600">Qty: {item.quantity}</div>
+                  <div className="text-xs text-gray-600">Sold: {item.quantity}</div>
                 </div>
+                <label className="flex items-center gap-1 text-xs text-gray-600">Return <input type="number" min="1" max={item.quantity} value={quantities[item.id] ?? item.quantity} disabled={!selectedItems.has(item.id)} onClick={(event) => event.stopPropagation()} onChange={(event) => setQuantities((current) => ({ ...current, [item.id]: Math.max(1, Math.min(item.quantity, Number(event.target.value) || 1)) }))} className="w-14 rounded border px-1 py-1" /></label>
                 <div className="font-medium text-sm">{formatCurrency(parseFloat(item.totalPrice))}</div>
               </label>
             ))}

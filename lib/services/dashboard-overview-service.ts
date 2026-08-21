@@ -1,6 +1,6 @@
 import { and, asc, desc, eq, gte, inArray, lt, lte, sql } from 'drizzle-orm'
 import { db } from '@/lib/db'
-import { branch, customer, expense, inventoryBalance, product, sale, saleItem } from '@/lib/db/schema'
+import { branch, customer, expense, inventoryBalance, organizationMembership, product, sale, saleItem } from '@/lib/db/schema'
 
 export interface DashboardOverview {
   today: {
@@ -14,10 +14,17 @@ export interface DashboardOverview {
     expenses: number
     operatingPosition: number
   }
+  allTime: {
+    revenue: number
+    expenses: number
+    operatingPosition: number
+    transactions: number
+  }
   records: {
     products: number
     customers: number
     branches: number
+    staff: number
     lowStock: number
     outOfStock: number
     inventoryCost: number
@@ -122,6 +129,8 @@ export async function getDashboardOverview(organizationId: string, timeZone = 'A
     todayExpenseRows,
     monthSalesRows,
     monthExpenseRows,
+    allTimeSalesRows,
+    allTimeExpenseRows,
     recordRows,
     revenueRows,
     expenseRows,
@@ -150,10 +159,22 @@ export async function getDashboardOverview(organizationId: string, timeZone = 'A
       .select({ amount: sql<string>`coalesce(sum(${expense.amount}), 0)` })
       .from(expense)
       .where(and(eq(expense.orgId, organizationId), expenseBranchScope, gte(expense.createdAt, monthStart))),
+    db
+      .select({
+        revenue: sql<string>`coalesce(sum(${sale.total}), 0)`,
+        transactions: sql<number>`count(*)`,
+      })
+      .from(sale)
+      .where(completedSale),
+    db
+      .select({ amount: sql<string>`coalesce(sum(${expense.amount}), 0)` })
+      .from(expense)
+      .where(and(eq(expense.orgId, organizationId), expenseBranchScope)),
     Promise.all([
       db.select({ count: sql<number>`count(*)` }).from(product).where(and(eq(product.orgId, organizationId), eq(product.isActive, true))),
       db.select({ count: sql<number>`count(*)` }).from(customer).where(eq(customer.orgId, organizationId)),
       db.select({ count: sql<number>`count(*)` }).from(branch).where(and(eq(branch.organizationId, organizationId), branchIds === undefined ? undefined : branchIds.length ? inArray(branch.id, [...branchIds]) : sql`false`)),
+      db.select({ count: sql<number>`count(*)` }).from(organizationMembership).where(eq(organizationMembership.organizationId, organizationId)),
       db.select({ count: sql<number>`count(*)` }).from(product).where(and(eq(product.orgId, organizationId), eq(product.isActive, true), sql`${product.stock} <= ${product.minStock}`)),
       db.select({ count: sql<number>`count(*)` }).from(product).where(and(eq(product.orgId, organizationId), eq(product.isActive, true), lte(product.stock, 0))),
       db.select({ value: sql<string>`coalesce(sum(${product.buyingPrice} * ${product.stock}), 0)` }).from(product).where(and(eq(product.orgId, organizationId), eq(product.isActive, true))),
@@ -230,7 +251,9 @@ export async function getDashboardOverview(organizationId: string, timeZone = 'A
   const todayExpenses = number(todayExpenseRows[0]?.amount)
   const monthRevenue = number(monthSalesRows[0]?.revenue)
   const monthExpenses = number(monthExpenseRows[0]?.amount)
-  const [products, customers, branches, lowStock, outOfStock, inventoryCost] = recordRows
+  const allTimeRevenue = number(allTimeSalesRows[0]?.revenue)
+  const allTimeExpenses = number(allTimeExpenseRows[0]?.amount)
+  const [products, customers, branches, staff, lowStock, outOfStock, inventoryCost] = recordRows
   const branchInventoryRows = branchIds === undefined || branchIds.length === 0 ? [] : await db
     .select({
       id: product.id,
@@ -268,10 +291,17 @@ export async function getDashboardOverview(organizationId: string, timeZone = 'A
       expenses: monthExpenses,
       operatingPosition: monthRevenue - monthExpenses,
     },
+    allTime: {
+      revenue: allTimeRevenue,
+      expenses: allTimeExpenses,
+      operatingPosition: allTimeRevenue - allTimeExpenses,
+      transactions: number(allTimeSalesRows[0]?.transactions),
+    },
     records: {
       products: scopedInventory ? scopedInventory.length : number(products[0]?.count),
       customers: number(customers[0]?.count),
       branches: number(branches[0]?.count),
+      staff: number(staff[0]?.count),
       lowStock: scopedLowStock ? scopedLowStock.length : number(lowStock[0]?.count),
       outOfStock: scopedInventory ? scopedInventory.filter((row) => row.stock <= 0).length : number(outOfStock[0]?.count),
       inventoryCost: scopedInventory ? scopedInventory.reduce((sum, row) => sum + row.stock * row.buyingPrice, 0) : number(inventoryCost[0]?.value),

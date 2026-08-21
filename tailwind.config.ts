@@ -29,6 +29,7 @@ module.exports = {
     extend: {
       fontFamily: {
         sans: ['var(--font-sans)', 'Poppins', ...defaultTheme.fontFamily.sans],
+        display: ['var(--font-display)', 'Poppins', ...defaultTheme.fontFamily.sans],
         mono: ['var(--font-mono)', 'ui-monospace', ...defaultTheme.fontFamily.mono],
       },
       colors: {
