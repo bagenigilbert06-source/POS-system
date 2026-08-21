@@ -3,13 +3,6 @@ import './globals.css';
 import { ThemeProvider } from '@/components/providers/theme-provider';
 import { Toaster } from 'sonner';
 
-const inter = Inter({
-  subsets: ['latin'],
-  display: 'swap',
-  variable: '--font-inter',
-  weight: ['400', '500', '600', '700'],
-});
-
 export const metadata: Metadata = {
   title: {
     default: 'Pesaby — Business OS for Modern Commerce',
