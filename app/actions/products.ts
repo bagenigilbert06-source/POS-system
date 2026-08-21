@@ -3,7 +3,7 @@
 import { auth } from '@/lib/auth'
 import { db } from '@/lib/db'
 import { branch, category, organizationMembership, product, purchase, purchaseItem, sale, saleItem, stockMovement } from '@/lib/db/schema'
-import { and, desc, eq, gte, ilike, or, sql } from 'drizzle-orm'
+import { and, desc, eq, gte, ilike, inArray, or, sql } from 'drizzle-orm'
 import { headers } from 'next/headers'
 import { revalidatePath } from 'next/cache'
 import { generateId, normalizeBarcode, slugify } from '@/lib/utils'
@@ -12,6 +12,8 @@ import { WorkspaceService } from '@/lib/services/workspace-service'
 import { getPosAuthorizationContext } from '@/lib/pos/pos-auth'
 import { invalidateCategoryCache, invalidateProductCache, invalidateProductReadCache, readThroughRedis } from '@/lib/cache/redis-cache'
 import { addCostLayer, applyInventoryMovement } from '@/lib/inventory/inventory-service'
+import { requirePermission } from '@/lib/auth/authorization'
+import { PermissionEnum } from '@/lib/types/permissions'
 
 async function getUserId() {
   const pos = await getPosAuthorizationContext()
@@ -85,16 +87,63 @@ export async function getProductsPageData() {
   const orgId = await getOrgId(userId)
   const now = new Date()
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
-  const [products, monthlySales] = await Promise.all([
+  const [products, monthlySales, categories] = await Promise.all([
     getProductsForOrg(orgId, undefined, true),
     db.select({ productId: saleItem.productId, unitsSoldMonth: sql<number>`coalesce(sum(${saleItem.quantity}), 0)` })
       .from(saleItem)
       .innerJoin(sale, eq(sale.id, saleItem.saleId))
       .where(and(eq(saleItem.orgId, orgId), eq(sale.orgId, orgId), eq(sale.status, 'completed'), gte(sale.createdAt, monthStart)))
       .groupBy(saleItem.productId),
+    db.select({ id: category.id, name: category.name }).from(category).where(eq(category.orgId, orgId)),
   ])
   const unitsSoldByProduct = new Map(monthlySales.map((item) => [item.productId, Number(item.unitsSoldMonth)]))
-  return products.map((item) => ({ ...item, unitsSoldMonth: unitsSoldByProduct.get(item.id) ?? 0 }))
+  const categoryNameById = new Map(categories.map((item) => [item.id, item.name]))
+  return products.map((item) => ({ ...item, unitsSoldMonth: unitsSoldByProduct.get(item.id) ?? 0, categoryName: item.categoryId ? categoryNameById.get(item.categoryId) ?? null : null }))
+}
+
+export async function updateProductPricesByPercent(productIds: string[], percent: number) {
+  const userId = await getUserId()
+  const orgId = await getOrgId(userId)
+  await requireProductManager(userId, orgId)
+  if (!Array.isArray(productIds) || productIds.length === 0) throw new Error('Select at least one product')
+  if (!Number.isFinite(percent) || percent < -100 || percent > 1_000) throw new Error('Enter a price adjustment between -100% and 1000%')
+  const ids = [...new Set(productIds)].slice(0, 250)
+  const selected = await db.select({ id: product.id, sellingPrice: product.sellingPrice, buyingPrice: product.buyingPrice }).from(product).where(and(eq(product.orgId, orgId), inArray(product.id, ids)))
+  if (selected.some((item) => Number(item.sellingPrice) * (1 + percent / 100) < Number(item.buyingPrice))) throw new Error('This adjustment would price at least one selected product below cost')
+  await db.transaction(async (tx) => {
+    for (const item of selected) {
+      const next = Math.max(0, Number(item.sellingPrice) * (1 + percent / 100))
+      await tx.update(product).set({ sellingPrice: next.toFixed(2), updatedAt: new Date() }).where(and(eq(product.id, item.id), eq(product.orgId, orgId)))
+    }
+  })
+  await invalidateProductCache(orgId)
+  revalidatePath('/dashboard/products')
+  return { updated: selected.length }
+}
+
+export async function restockProducts(productIds: string[], quantity: number, unitCost: number) {
+  const authorization = await requirePermission(PermissionEnum.INVENTORY_ADJUST)
+  const { userId, organizationId: orgId } = authorization
+  if (!Array.isArray(productIds) || productIds.length === 0) throw new Error('Select at least one product')
+  if (!Number.isInteger(quantity) || quantity <= 0 || quantity > 10_000_000) throw new Error('Restock quantity must be a positive whole number')
+  if (!Number.isFinite(unitCost) || unitCost <= 0) throw new Error('Unit cost must be greater than zero')
+  const ids = [...new Set(productIds)].slice(0, 250)
+  const locations = await db.select({ id: branch.id }).from(branch).where(and(eq(branch.organizationId, orgId), authorization.isOrganizationWide ? undefined : inArray(branch.id, authorization.branchIds.length ? authorization.branchIds : ['']))).orderBy(desc(branch.isMain), branch.createdAt).limit(1)
+  const location = locations[0]
+  if (!location) throw new Error('No inventory location is available for your account')
+  const selected = await db.select({ id: product.id, name: product.name }).from(product).where(and(eq(product.orgId, orgId), inArray(product.id, ids), eq(product.isActive, true)))
+  await db.transaction(async (tx) => {
+    for (const item of selected) {
+      const referenceId = generateId()
+      await applyInventoryMovement(tx, { productId: item.id, productName: item.name, branchId: location.id, quantity, type: 'restock', referenceType: 'bulk_restock', referenceId, reason: 'Bulk restock from Products', userId, orgId, unitCost })
+      await addCostLayer(tx, { productId: item.id, branchId: location.id, sourceType: 'restock', sourceId: referenceId, quantity, unitCost, orgId })
+      await tx.update(product).set({ buyingPrice: String(unitCost), updatedAt: new Date() }).where(and(eq(product.id, item.id), eq(product.orgId, orgId)))
+    }
+  })
+  await invalidateProductCache(orgId)
+  revalidatePath('/dashboard/products')
+  revalidatePath('/dashboard/inventory')
+  return { updated: selected.length }
 }
 
 export async function getProductsForCategory(categoryId: string) {
@@ -266,7 +315,7 @@ export async function createProduct(data: {
   const id = generateId()
   if (!data.name.trim()) throw new Error('Product name is required')
   if (!data.categoryId) throw new Error('Choose a category for this product')
-  if (!Number.isFinite(data.buyingPrice) || data.buyingPrice < 0) throw new Error('Enter a valid cost price')
+  if (!Number.isFinite(data.buyingPrice) || data.buyingPrice <= 0) throw new Error('Cost price must be greater than zero')
   if (!Number.isFinite(data.sellingPrice) || data.sellingPrice < 0) throw new Error('Enter a valid selling price')
   if (!Number.isInteger(data.stock) || data.stock < 0) throw new Error('Opening stock must be a whole number of zero or more')
   if (!Number.isInteger(data.minStock) || data.minStock < 0) throw new Error('Reorder level must be a whole number of zero or more')
@@ -345,7 +394,7 @@ export async function updateProduct(
   await requireProductManager(userId, orgId)
   if ('stock' in data) throw new Error('Stock cannot be changed from the product form. Use Adjust stock instead.')
   if (data.name !== undefined && !data.name.trim()) throw new Error('Product name is required')
-  if (data.buyingPrice !== undefined && (!Number.isFinite(data.buyingPrice) || data.buyingPrice < 0)) throw new Error('Enter a valid cost price')
+  if (data.buyingPrice !== undefined && (!Number.isFinite(data.buyingPrice) || data.buyingPrice <= 0)) throw new Error('Cost price must be greater than zero')
   if (data.sellingPrice !== undefined && (!Number.isFinite(data.sellingPrice) || data.sellingPrice < 0)) throw new Error('Enter a valid selling price')
   if (data.minStock !== undefined && (!Number.isInteger(data.minStock) || data.minStock < 0)) throw new Error('Low-stock alert level cannot be negative')
   if (data.volume !== undefined && (!Number.isFinite(data.volume) || data.volume <= 0)) throw new Error('Bottle or package size must be greater than zero')

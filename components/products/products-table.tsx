@@ -6,6 +6,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { archiveProduct } from '@/app/actions/products';
 import { formatCurrency, normalizeBarcode } from '@/lib/utils';
+import { getGrossMargin } from '@/lib/pricing/gross-margin';
 import { cn } from '@/lib/utils';
 import {
   Archive,
@@ -19,8 +20,8 @@ import {
   Grid2X2,
   List,
   ShoppingCart,
-  CircleAlert,
   Smartphone,
+  AlertCircle,
 } from 'lucide-react';
 import type { Product } from '@/lib/db/schema';
 import { toast } from 'sonner';
@@ -37,7 +38,7 @@ import {
 import { WirelessScannerPairing } from '@/components/barcode/wireless-scanner-pairing';
 
 interface ProductsTableProps {
-  initialProducts: Array<Product & { unitsSoldMonth: number }>;
+  initialProducts: Array<Product & { unitsSoldMonth: number; categoryName?: string | null }>;
 }
 
 export function ProductsTable({ initialProducts }: ProductsTableProps) {
@@ -46,12 +47,14 @@ export function ProductsTable({ initialProducts }: ProductsTableProps) {
   const [search, setSearch] = useState('');
   const [archiving, setArchiving] = useState<string | null>(null);
   const [archiveTarget, setArchiveTarget] = useState<
-    (Product & { unitsSoldMonth: number }) | null
+    (Product & { unitsSoldMonth: number; categoryName?: string | null }) | null
   >(null);
   const [filter, setFilter] = useState<
     'all' | 'active' | 'low-stock' | 'critical' | 'out' | 'archived'
   >('all');
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  // A compact list is the calmer default for a catalogue; users can still opt
+  // into the visual card view when images are useful.
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
   const [sort, setSort] = useState<
     'newest' | 'name' | 'price-low' | 'stock-low'
   >('newest');
@@ -163,6 +166,7 @@ export function ProductsTable({ initialProducts }: ProductsTableProps) {
     }
   };
 
+
   const unitLabel = (unit: string, quantity: number) => {
     const normalized = unit === 'pcs' ? 'piece' : unit;
     return `${quantity} ${normalized}${quantity === 1 ? '' : 's'}`;
@@ -238,7 +242,7 @@ export function ProductsTable({ initialProducts }: ProductsTableProps) {
   }[filter];
 
   return (
-    <div className="products-table">
+    <div className="products-table font-sans [font-feature-settings:'ss01','cv02','cv03']">
       {zoomedImage && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-[#050a1f]/80 p-4 backdrop-blur-sm"
@@ -295,7 +299,7 @@ export function ProductsTable({ initialProducts }: ProductsTableProps) {
 
       <div className="space-y-4">
         {/* Toolbar */}
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-3 rounded-xl border border-[#e4e7ec] bg-white p-3 shadow-[0_1px_2px_rgba(16,24,40,.03)] sm:flex-row sm:items-center sm:justify-between dark:border-white/10 dark:bg-[#161616]">
           <div className="relative flex-1 max-w-sm">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <input
@@ -310,26 +314,26 @@ export function ProductsTable({ initialProducts }: ProductsTableProps) {
                 event.preventDefault();
                 openScannedProduct(barcode);
               }}
-              className="w-full rounded-md border bg-background py-2 pl-9 pr-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-colors"
+              className="w-full rounded-lg border border-[#d0d5dd] bg-[#fbfbfc] py-2.5 pl-9 pr-3 text-sm outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/20 dark:border-white/10 dark:bg-[#1c1c1c]"
             />
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
               onClick={() => setShowPhoneScanner(true)}
-              className="inline-flex items-center gap-2 rounded-md border bg-background px-3 py-2 text-sm font-semibold text-foreground hover:border-[#f9b21d] hover:bg-[#fff8e6] dark:hover:bg-[#2a2111]"
+              className="inline-flex items-center gap-2 rounded-lg border bg-background px-3 py-2 text-sm font-semibold text-foreground hover:border-[#f9b21d] hover:bg-[#fff8e6] dark:hover:bg-[#2a2111]"
             >
               <Smartphone className="h-4 w-4" /> Scan to add
             </button>
             <Link
               href="/dashboard/products/categories"
-              className="rounded-md border bg-background px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-secondary"
+              className="rounded-lg border bg-background px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-secondary"
             >
               Categories
             </Link>
             <Link
               href="/dashboard/products/new"
-              className="flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors flex-shrink-0"
+              className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 flex-shrink-0"
             >
               <Plus className="h-4 w-4" />
               Add Product
@@ -338,16 +342,16 @@ export function ProductsTable({ initialProducts }: ProductsTableProps) {
         </div>
 
         {/* Filter tabs */}
-        <div className="flex max-w-full gap-1 overflow-x-auto rounded-lg border bg-muted p-1 sm:w-fit">
+        <div className="flex max-w-full gap-5 overflow-x-auto border-b border-[#e4e7ec] px-1 dark:border-white/10">
           {filterTabs.map((tab) => (
             <button
               key={tab.key}
               onClick={() => setFilter(tab.key)}
               className={cn(
-                'rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
+                'whitespace-nowrap border-b-2 px-1 pb-2.5 pt-1 text-sm font-medium transition-colors',
                 filter === tab.key
-                  ? 'bg-background text-foreground shadow-sm'
-                  : 'text-muted-foreground hover:text-foreground'
+                  ? 'border-primary text-foreground'
+                  : 'border-transparent text-muted-foreground hover:border-[#d0d5dd] hover:text-foreground'
               )}
             >
               {tab.label}{' '}
@@ -372,7 +376,7 @@ export function ProductsTable({ initialProducts }: ProductsTableProps) {
             </select>
           </label>
           <div
-            className="flex items-center rounded-md border bg-white p-0.5"
+            className="flex items-center rounded-lg border bg-white p-0.5 dark:bg-[#161616]"
             aria-label="Product layout"
           >
             <button
@@ -430,11 +434,13 @@ export function ProductsTable({ initialProducts }: ProductsTableProps) {
 
         {/* Product cards */}
         {filtered.length > 0 && viewMode === 'grid' && (
-          <div className="grid grid-cols-[repeat(auto-fill,minmax(260px,300px))] justify-start gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
             {filtered.map((p) => {
               const buying = parseFloat(p.buyingPrice);
               const selling = parseFloat(p.sellingPrice);
-              const margin = selling - buying;
+              const profit = selling - buying;
+              const grossMargin = getGrossMargin(selling, buying);
+              const incompleteData = buying <= 0 || !p.sku;
               const status = stockStatus(p);
               const statusLabel =
                 status === 'out'
@@ -447,9 +453,9 @@ export function ProductsTable({ initialProducts }: ProductsTableProps) {
               return (
                 <article
                   key={`card-${p.id}`}
-                  className="group relative h-full w-full max-w-[300px] min-w-0 overflow-hidden rounded-xl border border-[#e4e7ec] bg-white text-sm shadow-[0_1px_3px_rgba(16,24,40,.05)] hover:border-[#d8b92e]"
+                  className="group relative w-full min-w-0 self-start overflow-hidden rounded-xl border border-[#e4e7ec] bg-white text-sm shadow-[0_1px_3px_rgba(16,24,40,.05)] hover:border-[#d8b92e]"
                 >
-                  <div className="relative overflow-hidden bg-[#fff8e8]">
+                  <div className="relative overflow-hidden border-b border-[#f0e7d5] bg-[#fffaf0]">
                     <Link
                       href={`/dashboard/products/${p.id}`}
                       className="block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#e42527]"
@@ -493,85 +499,50 @@ export function ProductsTable({ initialProducts }: ProductsTableProps) {
                   </div>
                   <Link
                     href={`/dashboard/products/${p.id}`}
-                    className="flex min-w-0 flex-col gap-2.5 p-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#e42527]"
+                    className="flex min-w-0 flex-col gap-2 p-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#e42527]"
                     aria-label={`View ${p.name} details`}
                   >
-                    <p className="line-clamp-1 uppercase text-xs font-medium text-[#98a2b3]">
-                      Product
-                    </p>
-                    <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
-                        <h3 className="line-clamp-2 min-h-[2.5rem] font-semibold leading-5 text-[#101828]">
+                        <h3 className="line-clamp-1 font-semibold leading-5 text-[#101828]">
                           {p.name}
                         </h3>
-                        <p className="mt-1 truncate text-xs text-muted-foreground">
-                          {p.sku
-                            ? `SKU ${p.sku}`
-                            : p.barcode
-                              ? `Barcode ${p.barcode}`
-                              : 'No SKU or barcode'}
-                        </p>
+                        <div className="mt-1 flex flex-wrap gap-1.5">
+                          {p.categoryName && <span className="rounded-full bg-[#fff3bd] px-2 py-0.5 text-[10px] font-semibold text-[#765800]">{p.categoryName}</span>}
+                          {incompleteData && <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-800"><AlertCircle className="h-3 w-3" />Incomplete data</span>}
+                        </div>
                       </div>
                       <ArrowUpRight className="h-4 w-4 shrink-0 text-muted-foreground transition group-hover:text-[#e42527]" />
                     </div>
-                    <div className="flex items-center justify-between gap-2 pt-1">
-                      <p className="text-lg font-bold tabular-nums text-[#9a6900]">
+                    <div className="flex items-center justify-between gap-2 pt-0.5">
+                      <p className="text-base font-bold tabular-nums text-[#9a6900]">
                         {formatCurrency(selling)}
                       </p>
                       <span
                         className={cn(
                           'text-xs font-semibold',
-                          margin >= 0
+                          profit >= 0
                             ? 'text-[hsl(var(--success))]'
                             : 'text-destructive'
                         )}
                       >
-                        {buying > 0
-                          ? `${((margin / buying) * 100).toFixed(1)}% margin`
-                          : 'No cost'}
+                        {grossMargin.valid ? `${grossMargin.percent.toFixed(1)}% margin` : 'Check cost price'}
                       </span>
                     </div>
-                    <div className="flex items-center justify-between pt-2 text-xs">
-                      <span className="text-muted-foreground">
-                        {p.stock} {p.unit} available
-                      </span>
-                      <span className="text-muted-foreground">
-                        {p.unitsSoldMonth} sold this month
-                      </span>
-                    </div>
-                    {p.isActive && status !== 'ok' && (
-                      <div
-                        className={cn(
-                          'mt-1 rounded-md border px-3 py-2.5',
-                          status === 'out'
-                            ? 'border-red-200 bg-red-50 text-red-800'
-                            : status === 'critical'
-                              ? 'border-orange-200 bg-orange-50 text-orange-800'
-                              : 'border-amber-200 bg-amber-50 text-amber-900'
-                        )}
-                      >
-                        <p className="flex items-center gap-1.5 text-xs font-semibold">
-                          <CircleAlert className="h-3.5 w-3.5" />
-                          {status === 'out'
-                            ? 'Out of stock'
-                            : `${statusLabel} — ${unitLabel(p.unit, p.stock)} remaining`}
-                        </p>
-                        {status !== 'out' && (
-                          <p className="mt-1 text-[11px]">
-                            Low-stock alert: {unitLabel(p.unit, p.minStock)}
-                          </p>
-                        )}
-                      </div>
-                    )}
+                    <p className="pt-1 text-[11px] text-muted-foreground">
+                      {p.stock} {p.unit}{p.stock === 1 ? '' : 's'} available
+                    </p>
                   </Link>
-                  <div className="flex items-center justify-between bg-[#fafbfc] px-4 py-2.5">
-                    <span className="text-xs text-muted-foreground">
-                      {status !== 'ok' && status !== 'out'
-                        ? `Low-stock alert: ${unitLabel(p.unit, p.minStock)}`
-                        : status === 'out'
-                          ? 'Restock needed'
-                          : 'Stock healthy'}
-                    </span>
+                  <div className="flex min-h-11 items-center justify-between bg-[#fafbfc] px-3 py-2">
+                    {status === 'ok' ? (
+                      <Link href={`/dashboard/products/${p.id}`} className="text-xs font-medium text-muted-foreground hover:text-[#101828] hover:underline">
+                        View details
+                      </Link>
+                    ) : (
+                      <span className="text-xs text-muted-foreground" title={status !== 'out' ? `Low-stock alert: ${unitLabel(p.unit, p.minStock)}` : 'This product needs restocking'}>
+                        {status === 'out' ? 'Restock needed' : `Alert at ${unitLabel(p.unit, p.minStock)}`}
+                      </span>
+                    )}
                     <div className="flex items-center gap-1">
                       {p.isActive && status !== 'ok' && (
                         <button
@@ -721,7 +692,7 @@ export function ProductsTable({ initialProducts }: ProductsTableProps) {
                         Selling
                       </th>
                       <th className="px-4 py-3 text-right font-medium text-muted-foreground">
-                        Margin
+                        Current margin
                       </th>
                       <th className="px-4 py-3 text-center font-medium text-muted-foreground">
                         Stock
@@ -738,9 +709,8 @@ export function ProductsTable({ initialProducts }: ProductsTableProps) {
                     {filtered.map((p) => {
                       const buying = parseFloat(p.buyingPrice);
                       const selling = parseFloat(p.sellingPrice);
-                      const margin = selling - buying;
-                      const marginPct =
-                        buying > 0 ? (margin / buying) * 100 : 0;
+                      const profit = selling - buying;
+                      const grossMargin = getGrossMargin(selling, buying);
                       const status = stockStatus(p);
 
                       return (
@@ -777,6 +747,7 @@ export function ProductsTable({ initialProducts }: ProductsTableProps) {
                                 <p className="text-xs text-muted-foreground">
                                   {p.sku ? `SKU: ${p.sku}` : 'No SKU'}
                                 </p>
+                                {(buying <= 0 || !p.sku) && <span className="mt-1 inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-800"><AlertCircle className="h-3 w-3" />Incomplete data</span>}
                               </div>
                             </div>
                           </td>
@@ -790,17 +761,12 @@ export function ProductsTable({ initialProducts }: ProductsTableProps) {
                             <span
                               className={cn(
                                 'text-xs',
-                                margin >= 0
+                                profit >= 0
                                   ? 'text-[hsl(var(--success))]'
                                   : 'text-destructive'
                               )}
                             >
-                              {margin >= 0 ? '+' : ''}
-                              {formatCurrency(margin)}
-                              <br />
-                              <span className="text-[10px]">
-                                ({marginPct.toFixed(0)}%)
-                              </span>
+                              {grossMargin.valid ? `${grossMargin.percent.toFixed(1)}%` : 'Check cost price'}
                             </span>
                           </td>
                           <td className="px-4 py-3 text-center">

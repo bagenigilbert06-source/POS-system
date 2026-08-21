@@ -423,6 +423,7 @@ export function POSTerminal({ products, categories, customers, settings, require
   }, [receipt, processing, checkoutOpen, handleBarcodeScan])
 
   const productsById = useMemo(() => new Map(catalogProducts.map((product) => [product.id, product])), [catalogProducts])
+  const containsAgeRestrictedItem = requiresAgeVerification && cart.length > 0
 
   const filteredProducts = useMemo(() => catalogProducts.filter(
     (p) =>
@@ -1225,6 +1226,27 @@ export function POSTerminal({ products, categories, customers, settings, require
               ))}
             </ul>
           )}
+          {!checkoutOpen && cart.length > 0 && (
+            <div className="border-t border-[#eef0f3] px-4 py-3 dark:border-white/10">
+              <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.12em] text-[#98a2b3]">Frequently added</p>
+              <div className="flex gap-2 overflow-x-auto pb-0.5">
+                {filteredProducts.filter((product) => !cart.some((item) => item.productId === product.id)).slice(0, 3).map((product) => (
+                  <button key={product.id} type="button" onClick={() => addToCart(product)} className="shrink-0 rounded-lg border border-[#e4e7ec] bg-white px-2.5 py-2 text-left text-[11px] font-semibold text-[#344054] hover:border-[#f2b705] dark:border-white/10 dark:bg-transparent dark:text-[#d0d5dd]">
+                    <span className="block max-w-[92px] truncate">{product.name}</span>
+                    <span className="mt-0.5 block text-[10px] font-medium text-[#98a2b3]">{formatCurrency(Number(product.sellingPrice))}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+          {!checkoutOpen && cart.length > 0 && (
+            <div className="border-t border-[#eef0f3] bg-[#fffaf0] px-4 py-3 dark:border-white/10 dark:bg-amber-950/20">
+              <div className="flex items-start gap-2 text-xs text-[#93370d] dark:text-amber-300">
+                <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" />
+                <span><strong>Contains alcohol</strong> · ID check required at checkout</span>
+              </div>
+            </div>
+          )}
           {checkoutOnly && cart.length > 0 && (
             <div className="border-t border-[#eef0f3] bg-[#fbfbfc] px-6 py-5 dark:border-white/10 dark:bg-[#111111]">
               <div className="flex items-center justify-between">
@@ -1253,8 +1275,9 @@ export function POSTerminal({ products, categories, customers, settings, require
                 hasActiveShift ? 'hover:opacity-90' : 'cursor-not-allowed bg-[#f2f4f7] text-[#98a2b3] dark:bg-white/5 dark:text-[#666]'
               )}
             >
-              {hasActiveShift ? `Pay ${formatCurrency(subtotal)}` : 'Start shift to take payment'}
+              {hasActiveShift ? `Continue to checkout · ${formatCurrency(subtotal)}` : 'Start shift to take payment'}
             </button>
+            <p className="mt-2 text-center text-[11px] text-[#98a2b3]">VAT, customer, discounts, and payment method are confirmed next.</p>
           </div>
         )}
 

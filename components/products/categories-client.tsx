@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Archive, Check, ExternalLink, Grid2X2, List, Pencil, Plus, RotateCcw, Search } from 'lucide-react'
+import { Archive, Check, ExternalLink, Grid2X2, List, Pencil, Plus, RotateCcw, Search, Tags } from 'lucide-react'
 import { toast } from 'sonner'
 import { createCategory, setCategoryActive, updateCategory } from '@/app/actions/categories'
 
@@ -26,6 +26,19 @@ type CategoryForm = {
   description: string
   parentCategoryId: string
   imageUrl?: string | null
+}
+
+function CategoryImage({ src, name, compact = false, priority = false }: { src: string | null; name: string; compact?: boolean; priority?: boolean }) {
+  const [loaded, setLoaded] = useState(false)
+  const [failed, setFailed] = useState(false)
+  const showImage = Boolean(src) && !failed
+  return (
+    <div className={`relative h-full w-full overflow-hidden bg-gradient-to-br from-[#fff8e8] to-[#f8ebc7] ${compact ? 'text-[#9a6900]' : 'text-[#8a6500]'}`}>
+      {showImage && <Image src={src!} alt={`${name} category`} fill sizes={compact ? '36px' : '(min-width: 1280px) 280px, 50vw'} priority={priority} className={`object-cover transition-opacity duration-200 ${loaded ? 'opacity-100' : 'opacity-0'}`} onLoad={() => setLoaded(true)} onError={() => setFailed(true)} />}
+      {!loaded && <span className="absolute inset-0 animate-pulse bg-[#fff3d4]" aria-hidden="true" />}
+      {(!showImage || failed) && <span className="absolute inset-0 flex items-center justify-center"><Tags className={compact ? 'h-4 w-4' : 'h-9 w-9'} strokeWidth={1.5} /><span className="sr-only">No image for {name}</span></span>}
+    </div>
+  )
 }
 
 export function CategoriesClient({ initialCategories }: { initialCategories: Category[] }) {
@@ -62,7 +75,7 @@ export function CategoriesClient({ initialCategories }: { initialCategories: Cat
   })
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5 font-sans [font-feature-settings:'ss01','cv02','cv03']">
       <div className="grid gap-3 sm:grid-cols-3">
         <Summary label="Total categories" value={categories.length} />
         <Summary label="Active categories" value={categories.filter((item) => item.isActive).length} tone="green" />
@@ -84,15 +97,15 @@ export function CategoriesClient({ initialCategories }: { initialCategories: Cat
         </div>
       </div>
 
-      {viewMode === 'grid' ? <div className="grid grid-cols-[repeat(auto-fill,minmax(240px,280px))] justify-start gap-3">
-        {filtered.map((item) => {
+      {viewMode === 'grid' ? <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
+        {filtered.map((item, index) => {
           const href = `/dashboard/products/categories/${item.id}`
-          return <article key={item.id} className="w-full overflow-hidden rounded-xl border bg-white shadow-sm hover:border-[#d8b92e]">
+          return <article key={item.id} className="group flex min-h-[252px] flex-col overflow-hidden rounded-xl border border-[#e4e7ec] bg-white shadow-[0_1px_3px_rgba(16,24,40,.05)] transition-shadow hover:border-[#d8b92e] hover:shadow-[0_6px_16px_rgba(16,24,40,.08)]">
             <Link href={href} className="group block" aria-label={`View category ${item.name}`}>
-              <div className="relative h-32 overflow-hidden bg-[#fff8e8]">{item.imageUrl ? <Image src={item.imageUrl} alt={`${item.name} category`} fill unoptimized className="object-cover" /> : <span className="flex h-full items-center justify-center text-3xl text-[#9a6900]">#</span>}<span className={`absolute right-2 top-2 rounded-full px-2 py-1 text-xs font-semibold ${item.isActive ? 'bg-[#edf7ef] text-[#28743c]' : 'bg-white/90 text-muted-foreground'}`}>{item.isActive ? 'Active' : 'Archived'}</span></div>
-              <div className="space-y-1.5 p-3"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><h2 className="truncate font-semibold group-hover:text-primary">{item.name}</h2><p className="truncate text-xs text-muted-foreground">/{item.slug}</p></div><ExternalLink className="h-4 w-4 shrink-0 text-muted-foreground" /></div><p className="truncate text-xs text-muted-foreground">{parentName(item.parentCategoryId) ?? 'Top-level category'}</p><p className="text-sm font-semibold">{item.productCount} active {item.productCount === 1 ? 'product' : 'products'}</p></div>
+              <div className="relative h-28 overflow-hidden"><CategoryImage src={item.imageUrl} name={item.name} priority={index < 3} /><span className={`absolute right-2 top-2 rounded-full px-2 py-1 text-[11px] font-semibold ${item.isActive ? 'bg-[#edf7ef] text-[#28743c]' : 'bg-white/90 text-muted-foreground'}`}>{item.isActive ? 'Active' : 'Archived'}</span></div>
+              <div className="p-4"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><h2 className="!text-base !leading-tight font-semibold text-[#101828] group-hover:text-primary">{item.name}</h2><p className="mt-1 truncate text-xs text-muted-foreground">{parentName(item.parentCategoryId) ?? 'Top-level category'}</p></div><ExternalLink className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground transition-colors group-hover:text-primary" /></div><div className="mt-4 flex items-center gap-2"><span className="rounded-full bg-[#fff3bd] px-2.5 py-1 text-[11px] font-semibold text-[#765800]">{item.productCount} {item.productCount === 1 ? 'product' : 'products'}</span>{item.description && <span className="truncate text-xs text-muted-foreground" title={item.description}>{item.description}</span>}</div></div>
             </Link>
-            <div className="flex items-center justify-end gap-2 border-t px-3 py-2"><button onClick={() => setEditing(item)} className="inline-flex items-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-semibold text-muted-foreground hover:bg-muted hover:text-foreground" aria-label={`Edit ${item.name}`}><Pencil className="h-3.5 w-3.5" />Edit</button>{item.slug !== 'uncategorised' && <button onClick={async () => { try { await setCategoryActive(item.id, !item.isActive); router.refresh() } catch (error) { toast.error(error instanceof Error ? error.message : 'Could not update category') } }} className="inline-flex items-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-semibold text-muted-foreground hover:bg-muted hover:text-foreground" aria-label={item.isActive ? `Archive ${item.name}` : `Restore ${item.name}`}>{item.isActive ? <><Archive className="h-3.5 w-3.5" />Archive</> : <><RotateCcw className="h-3.5 w-3.5" />Restore</>}</button>}</div>
+            <div className="mt-auto flex items-center justify-between border-t border-[#eef0f3] bg-[#fafbfc] px-3 py-2.5"><Link href={href} className="text-xs font-semibold text-[#667085] hover:text-primary">View category</Link><div className="flex items-center gap-1"><button onClick={() => setEditing(item)} className="rounded-md p-1.5 text-muted-foreground hover:bg-white hover:text-foreground" aria-label={`Edit ${item.name}`} title="Edit category"><Pencil className="h-3.5 w-3.5" /></button>{item.slug !== 'uncategorised' && <button onClick={async () => { try { await setCategoryActive(item.id, !item.isActive); router.refresh() } catch (error) { toast.error(error instanceof Error ? error.message : 'Could not update category') } }} className="rounded-md p-1.5 text-muted-foreground hover:bg-white hover:text-foreground" aria-label={item.isActive ? `Archive ${item.name}` : `Restore ${item.name}`} title={item.isActive ? 'Archive category' : 'Restore category'}>{item.isActive ? <Archive className="h-3.5 w-3.5" /> : <RotateCcw className="h-3.5 w-3.5" />}</button>}</div></div>
           </article>
         })}
       </div> : <div className="overflow-hidden rounded-xl border bg-white">
@@ -104,7 +117,7 @@ export function CategoriesClient({ initialCategories }: { initialCategories: Cat
               return <tr key={item.id} className="border-b last:border-0 hover:bg-muted/20">
                 <td className="px-4 py-3">
                   <Link href={href} className="group flex items-center gap-3" aria-label={`View category ${item.name}`}>
-                    <div className="h-9 w-9 overflow-hidden rounded-md bg-[#fff8e8]">{item.imageUrl ? <Image src={item.imageUrl} alt="" width={36} height={36} unoptimized className="h-full w-full object-cover" /> : <span className="flex h-full items-center justify-center text-xs text-[#9a6900]">#</span>}</div>
+                    <div className="h-9 w-9 overflow-hidden rounded-md"><CategoryImage src={item.imageUrl} name={item.name} compact /></div>
                     <div><p className="font-semibold group-hover:text-primary">{item.name}</p><p className="text-xs text-muted-foreground">/{item.slug}</p></div>
                   </Link>
                 </td>

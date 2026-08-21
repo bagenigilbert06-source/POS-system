@@ -6,6 +6,7 @@ import Image from 'next/image'
 import { createProduct, findProductByBarcode, updateProduct } from '@/app/actions/products'
 import { createCategory } from '@/app/actions/categories'
 import { cn, formatCurrency, normalizeBarcode } from '@/lib/utils'
+import { getGrossMargin } from '@/lib/pricing/gross-margin'
 import { Barcode, Boxes, Check, CircleDollarSign, ImageIcon, Loader2, Package2, Smartphone, Tag, Upload, X } from 'lucide-react'
 import type { Product } from '@/lib/db/schema'
 import { toast } from 'sonner'
@@ -48,7 +49,7 @@ export function ProductForm({ product, categories, onClose, initialCategoryId, i
     description: product?.description ?? '',
     imageUrl: product?.imageUrl ?? '',
     categoryId: product?.categoryId ?? initialCategoryId ?? '',
-    buyingPrice: product?.buyingPrice ?? '0',
+    buyingPrice: product?.buyingPrice ?? '',
     sellingPrice: product?.sellingPrice ?? '',
     stock: product?.stock ?? 0,
     minStock: product?.minStock ?? 5,
@@ -119,7 +120,10 @@ export function ProductForm({ product, categories, onClose, initialCategoryId, i
       setErrors((current) => ({ ...current, name: form.name.trim() ? undefined : 'Enter a product name.', categoryId: !product && !form.categoryId ? 'Choose a category.' : undefined }))
       return
     }
-    if (step === 3 && (!form.buyingPrice || !form.sellingPrice)) return
+    if (step === 3 && (Number(form.buyingPrice) <= 0 || Number(form.sellingPrice) < 0)) {
+      setErrors((current) => ({ ...current, buyingPrice: Number(form.buyingPrice) > 0 ? undefined : 'Cost price is required and must be greater than zero.', sellingPrice: Number(form.sellingPrice) >= 0 ? undefined : 'Enter a valid selling price.' }))
+      return
+    }
     setStep((current) => Math.min(5, current + 1))
   }
 
@@ -141,7 +145,7 @@ export function ProductForm({ product, categories, onClose, initialCategoryId, i
     const nextErrors = {
       name: form.name.trim() ? undefined : 'Enter a product name.',
       categoryId: !product && !form.categoryId ? 'Choose a category.' : undefined,
-      buyingPrice: Number(form.buyingPrice) >= 0 && form.buyingPrice !== '' ? undefined : 'Enter a valid cost price.',
+      buyingPrice: Number(form.buyingPrice) > 0 && form.buyingPrice !== '' ? undefined : 'Cost price is required and must be greater than zero.',
       sellingPrice: Number(form.sellingPrice) >= 0 && form.sellingPrice !== '' ? undefined : 'Enter a selling price.',
       stock: !product && Number(form.stock) >= 0 && Number.isInteger(Number(form.stock)) ? undefined : (!product ? 'Starting quantity cannot be negative.' : undefined),
       barcode: barcodeMatch ? `This barcode already belongs to ${barcodeMatch.name}.` : undefined,
@@ -162,7 +166,7 @@ export function ProductForm({ product, categories, onClose, initialCategoryId, i
         description: form.description || undefined,
         imageUrl: form.imageUrl || undefined,
         categoryId: form.categoryId || undefined,
-        buyingPrice: parseFloat(String(form.buyingPrice)) || 0,
+        buyingPrice: parseFloat(String(form.buyingPrice)),
         sellingPrice: parseFloat(String(form.sellingPrice)),
         ...(product ? {} : { stock: Number(form.stock) }),
         minStock: Number(form.minStock),
@@ -203,7 +207,7 @@ export function ProductForm({ product, categories, onClose, initialCategoryId, i
   const buying = Number(form.buyingPrice) || 0
   const selling = Number(form.sellingPrice) || 0
   const margin = selling - buying
-  const marginPercent = buying > 0 ? (margin / buying) * 100 : 0
+  const grossMargin = getGrossMargin(selling, buying)
 
   const FieldLabel = ({ children, required }: { children: React.ReactNode; required?: boolean }) => (
     <label className="mb-1.5 block text-sm font-medium text-foreground">
@@ -318,16 +322,17 @@ export function ProductForm({ product, categories, onClose, initialCategoryId, i
               <div className="rounded-lg border bg-muted/20 p-4 sm:p-5">
                 <div className="grid gap-4 sm:grid-cols-2">
               <div>
-                    <FieldLabel>Cost price</FieldLabel><p className="mb-1 text-xs text-muted-foreground">How much you paid for one bottle or unit.</p>
+                    <FieldLabel required>Cost price</FieldLabel><p className="mb-1 text-xs text-muted-foreground">Required for accurate profit reporting. How much you paid for one bottle or unit.</p>
                 <input
                   type="number"
-                  min="0"
+                  min="0.01"
                   step="0.01"
-                  placeholder="0.00"
+                  placeholder="e.g. 850.00"
                   value={form.buyingPrice}
                   onChange={(e) => set('buyingPrice', e.target.value)}
-                  className={inputCls}
+                  className={cn(inputCls, errors.buyingPrice && 'border-destructive focus:border-destructive focus:ring-destructive/20')}
                 />
+                {errors.buyingPrice && <p className="mt-1.5 text-xs text-destructive">{errors.buyingPrice}</p>}
               </div>
               <div>
                     <FieldLabel required>Selling price</FieldLabel><p className="mb-1 text-xs text-muted-foreground">How much the customer will pay for one bottle or unit.</p>
@@ -344,7 +349,7 @@ export function ProductForm({ product, categories, onClose, initialCategoryId, i
                   </div>
                 </div>
                 <div className={cn('mt-4 rounded-md border px-3 py-2.5 text-sm', margin >= 0 ? 'border-[hsl(var(--success)/0.25)] bg-[hsl(var(--success)/0.06)]' : 'border-destructive/25 bg-destructive/5')}>
-                  <div className="flex items-center justify-between"><span className="text-muted-foreground">Estimated profit</span><span className={cn('font-semibold tabular-nums', margin >= 0 ? 'text-[hsl(var(--success))]' : 'text-destructive')}>{formatCurrency(margin)}</span></div><p className="mt-1 text-xs">{margin >= 0 ? `Profit per ${form.unit}: ${formatCurrency(margin)} · Profit margin: ${marginPercent.toFixed(1)}%` : `You will lose ${formatCurrency(Math.abs(margin))} each time this product is sold.`}</p>
+                  <div className="flex items-center justify-between"><span className="text-muted-foreground">Estimated profit</span><span className={cn('font-semibold tabular-nums', margin >= 0 ? 'text-[hsl(var(--success))]' : 'text-destructive')}>{formatCurrency(margin)}</span></div><p className="mt-1 text-xs">{margin >= 0 ? `Profit per ${form.unit}: ${formatCurrency(margin)} · Current gross margin: ${grossMargin.valid ? `${grossMargin.percent.toFixed(1)}%` : 'check cost price'}` : `You will lose ${formatCurrency(Math.abs(margin))} each time this product is sold.`}</p>
                 </div>
               </div>
             </section>}

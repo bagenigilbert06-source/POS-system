@@ -1,6 +1,6 @@
 'use client'
 
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts'
+import { PieChart, Pie, Tooltip, ResponsiveContainer, Cell } from 'recharts'
 import { formatCurrency, formatNumber } from '@/lib/utils/format'
 
 interface SalesByPaymentProps {
@@ -36,26 +36,17 @@ export function SalesByPaymentChart({ data, currency }: SalesByPaymentProps) {
           </div>
         ) : (
           <div className="space-y-4">
-            <ResponsiveContainer width="100%" height={250}>
-              <BarChart data={chartData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#edf0f4" />
-                <XAxis dataKey="method" stroke="#8a94a5" tickFormatter={formatMethod} />
-                <YAxis stroke="#8a94a5" />
-                <Tooltip 
-                  contentStyle={{ backgroundColor: '#fff', border: '1px solid #d9dce3' }}
-                  formatter={(value: any, name: any) => {
-                    if (name === 'amount') return [formatCurrency(value, currency), 'Amount']
-                    return [formatNumber(value), 'Transactions']
-                  }}
-                  labelFormatter={(label) => formatMethod(label)}
-                />
-                <Bar dataKey="amount" fill="#ffda32" name="Amount">
-                  {chartData.map((_, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
+            <div className="relative mx-auto h-[250px] max-w-[320px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie data={chartData} dataKey="amount" nameKey="method" innerRadius={70} outerRadius={105} paddingAngle={2} stroke="none">
+                    {chartData.map((_, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
+                  </Pie>
+                  <Tooltip contentStyle={{ backgroundColor: '#fff', border: '1px solid #d9dce3' }} formatter={(value) => formatCurrency(Number(value ?? 0), currency)} labelFormatter={(label) => formatMethod(String(label ?? ''))} />
+                </PieChart>
+              </ResponsiveContainer>
+              <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center"><span className="text-xs text-[#8a94a5]">Payment mix</span><strong className="mt-1 text-sm tabular-nums text-[#101828]">{formatCurrency(chartData.reduce((sum, item) => sum + item.amount, 0), currency)}</strong></div>
+            </div>
             <div className="space-y-2 border-t border-[#edf0f4] pt-4">
               {chartData.map((item, idx) => (
                 <div key={item.method} className="flex items-center justify-between text-sm">
@@ -68,7 +59,7 @@ export function SalesByPaymentChart({ data, currency }: SalesByPaymentProps) {
                   </div>
                   <div className="text-right">
                     <p className="font-semibold text-[#101828]">{formatCurrency(item.amount, currency)}</p>
-                    <p className="text-xs text-[#8a94a5]">{formatNumber(item.transactions)} transactions</p>
+                    <p className="text-xs text-[#8a94a5]">{formatNumber(item.transactions)} transactions · {chartData.reduce((sum, row) => sum + row.amount, 0) ? ((item.amount / chartData.reduce((sum, row) => sum + row.amount, 0)) * 100).toFixed(1) : '0.0'}%</p>
                   </div>
                 </div>
               ))}

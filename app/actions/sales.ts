@@ -2,7 +2,7 @@
 
 import { auth } from '@/lib/auth'
 import { db } from '@/lib/db'
-import { branch, sale, saleItem, salePayment, product, businessSettings, auditEvent, posSession, customer, salesReturn, salesReturnItem, expense, user } from '@/lib/db/schema'
+import { branch, sale, saleItem, salePayment, product, businessSettings, auditEvent, posSession, customer, salesReturn, salesReturnItem, expense, user, category } from '@/lib/db/schema'
 import { and, asc, desc, eq, gte, ilike, inArray, lt, lte, or, sql } from 'drizzle-orm'
 import { headers } from 'next/headers'
 import { revalidatePath } from 'next/cache'
@@ -370,6 +370,7 @@ export type SalesPageFilters = {
   search?: string
   paymentMethod?: string
   status?: string
+  ageVerification?: 'verified' | 'not_verified'
   customerId?: string
   cashierId?: string
   branchId?: string
@@ -406,6 +407,7 @@ async function getSalesScope(filters: SalesPageFilters) {
     search ? or(ilike(sale.receiptNo, `%${search}%`), ilike(sql`coalesce(${sale.mpesaRef}, '')`, `%${search}%`), sql`exists (select 1 from ${salePayment} where ${salePayment.saleId} = ${sale.id} and ${salePayment.orgId} = ${orgId} and coalesce(${salePayment.reference}, '') ilike ${`%${search}%`})`) : undefined,
     filters.paymentMethod && filters.paymentMethod !== 'all' ? eq(sale.paymentMethod, filters.paymentMethod) : undefined,
     filters.status && filters.status !== 'all' ? eq(sale.status, filters.status) : undefined,
+    filters.ageVerification === 'verified' ? eq(sale.ageVerified, true) : filters.ageVerification === 'not_verified' ? eq(sale.ageVerified, false) : undefined,
     filters.customerId ? eq(sale.customerId, filters.customerId) : undefined,
     filters.cashierId ? eq(sale.userId, filters.cashierId) : undefined,
     filters.branchId ? eq(sale.branchId, filters.branchId) : undefined,
@@ -449,10 +451,10 @@ async function getScopedTotals(scope: NonNullable<SalesScope['scope']>, orgId: s
 
 /** Server-side source of truth for the Sales page. The table and KPIs share this scope. */
 export async function getSalesPageData(filters: SalesPageFilters = {}) {
-  const { orgId, scope, page, pageSize } = await getSalesScope(filters)
+  const { orgId, authorization, scope, page, pageSize } = await getSalesScope(filters)
   const orderColumn = filters.sort === 'amount' ? sale.total : filters.sort === 'payment' ? sale.paymentMethod : filters.sort === 'status' ? sale.status : sale.createdAt
   const order = (filters.direction ?? 'desc') === 'asc' ? asc(orderColumn) : desc(orderColumn)
-  const [rows, [count], totals] = await Promise.all([
+  const [rows, [count], totals, locations] = await Promise.all([
     db.select({ record: sale, customerName: customer.name, customerPhone: customer.phone, customerEmail: customer.email, branchName: branch.name, cashierName: user.name })
       .from(sale)
       .leftJoin(customer, eq(customer.id, sale.customerId))
@@ -461,11 +463,14 @@ export async function getSalesPageData(filters: SalesPageFilters = {}) {
       .where(scope).orderBy(order, desc(sale.id)).limit(pageSize).offset((page - 1) * pageSize),
     db.select({ value: sql<number>`count(*)` }).from(sale).where(scope),
     getScopedTotals(scope!, orgId, filters),
+    db.select({ id: branch.id, name: branch.name }).from(branch).where(and(eq(branch.organizationId, orgId), authorization.isOrganizationWide ? undefined : authorization.branchIds.length ? inArray(branch.id, authorization.branchIds) : sql`false`)).orderBy(desc(branch.isMain), branch.name),
   ])
   const previous = previousPeriod(filters)
   const previousTotals = previous ? await getScopedTotals((await getSalesScope(previous)).scope!, orgId, previous) : null
   const compare = (current: number, prior: number) => prior ? ((current - prior) / Math.abs(prior)) * 100 : null
-  return { rows, total: Number(count?.value ?? 0), page, pageSize, totals, comparison: previousTotals ? { net: compare(totals.net, previousTotals.net), transactions: compare(Number(totals.transactions ?? 0), Number(previousTotals.transactions ?? 0)), average: compare(totals.average, previousTotals.average), grossProfit: compare(totals.grossProfit, previousTotals.grossProfit) } : null }
+  const fallbackBranchName = locations.length === 1 ? locations[0].name : null
+  const consistentRows = rows.map((row) => ({ ...row, branchName: row.branchName ?? fallbackBranchName }))
+  return { rows: consistentRows, total: Number(count?.value ?? 0), page, pageSize, totals, comparison: previousTotals ? { net: compare(totals.net, previousTotals.net), transactions: compare(Number(totals.transactions ?? 0), Number(previousTotals.transactions ?? 0)), average: compare(totals.average, previousTotals.average), grossProfit: compare(totals.grossProfit, previousTotals.grossProfit) } : null }
 }
 
 export async function getSalesFilterOptions() {
@@ -505,7 +510,20 @@ export async function getSalesAnalytics(filters: SalesPageFilters = {}) {
     db.select({ label: user.name, quantity: sql<number>`count(*)`, value: sql<number>`coalesce(sum(${sale.total}), 0)` }).from(sale).leftJoin(user, eq(user.id, sale.userId)).where(and(scope, paid)).groupBy(user.name).orderBy(desc(sql`sum(${sale.total})`)).limit(10),
     db.select({ label: customer.name, quantity: sql<number>`count(*)`, value: sql<number>`coalesce(sum(${sale.total}), 0)` }).from(sale).innerJoin(customer, eq(customer.id, sale.customerId)).where(and(scope, paid)).groupBy(customer.name).orderBy(desc(sql`sum(${sale.total})`)).limit(10),
   ])
-  return { trend, payments, products, cashiers, customers }
+  // SQL returns only active sale dates. The dashboard must plot every calendar day
+  // to preserve elapsed-time spacing and make no-sale days visible.
+  const trendByDate = new Map(trend.map((row) => [row.label, Number(row.value)]))
+  const end = filters.to ? new Date(filters.to) : new Date()
+  end.setHours(0, 0, 0, 0)
+  const start = filters.from ? new Date(filters.from) : new Date(end)
+  if (!filters.from) start.setDate(start.getDate() - 29)
+  start.setHours(0, 0, 0, 0)
+  const completeTrend = [] as Array<{ label: string; timestamp: number; value: number }>
+  for (let day = new Date(start); day <= end; day.setDate(day.getDate() + 1)) {
+    const label = day.toISOString().slice(0, 10)
+    completeTrend.push({ label, timestamp: day.getTime(), value: trendByDate.get(label) ?? 0 })
+  }
+  return { trend: completeTrend, payments, products, cashiers, customers }
 }
 
 export async function getSaleWithItems(saleId: string) {
@@ -525,15 +543,15 @@ export async function getSaleWithItems(saleId: string) {
     .where(and(eq(sale.id, saleId), eq(sale.orgId, orgId), accessScope))
     .limit(1)
   if (!saleRecord) return null
-  const [items, payments, returns] = await Promise.all([
-    db
-    .select()
-    .from(saleItem)
-    .where(and(eq(saleItem.saleId, saleId), eq(saleItem.orgId, orgId))),
+  const [items, payments, returns, session, refundItems, audit] = await Promise.all([
+    db.select({ item: saleItem, sku: product.sku, barcode: product.barcode, imageUrl: product.imageUrl, categoryName: category.name }).from(saleItem).leftJoin(product, eq(product.id, saleItem.productId)).leftJoin(category, eq(category.id, product.categoryId)).where(and(eq(saleItem.saleId, saleId), eq(saleItem.orgId, orgId))),
     db.select().from(salePayment).where(and(eq(salePayment.saleId, saleId), eq(salePayment.orgId, orgId))).orderBy(salePayment.createdAt),
-    db.select().from(salesReturn).where(and(eq(salesReturn.saleId, saleId), eq(salesReturn.orgId, orgId))).orderBy(desc(salesReturn.createdAt)),
+    db.select({ refund: salesReturn, userName: user.name }).from(salesReturn).leftJoin(user, eq(user.id, salesReturn.userId)).where(and(eq(salesReturn.saleId, saleId), eq(salesReturn.orgId, orgId))).orderBy(desc(salesReturn.createdAt)),
+    saleRecord.record.posSessionId ? db.select().from(posSession).where(and(eq(posSession.id, saleRecord.record.posSessionId), eq(posSession.orgId, orgId))).limit(1) : Promise.resolve([]),
+    db.select({ item: salesReturnItem, returnNo: salesReturn.returnNo }).from(salesReturnItem).innerJoin(salesReturn, eq(salesReturn.id, salesReturnItem.returnId)).where(and(eq(salesReturnItem.orgId, orgId), eq(salesReturn.saleId, saleId))),
+    db.select({ event: auditEvent, userName: user.name }).from(auditEvent).leftJoin(user, eq(user.id, auditEvent.userId)).where(and(eq(auditEvent.organizationId, orgId), sql`${auditEvent.metadata}->>'saleId' = ${saleId}`)).orderBy(desc(auditEvent.createdAt)).limit(50),
   ])
-  return { ...saleRecord, items, payments, returns }
+  return { ...saleRecord, items: items.map(({ item, ...meta }) => ({ ...item, ...meta })), payments, returns: returns.map(({ refund, ...meta }) => ({ ...refund, ...meta })), session: session[0] ?? null, refundItems, audit }
 }
 
 export async function getDashboardStats() {
