@@ -50,7 +50,7 @@ export function ProductPerformance({ products, currency }: ProductPerformancePro
             </span>
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-bold">{product.name}</p>
-              <p className="text-xs text-muted-foreground">{formatNumber(product.units)} units • {product.margin}% margin</p>
+              <p className="text-xs text-muted-foreground">{formatNumber(product.units)} units • {product.margin}% profit</p>
             </div>
             <div className="text-right">
               <p className="text-sm font-bold tabular-nums">{formatCurrency(product.revenue, currency)}</p>

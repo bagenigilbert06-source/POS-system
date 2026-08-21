@@ -508,7 +508,7 @@ export function ProductsTable({ initialProducts }: ProductsTableProps) {
                           {p.name}
                         </h3>
                         <div className="mt-1 flex flex-wrap gap-1.5">
-                          {p.categoryName && <span className="rounded-full bg-[#fff3bd] px-2 py-0.5 text-[10px] font-semibold text-[#765800]">{p.categoryName}</span>}
+                          {p.categoryName && <span className="inline-flex items-center rounded-lg border border-[#f2cf70] bg-[#fff8e6] px-2.5 py-1 text-[10px] font-bold text-[#875b00] shadow-[0_1px_1px_rgba(133,91,0,.08)] transition-colors group-hover:border-[#e4b53e] group-hover:bg-[#fff1bf]">{p.categoryName}</span>}
                           {incompleteData && <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-800"><AlertCircle className="h-3 w-3" />Incomplete data</span>}
                         </div>
                       </div>
@@ -526,7 +526,7 @@ export function ProductsTable({ initialProducts }: ProductsTableProps) {
                             : 'text-destructive'
                         )}
                       >
-                        {grossMargin.valid ? `${grossMargin.percent.toFixed(1)}% margin` : 'Check cost price'}
+                        {grossMargin.valid ? `${grossMargin.percent.toFixed(1)}% profit` : 'Check cost price'}
                       </span>
                     </div>
                     <p className="pt-1 text-[11px] text-muted-foreground">
@@ -692,7 +692,7 @@ export function ProductsTable({ initialProducts }: ProductsTableProps) {
                         Selling
                       </th>
                       <th className="px-4 py-3 text-right font-medium text-muted-foreground">
-                        Current margin
+                        Profit %
                       </th>
                       <th className="px-4 py-3 text-center font-medium text-muted-foreground">
                         Stock

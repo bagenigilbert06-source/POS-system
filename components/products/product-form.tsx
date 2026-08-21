@@ -349,7 +349,7 @@ export function ProductForm({ product, categories, onClose, initialCategoryId, i
                   </div>
                 </div>
                 <div className={cn('mt-4 rounded-md border px-3 py-2.5 text-sm', margin >= 0 ? 'border-[hsl(var(--success)/0.25)] bg-[hsl(var(--success)/0.06)]' : 'border-destructive/25 bg-destructive/5')}>
-                  <div className="flex items-center justify-between"><span className="text-muted-foreground">Estimated profit</span><span className={cn('font-semibold tabular-nums', margin >= 0 ? 'text-[hsl(var(--success))]' : 'text-destructive')}>{formatCurrency(margin)}</span></div><p className="mt-1 text-xs">{margin >= 0 ? `Profit per ${form.unit}: ${formatCurrency(margin)} · Current gross margin: ${grossMargin.valid ? `${grossMargin.percent.toFixed(1)}%` : 'check cost price'}` : `You will lose ${formatCurrency(Math.abs(margin))} each time this product is sold.`}</p>
+                  <div className="flex items-center justify-between"><span className="text-muted-foreground">Estimated profit</span><span className={cn('font-semibold tabular-nums', margin >= 0 ? 'text-[hsl(var(--success))]' : 'text-destructive')}>{formatCurrency(margin)}</span></div><p className="mt-1 text-xs">{margin >= 0 ? `Profit per ${form.unit}: ${formatCurrency(margin)} · Profit %: ${grossMargin.valid ? `${grossMargin.percent.toFixed(1)}%` : 'check cost price'}` : `You will lose ${formatCurrency(Math.abs(margin))} each time this product is sold.`}</p>
                 </div>
               </div>
             </section>}
