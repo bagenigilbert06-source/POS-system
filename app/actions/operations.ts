@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { and, desc, eq, gte, inArray, lt, sql } from 'drizzle-orm'
 import { z } from 'zod'
 import { db } from '@/lib/db'
-import { auditEvent, branch, cashMovement, inventoryLoss, posSession, product, sale, saleItem, salesReturn, salesReturnItem } from '@/lib/db/schema'
+import { auditEvent, branch, cashMovement, inventoryBalance, inventoryLoss, posSession, product, sale, saleItem, salesReturn, salesReturnItem, stockMovement } from '@/lib/db/schema'
 import { generateId } from '@/lib/utils'
 import { getAuthorizationContext, requirePermission } from '@/lib/auth/authorization'
 import { PermissionEnum } from '@/lib/types/permissions'
@@ -110,7 +110,13 @@ export async function refundSale(input: { saleId: string; refundMethod: string; 
     for (const line of items) {
       await tx.insert(salesReturnItem).values({ id: generateId(), returnId, productId: line.productId, productName: line.productName, quantity: line.quantity, unitPrice: line.unitPrice, total: line.totalPrice, disposition: data.disposition, orgId })
       if (data.disposition === 'restock') await applyInventoryMovement(tx, { productId: line.productId, productName: line.productName, branchId: record.branchId, quantity: line.quantity, type: 'sales_return', referenceType: 'credit_note', referenceId: returnId, reason: returnNo, userId, orgId })
+      else {
+        const [balance] = await tx.select({ onHand: inventoryBalance.onHand }).from(inventoryBalance).where(and(eq(inventoryBalance.productId, line.productId), eq(inventoryBalance.branchId, record.branchId), eq(inventoryBalance.orgId, orgId))).limit(1)
+        const current = Number(balance?.onHand ?? 0)
+        await tx.insert(stockMovement).values({ id: generateId(), productId: line.productId, productName: line.productName, branchId: record.branchId, type: 'return_unsellable', quantity: 0, stockBefore: current, stockAfter: current, referenceType: 'credit_note', referenceId: returnId, reason: `${returnNo} · ${data.reason} · Not returned to sellable stock`, userId, orgId })
+      }
     }
+    await tx.insert(auditEvent).values({ id: generateId(), organizationId: orgId, userId, action: 'sales.return_completed', metadata: { returnId, returnNo, saleId: record.id, disposition: data.disposition, itemCount: items.length } })
     await tx.update(sale).set({ status: 'refunded' }).where(and(eq(sale.id, record.id), eq(sale.orgId, orgId)))
   })
   await invalidateProductReadCache(orgId); refresh()

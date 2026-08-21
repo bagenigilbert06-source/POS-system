@@ -302,6 +302,7 @@ export const product = pgTable(
     id: text('id').primaryKey(),
     name: text('name').notNull(),
     brand: text('brand'),
+    variant: text('variant'),
     sku: text('sku'),
     barcode: text('barcode'),
     description: text('description'),
@@ -442,11 +443,31 @@ export const sale = pgTable(
       table.orgId,
       table.createdAt
     ),
-    organizationStatusCreatedIndex: index('sale_org_status_created_idx').on(table.orgId, table.status, table.createdAt),
-    organizationPaymentCreatedIndex: index('sale_org_payment_created_idx').on(table.orgId, table.paymentMethod, table.createdAt),
-    organizationCustomerCreatedIndex: index('sale_org_customer_created_idx').on(table.orgId, table.customerId, table.createdAt),
-    organizationCashierCreatedIndex: index('sale_org_cashier_created_idx').on(table.orgId, table.userId, table.createdAt),
-    organizationBranchCreatedIndex: index('sale_org_branch_created_idx').on(table.orgId, table.branchId, table.createdAt),
+    organizationStatusCreatedIndex: index('sale_org_status_created_idx').on(
+      table.orgId,
+      table.status,
+      table.createdAt
+    ),
+    organizationPaymentCreatedIndex: index('sale_org_payment_created_idx').on(
+      table.orgId,
+      table.paymentMethod,
+      table.createdAt
+    ),
+    organizationCustomerCreatedIndex: index('sale_org_customer_created_idx').on(
+      table.orgId,
+      table.customerId,
+      table.createdAt
+    ),
+    organizationCashierCreatedIndex: index('sale_org_cashier_created_idx').on(
+      table.orgId,
+      table.userId,
+      table.createdAt
+    ),
+    organizationBranchCreatedIndex: index('sale_org_branch_created_idx').on(
+      table.orgId,
+      table.branchId,
+      table.createdAt
+    ),
     organizationIdempotencyUnique: uniqueIndex(
       'sale_org_idempotency_unique'
     ).on(table.orgId, table.idempotencyKey),
@@ -489,11 +510,17 @@ export const expense = pgTable('expense', {
   title: text('title').notNull(),
   amount: numeric('amount', { precision: 12, scale: 2 }).notNull(),
   category: text('category').notNull().default('general'),
+  paymentMethod: text('paymentMethod').notNull().default('cash'),
+  reference: text('reference'),
   notes: text('notes'),
   userId: text('userId').notNull(),
   orgId: text('orgId').notNull(),
-  branchId: text('branchId').references(() => branch.id, { onDelete: 'restrict' }),
+  branchId: text('branchId').references(() => branch.id, {
+    onDelete: 'restrict',
+  }),
+  expenseDate: timestamp('expenseDate').notNull().defaultNow(),
   createdAt: timestamp('createdAt').notNull().defaultNow(),
+  updatedAt: timestamp('updatedAt').notNull().defaultNow(),
 });
 
 export const supplier = pgTable(
@@ -894,7 +921,9 @@ export const inventoryLoss = pgTable(
     reason: text('reason').notNull(),
     userId: text('userId').notNull(),
     orgId: text('orgId').notNull(),
-    branchId: text('branchId').references(() => branch.id, { onDelete: 'restrict' }),
+    branchId: text('branchId').references(() => branch.id, {
+      onDelete: 'restrict',
+    }),
     createdAt: timestamp('createdAt').notNull().defaultNow(),
   },
   (table) => ({
@@ -918,7 +947,9 @@ export const posSession = pgTable(
     openedBy: text('openedBy').notNull(),
     closedBy: text('closedBy'),
     orgId: text('orgId').notNull(),
-    branchId: text('branchId').references(() => branch.id, { onDelete: 'restrict' }),
+    branchId: text('branchId').references(() => branch.id, {
+      onDelete: 'restrict',
+    }),
     openedAt: timestamp('openedAt').notNull().defaultNow(),
     closedAt: timestamp('closedAt'),
   },
@@ -1029,7 +1060,10 @@ export const salePayment = pgTable(
   (table) => ({
     organizationIndex: index('sale_payment_org_idx').on(table.orgId),
     saleIndex: index('sale_payment_sale_idx').on(table.saleId),
-    referenceIndex: index('sale_payment_org_reference_idx').on(table.orgId, table.reference),
+    referenceIndex: index('sale_payment_org_reference_idx').on(
+      table.orgId,
+      table.reference
+    ),
   })
 );
 
@@ -1192,12 +1226,16 @@ export const stockAdjustment = pgTable(
       onDelete: 'restrict',
     }),
     countMode: text('countMode').notNull().default('cycle'),
+    countName: text('countName'),
+    assignedTo: text('assignedTo'),
     blindCount: boolean('blindCount').notNull().default(false),
+    startedAt: timestamp('startedAt'),
     submittedAt: timestamp('submittedAt'),
     userId: text('userId').notNull(),
     orgId: text('orgId').notNull(),
     createdAt: timestamp('createdAt').notNull().defaultNow(),
     approvedAt: timestamp('approvedAt'),
+    completedAt: timestamp('completedAt'),
   },
   (table) => ({
     organizationIndex: index('stock_adjustment_org_idx').on(table.orgId),
@@ -1214,6 +1252,9 @@ export const stockAdjustmentItem = pgTable('stock_adjustment_item', {
   quantityBefore: integer('quantityBefore').notNull(),
   quantityAfter: integer('quantityAfter').notNull(),
   variance: integer('variance').notNull(),
+  countedAt: timestamp('countedAt'),
+  countedBy: text('countedBy'),
+  notes: text('notes'),
   orgId: text('orgId').notNull(),
 });
 
