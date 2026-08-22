@@ -14,7 +14,7 @@ import * as AlertDialogR from '@radix-ui/react-alert-dialog';
 import { ReloadIcon } from '@radix-ui/react-icons';
 import axios from 'axios';
 import { useState, useEffect } from 'react';
-import { toast } from 'react-toastify';
+import { toast } from 'sonner';
 
 export function AlertDialogDeletetransaction({
   open,
@@ -52,7 +52,7 @@ export function AlertDialogDeletetransaction({
         // Data not found in the database, remove transactionId from localStorage
         localStorage.removeItem('transactionId');
         setTransactionId(null);
-        toast.warn('Transaction not found in the database.');
+        toast.warning('Transaction not found in the database.');
       } else {
         toast.error('Failed to delete transaction');
       }

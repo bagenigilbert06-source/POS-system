@@ -4,19 +4,18 @@ import {
   BadgeDollarSign,
   Boxes,
   Building2,
-  CircleAlert,
   CreditCard,
   Package,
   PackageOpen,
   ReceiptText,
+  Smartphone,
   ShoppingBag,
-  TrendingUp,
-  TriangleAlert,
-  ShieldCheck,
   UsersRound,
   BarChart3,
   Banknote,
   Landmark,
+  TrendingUp,
+  TriangleAlert,
 } from 'lucide-react'
 import { formatCurrency, formatNumber } from '@/lib/utils/format'
 import { cn } from '@/lib/utils'
@@ -25,6 +24,10 @@ import type { DashboardOverview } from '@/lib/services/dashboard-overview-servic
 import { OperatingChart } from './operating-chart'
 import { getBusinessExperience } from '@/lib/workspace/business-experience'
 import { DashboardInsightCharts } from './dashboard-insight-charts'
+import { BusiestHoursCard } from './busiest-hours-card'
+import { TopSellingProductsCard } from './top-selling-products-card'
+import { ComplianceStatusCard } from './compliance-status-card'
+import { MetricCard, type MetricTrend } from './metric-card'
 import { TimeGreeting } from '../time-greeting'
 import { PermissionEnum, RoleEnum } from '@/lib/types/permissions'
 
@@ -45,13 +48,26 @@ interface BusinessOverviewProps {
 // so light and dark mode both stay correct without per-class overrides.
 const PANEL = 'rounded-2xl border border-[var(--dashboard-border)] bg-[var(--dashboard-surface)] shadow-dark-sm'
 const DIVIDER = 'border-[var(--dashboard-border)]'
-const ALERT_ICON = 'border-[var(--dashboard-danger-soft-border)] bg-[var(--dashboard-danger-soft)] text-[var(--dashboard-danger)]'
 const BRAND_ICON = 'border-[var(--dashboard-accent-soft-border)] bg-[var(--dashboard-accent-soft)] text-[var(--dashboard-accent)]'
 const TEXT = 'text-[var(--dashboard-text)]'
 const MUTED = 'text-[var(--dashboard-muted)]'
 
-function methodLabel(method: string) {
-  return method.replace(/[_-]/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase())
+function yesterdayTrend(current: number, previous: number): MetricTrend {
+  if (previous <= 0) return { direction: 'neutral', text: 'No previous-day comparison' }
+  const change = ((current - previous) / previous) * 100
+  if (Math.abs(change) < 0.05) return { direction: 'neutral', text: 'No change vs yesterday' }
+  return { direction: change > 0 ? 'up' : 'down', value: Math.abs(change), label: 'vs yesterday' }
+}
+
+function formatMetricCurrency(value: number, currency: string) {
+  if (Math.abs(value) < 1_000_000) return formatCurrency(value, currency)
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency,
+    notation: 'compact',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  }).format(value)
 }
 
 export function BusinessOverview({ organizationName, userName, timeZone, currency, overview, workspaceConfig, generatedAt, role, permissions }: BusinessOverviewProps) {
@@ -70,26 +86,59 @@ export function BusinessOverview({ organizationName, userName, timeZone, currenc
   const primaryAction = availableActions.find((action) => action.primary)
   const secondaryActions = availableActions.filter((action) => !action.primary)
 
-  const transactionAverage = overview.today.transactions ? overview.today.revenue / overview.today.transactions : 0
-  const commerceMetrics = experience.kind === 'retail' || experience.kind === 'hospitality'
+  const todayProfit = overview.today.grossProfit
+  const profitAvailable = todayProfit !== null
+  const lowStockCount = Math.max(overview.records.lowStock - overview.records.outOfStock, 0)
   const metrics = [
-    { label: experience.metricLabels[0], value: formatCurrency(overview.today.revenue, currency), detail: `${formatNumber(overview.today.transactions)} completed`, meta: 'Gross sales recorded today', context: 'Today', icon: TrendingUp, href: '/dashboard/sales' },
-    commerceMetrics
-      ? { label: experience.metricLabels[1], value: formatNumber(overview.today.transactions), detail: experience.kind === 'hospitality' ? 'Completed counter orders' : 'Completed sales', meta: `${formatCurrency(overview.today.revenue, currency)} processed`, context: 'Today', icon: ReceiptText, href: '/dashboard/sales' }
-      : { label: experience.metricLabels[1], value: formatCurrency(overview.today.expenses, currency), detail: 'Recorded today', meta: 'Operating costs logged', context: 'Today', icon: CreditCard, href: '/dashboard/expenses' },
-    commerceMetrics
-      ? { label: experience.metricLabels[2], value: formatCurrency(transactionAverage, currency), detail: experience.kind === 'hospitality' ? 'Per completed order' : 'Per completed sale', meta: `${formatNumber(overview.today.transactions)} transactions`, context: 'Average', icon: BadgeDollarSign, href: '/dashboard/sales' }
-      : { label: experience.metricLabels[2], value: formatCurrency(overview.today.operatingPosition, currency), detail: 'Sales less expenses', meta: 'Net operating position', context: 'Today', icon: BadgeDollarSign, href: '/dashboard/reports' },
-    ...(hasInventory && commerceMetrics
-      ? experience.kind === 'hospitality'
-        ? [{ label: experience.metricLabels[3], value: formatNumber(overview.records.products), detail: 'Available menu items', icon: Package, href: '/dashboard/products' }]
-        : [{ label: experience.metricLabels[3], value: formatNumber(overview.records.lowStock), detail: `${overview.records.outOfStock} out of stock`, meta: `${formatNumber(overview.records.products)} products tracked`, context: overview.records.lowStock > 0 ? 'Needs attention' : 'All stocked', icon: TriangleAlert, href: '/dashboard/inventory', alert: overview.records.lowStock > 0 }]
-      : hasInventory ? [{ label: 'Stock alerts', value: formatNumber(overview.records.lowStock), detail: `${overview.records.outOfStock} out of stock`, meta: `${formatNumber(overview.records.products)} products tracked`, context: overview.records.lowStock > 0 ? 'Needs attention' : 'All stocked', icon: TriangleAlert, href: '/dashboard/inventory', alert: overview.records.lowStock > 0 }] : []),
-    ...(!hasInventory && hasCustomers ? [{ label: 'Customer records', value: formatNumber(overview.records.customers), detail: 'Available in this workspace', icon: UsersRound }] : []),
-    ...(!hasInventory && !hasCustomers ? [{ label: 'Locations', value: formatNumber(overview.records.branches), detail: 'Active business locations', icon: Building2 }] : []),
+    {
+      label: "Today's Sales",
+      value: formatCurrency(overview.today.revenue, currency),
+      description: `${formatNumber(overview.today.transactions)} completed ${overview.today.transactions === 1 ? 'sale' : 'sales'}`,
+      trend: yesterdayTrend(overview.today.revenue, overview.previousDay.revenue),
+      icon: TrendingUp,
+      href: '/dashboard/sales',
+      linkLabel: 'View sales',
+    },
+    {
+      label: "Today's Profit",
+      value: profitAvailable ? formatCurrency(todayProfit, currency) : 'Unavailable',
+      description: profitAvailable
+        ? overview.today.profitMargin === null ? 'No sales to calculate margin' : `${overview.today.profitMargin.toFixed(1)}% gross margin`
+        : 'Some sold products are missing cost',
+      trend: profitAvailable && overview.previousDay.grossProfit !== null
+        ? yesterdayTrend(todayProfit, overview.previousDay.grossProfit)
+        : undefined,
+      primaryMeta: profitAvailable ? undefined : 'Profit unavailable for incomplete cost data',
+      icon: BadgeDollarSign,
+      href: '/dashboard/sales',
+      linkLabel: 'View sales',
+    },
+    {
+      label: 'Stock Value',
+      value: formatMetricCurrency(overview.records.inventoryCost, currency),
+      description: 'Based on current buying cost',
+      primaryMeta: `${formatNumber(overview.records.products)} products tracked`,
+      icon: Boxes,
+      href: '/dashboard/inventory',
+      linkLabel: 'View inventory',
+    },
+    {
+      label: 'Low Stock',
+      value: `${formatNumber(overview.records.lowStock)} ${overview.records.lowStock === 1 ? 'product' : 'products'}`,
+      description: overview.records.lowStock > 0
+        ? `${formatNumber(lowStockCount)} low · ${formatNumber(overview.records.outOfStock)} critical`
+        : 'No products need replenishing',
+      status: overview.records.lowStock > 0 ? 'Reorder required' : 'All stock levels healthy',
+      icon: TriangleAlert,
+      href: '/dashboard/inventory',
+      warning: overview.records.lowStock > 0,
+      healthy: overview.records.lowStock === 0,
+      linkLabel: 'Open inventory',
+    },
   ]
 
   const updatedAt = generatedAt.toLocaleTimeString('en-KE', { hour: '2-digit', minute: '2-digit' })
+  const recentSalesTotal = overview.recentSales.reduce((sum, sale) => sum + sale.total, 0)
 
   return (
     <div className="dashboard-overview mx-auto w-full max-w-[1440px] space-y-4 pb-8">
@@ -105,13 +154,13 @@ export function BusinessOverview({ organizationName, userName, timeZone, currenc
               <span className="dashboard-updated">Updated {updatedAt}</span>
             </div>
             <p className="mt-3 text-[0.68rem] font-bold uppercase tracking-[0.14em] text-[var(--dashboard-accent)]">
-              {role === RoleEnum.MANAGER ? 'Manager · Branch operations' : role === RoleEnum.ADMIN ? 'Admin · Organization overview' : 'Owner · Organization overview'}
+              {role === RoleEnum.MANAGER ? 'Manager · Branch overview' : role === RoleEnum.ADMIN ? 'Admin · Business overview' : 'Owner · Business overview'}
             </p>
             <h1 className="mt-1.5 text-[1.7rem] font-bold leading-tight tracking-tight sm:text-[1.95rem]">
               <TimeGreeting name={userName} timeZone={timeZone} />
             </h1>
             <p className={cn('mt-2 max-w-lg text-sm leading-6', MUTED)}>
-              {role === RoleEnum.MANAGER ? `Today's performance and attention items for your assigned ${overview.records.branches === 1 ? 'branch' : 'branches'}.` : `Today's organization-wide overview for ${organizationName}.`}
+              {role === RoleEnum.MANAGER ? `Today's results and alerts for your assigned ${overview.records.branches === 1 ? 'branch' : 'branches'}.` : `Today's business summary for ${organizationName}.`}
             </p>
           </div>
 
@@ -153,47 +202,7 @@ export function BusinessOverview({ organizationName, userName, timeZone, currenc
       {/* ---------------------------------------------------------------- */}
       <section aria-label="Today's operating metrics">
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          {metrics.map((metric) => {
-            const Icon = metric.icon
-            const isAlert = 'alert' in metric && metric.alert
-            const metricTone = isAlert ? 'metric-alert' : 'metric-positive'
-            const card = (
-              <div className={cn('dashboard-metric-card', metricTone, PANEL, 'group relative flex h-full min-h-[148px] flex-col overflow-hidden p-4 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_10px_24px_rgb(15_23_42_/_0.08)]')}>
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex min-w-0 flex-wrap items-center gap-2">
-                    <p className={cn('truncate text-[0.67rem] font-bold uppercase tracking-[0.1em]', MUTED)}>{metric.label}</p>
-                    {metric.context && (
-                      <span className={cn('inline-flex rounded-full px-1.5 py-0.5 text-[0.58rem] font-medium normal-case tracking-normal', isAlert ? 'bg-[var(--dashboard-danger-soft)] text-[var(--dashboard-danger)]' : 'bg-[var(--dashboard-success-soft)] text-[var(--dashboard-success)]')}>
-                        {metric.context}
-                      </span>
-                    )}
-                  </div>
-                  <span className={cn('flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border transition-transform group-hover:scale-105', isAlert ? ALERT_ICON : BRAND_ICON)}>
-                    <Icon className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" />
-                  </span>
-                </div>
-
-                <p className={cn('mt-4 truncate text-[1.6rem] font-bold leading-none tabular-nums tracking-[-0.035em]', isAlert ? 'text-[var(--dashboard-danger)]' : TEXT)}>{metric.value}</p>
-                <p className={cn('mt-1.5 text-[0.72rem]', MUTED)}>{metric.detail}</p>
-
-                {metric.href && (
-                  <div className="mt-2.5 flex items-center justify-between gap-3 pt-1">
-                    <span className={cn('truncate text-[0.68rem]', MUTED)}>{metric.meta}</span>
-                    <span className="inline-flex shrink-0 items-center gap-1 text-[0.68rem] font-bold text-[var(--dashboard-accent)]">
-                      View details <ArrowRight className="h-3 w-3" />
-                    </span>
-                  </div>
-                )}
-              </div>
-            )
-            return metric.href ? (
-              <Link key={metric.label} href={metric.href} className="block h-full rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-[var(--dashboard-accent-cta)] focus-visible:ring-offset-2">
-                {card}
-              </Link>
-            ) : (
-              <article key={metric.label} className="h-full">{card}</article>
-            )
-          })}
+          {metrics.map((metric) => <MetricCard key={metric.label} title={metric.label} value={metric.value} icon={metric.icon} description={metric.description} href={metric.href} trend={metric.trend} primaryMeta={metric.primaryMeta} status={metric.status} warning={metric.warning} healthy={metric.healthy} linkLabel={metric.linkLabel} />)}
         </div>
       </section>
 
@@ -203,7 +212,7 @@ export function BusinessOverview({ organizationName, userName, timeZone, currenc
       <DashboardInsightCharts
         currency={currency}
         paymentMix={overview.paymentMix}
-        topProducts={overview.topProducts}
+        salesPerformance={overview.salesPerformanceSeries}
         stock={{ healthy: overview.records.products - overview.records.lowStock, low: overview.records.lowStock - overview.records.outOfStock, out: overview.records.outOfStock }}
         productLabel={workspaceConfig.businessCategory === 'liquor_shop' ? 'drinks' : 'products'}
       />
@@ -213,33 +222,7 @@ export function BusinessOverview({ organizationName, userName, timeZone, currenc
       {/* ---------------------------------------------------------------- */}
       {workspaceConfig.businessCategory === 'liquor_shop' && (
         <section aria-label="Liquor-store controls">
-          <article className={cn(PANEL, 'flex flex-col gap-4 p-4 lg:flex-row lg:items-center')}>
-            <div className="flex min-w-0 flex-1 items-center gap-3">
-              <span className={cn('flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border', BRAND_ICON)}>
-                <ShieldCheck className="h-[18px] w-[18px]" />
-              </span>
-              <div className="min-w-0">
-                <h2 className={cn('text-[0.82rem] font-bold', TEXT)}>Liquor sales controls</h2>
-                <p className={cn('mt-0.5 max-w-xl text-[0.7rem] leading-5', MUTED)}>Age verification is required at checkout and recorded with each new liquor sale.</p>
-              </div>
-            </div>
-
-            <div className="flex shrink-0 gap-2">
-              <div className="min-w-[92px] rounded-lg border border-[var(--dashboard-success-soft-border)] bg-[var(--dashboard-success-soft)] px-3 py-2">
-                <p className={cn('text-base font-bold tabular-nums', TEXT)}>{formatNumber(overview.liquorCompliance.verifiedToday)}</p>
-                <p className={cn('mt-0.5 text-[9px] font-semibold uppercase tracking-[0.08em]', MUTED)}>Verified today</p>
-              </div>
-              <div className={cn('min-w-[92px] rounded-lg border px-3 py-2', overview.liquorCompliance.unverifiedToday ? 'border-[var(--dashboard-danger-soft-border)] bg-[var(--dashboard-danger-soft)]' : cn(DIVIDER, 'bg-[var(--dashboard-surface-subtle)]'))}>
-                <p className={cn('text-base font-bold tabular-nums', overview.liquorCompliance.unverifiedToday ? 'text-[var(--dashboard-danger)]' : TEXT)}>{formatNumber(overview.liquorCompliance.unverifiedToday)}</p>
-                <p className={cn('mt-0.5 text-[9px] font-semibold uppercase tracking-[0.08em]', MUTED)}>Needs review</p>
-              </div>
-            </div>
-
-            <Link href="/dashboard/operations" className={cn('inline-flex h-9 shrink-0 items-center justify-center gap-2 rounded-lg border px-3.5 text-xs font-semibold transition-all hover:bg-[var(--dashboard-surface-subtle)]', DIVIDER, TEXT)}>
-              <CircleAlert className="h-4 w-4" />
-              Register controls
-            </Link>
-          </article>
+          <ComplianceStatusCard verified={overview.liquorCompliance.verifiedToday} needsReview={overview.liquorCompliance.unverifiedToday} />
         </section>
       )}
 
@@ -247,48 +230,9 @@ export function BusinessOverview({ organizationName, userName, timeZone, currenc
       {/* Operating performance + month to date                           */}
       {/* ---------------------------------------------------------------- */}
       <section className="grid items-start gap-4 xl:grid-cols-[minmax(0,1.8fr)_minmax(300px,.72fr)]">
-        <article className={cn(PANEL, 'overflow-hidden')}>
-          <div className={cn('flex flex-col gap-2.5 border-b px-5 py-3 sm:flex-row sm:items-center sm:justify-between', DIVIDER)}>
-            <div>
-              <h2 className={cn('text-[0.95rem] font-bold', TEXT)}>Operating performance</h2>
-              <p className={cn('mt-0.5 text-xs', MUTED)}>Sales and recorded expenses · Live 30-day history</p>
-            </div>
-            <div className={cn('flex items-center gap-4 text-xs font-medium', MUTED)}>
-              <span className="flex items-center gap-1.5"><i className="h-2 w-2 rounded-sm bg-[var(--dashboard-chart-revenue)]" />Sales</span>
-              <span className="flex items-center gap-1.5"><i className="h-2 w-2 rounded-sm bg-[var(--dashboard-chart-secondary)]" />Expenses</span>
-              <Link href="/dashboard/reports" className="font-semibold text-[var(--dashboard-accent)] hover:opacity-80">Reports</Link>
-            </div>
-          </div>
-          <div className="px-4 pb-3 pt-4 sm:px-5">
-            <OperatingChart data={overview.revenueSeries} currency={currency} />
-          </div>
-        </article>
+        <OperatingChart data={overview.revenueSeries} currency={currency} />
 
-        <aside className={cn(PANEL, 'flex h-full min-h-[270px] flex-col overflow-hidden')}>
-          <div className={cn('border-b px-5 py-3', DIVIDER)}>
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <h2 className={cn('text-[0.95rem] font-bold', TEXT)}>Team & locations</h2>
-                <p className={cn('mt-0.5 text-xs', MUTED)}>People and places in your workspace</p>
-              </div>
-              <UsersRound className={cn('h-4 w-4', MUTED)} />
-            </div>
-          </div>
-          <div className="flex flex-1 flex-col gap-2 border-b bg-[var(--dashboard-surface-subtle)] p-2.5">
-            <Link href="/dashboard/settings" className={cn('group flex flex-1 items-center justify-between gap-3 rounded-xl border bg-[var(--dashboard-surface)] px-4 py-3 hover:border-[var(--dashboard-accent-soft-border)] hover:bg-[var(--dashboard-surface-subtle)]', DIVIDER)}>
-              <div><p className={cn('text-sm font-semibold', TEXT)}>Staff members</p><p className={cn('mt-0.5 text-xs', MUTED)}>People with access to this workspace</p></div>
-              <div className="flex items-center gap-3"><p className={cn('text-base font-bold tabular-nums', TEXT)}>{formatNumber(overview.records.staff)}</p><ArrowRight className="h-3.5 w-3.5 text-[var(--dashboard-accent)] opacity-0 group-hover:opacity-100" /></div>
-            </Link>
-            <Link href="/dashboard/operations" className={cn('group flex flex-1 items-center justify-between gap-3 rounded-xl border bg-[var(--dashboard-surface)] px-4 py-3 hover:border-[var(--dashboard-accent-soft-border)] hover:bg-[var(--dashboard-surface-subtle)]', DIVIDER)}>
-              <div><p className={cn('text-sm font-semibold', TEXT)}>Business locations</p><p className={cn('mt-0.5 text-xs', MUTED)}>Active branches and outlets</p></div>
-              <div className="flex items-center gap-3"><p className={cn('text-base font-bold tabular-nums', TEXT)}>{formatNumber(overview.records.branches)}</p><ArrowRight className="h-3.5 w-3.5 text-[var(--dashboard-accent)] opacity-0 group-hover:opacity-100" /></div>
-            </Link>
-            <Link href="/dashboard/customers" className={cn('group flex flex-1 items-center justify-between gap-3 rounded-xl border bg-[var(--dashboard-surface)] px-4 py-3 hover:border-[var(--dashboard-accent-soft-border)] hover:bg-[var(--dashboard-surface-subtle)]', DIVIDER)}>
-              <div><p className={cn('text-sm font-semibold', TEXT)}>Customer records</p><p className={cn('mt-0.5 text-xs', MUTED)}>Saved customer profiles</p></div>
-              <div className="flex items-center gap-3"><p className={cn('text-base font-bold tabular-nums', TEXT)}>{formatNumber(overview.records.customers)}</p><ArrowRight className="h-3.5 w-3.5 text-[var(--dashboard-accent)] opacity-0 group-hover:opacity-100" /></div>
-            </Link>
-          </div>
-        </aside>
+        <BusiestHoursCard currency={currency} reportDate={overview.reportDate} sales={overview.hourlySales} />
       </section>
 
       {/* ---------------------------------------------------------------- */}
@@ -296,38 +240,69 @@ export function BusinessOverview({ organizationName, userName, timeZone, currenc
       {/* ---------------------------------------------------------------- */}
       <section className={cn('grid items-start gap-4', hasInventory && 'xl:grid-cols-[minmax(0,1.45fr)_minmax(330px,.75fr)]')}>
         <article className={cn(PANEL, 'overflow-hidden')}>
-          <SectionHeader title={experience.activityTitle} description={experience.activityDescription} href="/dashboard/sales" />
+          <div className={cn('flex flex-col gap-3 border-b px-5 py-4 sm:flex-row sm:items-center sm:justify-between', DIVIDER)}>
+            <div className="flex min-w-0 items-center gap-3">
+              <span className={cn('flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border', BRAND_ICON)}>
+                <ReceiptText className="h-4 w-4" aria-hidden="true" />
+              </span>
+              <div className="min-w-0">
+                <h2 className={cn('text-[0.95rem] font-bold tracking-tight', TEXT)}>{experience.activityTitle}</h2>
+                <p className={cn('mt-0.5 truncate text-xs', MUTED)}>Latest completed sales and payment details.</p>
+              </div>
+            </div>
+            <Link href="/dashboard/sales" className={cn('inline-flex h-8 w-fit shrink-0 items-center gap-1.5 rounded-lg border bg-[var(--dashboard-surface)] px-3 text-xs font-semibold transition-colors hover:border-[var(--dashboard-accent-soft-border)] hover:bg-[var(--dashboard-surface-subtle)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--dashboard-accent-soft-border)]', DIVIDER, TEXT)}>
+              View all sales <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
+            </Link>
+          </div>
           {overview.recentSales.length ? (
             <>
+              <div className={cn('flex items-center justify-between gap-4 border-b bg-[var(--dashboard-surface-subtle)] px-5 py-2.5 text-xs', DIVIDER)}>
+                <p className={MUTED}>Showing <span className={cn('font-semibold tabular-nums', TEXT)}>{formatNumber(overview.recentSales.length)}</span> latest sales</p>
+                <p className={MUTED}>Shown total <span className={cn('ml-1 font-bold tabular-nums', TEXT)}>{formatCurrency(recentSalesTotal, currency)}</span></p>
+              </div>
+
               <div className={cn('divide-y sm:hidden', DIVIDER)}>
                 {overview.recentSales.map((record) => (
-                  <div key={record.id} className="flex items-center justify-between gap-4 px-6 py-3.5">
-                    <div className="min-w-0">
+                  <div key={record.id} className="flex items-center gap-3 px-5 py-3.5 transition-colors hover:bg-[var(--dashboard-surface-subtle)]">
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-[var(--dashboard-border)] bg-[var(--dashboard-surface-subtle)] text-[var(--dashboard-muted)]">
+                      <ReceiptText className="h-4 w-4" aria-hidden="true" />
+                    </span>
+                    <div className="min-w-0 flex-1">
                       <p className={cn('truncate text-sm font-semibold', TEXT)}>{record.receiptNo}</p>
-                      <p className={cn('mt-0.5 text-xs', MUTED)}>{methodLabel(record.paymentMethod)} · {record.createdAt.toLocaleDateString('en-KE', { day: 'numeric', month: 'short' })}</p>
+                      <p className={cn('mt-0.5 text-xs', MUTED)}>{record.createdAt.toLocaleString('en-KE', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</p>
                     </div>
-                    <p className={cn('text-sm font-semibold tabular-nums', TEXT)}>{formatCurrency(record.total, currency)}</p>
+                    <div className="shrink-0 text-right">
+                      <p className={cn('text-sm font-bold tabular-nums', TEXT)}>{formatCurrency(record.total, currency)}</p>
+                      <div className="mt-1 flex justify-end"><PaymentBadge method={record.paymentMethod} /></div>
+                    </div>
                   </div>
                 ))}
               </div>
 
               <div className="hidden overflow-x-auto sm:block">
-                <table className="w-full min-w-[620px] text-left text-sm">
-                  <thead className={cn('text-[0.62rem] uppercase tracking-[0.12em]', MUTED)}>
+                <table className="w-full min-w-[680px] text-left text-sm">
+                  <thead className={cn('bg-[var(--dashboard-surface-subtle)] text-[0.62rem] uppercase tracking-[0.1em]', MUTED)}>
                     <tr>
-                      <th className="px-6 py-3.5 font-semibold">Receipt</th>
-                      <th className="px-4 py-3.5 font-semibold">Date</th>
-                      <th className="px-4 py-3.5 font-semibold">Payment</th>
-                      <th className="px-6 py-3.5 text-right font-semibold">Total</th>
+                      <th className="px-5 py-2.5 font-semibold">Sale</th>
+                      <th className="px-4 py-2.5 font-semibold">Date &amp; time</th>
+                      <th className="px-4 py-2.5 font-semibold">Payment method</th>
+                      <th className="px-5 py-2.5 text-right font-semibold">Amount</th>
                     </tr>
                   </thead>
-                  <tbody>
+                  <tbody className="divide-y divide-[var(--dashboard-border)]">
                     {overview.recentSales.map((record) => (
-                      <tr key={record.id} className="border-t border-[var(--dashboard-border)] transition-colors hover:bg-[var(--dashboard-surface-subtle)]">
-                        <td className={cn('px-6 py-3 font-semibold', TEXT)}>{record.receiptNo}</td>
-                        <td className={cn('px-4 py-3 text-xs', MUTED)}>{record.createdAt.toLocaleString('en-KE', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</td>
+                      <tr key={record.id} className="group transition-colors hover:bg-[var(--dashboard-surface-subtle)]">
+                        <td className="px-5 py-3">
+                          <div className="flex items-center gap-3">
+                            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-[var(--dashboard-border)] bg-[var(--dashboard-surface-subtle)] text-[var(--dashboard-muted)] transition-colors group-hover:border-[var(--dashboard-accent-soft-border)] group-hover:text-[var(--dashboard-accent)]">
+                              <ReceiptText className="h-3.5 w-3.5" aria-hidden="true" />
+                            </span>
+                            <span className={cn('font-semibold', TEXT)}>{record.receiptNo}</span>
+                          </div>
+                        </td>
+                        <td className={cn('px-4 py-3 text-xs tabular-nums', MUTED)}>{record.createdAt.toLocaleString('en-KE', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</td>
                         <td className="px-4 py-3"><PaymentBadge method={record.paymentMethod} /></td>
-                        <td className={cn('px-6 py-3 text-right font-bold tabular-nums', TEXT)}>{formatCurrency(record.total, currency)}</td>
+                        <td className={cn('px-5 py-3 text-right font-bold tabular-nums', TEXT)}>{formatCurrency(record.total, currency)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -341,27 +316,7 @@ export function BusinessOverview({ organizationName, userName, timeZone, currenc
 
         {hasInventory && (
           <aside className="h-full">
-            <article className={cn(PANEL, 'flex h-full flex-col overflow-hidden')}>
-              <div className={cn('flex items-center justify-between gap-4 border-b px-5 py-4', DIVIDER)}>
-                <div>
-                  <h2 className={cn('text-[0.95rem] font-bold', TEXT)}>Action centre</h2>
-                  <p className={cn('mt-0.5 text-xs', MUTED)}>Important follow-ups for your business.</p>
-                </div>
-                <span className={cn('flex h-9 w-9 shrink-0 items-center justify-center rounded-lg', BRAND_ICON)}>
-                  <ReceiptText className="h-4 w-4" />
-                </span>
-              </div>
-
-              <div className="flex flex-1 flex-col gap-2 border-b bg-[var(--dashboard-surface-subtle)] p-2.5">
-                <ActionMetric label="Out of stock" value={formatNumber(overview.records.outOfStock)} detail="Products unavailable" href="/dashboard/inventory" alert={overview.records.outOfStock > 0} />
-                <ActionMetric label="Inventory value" value={formatCurrency(overview.records.inventoryCost, currency)} detail="At buying cost" href="/dashboard/inventory" />
-                {hasCustomers && <ActionMetric label="Customer records" value={formatNumber(overview.records.customers)} detail="Saved customers" href="/dashboard/customers" />}
-                {workspaceConfig.businessCategory === 'liquor_shop' && <ActionMetric label="Compliance reviews" value={formatNumber(overview.liquorCompliance.unverifiedToday)} detail="Unverified sales today" href="/dashboard/operations" alert={overview.liquorCompliance.unverifiedToday > 0} />}
-              </div>
-              <Link href="/dashboard/reports" className="m-2.5 flex h-10 items-center justify-between rounded-lg bg-[var(--dashboard-accent-cta)] px-4 text-xs font-bold text-[var(--dashboard-accent-cta-ink)] hover:bg-[var(--dashboard-accent-cta-hover)]">
-                Open detailed reports <ArrowRight className="h-3.5 w-3.5" />
-              </Link>
-            </article>
+            <TopSellingProductsCard currency={currency} reportDate={overview.reportDate} sales={overview.productSales} />
           </aside>
         )}
       </section>
@@ -372,33 +327,15 @@ export function BusinessOverview({ organizationName, userName, timeZone, currenc
 function PaymentBadge({ method }: { method: string }) {
   const normalized = method.toLowerCase().replace(/[_-]/g, ' ')
   if (normalized.includes('mpesa') || normalized.includes('m pesa')) {
-    return <span className="inline-flex items-center gap-1.5 rounded-full bg-[#e9f8f0] px-2 py-1 text-[0.68rem] font-semibold text-[#087a42]" aria-label="Paid with M-Pesa"><span className="text-[0.56rem] font-extrabold tracking-[-0.04em]"><i className="mr-0.5 inline-block h-1.5 w-1.5 rounded-full bg-[#e1261c]" />M‑PESA</span></span>
+    return <span className="inline-flex h-7 items-center gap-1.5 rounded-lg border border-[var(--dashboard-success-soft-border)] bg-[var(--dashboard-success-soft)] px-2.5 text-[0.68rem] font-semibold text-[var(--dashboard-success)]" aria-label="Paid with M-Pesa"><Smartphone className="h-3 w-3" aria-hidden="true" />M-Pesa</span>
   }
   if (normalized.includes('card')) {
-    return <span className="inline-flex items-center gap-1.5 rounded-full bg-[#eef4ff] px-2 py-1 text-[0.68rem] font-semibold text-[#1a4db3]" aria-label="Paid by card"><span className="text-[0.58rem] font-black italic tracking-[-0.06em] text-[#1434cb]">VISA</span><span className="flex -space-x-1"><i className="h-2.5 w-2.5 rounded-full bg-[#eb001b]" /><i className="h-2.5 w-2.5 rounded-full bg-[#f79e1b] opacity-90" /></span><span>Card</span></span>
+    return <span className="inline-flex h-7 items-center gap-1.5 rounded-lg border border-[var(--dashboard-border)] bg-[var(--dashboard-surface-subtle)] px-2.5 text-[0.68rem] font-semibold text-[var(--dashboard-text)]" aria-label="Paid by card"><CreditCard className="h-3 w-3 text-[var(--dashboard-muted)]" aria-hidden="true" />Card</span>
   }
   if (normalized.includes('bank')) {
-    return <span className="inline-flex items-center gap-1.5 rounded-full bg-[#f3efff] px-2 py-1 text-[0.68rem] font-semibold text-[#6d3bd1]"><Landmark className="h-3 w-3" />Bank transfer</span>
+    return <span className="inline-flex h-7 items-center gap-1.5 rounded-lg border border-[var(--dashboard-border)] bg-[var(--dashboard-surface-subtle)] px-2.5 text-[0.68rem] font-semibold text-[var(--dashboard-text)]"><Landmark className="h-3 w-3 text-[var(--dashboard-muted)]" aria-hidden="true" />Bank transfer</span>
   }
-  return <span className="inline-flex items-center gap-1.5 rounded-full bg-[#fff8df] px-2 py-1 text-[0.68rem] font-semibold text-[#8a6200]"><Banknote className="h-3 w-3" />Cash</span>
-}
-
-function ActionMetric({ label, value, detail, href, alert = false }: { label: string; value: string; detail: string; href: string; alert?: boolean }) {
-  return (
-    <Link href={href} className={cn('group flex flex-1 items-center justify-between gap-4 rounded-xl border bg-[var(--dashboard-surface)] px-4 py-3 hover:border-[var(--dashboard-accent-soft-border)] hover:bg-[var(--dashboard-surface-subtle)]', DIVIDER)}>
-      <div className="min-w-0">
-        <div className="flex items-center gap-2">
-          <p className={cn('text-[0.65rem] font-bold uppercase tracking-[0.08em]', MUTED)}>{label}</p>
-          {alert && <span className="h-1.5 w-1.5 rounded-full bg-[var(--dashboard-danger)]" />}
-        </div>
-        <p className={cn('mt-0.5 text-[0.7rem]', MUTED)}>{detail}</p>
-      </div>
-      <div className="flex shrink-0 items-center gap-3">
-        <p className={cn('text-base font-bold tabular-nums', alert ? 'text-[var(--dashboard-danger)]' : TEXT)}>{value}</p>
-        <ArrowRight className="h-3.5 w-3.5 text-[var(--dashboard-accent)] opacity-0 group-hover:opacity-100" />
-      </div>
-    </Link>
-  )
+  return <span className="inline-flex h-7 items-center gap-1.5 rounded-lg border border-[var(--dashboard-accent-soft-border)] bg-[var(--dashboard-accent-soft)] px-2.5 text-[0.68rem] font-semibold text-[var(--dashboard-accent)]"><Banknote className="h-3 w-3" aria-hidden="true" />Cash</span>
 }
 
 function TodayRegisterCard({ currency, revenue, transactions, expenses, saleHref, embedded = false }: { currency: string; revenue: number; transactions: number; expenses: number; saleHref: string; embedded?: boolean }) {
@@ -407,8 +344,8 @@ function TodayRegisterCard({ currency, revenue, transactions, expenses, saleHref
     <div className={cn(embedded ? '' : cn(PANEL, 'overflow-hidden'))}>
               <div className={cn('flex items-start justify-between gap-3 border-b px-5 py-3', DIVIDER)}>
         <div>
-          <h2 className={cn('text-[0.95rem] font-bold', TEXT)}>Today&apos;s register</h2>
-          <p className={cn('mt-0.5 text-xs', MUTED)}>A quick view of counter activity.</p>
+          <h2 className={cn('text-[0.95rem] font-bold', TEXT)}>Register summary</h2>
+          <p className={cn('mt-0.5 text-xs', MUTED)}>Today&apos;s checkout activity.</p>
         </div>
       </div>
 
@@ -425,11 +362,11 @@ function TodayRegisterCard({ currency, revenue, transactions, expenses, saleHref
 
       <div className="space-y-1.5 px-4 py-3 text-sm">
         <div className="flex items-center justify-between gap-3">
-          <span className={MUTED}>Average sale</span>
+          <span className={MUTED}>Average transaction</span>
           <strong className={cn('tabular-nums', TEXT)}>{formatCurrency(averageSale, currency)}</strong>
         </div>
         <div className="flex items-center justify-between gap-3">
-          <span className={MUTED}>Recorded expenses</span>
+          <span className={MUTED}>Expenses recorded</span>
           <strong className={cn('tabular-nums', TEXT)}>{formatCurrency(expenses, currency)}</strong>
         </div>
       </div>

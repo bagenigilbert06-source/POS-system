@@ -14,7 +14,7 @@ import axios from 'axios';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ReloadIcon } from '@radix-ui/react-icons';
-import { toast } from 'react-toastify';
+import { toast } from 'sonner';
 type Data = {
   id: string;
   productstock: {

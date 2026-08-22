@@ -5,7 +5,6 @@ import { usePathname } from 'next/navigation';
 import {
   Activity,
   Building2,
-  ChevronRight,
   CreditCard,
   MonitorSmartphone,
   FileClock,
@@ -57,7 +56,11 @@ const sections: ReadonlyArray<{
   {
     label: 'People & access',
     items: [
-      { label: 'Staff accounts', href: '/dashboard/admin/staff', icon: UsersRound },
+      {
+        label: 'Staff accounts',
+        href: '/dashboard/admin/staff',
+        icon: UsersRound,
+      },
       {
         label: 'Roles & permissions',
         href: '/dashboard/admin/roles',
@@ -137,14 +140,6 @@ function AdminLink({
         )}
       />
       <span className="whitespace-nowrap">{item.label}</span>
-      {!compact && (
-        <ChevronRight
-          className={cn(
-            'ml-auto h-3.5 w-3.5 opacity-0 transition-all group-hover:translate-x-0.5 group-hover:opacity-60',
-            active && 'opacity-60'
-          )}
-        />
-      )}
     </Link>
   );
 }
@@ -165,8 +160,12 @@ export function AdminControlShell({
         <aside className="hidden w-64 shrink-0 border-r border-[var(--dashboard-border)] bg-[var(--dashboard-surface)] lg:block">
           <div className="sticky top-0 max-h-[calc(100vh-4rem)] overflow-y-auto py-3">
             <div className="border-b border-[var(--dashboard-border)] px-4 pb-3 pt-1">
-              <p className="text-xs font-semibold text-foreground">Admin settings</p>
-              <p className="mt-0.5 truncate text-[11px] text-muted-foreground">{organizationName}</p>
+              <p className="text-xs font-semibold text-foreground">
+                Admin settings
+              </p>
+              <p className="mt-0.5 truncate text-[11px] text-muted-foreground">
+                {organizationName}
+              </p>
             </div>
             <nav className="py-2" aria-label="Admin control navigation">
               {items.map((item) => (

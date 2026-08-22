@@ -241,6 +241,36 @@
     font-family: var(--font-sans);
   }
 
+  /* Native dashboard selects should inherit Pesaby surfaces instead of the
+     browser's default blue highlight. */
+  .dashboard-overview select {
+    accent-color: var(--dashboard-accent);
+  }
+
+  .dashboard-overview select:focus {
+    border-color: transparent !important;
+    box-shadow: none !important;
+    outline: none !important;
+  }
+
+  .dashboard-overview select option,
+  .dashboard-overview select optgroup {
+    background: var(--dashboard-surface);
+    color: var(--dashboard-text);
+  }
+
+  .dashboard-analytics .text-primary {
+    color: var(--dashboard-accent) !important;
+  }
+
+  .dashboard-analytics .bg-muted\/50 {
+    background: var(--dashboard-surface-subtle) !important;
+  }
+
+  .dashboard-reports .bg-muted\/60 {
+    background: var(--dashboard-surface-subtle) !important;
+  }
+
   button {
     font-weight: 500;
   }
@@ -282,7 +312,7 @@
   --dashboard-chart-tooltip: #ffffff;
   --dashboard-chart-revenue: #ff6b0a;
   --dashboard-chart-revenue-fill: #ff6b0a;
-  --dashboard-chart-secondary: #2563eb;
+  --dashboard-chart-secondary: #b7791f;
   --dashboard-highlight: #e42527;
   /* Semantic tokens used by the overview dashboard. One accent, used consistently. */
   --dashboard-accent: #b45309;
@@ -328,7 +358,7 @@
   --dashboard-chart-tooltip: #1a1a1a;
   --dashboard-chart-revenue: #ff6b0a;
   --dashboard-chart-revenue-fill: #ff6b0a;
-  --dashboard-chart-secondary: #3b82f6;
+  --dashboard-chart-secondary: #d4a72c;
   --dashboard-highlight: #3b82f6;
   --dashboard-accent: #ffd60a;
   --dashboard-accent-strong: #ffdf3a;
@@ -379,6 +409,54 @@
   background-color: var(--dashboard-surface);
   border-radius: 1rem;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1), 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* Keep Quick create interaction states on-brand instead of the shadcn blue default. */
+.quick-create-menu [data-highlighted],
+.quick-create-menu [data-highlighted]:focus,
+.quick-create-menu [data-highlighted]:hover {
+  background: color-mix(in srgb, var(--dashboard-accent) 24%, var(--dashboard-surface)) !important;
+  color: var(--dashboard-text) !important;
+}
+
+.quick-create-menu [data-highlighted] svg {
+  color: var(--dashboard-accent) !important;
+}
+
+.quick-create-item:hover,
+.quick-create-item:focus-visible {
+  background: color-mix(in srgb, var(--dashboard-accent) 24%, var(--dashboard-surface));
+  color: var(--dashboard-text);
+}
+
+/* Product setup uses the dashboard amber accent in either theme. */
+.product-form [class~='text-primary'] {
+  color: var(--dashboard-accent) !important;
+}
+
+.product-form [class~='bg-primary/10'] {
+  background-color: var(--dashboard-accent-soft) !important;
+}
+
+.product-form [class~='border-primary'],
+.product-form [class~='focus:border-primary']:focus {
+  border-color: var(--dashboard-accent) !important;
+}
+
+.product-form [class~='bg-primary'] {
+  background-color: var(--dashboard-accent-cta) !important;
+}
+
+.product-form [class~='text-primary-foreground'] {
+  color: var(--dashboard-accent-cta-ink) !important;
+}
+
+.product-form [class~='hover:bg-primary/90']:hover {
+  background-color: var(--dashboard-accent-cta-hover) !important;
+}
+
+.product-form [class~='focus:ring-primary/20']:focus {
+  --tw-ring-color: color-mix(in srgb, var(--dashboard-accent) 20%, transparent) !important;
 }
 
 html:not(.dark) .dashboard-shell {
@@ -1463,4 +1541,238 @@ html:not(.dark) .dashboard-shell .shadow-dark-md {
 .dark .dashboard-shell .receipt-actions button:first-child {
   color: #344054 !important;
   border-color: #d0d5dd !important;
+}
+
+/* Penguin UI-inspired toast alerts: compact tinted cards, a small circular
+   status marker and a persistent, accessible dismiss control. */
+[data-sonner-toaster].pesaby-alert-stack {
+  --width: 360px;
+  --border-radius: 10px;
+  font-family: var(--font-sans);
+}
+
+[data-sonner-toast].pesaby-alert {
+  position: relative;
+  display: flex;
+  width: var(--width);
+  min-height: 66px;
+  box-sizing: border-box;
+  align-items: center;
+  gap: 11px;
+  border: 1px solid #f2b90c;
+  border-radius: 10px;
+  background: #fffbeb;
+  padding: 13px 42px 13px 13px;
+  color: #78350f;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
+}
+
+html.dark [data-sonner-toast].pesaby-alert {
+  border-color: rgba(255, 214, 10, 0.52);
+  background: #211d0b;
+  color: #ffdf3a;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.34);
+}
+
+[data-sonner-toast].pesaby-alert .pesaby-alert-content {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 3px;
+}
+
+[data-sonner-toast].pesaby-alert .pesaby-alert-title {
+  color: inherit;
+  font-size: 0.84rem;
+  font-weight: 700;
+  line-height: 1.3;
+  letter-spacing: -0.005em;
+}
+
+[data-sonner-toast].pesaby-alert .pesaby-alert-description {
+  color: #6b7280;
+  font-size: 0.76rem;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+html.dark [data-sonner-toast].pesaby-alert .pesaby-alert-description {
+  color: #c6c6c9;
+}
+
+[data-sonner-toast].pesaby-alert .pesaby-alert-icon {
+  display: flex;
+  width: 25px;
+  height: 25px;
+  flex: 0 0 25px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: #fde68a;
+  color: #a16207;
+}
+
+[data-sonner-toast].pesaby-alert .pesaby-alert-icon svg {
+  width: 14px;
+  height: 14px;
+  stroke-width: 2.5;
+}
+
+[data-sonner-toast].pesaby-alert-success {
+  border-color: #4ade80;
+  background: #f0fdf4;
+  color: #15803d;
+}
+
+[data-sonner-toast].pesaby-alert-success .pesaby-alert-icon {
+  background: #bbf7d0;
+  color: #15803d;
+}
+
+[data-sonner-toast].pesaby-alert-error {
+  border-color: #f87171;
+  background: #fff1f2;
+  color: #be123c;
+}
+
+[data-sonner-toast].pesaby-alert-error .pesaby-alert-icon {
+  background: #fecdd3;
+  color: #be123c;
+}
+
+[data-sonner-toast].pesaby-alert-warning {
+  border-color: #f59e0b;
+  background: #fffbeb;
+  color: #a16207;
+}
+
+[data-sonner-toast].pesaby-alert-warning .pesaby-alert-icon {
+  background: #fde68a;
+  color: #a16207;
+}
+
+[data-sonner-toast].pesaby-alert-info,
+[data-sonner-toast].pesaby-alert-loading {
+  border-color: #f2b90c;
+  background: #fffbeb;
+  color: #92400e;
+}
+
+html.dark [data-sonner-toast].pesaby-alert-success {
+  border-color: rgba(52, 211, 153, 0.58);
+  background: #0d241b;
+  color: #6ee7b7;
+}
+
+html.dark [data-sonner-toast].pesaby-alert-success .pesaby-alert-icon {
+  background: rgba(52, 211, 153, 0.18);
+  color: #6ee7b7;
+}
+
+html.dark [data-sonner-toast].pesaby-alert-error {
+  border-color: rgba(255, 105, 107, 0.58);
+  background: #2a1214;
+  color: #ff8b85;
+}
+
+html.dark [data-sonner-toast].pesaby-alert-error .pesaby-alert-icon {
+  background: rgba(255, 105, 107, 0.18);
+  color: #ff8b85;
+}
+
+html.dark [data-sonner-toast].pesaby-alert-warning,
+html.dark [data-sonner-toast].pesaby-alert-info,
+html.dark [data-sonner-toast].pesaby-alert-loading {
+  border-color: rgba(255, 214, 10, 0.52);
+  background: #211d0b;
+  color: #ffdf3a;
+}
+
+html.dark [data-sonner-toast].pesaby-alert-warning .pesaby-alert-icon,
+html.dark [data-sonner-toast].pesaby-alert-info .pesaby-alert-icon,
+html.dark [data-sonner-toast].pesaby-alert-loading .pesaby-alert-icon {
+  background: rgba(255, 214, 10, 0.16);
+  color: #ffdf3a;
+}
+
+[data-sonner-toast].pesaby-alert .pesaby-alert-close {
+  position: absolute;
+  z-index: 1;
+  top: 50%;
+  right: 10px;
+  left: auto;
+  display: flex;
+  width: 26px;
+  height: 26px;
+  align-items: center;
+  justify-content: center;
+  transform: translateY(-50%);
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: currentColor;
+  cursor: pointer;
+  opacity: 0.66;
+  padding: 0;
+  transition:
+    background-color 150ms ease,
+    opacity 150ms ease;
+}
+
+[data-sonner-toast].pesaby-alert .pesaby-alert-close:hover,
+[data-sonner-toast].pesaby-alert .pesaby-alert-close:focus-visible {
+  background: rgba(15, 23, 42, 0.08);
+  opacity: 1;
+  outline: none;
+}
+
+html.dark [data-sonner-toast].pesaby-alert .pesaby-alert-close:hover,
+html.dark [data-sonner-toast].pesaby-alert .pesaby-alert-close:focus-visible {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+[data-sonner-toast].pesaby-alert .pesaby-alert-close svg {
+  width: 15px;
+  height: 15px;
+}
+
+[data-sonner-toast].pesaby-alert .pesaby-alert-action,
+[data-sonner-toast].pesaby-alert .pesaby-alert-cancel {
+  display: flex;
+  height: 28px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 7px;
+  cursor: pointer;
+  margin-left: auto;
+  padding: 0 9px;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+[data-sonner-toast].pesaby-alert .pesaby-alert-action {
+  background: #ffd60a;
+  color: #171208;
+}
+
+[data-sonner-toast].pesaby-alert .pesaby-alert-cancel {
+  background: rgba(15, 23, 42, 0.08);
+  color: inherit;
+}
+
+html.dark [data-sonner-toast].pesaby-alert .pesaby-alert-cancel {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+@media (max-width: 640px) {
+  [data-sonner-toaster].pesaby-alert-stack {
+    --width: calc(100vw - 28px);
+  }
+
+  [data-sonner-toast].pesaby-alert {
+    min-height: 62px;
+  }
 }

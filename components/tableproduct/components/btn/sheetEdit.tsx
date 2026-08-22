@@ -25,7 +25,7 @@ import { productSchema } from '@/schema';
 import { z } from 'zod';
 import axios from 'axios';
 import { useRouter } from 'next/navigation';
-import { toast } from 'react-toastify';
+import { toast } from 'sonner';
 type Data = {
   id: string;
   sellprice: number;

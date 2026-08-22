@@ -14,7 +14,7 @@ import { fetchRecords } from '@/data/records';
 import { PageProps } from '@/types/paginations';
 import { PaginationDemo } from '@/components/paginations/pagination';
 import { SearchInput } from '@/components/search/search';
-import { toast } from 'react-toastify';
+import { toast } from 'sonner';
 interface Product {
   id: string;
   productId: string;

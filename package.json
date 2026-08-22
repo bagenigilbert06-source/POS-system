@@ -81,7 +81,6 @@
     "react-hook-form": "^7.51.5",
     "react-resizable-panels": "^2.0.19",
     "react-to-print": "^2.15.1",
-    "react-toastify": "^10.0.5",
     "recharts": "^3.9.0",
     "redis": "^6.2.1",
     "slugify": "^1.6.9",

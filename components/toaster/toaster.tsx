@@ -1,6 +1,6 @@
 'use client';
 import React, { Component, ErrorInfo, ReactNode } from 'react';
-import { toast } from 'react-toastify';
+import { toast } from 'sonner';
 
 interface Props {
   children: ReactNode;

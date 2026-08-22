@@ -17,7 +17,7 @@ import { useState } from 'react';
 import axios from 'axios';
 import { ReloadIcon } from '@radix-ui/react-icons';
 import eventBus from '@/lib/even';
-import { toast } from 'react-toastify';
+import { toast } from 'sonner';
 interface DialogDeleteProps {
   data: TransactionData;
 }

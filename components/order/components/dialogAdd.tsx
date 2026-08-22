@@ -25,7 +25,7 @@ import {
 import { DropdownMenuContent } from '@radix-ui/react-dropdown-menu';
 import { onsaleSchema } from '@/schema';
 import { z } from 'zod';
-import { toast } from 'react-toastify';
+import { toast } from 'sonner';
 
 type ProductDetail = {
   sellprice: number;

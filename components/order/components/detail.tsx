@@ -17,7 +17,7 @@ import { TransactionData } from '@/types/transaction';
 import axios from 'axios';
 import { z } from 'zod';
 import { useState } from 'react';
-import { toast } from 'react-toastify';
+import { toast } from 'sonner';
 import eventBus from '@/lib/even';
 import { ReloadIcon } from '@radix-ui/react-icons';
 

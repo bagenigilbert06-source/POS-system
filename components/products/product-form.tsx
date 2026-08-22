@@ -404,7 +404,7 @@ export function ProductForm({
   );
 
   return (
-    <div className="mx-auto w-full max-w-5xl">
+    <div className="product-form mx-auto w-full max-w-5xl">
       <div className="overflow-hidden rounded-xl border bg-card shadow-sm">
         <div className="flex items-start justify-between border-b px-5 py-4 sm:px-6">
           <div className="flex min-w-0 items-center gap-3">
@@ -865,7 +865,7 @@ export function ProductForm({
                 </div>
                 {categoryDialogOpen && (
                   <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-                    <div className="w-full max-w-md rounded-xl bg-white p-5 shadow-xl">
+                    <div className="w-full max-w-md rounded-xl bg-card p-5 text-card-foreground shadow-xl">
                       <div className="flex items-center justify-between">
                         <h3 className="text-lg font-bold">Create category</h3>
                         <button

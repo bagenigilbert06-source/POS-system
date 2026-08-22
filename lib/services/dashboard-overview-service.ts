@@ -1,6 +1,6 @@
 import { and, asc, desc, eq, gte, inArray, lt, lte, sql } from 'drizzle-orm'
 import { db } from '@/lib/db'
-import { branch, customer, expense, inventoryBalance, organizationMembership, product, sale, saleItem } from '@/lib/db/schema'
+import { branch, customer, expense, inventoryBalance, organizationMembership, product, sale, saleItem, salesReturn, salesReturnItem } from '@/lib/db/schema'
 
 export interface DashboardOverview {
   today: {
@@ -8,6 +8,14 @@ export interface DashboardOverview {
     transactions: number
     expenses: number
     operatingPosition: number
+    grossProfit: number | null
+    profitMargin: number | null
+    costDataComplete: boolean
+  }
+  previousDay: {
+    revenue: number
+    transactions: number
+    grossProfit: number | null
   }
   month: {
     revenue: number
@@ -30,7 +38,18 @@ export interface DashboardOverview {
     inventoryCost: number
   }
   revenueSeries: Array<{ date: string; revenue: number; expenses: number }>
+  salesPerformanceSeries: Array<{ date: string; revenue: number; transactions: number }>
   paymentMix: Array<{ method: string; amount: number; transactions: number }>
+  reportDate: string
+  hourlySales: Array<{ date: string; hour: number; revenue: number; transactions: number }>
+  productSales: Array<{
+    date: string
+    productId: string
+    name: string
+    imageUrl: string | null
+    quantity: number
+    revenue: number
+  }>
   recentSales: Array<{
     id: string
     receiptNo: string
@@ -109,11 +128,16 @@ export async function getDashboardOverview(organizationId: string, timeZone = 'A
   const currentDate = localDateParts(now, safeTimeZone)
   const tomorrowDate = moveCalendarDate(currentDate.year, currentDate.month, currentDate.day, 1)
   const seriesStartDate = moveCalendarDate(currentDate.year, currentDate.month, currentDate.day, -29)
+  const yesterdayDate = moveCalendarDate(currentDate.year, currentDate.month, currentDate.day, -1)
+  const performanceStartDate = moveCalendarDate(currentDate.year, currentDate.month, currentDate.day, -61)
   const today = zonedMidnight(currentDate.year, currentDate.month, currentDate.day, safeTimeZone)
+  const yesterdayStart = zonedMidnight(yesterdayDate.year, yesterdayDate.month, yesterdayDate.day, safeTimeZone)
   const tomorrow = zonedMidnight(tomorrowDate.year, tomorrowDate.month, tomorrowDate.day, safeTimeZone)
   const monthStart = zonedMidnight(currentDate.year, currentDate.month, 1, safeTimeZone)
   const seriesStart = zonedMidnight(seriesStartDate.year, seriesStartDate.month, seriesStartDate.day, safeTimeZone)
+  const performanceStart = zonedMidnight(performanceStartDate.year, performanceStartDate.month, performanceStartDate.day, safeTimeZone)
   const saleLocalDate = sql`((${sale.createdAt} at time zone 'UTC') at time zone ${safeTimeZone})::date`
+  const saleLocalTimestamp = sql`((${sale.createdAt} at time zone 'UTC') at time zone ${safeTimeZone})`
   const expenseLocalDate = sql`((${expense.createdAt} at time zone 'UTC') at time zone ${safeTimeZone})::date`
 
   const saleBranchScope = branchIds === undefined
@@ -123,9 +147,11 @@ export async function getDashboardOverview(organizationId: string, timeZone = 'A
     ? undefined
     : branchIds.length ? inArray(expense.branchId, [...branchIds]) : sql`false`
   const completedSale = and(eq(sale.orgId, organizationId), eq(sale.status, 'completed'), saleBranchScope)
+  const paidSale = and(eq(sale.orgId, organizationId), inArray(sale.status, ['completed', 'partially_refunded', 'refunded']), saleBranchScope)
 
   const [
     todaySalesRows,
+    yesterdaySalesRows,
     todayExpenseRows,
     monthSalesRows,
     monthExpenseRows,
@@ -135,6 +161,11 @@ export async function getDashboardOverview(organizationId: string, timeZone = 'A
     revenueRows,
     expenseRows,
     paymentRows,
+    hourlyRows,
+    recentCostRows,
+    productSalesRows,
+    productRefundRows,
+    hourlyRefundRows,
     recentRows,
     lowStockRows,
     topProductRows,
@@ -147,6 +178,13 @@ export async function getDashboardOverview(organizationId: string, timeZone = 'A
       })
       .from(sale)
       .where(and(completedSale, gte(sale.createdAt, today), lt(sale.createdAt, tomorrow))),
+    db
+      .select({
+        revenue: sql<string>`coalesce(sum(${sale.total}), 0)`,
+        transactions: sql<number>`count(*)`,
+      })
+      .from(sale)
+      .where(and(completedSale, gte(sale.createdAt, yesterdayStart), lt(sale.createdAt, today))),
     db
       .select({ amount: sql<string>`coalesce(sum(${expense.amount}), 0)` })
       .from(expense)
@@ -183,9 +221,10 @@ export async function getDashboardOverview(organizationId: string, timeZone = 'A
       .select({
         date: sql<string>`to_char(${saleLocalDate}, 'YYYY-MM-DD')`,
         amount: sql<string>`coalesce(sum(${sale.total}), 0)`,
+        transactions: sql<number>`count(*)`,
       })
       .from(sale)
-      .where(and(completedSale, gte(sale.createdAt, seriesStart)))
+      .where(and(completedSale, gte(sale.createdAt, performanceStart)))
       .groupBy(sql.raw('1'))
       .orderBy(asc(sql.raw('1'))),
     db
@@ -207,6 +246,66 @@ export async function getDashboardOverview(organizationId: string, timeZone = 'A
       .where(and(completedSale, gte(sale.createdAt, monthStart)))
       .groupBy(sale.paymentMethod)
       .orderBy(desc(sql`sum(${sale.total})`)),
+    db
+      .select({
+        date: sql<string>`to_char(${saleLocalTimestamp}, 'YYYY-MM-DD')`,
+        hour: sql<number>`extract(hour from ${saleLocalTimestamp})::int`,
+        revenue: sql<string>`coalesce(sum(${sale.total}), 0)`,
+        transactions: sql<number>`count(*)`,
+      })
+      .from(sale)
+      .where(and(paidSale, gte(sale.createdAt, seriesStart), lt(sale.createdAt, tomorrow)))
+      .groupBy(sql.raw('1'), sql.raw('2'))
+      .orderBy(asc(sql.raw('1')), asc(sql.raw('2'))),
+    db
+      .select({
+        date: sql<string>`to_char(${saleLocalDate}, 'YYYY-MM-DD')`,
+        cost: sql<string>`coalesce(sum(${saleItem.totalCost}), 0)`,
+        missingCosts: sql<number>`count(*) filter (where ${saleItem.totalPrice} > 0 and ${saleItem.totalCost} <= 0)`,
+      })
+      .from(saleItem)
+      .innerJoin(sale, eq(sale.id, saleItem.saleId))
+      .where(and(completedSale, eq(saleItem.orgId, organizationId), gte(sale.createdAt, yesterdayStart), lt(sale.createdAt, tomorrow)))
+      .groupBy(sql.raw('1')),
+    db
+      .select({
+        date: sql<string>`to_char(${saleLocalDate}, 'YYYY-MM-DD')`,
+        productId: saleItem.productId,
+        name: saleItem.productName,
+        imageUrl: product.imageUrl,
+        quantity: sql<number>`coalesce(sum(${saleItem.quantity}), 0)`,
+        revenue: sql<string>`coalesce(sum(${saleItem.totalPrice}), 0)`,
+      })
+      .from(saleItem)
+      .innerJoin(sale, eq(sale.id, saleItem.saleId))
+      .leftJoin(product, and(eq(product.id, saleItem.productId), eq(product.orgId, organizationId)))
+      .where(and(paidSale, eq(saleItem.orgId, organizationId), gte(sale.createdAt, seriesStart), lt(sale.createdAt, tomorrow)))
+      .groupBy(sql.raw('1'), saleItem.productId, saleItem.productName, product.imageUrl)
+      .orderBy(asc(sql.raw('1'))),
+    db
+      .select({
+        date: sql<string>`to_char(${saleLocalDate}, 'YYYY-MM-DD')`,
+        productId: salesReturnItem.productId,
+        quantity: sql<number>`coalesce(sum(${salesReturnItem.quantity}), 0)`,
+        revenue: sql<string>`coalesce(sum(${salesReturnItem.total}), 0)`,
+      })
+      .from(salesReturnItem)
+      .innerJoin(salesReturn, eq(salesReturn.id, salesReturnItem.returnId))
+      .innerJoin(sale, eq(sale.id, salesReturn.saleId))
+      .where(and(paidSale, eq(salesReturn.orgId, organizationId), eq(salesReturn.status, 'completed'), eq(salesReturnItem.orgId, organizationId), gte(sale.createdAt, seriesStart), lt(sale.createdAt, tomorrow)))
+      .groupBy(sql.raw('1'), salesReturnItem.productId)
+      .orderBy(asc(sql.raw('1'))),
+    db
+      .select({
+        date: sql<string>`to_char(${saleLocalTimestamp}, 'YYYY-MM-DD')`,
+        hour: sql<number>`extract(hour from ${saleLocalTimestamp})::int`,
+        amount: sql<string>`coalesce(sum(${salesReturn.amount}), 0)`,
+      })
+      .from(salesReturn)
+      .innerJoin(sale, eq(sale.id, salesReturn.saleId))
+      .where(and(paidSale, eq(salesReturn.orgId, organizationId), eq(salesReturn.status, 'completed'), gte(sale.createdAt, seriesStart), lt(sale.createdAt, tomorrow)))
+      .groupBy(sql.raw('1'), sql.raw('2'))
+      .orderBy(asc(sql.raw('1')), asc(sql.raw('2'))),
     db
       .select({
         id: sale.id,
@@ -272,12 +371,24 @@ export async function getDashboardOverview(organizationId: string, timeZone = 'A
   }))
   const scopedLowStock = scopedInventory?.filter((row) => row.stock <= row.minStock).sort((a, b) => a.stock - b.stock) ?? null
 
-  const revenueByDate = new Map(revenueRows.map((row) => [row.date, number(row.amount)]))
+  const salesByDate = new Map(revenueRows.map((row) => [row.date, { revenue: number(row.amount), transactions: number(row.transactions) }]))
   const expensesByDate = new Map(expenseRows.map((row) => [row.date, number(row.amount)]))
   const revenueSeries = Array.from({ length: 30 }, (_, index) => {
     const key = calendarKey(moveCalendarDate(seriesStartDate.year, seriesStartDate.month, seriesStartDate.day, index))
-    return { date: key, revenue: revenueByDate.get(key) ?? 0, expenses: expensesByDate.get(key) ?? 0 }
+    return { date: key, revenue: salesByDate.get(key)?.revenue ?? 0, expenses: expensesByDate.get(key) ?? 0 }
   })
+  const salesPerformanceSeries = Array.from({ length: 62 }, (_, index) => {
+    const key = calendarKey(moveCalendarDate(performanceStartDate.year, performanceStartDate.month, performanceStartDate.day, index))
+    return { date: key, revenue: salesByDate.get(key)?.revenue ?? 0, transactions: salesByDate.get(key)?.transactions ?? 0 }
+  })
+  const refundsByHour = new Map(hourlyRefundRows.map((row) => [`${row.date}:${number(row.hour)}`, number(row.amount)]))
+  const costsByDate = new Map(recentCostRows.map((row) => [row.date, { cost: number(row.cost), missingCosts: number(row.missingCosts) }]))
+  const todayCosts = costsByDate.get(calendarKey(currentDate)) ?? { cost: 0, missingCosts: 0 }
+  const yesterdayCosts = costsByDate.get(calendarKey(yesterdayDate)) ?? { cost: 0, missingCosts: 0 }
+  const yesterdayRevenue = number(yesterdaySalesRows[0]?.revenue)
+  const todayCostDataComplete = todayCosts.missingCosts === 0
+  const yesterdayCostDataComplete = yesterdayCosts.missingCosts === 0
+  const productRefunds = new Map(productRefundRows.map((row) => [`${row.date}:${row.productId}`, { quantity: number(row.quantity), revenue: number(row.revenue) }]))
 
   return {
     today: {
@@ -285,6 +396,14 @@ export async function getDashboardOverview(organizationId: string, timeZone = 'A
       transactions: number(todaySalesRows[0]?.transactions),
       expenses: todayExpenses,
       operatingPosition: todayRevenue - todayExpenses,
+      grossProfit: todayCostDataComplete ? todayRevenue - todayCosts.cost : null,
+      profitMargin: todayCostDataComplete && todayRevenue > 0 ? ((todayRevenue - todayCosts.cost) / todayRevenue) * 100 : null,
+      costDataComplete: todayCostDataComplete,
+    },
+    previousDay: {
+      revenue: yesterdayRevenue,
+      transactions: number(yesterdaySalesRows[0]?.transactions),
+      grossProfit: yesterdayCostDataComplete ? yesterdayRevenue - yesterdayCosts.cost : null,
     },
     month: {
       revenue: monthRevenue,
@@ -307,7 +426,24 @@ export async function getDashboardOverview(organizationId: string, timeZone = 'A
       inventoryCost: scopedInventory ? scopedInventory.reduce((sum, row) => sum + row.stock * row.buyingPrice, 0) : number(inventoryCost[0]?.value),
     },
     revenueSeries,
+    salesPerformanceSeries,
     paymentMix: paymentRows.map((row) => ({ method: row.method, amount: number(row.amount), transactions: number(row.transactions) })),
+    reportDate: calendarKey(currentDate),
+    hourlySales: hourlyRows.map((row) => {
+      const hour = number(row.hour)
+      return { date: row.date, hour, revenue: Math.max(0, number(row.revenue) - (refundsByHour.get(`${row.date}:${hour}`) ?? 0)), transactions: number(row.transactions) }
+    }),
+    productSales: productSalesRows.map((row) => {
+      const refund = productRefunds.get(`${row.date}:${row.productId}`)
+      return {
+        date: row.date,
+        productId: row.productId,
+        name: row.name,
+        imageUrl: row.imageUrl,
+        quantity: Math.max(0, number(row.quantity) - (refund?.quantity ?? 0)),
+        revenue: Math.max(0, number(row.revenue) - (refund?.revenue ?? 0)),
+      }
+    }),
     recentSales: recentRows.map((row) => ({ ...row, total: number(row.total) })),
     lowStockProducts: scopedLowStock ? scopedLowStock.slice(0, 6).map((row) => ({ id: row.id, name: row.name, sku: row.sku, stock: row.stock, minStock: row.minStock })) : lowStockRows,
     topProducts: topProductRows.map((row) => ({ name: row.name, quantity: number(row.quantity), revenue: number(row.revenue) })),

@@ -16,7 +16,7 @@ import { PageProps } from '@/types/paginations';
 import AddButtonComponent from './components/btn/addProduct';
 import RestockButtonComponent from './components/btn/restockProduct';
 import { SearchInput } from '@/components/search/search';
-import { toast } from 'react-toastify';
+import { toast } from 'sonner';
 // TableProduct component to display a table of products
 export default async function TableProduct(props: PageProps) {
   // Calculate pagination values

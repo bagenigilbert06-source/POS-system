@@ -1,21 +1,27 @@
 'use client';
 
 import Image from 'next/image';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { authClient } from '@/lib/auth-client';
 import {
-  Bell,
-  CalendarDays,
+  ChevronDown,
+  LifeBuoy,
   LogOut,
-  Headphones,
   Menu,
+  PackagePlus,
+  Plus,
+  ReceiptText,
   ShieldCheck,
+  ShoppingCart,
   UserRound,
+  UserPlus,
   Settings,
 } from 'lucide-react';
 import { PesabyLogoMark } from '@/components/brand/pesaby-logo';
 import { ThemeSwitcher } from '@/components/theme-switcher';
+import { PermissionEnum } from '@/lib/types/permissions';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -34,7 +40,7 @@ interface AppNavbarProps {
   workspaceDescription: string;
   onOpenSidebar?: () => void;
   role?: string;
-  unreadNotificationCount?: number;
+  permissions: readonly PermissionEnum[];
 }
 
 function formatRole(role?: string) {
@@ -53,11 +59,12 @@ export function AppNavbar({
   workspaceDescription,
   onOpenSidebar,
   role,
-  unreadNotificationCount = 0,
+  permissions,
 }: AppNavbarProps) {
   const router = useRouter();
-  const [selectedDate, setSelectedDate] = useState('');
   const [avatarFailed, setAvatarFailed] = useState(false);
+  const [quickCreateOpen, setQuickCreateOpen] = useState(false);
+  const quickCreateRef = useRef<HTMLDivElement>(null);
   const roleLabel = formatRole(role);
   const roleTitle =
     role === 'admin'
@@ -71,6 +78,55 @@ export function AppNavbar({
     .slice(0, 2)
     .map((part) => part[0]?.toUpperCase())
     .join('');
+  const quickActions = [
+    permissions.includes(PermissionEnum.POS_SELL) ||
+    permissions.includes(PermissionEnum.SALE_CREATE)
+      ? { label: 'Quick sale', href: '/dashboard/pos', icon: ShoppingCart }
+      : null,
+    permissions.includes(PermissionEnum.PRODUCT_CREATE)
+      ? {
+          label: 'Add product',
+          href: '/dashboard/products/new',
+          icon: PackagePlus,
+        }
+      : null,
+    permissions.includes(PermissionEnum.EXPENSE_MANAGE)
+      ? {
+          label: 'Record expense',
+          href: '/dashboard/expenses?new=1',
+          icon: ReceiptText,
+        }
+      : null,
+    permissions.includes(PermissionEnum.CUSTOMER_CREATE)
+      ? {
+          label: 'Add customer',
+          href: '/dashboard/customers/new',
+          icon: UserPlus,
+        }
+      : null,
+  ].filter(Boolean) as Array<{
+    label: string;
+    href: string;
+    icon: typeof Plus;
+  }>;
+
+  useEffect(() => {
+    if (!quickCreateOpen) return;
+    const closeOnOutsideClick = (event: MouseEvent) => {
+      if (!quickCreateRef.current?.contains(event.target as Node)) {
+        setQuickCreateOpen(false);
+      }
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setQuickCreateOpen(false);
+    };
+    document.addEventListener('mousedown', closeOnOutsideClick);
+    document.addEventListener('keydown', closeOnEscape);
+    return () => {
+      document.removeEventListener('mousedown', closeOnOutsideClick);
+      document.removeEventListener('keydown', closeOnEscape);
+    };
+  }, [quickCreateOpen]);
 
   const clearStoredAuthState = () => {
     if (typeof window !== 'undefined') {
@@ -125,55 +181,47 @@ export function AppNavbar({
         </div>
       </div>
 
-      <div className="flex shrink-0 items-center gap-3 lg:gap-4">
-        <label className="relative hidden h-10 w-[150px] items-center rounded-lg border border-[var(--dashboard-border)] bg-[var(--dashboard-surface-subtle)] sm:flex">
-          <span className="sr-only">Dashboard date</span>
-          {!selectedDate && (
-            <span className="pointer-events-none absolute left-3 text-xs font-medium text-[var(--dashboard-muted)]">
-              Date
-            </span>
-          )}
-          <input
-            type="date"
-            value={selectedDate}
-            onChange={(event) => setSelectedDate(event.target.value)}
-            aria-label="Dashboard date"
-            className={`h-full min-w-0 flex-1 bg-transparent py-2 pl-3 pr-9 text-xs font-medium outline-none [color-scheme:light] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--dashboard-accent)] dark:[color-scheme:dark] [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:right-0 [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:w-10 [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-0 ${selectedDate ? 'text-[var(--dashboard-text)]' : 'text-transparent'}`}
-          />
-          <CalendarDays
-            className="pointer-events-none absolute right-3 h-4 w-4 text-[var(--dashboard-muted)]"
-            aria-hidden="true"
-          />
-        </label>
-
-        <div className="flex items-center gap-1.5" aria-label="Header tools">
-          <a
-            href="mailto:support@pesaby.co.ke?subject=Pesaby%20dashboard%20support"
-            aria-label="Contact support"
-            title="Contact support"
-            className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-transparent bg-[var(--dashboard-surface-subtle)] text-[var(--dashboard-muted)] transition-colors hover:bg-[var(--dashboard-accent-soft)] hover:text-[var(--dashboard-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--dashboard-accent)] focus-visible:ring-offset-2"
-          >
-            <Headphones className="h-[18px] w-[18px]" />
-          </a>
-          <ThemeSwitcher circular />
-          <button
-            type="button"
-            aria-label={
-              unreadNotificationCount
-                ? `${unreadNotificationCount} unread notifications`
-                : 'Notifications'
-            }
-            title="Notifications"
-            className="relative inline-flex h-10 w-10 items-center justify-center rounded-full border border-transparent bg-[var(--dashboard-surface-subtle)] text-[var(--dashboard-muted)] transition-colors hover:bg-[var(--dashboard-accent-soft)] hover:text-[var(--dashboard-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--dashboard-accent)] focus-visible:ring-offset-2"
-          >
-            <Bell className="h-[18px] w-[18px]" />
-            {unreadNotificationCount > 0 && (
-              <span className="absolute -right-0.5 -top-0.5 flex min-h-4 min-w-4 items-center justify-center rounded-full bg-[var(--dashboard-danger)] px-1 text-[9px] font-bold leading-none text-white ring-2 ring-[var(--dashboard-surface)]">
-                {unreadNotificationCount > 99 ? '99+' : unreadNotificationCount}
-              </span>
+      <div className="flex shrink-0 items-center gap-4 sm:gap-5">
+        {quickActions.length > 0 && (
+          <div ref={quickCreateRef} className="relative">
+            <button
+              type="button"
+              aria-expanded={quickCreateOpen}
+              aria-haspopup="menu"
+              onClick={() => setQuickCreateOpen((open) => !open)}
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-[var(--dashboard-accent-cta)] px-3 text-xs font-bold text-[var(--dashboard-accent-cta-ink)] transition-colors hover:bg-[var(--dashboard-accent-cta-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--dashboard-accent)] focus-visible:ring-offset-2 sm:px-4"
+            >
+              <Plus className="h-4 w-4" />
+              <span className="hidden sm:inline">Quick create</span>
+              <ChevronDown className="hidden h-3.5 w-3.5 sm:block" />
+            </button>
+            {quickCreateOpen && (
+              <div
+                role="menu"
+                className="quick-create-menu absolute right-0 top-[calc(100%+0.6rem)] z-50 w-56 rounded-xl border border-[var(--dashboard-accent-soft-border)] bg-[var(--dashboard-surface)] p-2 text-[var(--dashboard-text)] shadow-[0_16px_36px_rgb(0_0_0_/_0.3)]"
+              >
+                <p className="px-3 py-2 text-xs font-semibold text-[var(--dashboard-muted)]">
+                  Create new
+                </p>
+                <div className="my-1 h-px bg-[var(--dashboard-border)]" />
+                {quickActions.map(({ label, href, icon: Icon }) => (
+                  <Link
+                    key={href}
+                    href={href}
+                    role="menuitem"
+                    onClick={() => setQuickCreateOpen(false)}
+                    className="quick-create-item flex min-h-10 items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-[var(--dashboard-text)] outline-none transition-colors"
+                  >
+                    <Icon className="h-4 w-4 shrink-0 text-[var(--dashboard-accent)]" />
+                    <span>{label}</span>
+                  </Link>
+                ))}
+              </div>
             )}
-          </button>
-        </div>
+          </div>
+        )}
+
+        <ThemeSwitcher circular />
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -224,7 +272,7 @@ export function AppNavbar({
             </DropdownMenuLabel>
             <DropdownMenuSeparator className="bg-border" />
             <DropdownMenuItem
-              onSelect={() => router.push('/dashboard/admin/profile')}
+              onSelect={() => router.push('/dashboard/profile')}
               className="gap-3 rounded-lg px-3 py-2.5 text-muted-foreground focus:bg-muted focus:text-foreground"
             >
               <UserRound className="h-4 w-4" />
@@ -232,10 +280,20 @@ export function AppNavbar({
             </DropdownMenuItem>
             <DropdownMenuItem
               onSelect={() => router.push('/dashboard/settings')}
-              className="gap-3 rounded-lg px-3 py-2.5 text-muted-foreground focus:bg-muted focus:text-foreground"
+              disabled={!permissions.includes(PermissionEnum.SETTINGS_VIEW)}
+              className={`${permissions.includes(PermissionEnum.SETTINGS_VIEW) ? '' : 'hidden'} gap-3 rounded-lg px-3 py-2.5 text-muted-foreground focus:bg-muted focus:text-foreground`}
             >
               <Settings className="h-4 w-4" />
               <span>Settings</span>
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              asChild
+              className="gap-3 rounded-lg px-3 py-2.5 text-muted-foreground focus:bg-muted focus:text-foreground"
+            >
+              <a href="mailto:support@pesaby.co.ke?subject=Pesaby%20dashboard%20support">
+                <LifeBuoy className="h-4 w-4" />
+                <span>Help &amp; support</span>
+              </a>
             </DropdownMenuItem>
             <DropdownMenuSeparator className="bg-border" />
             <DropdownMenuItem

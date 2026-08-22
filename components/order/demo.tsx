@@ -20,7 +20,7 @@ import { TransactionData } from '@/types/transaction';
 import eventBus from '@/lib/even';
 import { ReloadIcon } from '@radix-ui/react-icons';
 import { AlertDialogDeletetransaction } from './components/dialogDelete';
-import { toast } from 'react-toastify';
+import { toast } from 'sonner';
 export function Orders() {
   const [dialogAddOpen, setDialogAddOpen] = useState(false);
   const [dialogDeleteOpen, setDialogDeleteOpen] = useState(false);
@@ -68,7 +68,7 @@ export function Orders() {
           // Data not found, remove transactionId from localStorage
           localStorage.removeItem('transactionId');
           setTransactionId(null);
-          toast.warn('Transaction not found in the database.');
+          toast.warning('Transaction not found in the database.');
         } else if (error.response && error.response.status === 404) {
           // Data not found, no need to show error
           setTransactionData([]);

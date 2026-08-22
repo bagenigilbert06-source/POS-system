@@ -4,7 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { motion } from 'framer-motion';
 import { useEffect, useState } from 'react';
 import { getTotal } from '@/data/stock';
-import { toast } from 'react-toastify';
+import { toast } from 'sonner';
 
 function DashboardCard(): React.ReactNode {
   // State variables to store total stock, total amount, and total quantity

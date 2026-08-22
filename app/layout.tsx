@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import { ThemeProvider } from '@/components/providers/theme-provider';
-import { Toaster } from 'sonner';
+import { AppToaster } from '@/components/ui/app-toaster';
 
 export const metadata: Metadata = {
   title: {
@@ -43,7 +43,10 @@ export default function RootLayout({
       data-scroll-behavior="smooth"
       className="bg-background"
     >
-      <body className="font-sans text-base antialiased" suppressHydrationWarning>
+      <body
+        className="font-sans text-base antialiased"
+        suppressHydrationWarning
+      >
         <ThemeProvider
           attribute="class"
           defaultTheme="system"
@@ -51,7 +54,7 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           {children}
-          <Toaster richColors position="top-right" />
+          <AppToaster />
         </ThemeProvider>
       </body>
     </html>

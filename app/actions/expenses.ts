@@ -202,35 +202,31 @@ export async function createExpense(input: ExpenseInput) {
   await validateBranch(data.branchId, orgId, authorization);
   const id = generateId();
   await db.transaction(async (tx) => {
-    await tx
-      .insert(expense)
-      .values({
-        id,
-        userId,
-        orgId,
-        title: data.title,
-        amount: String(data.amount),
+    await tx.insert(expense).values({
+      id,
+      userId,
+      orgId,
+      title: data.title,
+      amount: String(data.amount),
+      category: data.category,
+      paymentMethod: data.paymentMethod,
+      branchId: data.branchId,
+      expenseDate: data.expenseDate,
+      reference: data.reference || null,
+      notes: data.notes || null,
+    });
+    await tx.insert(auditEvent).values({
+      id: generateId(),
+      organizationId: orgId,
+      userId,
+      action: 'expense.created',
+      metadata: {
+        expenseId: id,
+        amount: data.amount,
         category: data.category,
-        paymentMethod: data.paymentMethod,
         branchId: data.branchId,
-        expenseDate: data.expenseDate,
-        reference: data.reference || null,
-        notes: data.notes || null,
-      });
-    await tx
-      .insert(auditEvent)
-      .values({
-        id: generateId(),
-        organizationId: orgId,
-        userId,
-        action: 'expense.created',
-        metadata: {
-          expenseId: id,
-          amount: data.amount,
-          category: data.category,
-          branchId: data.branchId,
-        },
-      });
+      },
+    });
   });
   refreshExpenses();
   return { id };
@@ -270,20 +266,18 @@ export async function updateExpense(id: string, input: ExpenseInput) {
         updatedAt: new Date(),
       })
       .where(recordScope);
-    await tx
-      .insert(auditEvent)
-      .values({
-        id: generateId(),
-        organizationId: orgId,
-        userId,
-        action: 'expense.updated',
-        metadata: {
-          expenseId: id,
-          amount: data.amount,
-          category: data.category,
-          branchId: data.branchId,
-        },
-      });
+    await tx.insert(auditEvent).values({
+      id: generateId(),
+      organizationId: orgId,
+      userId,
+      action: 'expense.updated',
+      metadata: {
+        expenseId: id,
+        amount: data.amount,
+        category: data.category,
+        branchId: data.branchId,
+      },
+    });
   });
   refreshExpenses();
 }
@@ -314,20 +308,18 @@ export async function deleteExpense(id: string) {
   if (!current) throw new Error('Expense not found or access denied');
   await db.transaction(async (tx) => {
     await tx.delete(expense).where(recordScope);
-    await tx
-      .insert(auditEvent)
-      .values({
-        id: generateId(),
-        organizationId: orgId,
-        userId,
-        action: 'expense.deleted',
-        metadata: {
-          expenseId: id,
-          title: current.title,
-          amount: current.amount,
-          branchId: current.branchId,
-        },
-      });
+    await tx.insert(auditEvent).values({
+      id: generateId(),
+      organizationId: orgId,
+      userId,
+      action: 'expense.deleted',
+      metadata: {
+        expenseId: id,
+        title: current.title,
+        amount: current.amount,
+        branchId: current.branchId,
+      },
+    });
   });
   refreshExpenses();
 }

@@ -9,7 +9,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { toast } from 'react-toastify';
+import { toast } from 'sonner';
 import axios from 'axios';
 import { Input } from '@/components/ui/input';
 import { shopnameSchema } from '@/schema';

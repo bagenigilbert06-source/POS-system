@@ -17,7 +17,7 @@ import { restockSchema } from '@/schema';
 import { z } from 'zod';
 import axios from 'axios';
 import { useRouter } from 'next/navigation';
-import { toast } from 'react-toastify';
+import { toast } from 'sonner';
 export function SheetRestock({
   open,
   onClose,

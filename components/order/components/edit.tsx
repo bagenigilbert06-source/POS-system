@@ -20,7 +20,7 @@ import axios from 'axios';
 import { z } from 'zod';
 import { ReloadIcon } from '@radix-ui/react-icons';
 import eventBus from '@/lib/even';
-import { toast } from 'react-toastify';
+import { toast } from 'sonner';
 // Interface for the DialogEdit component
 interface DialogEditProps {
   data: TransactionData;

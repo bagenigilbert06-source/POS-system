@@ -79,6 +79,7 @@ export function DashboardLayoutClient({
               experience?.overviewDescription ?? 'Operating workspace'
             }
             role={role}
+            permissions={permissions}
             onOpenSidebar={() => setMobileSidebarOpen(true)}
           />
           <main

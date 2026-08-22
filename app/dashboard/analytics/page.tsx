@@ -123,12 +123,13 @@ export default async function AnalyticsPage() {
   }
 
   return (
-    <div className="mx-auto max-w-[1480px] space-y-5 pb-8">
+    <div className="dashboard-analytics mx-auto max-w-[1480px] space-y-5 pb-8">
       <DashboardPageHeading
         icon={BarChart3}
         title="Analytics"
         description="Deep dive analytics with trends, forecasts, and performance metrics."
-        action={<div className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-[#d9dce3] bg-white px-3 text-sm font-semibold text-[#344054]"><CalendarDays className="h-4 w-4" /><span>Last 30 days</span></div>}
+        theme="adaptive"
+        action={<div className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-[var(--dashboard-border)] bg-[var(--dashboard-surface-subtle)] px-3 text-sm font-semibold text-[var(--dashboard-text)]"><CalendarDays className="h-4 w-4 text-[var(--dashboard-accent)]" /><span>Last 30 days</span></div>}
       />
 
       {/* Trend Analysis */}
