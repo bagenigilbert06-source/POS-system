@@ -107,7 +107,7 @@ export function SalesPerformanceCard({ currency, data }: SalesPerformanceCardPro
     <article className="flex min-h-[354px] flex-col overflow-hidden rounded-2xl border border-[var(--dashboard-border)] bg-[var(--dashboard-surface)] shadow-[0_1px_2px_rgba(16,24,40,.04)]">
       <div className="flex items-start justify-between gap-3 border-b border-[var(--dashboard-border)] px-5 py-3.5">
         <div className="min-w-0">
-          <h2 className="text-[0.95rem] font-bold tracking-tight text-[var(--dashboard-text)]">Revenue trend</h2>
+          <h2 className="text-sm font-semibold tracking-[-0.015em] text-[var(--dashboard-text)]">Revenue trend</h2>
           <p className="mt-0.5 truncate text-xs text-[var(--dashboard-muted)]">Daily sales revenue for the selected period.</p>
         </div>
         <div className="relative shrink-0">
@@ -145,7 +145,7 @@ export function SalesPerformanceCard({ currency, data }: SalesPerformanceCardPro
         <div className="flex items-end justify-between gap-3">
           <div>
             <p className="text-[0.65rem] font-semibold uppercase tracking-[0.1em] text-[var(--dashboard-muted)]">Sales revenue</p>
-            <p className="mt-1 text-[1.45rem] font-bold leading-none tracking-tight tabular-nums text-[var(--dashboard-text)]">{formatCurrency(view.revenue, currency)}</p>
+            <p className="mt-1 text-[1.25rem] font-semibold leading-none tracking-[-0.025em] tabular-nums text-[var(--dashboard-text)]">{formatCurrency(view.revenue, currency)}</p>
           </div>
           <p className={`pb-0.5 text-[0.68rem] font-semibold ${comparison.tone}`}>{comparison.text}</p>
         </div>
@@ -157,7 +157,7 @@ export function SalesPerformanceCard({ currency, data }: SalesPerformanceCardPro
               <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill: 'var(--dashboard-chart-tick)', fontSize: 10 }} minTickGap={26} />
               <YAxis axisLine={false} tickLine={false} tick={{ fill: 'var(--dashboard-chart-tick)', fontSize: 9 }} width={52} tickFormatter={(value) => compactCurrency(Number(value), currency)} tickCount={3} />
               <Tooltip cursor={{ stroke: 'var(--dashboard-accent)', strokeDasharray: '3 4', opacity: 0.55 }} content={<PerformanceTooltip currency={currency} />} />
-              <Area type="monotone" dataKey="revenue" stroke="var(--dashboard-accent)" strokeWidth={2.5} fill="var(--dashboard-accent-soft)" activeDot={{ r: 4, fill: 'var(--dashboard-accent)', stroke: 'var(--dashboard-surface)', strokeWidth: 2 }} />
+              <Area type="monotone" dataKey="revenue" stroke="var(--dashboard-accent)" strokeWidth={2.5} fill="var(--dashboard-accent-soft)" activeDot={{ r: 4, fill: 'var(--dashboard-accent)', stroke: 'var(--dashboard-surface)', strokeWidth: 2 }} isAnimationActive={false} />
             </AreaChart>
           </ResponsiveContainer>
         </div>

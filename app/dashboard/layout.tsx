@@ -1,11 +1,8 @@
-import { Suspense } from 'react';
 import { redirect } from 'next/navigation';
 import { getCurrentSession } from '@/lib/auth';
 import { OrganizationService } from '@/lib/services/organization-service';
 import { WorkspaceService } from '@/lib/services/workspace-service';
 import { DashboardLayoutClient } from '@/components/layout/dashboard-layout-client';
-import { SetupChecklist } from '@/components/dashboard/setup-checklist';
-import { getSetupChecklist } from '@/lib/services/setup-checklist-service';
 import { db } from '@/lib/db';
 import {
   branch,
@@ -91,36 +88,10 @@ export default async function DashboardRouteLayout({
       organizationName={organization.name}
       branchName={activeBranch?.name ?? null}
       initialWorkspaceConfig={workspaceConfig}
-      setupChecklist={
-        posAuthorization ? null : (
-          <Suspense fallback={null}>
-            <DashboardSetupChecklist
-              organizationId={organization.id}
-              enabledModules={workspaceConfig.enabledModules}
-            />
-          </Suspense>
-        )
-      }
       role={authorization.role}
       permissions={authorization.permissions}
     >
       {children}
     </DashboardLayoutClient>
-  );
-}
-
-async function DashboardSetupChecklist({
-  organizationId,
-  enabledModules,
-}: {
-  organizationId: string;
-  enabledModules: string[];
-}) {
-  const checklist = await getSetupChecklist(organizationId, enabledModules);
-  return (
-    <SetupChecklist
-      items={checklist.items}
-      initiallyDismissed={checklist.dismissed}
-    />
   );
 }

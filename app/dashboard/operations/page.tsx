@@ -13,6 +13,8 @@ import {
 import { getOperationsData } from '@/app/actions/operations';
 import { TimeGreeting } from '@/components/dashboard/time-greeting';
 import { OperationsControl } from '@/components/operations/operations-control';
+import { ShiftHistory } from '@/components/operations/shift-history';
+import { VariancePolicy } from '@/components/operations/variance-policy';
 import { getCurrentSession } from '@/lib/auth';
 import {
   getAuthorizationContext,
@@ -173,6 +175,13 @@ export default async function OperationsPage() {
         openSessions={data.openSessions}
         isSupervisor={isSupervisor}
       />
+
+      <VariancePolicy
+        initialTolerance={data.cashVarianceTolerance}
+        currency={organization.currency}
+      />
+
+      <ShiftHistory shifts={data.shiftHistory} currency={organization.currency} />
 
       <section aria-labelledby="recent-activity-title">
         <div className="mb-3">

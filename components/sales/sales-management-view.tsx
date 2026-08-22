@@ -3,8 +3,8 @@
 import { useEffect, useState, useTransition } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
+import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
-import { jsPDF } from 'jspdf';
 import {
   Banknote,
   ChevronDown,
@@ -32,7 +32,11 @@ import {
 import { getBusinessSettings } from '@/app/actions/business';
 import { ReceiptTemplate } from '@/components/receipt/receipt-template';
 import { RefundDialog } from '@/components/pos/refund-dialog';
-import { SalesAnalyticsPanels } from '@/components/sales/sales-analytics-panels';
+
+const SalesAnalyticsPanels = dynamic(
+  () => import('@/components/sales/sales-analytics-panels').then((module) => module.SalesAnalyticsPanels),
+  { ssr: false, loading: () => <div className="min-h-[72rem] rounded-xl border bg-white dark:border-slate-800 dark:bg-[#111111] lg:min-h-[48rem]" aria-hidden="true" /> },
+);
 
 type Data = Awaited<
   ReturnType<typeof import('@/app/actions/sales').getSalesPageData>
@@ -89,7 +93,8 @@ const salesReportHtml = (csv: string, filters: SalesPageFilters) => {
     )
     .join('')}</tbody></table></body></html>`;
 };
-const downloadSalesPdf = (csv: string, filters: SalesPageFilters) => {
+const downloadSalesPdf = async (csv: string, filters: SalesPageFilters) => {
+  const { jsPDF } = await import('jspdf');
   const rows = csvRows(csv);
   const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
   const margin = 12;
@@ -204,7 +209,7 @@ export function SalesManagementView({
     try {
       const csv = await exportSalesCsv(filters);
       if (format === 'pdf') {
-        downloadSalesPdf(csv, filters);
+        await downloadSalesPdf(csv, filters);
         return;
       }
       const href = URL.createObjectURL(
@@ -255,7 +260,7 @@ export function SalesManagementView({
     ['Net profit', totals.netProfit],
   ] as const;
   return (
-    <div className="mx-auto w-full max-w-[1440px] space-y-5">
+    <div className="sales-workspace mx-auto w-full max-w-[1440px] space-y-5">
       <header className="flex flex-wrap items-start justify-between gap-4 rounded-xl border bg-gradient-to-r from-[#fffdf0] to-[#fff6c8] p-6 dark:border-[#3a3520] dark:from-[#211d0d] dark:to-[#17140c]">
         <div>
           <p className="text-xs font-bold uppercase tracking-[.18em] text-[#9b7000]">
@@ -390,7 +395,7 @@ export function SalesManagementView({
         {data.rows.length > 0 && (
           <div className="overflow-x-auto">
             <table className="w-full min-w-[1080px] text-sm">
-              <thead className="sticky top-0 z-10 bg-[#fafaf8] text-left text-xs text-muted-foreground shadow-[0_1px_0_rgba(226,232,240,.9)] dark:bg-[#171717] dark:shadow-[0_1px_0_rgba(71,85,105,.45)]">
+              <thead className="bg-[#fafaf8] text-left text-xs text-muted-foreground dark:bg-[#171717]">
                 <tr>
                   <SortHeader label="Receipt" />
                   <SortHeader
@@ -476,7 +481,9 @@ export function SalesManagementView({
         )}
         <Pagination data={data} onNavigate={navigate} />
       </section>
-      <SalesAnalyticsPanels analytics={analytics} />
+      <div className="sales-deferred-section">
+        <SalesAnalyticsPanels analytics={analytics} />
+      </div>
     </div>
   );
 }
@@ -818,7 +825,7 @@ function MetricCard({
   };
   return (
     <div
-      className={`min-w-0 rounded-xl border px-5 shadow-[0_1px_2px_rgba(16,24,40,.04)] transition-shadow duration-150 hover:shadow-[0_4px_12px_rgba(15,23,42,.07)] dark:hover:shadow-[0_6px_16px_rgba(0,0,0,.2)] motion-reduce:transition-none ${primary ? 'min-h-[104px] py-5' : 'min-h-[84px] py-[18px]'} ${tones[tone]}`}
+      className={`min-w-0 rounded-xl border px-5 shadow-[0_1px_2px_rgba(16,24,40,.04)] ${primary ? 'min-h-[104px] py-5' : 'min-h-[84px] py-[18px]'} ${tones[tone]}`}
     >
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
@@ -826,7 +833,7 @@ function MetricCard({
             {label}
           </p>
           <p
-            className={`${primary ? 'mt-1.5 text-[16px]' : 'mt-1 text-[15px]'} whitespace-nowrap font-semibold leading-tight tracking-[-.01em] text-slate-950 dark:text-slate-100 tabular-nums`}
+            className={`${primary ? 'mt-1.5 text-[1.25rem]' : 'mt-1 text-[1.125rem]'} whitespace-nowrap font-semibold leading-[1.08] tracking-[-.025em] text-slate-950 dark:text-slate-100 tabular-nums`}
           >
             {value}
           </p>

@@ -29,6 +29,27 @@
       "when": 1786682000000,
       "tag": "0013_branch_scoped_operations",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1786769000000,
+      "tag": "0014_pos_shift_reconciliation",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1786770000000,
+      "tag": "0015_pos_cash_variance_policy",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1786771000000,
+      "tag": "0016_pos_reconciliation_draft",
+      "breakpoints": true
     }
   ]
 }

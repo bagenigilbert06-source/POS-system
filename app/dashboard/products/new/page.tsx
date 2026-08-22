@@ -19,7 +19,7 @@ export default async function NewProductPage({
   const categoryId = query?.categoryId;
   const barcode = query?.barcode;
   return (
-    <div className="mx-auto w-full max-w-5xl space-y-4">
+    <div className="products-workspace mx-auto w-full max-w-5xl space-y-4">
       <DashboardPageHeading
         theme="adaptive"
         icon={PackagePlus}

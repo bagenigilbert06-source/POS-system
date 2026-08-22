@@ -37,3 +37,15 @@ export function GoogleContactsMark({ className = 'h-5 w-5' }: { className?: stri
 export function CashierPosMark({ className = 'h-5 w-5' }: { className?: string }) {
   return <Image src="/cashier-pos-icon.svg" alt="" width={20} height={20} className={`${className} shrink-0 object-contain dark:invert`} aria-hidden="true" />
 }
+
+export function RegisterTerminalMark({ className = 'h-5 w-5' }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" className={`${className} shrink-0`} focusable="false">
+      <rect x="3" y="2.5" width="18" height="13" rx="2.5" fill="#1F2937" />
+      <rect x="5.5" y="5" width="13" height="7.5" rx="1" fill="#F2B705" />
+      <path d="M9 18h6l1.5 3h-9L9 18Z" fill="#667085" />
+      <rect x="8" y="15" width="8" height="3.5" rx="1" fill="#344054" />
+      <circle cx="17.1" cy="10.6" r=".8" fill="#16A34A" />
+    </svg>
+  )
+}

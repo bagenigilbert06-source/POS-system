@@ -42,7 +42,7 @@ export function StockHealthCard({ stock }: StockHealthCardProps) {
     <Card className="flex min-h-[354px] flex-col overflow-hidden rounded-2xl border border-[var(--dashboard-border)] bg-[var(--dashboard-surface)] text-[var(--dashboard-text)] shadow-[0_1px_2px_rgba(16,24,40,.04)]">
       <div className="flex items-start justify-between gap-4 border-b border-[var(--dashboard-border)] px-5 py-3.5">
         <div className="min-w-0">
-          <h2 className="text-[0.95rem] font-bold tracking-tight text-[var(--dashboard-text)]">Inventory status</h2>
+          <h2 className="text-sm font-semibold tracking-[-0.015em] text-[var(--dashboard-text)]">Inventory status</h2>
           <p className="mt-0.5 truncate text-xs text-[var(--dashboard-muted)]">Products available for sale right now.</p>
         </div>
         <Link href="/dashboard/inventory" className="inline-flex shrink-0 items-center gap-1 pt-0.5 text-xs font-semibold text-[var(--dashboard-muted)] transition-colors hover:text-[var(--dashboard-accent)] focus-visible:rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--dashboard-accent-soft-border)]">
@@ -72,7 +72,7 @@ export function StockHealthCard({ stock }: StockHealthCardProps) {
                   </PieChart>
                 </ResponsiveContainer>
                 <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-                  <span className="text-2xl font-bold tabular-nums text-[var(--dashboard-text)]">{centerPercentage}%</span>
+                  <span className="text-xl font-bold tabular-nums text-[var(--dashboard-text)]">{centerPercentage}%</span>
                   <span className="mt-0.5 max-w-[90px] truncate text-[0.62rem] font-semibold uppercase tracking-[0.1em] text-[var(--dashboard-muted)]">{activeRow?.label ?? 'In stock'}</span>
                 </div>
               </div>

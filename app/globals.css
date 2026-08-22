@@ -1,4 +1,5 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400;1,500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -7,6 +8,131 @@
 :root {
   --font-display: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
   --font-sans: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-dashboard: "Manrope", "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+/* Keep checkout visually continuous with the business dashboard. */
+.pos-workspace {
+  font-family: var(--font-dashboard);
+  font-feature-settings: 'kern' 1, 'liga' 1, 'ss01' 1, 'tnum' 1;
+  font-variant-numeric: tabular-nums lining-nums;
+  letter-spacing: -.006em;
+  text-rendering: optimizeLegibility;
+}
+
+.pos-workspace button,
+.pos-workspace input,
+.pos-workspace select,
+.pos-workspace textarea {
+  font-family: inherit;
+}
+
+.pos-workspace h1,
+.pos-workspace h2,
+.pos-workspace h3,
+.pos-workspace .tabular-nums {
+  font-family: var(--font-dashboard);
+}
+
+.pos-workspace .tabular-nums,
+.pos-workspace .pos-terminal {
+  font-feature-settings: 'kern' 1, 'tnum' 1, 'lnum' 1;
+  font-variant-numeric: tabular-nums lining-nums;
+}
+
+.pos-scroll-region {
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  scroll-behavior: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.pos-product-card {
+  contain: layout style paint;
+  content-visibility: auto;
+  contain-intrinsic-size: auto 224px;
+}
+
+/* Sales uses the same type system as the dashboard overview and POS. */
+.sales-workspace {
+  font-family: var(--font-dashboard);
+  font-feature-settings: 'kern' 1, 'liga' 1, 'ss01' 1, 'tnum' 1;
+  font-variant-numeric: tabular-nums lining-nums;
+  letter-spacing: -.006em;
+  text-rendering: optimizeLegibility;
+}
+
+.sales-workspace button,
+.sales-workspace input,
+.sales-workspace select,
+.sales-workspace textarea {
+  font-family: inherit;
+}
+
+.sales-workspace h1,
+.sales-workspace h2,
+.sales-workspace h3,
+.sales-workspace .tabular-nums {
+  font-family: var(--font-dashboard);
+}
+
+.sales-workspace > header,
+.sales-workspace > section {
+  contain: layout style;
+}
+
+.sales-deferred-section {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 700px;
+}
+
+/* Products, categories and product forms share the dashboard type system. */
+.products-workspace {
+  font-family: var(--font-dashboard);
+  font-feature-settings: 'kern' 1, 'liga' 1, 'ss01' 1, 'tnum' 1;
+  font-variant-numeric: tabular-nums lining-nums;
+  letter-spacing: -.006em;
+  text-rendering: optimizeLegibility;
+}
+
+.products-workspace button,
+.products-workspace input,
+.products-workspace select,
+.products-workspace textarea,
+.products-workspace .font-sans {
+  font-family: inherit;
+}
+
+.products-workspace h1,
+.products-workspace h2,
+.products-workspace h3,
+.products-workspace .tabular-nums {
+  font-family: var(--font-dashboard);
+}
+
+.products-workspace .tabular-nums {
+  font-feature-settings: 'kern' 1, 'tnum' 1, 'lnum' 1;
+  font-variant-numeric: tabular-nums lining-nums;
+}
+
+.sales-workspace .tabular-nums {
+  font-feature-settings: 'kern' 1, 'tnum' 1, 'lnum' 1;
+  font-variant-numeric: tabular-nums lining-nums;
+}
+
+/* A completed receipt is a focused task: remove the shift banner entirely.
+   The class is toggled by POSTerminal and is cleared as soon as a new sale is
+   started or the user returns to the basket. */
+body.pos-receipt-active .pos-workspace > section:first-child {
+  display: none;
+}
+
+body.pos-receipt-active .pos-workspace {
+  gap: 0;
+}
+
+body.pos-receipt-active .pos-workspace > :nth-child(2) {
+  margin-top: 0;
 }
 
 @layer base {
@@ -281,8 +407,22 @@
   }
 }
 
+/* Use one typography system throughout every authenticated dashboard route.
+   Scoping the font tokens here also covers shared navigation and portalled UI. */
+body:has(.dashboard-shell) {
+  --font-sans: var(--font-dashboard);
+  --font-display: var(--font-dashboard);
+  font-family: var(--font-dashboard);
+  font-feature-settings: 'kern' 1, 'liga' 1, 'ss01' 1, 'tnum' 1;
+  font-variant-numeric: tabular-nums lining-nums;
+  letter-spacing: -.006em;
+  text-rendering: optimizeLegibility;
+}
+
 /* Light dashboard palette */
 .dashboard-shell {
+  --font-sans: var(--font-dashboard);
+  --font-display: var(--font-dashboard);
   --background: 0 0% 98%;
   --foreground: 222 47% 11%;
   --card: 0 0% 100%;
@@ -328,8 +468,37 @@
   --dashboard-danger: #b42318;
   --dashboard-danger-soft: #fef3f2;
   --dashboard-danger-soft-border: #fecdca;
+  font-family: var(--font-dashboard);
+  font-feature-settings: 'kern' 1, 'liga' 1, 'ss01' 1, 'tnum' 1;
+  font-variant-numeric: tabular-nums lining-nums;
+  letter-spacing: -.006em;
+  text-rendering: optimizeLegibility;
   background: var(--dashboard-canvas);
   color: var(--dashboard-text);
+  scroll-behavior: auto;
+}
+
+.dashboard-shell button,
+.dashboard-shell input,
+.dashboard-shell select,
+.dashboard-shell textarea,
+.dashboard-shell optgroup,
+.dashboard-shell option {
+  font-family: inherit;
+}
+
+.dashboard-shell table,
+.dashboard-shell [data-numeric],
+.dashboard-shell .tabular-nums {
+  font-feature-settings: 'kern' 1, 'tnum' 1, 'lnum' 1;
+  font-variant-numeric: tabular-nums lining-nums;
+}
+
+.dashboard-scroll-region {
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  scroll-behavior: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .dark .dashboard-shell {
@@ -1092,7 +1261,27 @@ html:not(.dark) .dashboard-shell .shadow-dark-md {
 /* Business overview: keep the older overview markup visually consistent with the light app shell. */
 .dashboard-overview {
   color: var(--dashboard-text);
-  font-family: var(--font-sans);
+  font-family: var(--font-dashboard);
+  font-feature-settings: 'kern' 1, 'liga' 1, 'ss01' 1, 'tnum' 1;
+  font-variant-numeric: tabular-nums lining-nums;
+  letter-spacing: -.006em;
+  text-rendering: optimizeLegibility;
+}
+.dashboard-overview > header,
+.dashboard-overview > section {
+  contain: layout style;
+}
+.dashboard-overview button,
+.dashboard-overview input,
+.dashboard-overview select,
+.dashboard-overview textarea { font-family: inherit; }
+.dashboard-overview h1,
+.dashboard-overview h2,
+.dashboard-overview h3,
+.dashboard-overview .tabular-nums { font-family: var(--font-dashboard); }
+.dashboard-overview .tabular-nums {
+  font-feature-settings: 'kern' 1, 'tnum' 1, 'lnum' 1;
+  font-variant-numeric: tabular-nums lining-nums;
 }
 .dashboard-overview .dashboard-welcome {
   position: relative;
@@ -1142,15 +1331,7 @@ html:not(.dark) .dashboard-shell .shadow-dark-md {
 .dashboard-live-status { color: var(--dashboard-text); }
 .dashboard-live-status i { width: .52rem; height: .52rem; border-radius: 999px; background: #16a36a; box-shadow: 0 0 0 3px rgba(22,163,106,.12); }
 .dashboard-live-dot { width: .52rem; height: .52rem; }
-.dashboard-live-status i,
-.dashboard-live-dot {
-  animation: dashboard-live-pulse 2s ease-in-out infinite;
-}
-
-@keyframes dashboard-live-pulse {
-  0%, 100% { opacity: 1; transform: scale(1); box-shadow: 0 0 0 0 rgba(22,163,106,.32); }
-  50% { opacity: .72; transform: scale(1.18); box-shadow: 0 0 0 4px rgba(22,163,106,.08); }
-}
+.dashboard-live-dot { box-shadow: 0 0 0 3px rgba(22,163,106,.12); }
 
 @media (prefers-reduced-motion: reduce) {
   .dashboard-overview *,
@@ -1173,8 +1354,7 @@ html:not(.dark) .dashboard-shell .shadow-dark-md {
   box-shadow: 0 2px 8px rgba(16,24,40,.04) !important;
 }
 .dashboard-overview .dashboard-metric-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 10px 22px rgba(16,24,40,.08) !important;
+  box-shadow: 0 4px 12px rgba(16,24,40,.06) !important;
 }
 .dashboard-overview .dashboard-metric-card {
   display: flex;
@@ -1423,19 +1603,20 @@ html:not(.dark) .dashboard-shell .shadow-dark-md {
 /* A receipt should be readable at a glance after checkout, not trapped in a
    scrollable preview. This is display-only: printing always uses true paper size. */
 .receipt-screen-preview {
-  zoom: 0.76;
+  zoom: 0.84;
 }
 
 @media (min-height: 980px) {
   .receipt-screen-preview {
-    zoom: 0.9;
+    zoom: 0.96;
   }
 }
 
 @media (max-width: 640px), (max-height: 760px) {
   .receipt-screen-preview {
-    zoom: 0.68;
+    zoom: 0.74;
   }
+
 }
 
 @media print {
@@ -1473,6 +1654,7 @@ html:not(.dark) .dashboard-shell .shadow-dark-md {
   .receipt-screen-preview {
     zoom: 1 !important;
   }
+
 }
 
 @media (prefers-reduced-motion: reduce) {

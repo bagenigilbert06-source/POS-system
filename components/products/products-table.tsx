@@ -241,7 +241,7 @@ export function ProductsTable({ initialProducts }: ProductsTableProps) {
   }[filter];
 
   return (
-    <div className="products-table font-sans [font-feature-settings:'ss01','cv02','cv03']">
+    <div className="products-table [font-feature-settings:'ss01','cv02','cv03']">
       {zoomedImage && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-[#050a1f]/80 p-4 backdrop-blur-sm"

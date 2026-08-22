@@ -51,7 +51,7 @@ export function PaymentMixCard({ currency, payments }: PaymentMixCardProps) {
       <article className="flex min-h-[354px] flex-col overflow-hidden rounded-2xl border border-[var(--dashboard-border)] bg-[var(--dashboard-surface)] shadow-[0_1px_2px_rgba(16,24,40,.04)]">
         <div className="flex items-start justify-between gap-4 border-b border-[var(--dashboard-border)] px-5 py-3.5">
           <div className="min-w-0">
-            <h2 className="text-[0.95rem] font-bold tracking-tight text-[var(--dashboard-text)]">Payment summary</h2>
+            <h2 className="text-sm font-semibold tracking-[-0.015em] text-[var(--dashboard-text)]">Payment summary</h2>
             <p className="mt-0.5 truncate text-xs text-[var(--dashboard-muted)]">Sales collected by payment method this month.</p>
           </div>
         </div>
@@ -71,7 +71,7 @@ export function PaymentMixCard({ currency, payments }: PaymentMixCardProps) {
 
       <div className="relative flex items-start justify-between gap-4">
         <div className="min-w-0">
-          <h2 className="text-[0.95rem] font-bold tracking-tight text-[var(--dashboard-text)] dark:text-white">Payment summary</h2>
+          <h2 className="text-sm font-semibold tracking-[-0.015em] text-[var(--dashboard-text)] dark:text-white">Payment summary</h2>
           <p className="mt-0.5 truncate text-xs text-[var(--dashboard-muted)] dark:text-white/50">Sales collected by payment method this month.</p>
         </div>
         <Link href="/dashboard/reports" className="inline-flex shrink-0 items-center gap-1 pt-0.5 text-xs font-semibold text-[var(--dashboard-muted)] transition-colors hover:text-[#a47700] focus-visible:rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d6a02e]/40 dark:text-white/55 dark:hover:text-[#f0c94c]">
@@ -84,7 +84,7 @@ export function PaymentMixCard({ currency, payments }: PaymentMixCardProps) {
           <p className="text-[0.68rem] font-bold uppercase tracking-[0.18em] text-[#a47700] dark:text-[#f0c94c]">This month</p>
           <p className="mt-1 text-[0.58rem] font-semibold uppercase tracking-[0.13em] text-[var(--dashboard-muted)] dark:text-white/40">Sales collected</p>
         </div>
-        <span className="text-2xl font-black italic tracking-tight text-[#8a6500] dark:text-white">PESA</span>
+        <span className="text-xl font-black italic tracking-tight text-[#8a6500] dark:text-white">PESA</span>
       </div>
 
       <div className="relative mt-6 flex items-center gap-3">
@@ -96,7 +96,7 @@ export function PaymentMixCard({ currency, payments }: PaymentMixCardProps) {
 
       <div className="relative mt-auto">
         <p className="text-[0.6rem] font-semibold uppercase tracking-[0.14em] text-[var(--dashboard-muted)] dark:text-white/45">Sales collected</p>
-        <p className="mt-1 truncate text-[1.65rem] font-bold tracking-tight tabular-nums text-[var(--dashboard-text)] dark:text-white">{formatCurrency(total, currency)}</p>
+        <p className="mt-1 truncate text-[1.4rem] font-semibold leading-[1.15] tracking-[-0.025em] tabular-nums text-[var(--dashboard-text)] dark:text-white">{formatCurrency(total, currency)}</p>
         <div className="mt-4 flex items-end justify-between gap-4">
           <div>
             <p className="text-[0.52rem] font-semibold uppercase tracking-[0.13em] text-[var(--dashboard-muted)] dark:text-white/40">Completed sales</p>

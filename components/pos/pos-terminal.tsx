@@ -1,12 +1,13 @@
 'use client'
 
-import { useState, useCallback, useRef, useEffect, useMemo } from 'react'
+import { useState, useCallback, useRef, useEffect, useMemo, useDeferredValue, type ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
+import dynamic from 'next/dynamic'
 import { createSale, type CartItem } from '@/app/actions/sales'
 import { getMpesaPaymentStatus, initiateMpesaPaybillPayment, initiateMpesaPayment } from '@/app/actions/mpesa'
 import { createCustomer } from '@/app/actions/customers'
-import { formatCurrency, normalizeBarcode } from '@/lib/utils'
+import { formatCurrency, formatDateTime, normalizeBarcode } from '@/lib/utils'
 import { cn } from '@/lib/utils'
 import {
   Plus,
@@ -19,6 +20,8 @@ import {
   Package,
   Printer,
   History,
+  PauseCircle,
+  ArchiveRestore,
   AlertTriangle,
   ShieldCheck,
   Search,
@@ -26,17 +29,28 @@ import {
   Smartphone,
   Zap,
   Banknote,
+  ContactRound,
+  BadgePercent,
+  ChevronDown,
+  ArrowLeft,
+  Download,
+  MoreHorizontal,
+  Share2,
+  WalletCards,
   UserRound,
-  Tag,
+  BadgeCheck,
+  Monitor,
+  MapPin,
 } from 'lucide-react'
 import type { Product, Customer, Sale, SaleItem } from '@/lib/db/schema'
 import { toast } from 'sonner'
-import { RefundDialog } from './refund-dialog'
-import { ReceiptReprint } from './receipt-reprint'
-import { SalesHistoryModal } from './sales-history-modal'
-import { ReceiptTemplate } from '@/components/receipt/receipt-template'
 import { calculateMpesaAmount } from '@/lib/mpesa/amount'
-import { WirelessScannerPairing } from '@/components/barcode/wireless-scanner-pairing'
+
+const RefundDialog = dynamic(() => import('./refund-dialog').then((module) => module.RefundDialog), { ssr: false })
+const ReceiptReprint = dynamic(() => import('./receipt-reprint').then((module) => module.ReceiptReprint), { ssr: false })
+const SalesHistoryModal = dynamic(() => import('./sales-history-modal').then((module) => module.SalesHistoryModal), { ssr: false })
+const ReceiptTemplate = dynamic(() => import('@/components/receipt/receipt-template').then((module) => module.ReceiptTemplate), { ssr: false })
+const WirelessScannerPairing = dynamic(() => import('@/components/barcode/wireless-scanner-pairing').then((module) => module.WirelessScannerPairing), { ssr: false })
 
 interface POSTerminalProps {
   products: Product[]
@@ -72,6 +86,11 @@ interface POSTerminalProps {
   canDiscount?: boolean
   canRefund?: boolean
   canHold?: boolean
+  receiptContext?: {
+    cashierName?: string
+    registerName?: string | null
+    locationName?: string | null
+  }
 }
 
 interface ReceiptData {
@@ -89,6 +108,11 @@ interface ReceiptData {
   idempotencyKey: string
   ageVerified: boolean
   completedAt: Date
+  amountReceived?: number
+  discountType?: 'fixed' | 'percentage'
+  discountValue?: number
+  customerName: string
+  customerEmail?: string | null
 }
 
 interface HeldSale {
@@ -144,20 +168,22 @@ function PaymentBrand({ method }: { method: 'cash' | 'mpesa' | 'card' }) {
   )
 }
 
-export function POSTerminal({ products, categories, customers, settings, requiresAgeVerification = false, startCheckout = false, checkoutOnly = false, hasActiveShift = false, canDiscount = false, canRefund = false, canHold = false }: POSTerminalProps) {
+function ReceiptMeta({ mark, label, value }: { mark: ReactNode; label: string; value: string }) {
+  return (
+    <div className="min-w-0 rounded-lg border border-[#e4e7ec] bg-white px-2.5 py-2.5 dark:border-white/10 dark:bg-[#191919]">
+      <p className="flex items-center gap-1.5 text-[9px] font-bold uppercase leading-none tracking-[0.08em] text-[#667085] dark:text-[#a8a8a8]">{mark}{label}</p>
+      <p className="mt-1.5 truncate text-xs font-semibold leading-none text-[#101828] dark:text-white" title={value} aria-label={value}>{value}</p>
+    </div>
+  )
+}
+
+export function POSTerminal({ products, categories, customers, settings, requiresAgeVerification = false, startCheckout = false, checkoutOnly = false, hasActiveShift = false, canDiscount = false, canRefund = false, canHold = false, receiptContext }: POSTerminalProps) {
   const router = useRouter()
   const [catalogProducts, setCatalogProducts] = useState(products)
   const [search, setSearch] = useState('')
   const [selectedCategory, setSelectedCategory] = useState<string>('')
-  const [cart, setCart] = useState<CartItem[]>(() => {
-    if (typeof window === 'undefined') return []
-    try {
-      const saved = window.localStorage.getItem('pos-active-cart')
-      return saved ? JSON.parse(saved) as CartItem[] : []
-    } catch {
-      return []
-    }
-  })
+  const [cart, setCart] = useState<CartItem[]>([])
+  const [cartHydrated, setCartHydrated] = useState(false)
   const [discount, setDiscount] = useState(0)
   const [discountType, setDiscountType] = useState<'fixed' | 'percentage'>('fixed')
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'mpesa' | 'card'>('cash')
@@ -172,6 +198,8 @@ export function POSTerminal({ products, categories, customers, settings, require
   const [mpesaMessage, setMpesaMessage] = useState('')
   const [amountPaid, setAmountPaid] = useState('')
   const [selectedCustomer, setSelectedCustomer] = useState<string>('')
+  const [customerMenuOpen, setCustomerMenuOpen] = useState(false)
+  const [discountMenuOpen, setDiscountMenuOpen] = useState(false)
   const [processing, setProcessing] = useState(false)
   const [receipt, setReceipt] = useState<ReceiptData | null>(null)
   const [showNewCustomer, setShowNewCustomer] = useState(false)
@@ -184,22 +212,23 @@ export function POSTerminal({ products, categories, customers, settings, require
   const [showReceiptReprint, setShowReceiptReprint] = useState(false)
   const [showSalesHistory, setShowSalesHistory] = useState(false)
   const [showHeldSales, setShowHeldSales] = useState(false)
-  const [heldSales, setHeldSales] = useState<HeldSale[]>(() => {
-    if (typeof window === 'undefined') return []
-    try {
-      const saved = window.localStorage.getItem('pos-held-sales')
-      return saved ? JSON.parse(saved) as HeldSale[] : []
-    } catch {
-      return []
-    }
-  })
+  const [heldSales, setHeldSales] = useState<HeldSale[]>([])
+  const [heldSalesHydrated, setHeldSalesHydrated] = useState(false)
   const [refundSale, setRefundSale] = useState<(Sale & { items: SaleItem[] }) | null>(null)
   const [ageVerified, setAgeVerified] = useState(false)
   const [showAgeVerification, setShowAgeVerification] = useState(false)
   const [checkoutOpen, setCheckoutOpen] = useState(startCheckout)
+  const [checkoutStep, setCheckoutStep] = useState<'customer' | 'payment'>(startCheckout ? 'payment' : 'customer')
   const [scanMessage, setScanMessage] = useState('')
   const [showWirelessScanner, setShowWirelessScanner] = useState(false)
   const [receiptPaperWidth, setReceiptPaperWidth] = useState<58 | 80>(80)
+  const [receiptOptionsOpen, setReceiptOptionsOpen] = useState(false)
+  const [receiptPrinted, setReceiptPrinted] = useState(false)
+
+  useEffect(() => {
+    document.body.classList.toggle('pos-receipt-active', Boolean(receipt))
+    return () => document.body.classList.remove('pos-receipt-active')
+  }, [receipt])
   const searchInputRef = useRef<HTMLInputElement>(null)
   const barcodeBufferRef = useRef<string>('')
   const barcodeTimeoutRef = useRef<NodeJS.Timeout | null>(null)
@@ -207,18 +236,43 @@ export function POSTerminal({ products, categories, customers, settings, require
   const checkoutIdempotencyKeyRef = useRef<string>('')
   const autoFinalizeRef = useRef<() => void>(() => undefined)
   const autoFinalizingRef = useRef(false)
-  const [isOnline, setIsOnline] = useState(() => typeof navigator === 'undefined' || navigator.onLine)
+  const processCheckoutRef = useRef<(verified?: boolean, serverAlreadyConfirmed?: boolean) => Promise<unknown>>(async () => undefined)
+  const ageVerificationConfirmRef = useRef<HTMLButtonElement>(null)
+  const [isOnline, setIsOnline] = useState(true)
   const mpesaLocksBasket = paymentMethod === 'mpesa' && ['initiating', 'pending', 'success'].includes(mpesaStatus)
 
   useEffect(() => {
+    try {
+      const saved = window.localStorage.getItem('pos-active-cart')
+      if (saved) setCart(JSON.parse(saved) as CartItem[])
+    } catch { /* ignore malformed local state */ }
+    setCartHydrated(true)
+  }, [])
+
+  useEffect(() => {
+    if (!cartHydrated) return
     window.localStorage.setItem('pos-active-cart', JSON.stringify(cart))
-  }, [cart])
+  }, [cart, cartHydrated])
 
   useEffect(() => {
+    try {
+      const saved = window.localStorage.getItem('pos-held-sales')
+      if (saved) setHeldSales(JSON.parse(saved) as HeldSale[])
+    } catch { /* ignore malformed local state */ }
+    setHeldSalesHydrated(true)
+  }, [])
+
+  useEffect(() => {
+    if (!heldSalesHydrated) return
     window.localStorage.setItem('pos-held-sales', JSON.stringify(heldSales))
-  }, [heldSales])
+  }, [heldSales, heldSalesHydrated])
 
   useEffect(() => {
+    setIsOnline(navigator.onLine)
+  }, [])
+
+  useEffect(() => {
+    if (!cartHydrated) return
     try {
       const saved = JSON.parse(window.localStorage.getItem('pos-active-mpesa') || 'null') as { requestId?: string; idempotencyKey?: string; flow?: 'stk' | 'paybill'; accountReference?: string; shortcode?: string; accountType?: 'paybill' | 'till' } | null
       if (saved?.requestId && cart.length) {
@@ -236,7 +290,7 @@ export function POSTerminal({ products, categories, customers, settings, require
     } catch { window.localStorage.removeItem('pos-active-mpesa') }
     // Restore once; subsequent basket updates must not restart an old request.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [cartHydrated])
 
   useEffect(() => {
     const online = () => setIsOnline(true)
@@ -294,6 +348,7 @@ export function POSTerminal({ products, categories, customers, settings, require
     }
     performance.mark('pos-pay-click')
     setCheckoutOpen(true)
+    setCheckoutStep('customer')
     requestAnimationFrame(() => {
       performance.mark('pos-checkout-visible')
       performance.measure('pos-pay-to-checkout-visible', 'pos-pay-click', 'pos-checkout-visible')
@@ -314,7 +369,7 @@ export function POSTerminal({ products, categories, customers, settings, require
         event.preventDefault()
         searchInputRef.current?.focus()
       }
-      if (checkoutOpen && !receipt) {
+      if (checkoutOpen && checkoutStep === 'payment' && !receipt) {
         const paymentShortcut = ({ F3: 'cash', F4: 'mpesa', F5: 'card' } as const)[event.key as 'F3' | 'F4' | 'F5']
         const lockedToMpesa = paymentMethod === 'mpesa' && ['initiating', 'pending', 'success'].includes(mpesaStatus)
         if (paymentShortcut && settings.paymentMethods.includes(paymentShortcut) && (!lockedToMpesa || paymentShortcut === 'mpesa')) {
@@ -325,7 +380,7 @@ export function POSTerminal({ products, categories, customers, settings, require
     }
     window.addEventListener('keydown', handleShortcut)
     return () => window.removeEventListener('keydown', handleShortcut)
-  }, [cart.length, checkoutOpen, receipt, settings.paymentMethods, openCheckout, paymentMethod, mpesaStatus])
+  }, [cart.length, checkoutOpen, checkoutStep, receipt, settings.paymentMethods, openCheckout, paymentMethod, mpesaStatus])
 
   const addToCart = useCallback((product: Product) => {
     if (paymentMethod === 'mpesa' && ['initiating', 'pending', 'success'].includes(mpesaStatus)) {
@@ -384,7 +439,10 @@ export function POSTerminal({ products, categories, customers, settings, require
 
   const SCANNER_INACTIVITY_MS = 450
 
-  const availableCategories = categories.filter((category) => category.name.trim() && catalogProducts.some((product) => product.categoryId === category.id))
+  const availableCategories = useMemo(() => {
+    const categoryIds = new Set(catalogProducts.map((product) => product.categoryId).filter(Boolean))
+    return categories.filter((category) => category.name.trim() && categoryIds.has(category.id))
+  }, [catalogProducts, categories])
 
   // USB scanners type rapidly like a keyboard and normally finish with Enter.
   useEffect(() => {
@@ -423,18 +481,20 @@ export function POSTerminal({ products, categories, customers, settings, require
   }, [receipt, processing, checkoutOpen, handleBarcodeScan])
 
   const productsById = useMemo(() => new Map(catalogProducts.map((product) => [product.id, product])), [catalogProducts])
+  const cartQuantityByProductId = useMemo(() => new Map(cart.map((item) => [item.productId, item.quantity])), [cart])
   const containsAgeRestrictedItem = requiresAgeVerification && cart.length > 0
+  const deferredSearch = useDeferredValue(search.trim().toLocaleLowerCase())
 
   const filteredProducts = useMemo(() => catalogProducts.filter(
     (p) =>
       p.isActive &&
       p.stock > 0 &&
       (!selectedCategory || p.categoryId === selectedCategory) &&
-      (!search ||
-        p.name.toLowerCase().includes(search.toLowerCase()) ||
-        (p.sku ?? '').toLowerCase().includes(search.toLowerCase()) ||
-        (p.barcode ?? '').toLowerCase().includes(search.toLowerCase()))
-  ), [catalogProducts, search, selectedCategory])
+      (!deferredSearch ||
+        p.name.toLocaleLowerCase().includes(deferredSearch) ||
+        (p.sku ?? '').toLocaleLowerCase().includes(deferredSearch) ||
+        (p.barcode ?? '').toLocaleLowerCase().includes(deferredSearch))
+  ), [catalogProducts, deferredSearch, selectedCategory])
 
   const updateQty = (productId: string, delta: number) => {
     if (mpesaLocksBasket) return toast.error('The basket is locked while M-Pesa payment is in progress')
@@ -540,6 +600,11 @@ export function POSTerminal({ products, categories, customers, settings, require
         idempotencyKey: checkoutIdempotencyKeyRef.current,
         ageVerified: requiresAgeVerification ? verified : false,
         completedAt: new Date(),
+        amountReceived: paymentMethod === 'cash' ? parseFloat(amountPaid || '0') : undefined,
+        discountType: discountAmount > 0 ? discountType : undefined,
+        discountValue: discountAmount > 0 ? discount : undefined,
+        customerName: availableCustomers.find((customer) => customer.id === selectedCustomer)?.name || 'Walk-in customer',
+        customerEmail: availableCustomers.find((customer) => customer.id === selectedCustomer)?.email,
       })
       if (paymentMethod === 'mpesa') {
         window.localStorage.removeItem('pos-active-mpesa')
@@ -561,6 +626,46 @@ export function POSTerminal({ products, categories, customers, settings, require
       setProcessing(false)
     }
   }
+
+  useEffect(() => {
+    processCheckoutRef.current = processCheckout
+  })
+
+  const confirmAgeVerification = useCallback(() => {
+    setAgeVerified(true)
+    setShowAgeVerification(false)
+
+    // Confirmation deliberately continues the sale the cashier just initiated.
+    // M-Pesa still waits for a successful payment confirmation before checkout.
+    if (paymentMethod !== 'mpesa' || mpesaStatus === 'success') {
+      void processCheckoutRef.current(true)
+    }
+  }, [mpesaStatus, paymentMethod])
+
+  useEffect(() => {
+    if (!showAgeVerification) return
+
+    const handleAgeVerificationKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault()
+        setShowAgeVerification(false)
+        return
+      }
+
+      if (event.key === 'Enter') {
+        event.preventDefault()
+        confirmAgeVerification()
+      }
+    }
+
+    window.addEventListener('keydown', handleAgeVerificationKeyDown)
+    const frame = window.requestAnimationFrame(() => ageVerificationConfirmRef.current?.focus())
+
+    return () => {
+      window.cancelAnimationFrame(frame)
+      window.removeEventListener('keydown', handleAgeVerificationKeyDown)
+    }
+  }, [confirmAgeVerification, showAgeVerification])
 
   useEffect(() => {
     autoFinalizeRef.current = () => void processCheckout(ageVerified, true)
@@ -649,8 +754,11 @@ export function POSTerminal({ products, categories, customers, settings, require
     setPaymentMethod('cash')
     setAgeVerified(false)
     setReceipt(null)
+    setReceiptPrinted(false)
+    setReceiptOptionsOpen(false)
     setSearch('')
     setCheckoutOpen(false)
+    setCheckoutStep('customer')
     checkoutIdempotencyKeyRef.current = '' // Reset for new sale
     autoFinalizingRef.current = false
     window.localStorage.removeItem('pos-active-cart')
@@ -660,7 +768,15 @@ export function POSTerminal({ products, categories, customers, settings, require
   const handlePrintReceipt = useCallback(() => {
     const paper = document.querySelector<HTMLElement>('.receipt-preview-origin .receipt-paper')
     if (!paper) {
-      window.print()
+      try {
+        window.addEventListener('afterprint', () => {
+          setReceiptPrinted(true)
+          toast.success('Print request completed')
+        }, { once: true })
+        window.print()
+      } catch {
+        toast.error('Could not open the print dialog')
+      }
       return
     }
 
@@ -682,9 +798,68 @@ export function POSTerminal({ products, categories, customers, settings, require
       paper.style.width = originalWidth
       paper.style.maxWidth = originalMaxWidth
     }
-    window.addEventListener('afterprint', cleanup, { once: true })
-    window.print()
+    window.addEventListener('afterprint', () => {
+      cleanup()
+      setReceiptPrinted(true)
+      toast.success('Print request completed')
+    }, { once: true })
+    try {
+      window.print()
+    } catch {
+      cleanup()
+      toast.error('Could not open the print dialog')
+    }
   }, [receiptPaperWidth])
+
+  const handleDownloadReceipt = useCallback(async () => {
+    if (!receipt) return
+    try {
+      const paper = document.querySelector<HTMLElement>('.receipt-preview-origin .receipt-paper')
+      if (!paper) return toast.error('Receipt preview is unavailable')
+
+      // Capture the rendered thermal paper itself so the download matches the
+      // exact receipt design on screen. The sale is never re-created or mutated.
+      const [{ jsPDF }, html2canvasModule] = await Promise.all([
+        import('jspdf'),
+        import('html2canvas'),
+      ])
+      const canvas = await html2canvasModule.default(paper, {
+        backgroundColor: '#ffffff',
+        scale: 2,
+        useCORS: true,
+        logging: false,
+      })
+      const paperWidthMm = receiptPaperWidth
+      const paperHeightMm = (canvas.height / canvas.width) * paperWidthMm
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: [paperWidthMm, paperHeightMm],
+        compress: true,
+      })
+      pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, paperWidthMm, paperHeightMm, undefined, 'FAST')
+      pdf.save(`${receipt.receiptNo}.pdf`)
+      toast.success('Receipt PDF downloaded')
+    } catch {
+      toast.error('Could not download receipt')
+    }
+  }, [receipt, receiptPaperWidth])
+
+  const handleShareReceipt = useCallback(async () => {
+    if (!receipt) return
+    const text = `Receipt ${receipt.receiptNo} · ${formatCurrency(receipt.total)} · ${receipt.paymentMethod}`
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: `Receipt ${receipt.receiptNo}`, text })
+        return
+      }
+      await navigator.clipboard.writeText(text)
+      toast.success('Receipt details copied')
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') return
+      toast.error('Could not share receipt details')
+    }
+  }, [receipt])
 
   const holdSale = () => {
     if (!canHold || cart.length === 0) return
@@ -841,57 +1016,66 @@ export function POSTerminal({ products, categories, customers, settings, require
       })),
     }
 
+    const paymentLabel = receipt.paymentMethod === 'mpesa' ? 'M-Pesa' : receipt.paymentMethod === 'card' ? 'Card' : 'Cash'
+    const taxLabel = settings.taxEnabled && settings.taxRate > 0 ? `${settings.taxName} (${settings.taxRate}%)` : settings.taxName
+    const discountDetail = receipt.discountType === 'percentage' && receipt.discountValue != null
+      ? `${receipt.discountValue}% discount`
+      : receipt.discountAmount > 0 ? 'Fixed amount discount' : null
+    const discountValue = receipt.discountType === 'percentage' && receipt.discountValue != null
+      ? `${receipt.discountValue}%`
+      : receipt.discountValue != null ? formatCurrency(receipt.discountValue) : formatCurrency(receipt.discountAmount)
+
     return (
-      <section aria-label="Completed sale receipt" className="pos-sale-complete fixed inset-0 z-50 flex min-h-screen w-full items-center justify-center overflow-hidden bg-[#f7f8fa] px-3 py-3 dark:bg-[#0c0c0c] sm:px-6 sm:py-6">
-        <div className="w-full max-w-xl overflow-hidden rounded-xl border border-[#dfe3ea] bg-white shadow-sm dark:border-white/10 dark:bg-[#171717]">
-          <div className="bg-[#f2f4f7] px-4 py-3 dark:bg-[#111111] sm:px-6 sm:py-4">
-            <div className="receipt-screen-preview mx-auto w-fit">
-              <div className="receipt-preview-origin mx-auto w-full max-w-[80mm] overflow-hidden rounded-lg bg-white shadow-[0_8px_20px_rgba(16,24,40,.10)]">
-                <ReceiptTemplate
-                  sale={printableSale}
-                  businessName={settings.receiptBusinessName}
-                  businessPhone={settings.receiptPhone}
-                  businessAddress={settings.receiptAddress}
-                  receiptFooter={settings.receiptFooter}
-                  layout="thermal"
-                  template={settings.receiptTemplate}
-                  logoUrl={settings.receiptLogoUrl}
-                  taxName={settings.taxName}
-                  showPhone={settings.receiptShowPhone}
-                  showAddress={settings.receiptShowAddress}
-                  showCashier={settings.receiptShowCashier}
-                  showCustomer={settings.receiptShowCustomer}
-                  showPayment={settings.receiptShowPayment}
-                  showQrCode={settings.receiptShowQrCode}
-                  showItemSku={settings.receiptShowItemSku}
-                />
+      <section aria-label="Completed sale receipt" className="pos-sale-complete flex min-h-[calc(100vh-8rem)] w-full items-center justify-center bg-[#f7f8fa] px-3 py-6 dark:bg-[#0e0f11] sm:px-6 sm:py-8">
+        <div className="w-full max-w-5xl">
+          <div className="mb-4 flex items-start justify-between gap-4 rounded-2xl border border-[#ead28a] bg-gradient-to-r from-[#fffdf7] via-[#fff9e5] to-[#fff1b8] px-4 py-3.5 shadow-[0_2px_8px_rgba(151,112,0,.08)] dark:border-[rgba(255,214,10,.22)] dark:from-[#15130c] dark:via-[#201b0d] dark:to-[#30270f] dark:shadow-[0_2px_8px_rgba(0,0,0,.18)] sm:px-5">
+            <div className="flex min-w-0 items-start gap-3">
+              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-[#b7ebc6] bg-[#ecfdf3] dark:border-[#1d6b3b] dark:bg-[#102417]"><CheckCircle2 className="h-4 w-4 text-[#12b76a] dark:text-[#86efac]" aria-hidden="true" /></span>
+              <div>
+                <p className="text-sm font-bold text-[#101828] dark:text-white">Sale completed</p>
+                <p className="mt-0.5 text-xs text-[#667085] dark:text-[#c7b978]">Paid successfully · Receipt #{receipt.receiptNo}</p>
               </div>
+            </div>
+            <div className="shrink-0 text-right">
+              <p className="text-lg font-bold tracking-tight text-[#101828] dark:text-white">{formatCurrency(receipt.total)}</p>
+              <p className="text-xs text-[#667085] dark:text-[#c7b978]">{formatDateTime(receipt.completedAt)}</p>
             </div>
           </div>
 
-          <div className="receipt-actions flex flex-wrap gap-2 border-t border-[#dfe3ea] bg-white p-4 dark:border-white/10 dark:bg-[#171717] sm:px-5">
-            <label className="flex items-center rounded-lg border border-[#d0d5dd] bg-white px-3 text-sm font-semibold text-[#344054] dark:border-white/10 dark:bg-white/5 dark:text-white">
-              <span className="sr-only">Receipt paper width</span>
-              <select value={receiptPaperWidth} onChange={(event) => setReceiptPaperWidth(Number(event.target.value) as 58 | 80)} className="h-10 cursor-pointer appearance-none bg-transparent pr-5 outline-none">
-                <option value={80}>80 mm</option>
-                <option value={58}>58 mm</option>
-              </select>
-            </label>
-            <button
-              onClick={handlePrintReceipt}
-              className="flex min-w-[100px] flex-1 items-center justify-center gap-2 rounded-lg border border-[#d0d5dd] py-2.5 text-sm font-semibold text-[#344054] transition-colors hover:bg-[#f9fafb]"
-            >
-              <Printer className="h-4 w-4" />
-              Print receipt
-            </button>
-            <button
-              onClick={handleNewSale}
-              style={{ backgroundColor: ui.primary, color: ui.primaryInk }}
-              className="flex min-w-[100px] flex-1 items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-bold transition-opacity hover:opacity-90"
-            >
-              <Plus className="h-4 w-4" />
-              Start next sale
-            </button>
+          <div className="grid overflow-hidden rounded-xl border border-[#dfe3ea] bg-white shadow-sm dark:border-white/10 dark:bg-[#171717] lg:grid-cols-[minmax(0,1fr)_320px]">
+            <div className="flex min-h-[500px] items-center justify-center bg-[#f2f4f7] p-5 dark:bg-[#151619] sm:p-8">
+              <div className="receipt-screen-preview w-fit max-w-full">
+                <div className="receipt-preview-origin mx-auto w-full max-w-[80mm] overflow-hidden rounded-lg bg-white shadow-[0_8px_20px_rgba(16,24,40,.10)]">
+                  <ReceiptTemplate sale={printableSale} businessName={settings.receiptBusinessName} businessPhone={settings.receiptPhone} businessAddress={settings.receiptAddress} receiptFooter={settings.receiptFooter} cashierName={receiptContext?.cashierName} customerName={receipt.customerName} layout="thermal" template={settings.receiptTemplate} logoUrl={settings.receiptLogoUrl} taxName={taxLabel} showPhone={settings.receiptShowPhone} showAddress={settings.receiptShowAddress} showCashier={settings.receiptShowCashier} showCustomer={settings.receiptShowCustomer} showPayment={settings.receiptShowPayment} showQrCode={settings.receiptShowQrCode} showItemSku={settings.receiptShowItemSku} />
+                </div>
+              </div>
+            </div>
+
+            <aside className="flex flex-col border-t border-[#e4e7ec] bg-white p-4 dark:border-white/10 dark:bg-[#171717] lg:border-l lg:border-t-0 sm:p-5">
+              <div className="space-y-4">
+                <div>
+                  <p className={ui.label}>Payment</p>
+                  <div className="rounded-lg border border-[#e4e7ec] bg-[#fbfbfc] p-3 dark:border-white/10 dark:bg-white/5">
+                    <div className="flex items-center justify-between gap-3"><span className="flex items-center gap-2 text-sm font-semibold text-[#101828] dark:text-white"><WalletCards className="h-4 w-4 text-[#b77900]" />{paymentLabel}</span><span className="text-sm font-bold text-[#101828] dark:text-white">{formatCurrency(receipt.total)}</span></div>
+                    {receipt.paymentMethod === 'cash' && receipt.amountReceived != null && <div className="mt-3 grid grid-cols-2 gap-2 border-t border-[#e4e7ec] pt-3 text-xs dark:border-white/10"><span className="text-[#667085] dark:text-[#a8a8a8]">Cash received</span><span className="text-right font-semibold text-[#101828] dark:text-white">{formatCurrency(receipt.amountReceived)}</span><span className={cn('font-semibold', receipt.change > 0 ? 'text-[#067647] dark:text-[#8de1aa]' : 'text-[#667085] dark:text-[#a8a8a8]')}>{receipt.change > 0 ? 'Change due' : 'Change'}</span><span className={cn('text-right font-semibold tabular-nums', receipt.change > 0 ? 'rounded-md bg-[#ecfdf3] px-2 py-1 text-base font-bold text-[#067647] dark:bg-emerald-950/45 dark:text-[#8de1aa]' : 'text-xs text-[#667085] dark:text-[#a8a8a8]')}>{formatCurrency(receipt.change)}</span></div>}
+                    {receipt.mpesaRef && <div className="mt-3 flex items-center justify-between gap-3 border-t border-[#e4e7ec] pt-3 text-xs dark:border-white/10"><span className="text-[#667085] dark:text-[#a8a8a8]">Reference</span><span className="font-semibold text-[#101828] dark:text-white">{receipt.mpesaRef}</span></div>}
+                    {(receipt.taxAmount > 0 || receipt.discountAmount > 0) && <div className="mt-3 space-y-1.5 border-t border-[#e4e7ec] pt-3 text-xs dark:border-white/10">{receipt.taxAmount > 0 && <div className="flex justify-between gap-3"><span className="text-[#667085] dark:text-[#a8a8a8]">{taxLabel}</span><span className="font-semibold text-[#101828] dark:text-white">{formatCurrency(receipt.taxAmount)}</span></div>}{receipt.discountAmount > 0 && <><div className="flex justify-between gap-3"><span className="text-[#667085] dark:text-[#a8a8a8]">{discountDetail}</span><span className="font-semibold text-[#101828] dark:text-white">{discountValue}</span></div><div className="flex justify-between gap-3"><span className="text-[#067647] dark:text-[#8de1aa]">Amount saved</span><span className="font-semibold text-[#067647] dark:text-[#8de1aa]">−{formatCurrency(receipt.discountAmount)}</span></div></>}</div>}
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <ReceiptMeta mark={<UserRound className="h-3.5 w-3.5 text-[#667085] dark:text-[#a8a8a8]" />} label="Customer" value={receipt.customerName} />
+                  {receiptContext?.cashierName && <ReceiptMeta mark={<BadgeCheck className="h-3.5 w-3.5 text-[#667085] dark:text-[#a8a8a8]" />} label="Cashier" value={receiptContext.cashierName} />}
+                  {receiptContext?.registerName && <ReceiptMeta mark={<Monitor className="h-3.5 w-3.5 text-[#667085] dark:text-[#a8a8a8]" />} label="Register" value={receiptContext.registerName} />}
+                  {receiptContext?.locationName && <ReceiptMeta mark={<MapPin className="h-3.5 w-3.5 text-[#667085] dark:text-[#a8a8a8]" />} label="Location" value={receiptContext.locationName} />}
+                </div>
+              </div>
+              <div className="mt-5 space-y-2 border-t border-[#e4e7ec] pt-4 dark:border-white/10">
+                <button onClick={handleNewSale} style={{ backgroundColor: ui.primary, color: ui.primaryInk }} className="flex h-11 w-full items-center justify-center gap-2 rounded-lg text-sm font-bold transition-opacity hover:opacity-90"><Plus className="h-4 w-4" />Start next sale</button>
+                <div className="grid grid-cols-2 gap-2"><button onClick={handlePrintReceipt} className={cn(ui.subtleBtn, 'flex h-10 items-center justify-center gap-2')}><Printer className="h-4 w-4" />{receiptPrinted ? 'Reprint receipt' : 'Print receipt'}</button><button onClick={handleDownloadReceipt} className={cn(ui.subtleBtn, 'flex h-10 items-center justify-center gap-2')}><Download className="h-4 w-4" />Download</button></div>
+                <div className="grid grid-cols-[1fr_auto] gap-2"><button onClick={() => void handleShareReceipt()} className={cn(ui.subtleBtn, 'flex h-10 items-center justify-center gap-2')}><Share2 className="h-4 w-4" />Share</button><div className="relative"><button aria-label="Receipt options" aria-expanded={receiptOptionsOpen} onClick={() => setReceiptOptionsOpen((open) => !open)} className={cn(ui.subtleBtn, 'flex h-10 w-10 items-center justify-center px-0')}><MoreHorizontal className="h-4 w-4" /></button>{receiptOptionsOpen && <div className="absolute bottom-12 right-0 z-10 w-40 rounded-lg border border-[#dfe3ea] bg-white p-1.5 shadow-lg dark:border-white/10 dark:bg-[#1c1c1c]"><p className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-[#667085] dark:text-[#a8a8a8]">Paper width</p>{([80, 58] as const).map((width) => <button key={width} onClick={() => { setReceiptPaperWidth(width); setReceiptOptionsOpen(false) }} className={cn('flex w-full rounded-md px-2 py-1.5 text-left text-xs font-medium hover:bg-[#f9fafb] dark:hover:bg-white/5', receiptPaperWidth === width && 'bg-[#fff5cf] text-[#7a5200] dark:bg-[#3a2d0d] dark:text-[#ffd86a]')}>{width} mm</button>)}</div>}</div></div>
+                <button onClick={handleNewSale} className="mt-1 flex w-full items-center justify-center gap-2 py-1 text-xs font-semibold text-[#667085] transition-colors hover:text-[#101828] dark:text-[#a8a8a8] dark:hover:text-white"><ArrowLeft className="h-3.5 w-3.5" />Back to POS</button>
+              </div>
+            </aside>
           </div>
         </div>
       </section>
@@ -899,18 +1083,16 @@ export function POSTerminal({ products, categories, customers, settings, require
   }
 
   return (
-    <div className={cn('pos-terminal relative grid min-h-[calc(100vh-10.5rem)] gap-4 bg-[#f7f8fa] dark:bg-[#0c0c0c] sm:gap-5 lg:grid-cols-[minmax(0,1fr)_460px] xl:grid-cols-[minmax(0,1fr)_520px] lg:items-stretch', checkoutOnly && 'w-full max-w-none bg-transparent lg:grid-cols-1 lg:gap-6')}>
+    <div className={cn('pos-terminal relative grid min-h-[calc(100vh-10.5rem)] gap-4 bg-[#f7f8fa] dark:bg-[#0c0c0c] sm:gap-5 lg:h-[calc(100dvh-10.5rem)] lg:min-h-[520px] lg:grid-cols-[minmax(0,1fr)_460px] lg:items-stretch xl:grid-cols-[minmax(0,1fr)_520px]', checkoutOnly && 'w-full max-w-none bg-transparent lg:h-auto lg:grid-cols-1 lg:gap-6')}>
       {/* Left: Product catalog */}
-      <section className={cn(ui.card, 'flex min-h-[520px] min-w-0 flex-col overflow-hidden', checkoutOnly && 'hidden')}>
-        <div className="border-b border-[#eef0f3] px-5 py-4 dark:border-white/10 sm:px-6">
-          <div className="mb-4 flex items-center justify-between gap-3">
-            <div>
+      <section className={cn(ui.card, 'flex min-h-[520px] min-w-0 flex-col overflow-hidden lg:min-h-0', checkoutOnly && 'hidden')}>
+        <div className="border-b border-[#eef0f3] px-5 py-3 dark:border-white/10 sm:px-6">
+          <div className="mb-2.5 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5">
               <h2 className="text-base font-semibold tracking-tight text-[#101828] dark:text-white">Catalog</h2>
-              <p className="mt-0.5 text-xs text-[#667085] dark:text-[#8b8b8b]">Tap a product to add it to the sale</p>
+              <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-[#067647] dark:text-[#8de1aa]"><span className="h-1.5 w-1.5 rounded-full bg-[#12b76a]" />{filteredProducts.length} available</span>
             </div>
-            <span className="rounded-full border border-[#e4e7ec] bg-[#f9fafb] px-2.5 py-1 text-xs font-medium text-[#475467] dark:border-white/10 dark:bg-white/5 dark:text-[#c4c4c4]">
-              {filteredProducts.length} available
-            </span>
+            <p className="hidden text-xs text-[#667085] dark:text-[#8b8b8b] sm:block">Tap to add</p>
           </div>
           <div className="relative">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#98a2b3]" />
@@ -925,13 +1107,14 @@ export function POSTerminal({ products, categories, customers, settings, require
                 const barcode = normalizeBarcode(search)
                 if (barcode) { e.preventDefault(); handleBarcodeScan(barcode) }
               }}
-              className={cn(inputCls, 'h-11 rounded-lg pl-9 pr-36')}
+              className={cn(inputCls, 'h-10 rounded-lg pl-9 pr-32')}
               autoFocus
             />
-            <button type="button" onClick={() => setShowWirelessScanner(true)} className="absolute right-1.5 top-1/2 inline-flex h-8 -translate-y-1/2 items-center gap-1.5 rounded-md border border-[#e4e7ec] bg-white px-2.5 text-xs font-semibold text-[#344054] shadow-sm transition-colors hover:border-[#f9b21d] hover:bg-[#fff8e6] dark:border-white/15 dark:bg-[#1c1c1c] dark:text-white dark:hover:border-[#f9b21d]"><Smartphone className="h-4 w-4" /> Pair phone</button>
+            <button type="button" onClick={() => setShowWirelessScanner(true)} className="absolute right-1.5 top-1/2 inline-flex h-7 -translate-y-1/2 items-center gap-1 rounded-md border border-[#e4e7ec] bg-white px-2 text-[11px] font-semibold text-[#344054] shadow-sm transition-colors hover:border-[#f9b21d] hover:bg-[#fff8e6] dark:border-white/15 dark:bg-[#1c1c1c] dark:text-white dark:hover:border-[#f9b21d]"><Smartphone className="h-3.5 w-3.5" /> Pair phone</button>
           </div>
-          <p className="mt-2 text-xs text-[#667085] dark:text-[#8b8b8b]" role="status" aria-live="polite">
-            {scanMessage || 'USB scanner ready — scan an item, or pair a phone scanner'}
+          <p className="mt-1.5 flex items-center gap-1.5 text-[11px] font-medium text-[#667085] dark:text-[#8b8b8b]" role="status" aria-live="polite">
+            <span className="h-1.5 w-1.5 rounded-full bg-[#12b76a]" />
+            {scanMessage || 'Scanner ready'}
           </p>
         </div>
 
@@ -967,7 +1150,7 @@ export function POSTerminal({ products, categories, customers, settings, require
         )}
 
         {/* Product grid */}
-        <div className="flex-1 overflow-y-auto bg-[#fbfbfc] p-4 dark:bg-[#0f0f0f] sm:p-5">
+        <div className="pos-scroll-region min-h-0 flex-1 overflow-y-auto bg-[#fbfbfc] p-4 dark:bg-[#0f0f0f] sm:p-5">
           {filteredProducts.length === 0 ? (
             <div className="flex h-48 flex-col items-center justify-center text-center">
               <Package className="mb-3 h-9 w-9 text-[#d0d5dd]" strokeWidth={1.5} />
@@ -981,7 +1164,7 @@ export function POSTerminal({ products, categories, customers, settings, require
           ) : (
             <div className="grid grid-cols-2 gap-3.5 sm:grid-cols-3 xl:grid-cols-4">
               {filteredProducts.map((product) => {
-                const inCart = cart.find((i) => i.productId === product.id)
+                const inCartQuantity = cartQuantityByProductId.get(product.id)
                 const outOfStock = product.stock === 0
                 return (
                   <article
@@ -995,16 +1178,16 @@ export function POSTerminal({ products, categories, customers, settings, require
                     role="button"
                     tabIndex={outOfStock ? -1 : 0}
                     aria-disabled={outOfStock}
-                    aria-label={`Add ${product.name} to basket${inCart ? `, currently ${inCart.quantity}` : ''}`}
+                    aria-label={`Add ${product.name} to basket${inCartQuantity ? `, currently ${inCartQuantity}` : ''}`}
                     className={cn(
-                      'group relative flex min-h-[224px] flex-col overflow-hidden rounded-xl border bg-white text-left shadow-[0_1px_2px_rgba(16,24,40,.03)] transition-[background-color,border-color,box-shadow] duration-200 [transition-timing-function:cubic-bezier(0.2,0,0,1)] motion-reduce:transition-none after:pointer-events-none after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:bg-[#f9b21d] after:opacity-0 after:transition-opacity after:duration-200 after:ease-out motion-reduce:after:transition-none',
+                      'pos-product-card group relative flex min-h-[224px] flex-col overflow-hidden rounded-xl border bg-white text-left shadow-[0_1px_2px_rgba(16,24,40,.03)] transition-colors duration-100 motion-reduce:transition-none after:pointer-events-none after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:bg-[#f9b21d] after:opacity-0',
                       'disabled:cursor-not-allowed disabled:opacity-50',
                       outOfStock
                         ? 'cursor-not-allowed opacity-65'
-                        : 'cursor-pointer hover:border-[#cfd4dc] hover:shadow-[0_5px_14px_rgba(16,24,40,.08)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#f9b21d]/45 focus-visible:ring-offset-2 dark:hover:border-white/20 dark:hover:bg-[#181818]',
+                        : 'cursor-pointer hover:border-[#cfd4dc] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#f9b21d]/45 focus-visible:ring-offset-2 dark:hover:border-white/20 dark:hover:bg-[#181818]',
                       'dark:bg-[#161616]',
-                      inCart
-                        ? 'border-[#f9b21d] bg-[#fff8e6] ring-1 ring-[#f9b21d]/55 after:opacity-100 hover:shadow-[0_5px_14px_rgba(16,24,40,.08)] dark:border-[#f9b21d] dark:bg-[#2a2111] dark:ring-[#f9b21d]/35'
+                      inCartQuantity
+                        ? 'border-[#f9b21d] bg-[#fff8e6] ring-1 ring-[#f9b21d]/55 after:opacity-100 dark:border-[#f9b21d] dark:bg-[#2a2111] dark:ring-[#f9b21d]/35'
                         : 'border-[#e4e7ec] dark:border-white/10'
                     )}
                   >
@@ -1024,7 +1207,7 @@ export function POSTerminal({ products, categories, customers, settings, require
                           alt={product.name}
                           fill
                           sizes="(min-width: 1280px) 240px, (min-width: 640px) 30vw, 50vw"
-                          unoptimized
+                          quality={60}
                           className="object-cover"
                         />
                       </span>
@@ -1042,31 +1225,31 @@ export function POSTerminal({ products, categories, customers, settings, require
                       )}
                       <div className="mt-auto flex items-end justify-between gap-2 pt-2">
                         <p className="text-sm font-bold tabular-nums text-[#101828] dark:text-white">{formatCurrency(product.sellingPrice)}</p>
-                        {inCart ? (
+                        {inCartQuantity ? (
                           <div
-                            className="relative z-20 flex h-8 shrink-0 items-center overflow-hidden rounded-lg border border-[#101828] dark:border-white"
+                            className="relative z-20 flex h-8 shrink-0 items-center overflow-hidden rounded-lg border border-[#101828] bg-white dark:border-white/20 dark:bg-[#1c1c1c]"
                             onClick={(event) => event.stopPropagation()}
                             title={`${product.stock} ${product.unit} in stock`}
                           >
                             <button
                               type="button"
                               onClick={() => updateQty(product.id, -1)}
-                              className="flex h-full w-7 items-center justify-center text-[#101828] transition-colors hover:bg-[#f2f4f7] focus-visible:outline-none dark:text-white dark:hover:bg-white/10"
+                              className="flex h-full w-7 items-center justify-center text-[#101828] transition-colors hover:bg-[#f2f4f7] focus-visible:outline-none dark:text-[#f1f1f1] dark:hover:bg-[#302d28]"
                               aria-label={`Reduce ${product.name} quantity`}
                               title="Reduce quantity"
                             >
                               <Minus className="h-3.5 w-3.5" strokeWidth={2.5} />
                             </button>
-                            <span className="min-w-6 border-x border-[#101828]/15 px-1 text-center text-xs font-bold tabular-nums text-[#101828] dark:border-white/15 dark:text-white" aria-live="polite">
-                              {inCart.quantity}
+                            <span className="min-w-6 border-x border-[#101828]/15 px-1 text-center text-xs font-bold tabular-nums text-[#101828] dark:border-[#f2b705] dark:bg-[#f2b705] dark:text-[#241d00]" aria-live="polite">
+                              {inCartQuantity}
                             </span>
                             <button
                               type="button"
                               onClick={() => updateQty(product.id, 1)}
-                              disabled={inCart.quantity >= product.stock}
-                              className="flex h-full w-7 items-center justify-center text-[#101828] transition-colors hover:bg-[#f2f4f7] focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-35 dark:text-white dark:hover:bg-white/10"
+                              disabled={inCartQuantity >= product.stock}
+                              className="flex h-full w-7 items-center justify-center text-[#101828] transition-colors hover:bg-[#f2f4f7] focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-35 dark:text-[#f1f1f1] dark:hover:bg-[#302d28]"
                               aria-label={`Increase ${product.name} quantity`}
-                              title={inCart.quantity >= product.stock ? 'Maximum available stock reached' : 'Increase quantity'}
+                              title={inCartQuantity >= product.stock ? 'Maximum available stock reached' : 'Increase quantity'}
                             >
                               <Plus className="h-3.5 w-3.5" strokeWidth={2.5} />
                             </button>
@@ -1078,9 +1261,9 @@ export function POSTerminal({ products, categories, customers, settings, require
                     </div>
 
                     {/* Cart badge */}
-                    {inCart && (
+                    {inCartQuantity && (
                       <div className="absolute right-2 top-2 flex h-6 min-w-6 items-center justify-center rounded-full bg-[#f9b21d] px-1.5 text-xs font-extrabold text-[#241d00] shadow-sm">
-                        {inCart.quantity}
+                        {inCartQuantity}
                       </div>
                     )}
                   </article>
@@ -1092,17 +1275,17 @@ export function POSTerminal({ products, categories, customers, settings, require
       </section>
 
       {/* Right: Cart + Payment */}
-      <aside className={cn(ui.card, 'flex min-h-[520px] w-full flex-col overflow-hidden lg:sticky lg:top-5 lg:max-h-[calc(100vh-7rem)]', checkoutOnly && 'min-h-0 w-full max-w-none gap-6 overflow-visible border-0 bg-transparent shadow-none lg:grid lg:grid-cols-[minmax(0,1.15fr)_minmax(480px,.85fr)] lg:items-start lg:static lg:max-h-none')}>
+      <aside className={cn(ui.card, 'flex min-h-[520px] w-full flex-col overflow-hidden lg:max-h-full', !checkoutOpen && 'lg:h-fit lg:min-h-0 lg:self-start', checkoutOpen && !checkoutOnly && 'lg:h-fit lg:min-h-0 lg:self-start lg:max-h-none lg:overflow-visible', checkoutOnly && 'min-h-0 w-full max-w-none gap-6 overflow-visible border-0 bg-transparent shadow-none lg:grid lg:grid-cols-[minmax(0,1.15fr)_minmax(480px,.85fr)] lg:items-start lg:max-h-none')}>
         {/* Cart header with quick actions */}
-        <div className={cn('border-b border-[#eef0f3] bg-white p-5 dark:border-white/10 dark:bg-[#161616]', checkoutOnly && 'hidden')}>
+        <div className={cn('border-b border-[#eef0f3] bg-white p-4 dark:border-white/10 dark:bg-[#161616]', checkoutOnly && 'hidden', checkoutOpen && !checkoutOnly && 'hidden')}>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2.5">
-              <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#f2f4f7] text-[#344054] dark:bg-white/10 dark:text-white">
+                <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#fff5d6] text-[#a47700] dark:bg-[#3a3016] dark:text-[#ffd166]">
                 <ShoppingCart className="h-4 w-4" />
               </span>
               <div>
-                <span className="block text-sm font-semibold text-[#101828] dark:text-white">{checkoutOpen ? 'Checkout' : 'Basket'}</span>
-                <span className="block text-xs text-[#667085] dark:text-[#8b8b8b]">{cart.length ? `${cart.length} item${cart.length === 1 ? '' : 's'} in this sale` : 'Start a new sale'}</span>
+                <span className="block text-[17px] font-semibold tracking-tight text-[#7a5b00] dark:text-[#ffd166]">Basket</span>
+                <span className="block text-[13px] font-medium text-[#475467] dark:text-[#b5bac5]">{cart.length ? `${cart.length} item${cart.length === 1 ? '' : 's'} · Ready to checkout` : 'Add items to start a sale'}</span>
               </div>
             </div>
             {checkoutOpen ? (
@@ -1114,35 +1297,35 @@ export function POSTerminal({ products, categories, customers, settings, require
                 onClick={() => {
                   if (confirm('Clear all items from cart?')) setCart([])
                 }}
-                className="text-xs font-medium text-[#98a2b3] transition-colors hover:text-[#d92d20]"
+                className="rounded-md px-2 py-1 text-[11px] font-semibold text-[#98a2b3] transition-colors hover:bg-[#fef3f2] hover:text-[#b42318] dark:hover:bg-red-950/30"
               >
-                Clear
+                Clear sale
               </button>
             )}
           </div>
 
           {!checkoutOpen && (
-            <div className="mt-4 space-y-2">
-              <div className="flex gap-2">
-                <button onClick={() => setShowSalesHistory(true)} className={cn(ui.subtleBtn, 'flex flex-1 items-center justify-center gap-1.5')}>
-                  <History className="h-3.5 w-3.5" />
+            <div className="mt-3 grid grid-cols-2 gap-2 rounded-xl border border-[#eef0f3] bg-[#fbfcfe] p-2 dark:border-white/10 dark:bg-[#141414]">
+                <button onClick={() => setShowSalesHistory(true)} className="flex items-center justify-center gap-2 rounded-lg border border-[#e4e7ec] bg-white px-2.5 py-2.5 text-xs font-semibold text-[#344054] transition-colors hover:border-[#cbd5e1] hover:bg-[#f8fafc] dark:border-white/10 dark:bg-[#1a1a1a] dark:text-[#e4e7ec] dark:hover:bg-[#222222]">
+                  <span className="flex h-6 w-6 items-center justify-center rounded-md bg-[#f2f4f7] text-[#475467] dark:bg-white/10 dark:text-[#d0d5dd]"><History className="h-3.5 w-3.5" /></span>
                   History
                 </button>
-                <button onClick={() => setShowReceiptReprint(true)} className={cn(ui.subtleBtn, 'flex flex-1 items-center justify-center gap-1.5')}>
-                  <Printer className="h-3.5 w-3.5" />
+                <button onClick={() => setShowReceiptReprint(true)} className="flex items-center justify-center gap-2 rounded-lg border border-[#e4e7ec] bg-white px-2.5 py-2.5 text-xs font-semibold text-[#344054] transition-colors hover:border-[#cbd5e1] hover:bg-[#f8fafc] dark:border-white/10 dark:bg-[#1a1a1a] dark:text-[#e4e7ec] dark:hover:bg-[#222222]">
+                  <span className="flex h-6 w-6 items-center justify-center rounded-md bg-[#f2f4f7] text-[#475467] dark:bg-white/10 dark:text-[#d0d5dd]"><Printer className="h-3.5 w-3.5" /></span>
                   Reprint
                 </button>
-              </div>
               {canHold && cart.length > 0 && (
-                <div className="flex gap-2">
-                  <button onClick={holdSale} className={cn(ui.subtleBtn, 'flex-1')}>Hold sale</button>
-                  <button onClick={() => setShowHeldSales(true)} className={cn(ui.subtleBtn, 'flex-1')}>
+                <>
+                  <button onClick={holdSale} className="flex items-center justify-center gap-2 rounded-lg border border-[#e4e7ec] bg-white px-2.5 py-2.5 text-xs font-semibold text-[#344054] transition-colors hover:border-[#e6c66f] hover:bg-[#fffdf5] dark:border-white/10 dark:bg-[#1a1a1a] dark:text-[#e4e7ec] dark:hover:bg-[#252116]"><span className="flex h-6 w-6 items-center justify-center rounded-md bg-[#fff3d1] text-[#9a6700] dark:bg-[#3a3016] dark:text-[#ffd166]"><PauseCircle className="h-3.5 w-3.5" /></span>Hold sale</button>
+                  <button onClick={() => setShowHeldSales(true)} className="flex items-center justify-center gap-2 rounded-lg border border-[#e4e7ec] bg-white px-2.5 py-2.5 text-xs font-semibold text-[#344054] transition-colors hover:border-[#a9d7ba] hover:bg-[#f7fdf8] dark:border-white/10 dark:bg-[#1a1a1a] dark:text-[#e4e7ec] dark:hover:bg-[#16261b]">
+                    <span className="flex h-6 w-6 items-center justify-center rounded-md bg-[#e7f7ed] text-[#18794e] dark:bg-[#173c27] dark:text-[#9fe1b9]"><ArchiveRestore className="h-3.5 w-3.5" /></span>
                     Held sales{heldSales.length ? ` (${heldSales.length})` : ''}
                   </button>
-                </div>
+                </>
               )}
               {canHold && cart.length === 0 && heldSales.length > 0 && (
-                <button onClick={() => setShowHeldSales(true)} className={cn(ui.subtleBtn, 'w-full')}>
+                <button onClick={() => setShowHeldSales(true)} className="col-span-2 flex items-center justify-center gap-2 rounded-lg border border-[#e4e7ec] bg-white px-2.5 py-2.5 text-xs font-semibold text-[#344054] transition-colors hover:border-[#a9d7ba] hover:bg-[#f7fdf8] dark:border-white/10 dark:bg-[#1a1a1a] dark:text-[#e4e7ec] dark:hover:bg-[#16261b]">
+                  <span className="flex h-6 w-6 items-center justify-center rounded-md bg-[#e7f7ed] text-[#18794e] dark:bg-[#173c27] dark:text-[#9fe1b9]"><ArchiveRestore className="h-3.5 w-3.5" /></span>
                   Resume held sale ({heldSales.length})
                 </button>
               )}
@@ -1151,7 +1334,7 @@ export function POSTerminal({ products, categories, customers, settings, require
         </div>
 
         {/* Cart items */}
-        <div className={cn('min-h-[220px] flex-1 overflow-y-auto', checkoutOpen && !checkoutOnly && 'max-h-[240px] flex-none border-b border-[#eef0f3] dark:border-white/10', checkoutOnly && cn(ui.card, 'flex min-h-0 flex-col self-start overflow-hidden lg:col-start-1 lg:row-start-1'))}>
+        <div className={cn('min-h-[180px] flex-1 overflow-y-auto', checkoutOpen && !checkoutOnly && 'hidden', checkoutOnly && cn(ui.card, 'flex min-h-0 flex-col self-start overflow-hidden lg:col-start-1 lg:row-start-1'))}>
           {checkoutOnly && (
             <div className="flex items-center justify-between border-b border-[#eef0f3] px-6 py-5 dark:border-white/10">
               <div>
@@ -1172,80 +1355,57 @@ export function POSTerminal({ products, categories, customers, settings, require
           ) : (
             <ul className="divide-y divide-[#eef0f3] dark:divide-white/10">
               {cart.map((item) => (
-                <li key={item.productId} className="group flex min-h-[72px] items-center gap-3 px-4 py-3 transition-colors duration-75 hover:bg-[#fbfbfc] dark:hover:bg-white/5">
+                <li key={item.productId} className="group grid min-h-[64px] grid-cols-[36px_minmax(0,1fr)_minmax(190px,auto)] items-center gap-3 px-4 py-2 transition-colors duration-75 hover:bg-[#fbfbfc] dark:bg-[#161616] dark:hover:bg-[#202020]">
                   {productsById.get(item.productId)?.imageUrl ? (
-                    <Image src={productsById.get(item.productId)?.imageUrl ?? ''} alt="" width={40} height={40} unoptimized className="h-10 w-10 shrink-0 rounded-lg object-cover" />
+                    <Image src={productsById.get(item.productId)?.imageUrl ?? ''} alt="" width={36} height={36} quality={50} className="h-9 w-9 shrink-0 rounded-lg object-cover" />
                   ) : (
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#f2f4f7] text-[#667085] dark:bg-white/10 dark:text-[#c4c4c4]">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#f2f4f7] text-[#667085] dark:bg-white/10 dark:text-[#c4c4c4]">
                       <Package className="h-4 w-4" />
                     </div>
                   )}
                   {/* Item info */}
                   <div className="min-w-0 flex-1">
-                    <p className="mb-0.5 truncate text-xs font-semibold leading-snug text-[#101828] dark:text-white">{item.productName}</p>
-                    <p className="text-[11px] text-[#98a2b3]">{formatCurrency(item.unitPrice)} · {productsById.get(item.productId)?.unit || 'unit'}</p>
+                    <p className="mb-0.5 truncate text-[13px] font-semibold leading-snug text-[#101828] dark:text-white">{item.productName}</p>
+                    <p className="text-xs font-medium text-[#667085] dark:text-[#aeb4c0]">{formatCurrency(item.unitPrice)} · {productsById.get(item.productId)?.unit || 'unit'}</p>
                   </div>
 
-                  {/* Quantity controls */}
-                  <div className="flex h-8 shrink-0 items-center self-center overflow-hidden rounded-lg border border-[#e4e7ec] bg-white dark:border-white/10 dark:bg-transparent">
-                    <button
-                      onClick={() => updateQty(item.productId, -1)}
-                      className="flex h-full w-7 items-center justify-center text-[#667085] transition-colors duration-75 hover:bg-[#f2f4f7] hover:text-[#101828] focus-visible:outline-none dark:text-[#c4c4c4] dark:hover:bg-white/10"
-                      title="Decrease quantity"
-                      aria-label={`Reduce ${item.productName} quantity`}
-                    >
-                      <Minus className="h-3.5 w-3.5" strokeWidth={2.5} />
-                    </button>
-                    <span className="flex h-full min-w-7 items-center justify-center border-x border-[#e4e7ec] px-1 text-center text-xs font-bold tabular-nums text-[#101828] dark:border-white/10 dark:text-white" aria-live="polite">
-                      {item.quantity}
-                    </span>
-                    <button
-                      onClick={() => updateQty(item.productId, 1)}
-                      disabled={item.quantity >= (productsById.get(item.productId)?.stock ?? item.quantity)}
-                      className="flex h-full w-7 items-center justify-center text-[#667085] transition-colors duration-75 hover:bg-[#f2f4f7] hover:text-[#101828] focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-35 dark:text-[#c4c4c4] dark:hover:bg-white/10"
-                      title={item.quantity >= (productsById.get(item.productId)?.stock ?? item.quantity) ? 'Maximum available stock reached' : 'Increase quantity'}
-                      aria-label={`Increase ${item.productName} quantity`}
-                    >
-                      <Plus className="h-3.5 w-3.5" strokeWidth={2.5} />
-                    </button>
-                  </div>
-
-                  {/* Total & remove */}
-                  <div className="flex min-w-[68px] flex-col items-end justify-between self-stretch">
-                    <span className="text-xs font-bold tabular-nums text-[#101828] dark:text-white">{formatCurrency(item.totalPrice)}</span>
+                  {/* Quantity, total & remove */}
+                  <div className="flex items-center justify-end gap-2">
+                    <div className="flex h-7 shrink-0 items-center overflow-hidden rounded-lg border border-[#e4e7ec] bg-white dark:border-white/15 dark:bg-[#1d1d1d]">
+                      <button
+                        onClick={() => updateQty(item.productId, -1)}
+                        className="flex h-full w-7 items-center justify-center text-[#667085] transition-colors duration-75 hover:bg-[#f2f4f7] hover:text-[#101828] focus-visible:outline-none dark:text-[#c4c4c4] dark:hover:bg-white/10"
+                        title="Decrease quantity"
+                        aria-label={`Reduce ${item.productName} quantity`}
+                      >
+                        <Minus className="h-3.5 w-3.5" strokeWidth={2.5} />
+                      </button>
+                      <span className="flex h-full min-w-7 items-center justify-center border-x border-[#e4e7ec] px-1 text-center text-xs font-bold tabular-nums text-[#101828] dark:border-white/10 dark:text-white" aria-live="polite">
+                        {item.quantity}
+                      </span>
+                      <button
+                        onClick={() => updateQty(item.productId, 1)}
+                        disabled={item.quantity >= (productsById.get(item.productId)?.stock ?? item.quantity)}
+                        className="flex h-full w-7 items-center justify-center text-[#667085] transition-colors duration-75 hover:bg-[#f2f4f7] hover:text-[#101828] focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-35 dark:text-[#c4c4c4] dark:hover:bg-white/10"
+                        title={item.quantity >= (productsById.get(item.productId)?.stock ?? item.quantity) ? 'Maximum available stock reached' : 'Increase quantity'}
+                        aria-label={`Increase ${item.productName} quantity`}
+                      >
+                        <Plus className="h-3.5 w-3.5" strokeWidth={2.5} />
+                      </button>
+                    </div>
+                    <span className="min-w-[88px] text-right text-sm font-bold tabular-nums text-[#101828] dark:text-[#f4f4f5]">{formatCurrency(item.totalPrice)}</span>
                     <button
                       onClick={() => removeFromCart(item.productId)}
-                      className="inline-flex items-center gap-1 text-[10px] font-medium text-[#98a2b3] transition-colors hover:text-[#d92d20] focus-visible:rounded focus-visible:outline-none"
+                      className="inline-flex h-7 w-7 items-center justify-center rounded-md text-[#d92d20] transition-colors hover:bg-[#fef3f2] hover:text-[#b42318] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#f9b21d]/50 dark:text-[#f97066] dark:hover:bg-red-950/30 dark:hover:text-[#ff8a80]"
                       title="Remove item"
                       aria-label={`Remove ${item.productName} from basket`}
                     >
-                      <Trash2 className="h-3 w-3" /> Remove
+                      <Trash2 className="h-3.5 w-3.5" />
                     </button>
                   </div>
                 </li>
               ))}
             </ul>
-          )}
-          {!checkoutOpen && cart.length > 0 && (
-            <div className="border-t border-[#eef0f3] px-4 py-3 dark:border-white/10">
-              <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.12em] text-[#98a2b3]">Frequently added</p>
-              <div className="flex gap-2 overflow-x-auto pb-0.5">
-                {filteredProducts.filter((product) => !cart.some((item) => item.productId === product.id)).slice(0, 3).map((product) => (
-                  <button key={product.id} type="button" onClick={() => addToCart(product)} className="shrink-0 rounded-lg border border-[#e4e7ec] bg-white px-2.5 py-2 text-left text-[11px] font-semibold text-[#344054] hover:border-[#f2b705] dark:border-white/10 dark:bg-transparent dark:text-[#d0d5dd]">
-                    <span className="block max-w-[92px] truncate">{product.name}</span>
-                    <span className="mt-0.5 block text-[10px] font-medium text-[#98a2b3]">{formatCurrency(Number(product.sellingPrice))}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-          {!checkoutOpen && cart.length > 0 && (
-            <div className="border-t border-[#eef0f3] bg-[#fffaf0] px-4 py-3 dark:border-white/10 dark:bg-amber-950/20">
-              <div className="flex items-start gap-2 text-xs text-[#93370d] dark:text-amber-300">
-                <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" />
-                <span><strong>Contains alcohol</strong> · ID check required at checkout</span>
-              </div>
-            </div>
           )}
           {checkoutOnly && cart.length > 0 && (
             <div className="border-t border-[#eef0f3] bg-[#fbfbfc] px-6 py-5 dark:border-white/10 dark:bg-[#111111]">
@@ -1260,10 +1420,10 @@ export function POSTerminal({ products, categories, customers, settings, require
 
         {/* Payment panel */}
         {cart.length > 0 && !checkoutOpen && (
-          <div className={cn('border-t border-[#eef0f3] bg-white p-4 dark:border-white/10 dark:bg-[#161616]', checkoutOnly && 'md:col-start-2 md:row-start-2 md:border-l')}>
+          <div className={cn('border-t border-[#eef0f3] bg-white p-3.5 dark:border-white/10 dark:bg-[#151515]', checkoutOnly && 'md:col-start-2 md:row-start-2 md:border-l')}>
             <div className="mb-3 flex items-center justify-between text-sm">
-              <span className="font-medium text-[#667085] dark:text-[#8b8b8b]">Basket total</span>
-              <span className="text-xl font-bold tabular-nums text-[#101828] dark:text-white">{formatCurrency(subtotal)}</span>
+              <span className="text-sm font-medium text-[#667085] dark:text-[#8b8b8b]">Basket total</span>
+              <span className="text-xl font-bold tracking-tight tabular-nums text-[#101828] dark:text-[#f8f8f8]">{formatCurrency(subtotal)}</span>
             </div>
             <button
               onClick={openCheckout}
@@ -1271,18 +1431,18 @@ export function POSTerminal({ products, categories, customers, settings, require
               title={!hasActiveShift ? 'Start a shift before taking payment' : undefined}
               style={hasActiveShift ? { backgroundColor: ui.primary, color: ui.primaryInk } : undefined}
               className={cn(
-                'flex w-full items-center justify-center gap-2 rounded-lg px-4 py-3 text-sm font-bold transition-opacity',
+                'flex w-full items-center justify-center gap-2 rounded-lg px-4 py-3.5 text-sm font-bold transition-opacity',
                 hasActiveShift ? 'hover:opacity-90' : 'cursor-not-allowed bg-[#f2f4f7] text-[#98a2b3] dark:bg-white/5 dark:text-[#666]'
               )}
             >
-              {hasActiveShift ? `Continue to checkout · ${formatCurrency(subtotal)}` : 'Start shift to take payment'}
+              {hasActiveShift ? 'Continue to checkout' : 'Start shift to take payment'}
             </button>
-            <p className="mt-2 text-center text-[11px] text-[#98a2b3]">VAT, customer, discounts, and payment method are confirmed next.</p>
+            <p className="mt-2 text-center text-[10px] text-[#98a2b3]">Review customer details and order total next.</p>
           </div>
         )}
 
         {cart.length > 0 && checkoutOpen && (
-          <div className={cn('min-h-0 flex-1 space-y-4 overflow-y-auto border-t border-[#eef0f3] bg-[#fbfbfc] p-4 dark:border-white/10 dark:bg-[#111111]', checkoutOnly && cn(ui.card, 'self-start p-6 lg:col-start-2 lg:row-start-1'))}>
+          <div className={cn('min-h-0 flex-none space-y-4 overflow-y-auto border-t border-[#eef0f3] bg-[#fbfbfc] p-4 dark:border-white/10 dark:bg-[#111111] lg:max-h-[calc(100vh-16rem)]', !checkoutOnly && 'max-h-none !overflow-visible lg:max-h-none', checkoutOnly && cn(ui.card, 'self-start p-6 lg:col-start-2 lg:row-start-1 lg:max-h-none'))}>
             {checkoutOnly && (
               <div className="border-b border-[#eef0f3] pb-5 dark:border-white/10">
                 <button onClick={() => router.push('/dashboard/pos')} className="text-sm font-semibold text-[#344054] transition-colors hover:text-[#101828] dark:text-[#c4c4c4] dark:hover:text-white">
@@ -1290,74 +1450,77 @@ export function POSTerminal({ products, categories, customers, settings, require
                 </button>
                 <p className="mt-5 text-[11px] font-bold uppercase tracking-[0.14em]" style={{ color: ui.primaryHover }}>Payment</p>
                 <h2 className="mt-1.5 text-2xl font-bold tracking-tight text-[#101828] dark:text-white">Complete this sale</h2>
-                <p className="mt-2 text-sm leading-6 text-[#667085] dark:text-[#8b8b8b]">Confirm the customer, total, and payment method.</p>
+                <p className="mt-2 text-sm leading-6 text-[#667085] dark:text-[#8b8b8b]">Choose a payment method and complete the sale.</p>
               </div>
             )}
-            {/* Customer & discount */}
-            <div className="rounded-2xl border border-[#e4e9ef] bg-white p-3.5 shadow-[0_3px_12px_rgba(16,24,40,0.03)] dark:border-white/10 dark:bg-[#171717]">
+            {/* Customer */}
+            {checkoutStep === 'customer' && !checkoutOnly && <button type="button" onClick={() => setCheckoutOpen(false)} className="inline-flex items-center gap-1 self-start rounded-lg px-1 py-1 text-xs font-semibold text-[#667085] transition-colors hover:text-[#101828] dark:text-[#a3a3a3] dark:hover:text-white">← Back to basket</button>}
+            {checkoutStep === 'customer' && <div className="rounded-xl border border-[#e4e9ef] bg-white p-4 dark:border-white/10 dark:bg-[#171717]">
               <div className="mb-2 flex items-center justify-between">
-                <label className="flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-[0.12em] text-[#667085] dark:text-[#9d9d9d]"><span className="flex h-5 w-5 items-center justify-center rounded-md bg-[#fff3be] text-[#a47700] dark:bg-[rgba(255,214,10,.12)] dark:text-[#ffd60a]"><UserRound className="h-3 w-3" /></span> Customer</label>
-                <button onClick={() => setShowNewCustomer(!showNewCustomer)} disabled={mpesaLocksBasket} className="rounded-md px-1.5 py-1 text-[11px] font-bold text-[#e42527] transition-colors hover:bg-[#fff1f1] disabled:cursor-not-allowed disabled:opacity-50 dark:text-[#ff6b6b] dark:hover:bg-red-950/30">
+                <label className="flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-[0.1em] text-[#667085] dark:text-[#b5bac5]"><span className="flex h-6 w-6 items-center justify-center rounded-md border border-[#f1d56f] bg-[#fff7d6] text-[#9a6700] dark:border-[#5e461c] dark:bg-[#3a3016] dark:text-[#ffd166]"><ContactRound className="h-3.5 w-3.5" strokeWidth={2.25} /></span> Customer</label>
+                <button onClick={() => setShowNewCustomer(!showNewCustomer)} disabled={mpesaLocksBasket} className="rounded-md px-1.5 py-1 text-[11px] font-bold text-[#a47700] transition-colors hover:bg-[#fff8d6] disabled:cursor-not-allowed disabled:opacity-50 dark:text-[#ffd166] dark:hover:bg-[#3a3016]">
                   {showNewCustomer ? 'Cancel' : '+ New customer'}
                 </button>
               </div>
               {showNewCustomer ? (
                 <div className="space-y-2 rounded-xl bg-[#fffaf0] p-2.5 dark:bg-[rgba(255,214,10,.06)]">
-                  <input type="text" placeholder="Full name" value={newCustomerName} onChange={(e) => setNewCustomerName(e.target.value)} className={cn(inputCls, 'h-9 text-xs')} disabled={creatingCustomer} />
-                  <input type="tel" placeholder="Phone (optional)" value={newCustomerPhone} onChange={(e) => setNewCustomerPhone(e.target.value)} className={cn(inputCls, 'h-9 text-xs')} disabled={creatingCustomer} />
-                  <input type="email" placeholder="Email (optional)" value={newCustomerEmail} onChange={(e) => setNewCustomerEmail(e.target.value)} className={cn(inputCls, 'h-9 text-xs')} disabled={creatingCustomer} />
+                  <input type="text" placeholder="Full name" value={newCustomerName} onChange={(e) => setNewCustomerName(e.target.value)} className={cn(inputCls, 'h-10 text-sm')} disabled={creatingCustomer} />
+                  <input type="tel" placeholder="Phone (optional)" value={newCustomerPhone} onChange={(e) => setNewCustomerPhone(e.target.value)} className={cn(inputCls, 'h-10 text-sm')} disabled={creatingCustomer} />
+                  <input type="email" placeholder="Email (optional)" value={newCustomerEmail} onChange={(e) => setNewCustomerEmail(e.target.value)} className={cn(inputCls, 'h-10 text-sm')} disabled={creatingCustomer} />
                   <button
                     onClick={handleCreateCustomer}
                     disabled={creatingCustomer || !newCustomerName.trim()}
-                    className="w-full rounded-lg bg-[#e42527] px-2 py-2 text-xs font-bold text-white transition-colors hover:bg-[#c91f21] disabled:opacity-40"
+                    style={{ backgroundColor: ui.primary, color: ui.primaryInk }}
+                    className="w-full rounded-lg px-2 py-2 text-xs font-bold transition-opacity hover:opacity-90 disabled:opacity-40"
                   >
                     {creatingCustomer ? 'Creating…' : 'Save customer'}
                   </button>
                 </div>
               ) : (
-                <select value={selectedCustomer} disabled={mpesaLocksBasket} onChange={(e) => setSelectedCustomer(e.target.value)} className={cn(inputCls, 'h-10 border-[#e4e7ec] bg-[#fbfbfc] text-xs font-semibold focus:border-[#e42527] focus:ring-[#e42527]/10 dark:bg-[#161616]')}>
-                  <option value="">Walk-in customer</option>
-                  {availableCustomers.map((c) => (
-                    <option key={c.id} value={c.id}>{c.name}{c.phone ? ` (${c.phone})` : ''}</option>
-                  ))}
-                </select>
-              )}
-
-              {canDiscount && (
-                <div className="mt-3 border-t border-[#edf0f4] pt-3 dark:border-white/10">
-                  <label className="mb-2 flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-[0.12em] text-[#667085] dark:text-[#9d9d9d]"><span className="flex h-5 w-5 items-center justify-center rounded-md bg-[#fff3be] text-[#a47700] dark:bg-[rgba(255,214,10,.12)] dark:text-[#ffd60a]"><Tag className="h-3 w-3" /></span> Discount</label>
-                  <div className="flex gap-2">
-                  <select
-                    value={discountType}
-                    disabled={mpesaLocksBasket}
-                    onChange={(e) => {
-                      setDiscountType(e.target.value as 'fixed' | 'percentage')
-                      setDiscount(0)
-                    }}
-                    className={cn(inputCls, 'h-10 w-28 border-[#e4e7ec] bg-[#fbfbfc] text-xs font-semibold focus:border-[#e42527] focus:ring-[#e42527]/10 dark:bg-[#161616]')}
-                  >
-                    <option value="fixed">KES amount</option>
-                    <option value="percentage">Percentage</option>
-                  </select>
-                  <input
-                    type="number"
-                    min="0"
-                    max={discountType === 'percentage' ? 100 : subtotal + taxAmount}
-                    placeholder={discountType === 'percentage' ? '0–100' : 'Enter amount'}
-                    value={discount || ''}
-                    disabled={mpesaLocksBasket}
-                    onChange={(e) => setDiscount(parseFloat(e.target.value) || 0)}
-                    className={cn(inputCls, 'h-10 flex-1 border-[#e4e7ec] bg-[#fbfbfc] text-xs focus:border-[#e42527] focus:ring-[#e42527]/10 dark:bg-[#161616]')}
-                  />
-                </div>
+                <div className="relative">
+                  <button type="button" disabled={mpesaLocksBasket} onClick={() => setCustomerMenuOpen((open) => !open)} aria-haspopup="listbox" aria-expanded={customerMenuOpen} className={cn(inputCls, 'flex h-11 items-center justify-between text-left text-[13px] font-semibold focus:border-[#f2b705] focus:ring-[#f2b705]/10 disabled:cursor-not-allowed dark:bg-[#161616]')}>
+                    <span className="truncate">{selectedCustomer ? `${availableCustomers.find((customer) => customer.id === selectedCustomer)?.name ?? 'Customer'}${availableCustomers.find((customer) => customer.id === selectedCustomer)?.phone ? ` (${availableCustomers.find((customer) => customer.id === selectedCustomer)?.phone})` : ''}` : 'Walk-in customer'}</span>
+                    <ChevronDown className={cn('h-4 w-4 shrink-0 text-[#667085] transition-transform dark:text-[#aeb4c0]', customerMenuOpen && 'rotate-180')} />
+                  </button>
+                  {customerMenuOpen && !mpesaLocksBasket && (
+                    <div role="listbox" className="absolute inset-x-0 top-full z-30 mt-1 max-h-56 overflow-y-auto rounded-lg border border-[#e4e7ec] bg-white p-1 shadow-[0_10px_24px_rgba(16,24,40,0.14)] dark:border-white/10 dark:bg-[#1b1b1b]">
+                      <button type="button" role="option" aria-selected={!selectedCustomer} onClick={() => { setSelectedCustomer(''); setCustomerMenuOpen(false) }} className={cn('flex w-full items-center rounded-md px-3 py-2 text-left text-[13px] transition-colors hover:bg-[#fff8df] dark:hover:bg-[#302812]', !selectedCustomer ? 'bg-[#fff8df] font-semibold text-[#7a5b00] dark:bg-[#302812] dark:text-[#ffd166]' : 'text-[#344054] dark:text-[#e4e7ec]')}>Walk-in customer</button>
+                      {availableCustomers.map((customer) => {
+                        const label = `${customer.name}${customer.phone ? ` (${customer.phone})` : ''}`
+                        return <button key={customer.id} type="button" role="option" aria-selected={selectedCustomer === customer.id} onClick={() => { setSelectedCustomer(customer.id); setCustomerMenuOpen(false) }} className={cn('flex w-full items-center rounded-md px-3 py-2 text-left text-[13px] transition-colors hover:bg-[#fff8df] dark:hover:bg-[#302812]', selectedCustomer === customer.id ? 'bg-[#fff8df] font-semibold text-[#7a5b00] dark:bg-[#302812] dark:text-[#ffd166]' : 'text-[#344054] dark:text-[#e4e7ec]')}>{label}</button>
+                      })}
+                    </div>
+                  )}
                 </div>
               )}
-            </div>
 
-            {/* Totals */}
-            <div className="overflow-hidden rounded-2xl border border-[#e4e7ec] bg-white text-[#101828] shadow-[0_8px_20px_rgba(16,24,40,0.06)] dark:border-white/10 dark:bg-[#111827] dark:text-white">
+            </div>}
+
+            {/* Discount */}
+            {checkoutStep === 'customer' && canDiscount && <div className="rounded-xl border border-[#e4e9ef] bg-white p-4 dark:border-white/10 dark:bg-[#171717]">
+              <label className="mb-2 flex items-center gap-2 text-xs font-extrabold uppercase tracking-[0.1em] text-[#667085] dark:text-[#b5bac5]"><span className="flex h-7 w-7 items-center justify-center rounded-lg border border-[#f1d56f] bg-[#fff7d6] text-[#9a6700] dark:border-[#5e461c] dark:bg-[#3a3016] dark:text-[#ffd166]"><BadgePercent className="h-4 w-4" strokeWidth={2.25} /></span> Discount</label>
+              <div className="flex gap-2">
+                <div className="relative w-32 shrink-0">
+                  <button type="button" disabled={mpesaLocksBasket} onClick={() => setDiscountMenuOpen((open) => !open)} aria-haspopup="listbox" aria-expanded={discountMenuOpen} className={cn(inputCls, 'flex h-11 w-full items-center justify-between text-left text-[13px] font-semibold focus:border-[#f2b705] focus:ring-[#f2b705]/10 disabled:cursor-not-allowed dark:bg-[#161616]')}>
+                    <span>{discountType === 'fixed' ? 'KES amount' : 'Percentage'}</span>
+                    <ChevronDown className={cn('h-4 w-4 text-[#667085] transition-transform dark:text-[#aeb4c0]', discountMenuOpen && 'rotate-180')} />
+                  </button>
+                  {discountMenuOpen && !mpesaLocksBasket && (
+                    <div role="listbox" className="absolute inset-x-0 top-full z-30 mt-1 overflow-hidden rounded-lg border border-[#e4e7ec] bg-white p-1 shadow-[0_10px_24px_rgba(16,24,40,0.14)] dark:border-white/10 dark:bg-[#1b1b1b]">
+                      {(['fixed', 'percentage'] as const).map((type) => (
+                        <button key={type} type="button" role="option" aria-selected={discountType === type} onClick={() => { setDiscountType(type); setDiscount(0); setDiscountMenuOpen(false) }} className={cn('flex w-full items-center rounded-md px-3 py-2 text-left text-[13px] transition-colors hover:bg-[#fff8df] dark:hover:bg-[#302812]', discountType === type ? 'bg-[#fff8df] font-semibold text-[#7a5b00] dark:bg-[#302812] dark:text-[#ffd166]' : 'text-[#344054] dark:text-[#e4e7ec]')}>{type === 'fixed' ? 'KES amount' : 'Percentage'}</button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <input type="number" min="0" max={discountType === 'percentage' ? 100 : subtotal + taxAmount} placeholder={discountType === 'percentage' ? '0–100' : 'Enter amount'} value={discount || ''} disabled={mpesaLocksBasket} onChange={(e) => setDiscount(parseFloat(e.target.value) || 0)} className={cn(inputCls, 'h-11 flex-1 border-[#e4e7ec] bg-[#fbfbfc] text-[13px] focus:border-[#f2b705] focus:ring-[#f2b705]/10 dark:bg-[#161616]')} />
+              </div>
+            </div>}
+
+            {/* Order summary */}
+            {checkoutStep === 'customer' && <div className="overflow-hidden rounded-xl border border-[#e4e7ec] bg-white text-[#101828] dark:border-white/10 dark:bg-[#171717] dark:text-white">
               <div className="flex items-center justify-between border-b border-[#edf0f4] px-3.5 py-2.5 dark:border-white/10"><span className="text-[10px] font-extrabold uppercase tracking-[0.13em] text-[#a47700] dark:text-[#ffd60a]">Order summary</span><span className="rounded-full bg-[#fff3be] px-2 py-0.5 text-[10px] font-extrabold text-[#5f4600] dark:bg-[#f2b705] dark:text-[#241d00]">{cart.length} item{cart.length === 1 ? '' : 's'}</span></div>
-              <div className="space-y-1.5 px-3.5 pb-3.5 pt-3 text-xs">
+              <div className="space-y-1.5 px-4 pb-4 pt-3.5 text-[13px]">
               <div className="flex justify-between text-[#667085] dark:text-[#b9c4d6]">
                 <span>Subtotal</span>
                 <span className="tabular-nums font-semibold text-[#101828] dark:text-white">{formatCurrency(subtotal)}</span>
@@ -1385,8 +1548,30 @@ export function POSTerminal({ products, categories, customers, settings, require
                 <span className="text-xl font-extrabold tabular-nums text-[#101828] dark:text-white">{formatCurrency(total)}</span>
               </div>
               </div>
-            </div>
+            </div>}
 
+            {checkoutStep === 'customer' && (
+              <div className="rounded-xl border border-[#e4e7ec] bg-white p-3.5 dark:border-white/10 dark:bg-[#171717]">
+                <button
+                  type="button"
+                  onClick={() => setCheckoutStep('payment')}
+                  style={{ backgroundColor: ui.primary, color: ui.primaryInk }}
+                  className="flex w-full items-center justify-center gap-2 rounded-lg px-4 py-3.5 text-base font-bold transition-opacity hover:opacity-90"
+                >
+                  Continue to payment <span aria-hidden="true">→</span>
+                </button>
+                <p className="mt-2 text-center text-xs text-[#667085] dark:text-[#aeb4c0]">Review the order, then choose how the customer will pay.</p>
+              </div>
+            )}
+
+            {checkoutStep === 'payment' && <>
+            <button
+              type="button"
+              onClick={() => setCheckoutStep('customer')}
+              className="inline-flex items-center gap-1 rounded-lg px-1 py-1 text-xs font-semibold text-[#667085] transition-colors hover:text-[#101828] dark:text-[#a3a3a3] dark:hover:text-white"
+            >
+              ← Back to customer and order details
+            </button>
             {/* Payment method */}
             <div className="rounded-2xl border border-[#e4e9ef] bg-white p-3.5 shadow-[0_3px_12px_rgba(16,24,40,0.03)] dark:border-white/10 dark:bg-[#171717]">
               <div className="mb-2 flex items-center justify-between">
@@ -1636,8 +1821,9 @@ export function POSTerminal({ products, categories, customers, settings, require
                 'flex w-full items-center justify-center gap-2 rounded-xl py-3.5 text-sm font-bold shadow-[0_4px_12px_rgba(16,24,40,.16)] transition-colors',
                 processing || cart.length === 0 || !hasActiveShift
                   ? 'cursor-not-allowed !bg-[#e4e7ec] !text-[#667085] shadow-none dark:!bg-white/10 dark:!text-[#8b8b8b]'
-                  : '!bg-[#e42527] !text-white hover:!bg-[#c91f21]'
+                  : 'hover:opacity-90'
               )}
+              style={processing || cart.length === 0 || !hasActiveShift ? undefined : { backgroundColor: ui.primary, color: ui.primaryInk }}
             >
               {processing ? (
                 <><Loader2 className="h-4 w-4 animate-spin" /> Processing…</>
@@ -1648,6 +1834,7 @@ export function POSTerminal({ products, categories, customers, settings, require
                 </>
               )}
             </button>}
+            </>}
           </div>
         )}
       </aside>
@@ -1665,8 +1852,9 @@ export function POSTerminal({ products, categories, customers, settings, require
                 Cancel
               </button>
               <button
+                ref={ageVerificationConfirmRef}
                 type="button"
-                onClick={() => { setAgeVerified(true); setShowAgeVerification(false); if (paymentMethod !== 'mpesa' || mpesaStatus === 'success') void processCheckout(true) }}
+                onClick={confirmAgeVerification}
                 style={{ backgroundColor: ui.primary, color: ui.primaryInk }}
                 className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg px-4 text-sm font-bold transition-opacity hover:opacity-90"
               >

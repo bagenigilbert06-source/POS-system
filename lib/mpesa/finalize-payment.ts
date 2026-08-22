@@ -2,7 +2,7 @@ import { and, eq, inArray, isNull } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import {
   auditEvent, businessSettings, customer, mpesaIncomingPayment, mpesaPaymentRequest,
-  product, sale, saleItem, salePayment,
+  posSession, product, sale, saleItem, salePayment,
 } from '@/lib/db/schema'
 import { calculateMpesaAmount } from '@/lib/mpesa/amount'
 import { generateId, generateReceiptNo } from '@/lib/utils'
@@ -27,6 +27,14 @@ export async function finalizeConfirmedMpesaPayment(requestId: string) {
     if (intent.saleId) return { saleId: intent.saleId, alreadyFinalized: true }
     if (intent.status !== 'CONFIRMED' || !intent.receiptNumber) throw new Error('M-Pesa payment is not confirmed')
     if (!intent.branchId || !intent.posSessionId) throw new Error('M-Pesa checkout is missing branch or shift context')
+    const [activeShift] = await tx.select({ id: posSession.id }).from(posSession).where(and(
+      eq(posSession.id, intent.posSessionId),
+      eq(posSession.orgId, intent.organizationId),
+      eq(posSession.branchId, intent.branchId),
+      eq(posSession.openedBy, intent.userId),
+      eq(posSession.status, 'open'),
+    )).limit(1).for('update')
+    if (!activeShift) throw new Error('The POS shift closed before this M-Pesa payment was finalized')
 
     const checkout = intent.checkoutPayload as MpesaCheckoutPayload | null
     if (!checkout?.items?.length || !Number.isFinite(checkout.discountAmount)) throw new Error('M-Pesa checkout details are unavailable')

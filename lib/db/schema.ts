@@ -245,6 +245,7 @@ export const businessSettings = pgTable('business_settings', {
   receiptShowItemSku: boolean('receiptShowItemSku').notNull().default(false),
   receiptNumbering: text('receiptNumbering').notNull().default('automatic'),
   checklistDismissed: boolean('checklistDismissed').notNull().default(false),
+  cashVarianceTolerance: numeric('cashVarianceTolerance', { precision: 12, scale: 2 }).notNull().default('0'),
   createdAt: timestamp('createdAt').notNull().defaultNow(),
   updatedAt: timestamp('updatedAt').notNull().defaultNow(),
 });
@@ -887,10 +888,16 @@ export const salesReturn = pgTable(
     status: text('status').notNull().default('completed'),
     userId: text('userId').notNull(),
     orgId: text('orgId').notNull(),
+    // A cash refund changes the drawer of the shift that issued it, which can
+    // be different from the shift that made the original sale.
+    posSessionId: text('posSessionId').references(() => posSession.id, {
+      onDelete: 'restrict',
+    }),
     createdAt: timestamp('createdAt').notNull().defaultNow(),
   },
   (table) => ({
     organizationIndex: index('sales_return_org_idx').on(table.orgId),
+    sessionIndex: index('sales_return_session_idx').on(table.posSessionId),
   })
 );
 
@@ -944,9 +951,22 @@ export const posSession = pgTable(
     expectedCash: numeric('expectedCash', { precision: 12, scale: 2 }),
     closingCash: numeric('closingCash', { precision: 12, scale: 2 }),
     variance: numeric('variance', { precision: 12, scale: 2 }),
+    // Blind-count draft: populated while status is closing, promoted to the
+    // final closingCash/variance fields only when the shift is closed.
+    countedCash: numeric('countedCash', { precision: 12, scale: 2 }),
+    countedVariance: numeric('countedVariance', { precision: 12, scale: 2 }),
+    countedAt: timestamp('countedAt'),
     notes: text('notes'),
+    varianceReason: text('varianceReason'),
+    reconciliationStartedAt: timestamp('reconciliationStartedAt'),
+    // Immutable closing snapshot for reporting after live sales data changes.
+    closingSummary: json('closingSummary'),
     openedBy: text('openedBy').notNull(),
     closedBy: text('closedBy'),
+    // A registered POS terminal is the stable physical register identity.
+    terminalId: text('terminalId').references(() => posTerminal.id, {
+      onDelete: 'restrict',
+    }),
     orgId: text('orgId').notNull(),
     branchId: text('branchId').references(() => branch.id, {
       onDelete: 'restrict',
@@ -959,6 +979,16 @@ export const posSession = pgTable(
     operatorStatusIndex: index('pos_session_operator_status_idx').on(
       table.orgId,
       table.openedBy,
+      table.status
+    ),
+    branchStatusIndex: index('pos_session_branch_status_idx').on(
+      table.orgId,
+      table.branchId,
+      table.status
+    ),
+    terminalStatusIndex: index('pos_session_terminal_status_idx').on(
+      table.orgId,
+      table.terminalId,
       table.status
     ),
   })
@@ -1038,10 +1068,16 @@ export const cashMovement = pgTable('cash_movement', {
   type: text('type').notNull(),
   amount: numeric('amount', { precision: 12, scale: 2 }).notNull(),
   reason: text('reason').notNull(),
+  notes: text('notes'),
   userId: text('userId').notNull(),
   orgId: text('orgId').notNull(),
+  branchId: text('branchId').references(() => branch.id, { onDelete: 'restrict' }),
+  idempotencyKey: text('idempotencyKey'),
   createdAt: timestamp('createdAt').notNull().defaultNow(),
-});
+}, (table) => ({
+  sessionIndex: index('cash_movement_session_idx').on(table.sessionId),
+  idempotencyIndex: uniqueIndex('cash_movement_org_idempotency_idx').on(table.orgId, table.idempotencyKey),
+}));
 
 export const salePayment = pgTable(
   'sale_payment',

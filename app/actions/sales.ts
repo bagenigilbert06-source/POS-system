@@ -152,7 +152,7 @@ export async function createSale(data: {
     }
   }
 
-  const [activeShift] = await db.select({ id: posSession.id }).from(posSession).where(and(eq(posSession.orgId, orgId), eq(posSession.openedBy, userId), eq(posSession.status, 'open'))).limit(1)
+  const [activeShift] = await db.select({ id: posSession.id }).from(posSession).where(and(eq(posSession.orgId, orgId), eq(posSession.openedBy, userId), posAuthorization?.terminalId ? eq(posSession.terminalId, posAuthorization.terminalId) : undefined, eq(posSession.status, 'open'))).limit(1)
   if (!activeShift) throw new Error('Start your shift before completing a sale')
   let saleBranchId = posAuthorization?.branchId ?? saleAuthorization.branchIds[0]
   if (!saleBranchId) {
@@ -248,6 +248,17 @@ export async function createSale(data: {
 
   try {
     await db.transaction(async (tx) => {
+    // Lock the active shift at the point the sale is committed. A shift that
+    // entered reconciliation cannot accept a late checkout from another tab.
+    const [lockedShift] = await tx.select({ id: posSession.id }).from(posSession).where(and(
+      eq(posSession.id, activeShift.id),
+      eq(posSession.orgId, orgId),
+      eq(posSession.openedBy, userId),
+      posAuthorization?.terminalId ? eq(posSession.terminalId, posAuthorization.terminalId) : undefined,
+      eq(posSession.branchId, saleBranchId),
+      eq(posSession.status, 'open'),
+    )).limit(1).for('update')
+    if (!lockedShift) throw new Error('This shift is no longer open. Start a new shift before completing the sale.')
     // Verify and deduct branch stock atomically through the inventory ledger.
     const costByProduct = new Map<string, { unitCost: number; totalCost: number }>()
     for (const item of saleItems) {

@@ -40,7 +40,7 @@ export function ComplianceStatusCard({ verified, needsReview }: ComplianceStatus
 
         {hasActivity ? (
           <div className="min-w-[112px] border-l-0 border-[var(--dashboard-border)] lg:border-l lg:pl-5">
-            <p className="text-xl font-bold leading-none tabular-nums text-[var(--dashboard-text)]" aria-label={`${verificationRate?.toFixed(1)} percent of required sales verified`}>
+            <p className="text-lg font-bold leading-none tabular-nums text-[var(--dashboard-text)]" aria-label={`${verificationRate?.toFixed(1)} percent of required sales verified`}>
               {verificationRate?.toFixed(1)}%
             </p>
             <p className="mt-1 text-[0.65rem] font-semibold uppercase tracking-[0.08em] text-[var(--dashboard-muted)]">Verified today</p>

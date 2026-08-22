@@ -79,7 +79,7 @@ export function CategoriesClient({ initialCategories }: { initialCategories: Cat
   })
 
   return (
-    <div className="space-y-5 font-sans [font-feature-settings:'ss01','cv02','cv03']">
+    <div className="space-y-5 [font-feature-settings:'ss01','cv02','cv03']">
       <div className="grid gap-3 sm:grid-cols-3">
         <Summary label="Total categories" value={categories.length} icon={Layers3} />
         <Summary label="Active categories" value={categories.filter((item) => item.isActive).length} tone="green" icon={CheckCircle2} />

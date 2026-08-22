@@ -147,8 +147,8 @@ export function OperatingChart({ data, currency }: OperatingChartProps) {
                   <XAxis dataKey="label" axisLine={false} tickLine={false} minTickGap={28} tick={{ fill: 'var(--dashboard-muted)', fontSize: 10 }} dy={9} />
                   <YAxis axisLine={false} tickLine={false} width={58} tickCount={4} tick={{ fill: 'var(--dashboard-muted)', fontSize: 10 }} tickFormatter={(value: number) => compact(value, currency)} />
                   <Tooltip cursor={{ stroke: 'var(--dashboard-muted)', strokeOpacity: 0.45, strokeDasharray: '4 4' }} content={<PerformanceTooltip currency={currency} />} />
-                  <Area type="monotone" dataKey="revenue" name="Revenue" stroke="var(--dashboard-chart-revenue)" strokeWidth={2.25} fill="url(#operatingRevenueFill)" activeDot={{ r: 4, strokeWidth: 2, fill: 'var(--dashboard-surface)' }} dot={chartData.length <= 2 ? { r: 3, fill: 'var(--dashboard-chart-revenue)' } : false} />
-                  {expenses > 0 && <Line type="monotone" dataKey="expenses" name="Expenses" stroke="var(--dashboard-chart-secondary)" strokeWidth={1.75} strokeDasharray="5 4" activeDot={{ r: 4, strokeWidth: 2, fill: 'var(--dashboard-surface)' }} dot={chartData.length <= 2 ? { r: 3, fill: 'var(--dashboard-chart-secondary)' } : false} />}
+                  <Area type="monotone" dataKey="revenue" name="Revenue" stroke="var(--dashboard-chart-revenue)" strokeWidth={2.25} fill="url(#operatingRevenueFill)" activeDot={{ r: 4, strokeWidth: 2, fill: 'var(--dashboard-surface)' }} dot={chartData.length <= 2 ? { r: 3, fill: 'var(--dashboard-chart-revenue)' } : false} isAnimationActive={false} />
+                  {expenses > 0 && <Line type="monotone" dataKey="expenses" name="Expenses" stroke="var(--dashboard-chart-secondary)" strokeWidth={1.75} strokeDasharray="5 4" activeDot={{ r: 4, strokeWidth: 2, fill: 'var(--dashboard-surface)' }} dot={chartData.length <= 2 ? { r: 3, fill: 'var(--dashboard-chart-secondary)' } : false} isAnimationActive={false} />}
                 </AreaChart>
               </ResponsiveContainer>
             </div>

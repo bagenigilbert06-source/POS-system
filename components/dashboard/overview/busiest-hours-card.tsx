@@ -117,7 +117,7 @@ export function BusiestHoursCard({ currency, reportDate, sales }: BusiestHoursCa
           <div className="flex items-end justify-between gap-4">
             <div>
               <p className="text-[0.62rem] font-bold uppercase tracking-[0.12em] text-[var(--dashboard-muted)]">Peak time</p>
-              <p className="mt-1 text-[1.35rem] font-bold leading-none tracking-tight">{view.peak.label}</p>
+              <p className="mt-1 text-[1.2rem] font-bold leading-none tracking-tight">{view.peak.label}</p>
             </div>
             <div className="text-right">
               <p className="text-[0.82rem] font-bold tabular-nums">{formatCurrency(view.peak.revenue, currency)}</p>
@@ -134,7 +134,7 @@ export function BusiestHoursCard({ currency, reportDate, sales }: BusiestHoursCa
               <BarChart data={view.points} margin={{ top: 8, right: 0, bottom: 0, left: 0 }} barCategoryGap="24%">
                 <XAxis dataKey="hour" axisLine={false} tickLine={false} interval={2} tickFormatter={axisHour} tick={{ fill: 'var(--dashboard-chart-tick)', fontSize: 9 }} />
                 <Tooltip cursor={{ fill: 'var(--dashboard-accent-soft)' }} content={<HourTooltip currency={currency} />} />
-                <Bar dataKey="activity" radius={[4, 4, 2, 2]} minPointSize={view.transactions ? 0 : undefined}>
+                <Bar dataKey="activity" radius={[4, 4, 2, 2]} minPointSize={view.transactions ? 0 : undefined} isAnimationActive={false}>
                   {view.points.map((point) => (
                     <Cell key={point.hour} fill={point.hour === view.peak?.hour ? 'var(--dashboard-accent)' : 'var(--dashboard-muted)'} fillOpacity={point.hour === view.peak?.hour ? 1 : 0.24} />
                   ))}

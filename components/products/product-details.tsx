@@ -60,7 +60,7 @@ export function ProductDetails({ overview }: { overview: ProductOverview }) {
   }));
 
   return (
-    <div className="mx-auto max-w-[1100px] space-y-5 font-sans">
+    <div className="mx-auto max-w-[1100px] space-y-5">
       <Link
         href="/dashboard/products"
         className="inline-flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground"

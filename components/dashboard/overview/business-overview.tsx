@@ -156,7 +156,7 @@ export function BusinessOverview({ organizationName, userName, timeZone, currenc
             <p className="mt-3 text-[0.68rem] font-bold uppercase tracking-[0.14em] text-[var(--dashboard-accent)]">
               {role === RoleEnum.MANAGER ? 'Manager · Branch overview' : role === RoleEnum.ADMIN ? 'Admin · Business overview' : 'Owner · Business overview'}
             </p>
-            <h1 className="mt-1.5 text-[1.7rem] font-bold leading-tight tracking-tight sm:text-[1.95rem]">
+            <h1 className="mt-1.5 text-[1.5rem] font-semibold leading-[1.2] tracking-[-0.025em] sm:text-[1.7rem]">
               <TimeGreeting name={userName} timeZone={timeZone} />
             </h1>
             <p className={cn('mt-2 max-w-lg text-sm leading-6', MUTED)}>

@@ -17,6 +17,7 @@
     "test:email": "ts-node --compiler-options '{\"module\":\"CommonJS\",\"moduleResolution\":\"node\",\"types\":[\"node\"]}' tests/email-templates.test.ts",
     "test:pos-pin": "ts-node --compiler-options '{\"module\":\"CommonJS\",\"moduleResolution\":\"node\",\"types\":[\"node\"]}' tests/pos-pin-policy.test.ts",
     "test:pos-sale": "ts-node --compiler-options '{\"module\":\"CommonJS\",\"moduleResolution\":\"node\",\"types\":[\"node\"]}' tests/pos-sale-rules.test.ts",
+    "test:pos-shift-db": "node tests/pos-shift-db.integration.mjs",
     "test:inventory": "ts-node --compiler-options '{\"module\":\"CommonJS\",\"moduleResolution\":\"node\",\"types\":[\"node\"]}' tests/inventory-rules.test.ts",
     "test:mpesa": "ts-node --compiler-options '{\"module\":\"CommonJS\",\"moduleResolution\":\"node\",\"types\":[\"node\"]}' tests/mpesa-rules.test.ts",
     "test": "pnpm run test:onboarding-rules && pnpm run test:rbac && pnpm run test:inventory && pnpm run test:email && pnpm run test:pos-pin && pnpm run test:auth && pnpm run test:onboarding",

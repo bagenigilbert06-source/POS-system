@@ -57,7 +57,7 @@ export function SaleDetailPage({ detail, settings }: { detail: Detail; settings:
   }
 
   return (
-    <div className="mx-auto w-full max-w-[1180px] space-y-5 pb-10">
+    <div className="sales-workspace mx-auto w-full max-w-[1180px] space-y-5 pb-10">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <Link href="/dashboard/sales" className="inline-flex items-center gap-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"><ArrowLeft className="h-4 w-4" />Back to sales</Link>
         <div className="flex flex-wrap gap-2">

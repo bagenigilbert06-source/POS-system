@@ -11,7 +11,7 @@ export default async function ProductsPage() {
   const products = await getProductsPageData()
 
   return (
-    <div className="mx-auto max-w-[1480px] space-y-5">
+    <div className="products-workspace mx-auto max-w-[1480px] space-y-5">
       <DashboardPageHeading icon={Package} title="Products" description="Manage your product catalog, pricing and stock setup." theme="adaptive" />
 
       <ProductsTable initialProducts={products} />

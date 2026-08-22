@@ -56,7 +56,7 @@ export function MetricCard({ title, value, icon: Icon, description, href, trend,
   const card = (
     <Card className={cn(
       'group relative flex h-full min-h-[164px] flex-col overflow-hidden rounded-2xl border border-[var(--dashboard-border)] bg-[var(--dashboard-surface)] text-[var(--dashboard-text)] shadow-[0_1px_2px_rgba(16,24,40,.04)] transition-[border-color,box-shadow] duration-150',
-      href && 'hover:border-[var(--dashboard-accent-soft-border)] hover:shadow-[0_6px_18px_rgba(16,24,40,.06)]',
+      href && 'hover:border-[var(--dashboard-accent-soft-border)]',
     )}>
       <CardHeader className="relative z-[1] flex-row items-start justify-between space-y-0 px-4 pb-0 pt-4">
         {loading ? <Skeleton className="h-4 w-28 bg-[var(--dashboard-surface-subtle)]" /> : <p className="pt-0.5 text-[0.72rem] font-semibold text-[var(--dashboard-muted)]">{title}</p>}
@@ -74,7 +74,7 @@ export function MetricCard({ title, value, icon: Icon, description, href, trend,
           </>
         ) : (
           <>
-            <p className={cn('truncate font-semibold leading-none tracking-[-0.035em] tabular-nums', compactValue ? 'text-[1.45rem]' : 'text-[1.7rem]')} title={value}>{value}</p>
+            <p className={cn('truncate font-semibold leading-[1.08] tracking-[-0.025em] tabular-nums', compactValue ? 'text-[1.25rem]' : 'text-[1.5rem]')} title={value}>{value}</p>
             <div className="mt-auto pt-3">
               {status ? (
                 <Badge

@@ -1,30 +1,599 @@
-'use client'
+'use client';
 
-import { useState, useTransition } from 'react'
-import { useRouter } from 'next/navigation'
-import { openPosSession, closePosSession } from '@/app/actions/operations'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Banknote, CircleDot, ReceiptText } from 'lucide-react'
+import { useEffect, useState, useTransition } from 'react';
+import type { ReactNode } from 'react';
+import { useRouter } from 'next/navigation';
+import {
+  beginPosSessionClose,
+  cancelPosSessionClose,
+  completePosSessionClose,
+  getPosSessionReconciliation,
+  openPosSession,
+  recordCashMovement,
+  submitPosSessionCount,
+} from '@/app/actions/operations';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  ArrowDownToLine,
+  Banknote,
+  CircleDot,
+  ReceiptText,
+  ShieldCheck,
+} from 'lucide-react';
+import { GoogleMapsMark } from '@/components/ui/contact-marks';
 
-export function CashierShiftStrip({ workspace }: { workspace: { session: { sessionNo: string; openingCash: string } | null; todaySales: number; transactionCount: number } }) {
-  const router = useRouter()
-  const [pending, startTransition] = useTransition()
-  const [cash, setCash] = useState('')
-  const [error, setError] = useState('')
-  const [reconciliation, setReconciliation] = useState<{ expectedCash: number; countedCash: number; variance: number } | null>(null)
-  const run = () => startTransition(async () => { try { setError(''); setReconciliation(null); if (workspace.session) setReconciliation(await closePosSession(Number(cash))); else await openPosSession(Number(cash)); setCash(''); router.refresh() } catch (cause) { setError(cause instanceof Error ? cause.message : 'Unable to update shift') } })
-  return <section className="rounded-xl border border-border bg-card p-3 shadow-sm sm:p-4">
-    <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-      <dl className="grid min-w-0 flex-1 grid-cols-1 divide-y divide-border overflow-hidden rounded-lg border border-border bg-[var(--dashboard-surface)] sm:grid-cols-3 sm:divide-x sm:divide-y-0">
-        <div className="flex items-center gap-3 px-3 py-3 sm:px-4"><span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#fff7d6] text-[#946d00]"><Banknote className="h-4 w-4" /></span><div><dt className="text-[11px] font-semibold text-muted-foreground">My sales today</dt><dd className="mt-0.5 text-lg font-bold tabular-nums text-[var(--dashboard-text)]">KES {workspace.todaySales.toLocaleString()}</dd></div></div>
-        <div className="flex items-center gap-3 px-3 py-3 sm:px-4"><span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#f3f5f7] text-[#526078]"><ReceiptText className="h-4 w-4" /></span><div><dt className="text-[11px] font-semibold text-muted-foreground">My transactions</dt><dd className="mt-0.5 text-lg font-bold tabular-nums text-[var(--dashboard-text)]">{workspace.transactionCount}</dd></div></div>
-        <div className="flex items-center gap-3 px-3 py-3 sm:px-4"><span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${workspace.session ? 'bg-emerald-50 text-emerald-700' : 'bg-[#f3f5f7] text-[#526078]'}`}><CircleDot className="h-4 w-4" /></span><div><dt className="text-[11px] font-semibold text-muted-foreground">Shift</dt><dd className={`mt-1 inline-flex rounded-full px-2 py-0.5 text-xs font-bold ${workspace.session ? 'bg-emerald-50 text-emerald-700' : 'bg-[#f3f5f7] text-[#526078]'}`}>{workspace.session ? `Open · ${workspace.session.sessionNo}` : 'Not started'}</dd></div></div>
-      </dl>
-      <div className="flex shrink-0 items-center gap-2"><Input aria-label={workspace.session ? 'Counted closing cash' : 'Opening float'} value={cash} onChange={(event) => setCash(event.target.value)} type="number" min="0" step="0.01" placeholder={workspace.session ? 'Counted cash' : 'Opening float'} className="h-10 w-full min-w-0 sm:w-36" /><Button className="h-10 shrink-0" disabled={pending || cash === ''} onClick={run}>{workspace.session ? 'End shift' : 'Start shift'}</Button></div>
+type Reconciliation = {
+  expectedCash: number;
+  countedCash: number;
+  variance: number;
+  requiresReason: boolean;
+  tolerance: number;
+};
+type Workspace = {
+  session: {
+    id: string;
+    sessionNo: string;
+    status: string;
+    openingCash: string;
+    countedCash: string | null;
+    openedAt: Date;
+  } | null;
+  registerName: string | null;
+  shiftSales: number;
+  transactionCount: number;
+  cashMovementCount: number;
+  locationName: string;
+};
+const money = (amount: number) =>
+  `KES ${amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+export function CashierShiftStrip({
+  workspace,
+  action,
+  canManageCash = false,
+}: {
+  workspace: Workspace;
+  action?: ReactNode;
+  canManageCash?: boolean;
+}) {
+  const router = useRouter();
+  const [pending, startTransition] = useTransition();
+  const [openingOpen, setOpeningOpen] = useState(false),
+    [movementOpen, setMovementOpen] = useState(false),
+    [closingOpen, setClosingOpen] = useState(false);
+  const [closeStep, setCloseStep] = useState<'count' | 'result'>('count'),
+    [openingFloat, setOpeningFloat] = useState(''),
+    [countedCash, setCountedCash] = useState(''),
+    [varianceReason, setVarianceReason] = useState(''),
+    [notes, setNotes] = useState('');
+  const [movementType, setMovementType] = useState<
+      'cash_in' | 'cash_out' | 'safe_drop'
+    >('cash_in'),
+    [movementAmount, setMovementAmount] = useState(''),
+    [movementReason, setMovementReason] = useState('');
+  const [error, setError] = useState(''),
+    [result, setResult] = useState<Reconciliation | null>(null);
+  const session = workspace.session;
+  const isClosing = session?.status === 'closing';
+  useEffect(() => {
+    if (!isClosing) {
+      setCloseStep('count');
+      setResult(null);
+      return;
+    }
+    if (session?.countedCash != null) setCloseStep('result');
+  }, [isClosing, session?.countedCash]);
+  const run = (task: () => Promise<void>) =>
+    startTransition(async () => {
+      try {
+        setError('');
+        await task();
+      } catch (cause) {
+        setError(
+          cause instanceof Error ? cause.message : 'Unable to update this shift'
+        );
+      }
+    });
+  const openReconciliation = () =>
+    run(async () => {
+      if (!session) return;
+      if (session.countedCash != null) {
+        const preview = await getPosSessionReconciliation(session.id);
+        setResult(preview);
+        setCountedCash(session.countedCash);
+        setCloseStep('result');
+      } else {
+        setResult(null);
+        setCountedCash('');
+        setCloseStep('count');
+      }
+      setClosingOpen(true);
+    });
+  const cancelReconciliation = () => {
+    if (!session || session.status !== 'closing') return;
+    run(async () => {
+      await cancelPosSessionClose(session.id);
+      setClosingOpen(false);
+      setResult(null);
+      setCountedCash('');
+      setVarianceReason('');
+      setNotes('');
+      router.refresh();
+    });
+  };
+  const status = result
+    ? result.variance === 0
+      ? 'Balanced'
+      : result.variance < 0
+        ? 'Short'
+        : 'Over'
+    : '';
+  const closeBlocked =
+    !result || (result.requiresReason && varianceReason.trim().length < 3);
+
+  return (
+    <>
+      <section className="overflow-hidden rounded-2xl border border-[#ead28a] bg-gradient-to-r from-[#fffdf7] via-[#fff9e5] to-[#fff1b8] shadow-[0_2px_8px_rgba(151,112,0,.08)] dark:border-[rgba(255,214,10,.22)] dark:from-[#15130c] dark:via-[#201b0d] dark:to-[#30270f] dark:shadow-[0_2px_8px_rgba(0,0,0,.18)]">
+        <div className="flex flex-col gap-3 px-4 py-3.5 xl:flex-row xl:items-center xl:justify-between">
+          <dl className="grid min-w-0 flex-1 grid-cols-2 gap-x-6 gap-y-3 md:grid-cols-4 xl:max-w-3xl">
+            <Metric
+              icon={Banknote}
+              label="Shift sales"
+              value={money(workspace.shiftSales)}
+              tone="gold"
+            />
+            <Metric
+              icon={ReceiptText}
+              label="Transactions"
+              value={String(workspace.transactionCount)}
+            />
+            <Metric
+              icon={CircleDot}
+              label="Register"
+              value={
+                session
+                  ? isClosing
+                    ? 'Reconciling'
+                    : `Open · ${workspace.registerName ?? session.sessionNo}`
+                  : 'No active shift'
+              }
+              tone={session ? 'success' : undefined}
+            />
+            <Metric
+              mark={<GoogleMapsMark className="h-4 w-4" />}
+              label="Location"
+              value={workspace.locationName}
+            />
+          </dl>
+          <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+            {action}
+            {!session ? (
+              <Button
+                className="h-9"
+                onClick={() => {
+                  setError('');
+                  setOpeningOpen(true);
+                }}
+              >
+                Open shift
+              </Button>
+            ) : isClosing ? (
+              <Button
+                disabled={pending}
+                className="h-9"
+                onClick={openReconciliation}
+              >
+                {session.countedCash != null
+                  ? 'Review reconciliation'
+                  : 'Count drawer'}
+              </Button>
+            ) : (
+              <>
+                {canManageCash && (
+                  <Button
+                    disabled={pending}
+                    variant="outline"
+                    className="h-9 bg-white/70 dark:bg-black/10"
+                    onClick={() => {
+                      setError('');
+                      setMovementOpen(true);
+                    }}
+                  >
+                    <ArrowDownToLine className="mr-1.5 h-4 w-4" />
+                    Cash movement
+                  </Button>
+                )}
+                <Button
+                  disabled={pending}
+                  className="h-9"
+                  onClick={() =>
+                    run(async () => {
+                      if (!session) return;
+                      await beginPosSessionClose(session.id);
+                      setCloseStep('count');
+                      setResult(null);
+                      setCountedCash('');
+                      setClosingOpen(true);
+                      router.refresh();
+                    })
+                  }
+                >
+                  End shift
+                </Button>
+              </>
+            )}
+          </div>
+        </div>
+        {session && (
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-1 px-4 pb-3 text-[11px] text-[var(--dashboard-muted)]">
+            <span>Opening float {money(Number(session.openingCash))}</span>
+            <span>
+              {workspace.cashMovementCount} cash movement
+              {workspace.cashMovementCount === 1 ? '' : 's'}
+            </span>
+            {isClosing && (
+              <span className="inline-flex items-center gap-1 font-medium text-amber-700 dark:text-amber-300">
+                <ShieldCheck className="h-3.5 w-3.5" />
+                Sales and movements are paused while you count.
+              </span>
+            )}
+          </div>
+        )}
+        {error && (
+          <p className="border-t border-red-200 bg-red-50 px-4 py-2 text-xs text-destructive dark:border-red-900 dark:bg-red-950/20">
+            {error}
+          </p>
+        )}
+      </section>
+
+      <Dialog open={openingOpen} onOpenChange={setOpeningOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Open a shift</DialogTitle>
+            <DialogDescription>
+              Confirm the cash you are placing in the drawer at{' '}
+              {workspace.locationName}.
+            </DialogDescription>
+          </DialogHeader>
+          <label className="grid gap-1.5 text-sm font-medium">
+            Opening float{' '}
+            <CurrencyInput
+              value={openingFloat}
+              onChange={setOpeningFloat}
+              autoFocus
+            />
+          </label>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOpeningOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              disabled={pending || openingFloat === ''}
+              onClick={() =>
+                run(async () => {
+                  await openPosSession(Number(openingFloat));
+                  setOpeningFloat('');
+                  setOpeningOpen(false);
+                  router.refresh();
+                })
+              }
+            >
+              Open register
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={movementOpen} onOpenChange={setMovementOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Record cash movement</DialogTitle>
+            <DialogDescription>
+              This is added to the shift audit trail and included in the close
+              calculation.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-3">
+            <label className="grid gap-1.5 text-sm font-medium">
+              Type{' '}
+              <select
+                className="h-10 rounded-md border bg-background px-3 text-sm"
+                value={movementType}
+                onChange={(event) =>
+                  setMovementType(event.target.value as typeof movementType)
+                }
+              >
+                <option value="cash_in">Cash in</option>
+                <option value="cash_out">Cash out</option>
+                <option value="safe_drop">Safe drop</option>
+              </select>
+            </label>
+            <label className="grid gap-1.5 text-sm font-medium">
+              Amount{' '}
+              <CurrencyInput
+                value={movementAmount}
+                onChange={setMovementAmount}
+              />
+            </label>
+            <label className="grid gap-1.5 text-sm font-medium">
+              Reason{' '}
+              <Input
+                value={movementReason}
+                onChange={(event) => setMovementReason(event.target.value)}
+                maxLength={300}
+                placeholder="Explain this movement"
+              />
+            </label>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setMovementOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              disabled={
+                pending || !movementAmount || movementReason.trim().length < 3
+              }
+              onClick={() =>
+                run(async () => {
+                  await recordCashMovement({
+                    type: movementType,
+                    amount: Number(movementAmount),
+                    reason: movementReason,
+                    idempotencyKey: crypto.randomUUID(),
+                  });
+                  setMovementAmount('');
+                  setMovementReason('');
+                  setMovementOpen(false);
+                  router.refresh();
+                })
+              }
+            >
+              Save movement
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={closingOpen}
+        onOpenChange={(open) => {
+          if (!open && session?.status === 'closing') cancelReconciliation();
+          else setClosingOpen(open);
+        }}
+      >
+        <DialogContent>
+          {closeStep === 'count' ? (
+            <>
+              <DialogHeader>
+                <DialogTitle>Count the drawer</DialogTitle>
+                <DialogDescription>
+                  Count the physical cash first. Expected cash stays hidden
+                  until this count is committed.
+                </DialogDescription>
+              </DialogHeader>
+              <label className="grid gap-1.5 text-sm font-medium">
+                Cash physically in drawer{' '}
+                <CurrencyInput
+                  value={countedCash}
+                  onChange={setCountedCash}
+                  autoFocus
+                />
+              </label>
+              <label className="grid gap-1.5 text-sm font-medium">
+                Closing note{' '}
+                <Input
+                  value={notes}
+                  onChange={(event) => setNotes(event.target.value)}
+                  maxLength={500}
+                  placeholder="Optional handover note"
+                />
+              </label>
+              <DialogFooter>
+                <Button variant="outline" onClick={cancelReconciliation}>
+                  Cancel reconciliation
+                </Button>
+                <Button
+                  disabled={pending || countedCash === ''}
+                  onClick={() =>
+                    run(async () => {
+                      if (!session) return;
+                      const submitted = await submitPosSessionCount({
+                        countedCash: Number(countedCash),
+                        sessionId: session.id,
+                      });
+                      setResult(submitted);
+                      setCloseStep('result');
+                      router.refresh();
+                    })
+                  }
+                >
+                  Continue to reconciliation
+                </Button>
+              </DialogFooter>
+            </>
+          ) : (
+            <>
+              <DialogHeader>
+                <DialogTitle>Reconciliation review</DialogTitle>
+                <DialogDescription>
+                  Review the server-calculated result before closing this shift.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                <ResultCard
+                  label="Expected cash"
+                  value={money(result?.expectedCash ?? 0)}
+                />
+                <ResultCard
+                  label="Counted cash"
+                  value={money(result?.countedCash ?? 0)}
+                />
+                <ResultCard
+                  label="Variance"
+                  value={money(result?.variance ?? 0)}
+                />
+                <ResultCard
+                  label="Status"
+                  value={status}
+                  tone={status === 'Balanced' ? 'positive' : 'warning'}
+                />
+              </div>
+              {result?.requiresReason && (
+                <label className="mt-3 grid gap-1.5 text-sm font-medium">
+                  Variance reason{' '}
+                  <textarea
+                    className="min-h-20 rounded-md border bg-background p-3 text-sm"
+                    value={varianceReason}
+                    onChange={(event) => setVarianceReason(event.target.value)}
+                    maxLength={300}
+                    placeholder="Explain the difference before closing"
+                  />
+                </label>
+              )}
+              <DialogFooter>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setCloseStep('count');
+                    setResult(null);
+                    setCountedCash('');
+                    setVarianceReason('');
+                  }}
+                >
+                  Recount
+                </Button>
+                <Button variant="outline" onClick={cancelReconciliation}>
+                  Cancel reconciliation
+                </Button>
+                <Button
+                  disabled={pending || closeBlocked}
+                  onClick={() =>
+                    run(async () => {
+                      if (!session || !result) return;
+                      await completePosSessionClose({
+                        countedCash: result.countedCash,
+                        reason: varianceReason || undefined,
+                        notes: notes || undefined,
+                        sessionId: session.id,
+                      });
+                      setClosingOpen(false);
+                      setResult(null);
+                      setCountedCash('');
+                      setVarianceReason('');
+                      setNotes('');
+                      router.refresh();
+                    })
+                  }
+                >
+                  Close shift
+                </Button>
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
+function CurrencyInput({
+  value,
+  onChange,
+  autoFocus = false,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  autoFocus?: boolean;
+}) {
+  return (
+    <div className="flex h-10 items-center rounded-md border bg-background px-3 focus-within:ring-2 focus-within:ring-ring">
+      <span className="mr-2 text-xs font-semibold text-muted-foreground">
+        KES
+      </span>
+      <input
+        autoFocus={autoFocus}
+        aria-label="KES amount"
+        className="min-w-0 flex-1 bg-transparent text-sm outline-none [appearance:textfield] placeholder:text-muted-foreground [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+        inputMode="decimal"
+        pattern="[0-9]*[.]?[0-9]*"
+        value={value}
+        onChange={(event) =>
+          onChange(
+            event.target.value
+              .replace(/[^0-9.]/g, '')
+              .replace(/(\..*)\./g, '$1')
+          )
+        }
+        placeholder="0.00"
+      />
     </div>
-    {error && <p className="mt-3 text-xs text-destructive">{error}</p>}
-    {workspace.session && <p className="mt-3 text-xs text-muted-foreground">Opening float: KES {Number(workspace.session.openingCash).toLocaleString()}</p>}
-    {reconciliation && <p className="mt-3 text-xs font-medium">Shift closed · Expected KES {reconciliation.expectedCash.toLocaleString()} · Counted KES {reconciliation.countedCash.toLocaleString()} · Variance KES {reconciliation.variance.toLocaleString()}</p>}
-  </section>
+  );
+}
+function ResultCard({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: string;
+  tone?: 'positive' | 'warning';
+}) {
+  return (
+    <div className="rounded-lg border bg-muted/20 p-3">
+      <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+        {label}
+      </p>
+      <p
+        className={`mt-1 text-sm font-bold tabular-nums ${tone === 'positive' ? 'text-emerald-600' : tone === 'warning' ? 'text-amber-700 dark:text-amber-300' : ''}`}
+      >
+        {value}
+      </p>
+    </div>
+  );
+}
+function Metric({
+  icon: Icon,
+  mark,
+  label,
+  value,
+  tone,
+}: {
+  icon?: typeof Banknote;
+  mark?: ReactNode;
+  label: string;
+  value: string;
+  tone?: 'gold' | 'success';
+}) {
+  const colour =
+    tone === 'gold'
+      ? 'border-[#ead38a] bg-[#fff3bd] text-[#8a6500] dark:border-[rgba(255,214,10,.2)] dark:bg-[rgba(255,214,10,.1)] dark:text-[#ffd60a]'
+      : tone === 'success'
+        ? 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-300'
+        : 'border-[#e4e7ec] bg-white/70 text-[#526078] dark:border-white/10 dark:bg-white/5 dark:text-[#c4c4c4]';
+  return (
+    <div className="flex min-w-0 items-center gap-2.5">
+      <span
+        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border ${colour}`}
+      >
+        {mark ?? (Icon ? <Icon className="h-4 w-4" /> : null)}
+      </span>
+      <div className="min-w-0">
+        <dt className="text-[10px] font-semibold text-[var(--dashboard-muted)]">
+          {label}
+        </dt>
+        <dd className="mt-0.5 truncate text-sm font-bold tabular-nums text-[var(--dashboard-text)]">
+          {value}
+        </dd>
+      </div>
+    </div>
+  );
 }

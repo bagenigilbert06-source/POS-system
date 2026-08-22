@@ -145,7 +145,7 @@ export function AppNavbar({
   };
 
   return (
-    <header className="dashboard-navbar sticky top-0 z-30 flex h-[72px] items-center justify-between gap-4 border-b px-4 sm:px-6 lg:px-7">
+    <header className="dashboard-navbar z-30 flex h-[72px] shrink-0 items-center justify-between gap-4 border-b px-4 sm:px-6 lg:px-7">
       <div className="flex min-w-0 flex-1 items-center gap-4">
         <button
           type="button"

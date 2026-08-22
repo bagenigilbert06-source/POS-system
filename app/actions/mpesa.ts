@@ -33,7 +33,7 @@ async function paymentAuthorization() {
     ? await db.select({ id: branch.id }).from(branch).where(and(eq(branch.id, branchId), eq(branch.organizationId, authorization.organizationId))).limit(1)
     : await db.select({ id: branch.id }).from(branch).where(and(eq(branch.organizationId, authorization.organizationId), eq(branch.isMain, true))).limit(1)
   if (!activeBranch) throw new Error('No authorized branch is available for this POS')
-  return { ...authorization, branchId: activeBranch.id }
+  return { ...authorization, branchId: activeBranch.id, terminalId: pos?.terminalId ?? null }
 }
 
 export async function initiateMpesaPayment(input: z.input<typeof initiateSchema>) {
@@ -41,7 +41,7 @@ export async function initiateMpesaPayment(input: z.input<typeof initiateSchema>
   const authorization = await paymentAuthorization()
   const { organizationId: orgId, userId, branchId } = authorization
   const [activeShift] = await db.select({ id: posSession.id }).from(posSession)
-    .where(and(eq(posSession.orgId, orgId), eq(posSession.openedBy, userId), eq(posSession.status, 'open'))).limit(1)
+    .where(and(eq(posSession.orgId, orgId), eq(posSession.openedBy, userId), authorization.terminalId ? eq(posSession.terminalId, authorization.terminalId) : undefined, eq(posSession.status, 'open'))).limit(1)
   if (!activeShift) throw new Error('Start your shift before requesting payment')
   const workspace = await WorkspaceService.getWorkspaceConfig(orgId, userId)
   if (workspace?.businessCategory === 'liquor_shop' && !data.ageVerified) throw new Error('Verify the customer age before requesting M-Pesa payment')
@@ -83,11 +83,15 @@ export async function initiateMpesaPayment(input: z.input<typeof initiateSchema>
   if (existing) return { id: existing.id, status: existing.status, amount: Number(existing.amount), message: existing.resultDescription, receiptNumber: existing.receiptNumber }
 
   const id = generateId()
-  await db.insert(mpesaPaymentRequest).values({
-    id, organizationId: orgId, userId, branchId, posSessionId: activeShift.id, customerId: data.customerId,
-    checkoutPayload: { items: data.items, discountAmount: data.discountAmount, ageVerified: Boolean(data.ageVerified) },
-    idempotencyKey: data.idempotencyKey, phone, amount: String(exactTotal),
-    status: 'SENDING_STK', expiresAt: new Date(Date.now() + 3 * 60_000),
+  await db.transaction(async (tx) => {
+    const [lockedShift] = await tx.select({ id: posSession.id }).from(posSession).where(and(eq(posSession.id, activeShift.id), eq(posSession.orgId, orgId), eq(posSession.branchId, branchId), eq(posSession.status, 'open'))).limit(1).for('update')
+    if (!lockedShift) throw new Error('This shift is no longer open')
+    await tx.insert(mpesaPaymentRequest).values({
+      id, organizationId: orgId, userId, branchId, posSessionId: activeShift.id, customerId: data.customerId,
+      checkoutPayload: { items: data.items, discountAmount: data.discountAmount, ageVerified: Boolean(data.ageVerified) },
+      idempotencyKey: data.idempotencyKey, phone, amount: String(exactTotal),
+      status: 'SENDING_STK', expiresAt: new Date(Date.now() + 3 * 60_000),
+    })
   })
   try {
     const response = await requestStkPush({ phone, amount: exactTotal, accountReference: `POS${id.replace(/-/g, '').slice(0, 9)}` })
@@ -109,7 +113,7 @@ export async function initiateMpesaPaybillPayment(input: z.input<typeof paybillS
   const authorization = await paymentAuthorization()
   const { organizationId: orgId, userId, branchId } = authorization
   const [activeShift] = await db.select({ id: posSession.id }).from(posSession)
-    .where(and(eq(posSession.orgId, orgId), eq(posSession.openedBy, userId), eq(posSession.status, 'open'))).limit(1)
+    .where(and(eq(posSession.orgId, orgId), eq(posSession.openedBy, userId), authorization.terminalId ? eq(posSession.terminalId, authorization.terminalId) : undefined, eq(posSession.status, 'open'))).limit(1)
   if (!activeShift) throw new Error('Start your shift before requesting payment')
   const workspace = await WorkspaceService.getWorkspaceConfig(orgId, userId)
   if (workspace?.businessCategory === 'liquor_shop' && !data.ageVerified) throw new Error('Verify the customer age before requesting M-Pesa payment')
@@ -161,12 +165,16 @@ export async function initiateMpesaPaybillPayment(input: z.input<typeof paybillS
   const { shortcode, accountType } = mpesaPaybillDetails()
   await db.insert(mpesaBusinessAccount).values({ id: generateId(), organizationId: orgId, branchId, shortcode, accountType })
     .onConflictDoUpdate({ target: mpesaBusinessAccount.shortcode, set: { organizationId: orgId, branchId, accountType, active: true, updatedAt: new Date() } })
-  await db.insert(mpesaPaymentRequest).values({
-    id, organizationId: orgId, userId, branchId, posSessionId: activeShift.id, customerId: data.customerId,
-    checkoutPayload: { items: data.items, discountAmount: data.discountAmount, ageVerified: Boolean(data.ageVerified) },
-    idempotencyKey: data.idempotencyKey, paymentMode: accountType, accountReference: accountType === 'paybill' ? accountReference : null,
-    phone: 'awaiting-c2b', amount: String(exactTotal), status: 'AWAITING_CONFIRMATION', resultDescription: `Waiting for ${accountType === 'till' ? 'Till' : 'PayBill'} payment`,
-    expiresAt: new Date(Date.now() + 10 * 60_000),
+  await db.transaction(async (tx) => {
+    const [lockedShift] = await tx.select({ id: posSession.id }).from(posSession).where(and(eq(posSession.id, activeShift.id), eq(posSession.orgId, orgId), eq(posSession.branchId, branchId), eq(posSession.status, 'open'))).limit(1).for('update')
+    if (!lockedShift) throw new Error('This shift is no longer open')
+    await tx.insert(mpesaPaymentRequest).values({
+      id, organizationId: orgId, userId, branchId, posSessionId: activeShift.id, customerId: data.customerId,
+      checkoutPayload: { items: data.items, discountAmount: data.discountAmount, ageVerified: Boolean(data.ageVerified) },
+      idempotencyKey: data.idempotencyKey, paymentMode: accountType, accountReference: accountType === 'paybill' ? accountReference : null,
+      phone: 'awaiting-c2b', amount: String(exactTotal), status: 'AWAITING_CONFIRMATION', resultDescription: `Waiting for ${accountType === 'till' ? 'Till' : 'PayBill'} payment`,
+      expiresAt: new Date(Date.now() + 10 * 60_000),
+    })
   })
   return { id, status: 'AWAITING_CONFIRMATION', amount: exactTotal, message: `Waiting for ${accountType === 'till' ? 'Till' : 'PayBill'} payment`, receiptNumber: null, accountReference: accountType === 'paybill' ? accountReference : null, shortcode, accountType }
 }

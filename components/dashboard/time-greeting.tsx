@@ -24,18 +24,21 @@ function greetingForHour(hour: number) {
 
 export function TimeGreeting({ name, timeZone, className }: { name?: string | null; timeZone: string; className?: string }) {
   const firstName = name?.trim().split(/\s+/)[0]
-  const fallback = firstName ? `Welcome, ${firstName}` : 'Welcome'
+  const displayName = firstName
+    ? `${firstName.charAt(0).toLocaleUpperCase()}${firstName.slice(1).toLocaleLowerCase()}`
+    : undefined
+  const fallback = displayName ? `Welcome, ${displayName}` : 'Welcome'
   const [message, setMessage] = useState(fallback)
 
   useEffect(() => {
     const update = () => {
       const greeting = greetingForHour(hourInTimeZone(timeZone))
-      setMessage(firstName ? `${greeting}, ${firstName}` : greeting)
+      setMessage(displayName ? `${greeting}, ${displayName}` : greeting)
     }
     update()
     const timer = window.setInterval(update, 60_000)
     return () => window.clearInterval(timer)
-  }, [firstName, timeZone])
+  }, [displayName, timeZone])
 
   return <span className={className}>{message}</span>
 }

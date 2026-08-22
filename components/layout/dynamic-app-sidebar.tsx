@@ -3,20 +3,41 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
-import * as Icons from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useWorkspace } from '@/lib/context/workspace-context';
-import { PanelLeftClose, PanelLeftOpen, X } from 'lucide-react';
+import {
+  AlertTriangle, Apple, Baby, BarChart3, BedDouble, Beer, Bone, BookOpen,
+  Boxes, Brush, Cable, Cake, Calendar, ChefHat,
+  ClipboardCheck, ClipboardList, Coffee, Cookie, CreditCard, Droplets,
+  Drumstick, FileBarChart, FileText, Flower, Footprints, GlassWater, Grid,
+  Heart, Home, Laptop, LayoutDashboard, Leaf, Martini, Milk, Monitor, Package,
+  Package2, PackagePlus, PackageSearch, PaintBucket, Palette, PanelLeftClose,
+  PanelLeftOpen, Pill, Plug, ReceiptText, Salad, Sandwich, Scissors, Settings,
+  ShieldCheck, Shirt, ShoppingBag, ShoppingCart, Shuffle, Smartphone, Sofa,
+  Sparkles, Star, Stethoscope, Tags, TreePine, TrendingUp, Tv, Users,
+  UsersRound, UtensilsCrossed, Wallet, WalletCards, Watch, Wheat, Wind, Wine,
+  Wrench, X, Zap,
+  type LucideIcon,
+} from 'lucide-react';
 import { PesabyLogoMark } from '@/components/brand/pesaby-logo';
 import { PermissionEnum } from '@/lib/types/permissions';
 
-type IconName = keyof typeof Icons;
+const ICONS: Record<string, LucideIcon> = {
+  AlertTriangle, Apple, Baby, BarChart3, BedDouble, Beer, Bone, BookOpen,
+  Bottle: Wine, Boxes, Brush, Cable, Cake, Calendar,
+  ChartNoAxesCombined: BarChart3, ChefHat,
+  ClipboardCheck, ClipboardList, Coffee, Cookie, CreditCard, Droplets,
+  Drumstick, FileBarChart, FileText, Flower, Footprints, GlassWater, Grid,
+  Heart, Home, Laptop, LayoutDashboard, Leaf, Martini, Milk, Monitor, Package,
+  Package2, PackagePlus, PackageSearch, PaintBucket, Palette, Pill, Plug,
+  ReceiptText, Salad, Sandwich, Scissors, Settings, ShieldCheck, Shirt,
+  ShoppingBag, ShoppingCart, Shuffle, Smartphone, Sofa, Sparkles, Star,
+  Stethoscope, Tags, TreePine, TrendingUp, Tv, Users, UsersRound,
+  UtensilsCrossed, Wallet, WalletCards, Watch, Wheat, Wind, Wine, Wrench, Zap,
+};
 
-function getIcon(iconName: string): React.ElementType {
-  const icon = Icons[iconName as IconName];
-  return (
-    (icon as React.ElementType) || (Icons.LayoutDashboard as React.ElementType)
-  );
+function getIcon(iconName: string): LucideIcon {
+  return ICONS[iconName] ?? LayoutDashboard;
 }
 
 interface DynamicAppSidebarProps {
@@ -310,7 +331,7 @@ export function DynamicAppSidebar({
             if (!item.route) return null;
 
             const active = isActive(item.route);
-            const IconComponent = getIcon(item.icon) as React.ElementType;
+            const IconComponent = getIcon(item.icon);
 
             return (
               <li key={item.id}>
@@ -351,7 +372,7 @@ export function DynamicAppSidebar({
       <div className="border-t border-[rgba(255,214,10,0.08)] py-4 px-3">
         <ul className="space-y-1">
           {visibleSecondaryNav.map((item) => {
-            const IconComponent = getIcon(item.icon) as React.ElementType;
+            const IconComponent = getIcon(item.icon);
             const active = item.route ? isActive(item.route) : false;
 
             return (
@@ -397,7 +418,7 @@ export function DynamicAppSidebar({
 
   return (
     <>
-      <div className="hidden lg:block">{sidebar}</div>
+      <div className="hidden h-full lg:block">{sidebar}</div>
       {mobileOpen && (
         <div className="fixed inset-0 z-50 lg:hidden">
           <button
