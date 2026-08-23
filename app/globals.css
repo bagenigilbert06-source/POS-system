@@ -165,7 +165,7 @@ body.pos-receipt-active .pos-workspace > :nth-child(2) {
 
   body {
     font-family: var(--font-sans);
-    color: #0d0d0d;
+    color: hsl(var(--foreground));
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
   }
@@ -342,7 +342,7 @@ body.pos-receipt-active .pos-workspace > :nth-child(2) {
 
   body {
     font-family: var(--font-sans);
-    color: #0d0d0d;
+    color: hsl(var(--foreground));
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
@@ -1125,6 +1125,14 @@ html:not(.dark) .dashboard-shell .shadow-dark-md {
     font-feature-settings:
       'rlig' 1,
       'calt' 1;
+  }
+
+  /* Theme changes should never animate every card, chart, and input. */
+  html.theme-transition-lock *,
+  html.theme-transition-lock *::before,
+  html.theme-transition-lock *::after {
+    transition: none !important;
+    animation: none !important;
   }
 
   h1,
