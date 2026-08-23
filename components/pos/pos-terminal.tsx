@@ -817,29 +817,41 @@ export function POSTerminal({ products, categories, customers, settings, require
       const paper = document.querySelector<HTMLElement>('.receipt-preview-origin .receipt-paper')
       if (!paper) return toast.error('Receipt preview is unavailable')
 
+      // Keep the exported paper width identical to the receipt preview.
+      const originalWidth = paper.style.width
+      const originalMaxWidth = paper.style.maxWidth
+      paper.style.width = `${receiptPaperWidth}mm`
+      paper.style.maxWidth = `${receiptPaperWidth}mm`
+      if (document.fonts?.ready) await document.fonts.ready
+
       // Capture the rendered thermal paper itself so the download matches the
       // exact receipt design on screen. The sale is never re-created or mutated.
-      const [{ jsPDF }, html2canvasModule] = await Promise.all([
-        import('jspdf'),
-        import('html2canvas'),
-      ])
-      const canvas = await html2canvasModule.default(paper, {
-        backgroundColor: '#ffffff',
-        scale: 2,
-        useCORS: true,
-        logging: false,
-      })
-      const paperWidthMm = receiptPaperWidth
-      const paperHeightMm = (canvas.height / canvas.width) * paperWidthMm
-      const pdf = new jsPDF({
-        orientation: 'portrait',
-        unit: 'mm',
-        format: [paperWidthMm, paperHeightMm],
-        compress: true,
-      })
-      pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, paperWidthMm, paperHeightMm, undefined, 'FAST')
-      pdf.save(`${receipt.receiptNo}.pdf`)
-      toast.success('Receipt PDF downloaded')
+      try {
+        const [{ jsPDF }, html2canvasModule] = await Promise.all([
+          import('jspdf'),
+          import('html2canvas'),
+        ])
+        const canvas = await html2canvasModule.default(paper, {
+          backgroundColor: '#ffffff',
+          scale: 2,
+          useCORS: true,
+          logging: false,
+        })
+        const paperWidthMm = receiptPaperWidth
+        const paperHeightMm = (canvas.height / canvas.width) * paperWidthMm
+        const pdf = new jsPDF({
+          orientation: 'portrait',
+          unit: 'mm',
+          format: [paperWidthMm, paperHeightMm],
+          compress: true,
+        })
+        pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, paperWidthMm, paperHeightMm, undefined, 'FAST')
+        pdf.save(`${receipt.receiptNo}.pdf`)
+        toast.success('Receipt PDF downloaded')
+      } finally {
+        paper.style.width = originalWidth
+        paper.style.maxWidth = originalMaxWidth
+      }
     } catch {
       toast.error('Could not download receipt')
     }
@@ -1045,7 +1057,7 @@ export function POSTerminal({ products, categories, customers, settings, require
           <div className="grid overflow-hidden rounded-xl border border-[#dfe3ea] bg-white shadow-sm dark:border-white/10 dark:bg-[#171717] lg:grid-cols-[minmax(0,1fr)_320px]">
             <div className="flex min-h-[500px] items-center justify-center bg-[#f2f4f7] p-5 dark:bg-[#151619] sm:p-8">
               <div className="receipt-screen-preview w-fit max-w-full">
-                <div className="receipt-preview-origin mx-auto w-full max-w-[80mm] overflow-hidden rounded-lg bg-white shadow-[0_8px_20px_rgba(16,24,40,.10)]">
+                <div className="receipt-preview-origin mx-auto w-full max-w-[80mm] overflow-hidden rounded-lg bg-white shadow-[0_8px_20px_rgba(16,24,40,.10)]" style={{ width: `${receiptPaperWidth}mm` }}>
                   <ReceiptTemplate sale={printableSale} businessName={settings.receiptBusinessName} businessPhone={settings.receiptPhone} businessAddress={settings.receiptAddress} receiptFooter={settings.receiptFooter} cashierName={receiptContext?.cashierName} customerName={receipt.customerName} layout="thermal" template={settings.receiptTemplate} logoUrl={settings.receiptLogoUrl} taxName={taxLabel} showPhone={settings.receiptShowPhone} showAddress={settings.receiptShowAddress} showCashier={settings.receiptShowCashier} showCustomer={settings.receiptShowCustomer} showPayment={settings.receiptShowPayment} showQrCode={settings.receiptShowQrCode} showItemSku={settings.receiptShowItemSku} />
                 </div>
               </div>
