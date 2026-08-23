@@ -571,6 +571,8 @@ body:has(.dashboard-shell) {
   --dashboard-chart-revenue: #ff6b0a;
   --dashboard-chart-revenue-fill: #ff6b0a;
   --dashboard-chart-secondary: #b7791f;
+  --dashboard-chart-active: #0891b2;
+  --dashboard-chart-transactions: #d4a72c;
   --dashboard-highlight: #e42527;
   /* Semantic tokens used by the overview dashboard. One accent, used consistently. */
   --dashboard-accent: #b45309;
@@ -653,6 +655,8 @@ body:has(.dashboard-shell) {
   --dashboard-chart-revenue: #ff6b0a;
   --dashboard-chart-revenue-fill: #ff6b0a;
   --dashboard-chart-secondary: #d4a72c;
+  --dashboard-chart-active: #22d3ee;
+  --dashboard-chart-transactions: #ffd60a;
   --dashboard-highlight: #3b82f6;
   --dashboard-accent: #ffd60a;
   --dashboard-accent-strong: #ffdf3a;
