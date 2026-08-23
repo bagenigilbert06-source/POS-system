@@ -168,8 +168,15 @@ export function AdminControlShell({
               </p>
             </div>
             <nav className="py-2" aria-label="Admin control navigation">
-              {items.map((item) => (
-                <AdminLink key={item.href} item={item} pathname={pathname} />
+              {sections.map((section) => (
+                <div key={section.label} className="py-1">
+                  <p className="px-4 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground/70">
+                    {section.label}
+                  </p>
+                  {section.items.map((item) => (
+                    <AdminLink key={item.href} item={item} pathname={pathname} />
+                  ))}
+                </div>
               ))}
             </nav>
           </div>

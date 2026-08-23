@@ -246,8 +246,13 @@ export function DynamicAppSidebar({
         ]
       : []),
   ];
-  const secondaryNav = config.sidebarConfig.secondaryNav.filter((item) =>
-    canView(item.id)
+  const secondaryNav = config.sidebarConfig.secondaryNav.filter(
+    (item) =>
+      canView(item.id) &&
+      !(
+        item.id === 'settings' &&
+        permissions.includes(PermissionEnum.ADMIN_ACCESS)
+      )
   );
   const visiblePrimaryNav =
     role === 'cashier'

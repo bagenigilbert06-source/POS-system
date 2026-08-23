@@ -48,8 +48,15 @@ export function OperationsControl({
   openSessions: PosSession[];
   isSupervisor?: boolean;
 }) {
-  const [pending, start] = useTransition();
-  const run = (fn: () => Promise<unknown>, message: string) =>
+  const [registerPending, startRegister] = useTransition();
+  const [lossPending, startLoss] = useTransition();
+  const [refundPending, startRefund] = useTransition();
+  const pending = registerPending || lossPending || refundPending;
+  const run = (
+    start: ReturnType<typeof useTransition>[1],
+    fn: () => Promise<unknown>,
+    message: string
+  ) =>
     start(async () => {
       try {
         await fn();
@@ -109,6 +116,7 @@ export function OperationsControl({
             action={(form) =>
               openSessions.length
                 ? run(
+                    startRegister,
                     () =>
                       closePosSession(
                         Number(form.get('cash')),
@@ -118,6 +126,7 @@ export function OperationsControl({
                     'Register closed and reconciled'
                   )
                 : run(
+                    startRegister,
                     () => openPosSession(Number(form.get('cash'))),
                     'Register opened'
                   )
@@ -162,8 +171,8 @@ export function OperationsControl({
                 />
               </Field>
             )}
-            <Button disabled={pending} className="h-10 w-full font-semibold">
-              {pending
+            <Button disabled={registerPending} className="h-10 w-full font-semibold">
+              {registerPending
                 ? 'Saving…'
                 : openSessions.length
                   ? 'Close and reconcile'
@@ -181,6 +190,7 @@ export function OperationsControl({
             <form
               action={(form) =>
                 run(
+                  startLoss,
                   () =>
                     recordInventoryLoss({
                       productId: String(form.get('productId')),
@@ -240,8 +250,8 @@ export function OperationsControl({
                   className="h-10 bg-background"
                 />
               </Field>
-              <Button disabled={pending} className="h-10 w-full font-semibold">
-                {pending ? 'Saving…' : 'Record stock loss'}
+              <Button disabled={lossPending} className="h-10 w-full font-semibold">
+                {lossPending ? 'Saving…' : 'Record stock loss'}
               </Button>
             </form>
           ) : (
@@ -263,6 +273,7 @@ export function OperationsControl({
             <form
               action={(form) =>
                 run(
+                  startRefund,
                   () =>
                     refundSale({
                       saleId: String(form.get('saleId')),
@@ -320,11 +331,11 @@ export function OperationsControl({
                 />
               </Field>
               <Button
-                disabled={pending}
+                disabled={refundPending}
                 variant="destructive"
                 className="h-10 w-full bg-[#e42527] font-semibold text-white hover:bg-[#c91f21]"
               >
-                {pending ? 'Saving…' : 'Issue full refund'}
+                {refundPending ? 'Saving…' : 'Issue full refund'}
               </Button>
             </form>
           ) : (
