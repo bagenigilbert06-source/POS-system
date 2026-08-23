@@ -157,7 +157,7 @@ export function SalesPerformanceCard({ currency, data }: SalesPerformanceCardPro
               <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill: 'var(--dashboard-chart-tick)', fontSize: 10 }} minTickGap={26} />
               <YAxis axisLine={false} tickLine={false} tick={{ fill: 'var(--dashboard-chart-tick)', fontSize: 9 }} width={52} tickFormatter={(value) => compactCurrency(Number(value), currency)} tickCount={3} />
               <Tooltip cursor={{ stroke: 'var(--dashboard-accent)', strokeDasharray: '3 4', opacity: 0.55 }} content={<PerformanceTooltip currency={currency} />} />
-              <Area type="monotone" dataKey="revenue" stroke="var(--dashboard-accent)" strokeWidth={2.5} fill="var(--dashboard-accent-soft)" activeDot={{ r: 4, fill: 'var(--dashboard-accent)', stroke: 'var(--dashboard-surface)', strokeWidth: 2 }} isAnimationActive={false} />
+              <Area type="monotone" dataKey="revenue" stroke="var(--dashboard-accent)" strokeWidth={2.5} fill="var(--dashboard-accent-soft)" activeDot={{ r: 4, fill: 'var(--dashboard-accent)', stroke: 'var(--dashboard-surface)', strokeWidth: 2 }} isAnimationActive animationBegin={0} animationDuration={700} animationEasing="ease-in-out" />
             </AreaChart>
           </ResponsiveContainer>
         </div>
