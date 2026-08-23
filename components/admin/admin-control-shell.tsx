@@ -77,7 +77,7 @@ const sections: ReadonlyArray<{
         icon: Landmark,
       },
       {
-        label: 'Registers & shifts',
+        label: 'POS & cash management',
         href: '/dashboard/admin/operations',
         icon: CreditCard,
       },
@@ -174,7 +174,11 @@ export function AdminControlShell({
                     {section.label}
                   </p>
                   {section.items.map((item) => (
-                    <AdminLink key={item.href} item={item} pathname={pathname} />
+                    <AdminLink
+                      key={item.href}
+                      item={item}
+                      pathname={pathname}
+                    />
                   ))}
                 </div>
               ))}

@@ -1,23 +1,19 @@
 'use client';
 
-import { useTransition } from 'react';
-import {
-  AlertTriangle,
-  ArchiveRestore,
-  Banknote,
-  Boxes,
-  ClipboardCheck,
-  Loader2,
-  ReceiptText,
-} from 'lucide-react';
+import { useState, useTransition } from 'react';
+import { AlertTriangle, Boxes, Loader2, ReceiptText } from 'lucide-react';
 import { toast } from 'sonner';
-import {
-  closePosSession,
-  openPosSession,
-  recordInventoryLoss,
-  refundSale,
-} from '@/app/actions/operations';
+import { recordInventoryLoss, refundSale } from '@/app/actions/operations';
 import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import {
   Select,
@@ -26,209 +22,119 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import type { PosSession, Product, Sale } from '@/lib/db/schema';
-import { formatDateTime } from '@/lib/utils';
+import type { Product, Sale } from '@/lib/db/schema';
+import { formatCurrency, formatDateTime } from '@/lib/utils';
 
-type ActionPanelProps = {
-  icon: React.ElementType;
-  title: string;
-  description: string;
-  children: React.ReactNode;
-  tone?: 'default' | 'danger';
-};
+type Location = { id: string; name: string };
 
 export function OperationsControl({
   products,
   sales,
-  openSessions,
-  isSupervisor = false,
+  locations,
+  currency,
 }: {
   products: Product[];
   sales: Sale[];
-  openSessions: PosSession[];
-  isSupervisor?: boolean;
+  locations: Location[];
+  currency: string;
 }) {
-  const [registerPending, startRegister] = useTransition();
+  const [lossOpen, setLossOpen] = useState(false);
+  const [refundOpen, setRefundOpen] = useState(false);
+  const [selectedSaleId, setSelectedSaleId] = useState('');
   const [lossPending, startLoss] = useTransition();
   const [refundPending, startRefund] = useTransition();
-  const pending = registerPending || lossPending || refundPending;
-  const run = (
-    start: ReturnType<typeof useTransition>[1],
-    fn: () => Promise<unknown>,
-    message: string
-  ) =>
-    start(async () => {
-      try {
-        await fn();
-        toast.success(message);
-      } catch (error) {
-        toast.error(
-          error instanceof Error ? error.message : 'Operation failed'
-        );
-      }
-    });
+  const selectedSale = sales.find((record) => record.id === selectedSaleId);
 
   return (
-    <section
-      id="supervisor-actions"
-      aria-labelledby="supervisor-actions-title"
-      className="scroll-mt-24"
-    >
-      <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <p className="text-[0.68rem] font-bold uppercase tracking-[0.12em] text-[#9a6700] dark:text-[#ffd60a]">
-            {isSupervisor ? 'Supervisor tools' : 'Management tools'}
-          </p>
-          <h2
-            id="supervisor-actions-title"
-            className="mt-1 text-lg font-bold tracking-tight text-[#172033] dark:text-[#f5f5f7]"
-          >
-            Take action
-          </h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Register, stock-loss and refund controls are recorded in the audit
-            trail.
-          </p>
-        </div>
-        {pending && (
-          <span className="inline-flex items-center gap-2 text-xs font-medium text-muted-foreground">
-            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            Saving change…
-          </span>
-        )}
+    <section id="manager-actions" className="scroll-mt-24">
+      <div className="mb-3">
+        <p className="text-[0.68rem] font-bold uppercase tracking-[0.12em] text-[#9a6700] dark:text-[#ffd60a]">
+          Manager actions
+        </p>
+        <h2 className="mt-1 text-lg font-bold tracking-tight">Quick actions</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Cashier shift closing stays in Point of Sale. These manager actions
+          are audit logged.
+        </p>
       </div>
-
-      <div className="grid gap-4 xl:grid-cols-3">
-        <ActionPanel
-          icon={Banknote}
-          title={
-            openSessions.length
-              ? 'Close a cash register'
-              : 'Open your cash register'
-          }
-          description={
-            openSessions.length
-              ? `${openSessions.length} register${openSessions.length === 1 ? ' is' : 's are'} currently open.`
-              : 'Start a shift with the counted opening float.'
-          }
-        >
-          <form
-            action={(form) =>
-              openSessions.length
-                ? run(
-                    startRegister,
-                    () =>
-                      closePosSession(
-                        Number(form.get('cash')),
-                        String(form.get('notes') || ''),
-                        String(form.get('sessionId') || '')
-                      ),
-                    'Register closed and reconciled'
-                  )
-                : run(
-                    startRegister,
-                    () => openPosSession(Number(form.get('cash'))),
-                    'Register opened'
-                  )
-            }
-            className="space-y-3"
-          >
-            {openSessions.length > 0 && (
-              <Field label="Register to reconcile">
-                <Choice
-                  name="sessionId"
-                  placeholder="Choose an open register"
-                  required
-                  items={openSessions.map((session) => [
-                    session.id,
-                    `${session.sessionNo} · ${formatDateTime(session.openedAt)}`,
-                  ])}
-                />
-              </Field>
-            )}
-            <Field
-              label={
-                openSessions.length ? 'Counted closing cash' : 'Opening float'
-              }
-            >
-              <Input
-                name="cash"
-                type="number"
-                min="0"
-                step="0.01"
-                required
-                placeholder="0.00"
-                className="h-10 bg-background"
-              />
-            </Field>
-            {openSessions.length > 0 && (
-              <Field label="Closing notes" optional>
-                <Input
-                  name="notes"
-                  maxLength={300}
-                  placeholder="Add a handover note"
-                  className="h-10 bg-background"
-                />
-              </Field>
-            )}
-            <Button disabled={registerPending} className="h-10 w-full font-semibold">
-              {registerPending
-                ? 'Saving…'
-                : openSessions.length
-                  ? 'Close and reconcile'
-                  : 'Open register'}
-            </Button>
-          </form>
-        </ActionPanel>
-
-        <ActionPanel
-          icon={Boxes}
-          title="Record inventory loss"
-          description="Log damaged, expired, missing or stolen stock."
-        >
-          {products.length ? (
-            <form
-              action={(form) =>
-                run(
-                  startLoss,
-                  () =>
-                    recordInventoryLoss({
-                      productId: String(form.get('productId')),
-                      quantity: Number(form.get('quantity')),
-                      type: String(form.get('type')),
-                      reason: String(form.get('reason')),
-                    }),
-                  'Stock loss recorded'
-                )
-              }
-              className="space-y-3"
-            >
-              <Field label="Product">
-                <Choice
-                  name="productId"
-                  placeholder="Choose product"
-                  required
-                  items={products.map((product) => [
-                    product.id,
-                    `${product.name} · ${product.stock} available`,
-                  ])}
-                />
-              </Field>
-              <div className="grid grid-cols-[minmax(0,1fr)_105px] gap-3">
-                <Field label="Loss type">
+      <div className="grid gap-3 md:grid-cols-2">
+        <Dialog open={lossOpen} onOpenChange={setLossOpen}>
+          <DialogTrigger asChild>
+            <ActionButton
+              icon={Boxes}
+              title="Record stock loss"
+              detail="Damaged, expired, missing, stolen, or count-adjusted stock."
+            />
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Record stock loss</DialogTitle>
+              <DialogDescription>
+                Choose the exact product and location. The actor and time are
+                captured automatically.
+              </DialogDescription>
+            </DialogHeader>
+            {products.length ? (
+              <form
+                action={(form) =>
+                  startLoss(async () => {
+                    try {
+                      await recordInventoryLoss({
+                        productId: String(form.get('productId')),
+                        branchId:
+                          String(form.get('branchId') || '') || undefined,
+                        quantity: Number(form.get('quantity')),
+                        type: String(form.get('type')),
+                        reason: String(form.get('reason')),
+                        note: String(form.get('note') || ''),
+                      });
+                      toast.success('Stock loss recorded');
+                      setLossOpen(false);
+                    } catch (error) {
+                      toast.error(
+                        error instanceof Error
+                          ? error.message
+                          : 'Unable to record stock loss'
+                      );
+                    }
+                  })
+                }
+                className="space-y-4"
+              >
+                <Field label="Product">
                   <Choice
-                    name="type"
-                    placeholder="Select type"
+                    name="productId"
                     required
-                    items={[
-                      'damaged',
-                      'expired',
-                      'lost',
-                      'theft',
-                      'count_adjustment',
-                    ].map((type) => [type, type.replace('_', ' ')])}
+                    placeholder="Choose product"
+                    items={products.map((item) => [
+                      item.id,
+                      `${item.name} · ${item.stock} available`,
+                    ])}
                   />
                 </Field>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <Field label="Location">
+                    <Choice
+                      name="branchId"
+                      placeholder="Default location"
+                      items={locations.map((item) => [item.id, item.name])}
+                    />
+                  </Field>
+                  <Field label="Loss type">
+                    <Choice
+                      name="type"
+                      required
+                      placeholder="Select type"
+                      items={[
+                        'damaged',
+                        'expired',
+                        'lost',
+                        'theft',
+                        'count_adjustment',
+                      ].map((value) => [value, value.replace('_', ' ')])}
+                    />
+                  </Field>
+                </div>
                 <Field label="Quantity">
                   <Input
                     name="quantity"
@@ -236,157 +142,237 @@ export function OperationsControl({
                     min="1"
                     required
                     placeholder="0"
-                    className="h-10 bg-background"
                   />
                 </Field>
-              </div>
-              <Field label="Reason or evidence">
-                <Input
-                  name="reason"
-                  minLength={3}
-                  maxLength={300}
-                  required
-                  placeholder="Explain what happened"
-                  className="h-10 bg-background"
-                />
-              </Field>
-              <Button disabled={lossPending} className="h-10 w-full font-semibold">
-                {lossPending ? 'Saving…' : 'Record stock loss'}
-              </Button>
-            </form>
-          ) : (
-            <EmptyAction
-              icon={ArchiveRestore}
-              title="No active stock"
-              detail="There are no active inventory items available to adjust."
-            />
-          )}
-        </ActionPanel>
-
-        <ActionPanel
-          icon={ReceiptText}
-          title="Refund a completed sale"
-          description="Issue a full refund and decide how returned goods are handled."
-          tone="danger"
-        >
-          {sales.length ? (
-            <form
-              action={(form) =>
-                run(
-                  startRefund,
-                  () =>
-                    refundSale({
-                      saleId: String(form.get('saleId')),
-                      refundMethod: String(form.get('refundMethod')),
-                      disposition: String(form.get('disposition')),
-                      reason: String(form.get('reason')),
-                    }),
-                  'Credit note and refund recorded'
-                )
-              }
-              className="space-y-3"
-            >
-              <Field label="Receipt">
-                <Choice
-                  name="saleId"
-                  placeholder="Choose receipt"
-                  required
-                  items={sales.map((record) => [
-                    record.id,
-                    `${record.receiptNo} · ${record.total}`,
-                  ])}
-                />
-              </Field>
-              <div className="grid grid-cols-2 gap-3">
-                <Field label="Refund method">
-                  <Choice
-                    name="refundMethod"
-                    placeholder="Choose method"
+                <Field label="Reason">
+                  <Input
+                    name="reason"
+                    minLength={3}
+                    maxLength={300}
                     required
-                    items={['cash', 'mpesa', 'card', 'store_credit'].map(
-                      (method) => [method, method.replace('_', ' ')]
+                    placeholder="Explain what happened"
+                  />
+                </Field>
+                <Field label="Evidence or note" optional>
+                  <Input
+                    name="note"
+                    maxLength={300}
+                    placeholder="Reference, witness, or supporting note"
+                  />
+                </Field>
+                <DialogFooter>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setLossOpen(false)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button disabled={lossPending}>
+                    {lossPending && (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     )}
-                  />
-                </Field>
-                <Field label="Returned goods">
-                  <Choice
-                    name="disposition"
-                    placeholder="Choose action"
-                    required
-                    items={[
-                      ['restock', 'Return to stock'],
-                      ['damaged', 'Do not restock'],
-                    ]}
-                  />
-                </Field>
-              </div>
-              <Field label="Refund reason">
-                <Input
-                  name="reason"
-                  minLength={3}
-                  maxLength={300}
-                  required
-                  placeholder="Explain why this is being refunded"
-                  className="h-10 bg-background"
-                />
-              </Field>
-              <Button
-                disabled={refundPending}
-                variant="destructive"
-                className="h-10 w-full bg-[#e42527] font-semibold text-white hover:bg-[#c91f21]"
-              >
-                {refundPending ? 'Saving…' : 'Issue full refund'}
-              </Button>
-            </form>
-          ) : (
-            <EmptyAction
-              icon={AlertTriangle}
-              title="No refundable receipts"
-              detail="Completed, unrefunded receipts will appear here."
+                    {lossPending ? 'Recording…' : 'Record loss'}
+                  </Button>
+                </DialogFooter>
+              </form>
+            ) : (
+              <Empty
+                title="No active stock"
+                detail="There are no active inventory items available to adjust."
+              />
+            )}
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={refundOpen} onOpenChange={setRefundOpen}>
+          <DialogTrigger asChild>
+            <ActionButton
+              icon={ReceiptText}
+              title="Issue a full refund"
+              detail="Review the receipt context before issuing a credit note."
+              danger
             />
-          )}
-        </ActionPanel>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Refund completed sale</DialogTitle>
+              <DialogDescription>
+                This workflow refunds the full receipt. Partial item refunds are
+                not supported here.
+              </DialogDescription>
+            </DialogHeader>
+            {sales.length ? (
+              <form
+                action={(form) =>
+                  startRefund(async () => {
+                    try {
+                      await refundSale({
+                        saleId: String(form.get('saleId')),
+                        refundMethod: String(form.get('refundMethod')),
+                        disposition: String(form.get('disposition')),
+                        reason: String(form.get('reason')),
+                      });
+                      toast.success('Credit note and refund recorded');
+                      setRefundOpen(false);
+                      setSelectedSaleId('');
+                    } catch (error) {
+                      toast.error(
+                        error instanceof Error
+                          ? error.message
+                          : 'Unable to issue refund'
+                      );
+                    }
+                  })
+                }
+                className="space-y-4"
+              >
+                <Field label="Receipt">
+                  <Select
+                    name="saleId"
+                    required
+                    value={selectedSaleId}
+                    onValueChange={setSelectedSaleId}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Choose receipt" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {sales.map((item) => (
+                        <SelectItem key={item.id} value={item.id}>
+                          {item.receiptNo} ·{' '}
+                          {formatCurrency(Number(item.total), currency)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </Field>
+                {selectedSale && (
+                  <div className="grid grid-cols-2 gap-3 rounded-xl border bg-muted/25 p-4 text-xs sm:grid-cols-4">
+                    <Summary label="Receipt" value={selectedSale.receiptNo} />
+                    <Summary
+                      label="Total"
+                      value={formatCurrency(
+                        Number(selectedSale.total),
+                        currency
+                      )}
+                    />
+                    <Summary
+                      label="Paid by"
+                      value={selectedSale.paymentMethod.replace('_', ' ')}
+                    />
+                    <Summary
+                      label="Date"
+                      value={formatDateTime(selectedSale.createdAt)}
+                    />
+                  </div>
+                )}
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <Field label="Refund method">
+                    <Choice
+                      name="refundMethod"
+                      required
+                      placeholder="Choose method"
+                      items={['cash', 'mpesa', 'card', 'store_credit'].map(
+                        (value) => [value, value.replace('_', ' ')]
+                      )}
+                    />
+                  </Field>
+                  <Field label="Returned goods">
+                    <Choice
+                      name="disposition"
+                      required
+                      placeholder="Choose action"
+                      items={[
+                        ['restock', 'Return to sellable stock'],
+                        ['damaged', 'Do not restock'],
+                      ]}
+                    />
+                  </Field>
+                </div>
+                <Field label="Refund reason">
+                  <Input
+                    name="reason"
+                    minLength={3}
+                    maxLength={300}
+                    required
+                    placeholder="Explain why this is being refunded"
+                  />
+                </Field>
+                {selectedSale && (
+                  <div className="flex gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-xs text-red-900 dark:border-red-900/50 dark:bg-red-950/20 dark:text-red-100">
+                    <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                    <span>
+                      You are about to refund{' '}
+                      <strong>
+                        {formatCurrency(Number(selectedSale.total), currency)}
+                      </strong>{' '}
+                      and issue a credit note for {selectedSale.receiptNo}.
+                    </span>
+                  </div>
+                )}
+                <DialogFooter>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setRefundOpen(false)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    disabled={refundPending || !selectedSale}
+                  >
+                    {refundPending && (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    )}
+                    {refundPending ? 'Refunding…' : 'Confirm full refund'}
+                  </Button>
+                </DialogFooter>
+              </form>
+            ) : (
+              <Empty
+                title="No refundable receipts"
+                detail="Completed, unrefunded receipts will appear here."
+              />
+            )}
+          </DialogContent>
+        </Dialog>
       </div>
     </section>
   );
 }
 
-function ActionPanel({
+function ActionButton({
   icon: Icon,
   title,
-  description,
-  children,
-  tone = 'default',
-}: ActionPanelProps) {
+  detail,
+  danger = false,
+}: {
+  icon: React.ElementType;
+  title: string;
+  detail: string;
+  danger?: boolean;
+}) {
   return (
-    <article className="overflow-hidden rounded-2xl border border-[#e2e7ef] bg-white shadow-[0_4px_14px_rgba(16,24,40,.05)] dark:border-[#292929] dark:bg-[#111]">
-      <div className="flex items-start gap-3 border-b border-[#edf0f4] px-5 py-4 dark:border-[#292929]">
-        <span
-          className={
-            tone === 'danger'
-              ? 'flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-red-50 text-[#d92d20] dark:bg-red-950/30 dark:text-red-400'
-              : 'flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#fff7d6] text-[#9a6700] dark:bg-[rgba(255,214,10,.08)] dark:text-[#ffd60a]'
-          }
-        >
-          <Icon className="h-5 w-5" />
+    <button className="flex items-center gap-4 rounded-xl border bg-card p-4 text-left shadow-sm transition-colors hover:bg-muted/40">
+      <span
+        className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${danger ? 'bg-red-50 text-red-700 dark:bg-red-950/30 dark:text-red-300' : 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300'}`}
+      >
+        <Icon className="h-5 w-5" />
+      </span>
+      <span>
+        <span className="block text-sm font-bold">{title}</span>
+        <span className="mt-1 block text-xs text-muted-foreground">
+          {detail}
         </span>
-        <div>
-          <h3 className="font-bold text-[#172033] dark:text-[#f5f5f7]">
-            {title}
-          </h3>
-          <p className="mt-1 text-xs leading-5 text-muted-foreground">
-            {description}
-          </p>
-        </div>
-      </div>
-      <div className="p-5">{children}</div>
-    </article>
+      </span>
+    </button>
   );
 }
-
 function Field({
   label,
-  optional = false,
+  optional,
   children,
 }: {
   label: string;
@@ -395,22 +381,21 @@ function Field({
 }) {
   return (
     <label className="block">
-      <span className="mb-1.5 flex items-center gap-1 text-xs font-semibold text-[#344054] dark:text-[#d0d5dd]">
+      <span className="mb-1.5 block text-xs font-semibold">
         {label}
         {optional && (
-          <span className="font-normal text-muted-foreground">(optional)</span>
+          <span className="font-normal text-muted-foreground"> (optional)</span>
         )}
       </span>
       {children}
     </label>
   );
 }
-
 function Choice({
   name,
   placeholder,
   items,
-  required = false,
+  required,
 }: {
   name: string;
   placeholder: string;
@@ -419,7 +404,7 @@ function Choice({
 }) {
   return (
     <Select name={name} required={required}>
-      <SelectTrigger className="h-10 bg-background">
+      <SelectTrigger>
         <SelectValue placeholder={placeholder} />
       </SelectTrigger>
       <SelectContent>
@@ -432,23 +417,21 @@ function Choice({
     </Select>
   );
 }
-
-function EmptyAction({
-  icon: Icon,
-  title,
-  detail,
-}: {
-  icon: React.ElementType;
-  title: string;
-  detail: string;
-}) {
+function Summary({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex min-h-[214px] flex-col items-center justify-center rounded-xl border border-dashed bg-muted/20 px-5 text-center">
-      <Icon className="h-7 w-7 text-muted-foreground" />
-      <p className="mt-3 text-sm font-semibold">{title}</p>
-      <p className="mt-1 max-w-xs text-xs leading-5 text-muted-foreground">
-        {detail}
+    <div className="min-w-0">
+      <p className="text-[0.62rem] font-bold uppercase tracking-wider text-muted-foreground">
+        {label}
       </p>
+      <p className="mt-1 truncate font-semibold capitalize">{value}</p>
+    </div>
+  );
+}
+function Empty({ title, detail }: { title: string; detail: string }) {
+  return (
+    <div className="rounded-xl border border-dashed p-8 text-center">
+      <p className="text-sm font-semibold">{title}</p>
+      <p className="mt-1 text-xs text-muted-foreground">{detail}</p>
     </div>
   );
 }
