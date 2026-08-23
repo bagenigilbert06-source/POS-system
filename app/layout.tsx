@@ -43,6 +43,13 @@ export default function RootLayout({
       data-scroll-behavior="smooth"
       className="bg-background"
     >
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var k='theme',s=localStorage.getItem(k),d=window.matchMedia('(prefers-color-scheme: dark)').matches,t=s==='dark'||(s!=='light'&&d);document.documentElement.classList.toggle('dark',t);document.documentElement.dataset.pesabyTheme=t?'dark':'light';document.documentElement.style.colorScheme=t?'dark':'light'}catch(e){}})();`,
+          }}
+        />
+      </head>
       <body
         className="font-sans text-base antialiased"
         suppressHydrationWarning

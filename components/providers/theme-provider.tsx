@@ -31,8 +31,19 @@ const ThemeContext = createContext<ThemeContextValue>({
 });
 
 export function ThemeProvider({ children, ...props }: ThemeProviderProps) {
-  const [theme, setThemeState] = useState<Theme>('system');
-  const [systemTheme, setSystemTheme] = useState<'light' | 'dark'>('light');
+  const [theme, setThemeState] = useState<Theme>(() => {
+    if (typeof window === 'undefined') return 'system';
+    const stored = window.localStorage.getItem(props.storageKey || 'theme');
+    return stored === 'light' || stored === 'dark' || stored === 'system'
+      ? stored
+      : 'system';
+  });
+  const [systemTheme, setSystemTheme] = useState<'light' | 'dark'>(() => {
+    if (typeof window === 'undefined') return 'light';
+    return window.matchMedia('(prefers-color-scheme: dark)').matches
+      ? 'dark'
+      : 'light';
+  });
   const resolvedTheme = theme === 'system' ? systemTheme : theme;
 
   useEffect(() => {
