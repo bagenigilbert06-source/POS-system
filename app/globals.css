@@ -397,6 +397,40 @@ body.pos-receipt-active .pos-workspace > :nth-child(2) {
     background: var(--dashboard-surface-subtle) !important;
   }
 
+  .dashboard-reports h2 {
+    font-family: var(--font-sans);
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+    font-weight: 650;
+    letter-spacing: -0.015em;
+  }
+
+  /* Reports contain several SVG charts and dense cards. Keep their paint work
+     local, skip off-screen sections, and avoid the global card hover animation
+     from triggering full-page repaints while the scroll container moves. */
+  .dashboard-reports .app-panel {
+    transition: border-color 120ms ease, background-color 120ms ease !important;
+    box-shadow: none !important;
+  }
+
+  .dashboard-reports .app-panel:hover {
+    box-shadow: none !important;
+  }
+
+  .dashboard-reports .report-paint-boundary {
+    contain: paint style;
+  }
+
+  .dashboard-reports .report-deferred-section {
+    content-visibility: auto;
+    contain-intrinsic-block-size: 520px;
+  }
+
+  .dashboard-reports .recharts-wrapper,
+  .dashboard-reports .recharts-surface {
+    outline: none;
+  }
+
   button {
     font-weight: 500;
   }
