@@ -1,15 +1,15 @@
 'use client';
 
 import {
-  BarChart,
-  Bar,
+  Area,
+  AreaChart,
   XAxis,
   YAxis,
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
   Legend,
-  Cell,
+  Line,
 } from 'recharts';
 import { formatCurrency, formatNumber } from '@/lib/utils/format';
 
@@ -44,24 +44,20 @@ export function StaffActivityChart({
           Staff Activity Pattern
         </h2>
         <p className="mt-1 text-xs text-[var(--dashboard-muted)]">
-          Active staff and sales by hour today
+          Active staff and transactions by hour today
         </p>
       </div>
       <div className="p-4 sm:p-6">
         <ResponsiveContainer width="100%" height={300}>
-          <BarChart data={chartData}>
+          <AreaChart data={chartData}>
             <CartesianGrid
               strokeDasharray="3 3"
               stroke="var(--dashboard-chart-grid)"
             />
             <XAxis dataKey="hour" stroke="var(--dashboard-chart-tick)" />
             <YAxis stroke="var(--dashboard-chart-tick)" yAxisId="left" />
-            <YAxis
-              stroke="var(--dashboard-chart-tick)"
-              yAxisId="right"
-              orientation="right"
-            />
             <Tooltip
+              cursor={false}
               contentStyle={{
                 backgroundColor: 'var(--dashboard-chart-tooltip)',
                 border: '1px solid var(--dashboard-border)',
@@ -76,19 +72,27 @@ export function StaffActivityChart({
               }}
             />
             <Legend wrapperStyle={{ color: 'var(--dashboard-text)' }} />
-            <Bar
+            <Area
+              type="monotone"
               dataKey="activeStaff"
+              stroke="var(--dashboard-chart-active)"
               fill="var(--dashboard-chart-active)"
+              fillOpacity={0.16}
               name="Active Staff"
               yAxisId="left"
+              dot={false}
             />
-            <Bar
+            <Line
               dataKey="transactions"
-              fill="var(--dashboard-chart-transactions)"
+              type="monotone"
+              stroke="var(--dashboard-chart-transactions)"
               name="Transactions"
               yAxisId="left"
+              strokeWidth={2.5}
+              dot={false}
+              activeDot={{ r: 4 }}
             />
-          </BarChart>
+          </AreaChart>
         </ResponsiveContainer>
       </div>
     </div>
