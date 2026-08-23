@@ -3,6 +3,7 @@
 import { Area, CartesianGrid, Cell, ComposedChart, Line, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { CreditCard, TrendingUp } from 'lucide-react'
 import { formatCurrency, formatNumber } from '@/lib/utils/format'
+import { paymentShareLabel } from '@/lib/reports/report-rules'
 
 type TrendPoint = { label: string; revenue: number; refunds: number; expenses: number; netProfit: number; count: number }
 interface ReportsChartsProps {
@@ -22,14 +23,6 @@ function paymentLabel(value: string) {
 
 function compact(value: number) {
   return new Intl.NumberFormat('en-KE', { notation: 'compact', maximumFractionDigits: 1 }).format(value)
-}
-
-function percentageLabel(amount: number, total: number) {
-  if (!total || amount <= 0) return '0.0%'
-  const percentage = (amount / total) * 100
-  if (percentage < 0.1) return '<0.1%'
-  if (percentage >= 99.95 && amount < total) return '99.9%'
-  return `${percentage.toFixed(1)}%`
 }
 
 function total(points: TrendPoint[], key: 'revenue' | 'expenses' | 'refunds' | 'netProfit' | 'count') {
@@ -88,8 +81,8 @@ export function ReportsCharts({ dailyData, monthlyData, paymentData, currency, p
         <div className="flex items-start justify-between gap-4 border-b px-4 py-4 sm:px-5"><div><h2>Payment mix</h2><p className="mt-1 text-xs text-muted-foreground">Collected sales by payment method.</p></div><span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-[var(--dashboard-accent-soft-border)] bg-[var(--dashboard-accent-soft)] text-[var(--dashboard-accent)]"><CreditCard className="h-4 w-4" aria-hidden="true" /></span></div>
         {paymentChartData.length && paymentTotal > 0 ? <div className="flex min-h-[430px] flex-col p-5">
           <div className="relative mx-auto h-[210px] w-full max-w-[270px]"><ResponsiveContainer width="100%" height="100%" debounce={100}><PieChart accessibilityLayer={false}><Pie data={paymentChartData} dataKey="amount" nameKey="label" cx="50%" cy="50%" innerRadius={58} outerRadius={84} paddingAngle={2} cornerRadius={5} stroke="var(--dashboard-surface)" strokeWidth={3} isAnimationActive={false}>{paymentChartData.map((item) => <Cell key={item.method} fill={item.color} />)}</Pie><Tooltip content={<PaymentTooltip currency={currency} total={paymentTotal} />} isAnimationActive={false} /></PieChart></ResponsiveContainer><div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center"><span className="text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">Collected</span><span className="mt-1 max-w-[118px] truncate text-sm font-bold tabular-nums">{compact(paymentTotal)}</span></div></div>
-          <div className="mt-2 divide-y">{paymentChartData.map((item) => <div key={item.method} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 py-2.5"><div className="flex min-w-0 items-center gap-2.5"><i className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: item.color }} /><div className="min-w-0"><p className="truncate text-xs font-semibold">{item.label}</p><p className="mt-0.5 text-[10px] text-muted-foreground">{formatNumber(item.transactions)} transactions</p></div></div><div className="text-right"><p className="text-xs font-bold tabular-nums">{formatCurrency(item.amount, currency)}</p><p className="mt-0.5 text-[10px] font-semibold text-muted-foreground tabular-nums">{percentageLabel(item.amount, paymentTotal)}</p></div></div>)}</div>
-          {primaryPayment && <p className="mt-auto rounded-lg border bg-muted/25 px-3 py-2.5 text-xs leading-5 text-muted-foreground"><span className="font-semibold text-foreground">{primaryPayment.label}</span> leads at {percentageLabel(primaryPayment.amount, paymentTotal)} of collected sales.</p>}
+          <div className="mt-2 divide-y">{paymentChartData.map((item) => <div key={item.method} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 py-2.5"><div className="flex min-w-0 items-center gap-2.5"><i className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: item.color }} /><div className="min-w-0"><p className="truncate text-xs font-semibold">{item.label}</p><p className="mt-0.5 text-[10px] text-muted-foreground">{formatNumber(item.transactions)} transactions</p></div></div><div className="text-right"><p className="text-xs font-bold tabular-nums">{formatCurrency(item.amount, currency)}</p><p className="mt-0.5 text-[10px] font-semibold text-muted-foreground tabular-nums">{paymentShareLabel(item.amount, paymentTotal)}</p></div></div>)}</div>
+          {primaryPayment && <p className="mt-auto rounded-lg border bg-muted/25 px-3 py-2.5 text-xs leading-5 text-muted-foreground"><span className="font-semibold text-foreground">{primaryPayment.label}</span> leads at {paymentShareLabel(primaryPayment.amount, paymentTotal)} of collected sales.</p>}
         </div> : <ChartEmpty title="No payment activity" detail="Payment methods will be compared after a recorded sale." />}
       </article>
     </section>
@@ -111,7 +104,7 @@ function TooltipRow({ label, value }: { label: string; value: string }) { return
 function PaymentTooltip({ active, payload, currency, total: paymentTotal }: { active?: boolean; payload?: ReadonlyArray<{ payload?: { label: string; amount: number; transactions: number } }>; currency: string; total: number }) {
   const point = payload?.[0]?.payload
   if (!active || !point) return null
-  return <div className="min-w-44 rounded-xl border border-[var(--dashboard-border)] bg-[var(--dashboard-chart-tooltip)] p-3 text-xs shadow-xl"><p className="font-bold">{point.label}</p><p className="mt-2 font-bold tabular-nums">{formatCurrency(point.amount, currency)}</p><p className="mt-1 text-muted-foreground">{formatNumber(point.transactions)} transactions · {percentageLabel(point.amount, paymentTotal)}</p></div>
+  return <div className="min-w-44 rounded-xl border border-[var(--dashboard-border)] bg-[var(--dashboard-chart-tooltip)] p-3 text-xs shadow-xl"><p className="font-bold">{point.label}</p><p className="mt-2 font-bold tabular-nums">{formatCurrency(point.amount, currency)}</p><p className="mt-1 text-muted-foreground">{formatNumber(point.transactions)} transactions · {paymentShareLabel(point.amount, paymentTotal)}</p></div>
 }
 
 function ChartEmpty({ title, detail }: { title: string; detail: string }) { return <div className="flex h-[320px] flex-col items-center justify-center px-6 text-center"><p className="text-sm font-semibold">{title}</p><p className="mt-1 max-w-xs text-xs leading-5 text-muted-foreground">{detail}</p></div> }

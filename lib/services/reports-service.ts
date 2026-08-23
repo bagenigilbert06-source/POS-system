@@ -2,6 +2,7 @@ import { and, asc, desc, eq, gte, inArray, lt, sql } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { branch, businessSettings, cashMovement, expense, inventoryBalance, posSession, posTerminal, product, sale, saleItem, salesReturn, salesReturnItem, user } from '@/lib/db/schema'
 import { fiscalYearLabel, fiscalYearStart } from '@/lib/finance/fiscal-year'
+import { calculateNetSales, previousPeriod } from '@/lib/reports/report-rules'
 
 export interface ReportsOverview {
   period: { from: Date; to: Date; label: string }
@@ -46,6 +47,7 @@ export interface ReportShift {
   openedBy: string
   closedBy: string | null
   approvedByName?: string | null
+  reconciliationNote?: string | null
   openedAt: Date
   closedAt: Date | null
   cashierName: string
@@ -127,9 +129,12 @@ export async function getReportsOverview(organizationId: string, timeZone = 'Afr
   const afterTo = moveCalendarDate(inclusiveTo.year, inclusiveTo.month, inclusiveTo.day, 1)
   const toExclusive = zonedMidnight(afterTo.year, afterTo.month, afterTo.day, safeTimeZone)
   const to = new Date(toExclusive.getTime() - 1)
-  const periodMs = Math.max(86_400_000, toExclusive.getTime() - from.getTime())
-  const previousFrom = new Date(from.getTime() - periodMs)
-  const dailyDays = Math.max(1, Math.min(62, Math.ceil(periodMs / 86_400_000)))
+  const fromKey = query.from ?? dateKey(localDateParts(from, safeTimeZone))
+  const toKey = query.to ?? dateKey(inclusiveTo)
+  const prior = previousPeriod(fromKey, toKey)
+  const priorParts = parseDate(prior.from)!
+  const previousFrom = zonedMidnight(priorParts.year, priorParts.month, priorParts.day, safeTimeZone)
+  const dailyDays = Math.max(1, Math.min(62, Math.round((Date.parse(`${toKey}T00:00:00Z`) - Date.parse(`${fromKey}T00:00:00Z`)) / 86_400_000) + 1))
   const dailyStartParts = moveCalendarDate(inclusiveTo.year, inclusiveTo.month, inclusiveTo.day, -(dailyDays - 1))
   const dailyStart = zonedMidnight(dailyStartParts.year, dailyStartParts.month, dailyStartParts.day, safeTimeZone)
   const branchIds = query.branchIds
@@ -144,9 +149,10 @@ export async function getReportsOverview(organizationId: string, timeZone = 'Afr
   const localExpenseMonth = sql`date_trunc('month', ((${expense.expenseDate} at time zone 'UTC') at time zone ${safeTimeZone}))`
   const localExpenseDate = sql`((${expense.expenseDate} at time zone 'UTC') at time zone ${safeTimeZone})::date`
 
-  const [totalRows, previousTotalRows, previousRefundRows, costRows, refundRows, returnedCostRows, expenseTotalRows, monthlyRows, monthlyRefundRows, monthlyExpenseRows, dailyRows, dailyRefundRows, dailyExpenseRows, paymentRows, inventoryRows, topProductRows] = await Promise.all([
+  const [totalRows, previousTotalRows, previousRefundRows, costRows, refundRows, returnedCostRows, expenseTotalRows, monthlyRows, monthlyRefundRows, monthlyExpenseRows, dailyRows, dailyRefundRows, dailyExpenseRows, paymentRows, inventoryRows, topProductRows, topProductRefundRows] = await Promise.all([
     db.select({
       revenue: sql<string>`coalesce(sum(${sale.total}), 0)`,
+      grossSales: sql<string>`coalesce(sum(${sale.total} + ${sale.discountAmount}), 0)`,
       transactions: sql<number>`count(*)`,
       tax: sql<string>`coalesce(sum(${sale.taxAmount}), 0)`,
       discounts: sql<string>`coalesce(sum(${sale.discountAmount}), 0)`,
@@ -218,25 +224,39 @@ export async function getReportsOverview(organizationId: string, timeZone = 'Afr
           branchIds.length ? inArray(inventoryBalance.branchId, [...branchIds]) : sql`false`,
         )),
     db.select({
+      productId: saleItem.productId,
       name: saleItem.productName,
       quantity: sql<number>`coalesce(sum(${saleItem.quantity}), 0)`,
-      revenue: sql<string>`coalesce(sum(${saleItem.totalPrice}), 0)`,
+      revenue: sql<string>`coalesce(sum(case when ${sale.subtotal} > 0 then ${saleItem.totalPrice} * ${sale.total} / ${sale.subtotal} else ${saleItem.totalPrice} end), 0)`,
       cost: sql<string>`coalesce(sum(${saleItem.totalCost}), 0)`,
       missingCosts: sql<number>`count(*) filter (where ${saleItem.totalPrice} > 0 and ${saleItem.totalCost} <= 0)`,
     }).from(saleItem)
       .innerJoin(sale, and(eq(sale.id, saleItem.saleId), eq(sale.orgId, organizationId)))
       .where(and(eq(saleItem.orgId, organizationId), paidInPeriod))
-      .groupBy(saleItem.productName)
+      .groupBy(saleItem.productId, saleItem.productName)
       .orderBy(desc(sql`sum(${saleItem.totalPrice})`))
-      .limit(8),
+      .limit(50),
+    db.select({
+      productId: salesReturnItem.productId,
+      name: salesReturnItem.productName,
+      quantity: sql<number>`coalesce(sum(${salesReturnItem.quantity}), 0)`,
+      revenue: sql<string>`coalesce(sum(case when ${sale.subtotal} > 0 then ${salesReturnItem.total} * ${salesReturn.amount} / ${sale.subtotal} else ${salesReturnItem.total} end), 0)`,
+      cost: sql<string>`coalesce(sum(${saleItem.unitCostAtSale} * ${salesReturnItem.quantity}), 0)`,
+    }).from(salesReturnItem)
+      .innerJoin(salesReturn, eq(salesReturn.id, salesReturnItem.returnId))
+      .innerJoin(sale, eq(sale.id, salesReturn.saleId))
+      .leftJoin(saleItem, and(eq(saleItem.saleId, sale.id), eq(saleItem.productId, salesReturnItem.productId)))
+      .where(and(paidSale, eq(salesReturn.orgId, organizationId), eq(salesReturn.status, 'completed'), eq(salesReturnItem.orgId, organizationId), gte(salesReturn.createdAt, from), lt(salesReturn.createdAt, toExclusive)))
+      .groupBy(salesReturnItem.productId, salesReturnItem.productName),
   ])
 
   const total = totalRows[0]
-  const grossSales = numeric(total?.revenue)
+  const collectedAfterDiscounts = numeric(total?.revenue)
+  const grossSales = numeric(total?.grossSales)
   const refunds = numeric(refundRows[0]?.amount)
-  const revenue = Math.max(0, grossSales - refunds)
+  const revenue = calculateNetSales(collectedAfterDiscounts, refunds)
   const transactions = numeric(total?.transactions)
-  const previousRevenue = Math.max(0, numeric(previousTotalRows[0]?.revenue) - numeric(previousRefundRows[0]?.amount))
+  const previousRevenue = calculateNetSales(numeric(previousTotalRows[0]?.revenue), numeric(previousRefundRows[0]?.amount))
   const previousTransactions = numeric(previousTotalRows[0]?.transactions)
   const monthMap = new Map(monthlyRows.map((row) => [row.month, row]))
   const monthRefundMap = new Map(monthlyRefundRows.map((row) => [row.month, numeric(row.amount)]))
@@ -285,6 +305,25 @@ export async function getReportsOverview(organizationId: string, timeZone = 'Afr
   const expenses = numeric(expenseTotalRows[0]?.amount)
   const grossProfit = revenue - costOfGoods
   const percentChange = (current: number, previous: number) => previous ? ((current - previous) / previous) * 100 : null
+  const productMap = new Map(topProductRows.map((row) => [row.productId, {
+    name: row.name,
+    quantity: numeric(row.quantity),
+    revenue: numeric(row.revenue),
+    cost: numeric(row.cost),
+    costComplete: numeric(row.missingCosts) === 0,
+  }]))
+  for (const refund of topProductRefundRows) {
+    const item = productMap.get(refund.productId) ?? { name: refund.name, quantity: 0, revenue: 0, cost: 0, costComplete: true }
+    item.quantity -= numeric(refund.quantity)
+    item.revenue -= numeric(refund.revenue)
+    item.cost -= numeric(refund.cost)
+    productMap.set(refund.productId, item)
+  }
+  const topProducts = [...productMap.values()]
+    .map((item) => ({ name: item.name, quantity: Math.max(0, item.quantity), revenue: Math.max(0, item.revenue), profit: item.costComplete ? Math.max(0, item.revenue) - Math.max(0, item.cost) : null }))
+    .filter((item) => item.quantity > 0 || item.revenue > 0)
+    .sort((left, right) => right.revenue - left.revenue)
+    .slice(0, 8)
 
   return {
     period: {
@@ -322,7 +361,7 @@ export async function getReportsOverview(organizationId: string, timeZone = 'Afr
     monthly,
     daily,
     payments: paymentRows.map((row) => ({ method: row.method, amount: numeric(row.amount), transactions: numeric(row.transactions) })),
-    topProducts: topProductRows.map((row) => ({ name: row.name, quantity: numeric(row.quantity), revenue: numeric(row.revenue), profit: numeric(row.missingCosts) === 0 ? numeric(row.revenue) - numeric(row.cost) : null })),
+    topProducts,
   }
 }
 
@@ -357,15 +396,42 @@ export async function getReportShifts(organizationId: string, timeZone = 'Africa
   const names = new Map(people.map((record) => [record.id, record.name]))
   const locationNames = new Map(locations.map((record) => [record.id, record.name]))
   const terminalNames = new Map(terminals.map((record) => [record.id, record.name]))
-  return sessions.map((record) => ({
-    ...record,
-    cashierName: names.get(record.openedBy) ?? record.openedBy,
-    approvedByName: record.closedBy ? names.get(record.closedBy) ?? record.closedBy : null,
-    terminalName: record.terminalId ? terminalNames.get(record.terminalId) ?? record.terminalId : 'Unregistered register',
-    locationName: record.branchId ? locationNames.get(record.branchId) ?? record.branchId : 'Unassigned location',
-    sales: sales.filter((row) => row.sessionId === record.id).map((row) => ({ method: row.method, total: numeric(row.total), count: numeric(row.count) })),
-    refunds: refunds.filter((row) => row.sessionId === record.id).map((row) => ({ method: row.method, total: numeric(row.total), count: numeric(row.count) })),
-    movements: movements.filter((row) => row.sessionId === record.id).map((row) => ({ type: row.type, total: numeric(row.total), count: numeric(row.count) })),
-    auditEvents: [],
-  }))
+  return sessions.map((record) => {
+    const liveSales = sales.filter((row) => row.sessionId === record.id)
+    const liveMovements = movements.filter((row) => row.sessionId === record.id)
+    const snapshot = record.status === 'closed' ? record.closingSummary as { paymentTotals?: Record<string, string>; cashRefunds?: string; cashIn?: string; cashOut?: string; safeDrops?: string } | null : null
+    let snapshotSales = snapshot?.paymentTotals
+      ? Object.entries(snapshot.paymentTotals).map(([method, amount]) => ({ method, total: numeric(amount), count: numeric(liveSales.find((row) => row.method === method)?.count) }))
+      : liveSales.map((row) => ({ method: row.method, total: numeric(row.total), count: numeric(row.count) }))
+    const snapshotMovements = snapshot
+      ? ([['cash_in', snapshot.cashIn], ['cash_out', snapshot.cashOut], ['safe_drop', snapshot.safeDrops]] as const).map(([type, amount]) => ({ type, total: numeric(amount), count: numeric(liveMovements.find((row) => row.type === type)?.count) }))
+      : liveMovements.map((row) => ({ type: row.type, total: numeric(row.total), count: numeric(row.count) }))
+    const liveRefunds = refunds.filter((row) => row.sessionId === record.id).map((row) => ({ method: row.method, total: numeric(row.total), count: numeric(row.count) }))
+    const snapshotRefunds = snapshot?.cashRefunds == null
+      ? liveRefunds
+      : [...liveRefunds.filter((row) => row.method !== 'cash'), { method: 'cash', total: numeric(snapshot.cashRefunds), count: numeric(liveRefunds.find((row) => row.method === 'cash')?.count) }]
+    let reconciliationNote: string | null = null
+    if (record.status === 'closed' && !snapshot && record.expectedCash != null) {
+      const movement = new Map(snapshotMovements.map((row) => [row.type, row.total]))
+      const cashRefunds = snapshotRefunds.filter((row) => row.method === 'cash').reduce((sum, row) => sum + row.total, 0)
+      const inferredCash = numeric(record.expectedCash) - numeric(record.openingCash) - (movement.get('cash_in') ?? 0) + cashRefunds + (movement.get('cash_out') ?? 0) + (movement.get('safe_drop') ?? 0)
+      const recordedCash = snapshotSales.filter((row) => row.method === 'cash').reduce((sum, row) => sum + row.total, 0)
+      if (Math.abs(inferredCash - recordedCash) > 0.01) {
+        snapshotSales = [...snapshotSales.filter((row) => row.method !== 'cash'), { method: 'cash', total: inferredCash, count: numeric(liveSales.find((row) => row.method === 'cash')?.count) }]
+        reconciliationNote = 'Legacy shift: cash sales inferred from the stored closing reconciliation because the immutable closing snapshot is unavailable.'
+      }
+    }
+    return {
+      ...record,
+      cashierName: names.get(record.openedBy) ?? record.openedBy,
+      approvedByName: record.closedBy ? names.get(record.closedBy) ?? record.closedBy : null,
+      reconciliationNote,
+      terminalName: record.terminalId ? terminalNames.get(record.terminalId) ?? record.terminalId : 'Unregistered register',
+      locationName: record.branchId ? locationNames.get(record.branchId) ?? record.branchId : 'Unassigned location',
+      sales: snapshotSales,
+      refunds: snapshotRefunds,
+      movements: snapshotMovements,
+      auditEvents: [] as [],
+    }
+  })
 }

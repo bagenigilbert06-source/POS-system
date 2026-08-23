@@ -15,6 +15,7 @@ import { DashboardPageHeading } from '@/components/dashboard/page-heading'
 import { requireWorkspaceModule } from '@/lib/onboarding/require-module'
 import { requireDashboardPermission } from '@/lib/auth/dashboard-access'
 import { PermissionEnum, RoleEnum } from '@/lib/types/permissions'
+import { resolveReportPeriod } from '@/lib/reports/report-rules'
 
 export const metadata: Metadata = { title: 'Reports' }
 
@@ -27,28 +28,8 @@ function first(params: Params | undefined, key: string) {
   return Array.isArray(value) ? value[0] : value
 }
 
-function moveDate(key: string, days: number) {
-  const date = new Date(`${key}T00:00:00Z`)
-  date.setUTCDate(date.getUTCDate() + days)
-  return date.toISOString().slice(0, 10)
-}
-
 function currentDateKey(timeZone: string) {
   return new Intl.DateTimeFormat('en-CA', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date())
-}
-
-function resolvePeriod(preset: string, customFrom: string | undefined, customTo: string | undefined, today: string) {
-  const [year, month] = today.split('-').map(Number)
-  const monthStart = `${year}-${String(month).padStart(2, '0')}-01`
-  const previousMonthEnd = moveDate(monthStart, -1)
-  const previousMonthStart = previousMonthEnd.slice(0, 8) + '01'
-  if (preset === 'today') return { from: today, to: today }
-  if (preset === 'yesterday') { const day = moveDate(today, -1); return { from: day, to: day } }
-  if (preset === '7d') return { from: moveDate(today, -6), to: today }
-  if (preset === '30d') return { from: moveDate(today, -29), to: today }
-  if (preset === 'last_month') return { from: previousMonthStart, to: previousMonthEnd }
-  if (preset === 'custom' && /^\d{4}-\d{2}-\d{2}$/.test(customFrom ?? '') && /^\d{4}-\d{2}-\d{2}$/.test(customTo ?? '') && customFrom! <= customTo!) return { from: customFrom!, to: customTo! }
-  return { from: monthStart, to: today }
 }
 
 function dateRangeLabel(from: string, to: string) {
@@ -67,7 +48,7 @@ export default async function ReportsPage({ searchParams }: { searchParams?: Pro
   const section: ReportSection = sections.includes(requestedSection as ReportSection) ? requestedSection as ReportSection : 'overview'
   const preset = first(params, 'period') ?? 'this_month'
   const today = currentDateKey(organization.timezone || 'Africa/Nairobi')
-  const period = resolvePeriod(preset, first(params, 'from'), first(params, 'to'), today)
+  const period = resolveReportPeriod(preset, first(params, 'from'), first(params, 'to'), today)
   const accessibleBranchIds = authorization.role === RoleEnum.MANAGER ? authorization.branchIds : undefined
   const locations = await db.select({ id: branch.id, name: branch.name }).from(branch).where(and(
     eq(branch.organizationId, organization.id),
@@ -105,7 +86,7 @@ export default async function ReportsPage({ searchParams }: { searchParams?: Pro
       {section === 'products' && <TopProducts report={report} currency={currency} expanded />}
       {section === 'payments' && <ReportsCharts dailyData={report.daily} monthlyData={report.monthly} paymentData={report.payments} currency={currency} periodLabel={rangeLabel} />}
       {section === 'profit' && <><ProfitSummary report={report} currency={currency} /><FinancialBreakdown report={report} currency={currency} /></>}
-      {section === 'inventory' && <InventoryReport report={report} currency={currency} asOf={period.to} />}
+      {section === 'inventory' && <InventoryReport report={report} currency={currency} asOf={today} />}
       {section === 'shifts' && <ShiftHistory shifts={shifts} currency={currency} />}
       {section === 'tax' && <TaxReport report={report} currency={currency} />}
       {section === 'staff' && <ReportLinkPanel icon={UsersRound} title="Staff performance" detail="Review cashier sales, transaction activity and team performance using the existing staff reporting data." href="/dashboard/staff-performance" action="Open staff report" />}
@@ -119,7 +100,7 @@ function ReportControls({ section, preset, period, today, locations, selectedBra
 
 function Overview({ report, currency, rangeLabel }: { report: ReportsOverview; currency: string; rangeLabel: string }) {
   const metrics = [
-    { label: 'Net sales', value: formatCurrency(report.totals.revenue, currency), detail: 'After completed refunds', change: report.comparison.revenuePercent, icon: ReceiptText },
+    { label: 'Net sales', value: formatCurrency(report.totals.revenue, currency), detail: 'After discounts and completed refunds', change: report.comparison.revenuePercent, icon: ReceiptText },
     { label: 'Gross profit', value: report.totals.costDataComplete ? formatCurrency(report.totals.grossProfit, currency) : 'Cost unavailable', detail: report.totals.grossMargin == null ? 'Cost data incomplete' : `${report.totals.grossMargin.toFixed(1)}% margin`, warning: !report.totals.costDataComplete, icon: TrendingUp },
     { label: 'Transactions', value: formatNumber(report.totals.transactions), detail: 'Paid transactions', change: report.comparison.transactionsPercent, icon: BarChart3 },
     { label: 'Average transaction', value: formatCurrency(report.totals.averageSale, currency), detail: rangeLabel, icon: CreditCard },
