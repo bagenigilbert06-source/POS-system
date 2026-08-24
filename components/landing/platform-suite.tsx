@@ -61,12 +61,12 @@ export function PlatformSuite() {
           </p>
         </div>
 
-        <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="mx-auto mt-12 grid max-w-[1120px] gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {features.map((feature) => {
             const Icon = feature.icon
             return (
-              <div key={feature.title} className="flex min-h-[218px] flex-col rounded-lg border border-black/10 bg-white p-6">
-                <div className="flex h-11 w-11 items-center justify-center rounded-md bg-[#ffda32] text-slate-950">
+              <div key={feature.title} className="group flex min-h-[218px] flex-col rounded-2xl border border-slate-200 bg-white p-6 shadow-[0_8px_28px_rgba(15,23,42,0.04)] transition-shadow duration-150 ease-out hover:shadow-[0_12px_32px_rgba(15,23,42,0.07)]">
+                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#fff3f3] text-[#e42527] ring-1 ring-inset ring-[#f3d2d2]">
                   <Icon className="h-6 w-6" aria-hidden="true" />
                 </div>
                 <h3 className="mt-5 text-lg font-semibold text-slate-950">{feature.title}</h3>
@@ -76,8 +76,8 @@ export function PlatformSuite() {
           })}
         </div>
 
-        <div className="mt-12 grid gap-6 lg:grid-cols-2">
-          <div className="rounded-lg border border-black/10 bg-[#f7f1e5] p-8 text-slate-950">
+        <div className="mx-auto mt-12 grid max-w-[1120px] gap-4 lg:grid-cols-2">
+          <div className="rounded-2xl border border-slate-200 bg-white p-7 text-slate-950 shadow-[0_8px_28px_rgba(15,23,42,0.04)] sm:p-8">
             <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[#e42527]">Why teams rely on Pesaby</p>
             <ul className="mt-8 space-y-4 text-sm leading-7 text-slate-600">
               <li>One system for tills, stock, customers, suppliers, and daily reports.</li>
@@ -86,9 +86,9 @@ export function PlatformSuite() {
               <li>Customer records and loyalty details that support faster service.</li>
             </ul>
           </div>
-          <div className="rounded-lg border border-black/10 bg-[#ffda32] p-8 text-slate-950">
+          <div className="rounded-2xl border border-[#f3d2d2] bg-[#fff8f8] p-7 text-slate-950 shadow-[0_8px_28px_rgba(15,23,42,0.04)] sm:p-8">
             <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[#e42527]">Built for fast operations</p>
-            <div className="mt-8 space-y-4 text-sm leading-7 text-slate-800">
+            <div className="mt-8 space-y-4 text-sm leading-7 text-slate-600">
               <p>Keep the counter moving with workflows staff can learn quickly and use confidently from day one.</p>
               <p>Give managers a clearer view of stock, sales, and payments so daily decisions are faster and more reliable.</p>
             </div>

@@ -11,14 +11,13 @@ import {
   SheetTitle,
   SheetTrigger,
 } from '@/components/ui/sheet'
-import { ThemeSwitcher } from '@/components/theme-switcher'
 
 const navLinks = [
-  { href: '/features', label: 'Features' },
+  { href: '/features', label: 'Product' },
+  { href: '/#platform', label: 'Solutions' },
   { href: '/industries', label: 'Industries' },
-  { href: '#features', label: 'Why PESABY' },
+  { href: '/#pricing', label: 'Pricing' },
   { href: '/resources', label: 'Resources' },
-  { href: 'mailto:hello@pesaby.co.ke', label: 'Contact' },
 ]
 
 function PESABYLogo() {
@@ -49,7 +48,7 @@ function PESABYLogo() {
 
 export function LandingNavbar() {
   return (
-    <header className="sticky top-0 z-50 border-b border-border bg-[#f6f6f3]/90 backdrop-blur-xl">
+    <header className="sticky top-0 z-50 border-b border-slate-200 bg-white/90 backdrop-blur-xl">
       <div className="container-wide flex h-16 items-center justify-between">
         <PESABYLogo />
 
@@ -62,7 +61,7 @@ export function LandingNavbar() {
             <Link
               key={link.label}
               href={link.href}
-              className="rounded-md px-3.5 py-2 text-sm font-medium text-muted-foreground transition-colors duration-150 hover:bg-white hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+              className="rounded-lg px-3.5 py-2 text-sm font-medium text-slate-600 transition-colors duration-150 hover:bg-[#fff8f8] hover:text-[#e42527] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e42527] focus-visible:ring-offset-2"
             >
               {link.label}
             </Link>
@@ -71,14 +70,13 @@ export function LandingNavbar() {
 
         {/* Desktop actions */}
         <div className="hidden items-center gap-2.5 lg:flex">
-          <ThemeSwitcher />
-          <Button asChild variant="ghost" size="sm" className="font-semibold hover:bg-white">
+          <Button asChild variant="ghost" size="sm" className="font-semibold text-slate-700 hover:bg-[#fff8f8] hover:text-[#e42527]">
             <Link href="/sign-in">Sign In</Link>
           </Button>
           <Button
             asChild
             size="sm"
-            className="rounded-md bg-[#1f5132] px-5 font-bold text-white shadow-md shadow-[#1f5132]/20 hover:bg-[#174327] hover:shadow-lg hover:shadow-[#1f5132]/25 transition-all duration-150"
+            className="rounded-lg bg-[#e42527] px-5 font-bold text-white shadow-sm shadow-red-900/10 hover:bg-[#c91f21] hover:shadow-md transition-all duration-150"
           >
             <Link href="/sign-up">Get Started</Link>
           </Button>
@@ -86,7 +84,6 @@ export function LandingNavbar() {
 
         {/* Mobile menu */}
         <div className="flex items-center gap-2 lg:hidden">
-          <ThemeSwitcher />
           <Sheet>
             <SheetTrigger asChild>
             <Button
@@ -108,7 +105,7 @@ export function LandingNavbar() {
                   <SheetClose asChild key={link.label}>
                     <Link
                       href={link.href}
-                      className="rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+                      className="rounded-lg px-3 py-2.5 text-sm font-medium text-slate-600 transition-colors hover:bg-[#fff8f8] hover:text-[#e42527]"
                     >
                       {link.label}
                     </Link>
@@ -122,7 +119,7 @@ export function LandingNavbar() {
                   </Button>
                 </SheetClose>
                 <SheetClose asChild>
-                  <Button asChild className="h-12 rounded-md bg-[#1f5132] font-bold text-white shadow-md shadow-[#1f5132]/20 hover:bg-[#174327]">
+                  <Button asChild className="h-12 rounded-lg bg-[#e42527] font-bold text-white shadow-sm shadow-red-900/10 hover:bg-[#c91f21]">
                     <Link href="/sign-up">Get Started</Link>
                   </Button>
                 </SheetClose>

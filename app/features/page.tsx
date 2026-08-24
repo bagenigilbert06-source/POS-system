@@ -2,8 +2,8 @@ import { auth } from '@/lib/auth'
 import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { LandingNavbar } from '@/components/landing/navbar'
-import { LandingFeatures } from '@/components/landing/features'
-import { LandingCTA } from '@/components/landing/cta'
+import { DepartmentSuite } from '@/components/landing/department-suite'
+import { PlatformSuite } from '@/components/landing/platform-suite'
 import { LandingFooter } from '@/components/landing/footer'
 
 export const metadata = {
@@ -18,22 +18,16 @@ export default async function FeaturesPage() {
   return (
     <div className="min-h-screen bg-background">
       <LandingNavbar />
-      <main className="pt-16">
-        <section className="section-padding-premium bg-background">
-          <div className="container-wide">
-            <div className="max-w-3xl mx-auto text-center mb-12">
-              <p className="section-eyebrow mb-4">Platform Features</p>
-              <h1 className="section-heading mb-4 text-3xl sm:text-5xl">
-                Everything you need to run your business
-              </h1>
-              <p className="section-subheading text-lg">
-                From point of sale to inventory management, Pesaby brings together every tool modern African businesses need to operate, grow, and stay in control.
-              </p>
-            </div>
+      <main>
+        <section className="border-b border-slate-200 bg-white px-5 pb-16 pt-24 sm:pb-20 sm:pt-28">
+          <div className="mx-auto max-w-4xl text-center">
+            <p className="text-xs font-bold uppercase tracking-[0.22em] text-[#e42527]">Pesaby product overview</p>
+            <h1 className="mt-4 text-4xl font-bold tracking-[-0.04em] text-slate-950 sm:text-6xl">One workspace for the work that keeps business moving.</h1>
+            <p className="mx-auto mt-5 max-w-2xl text-base leading-7 text-slate-600 sm:text-lg">Connect checkout, stock, payments, people, customers, and reporting in one clear operating system built for growing teams.</p>
           </div>
         </section>
-        <LandingFeatures />
-        <LandingCTA />
+        <DepartmentSuite />
+        <PlatformSuite />
       </main>
       <LandingFooter />
     </div>

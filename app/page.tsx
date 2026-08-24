@@ -21,7 +21,6 @@ import {
   IconPackage as PackageCheck,
   IconPlug as Plug,
   IconReceipt as ReceiptText,
-  IconSearch as Search,
   IconShieldCheck as ShieldCheck,
   IconSparkles as Sparkles,
   IconBuildingStore as Store,
@@ -36,23 +35,43 @@ const navItems = [
   {
     label: 'Product',
     href: '#features',
-    menu: ['Business overview', 'Sales and payments', 'Inventory', 'Reporting'],
+    menu: [
+      { label: 'Product overview', href: '/features' },
+      { label: 'Point of sale', href: '/features#point-of-sale' },
+      { label: 'Inventory control', href: '/features#inventory' },
+      { label: 'Reports and insights', href: '/features#reports' },
+    ],
   },
   {
     label: 'Solutions',
     href: '#platform',
-    menu: ['Daily operations', 'Team management', 'Multi-branch control', 'Finance'],
+    menu: [
+      { label: 'Daily operations', href: '/features#operations' },
+      { label: 'Team management', href: '/features#team' },
+      { label: 'Multi-branch control', href: '/features#branches' },
+      { label: 'Payments and finance', href: '/features#payments' },
+    ],
   },
   {
     label: 'Industries',
     href: '#industries',
-    menu: ['Retail', 'Restaurants', 'Pharmacies', 'Hardware'],
+    menu: [
+      { label: 'Retail', href: '/industries#retail' },
+      { label: 'Restaurants', href: '/industries#restaurants' },
+      { label: 'Pharmacies', href: '/industries#pharmacies' },
+      { label: 'Hardware', href: '/industries#hardware' },
+    ],
   },
   { label: 'Pricing', href: '#pricing' },
   {
     label: 'Resources',
     href: '/resources',
-    menu: ['Guides', 'Training', 'Help center', 'Contact'],
+    menu: [
+      { label: 'Guides and product docs', href: '/resources#guides' },
+      { label: 'Training', href: '/resources#training' },
+      { label: 'Help center', href: '/resources#help' },
+      { label: 'Contact Pesaby', href: 'mailto:hello@pesaby.com' },
+    ],
   },
 ];
 
@@ -343,7 +362,7 @@ export default async function RootPage() {
               <div key={item.label} className="group relative">
                 <Link
                   href={item.href}
-                  className="inline-flex h-10 items-center gap-1 rounded-lg px-2.5 text-[13px] font-semibold text-slate-600 transition hover:bg-[#fff6cc] hover:text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e42527]"
+                  className="inline-flex h-10 items-center gap-1 rounded-lg px-2.5 text-[13px] font-semibold text-slate-600 transition hover:bg-[#fff8f8] hover:text-[#e42527] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e42527]"
                 >
                   {item.label}
                   {item.menu ? (
@@ -358,11 +377,11 @@ export default async function RootPage() {
                     <div className="absolute -top-4 left-1/2 -translate-x-1/2 h-4 w-full" />
                     {item.menu.map((entry) => (
                       <Link
-                        key={entry}
-                        href={item.href}
-                        className="block rounded-lg px-3 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-[#fff6cc] hover:text-slate-950"
+                        key={entry.label}
+                        href={entry.href}
+                        className="block rounded-lg px-3 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-[#fff8f8] hover:text-[#e42527]"
                       >
-                        {entry}
+                        {entry.label}
                       </Link>
                     ))}
                   </div>
@@ -373,19 +392,19 @@ export default async function RootPage() {
           <div className="flex items-center gap-3">
             <Link
               href="/sign-in"
-              className="hidden rounded-lg px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-[#fff6cc] hover:text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e42527] lg:inline-flex"
+              className="hidden rounded-lg px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-[#fff8f8] hover:text-[#e42527] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e42527] lg:inline-flex"
             >
               Sign in
             </Link>
             <Link
               href="/sign-up"
-              className="inline-flex h-10 items-center justify-center rounded bg-[#e42527] px-5 text-sm font-bold text-white shadow-md shadow-red-900/15 transition hover:bg-[#c91f21] hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e42527] focus-visible:ring-offset-2"
+              className="inline-flex h-10 items-center justify-center rounded-lg bg-[#e42527] px-4 text-sm font-bold text-white shadow-sm shadow-red-900/10 transition hover:bg-[#c91f21] hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e42527] focus-visible:ring-offset-2"
             >
-              Start Free Trial
+              Get started
             </Link>
             <details className="group relative xl:hidden">
               <summary
-                className="flex h-10 w-10 cursor-pointer list-none items-center justify-center rounded-lg border border-slate-200 text-slate-700 transition hover:bg-[#fff6cc] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e42527]"
+                className="flex h-10 w-10 cursor-pointer list-none items-center justify-center rounded-lg border border-slate-200 text-slate-700 transition hover:bg-[#fff8f8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e42527]"
                 aria-label="Open navigation menu"
               >
                 <Menu className="h-5 w-5" aria-hidden="true" />
@@ -395,13 +414,19 @@ export default async function RootPage() {
                 aria-label="Mobile navigation"
               >
                 {navItems.map((item) => (
-                  <Link
-                    key={item.label}
-                    href={item.href}
-                    className="block rounded-lg px-3 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-[#fff6cc] hover:text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e42527]"
-                  >
-                    {item.label}
-                  </Link>
+                  <div key={item.label}>
+                    <Link
+                      href={item.href}
+                      className="block rounded-lg px-3 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-[#fff8f8] hover:text-[#e42527] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e42527]"
+                    >
+                      {item.label}
+                    </Link>
+                    {item.menu?.map((entry) => (
+                      <Link key={entry.label} href={entry.href} className="block rounded-lg px-5 py-2 text-xs font-medium text-slate-500 transition hover:bg-[#fff8f8] hover:text-[#e42527]">
+                        {entry.label}
+                      </Link>
+                    ))}
+                  </div>
                 ))}
                 <Link
                   href="/sign-in"
@@ -437,21 +462,21 @@ export default async function RootPage() {
               </h2>
             </div>
 
-            <div className="mt-16 grid gap-6 lg:grid-cols-3">
+            <div className="mx-auto mt-12 grid max-w-[1120px] gap-4 lg:grid-cols-3">
               {reliability.map((item) => {
                 const Icon = item.icon;
                 return (
                   <div
                     key={item.title}
-                    className="overflow-hidden border border-slate-200 bg-white sm:p-0"
+                    className="group overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_8px_28px_rgba(15,23,42,0.04)] transition-shadow duration-150 ease-out hover:shadow-[0_12px_32px_rgba(15,23,42,0.07)] sm:p-0"
                   >
-                    <div className="flex h-40 items-center justify-center bg-[#fff6cc] text-slate-950">
-                      <Icon className="h-16 w-16" strokeWidth={1.25} aria-hidden="true" />
+                    <div className="flex h-32 items-center justify-center bg-[#fff8f8] text-[#d94a4a] ring-1 ring-inset ring-[#f3d2d2]">
+                      <Icon className="h-12 w-12" strokeWidth={1.35} aria-hidden="true" />
                     </div>
-                    <div className="p-7 sm:p-8"><h3 className="text-2xl font-black tracking-tight text-slate-950">
+                    <div className="p-6 sm:p-7"><h3 className="text-xl font-bold tracking-tight text-slate-950">
                       {item.title}
                     </h3>
-                    <p className="mt-4 text-base leading-7 text-slate-600">
+                    <p className="mt-3 text-sm leading-6 text-slate-600">
                       {item.text}
                     </p></div>
                   </div>
@@ -466,8 +491,8 @@ export default async function RootPage() {
           className="scroll-mt-20 border-y border-slate-200 bg-white py-16 sm:py-20 lg:py-24"
         >
           <div className="mx-auto max-w-7xl px-5 sm:px-6 lg:px-8">
-            <div className="mb-12 flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
-              <div className="max-w-2xl">
+            <div className="mb-12 text-center">
+              <div className="mx-auto max-w-2xl">
                 <p className="mb-4 text-sm font-black uppercase tracking-widest text-[#e42527]">
                   Solutions
                 </p>
@@ -477,17 +502,17 @@ export default async function RootPage() {
               </div>
               <a
                 href="/industries"
-                className="inline-flex shrink-0 items-center gap-2 text-sm font-bold text-[#e42527] underline decoration-2 underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ffda32] focus-visible:ring-offset-4"
+                className="mt-5 inline-flex items-center gap-2 text-sm font-bold text-[#e42527] underline decoration-2 underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e42527] focus-visible:ring-offset-4"
               >
                 View all industries <span aria-hidden="true">→</span>
               </a>
             </div>
 
-            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="mx-auto grid max-w-[1180px] gap-4 sm:grid-cols-2 lg:grid-cols-4">
               {industryCards.map((industry) => (
                 <article
                   key={industry.name}
-                  className="group relative overflow-hidden rounded-xl border border-slate-200 bg-white transition-transform duration-300 motion-safe:hover:-translate-y-1 motion-safe:hover:shadow-lg"
+                  className="group relative overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_8px_28px_rgba(15,23,42,0.04)] transition-shadow duration-150 ease-out hover:shadow-[0_12px_32px_rgba(15,23,42,0.07)]"
                 >
                   <div className="relative aspect-[1.2] overflow-hidden bg-gradient-to-br from-slate-100 to-slate-200">
                     <Image
@@ -495,11 +520,11 @@ export default async function RootPage() {
                       alt={industry.name}
                       fill
                       sizes="(max-width: 1024px) 50vw, 25vw"
-                      className="object-cover transition-transform duration-500 motion-safe:group-hover:scale-[1.03]"
+                      className="object-cover"
                     />
                   </div>
-                  <div className="p-6">
-                    <h3 className="text-xl font-black text-slate-950">
+                  <div className="p-5 sm:p-6">
+                    <h3 className="text-lg font-bold text-slate-950">
                       {industry.name}
                     </h3>
                     <p className="mt-3 text-sm leading-6 text-slate-600">
@@ -514,7 +539,7 @@ export default async function RootPage() {
 
         <section
           id="pricing"
-          className="scroll-mt-20 border-y border-slate-200 bg-[#fff4e8] py-16 sm:py-20"
+          className="scroll-mt-20 border-y border-slate-200 bg-white py-16 sm:py-20"
         >
           <div className="mx-auto max-w-7xl px-5 sm:px-6 lg:px-8">
             <div className="mx-auto max-w-4xl text-center">
@@ -526,7 +551,7 @@ export default async function RootPage() {
               </h2>
             </div>
 
-            <div className="mx-auto mt-12 grid max-w-6xl overflow-hidden rounded-lg border border-black/10 bg-white text-slate-950 shadow-[0_24px_70px_-38px_rgba(15,23,42,0.35)] lg:grid-cols-[1.15fr_0.85fr]">
+            <div className="mx-auto mt-12 grid max-w-6xl overflow-hidden rounded-2xl border border-slate-200 bg-white text-slate-950 shadow-[0_16px_50px_-30px_rgba(15,23,42,0.28)] lg:grid-cols-[1.15fr_0.85fr]">
               <div className="p-8 sm:p-10 lg:p-12">
                 <h3 className="text-2xl font-extrabold text-slate-950">
                   Business-ready operating system
@@ -548,7 +573,7 @@ export default async function RootPage() {
                       className="flex items-start gap-3 text-sm font-semibold text-slate-700"
                     >
                       <Check
-                        className="mt-0.5 h-4 w-4 flex-shrink-0 text-emerald-400"
+                        className="mt-0.5 h-4 w-4 flex-shrink-0 text-[#e42527]"
                         aria-hidden="true"
                       />
                       <span>{item}</span>
@@ -571,8 +596,8 @@ export default async function RootPage() {
                 </div>
               </div>
 
-              <div className="border-t border-black/10 bg-[#ffda32] p-8 text-slate-950 sm:p-10 lg:border-l lg:border-t-0 lg:p-12">
-                <p className="text-sm font-bold uppercase tracking-[0.18em] text-slate-700">
+              <div className="border-t border-[#f3d2d2] bg-[#fff8f8] p-8 text-slate-950 sm:p-10 lg:border-l lg:border-t-0 lg:p-12">
+                <p className="text-sm font-bold uppercase tracking-[0.18em] text-[#e42527]">
                   From
                 </p>
                 <div className="mt-4 flex items-end gap-2">
@@ -590,13 +615,13 @@ export default async function RootPage() {
                 <div className="mt-8 flex flex-col gap-3">
                   <Link
                     href="/sign-up"
-                    className="inline-flex h-12 items-center justify-center rounded bg-[#e42527] px-7 text-sm font-extrabold text-white shadow-lg shadow-red-900/15 transition hover:bg-[#c91f21] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e42527]"
+                    className="inline-flex h-12 items-center justify-center rounded-lg bg-[#e42527] px-7 text-sm font-extrabold text-white shadow-sm shadow-red-900/10 transition hover:bg-[#c91f21] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e42527]"
                   >
                     Create workspace
                   </Link>
                   <Link
                     href="mailto:hello@pesaby.com"
-                    className="inline-flex h-12 items-center justify-center rounded border border-slate-950 px-7 text-sm font-extrabold text-slate-950 transition hover:bg-white/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-950"
+                    className="inline-flex h-12 items-center justify-center rounded-lg border border-slate-300 bg-white px-7 text-sm font-extrabold text-slate-950 transition hover:border-slate-400 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-950"
                   >
                     Book demo
                   </Link>
@@ -612,29 +637,14 @@ export default async function RootPage() {
 
       </main>
 
-      <footer className="bg-[#232323] text-white">
-        <div className="mx-auto max-w-7xl px-5 py-14 sm:px-6 lg:px-8 lg:py-16">
+      <footer className="bg-[#242424] text-white">
+        <div className="mx-auto max-w-[1180px] px-5 py-12 sm:px-6 lg:px-8 lg:py-14">
           <div className="flex flex-col gap-6 border-b border-white/10 pb-10 md:flex-row md:items-end md:justify-between">
-            <div className="flex items-center gap-4"><PesabyLogoMark className="h-12 w-12" /><div><p className="text-2xl font-bold text-white">Pesaby</p><p className="mt-1 text-xs font-semibold uppercase tracking-[0.18em] text-[#ffda32]">Business OS for modern commerce</p></div></div>
+            <div className="flex items-center gap-4"><PesabyLogoMark className="h-12 w-12" /><div><p className="text-2xl font-bold text-white">Pesaby</p><p className="mt-1 text-xs font-semibold uppercase tracking-[0.18em] text-[#e42527]">Business OS for modern commerce</p></div></div>
             <p className="max-w-xl text-sm leading-6 text-zinc-300">One connected workspace for sales, inventory, expenses, customers, staff, branches, and reporting.</p>
           </div>
 
-          <div className="mt-10 grid gap-5 md:grid-cols-2">
-              <div className="flex min-h-64 flex-col bg-[#f7f1e5] p-7 text-slate-950 sm:p-8">
-                <div className="flex items-start justify-between"><Sparkles className="h-7 w-7 text-[#e42527]" aria-hidden="true" /><span className="text-sm font-black">Pesaby</span></div>
-                <h2 className="mt-7 text-2xl font-bold text-slate-950">Implementation workshops</h2>
-                <p className="mt-3 text-sm leading-6 text-slate-700">Plan products, branches, staff access, payments, and reports with a Pesaby specialist.</p>
-                <a href="mailto:hello@pesaby.com?subject=Pesaby%20implementation" className="mt-auto inline-flex h-10 w-fit items-center bg-[#e42527] px-5 text-sm font-bold uppercase text-white hover:bg-[#c91f21]">Learn more</a>
-              </div>
-              <div className="flex min-h-64 flex-col bg-[#ffda32] p-7 text-slate-950 sm:p-8">
-                <div className="flex items-start justify-between"><Headphones className="h-7 w-7 text-slate-950" aria-hidden="true" /><span className="text-sm font-black">Pesaby</span></div>
-                <h2 className="mt-7 text-2xl font-bold text-slate-950">Live product demos</h2>
-                <p className="mt-3 text-sm leading-6 text-slate-800">See how sales, inventory, expenses, customers, staff, and reporting work together.</p>
-                <a href="mailto:hello@pesaby.com?subject=Pesaby%20product%20demo" className="mt-auto inline-flex h-10 w-fit items-center bg-[#e42527] px-5 text-sm font-bold uppercase text-white hover:bg-[#c91f21]">Save your seat</a>
-              </div>
-          </div>
-
-            <div className="mt-12 grid gap-10 border-t border-white/10 pt-10 sm:grid-cols-3">
+            <div className="mt-10 grid gap-8 border-t border-white/10 pt-8 sm:grid-cols-3">
               {[
                 ['Quick links', ['Getting Started', 'Product Guides', 'Training', 'Pricing FAQs', 'Help Center', 'Contact']],
                 ['Explore Pesaby', ['Business Operating System', 'Sales and Payments', 'Inventory Management', 'Expense Tracking', 'Multi-Branch Operations', 'Reports and Analytics']],
@@ -642,17 +652,13 @@ export default async function RootPage() {
               ].map(([title, links]) => (
                 <div key={title as string}>
                   <h2 className="text-xl font-bold text-white">{title as string}</h2>
-                  <ul className="mt-5 space-y-3">{(links as readonly string[]).map(link => <li key={link}><Link href="/resources" className="text-sm text-zinc-300 transition hover:text-white hover:underline">{link}</Link></li>)}</ul>
+                  <ul className="mt-5 space-y-3">{(links as readonly string[]).map(link => <li key={link}><Link href="/resources" className="text-sm text-zinc-400 transition-colors hover:text-[#e42527]">{link}</Link></li>)}</ul>
                 </div>
               ))}
           </div>
 
-          <div className="mt-12 grid gap-8 border-y border-white/10 py-8 lg:grid-cols-[0.75fr_1.25fr] lg:items-center">
-            <div><a href="mailto:support@pesaby.com" className="inline-flex items-center gap-3 text-base font-bold text-white underline decoration-white/50 underline-offset-4"><Mail className="h-5 w-5" aria-hidden="true" />support@pesaby.com</a><div className="mt-4 flex gap-3" aria-label="Social channels"><a href="#" aria-label="X / Twitter" className="flex h-9 w-9 items-center justify-center text-lg font-bold text-white transition-colors hover:text-[#1d9bf0]">𝕏</a><a href="#" aria-label="LinkedIn" className="flex h-9 w-9 items-center justify-center rounded-sm text-lg font-bold text-[#0a66c2] transition-colors hover:text-[#58a6e8]">in</a><a href="#" aria-label="YouTube" className="flex h-9 w-9 items-center justify-center text-lg font-bold text-[#ff0000] transition-colors hover:text-[#ff5a5a]">▶</a><a href="#" aria-label="Instagram" className="flex h-9 w-9 items-center justify-center text-lg font-bold text-[#e1306c] transition-colors hover:text-[#f77737]">◎</a></div></div>
-            <form action="/resources" method="get" className="flex flex-col gap-3 sm:flex-row">
-              <label className="relative flex-1"><span className="sr-only">Search resources</span><input name="q" className="h-11 w-full border-0 bg-white px-4 pr-12 text-sm text-slate-950 outline-none placeholder:text-slate-500 focus:ring-2 focus:ring-[#ffda32]" placeholder="Search product overviews, FAQs, and more..." /><button type="submit" aria-label="Search resources" className="absolute right-0 top-0 flex h-11 w-11 items-center justify-center text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ffda32]"><Search className="h-5 w-5" aria-hidden="true" /></button></label>
-              <div className="flex h-11 items-center justify-center bg-[#4a4a4a] px-6 text-sm font-semibold text-white">English</div>
-            </form>
+          <div className="mt-10 flex flex-col gap-5 border-y border-white/10 py-6 sm:flex-row sm:items-center sm:justify-between">
+            <div><a href="mailto:support@pesaby.com" className="inline-flex items-center gap-3 text-base font-bold text-white underline decoration-white/50 underline-offset-4 transition-colors hover:text-[#e42527]"><Mail className="h-5 w-5" aria-hidden="true" />support@pesaby.com</a><div className="mt-4 flex gap-2" aria-label="Social channels"><a href="#" aria-label="X / Twitter" className="flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 text-lg font-bold text-zinc-300 transition-colors hover:border-[#e42527] hover:text-[#e42527]">𝕏</a><a href="#" aria-label="LinkedIn" className="flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 text-lg font-bold text-zinc-300 transition-colors hover:border-[#e42527] hover:text-[#e42527]">in</a><a href="#" aria-label="YouTube" className="flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 text-lg font-bold text-zinc-300 transition-colors hover:border-[#e42527] hover:text-[#e42527]">▶</a><a href="#" aria-label="Instagram" className="flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 text-lg font-bold text-zinc-300 transition-colors hover:border-[#e42527] hover:text-[#e42527]">◎</a></div></div>
           </div>
 
           <div className="mt-10 flex flex-col gap-4 border-t border-white/10 pt-6 text-xs text-zinc-400 md:flex-row md:items-center md:justify-between">
