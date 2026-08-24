@@ -64,7 +64,7 @@ function StaffStatusBadge({ status }: { status: string }) {
 }
 
 function StaffRoleBadge({ role }: { role: string }) {
-  const labels: Record<string, string> = { owner: 'Owner', admin: 'Admin', manager: 'Manager', supervisor: 'Supervisor', cashier: 'Cashier', inventory: 'Storekeeper', accountant: 'Accountant', staff: 'Staff' }
+  const labels: Record<string, string> = { owner: 'Owner', admin: 'Admin', manager: 'Manager', supervisor: 'Supervisor', cashier: 'Cashier', inventory: 'Storekeeper', accountant: 'Accountant', staff: 'Staff', pharmacist: 'Pharmacist', pharmacy_staff: 'Pharmacy assistant' }
   return <span className="text-sm font-normal text-slate-600 dark:text-slate-300">{labels[role] ?? toTitleCase(role)}</span>
 }
 

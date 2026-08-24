@@ -8,6 +8,8 @@ import { ReceiptTemplate } from '@/components/receipt/receipt-template'
 import { getSalesByReceiptNo, getSalesByDateRange } from '@/app/actions/pos-queries'
 import type { Sale, SaleItem } from '@/lib/db/schema'
 
+type ReprintSale = Awaited<ReturnType<typeof getSalesByReceiptNo>>[number]
+
 interface ReceiptReprintProps {
   onClose: () => void
   settings: {
@@ -33,8 +35,8 @@ interface ReceiptReprintProps {
 export function ReceiptReprint({ onClose, settings, onRefund }: ReceiptReprintProps) {
   const [searchQuery, setSearchQuery] = useState('')
   const [searchType, setSearchType] = useState<'receipt' | 'date'>('receipt')
-  const [sales, setSales] = useState<(Sale & { items: SaleItem[] })[]>([])
-  const [selectedSale, setSelectedSale] = useState<(Sale & { items: SaleItem[] }) | null>(null)
+  const [sales, setSales] = useState<ReprintSale[]>([])
+  const [selectedSale, setSelectedSale] = useState<ReprintSale | null>(null)
   const [searching, setSearching] = useState(false)
   const printRef = useRef<HTMLDivElement>(null)
 
@@ -46,7 +48,7 @@ export function ReceiptReprint({ onClose, settings, onRefund }: ReceiptReprintPr
 
     setSearching(true)
     try {
-      let results: (Sale & { items: SaleItem[] })[] = []
+      let results: ReprintSale[] = []
       
       if (searchType === 'receipt') {
         results = await getSalesByReceiptNo(searchQuery.trim())
@@ -142,7 +144,7 @@ export function ReceiptReprint({ onClose, settings, onRefund }: ReceiptReprintPr
             )}
             <button
               onClick={handlePrint}
-              className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center justify-center gap-2 font-medium"
+              className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-[#e42527] px-4 py-2 font-medium text-white hover:bg-[#c91f22]"
             >
               <Printer className="h-4 w-4" />
               Print
@@ -197,7 +199,7 @@ export function ReceiptReprint({ onClose, settings, onRefund }: ReceiptReprintPr
           <button
             onClick={handleSearch}
             disabled={searching}
-            className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center justify-center gap-2 disabled:opacity-50 font-medium"
+            className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#e42527] px-4 py-2 font-medium text-white hover:bg-[#c91f22] disabled:opacity-50"
           >
             {searching ? (
               <>
@@ -232,7 +234,7 @@ export function ReceiptReprint({ onClose, settings, onRefund }: ReceiptReprintPr
                   <button
                     key={s.id}
                     onClick={() => setSelectedSale(s)}
-                    className="w-full p-3 text-left border rounded-lg hover:bg-blue-50 flex justify-between transition-colors"
+                    className="flex w-full justify-between rounded-lg border p-3 text-left transition-colors hover:bg-muted"
                   >
                     <div>
                       <div className="font-medium text-sm">{s.receiptNo}</div>

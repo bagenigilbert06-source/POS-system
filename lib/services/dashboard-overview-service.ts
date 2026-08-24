@@ -1,6 +1,6 @@
 import { and, asc, desc, eq, gte, inArray, lt, lte, sql } from 'drizzle-orm'
 import { db } from '@/lib/db'
-import { branch, customer, expense, inventoryBalance, organizationMembership, product, sale, saleItem, salesReturn, salesReturnItem } from '@/lib/db/schema'
+import { branch, customer, expense, inventoryBalance, inventoryLot, organizationMembership, product, sale, saleItem, salesReturn, salesReturnItem } from '@/lib/db/schema'
 
 export interface DashboardOverview {
   today: {
@@ -69,6 +69,11 @@ export interface DashboardOverview {
   liquorCompliance: {
     verifiedToday: number
     unverifiedToday: number
+  }
+  pharmacyInventory: {
+    expiringSoon: number
+    expired: number
+    valueAtRisk: number
   }
 }
 
@@ -353,6 +358,13 @@ export async function getDashboardOverview(organizationId: string, timeZone = 'A
   const allTimeRevenue = number(allTimeSalesRows[0]?.revenue)
   const allTimeExpenses = number(allTimeExpenseRows[0]?.amount)
   const [products, customers, branches, staff, lowStock, outOfStock, inventoryCost] = recordRows
+  const expiryLimit = new Date(now.getTime() + 90 * 86_400_000)
+  const lotBranchScope = branchIds === undefined ? undefined : branchIds.length ? inArray(inventoryLot.branchId, [...branchIds]) : sql`false`
+  const [pharmacyInventoryRows] = await db.select({
+    expiringSoon: sql<number>`count(*) filter (where ${inventoryLot.expiresAt} >= ${now} and ${inventoryLot.expiresAt} <= ${expiryLimit} and ${inventoryLot.quantity} > 0)`,
+    expired: sql<number>`count(*) filter (where ${inventoryLot.expiresAt} < ${now} and ${inventoryLot.quantity} > 0)`,
+    valueAtRisk: sql<string>`coalesce(sum(case when ${inventoryLot.expiresAt} <= ${expiryLimit} and ${inventoryLot.quantity} > 0 then ${inventoryLot.quantity} * ${inventoryLot.unitCost} else 0 end), 0)`,
+  }).from(inventoryLot).where(and(eq(inventoryLot.orgId, organizationId), lotBranchScope))
   const branchInventoryRows = branchIds === undefined || branchIds.length === 0 ? [] : await db
     .select({
       id: product.id,
@@ -450,6 +462,11 @@ export async function getDashboardOverview(organizationId: string, timeZone = 'A
     liquorCompliance: {
       verifiedToday: number(complianceRows[0]?.verified),
       unverifiedToday: number(complianceRows[0]?.unverified),
+    },
+    pharmacyInventory: {
+      expiringSoon: number(pharmacyInventoryRows?.expiringSoon),
+      expired: number(pharmacyInventoryRows?.expired),
+      valueAtRisk: number(pharmacyInventoryRows?.valueAtRisk),
     },
   }
 }

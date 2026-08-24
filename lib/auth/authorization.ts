@@ -4,6 +4,7 @@ import { getCurrentSession } from '@/lib/auth'
 import { db } from '@/lib/db'
 import { branchMembership, employee, organization, organizationMembership } from '@/lib/db/schema'
 import { PermissionEnum, ROLE_PERMISSIONS, RoleEnum } from '@/lib/types/permissions'
+import { defaultWorkspaceRouteForRole } from './role-routing'
 
 export class AuthorizationError extends Error {
   constructor(message = 'Forbidden') { super(message); this.name = 'AuthorizationError' }
@@ -92,15 +93,5 @@ export async function requireBranchAccess(branchId: string) {
 
 /** The single post-authentication home decision. Route guards still enforce permissions. */
 export function getDefaultWorkspaceRoute(context: AuthorizationContext) {
-  switch (context.role) {
-    case RoleEnum.CASHIER: return '/dashboard/pos'
-    case RoleEnum.SUPERVISOR: return '/dashboard/operations'
-    case RoleEnum.INVENTORY: return '/dashboard/inventory'
-    case RoleEnum.ACCOUNTANT: return '/dashboard/financials'
-    case RoleEnum.PHARMACIST:
-    case RoleEnum.PHARMACY_STAFF: return '/dashboard/inventory'
-    case RoleEnum.STAFF:
-    case RoleEnum.CHEF: return '/restricted'
-    default: return '/dashboard'
-  }
+  return defaultWorkspaceRouteForRole(context.role)
 }

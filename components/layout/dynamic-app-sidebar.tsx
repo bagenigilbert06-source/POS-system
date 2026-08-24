@@ -86,6 +86,7 @@ import {
 } from 'lucide-react';
 import { PesabyLogoMark } from '@/components/brand/pesaby-logo';
 import { PermissionEnum } from '@/lib/types/permissions';
+import { isPharmacyBusiness } from '@/lib/pharmacy/rules';
 
 const ICONS: Record<string, LucideIcon> = {
   AlertTriangle,
@@ -246,9 +247,11 @@ export function DynamicAppSidebar({
     'my-sales': PermissionEnum.SALES_VIEW_OWN,
     dashboard: PermissionEnum.SALES_VIEW_ALL,
     sales: PermissionEnum.SALES_VIEW_ALL,
+    prescriptions: PermissionEnum.PRESCRIPTION_VIEW,
     products: PermissionEnum.PRODUCT_VIEW,
     categories: PermissionEnum.PRODUCT_EDIT,
     inventory: PermissionEnum.INVENTORY_VIEW,
+    batches: PermissionEnum.BATCH_TRACKING_VIEW,
     customers: PermissionEnum.CUSTOMER_VIEW,
     analytics: PermissionEnum.REPORT_VIEW,
     reports: PermissionEnum.REPORT_VIEW,
@@ -259,6 +262,7 @@ export function DynamicAppSidebar({
     staff: PermissionEnum.STAFF_MANAGE,
     'staff-performance': PermissionEnum.STAFF_VIEW,
     admin: PermissionEnum.ADMIN_ACCESS,
+    etims: PermissionEnum.ETIMS_VIEW,
   };
   // Unknown workspace items are hidden until they have an explicit permission mapping.
   const canView = (id: string) =>
@@ -283,11 +287,23 @@ export function DynamicAppSidebar({
     icon: 'TrendingUp',
     route: '/dashboard/staff-performance',
   };
+  const myReceiptsNav = {
+    id: 'my-sales',
+    label: 'My receipts',
+    icon: 'ReceiptText',
+    route: '/dashboard/pos/history',
+  };
   const adminNav = {
     id: 'admin',
     label: 'Admin control',
     icon: 'ShieldCheck',
     route: '/dashboard/admin',
+  };
+  const etimsNav = {
+    id: 'etims',
+    label: 'eTIMS',
+    icon: 'ReceiptText',
+    route: '/dashboard/etims',
   };
   // Keep the navigation aligned with the way a shop is run: understand the
   // business first, sell second, then manage the catalogue and operations.
@@ -306,7 +322,12 @@ export function DynamicAppSidebar({
     permissions.includes(PermissionEnum.POS_SELL)
       ? [posNav]
       : []),
+    ...(permissions.includes(PermissionEnum.SALES_VIEW_OWN) &&
+    !permissions.includes(PermissionEnum.SALES_VIEW_ALL)
+      ? [myReceiptsNav]
+      : []),
     ...workspaceNav,
+    ...(permissions.includes(PermissionEnum.ETIMS_VIEW) ? [etimsNav] : []),
     ...(permissions.includes(PermissionEnum.STAFF_MANAGE) ? [staffNav] : []),
     ...(permissions.includes(PermissionEnum.STAFF_VIEW)
       ? [staffPerformanceNav]
@@ -329,12 +350,7 @@ export function DynamicAppSidebar({
     ...(canView('pos') ? [posNav] : []),
     ...(permissions.includes(PermissionEnum.SALES_VIEW_OWN)
       ? [
-          {
-            id: 'my-sales',
-            label: 'My receipts',
-            icon: 'ReceiptText',
-            route: '/dashboard/pos/history',
-          },
+          myReceiptsNav,
         ]
       : []),
     ...(config.enabledModules.includes('customers') &&
@@ -381,6 +397,28 @@ export function DynamicAppSidebar({
             label: 'Inventory',
             icon: 'Boxes',
             route: '/dashboard/inventory',
+          },
+        ]
+      : []),
+    ...(isPharmacyBusiness(config.businessType, config.businessCategory) &&
+    permissions.includes(PermissionEnum.PRESCRIPTION_VIEW)
+      ? [
+          {
+            id: 'prescriptions',
+            label: 'Prescription records',
+            icon: 'FileText',
+            route: '/dashboard/pharmacy/prescriptions',
+          },
+        ]
+      : []),
+    ...(isPharmacyBusiness(config.businessType, config.businessCategory) &&
+    permissions.includes(PermissionEnum.BATCH_TRACKING_VIEW)
+      ? [
+          {
+            id: 'batches',
+            label: 'Batches & expiry',
+            icon: 'Calendar',
+            route: '/dashboard/inventory/batches',
           },
         ]
       : []),

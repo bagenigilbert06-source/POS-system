@@ -1,14 +1,20 @@
 import type { Metadata } from 'next';
+import { eq } from 'drizzle-orm';
 import { AdminPageHeader } from '@/components/admin/admin-page-header';
+import { requireDashboardPermission } from '@/lib/auth/dashboard-access';
+import { db } from '@/lib/db';
+import { organization } from '@/lib/db/schema';
+import { isPharmacyBusiness } from '@/lib/pharmacy/rules';
 import {
   ASSIGNABLE_ROLES,
+  PermissionEnum,
   ROLE_PERMISSIONS,
   RoleEnum,
 } from '@/lib/types/permissions';
 
 export const metadata: Metadata = { title: 'Role permissions | Pesaby' };
 
-const visibleRoles = [
+const coreVisibleRoles = [
   RoleEnum.OWNER,
   RoleEnum.ADMIN,
   RoleEnum.MANAGER,
@@ -25,9 +31,22 @@ const roleSummary: Record<string, string> = {
   cashier: 'Sells, handles customers and views their own receipts.',
   inventory: 'Maintains products, stock and procurement records.',
   accountant: 'Reviews finance, expenses and organization reports.',
+  pharmacist: 'Dispenses medicines, reviews prescriptions and approves restricted medicine sales.',
+  pharmacy_staff: 'Supports medicine sales, customer service and stock handling under pharmacy controls.',
 };
 
-export default function RolesPage() {
+export default async function RolesPage() {
+  const authorization = await requireDashboardPermission(PermissionEnum.ADMIN_ACCESS);
+  const [workspace] = await db.select({
+    businessType: organization.businessType,
+    businessCategory: organization.businessCategory,
+  }).from(organization).where(eq(organization.id, authorization.organizationId)).limit(1);
+  const pharmacyWorkspace = isPharmacyBusiness(workspace?.businessType, workspace?.businessCategory);
+  const visibleRoles = pharmacyWorkspace
+    ? [...coreVisibleRoles, RoleEnum.PHARMACIST, RoleEnum.PHARMACY_STAFF]
+    : coreVisibleRoles;
+  const pharmacyRoles = new Set<RoleEnum>([RoleEnum.PHARMACIST, RoleEnum.PHARMACY_STAFF]);
+
   return (
     <div className="space-y-5 pb-8">
       <AdminPageHeader
@@ -53,8 +72,8 @@ export default function RolesPage() {
                 Can create or assign
               </p>
               <p className="mt-2 text-sm">
-                {ASSIGNABLE_ROLES[role].length
-                  ? ASSIGNABLE_ROLES[role].map(label).join(', ')
+                {ASSIGNABLE_ROLES[role].filter((assignable) => pharmacyWorkspace || !pharmacyRoles.has(assignable)).length
+                  ? ASSIGNABLE_ROLES[role].filter((assignable) => pharmacyWorkspace || !pharmacyRoles.has(assignable)).map(label).join(', ')
                   : 'No roles'}
               </p>
               <div className="mt-4 flex flex-wrap gap-1.5">

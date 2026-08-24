@@ -3,7 +3,7 @@
 import { and, eq, inArray } from 'drizzle-orm'
 import { z } from 'zod'
 import { db } from '@/lib/db'
-import { branch, businessSettings, customer, mpesaBusinessAccount, mpesaPaymentRequest, posSession, product } from '@/lib/db/schema'
+import { branch, businessSettings, customer, mpesaBusinessAccount, mpesaPaymentRequest, pharmacyConfiguration, pharmacyProduct, posSession, product, productPackage } from '@/lib/db/schema'
 import { requireAnyPermission } from '@/lib/auth/authorization'
 import { getPosAuthorizationContext } from '@/lib/pos/pos-auth'
 import { PermissionEnum } from '@/lib/types/permissions'
@@ -11,8 +11,14 @@ import { generateId } from '@/lib/utils'
 import { mpesaPaybillDetails, normalizeKenyanPhone, registerC2bUrls, requestStkPush } from '@/lib/mpesa/daraja'
 import { WorkspaceService } from '@/lib/services/workspace-service'
 import { calculateMpesaAmount } from '@/lib/mpesa/amount'
+import { isPharmacyBusiness } from '@/lib/pharmacy/rules'
 
-const itemSchema = z.object({ productId: z.string().min(1), quantity: z.number().int().positive() })
+const itemSchema = z.object({ productId: z.string().min(1), quantity: z.number().int().positive(), packageId: z.string().min(1).optional() })
+const pharmacyWorkflowSchema = z.object({
+  prescriptionReference: z.string().trim().min(2).max(120).optional(),
+  prescriberReference: z.string().trim().max(160).optional(),
+  notes: z.string().trim().max(500).optional(),
+}).optional()
 const initiateSchema = z.object({
   phone: z.string().min(9).max(30),
   items: z.array(itemSchema).min(1).max(250),
@@ -20,6 +26,7 @@ const initiateSchema = z.object({
   idempotencyKey: z.string().min(8).max(100),
   ageVerified: z.boolean().optional(),
   customerId: z.string().min(1).optional(),
+  pharmacy: pharmacyWorkflowSchema,
 })
 const paybillSchema = initiateSchema.omit({ phone: true })
 let c2bUrlsReady = false
@@ -34,6 +41,22 @@ async function paymentAuthorization() {
     : await db.select({ id: branch.id }).from(branch).where(and(eq(branch.organizationId, authorization.organizationId), eq(branch.isMain, true))).limit(1)
   if (!activeBranch) throw new Error('No authorized branch is available for this POS')
   return { ...authorization, branchId: activeBranch.id, terminalId: pos?.terminalId ?? null }
+}
+
+async function validatePharmacyPayment(authorization: Awaited<ReturnType<typeof paymentAuthorization>>, productIds: string[], workflow: z.input<typeof pharmacyWorkflowSchema>) {
+  const workspace = await WorkspaceService.getWorkspaceConfig(authorization.organizationId, authorization.userId)
+  if (!workspace || !isPharmacyBusiness(workspace.businessType, workspace.businessCategory)) return
+  const [items, policies] = await Promise.all([
+    db.select().from(pharmacyProduct).where(and(eq(pharmacyProduct.organizationId, authorization.organizationId), inArray(pharmacyProduct.productId, productIds))),
+    db.select().from(pharmacyConfiguration).where(eq(pharmacyConfiguration.organizationId, authorization.organizationId)).limit(1),
+  ])
+  const policy = policies[0]
+  if (items.some((item) => item.prescriptionRequired) && !authorization.permissions.includes(PermissionEnum.PRESCRIPTION_DISPENSE))
+    throw new Error('This staff role is not allowed to dispense prescription medicines')
+  if ((policy?.prescriptionWorkflowEnabled ?? true) && items.some((item) => item.prescriptionRequired) && !workflow?.prescriptionReference)
+    throw new Error('Enter the prescription reference before requesting payment')
+  if ((policy?.restrictedItemWorkflowEnabled ?? true) && items.some((item) => item.restrictedItem) && !authorization.permissions.includes(PermissionEnum.PHARMACY_RESTRICTED_APPROVE))
+    throw new Error('A pharmacist or authorized manager must approve this restricted-item sale')
 }
 
 export async function initiateMpesaPayment(input: z.input<typeof initiateSchema>) {
@@ -60,14 +83,21 @@ export async function initiateMpesaPayment(input: z.input<typeof initiateSchema>
 
   const productIds = Array.from(new Set(data.items.map((item) => item.productId)))
   if (productIds.length !== data.items.length) throw new Error('Duplicate basket items are not allowed')
+  await validatePharmacyPayment(authorization, productIds, data.pharmacy)
   const products = await db.select({ id: product.id, price: product.sellingPrice, active: product.isActive, stock: product.stock })
     .from(product).where(and(eq(product.orgId, orgId), inArray(product.id, productIds)))
   const byId = new Map(products.map((item) => [item.id, item]))
+  const packageIds = data.items.map((item) => item.packageId).filter((value): value is string => Boolean(value))
+  const packages = packageIds.length ? await db.select().from(productPackage).where(and(eq(productPackage.organizationId, orgId), inArray(productPackage.id, packageIds), eq(productPackage.isActive, true))) : []
+  const packageById = new Map(packages.map((item) => [item.id, item]))
   let subtotal = 0
   for (const line of data.items) {
     const item = byId.get(line.productId)
-    if (!item?.active || item.stock < line.quantity) throw new Error('A basket item is unavailable or has insufficient stock')
-    subtotal += Number(item.price) * line.quantity
+    const selectedPackage = line.packageId ? packageById.get(line.packageId) : null
+    if (line.packageId && (!selectedPackage || selectedPackage.productId !== line.productId)) throw new Error('A basket package is unavailable')
+    const baseQuantity = line.quantity * (selectedPackage?.baseUnitQuantity ?? 1)
+    if (!item?.active || item.stock < baseQuantity) throw new Error('A basket item is unavailable or has insufficient stock')
+    subtotal += Number(selectedPackage?.sellingPrice ?? item.price) * line.quantity
   }
   const rate = settings?.taxEnabled ? Number(settings.taxRate || 0) / 100 : 0
   const tax = rate ? (settings?.pricesIncludeTax ? subtotal - subtotal / (1 + rate) : subtotal * rate) : 0
@@ -88,7 +118,7 @@ export async function initiateMpesaPayment(input: z.input<typeof initiateSchema>
     if (!lockedShift) throw new Error('This shift is no longer open')
     await tx.insert(mpesaPaymentRequest).values({
       id, organizationId: orgId, userId, branchId, posSessionId: activeShift.id, customerId: data.customerId,
-      checkoutPayload: { items: data.items, discountAmount: data.discountAmount, ageVerified: Boolean(data.ageVerified) },
+      checkoutPayload: { items: data.items, discountAmount: data.discountAmount, ageVerified: Boolean(data.ageVerified), pharmacy: data.pharmacy },
       idempotencyKey: data.idempotencyKey, phone, amount: String(exactTotal),
       status: 'SENDING_STK', expiresAt: new Date(Date.now() + 3 * 60_000),
     })
@@ -132,14 +162,21 @@ export async function initiateMpesaPaybillPayment(input: z.input<typeof paybillS
 
   const productIds = Array.from(new Set(data.items.map((item) => item.productId)))
   if (productIds.length !== data.items.length) throw new Error('Duplicate basket items are not allowed')
+  await validatePharmacyPayment(authorization, productIds, data.pharmacy)
   const products = await db.select({ id: product.id, price: product.sellingPrice, active: product.isActive, stock: product.stock })
     .from(product).where(and(eq(product.orgId, orgId), inArray(product.id, productIds)))
   const byId = new Map(products.map((item) => [item.id, item]))
+  const packageIds = data.items.map((item) => item.packageId).filter((value): value is string => Boolean(value))
+  const packages = packageIds.length ? await db.select().from(productPackage).where(and(eq(productPackage.organizationId, orgId), inArray(productPackage.id, packageIds), eq(productPackage.isActive, true))) : []
+  const packageById = new Map(packages.map((item) => [item.id, item]))
   let subtotal = 0
   for (const line of data.items) {
     const item = byId.get(line.productId)
-    if (!item?.active || item.stock < line.quantity) throw new Error('A basket item is unavailable or has insufficient stock')
-    subtotal += Number(item.price) * line.quantity
+    const selectedPackage = line.packageId ? packageById.get(line.packageId) : null
+    if (line.packageId && (!selectedPackage || selectedPackage.productId !== line.productId)) throw new Error('A basket package is unavailable')
+    const baseQuantity = line.quantity * (selectedPackage?.baseUnitQuantity ?? 1)
+    if (!item?.active || item.stock < baseQuantity) throw new Error('A basket item is unavailable or has insufficient stock')
+    subtotal += Number(selectedPackage?.sellingPrice ?? item.price) * line.quantity
   }
   const rate = settings?.taxEnabled ? Number(settings.taxRate || 0) / 100 : 0
   const tax = rate ? (settings?.pricesIncludeTax ? subtotal - subtotal / (1 + rate) : subtotal * rate) : 0
@@ -170,7 +207,7 @@ export async function initiateMpesaPaybillPayment(input: z.input<typeof paybillS
     if (!lockedShift) throw new Error('This shift is no longer open')
     await tx.insert(mpesaPaymentRequest).values({
       id, organizationId: orgId, userId, branchId, posSessionId: activeShift.id, customerId: data.customerId,
-      checkoutPayload: { items: data.items, discountAmount: data.discountAmount, ageVerified: Boolean(data.ageVerified) },
+      checkoutPayload: { items: data.items, discountAmount: data.discountAmount, ageVerified: Boolean(data.ageVerified), pharmacy: data.pharmacy },
       idempotencyKey: data.idempotencyKey, paymentMode: accountType, accountReference: accountType === 'paybill' ? accountReference : null,
       phone: 'awaiting-c2b', amount: String(exactTotal), status: 'AWAITING_CONFIRMATION', resultDescription: `Waiting for ${accountType === 'till' ? 'Till' : 'PayBill'} payment`,
       expiresAt: new Date(Date.now() + 10 * 60_000),

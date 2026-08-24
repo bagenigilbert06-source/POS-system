@@ -75,6 +75,12 @@ export enum PermissionEnum {
   SETTINGS_EDIT = 'settings:edit',
   SETTINGS_MANAGE_USERS = 'settings:manage-users',
 
+  // eTIMS fiscal integration
+  ETIMS_VIEW = 'etims:view',
+  ETIMS_MANAGE = 'etims:manage',
+  ETIMS_RETRY = 'etims:retry',
+  ETIMS_CONFIGURE = 'etims:configure',
+
   // Admin
   ADMIN_ACCESS = 'admin:access',
   OWNER_ACCESS = 'owner:access',
@@ -93,6 +99,7 @@ export enum PermissionEnum {
   PRESCRIPTION_CREATE = 'prescription:create',
   PRESCRIPTION_DISPENSE = 'prescription:dispense',
   BATCH_TRACKING_VIEW = 'batch:tracking-view',
+  PHARMACY_RESTRICTED_APPROVE = 'pharmacy:restricted-approve',
 }
 
 export enum RoleEnum {
@@ -158,6 +165,7 @@ export const ROLE_PERMISSIONS: Record<RoleEnum, PermissionEnum[]> = {
     PermissionEnum.PRESCRIPTION_CREATE,
     PermissionEnum.PRESCRIPTION_DISPENSE,
     PermissionEnum.BATCH_TRACKING_VIEW,
+    PermissionEnum.PHARMACY_RESTRICTED_APPROVE,
     PermissionEnum.POS_VIEW,
     PermissionEnum.POS_SELL,
     PermissionEnum.POS_HOLD,
@@ -183,6 +191,10 @@ export const ROLE_PERMISSIONS: Record<RoleEnum, PermissionEnum[]> = {
     PermissionEnum.EXPENSE_MANAGE,
     PermissionEnum.STAFF_VIEW,
     PermissionEnum.STAFF_MANAGE,
+    PermissionEnum.ETIMS_VIEW,
+    PermissionEnum.ETIMS_MANAGE,
+    PermissionEnum.ETIMS_RETRY,
+    PermissionEnum.ETIMS_CONFIGURE,
   ],
   [RoleEnum.ADMIN]: [
     // Organization administration, excluding ownership-only controls.
@@ -256,6 +268,11 @@ export const ROLE_PERMISSIONS: Record<RoleEnum, PermissionEnum[]> = {
     PermissionEnum.PRESCRIPTION_CREATE,
     PermissionEnum.PRESCRIPTION_DISPENSE,
     PermissionEnum.BATCH_TRACKING_VIEW,
+    PermissionEnum.PHARMACY_RESTRICTED_APPROVE,
+    PermissionEnum.ETIMS_VIEW,
+    PermissionEnum.ETIMS_MANAGE,
+    PermissionEnum.ETIMS_RETRY,
+    PermissionEnum.ETIMS_CONFIGURE,
   ],
   [RoleEnum.MANAGER]: [
     PermissionEnum.PRODUCT_VIEW,
@@ -292,7 +309,9 @@ export const ROLE_PERMISSIONS: Record<RoleEnum, PermissionEnum[]> = {
     PermissionEnum.KITCHEN_QUEUE_VIEW,
     PermissionEnum.KITCHEN_QUEUE_MANAGE,
     PermissionEnum.PRESCRIPTION_VIEW,
+    PermissionEnum.PRESCRIPTION_DISPENSE,
     PermissionEnum.BATCH_TRACKING_VIEW,
+    PermissionEnum.PHARMACY_RESTRICTED_APPROVE,
     PermissionEnum.POS_VIEW,
     PermissionEnum.POS_SELL,
     PermissionEnum.POS_HOLD,
@@ -316,6 +335,8 @@ export const ROLE_PERMISSIONS: Record<RoleEnum, PermissionEnum[]> = {
     PermissionEnum.EXPENSE_MANAGE,
     PermissionEnum.STAFF_VIEW,
     PermissionEnum.STAFF_MANAGE,
+    PermissionEnum.ETIMS_VIEW,
+    PermissionEnum.ETIMS_RETRY,
   ],
   [RoleEnum.SUPERVISOR]: [
     PermissionEnum.PRODUCT_VIEW,
@@ -346,6 +367,9 @@ export const ROLE_PERMISSIONS: Record<RoleEnum, PermissionEnum[]> = {
     PermissionEnum.INVENTORY_COUNT_START,
     PermissionEnum.CUSTOMER_VIEW,
     PermissionEnum.CUSTOMER_CREATE,
+    PermissionEnum.PRESCRIPTION_VIEW,
+    PermissionEnum.PRESCRIPTION_DISPENSE,
+    PermissionEnum.BATCH_TRACKING_VIEW,
   ],
   [RoleEnum.CASHIER]: [
     PermissionEnum.PRODUCT_VIEW,
@@ -394,6 +418,7 @@ export const ROLE_PERMISSIONS: Record<RoleEnum, PermissionEnum[]> = {
     PermissionEnum.EXPENSE_VIEW,
     PermissionEnum.EXPENSE_MANAGE,
     PermissionEnum.PURCHASE_VIEW,
+    PermissionEnum.ETIMS_VIEW,
   ],
   [RoleEnum.STAFF]: [
     PermissionEnum.PRODUCT_VIEW,
@@ -415,10 +440,24 @@ export const ROLE_PERMISSIONS: Record<RoleEnum, PermissionEnum[]> = {
     PermissionEnum.PRESCRIPTION_CREATE,
     PermissionEnum.PRESCRIPTION_DISPENSE,
     PermissionEnum.BATCH_TRACKING_VIEW,
+    PermissionEnum.PHARMACY_RESTRICTED_APPROVE,
     PermissionEnum.INVENTORY_VIEW,
     PermissionEnum.INVENTORY_EDIT,
+    PermissionEnum.INVENTORY_ADJUST,
+    PermissionEnum.INVENTORY_RECEIVE,
+    PermissionEnum.PURCHASE_VIEW,
+    PermissionEnum.PURCHASE_MANAGE,
     PermissionEnum.CUSTOMER_VIEW,
     PermissionEnum.REPORT_VIEW,
+    PermissionEnum.SALE_CREATE,
+    PermissionEnum.SALES_VIEW_OWN,
+    PermissionEnum.POS_VIEW,
+    PermissionEnum.POS_SELL,
+    PermissionEnum.POS_HOLD,
+    PermissionEnum.POS_PIN_USE,
+    PermissionEnum.POS_LOCK,
+    PermissionEnum.SHIFT_OPEN,
+    PermissionEnum.SHIFT_CLOSE,
   ],
   [RoleEnum.PHARMACY_STAFF]: [
     PermissionEnum.PRODUCT_VIEW,
@@ -426,6 +465,15 @@ export const ROLE_PERMISSIONS: Record<RoleEnum, PermissionEnum[]> = {
     PermissionEnum.PRESCRIPTION_DISPENSE,
     PermissionEnum.INVENTORY_VIEW,
     PermissionEnum.CUSTOMER_VIEW,
+    PermissionEnum.SALE_CREATE,
+    PermissionEnum.SALES_VIEW_OWN,
+    PermissionEnum.POS_VIEW,
+    PermissionEnum.POS_SELL,
+    PermissionEnum.POS_HOLD,
+    PermissionEnum.POS_PIN_USE,
+    PermissionEnum.POS_LOCK,
+    PermissionEnum.SHIFT_OPEN,
+    PermissionEnum.SHIFT_CLOSE,
   ],
 };
 
@@ -440,6 +488,8 @@ export const STAFF_MANAGED_ROLES = [
   RoleEnum.CASHIER,
   RoleEnum.INVENTORY,
   RoleEnum.ACCOUNTANT,
+  RoleEnum.PHARMACIST,
+  RoleEnum.PHARMACY_STAFF,
 ] as const;
 
 export type StaffManagedRole = (typeof STAFF_MANAGED_ROLES)[number];
@@ -450,6 +500,8 @@ export const STAFF_ROLE_LABELS: Readonly<Record<StaffManagedRole, string>> = {
   [RoleEnum.CASHIER]: 'Cashier',
   [RoleEnum.INVENTORY]: 'Inventory / Storekeeper',
   [RoleEnum.ACCOUNTANT]: 'Accountant / Finance',
+  [RoleEnum.PHARMACIST]: 'Pharmacist',
+  [RoleEnum.PHARMACY_STAFF]: 'Pharmacy assistant',
 };
 
 export function isStaffManagedRole(role: RoleEnum): role is StaffManagedRole {
@@ -466,6 +518,8 @@ export const ASSIGNABLE_ROLES: Readonly<Record<RoleEnum, readonly RoleEnum[]>> =
       RoleEnum.CASHIER,
       RoleEnum.INVENTORY,
       RoleEnum.ACCOUNTANT,
+      RoleEnum.PHARMACIST,
+      RoleEnum.PHARMACY_STAFF,
     ],
     [RoleEnum.SUPERVISOR]: [],
     [RoleEnum.CASHIER]: [],

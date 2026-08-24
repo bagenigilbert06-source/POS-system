@@ -13,6 +13,7 @@ import {
   inventoryBalance,
   inventoryLoss,
   mpesaPaymentRequest,
+  offlineSaleSync,
   posSession,
   posTerminal,
   product,
@@ -818,7 +819,7 @@ export async function refundSale(input: {
           productId: line.productId,
           productName: line.productName,
           branchId: record.branchId,
-          quantity: line.quantity,
+          quantity: line.quantity * line.baseUnitQuantity,
           type: 'sales_return',
           referenceType: 'credit_note',
           referenceId: returnId,
@@ -1126,6 +1127,21 @@ export async function beginPosSessionClose(sessionId?: string) {
       throw new Error(
         'Complete or cancel the pending M-Pesa payment before ending this shift'
       );
+    const [unresolvedOfflineSale] = await tx
+      .select({ id: offlineSaleSync.id })
+      .from(offlineSaleSync)
+      .where(
+        and(
+          eq(offlineSaleSync.organizationId, orgId),
+          eq(offlineSaleSync.sessionId, current.id),
+          inArray(offlineSaleSync.status, ['RECEIVED', 'SYNCING', 'FAILED'])
+        )
+      )
+      .limit(1);
+    if (unresolvedOfflineSale)
+      throw new Error(
+        'Synchronize or resolve all offline sales before ending this shift'
+      );
     const [updated] = await tx
       .update(posSession)
       .set({ status: 'closing', reconciliationStartedAt: new Date() })
@@ -1320,6 +1336,21 @@ export async function completePosSessionClose(input: {
   if (!requestedCount.equals(decimalNumber(current.countedCash)))
     throw new Error(
       'The drawer count changed. Recount before closing the shift'
+    );
+  const [unresolvedOfflineSale] = await db
+    .select({ id: offlineSaleSync.id })
+    .from(offlineSaleSync)
+    .where(
+      and(
+        eq(offlineSaleSync.organizationId, orgId),
+        eq(offlineSaleSync.sessionId, current.id),
+        inArray(offlineSaleSync.status, ['RECEIVED', 'SYNCING', 'FAILED'])
+      )
+    )
+    .limit(1);
+  if (unresolvedOfflineSale)
+    throw new Error(
+      'Synchronize or resolve all offline sales before closing this shift'
     );
   const calculation = await calculateReconciliation(orgId, current);
   if (

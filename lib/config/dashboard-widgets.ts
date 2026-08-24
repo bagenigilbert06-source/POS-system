@@ -143,7 +143,7 @@ export const DASHBOARD_LAYOUTS: Record<string, DashboardLayout> = {
   pharmacy: {
     id: 'pharmacy',
     name: 'Pharmacy Dashboard',
-    modules: ['inventory', 'prescriptions', 'sales', 'pos', 'customers', 'compliance', 'analytics'],
+    modules: ['inventory', 'prescriptions', 'sales', 'pos', 'customers', 'purchases', 'reports', 'analytics'],
     widgets: [
       {
         id: 'sales_today',
@@ -155,10 +155,10 @@ export const DASHBOARD_LAYOUTS: Record<string, DashboardLayout> = {
         order: 1,
       },
       {
-        id: 'prescriptions_pending',
-        name: 'Pending Prescriptions',
+        id: 'prescription_records',
+        name: 'Prescription Records',
         type: 'metric',
-        title: 'Pending Rx',
+        title: 'Rx Records',
         module: 'prescriptions',
         cols: 1,
         order: 2,
@@ -173,11 +173,11 @@ export const DASHBOARD_LAYOUTS: Record<string, DashboardLayout> = {
         order: 3,
       },
       {
-        id: 'compliance_alerts',
-        name: 'Compliance Alerts',
+        id: 'batch_alerts',
+        name: 'Batch Alerts',
         type: 'metric',
         title: 'Alerts',
-        module: 'compliance',
+        module: 'inventory',
         cols: 1,
         order: 4,
       },

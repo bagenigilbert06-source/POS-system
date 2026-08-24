@@ -16,6 +16,7 @@ import { requireWorkspaceModule } from '@/lib/onboarding/require-module'
 import { requireDashboardPermission } from '@/lib/auth/dashboard-access'
 import { PermissionEnum, RoleEnum } from '@/lib/types/permissions'
 import { resolveReportPeriod } from '@/lib/reports/report-rules'
+import { isPharmacyBusiness } from '@/lib/pharmacy/rules'
 
 export const metadata: Metadata = { title: 'Reports' }
 
@@ -62,6 +63,7 @@ export default async function ReportsPage({ searchParams }: { searchParams?: Pro
     section === 'shifts' ? getReportShifts(organization.id, organization.timezone || 'Africa/Nairobi', { branchIds, ...period }) : Promise.resolve([]),
   ])
   const currency = organization.currency || 'KES'
+  const pharmacyWorkspace = isPharmacyBusiness(organization.businessType, organization.businessCategory)
   const locationLabel = selectedLocation?.name ?? (accessibleBranchIds === undefined ? 'All locations' : 'Assigned locations')
   const rangeLabel = dateRangeLabel(period.from, period.to)
 
@@ -80,6 +82,8 @@ export default async function ReportsPage({ searchParams }: { searchParams?: Pro
           return <Link key={item} href={href} aria-current={item === section ? 'page' : undefined} className={`shrink-0 rounded-lg px-3 py-2 text-xs font-semibold capitalize transition-colors ${item === section ? 'bg-[var(--dashboard-accent-soft)] text-[var(--dashboard-accent-strong)]' : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'}`}>{item}</Link>
         })}
       </nav>
+
+      {pharmacyWorkspace && <section className="grid gap-3 sm:grid-cols-2"><ReportLinkPanel icon={CalendarDays} title="Batch and expiry report" detail="Review medicine lots, expiry windows, quarantined stock, supplier details and return decisions." href="/dashboard/inventory/batches" action="Open batch report" /><ReportLinkPanel icon={ReceiptText} title="Prescription register" detail="Review commercial prescription references, restricted approvals, medicines, receipts and dispensing staff." href="/dashboard/pharmacy/prescriptions" action="Open prescription records" /></section>}
 
       {section === 'overview' && <Overview report={report} currency={currency} rangeLabel={rangeLabel} />}
       {section === 'sales' && <><FinancialBreakdown report={report} currency={currency} /><ReportsCharts dailyData={report.daily} monthlyData={report.monthly} paymentData={report.payments} currency={currency} periodLabel={rangeLabel} /></>}

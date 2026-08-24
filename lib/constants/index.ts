@@ -157,7 +157,7 @@ export const ROUTES = {
   DASHBOARD: '/dashboard',
   DASHBOARD_RETAIL: '/dashboard/retail',
   DASHBOARD_RESTAURANT: '/dashboard/restaurant',
-  DASHBOARD_PHARMACY: '/dashboard/pharmacy',
+  DASHBOARD_PHARMACY: '/dashboard',
   PRODUCTS: '/products',
   SALES: '/sales',
   ORDERS: '/orders',

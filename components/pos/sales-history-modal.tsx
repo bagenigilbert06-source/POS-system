@@ -58,7 +58,7 @@ export function SalesHistoryModal({ onClose, onSelectSale }: SalesHistoryModalPr
                 <button
                   key={s.id}
                   onClick={() => onSelectSale?.(s)}
-                  className="w-full p-3 text-left border rounded-lg hover:bg-blue-50 transition-colors flex items-center justify-between"
+                  className="flex w-full items-center justify-between rounded-lg border p-3 text-left transition-colors hover:bg-muted"
                 >
                   <div>
                     <div className="font-semibold text-sm">{s.receiptNo}</div>

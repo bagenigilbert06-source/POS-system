@@ -24,9 +24,11 @@ import {
   Upload,
   X,
 } from 'lucide-react';
-import type { Product } from '@/lib/db/schema';
+import type { PharmacyProduct, Product } from '@/lib/db/schema';
 import { toast } from 'sonner';
 import { WirelessScannerPairing } from '@/components/barcode/wireless-scanner-pairing';
+import { useWorkspace } from '@/lib/context/workspace-context';
+import { isPharmacyBusiness } from '@/lib/pharmacy/rules';
 
 interface ProductFormProps {
   product?: Product;
@@ -39,6 +41,7 @@ interface ProductFormProps {
   onClose?: () => void;
   initialCategoryId?: string;
   initialBarcode?: string;
+  pharmacyMetadata?: PharmacyProduct | null;
 }
 
 const SELLING_UNITS = [
@@ -52,6 +55,7 @@ const SELLING_UNITS = [
   'piece',
   'other',
 ];
+const PHARMACY_SELLING_UNITS = ['tablet', 'capsule', 'strip', 'bottle', 'box', 'tube', 'sachet', 'vial', 'ampoule', 'pack', 'piece', 'other'];
 const VOLUME_UNITS = ['ml', 'litre'];
 
 export function ProductForm({
@@ -60,7 +64,10 @@ export function ProductForm({
   onClose,
   initialCategoryId,
   initialBarcode,
+  pharmacyMetadata,
 }: ProductFormProps) {
+  const { config } = useWorkspace();
+  const isPharmacy = Boolean(config && isPharmacyBusiness(config.businessType, config.businessCategory));
   const router = useRouter();
   const closeEditor = () => {
     if (onClose) onClose();
@@ -105,20 +112,34 @@ export function ProductForm({
     sellingPrice: product?.sellingPrice ?? '',
     stock: product?.stock ?? 0,
     minStock: product?.minStock ?? 5,
-    unit: product?.unit ?? 'bottle',
+    unit: product?.unit ?? (isPharmacy ? 'tablet' : 'bottle'),
     volume: product?.volume ?? '',
     volumeUnit: product?.volumeUnit ?? 'ml',
     abv: product?.abv ?? '',
     countryOfOrigin: product?.countryOfOrigin ?? '',
     unitsPerPack: product?.unitsPerPack ?? '',
     preferredSupplierId: product?.preferredSupplierId ?? '',
-    trackingMode: product?.trackingMode ?? 'none',
+    trackingMode: isPharmacy ? 'lot' : product?.trackingMode ?? 'none',
     costingMethod: product?.costingMethod ?? 'weighted_average',
     shelfLifeDays: product?.shelfLifeDays ?? '',
     expiryAlertDays: product?.expiryAlertDays ?? '',
+    etimsItemCode: product?.etimsItemCode ?? '',
+    etimsUnitCode: product?.etimsUnitCode ?? '',
+    etimsTaxCategory: product?.etimsTaxCategory ?? '',
+    etimsTaxRate: product?.etimsTaxRate ?? '',
+    etimsVatClassification: product?.etimsVatClassification ?? '',
+    genericName: pharmacyMetadata?.genericName ?? '',
+    internalCode: pharmacyMetadata?.internalCode ?? '',
+    manufacturer: pharmacyMetadata?.manufacturer ?? '',
+    strength: pharmacyMetadata?.strength ?? '',
+    dosageForm: pharmacyMetadata?.dosageForm ?? '',
+    packSize: pharmacyMetadata?.packSize ?? '',
+    prescriptionRequired: pharmacyMetadata?.prescriptionRequired ?? false,
+    restrictedItem: pharmacyMetadata?.restrictedItem ?? false,
+    pharmacyNotes: pharmacyMetadata?.notes ?? '',
   });
 
-  const set = (k: string, v: string | number) =>
+  const set = (k: string, v: string | number | boolean) =>
     setForm((f) => ({ ...f, [k]: v }));
   const categoryLabel = (item: {
     id: string;
@@ -293,11 +314,11 @@ export function ProductForm({
           ? undefined
           : 'Enter a selling price.',
       stock:
-        !product &&
+        !product && !isPharmacy &&
         Number(form.stock) >= 0 &&
         Number.isInteger(Number(form.stock))
           ? undefined
-          : !product
+          : !product && !isPharmacy
             ? 'Starting quantity cannot be negative.'
             : undefined,
       barcode: barcodeMatch
@@ -336,7 +357,7 @@ export function ProductForm({
         categoryId: form.categoryId || undefined,
         buyingPrice: parseFloat(String(form.buyingPrice)),
         sellingPrice: parseFloat(String(form.sellingPrice)),
-        ...(product ? {} : { stock: Number(form.stock) }),
+        ...(product ? {} : { stock: isPharmacy ? 0 : Number(form.stock) }),
         minStock: Number(form.minStock),
         unit: form.unit,
         volume: form.volume === '' ? undefined : Number(form.volume),
@@ -346,7 +367,7 @@ export function ProductForm({
         unitsPerPack:
           form.unitsPerPack === '' ? undefined : Number(form.unitsPerPack),
         preferredSupplierId: form.preferredSupplierId || undefined,
-        trackingMode: form.trackingMode as 'none' | 'lot' | 'serial',
+        trackingMode: (isPharmacy ? 'lot' : form.trackingMode) as 'none' | 'lot' | 'serial',
         costingMethod: form.costingMethod as
           | 'weighted_average'
           | 'fifo'
@@ -357,6 +378,22 @@ export function ProductForm({
           form.expiryAlertDays === ''
             ? undefined
             : Number(form.expiryAlertDays),
+        etimsItemCode: form.etimsItemCode || undefined,
+        etimsUnitCode: form.etimsUnitCode || undefined,
+        etimsTaxCategory: form.etimsTaxCategory || undefined,
+        etimsTaxRate: form.etimsTaxRate === '' ? undefined : Number(form.etimsTaxRate),
+        etimsVatClassification: form.etimsVatClassification || undefined,
+        ...(isPharmacy ? { pharmacy: {
+          genericName: form.genericName || undefined,
+          internalCode: form.internalCode || undefined,
+          manufacturer: form.manufacturer || undefined,
+          strength: form.strength || undefined,
+          dosageForm: form.dosageForm || undefined,
+          packSize: form.packSize || undefined,
+          prescriptionRequired: form.prescriptionRequired,
+          restrictedItem: form.restrictedItem,
+          notes: form.pharmacyNotes || undefined,
+        } } : {}),
         confirmLoss: loss,
       };
       if (product) {
@@ -504,7 +541,23 @@ export function ProductForm({
                       </p>
                     )}
                   </div>
-                  <div className="mt-4 grid gap-4 sm:grid-cols-3">
+                  {isPharmacy && <div className="mt-4 rounded-lg border bg-background p-4">
+                    <div className="mb-3"><h4 className="text-sm font-semibold">Medicine details</h4><p className="text-xs text-muted-foreground">Commercial catalogue information only—no diagnosis or dosage advice.</p></div>
+                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                      <div><FieldLabel>Generic name</FieldLabel><input value={form.genericName} onChange={(e) => set('genericName', e.target.value)} placeholder="e.g. Paracetamol + Caffeine" className={inputCls} /></div>
+                      <div><FieldLabel>Manufacturer</FieldLabel><input value={form.manufacturer} onChange={(e) => set('manufacturer', e.target.value)} placeholder="Manufacturer" className={inputCls} /></div>
+                      <div><FieldLabel>Internal medicine code</FieldLabel><input value={form.internalCode} onChange={(e) => set('internalCode', e.target.value)} placeholder="e.g. MED-0001" className={inputCls} /></div>
+                      <div><FieldLabel>Strength</FieldLabel><input value={form.strength} onChange={(e) => set('strength', e.target.value)} placeholder="e.g. 500 mg / 65 mg" className={inputCls} /></div>
+                      <div><FieldLabel>Dosage form</FieldLabel><input value={form.dosageForm} onChange={(e) => set('dosageForm', e.target.value)} placeholder="e.g. Tablet" className={inputCls} /></div>
+                      <div><FieldLabel>Pack size</FieldLabel><input value={form.packSize} onChange={(e) => set('packSize', e.target.value)} placeholder="e.g. 20 tablets" className={inputCls} /></div>
+                      <div><FieldLabel>Base selling unit</FieldLabel><select value={form.unit} onChange={(e) => set('unit', e.target.value)} className={inputCls}>{PHARMACY_SELLING_UNITS.map((unit) => <option key={unit} value={unit}>{unit[0].toUpperCase() + unit.slice(1)}</option>)}</select></div>
+                    </div>
+                    <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                      <label className="flex items-start gap-3 rounded-md border p-3 text-sm"><input type="checkbox" checked={form.prescriptionRequired} onChange={(e) => set('prescriptionRequired', e.target.checked)} className="mt-0.5" /><span><b className="block">Prescription required</b><span className="text-xs text-muted-foreground">Require a commercial prescription reference during checkout.</span></span></label>
+                      <label className="flex items-start gap-3 rounded-md border p-3 text-sm"><input type="checkbox" checked={form.restrictedItem} onChange={(e) => set('restrictedItem', e.target.checked)} className="mt-0.5" /><span><b className="block">Restricted-item audit</b><span className="text-xs text-muted-foreground">Record additional approval and traceability details.</span></span></label>
+                    </div>
+                  </div>}
+                  {!isPharmacy && <div className="mt-4 grid gap-4 sm:grid-cols-3">
                     <div>
                       <FieldLabel>Brand</FieldLabel>
                       <input
@@ -572,9 +625,9 @@ export function ProductForm({
                         </p>
                       )}
                     </div>
-                  </div>
+                  </div>}
                   <div className="mt-4 grid gap-4 sm:grid-cols-3">
-                    <div>
+                    {!isPharmacy && <div>
                       <FieldLabel>Bottle or package size</FieldLabel>
                       <input
                         type="number"
@@ -585,8 +638,8 @@ export function ProductForm({
                         placeholder="750"
                         className={inputCls}
                       />
-                    </div>
-                    <div>
+                    </div>}
+                    {!isPharmacy && <div>
                       <FieldLabel>Volume unit</FieldLabel>
                       <select
                         value={form.volumeUnit}
@@ -597,7 +650,7 @@ export function ProductForm({
                           <option key={unit}>{unit}</option>
                         ))}
                       </select>
-                    </div>
+                    </div>}
                     <div>
                       <FieldLabel>How this product is sold</FieldLabel>
                       <select
@@ -635,7 +688,7 @@ export function ProductForm({
                     <div>
                       <FieldLabel>Barcode number</FieldLabel>
                       <p className="mb-1 text-xs text-muted-foreground">
-                        Scan the barcode on the bottle or type the number
+                        Scan the barcode on the {isPharmacy ? 'medicine pack' : 'bottle'} or type the number
                         printed below it.
                       </p>
                       <div className="flex gap-2">
@@ -693,7 +746,7 @@ export function ProductForm({
                       )}
                     </div>
                   </div>
-                  <details className="mt-4 rounded-md border bg-background px-3 py-2">
+                  {!isPharmacy && <details className="mt-4 rounded-md border bg-background px-3 py-2">
                     <summary className="cursor-pointer text-sm font-medium">
                       More product details
                     </summary>
@@ -735,7 +788,7 @@ export function ProductForm({
                         />
                       </div>
                     </div>
-                  </details>
+                  </details>}
                   <div className="mt-4">
                     <FieldLabel>Description</FieldLabel>
                     <textarea
@@ -807,6 +860,7 @@ export function ProductForm({
                       <FieldLabel>Traceability</FieldLabel>
                       <select
                         value={form.trackingMode}
+                        disabled={isPharmacy}
                         onChange={(event) =>
                           set('trackingMode', event.target.value)
                         }
@@ -816,6 +870,7 @@ export function ProductForm({
                         <option value="lot">Batch / lot and expiry</option>
                         <option value="serial">Unique serial numbers</option>
                       </select>
+                      {isPharmacy && <p className="mt-1 text-xs text-muted-foreground">Medicine stock is always batch and expiry tracked.</p>}
                     </div>
                     <div>
                       <FieldLabel>Costing method</FieldLabel>
@@ -1001,8 +1056,7 @@ export function ProductForm({
                     <div>
                       <FieldLabel required>Cost price</FieldLabel>
                       <p className="mb-1 text-xs text-muted-foreground">
-                        Required for accurate profit reporting. How much you
-                        paid for one bottle or unit.
+                        {isPharmacy ? 'Required for accurate profit reporting. Enter the cost per selling unit.' : 'Required for accurate profit reporting. How much you paid for one bottle or unit.'}
                       </p>
                       <input
                         type="number"
@@ -1026,7 +1080,7 @@ export function ProductForm({
                     <div>
                       <FieldLabel required>Selling price</FieldLabel>
                       <p className="mb-1 text-xs text-muted-foreground">
-                        How much the customer will pay for one bottle or unit.
+                        {isPharmacy ? 'How much the customer will pay for one selling unit.' : 'How much the customer will pay for one bottle or unit.'}
                       </p>
                       <input
                         type="number"
@@ -1052,6 +1106,16 @@ export function ProductForm({
                           {errors.sellingPrice}
                         </p>
                       )}
+                    </div>
+                  </div>
+                  <div className="mt-5 border-t pt-5">
+                    <div><h4 className="text-sm font-semibold">eTIMS tax mapping</h4><p className="mt-1 text-xs text-muted-foreground">Use only the item, unit and tax codes supplied by your certified eTIMS provider or KRA specification.</p></div>
+                    <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                      <div><FieldLabel>Item code</FieldLabel><input value={form.etimsItemCode} onChange={(e) => set('etimsItemCode', e.target.value)} placeholder="Provider/KRA item code" className={inputCls} /></div>
+                      <div><FieldLabel>Unit code</FieldLabel><input value={form.etimsUnitCode} onChange={(e) => set('etimsUnitCode', e.target.value)} placeholder="Official unit code" className={inputCls} /></div>
+                      <div><FieldLabel>Tax category</FieldLabel><input value={form.etimsTaxCategory} onChange={(e) => set('etimsTaxCategory', e.target.value)} placeholder="Official tax category" className={inputCls} /></div>
+                      <div><FieldLabel>Tax rate (%)</FieldLabel><input type="number" min="0" max="100" step="0.01" value={form.etimsTaxRate} onChange={(e) => set('etimsTaxRate', e.target.value)} placeholder="e.g. 16" className={inputCls} /></div>
+                      <div className="sm:col-span-2"><FieldLabel>VAT classification</FieldLabel><input value={form.etimsVatClassification} onChange={(e) => set('etimsVatClassification', e.target.value)} placeholder="Official classification, if required" className={inputCls} /></div>
                     </div>
                   </div>
                   <div
@@ -1100,8 +1164,7 @@ export function ProductForm({
                 </div>
                 <div className="rounded-lg border bg-muted/20 p-4 sm:p-5">
                   <p className="mb-4 text-xs text-muted-foreground">
-                    Set the opening quantity and the level at which this product
-                    should be flagged for reorder.
+                    {isPharmacy ? 'Set the reorder level. Opening medicine stock is received separately with its batch and expiry.' : 'Set the opening quantity and the level at which this product should be flagged for reorder.'}
                   </p>
                   <div className="grid gap-4 sm:grid-cols-3">
                     <div>
@@ -1113,11 +1176,13 @@ export function ProductForm({
                         min="0"
                         value={form.stock}
                         onChange={(e) => set('stock', e.target.value)}
-                        readOnly={Boolean(product)}
-                        className={cn(inputCls, product && 'bg-muted')}
+                        readOnly={Boolean(product) || isPharmacy}
+                        className={cn(inputCls, (product || isPharmacy) && 'bg-muted')}
                       />
                       <p className="mt-1 text-xs text-muted-foreground">
-                        {product
+                        {isPharmacy
+                          ? 'Use Purchasing or Receive stock to record a batch number and expiry date.'
+                          : product
                           ? 'Use Adjust stock to record a stock movement.'
                           : 'How many bottles, cans, cartons or units you currently have.'}
                       </p>

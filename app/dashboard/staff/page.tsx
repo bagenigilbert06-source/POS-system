@@ -4,10 +4,11 @@ import { DashboardPageHeading } from '@/components/dashboard/page-heading'
 import { StaffManagementTable } from '@/components/staff/staff-management-table'
 import { AddStaffDialog } from '@/components/staff/add-staff-dialog'
 import { db } from '@/lib/db'
-import { branch, branchMembership, employee, posPinCredential } from '@/lib/db/schema'
+import { branch, branchMembership, employee, organization, posPinCredential } from '@/lib/db/schema'
 import { and, eq, inArray, sql } from 'drizzle-orm'
 import { requirePermission } from '@/lib/auth/authorization'
 import { ASSIGNABLE_ROLES, PermissionEnum, RoleEnum, canManageExistingRole, isStaffManagedRole } from '@/lib/types/permissions'
+import { isPharmacyBusiness } from '@/lib/pharmacy/rules'
 
 export const metadata: Metadata = { title: 'Staff Management' }
 
@@ -31,14 +32,20 @@ export default async function StaffPage() {
     eq(branch.organizationId, authorization.organizationId),
     authorization.isOrganizationWide ? undefined : inArray(branch.id, authorization.branchIds),
   )).orderBy(branch.name)
-  const assignableRoles = ASSIGNABLE_ROLES[authorization.role].filter(isStaffManagedRole)
+  const [workspace] = await db.select({ businessType: organization.businessType, businessCategory: organization.businessCategory })
+    .from(organization).where(eq(organization.id, authorization.organizationId)).limit(1)
+  const pharmacyWorkspace = isPharmacyBusiness(workspace?.businessType, workspace?.businessCategory)
+  const pharmacyRoles = new Set<RoleEnum>([RoleEnum.PHARMACIST, RoleEnum.PHARMACY_STAFF])
+  const assignableRoles = ASSIGNABLE_ROLES[authorization.role]
+    .filter(isStaffManagedRole)
+    .filter((role) => pharmacyWorkspace || !pharmacyRoles.has(role))
 
   return (
     <div className="mx-auto max-w-7xl space-y-6 pb-10">
       <DashboardPageHeading
         icon={Users}
         title="Staff Management"
-        description="Manage employees, assign shifts, and track performance."
+        description={pharmacyWorkspace ? 'Manage pharmacists, pharmacy assistants, cashiers and branch access.' : 'Manage employees, assign shifts, and track performance.'}
         theme="adaptive"
         action={<AddStaffDialog branches={branches} assignableRoles={assignableRoles} />}
       />

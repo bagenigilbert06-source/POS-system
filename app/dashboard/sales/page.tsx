@@ -17,11 +17,12 @@ function dateValue(value?: string) {
 
 export default async function SalesPage({ searchParams }: { searchParams?: Promise<Record<string, string | string[] | undefined>> }) {
   const { config, organization } = await requireWorkspaceModule('sales')
+  const isLiquorWorkspace = config.businessCategory === 'liquor_shop'
   const params = await searchParams
   const value = (key: string) => { const item = params?.[key]; return Array.isArray(item) ? item[0] : item }
-  const filters: SalesPageFilters = { search: value('search'), paymentMethod: value('payment'), status: value('status'), ageVerification: value('age') as SalesPageFilters['ageVerification'], customerId: value('customer'), cashierId: value('cashier'), branchId: value('branch'), from: dateValue(value('from')), to: dateValue(value('to')), page: Number(value('page') ?? 1), pageSize: Number(value('pageSize') ?? 50), sort: (value('sort') as SalesPageFilters['sort']) ?? 'date', direction: value('direction') === 'asc' ? 'asc' : 'desc' }
+  const filters: SalesPageFilters = { search: value('search'), paymentMethod: value('payment'), status: value('status'), ageVerification: isLiquorWorkspace ? value('age') as SalesPageFilters['ageVerification'] : undefined, customerId: value('customer'), cashierId: value('cashier'), branchId: value('branch'), from: dateValue(value('from')), to: dateValue(value('to')), page: Number(value('page') ?? 1), pageSize: Number(value('pageSize') ?? 50), sort: (value('sort') as SalesPageFilters['sort']) ?? 'date', direction: value('direction') === 'asc' ? 'asc' : 'desc' }
   const [data, options, analytics, [settings]] = await Promise.all([getSalesPageData(filters), getSalesFilterOptions(), getSalesAnalytics(filters), db.select({ paymentMethods: businessSettings.paymentMethods, taxEnabled: businessSettings.taxEnabled, pricesIncludeTax: businessSettings.pricesIncludeTax }).from(businessSettings).where(eq(businessSettings.organizationId, organization.id)).limit(1)])
   const hasPos = config.enabledModules.includes('pos')
   const paymentMethods = Array.isArray(settings?.paymentMethods) ? settings.paymentMethods as string[] : []
-  return <SalesManagementView data={data} filters={filters} options={options} analytics={analytics} hasPos={hasPos} manualSale={!hasPos ? <ManualSaleDialog paymentMethods={paymentMethods} taxEnabled={settings?.taxEnabled ?? false} pricesIncludeTax={settings?.pricesIncludeTax ?? false} /> : null} />
+  return <SalesManagementView data={data} filters={filters} options={options} analytics={analytics} hasPos={hasPos} showAgeVerification={isLiquorWorkspace} manualSale={!hasPos ? <ManualSaleDialog paymentMethods={paymentMethods} taxEnabled={settings?.taxEnabled ?? false} pricesIncludeTax={settings?.pricesIncludeTax ?? false} /> : null} />
 }

@@ -3,8 +3,8 @@ import { PHARMACY_PERMISSIONS, PHARMACY_REPORTS, PHARMACY_SETTINGS } from '../..
 
 const navigation: NavigationConfig = {
   primaryNav: [
-    { id: 'dashboard', label: 'Dashboard', icon: 'LayoutDashboard', route: '/dashboard/pharmacy' },
-    { id: 'prescriptions', label: 'Prescriptions', icon: 'FileText', route: '/dashboard/prescriptions' },
+    { id: 'dashboard', label: 'Dashboard', icon: 'LayoutDashboard', route: '/dashboard' },
+    { id: 'prescriptions', label: 'Dispensing', icon: 'FileText', route: '/dashboard/pos' },
     { id: 'sales', label: 'Sales', icon: 'ShoppingCart', route: '/dashboard/sales' },
     { id: 'products', label: 'Medicines', icon: 'Pill', route: '/dashboard/products' },
     { id: 'inventory', label: 'Inventory', icon: 'PackageSearch', route: '/dashboard/inventory' },
@@ -26,7 +26,7 @@ const dashboardWidgets: DashboardWidget[] = [
 ]
 
 const quickActions: QuickAction[] = [
-  { id: 'new-prescription', label: 'New Prescription', href: '/dashboard/prescriptions', icon: 'FileText', primary: true },
+  { id: 'new-prescription', label: 'Dispense medicine', href: '/dashboard/pos', icon: 'FileText', primary: true },
   { id: 'new-sale', label: 'New Sale', href: '/dashboard/sales', icon: 'ShoppingCart' },
   { id: 'add-medicine', label: 'Add Medicine', href: '/dashboard/products', icon: 'Pill' },
 ]

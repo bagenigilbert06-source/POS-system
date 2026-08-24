@@ -40,7 +40,8 @@ export async function getCustomers(search?: string) {
       or(
         ilike(customer.name, `%${search}%`),
         ilike(customer.phone, `%${search}%`),
-        ilike(customer.email, `%${search}%`)
+        ilike(customer.email, `%${search}%`),
+        ilike(customer.kraPin, `%${search}%`)
       )!
     )
   }
@@ -64,6 +65,9 @@ const customerSchema = z.object({
   phone: z.string().trim().max(30).optional(),
   email: z.string().trim().email('Enter a valid email address').max(254).optional().or(z.literal('')),
   address: z.string().trim().max(300).optional(),
+  kraPin: z.string().trim().toUpperCase().regex(/^[A-Z0-9]{5,20}$/, 'Enter a valid KRA PIN').optional().or(z.literal('')),
+  customerType: z.enum(['individual', 'business']).default('individual'),
+  vatRegistered: z.boolean().default(false),
 })
 
 function normalizedPhone(value?: string | null) {
@@ -92,6 +96,9 @@ export async function createCustomer(data: {
   phone?: string
   email?: string
   address?: string
+  kraPin?: string
+  customerType?: 'individual' | 'business'
+  vatRegistered?: boolean
 }) {
   const parsed = customerSchema.parse(data)
   const userId = await getUserId()
@@ -101,7 +108,7 @@ export async function createCustomer(data: {
   const createdAt = new Date()
   const phone = normalizedPhone(parsed.phone)
   const email = normalizedEmail(parsed.email)
-  await db.insert(customer).values({ id, ...parsed, email, phone, address: parsed.address || null, userId, orgId, createdAt })
+  await db.insert(customer).values({ id, ...parsed, email, phone, address: parsed.address || null, kraPin: parsed.kraPin || null, userId, orgId, createdAt })
   revalidatePath('/dashboard/customers')
   return {
     id,
@@ -109,13 +116,16 @@ export async function createCustomer(data: {
     phone,
     email,
     address: parsed.address || null,
+    kraPin: parsed.kraPin || null,
+    customerType: parsed.customerType,
+    vatRegistered: parsed.vatRegistered,
     createdAt,
   }
 }
 
 export async function updateCustomer(
   id: string,
-  data: Partial<{ name: string; phone: string; email: string; address: string }>
+  data: Partial<{ name: string; phone: string; email: string; address: string; kraPin: string; customerType: 'individual' | 'business'; vatRegistered: boolean }>
 ) {
   const parsed = customerSchema.partial().parse(data)
   const userId = await getUserId()
@@ -128,6 +138,7 @@ export async function updateCustomer(
       ...(parsed.email !== undefined ? { email: normalizedEmail(parsed.email) } : {}),
       ...(parsed.phone !== undefined ? { phone: normalizedPhone(parsed.phone) } : {}),
       ...(parsed.address !== undefined ? { address: parsed.address || null } : {}),
+      ...(parsed.kraPin !== undefined ? { kraPin: parsed.kraPin || null } : {}),
       updatedAt: new Date(),
     })
     .where(and(eq(customer.id, id), eq(customer.orgId, orgId)))

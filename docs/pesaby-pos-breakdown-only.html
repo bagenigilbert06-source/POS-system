@@ -1,0 +1,309 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Pesaby POS Price Breakdown</title>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap');
+
+      @page {
+        size: A4;
+        margin: 14mm;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        color: #222;
+        font-family: 'Manrope', 'Inter', -apple-system, BlinkMacSystemFont,
+          'Segoe UI', sans-serif;
+        font-size: 9.7pt;
+        line-height: 1.42;
+        font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+        font-variant-numeric: tabular-nums lining-nums;
+        text-rendering: optimizeLegibility;
+      }
+
+      body::after {
+        display: block;
+        margin-top: 18px;
+        color: #777;
+        content: '— — — — — — — — — — — — — — — — — — — — — — — — — — — —';
+        font-size: 8pt;
+        letter-spacing: 0.08em;
+        text-align: center;
+      }
+
+      .brand {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        margin-bottom: 17px;
+        padding-bottom: 11px;
+        border-bottom: 1px solid #222;
+      }
+
+      .brand h1 {
+        margin: 0;
+        color: #111;
+        font-size: 22px;
+        font-weight: 800;
+        line-height: 1;
+        letter-spacing: -0.05em;
+      }
+
+      .brand p {
+        margin: 5px 0 0;
+        color: #666;
+        font-size: 9pt;
+        font-weight: 600;
+      }
+
+      .date {
+        color: #666;
+        font-size: 8.3pt;
+        line-height: 1.5;
+        text-align: right;
+      }
+
+      .date::before {
+        display: block;
+        margin-bottom: 4px;
+        color: #222;
+        content: 'QUOTATION';
+        font-size: 7.2pt;
+        font-weight: 800;
+        letter-spacing: 0.12em;
+      }
+
+      .hero {
+        margin: 13px 0 18px;
+        padding: 0 0 13px;
+        border-bottom: 1px dashed #999;
+      }
+
+      .hero h2 {
+        margin: 0 0 4px;
+        font-size: 14px;
+        font-weight: 800;
+        letter-spacing: -0.02em;
+      }
+
+      .hero p {
+        margin: 0;
+        color: #444;
+        font-size: 9.2pt;
+      }
+
+      h2 {
+        margin: 18px 0 7px;
+        color: #111;
+        font-size: 11px;
+        font-weight: 800;
+        letter-spacing: -0.025em;
+        text-transform: uppercase;
+      }
+
+      h2::before {
+        margin-right: 7px;
+        color: #777;
+        content: '▸';
+      }
+
+      table {
+        width: 100%;
+        margin: 6px 0 14px;
+        overflow: hidden;
+        border: 0;
+        border-spacing: 0;
+        border-radius: 0;
+        border-collapse: separate;
+      }
+
+      th {
+        padding: 6px 0;
+        border-bottom: 1px solid #222;
+        background: transparent;
+        color: #555;
+        font-size: 7.2pt;
+        font-weight: 800;
+        letter-spacing: 0.09em;
+        text-align: left;
+        text-transform: uppercase;
+      }
+
+      td {
+        padding: 8px 0;
+        border-bottom: 1px dotted #c4c4c4;
+        vertical-align: middle;
+      }
+
+      tbody tr:last-child td {
+        border-bottom: 0;
+      }
+
+      .num {
+        width: 34%;
+        text-align: right;
+        white-space: nowrap;
+      }
+
+      .package-price {
+        width: 27%;
+      }
+
+      .total td {
+        padding-top: 10px;
+        border-top: 1px solid #222;
+        border-bottom: 3px double #222;
+        background: transparent;
+        color: #111;
+        font-size: 9.5pt;
+        font-weight: 800;
+      }
+
+      .note {
+        margin-top: 17px;
+        padding: 10px 0;
+        border-top: 1px dashed #999;
+        border-bottom: 1px dashed #999;
+        background: transparent;
+        color: #444;
+        font-size: 8.4pt;
+      }
+
+      .note strong {
+        color: #111;
+      }
+
+      .footer {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 18px;
+        padding-top: 8px;
+        border-top: 1px solid #222;
+        color: #666;
+        font-size: 7.8pt;
+      }
+    </style>
+  </head>
+  <body>
+    <header class="brand">
+      <div>
+        <h1>Pesaby</h1>
+        <p>Liquor Store POS — Price Breakdown</p>
+      </div>
+      <div class="date">
+        Prepared: 24 August 2026<br />
+        Currency: Kenyan Shillings (KES)
+      </div>
+    </header>
+
+    <section class="hero">
+      <h2>Simple pricing for a complete POS launch</h2>
+      <p>
+        One liquor-store branch, up to two tills, with optional M-Pesa and eTIMS
+        integrations. Hardware is quoted separately.
+      </p>
+    </section>
+
+    <h2>1. Implementation</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Implementation</th>
+          <th class="num">Price</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Implementation &amp; Training</td>
+          <td class="num">KES 30,000</td>
+        </tr>
+        <tr>
+          <td>M-Pesa Integration</td>
+          <td class="num">KES 20,000</td>
+        </tr>
+        <tr>
+          <td>eTIMS Integration</td>
+          <td class="num">KES 35,000</td>
+        </tr>
+        <tr>
+          <td>Hardware</td>
+          <td class="num">Quoted Separately</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>2. Monthly subscription</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Subscription</th>
+          <th class="num">Price</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>1 Branch + Up to 2 Tills</td>
+          <td class="num">KES 7,500 / Month</td>
+        </tr>
+        <tr>
+          <td>Annual Payment</td>
+          <td class="num">KES 75,000 / Year</td>
+        </tr>
+        <tr>
+          <td>Extra Till</td>
+          <td class="num">KES 1,000 / Month</td>
+        </tr>
+        <tr>
+          <td>Extra Branch</td>
+          <td class="num">KES 3,000 / Month</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>3. Customer packages</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Customer package</th>
+          <th class="num package-price">To start</th>
+          <th class="num package-price">Monthly</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>POS Only</td>
+          <td class="num">KES 37,500</td>
+          <td class="num">KES 7,500</td>
+        </tr>
+        <tr>
+          <td>POS + M-Pesa</td>
+          <td class="num">KES 57,500</td>
+          <td class="num">KES 7,500</td>
+        </tr>
+        <tr class="total">
+          <td>POS + M-Pesa + eTIMS</td>
+          <td class="num">KES 92,500</td>
+          <td class="num">KES 7,500</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="note">
+      <strong>Pricing note:</strong> Hardware is excluded from the package totals.
+      Integration scope and third-party charges should be confirmed before the
+      final quotation is issued.
+    </div>
+
+    <footer class="footer">
+      <span>Pesaby Business OS</span>
+      <span>Liquor Store POS Pricing</span>
+    </footer>
+  </body>
+</html>

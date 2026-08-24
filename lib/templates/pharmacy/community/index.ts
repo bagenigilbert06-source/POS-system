@@ -3,8 +3,8 @@ import { PHARMACY_PERMISSIONS, PHARMACY_REPORTS, PHARMACY_SETTINGS } from '../..
 
 const navigation: NavigationConfig = {
   primaryNav: [
-    { id: 'dashboard', label: 'Dashboard', icon: 'LayoutDashboard', route: '/dashboard/pharmacy' },
-    { id: 'prescriptions', label: 'Prescriptions', icon: 'FileText', route: '/dashboard/prescriptions' },
+    { id: 'dashboard', label: 'Dashboard', icon: 'LayoutDashboard', route: '/dashboard' },
+    { id: 'prescriptions', label: 'Dispensing', icon: 'FileText', route: '/dashboard/pos' },
     { id: 'sales', label: 'Sales', icon: 'ShoppingCart', route: '/dashboard/sales' },
     { id: 'products', label: 'Medicines', icon: 'Pill', route: '/dashboard/products' },
     { id: 'inventory', label: 'Inventory', icon: 'PackageSearch', route: '/dashboard/inventory' },
@@ -27,10 +27,10 @@ const dashboardWidgets: DashboardWidget[] = [
 ]
 
 const quickActions: QuickAction[] = [
-  { id: 'new-prescription', label: 'New Prescription', href: '/dashboard/prescriptions', icon: 'FileText', primary: true },
-  { id: 'new-sale', label: 'New Sale', href: '/dashboard/sales', icon: 'ShoppingCart' },
+  { id: 'new-prescription', label: 'Dispense medicine', href: '/dashboard/pos', icon: 'FileText', primary: true },
+  { id: 'new-sale', label: 'New Sale', href: '/dashboard/pos', icon: 'ShoppingCart' },
   { id: 'add-medicine', label: 'Add Medicine', href: '/dashboard/products', icon: 'Pill' },
-  { id: 'check-expiry', label: 'Expiry Report', href: '/dashboard/reports/expiry', icon: 'AlertTriangle' },
+  { id: 'check-expiry', label: 'Expiry Report', href: '/dashboard/inventory/batches', icon: 'AlertTriangle' },
 ]
 
 const starterCategories: StarterCategory[] = [
@@ -52,10 +52,10 @@ const starterProducts: StarterProduct[] = [
 
 const gettingStartedTasks: GettingStartedTask[] = [
   { id: 'medicines', title: 'Add your medicine catalog', description: 'Import or create your drug inventory', action: '/dashboard/products' },
-  { id: 'batches', title: 'Set up batch tracking', description: 'Enable batch numbers for traceability', action: '/dashboard/settings' },
-  { id: 'expiry', title: 'Configure expiry alerts', description: 'Get notified 60 days before medicines expire', action: '/dashboard/settings' },
+  { id: 'batches', title: 'Set up batch tracking', description: 'Receive medicines with batch and expiry details', action: '/dashboard/inventory/batches' },
+  { id: 'expiry', title: 'Configure expiry alerts', description: 'Choose medicine expiry warning thresholds', action: '/dashboard/inventory/batches' },
   { id: 'staff', title: 'Invite pharmacists', description: 'Add pharmacists and dispensary staff', action: '/dashboard/settings' },
-  { id: 'prescriptions', title: 'Start dispensing', description: 'Record your first prescription', action: '/dashboard/prescriptions' },
+  { id: 'prescriptions', title: 'Start dispensing', description: 'Record your first prescription sale', action: '/dashboard/pos' },
 ]
 
 export const communityPharmacyTemplate: WorkspaceTemplate = {

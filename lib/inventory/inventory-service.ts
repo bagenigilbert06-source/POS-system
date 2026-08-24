@@ -51,6 +51,7 @@ export async function applyInventoryMovement(tx: InventoryTransaction, input: Mo
 
   if (!updated) throw new Error(`Insufficient available stock for ${input.productName}`)
   const stockAfter = Number(updated.stockAfter)
+  const lotAllocations: Array<{ lotId: string; lotNumber: string; expiresAt: Date | null; quantity: number }> = []
   if (input.type === 'sale' && input.quantity < 0) {
     const [tracked] = await tx.select({ trackingMode: product.trackingMode }).from(product).where(and(eq(product.id, input.productId), eq(product.orgId, input.orgId))).limit(1)
     if (tracked?.trackingMode === 'lot') {
@@ -63,6 +64,7 @@ export async function applyInventoryMovement(tx: InventoryTransaction, input: Mo
         const consumed = Math.min(remaining, Number(lot.quantity))
         if (consumed <= 0) continue
         await tx.update(inventoryLot).set({ quantity: sql`${inventoryLot.quantity} - ${consumed}` }).where(eq(inventoryLot.id, lot.id))
+        lotAllocations.push({ lotId: lot.id, lotNumber: lot.lotNumber, expiresAt: lot.expiresAt, quantity: consumed })
         remaining -= consumed
         if (!remaining) break
       }
@@ -83,7 +85,7 @@ export async function applyInventoryMovement(tx: InventoryTransaction, input: Mo
     userId: input.userId, orgId: input.orgId, unitCost: input.unitCost === undefined ? null : String(input.unitCost),
     lotId: input.lotId, serialId: input.serialId,
   })
-  return { stockBefore: stockAfter - input.quantity, stockAfter }
+  return { stockBefore: stockAfter - input.quantity, stockAfter, lotAllocations }
 }
 
 export async function addCostLayer(tx: InventoryTransaction, input: {

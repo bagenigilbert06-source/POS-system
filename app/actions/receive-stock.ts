@@ -66,6 +66,8 @@ export async function receiveStock(input: z.input<typeof receiveStockSchema>) {
   ]);
   if (!item) throw new Error('Product not found');
   if (!location) throw new Error('Inventory location not found');
+  if (item.trackingMode !== 'none')
+    throw new Error('Receive batch- or serial-tracked products through a confirmed purchase order so traceability details are recorded');
 
   const conversion = data.unit === 'base' ? 1 : Number(item.unitsPerPack ?? 0);
   if (data.unit !== 'base' && conversion <= 0) {

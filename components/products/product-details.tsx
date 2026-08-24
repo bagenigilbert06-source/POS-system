@@ -9,7 +9,7 @@ import {
   Edit3,
   PackagePlus,
 } from 'lucide-react';
-import type { Product } from '@/lib/db/schema';
+import type { PharmacyProduct, Product } from '@/lib/db/schema';
 import { formatCurrency } from '@/lib/utils';
 import { getGrossMargin } from '@/lib/pricing/gross-margin';
 import { StockHistoryChart } from './stock-history-chart';
@@ -17,6 +17,7 @@ import { ProductImage } from './product-image';
 
 type ProductOverview = {
   product: Product;
+  pharmacyMetadata: PharmacyProduct | null;
   categoryName: string | null;
   metrics: {
     unitsSoldToday: number;
@@ -36,10 +37,20 @@ type ProductOverview = {
     reason: string | null;
     createdAt: Date;
   }>;
+  lots: Array<{
+    id: string;
+    lotNumber: string;
+    branchName: string;
+    quantity: string;
+    expiresAt: Date | null;
+    status: string;
+    receivedAt: Date;
+    expired: boolean;
+  }>;
 };
 
 export function ProductDetails({ overview }: { overview: ProductOverview }) {
-  const { product, categoryName, metrics, movements } = overview;
+  const { product, pharmacyMetadata, categoryName, metrics, movements, lots } = overview;
   const buying = Number(product.buyingPrice);
   const selling = Number(product.sellingPrice);
   const profit = selling - buying;
@@ -93,6 +104,7 @@ export function ProductDetails({ overview }: { overview: ProductOverview }) {
                       .join(' · ')}
                   </p>
                 )}
+                {pharmacyMetadata && <div className="mt-3 rounded-lg border bg-muted/20 p-3 text-sm"><p className="font-semibold">{[pharmacyMetadata.genericName, pharmacyMetadata.strength, pharmacyMetadata.dosageForm].filter(Boolean).join(' · ') || 'Medicine details'}</p><p className="mt-1 text-xs text-muted-foreground">{[pharmacyMetadata.manufacturer, pharmacyMetadata.packSize, pharmacyMetadata.internalCode].filter(Boolean).join(' · ')}</p><div className="mt-2 flex flex-wrap gap-1.5">{pharmacyMetadata.prescriptionRequired && <span className="rounded-full border px-2 py-0.5 text-[10px] font-bold">Prescription required</span>}{pharmacyMetadata.restrictedItem && <span className="rounded-full border border-amber-300 px-2 py-0.5 text-[10px] font-bold text-amber-800">Restricted audit</span>}<span className="rounded-full border px-2 py-0.5 text-[10px] font-bold">Batch tracked</span></div></div>}
                 <p className="mt-2 text-sm text-muted-foreground">
                   {product.sku ? `SKU ${product.sku}` : 'No SKU'}
                   {product.barcode ? ` · Barcode ${product.barcode}` : ''}
@@ -184,6 +196,12 @@ export function ProductDetails({ overview }: { overview: ProductOverview }) {
           alertLevel={product.minStock}
         />
       </HistoryPanel>
+      {pharmacyMetadata && <HistoryPanel title="Medicine batches"><PaginatedHistory
+        items={lots}
+        emptyText="No medicine batches have been received yet."
+        itemLabel="medicine batches"
+        renderItem={(lot) => <div key={lot.id} className="flex min-h-[70px] items-start justify-between gap-3 py-3 text-sm"><div><p className="font-medium">Batch {lot.lotNumber}</p><p className="mt-1 text-xs text-muted-foreground">{lot.branchName} · received {lot.receivedAt.toLocaleDateString()}</p></div><div className="text-right"><p className="font-semibold tabular-nums">{Number(lot.quantity)} {product.unit}</p><p className={`mt-1 text-xs ${lot.expired ? 'font-semibold text-destructive' : 'text-muted-foreground'}`}>{lot.expiresAt ? `${lot.expired ? 'Expired' : 'Expires'} ${lot.expiresAt.toLocaleDateString()}` : 'No expiry date'} · {lot.status.replaceAll('_', ' ')}</p></div></div>}
+      /></HistoryPanel>}
       <section>
         <HistoryPanel title="Recent stock movements">
           <PaginatedHistory

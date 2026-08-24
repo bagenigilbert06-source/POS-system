@@ -197,8 +197,8 @@ export const RESTAURANT_CONFIG: BusinessTypeConfig = {
 export const PHARMACY_CONFIG: BusinessTypeConfig = {
   id: BusinessTypeEnum.PHARMACY,
   name: 'Pharmacy',
-  dashboardRoute: '/dashboard/pharmacy',
-  defaultRoute: '/dashboard/pharmacy',
+  dashboardRoute: '/dashboard',
+  defaultRoute: '/dashboard',
   navigation: [
     SHARED_DASHBOARD,
     {

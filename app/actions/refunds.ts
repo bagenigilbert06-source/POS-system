@@ -1,7 +1,17 @@
 'use server'
 
 import { db } from '@/lib/db'
-import { sale, saleItem, salesReturn, salesReturnItem, auditEvent } from '@/lib/db/schema'
+import {
+  auditEvent,
+  inventoryBalance,
+  organization,
+  pharmacyReturnDisposition,
+  sale,
+  saleItem,
+  saleItemLotAllocation,
+  salesReturn,
+  salesReturnItem,
+} from '@/lib/db/schema'
 import { eq, and, sql } from 'drizzle-orm'
 import { generateId } from '@/lib/utils'
 import { requirePermission } from '@/lib/auth/authorization'
@@ -11,6 +21,8 @@ import { revalidatePath } from 'next/cache'
 import { calculateRefundAmount, roundCurrency } from '@/lib/pos/refund-calculation'
 import { invalidateProductReadCache } from '@/lib/cache/redis-cache'
 import { applyInventoryMovement } from '@/lib/inventory/inventory-service'
+import { enqueueEtimsCreditNote } from '@/lib/etims/service'
+import { isPharmacyBusiness, planReturnedLotTrace } from '@/lib/pharmacy/rules'
 
 interface RefundItem {
   saleItemId: string
@@ -34,6 +46,12 @@ export async function processRefund(data: {
   if (!authorization.permissions.includes(PermissionEnum.SALE_REFUND)) throw new Error('Supervisor or manager approval is required for refunds')
   const userId = authorization.userId
   const orgId = authorization.organizationId
+
+  const [workspace] = await db.select({
+    businessType: organization.businessType,
+    businessCategory: organization.businessCategory,
+  }).from(organization).where(eq(organization.id, orgId)).limit(1)
+  const pharmacyWorkspace = Boolean(workspace && isPharmacyBusiness(workspace.businessType, workspace.businessCategory))
 
   // Get the original sale
   const [originalSale] = await db.select().from(sale).where(and(eq(sale.id, data.saleId), eq(sale.orgId, orgId))).limit(1)
@@ -82,10 +100,26 @@ export async function processRefund(data: {
       .where(and(eq(salesReturn.saleId, data.saleId), eq(salesReturn.orgId, orgId), eq(salesReturn.status, 'completed')))
       .groupBy(salesReturnItem.productId)
     const previouslyReturned = new Map(previousReturns.map((item) => [item.productId, Number(item.quantity)]))
+    const previousReturnsBySaleItem = await tx.select({
+      saleItemId: salesReturnItem.originalSaleItemId,
+      quantity: sql<number>`coalesce(sum(${salesReturnItem.quantity}), 0)`,
+    }).from(salesReturnItem)
+      .innerJoin(salesReturn, eq(salesReturnItem.returnId, salesReturn.id))
+      .where(and(
+        eq(salesReturn.saleId, data.saleId),
+        eq(salesReturn.orgId, orgId),
+        eq(salesReturn.status, 'completed'),
+        sql`${salesReturnItem.originalSaleItemId} is not null`,
+      ))
+      .groupBy(salesReturnItem.originalSaleItemId)
+    const returnedBySaleItem = new Map(previousReturnsBySaleItem.map((item) => [item.saleItemId!, Number(item.quantity)]))
 
     for (const requested of data.items) {
       const original = originalById.get(requested.saleItemId)!
-      const remaining = original.quantity - (previouslyReturned.get(original.productId) ?? 0)
+      const returnedQuantity = returnedBySaleItem.has(original.id)
+        ? returnedBySaleItem.get(original.id)!
+        : (previouslyReturned.get(original.productId) ?? 0)
+      const remaining = original.quantity - returnedQuantity
       if (requested.quantity > remaining) throw new Error(`Only ${remaining} ${original.productName} can still be refunded`)
     }
 
@@ -108,23 +142,73 @@ export async function processRefund(data: {
       const original = originalById.get(item.saleItemId)!
       const lineRefundTotal = refundLineAmounts[itemIndex]
       // Add sales return item record
+      const returnItemId = generateId()
       await tx.insert(salesReturnItem).values({
-        id: generateId(),
+        id: returnItemId,
         returnId,
+        originalSaleItemId: original.id,
         productId: original.productId,
         productName: original.productName,
         quantity: item.quantity,
         unitPrice: String(lineRefundTotal / item.quantity),
         total: String(lineRefundTotal),
-        disposition: 'restock',
+        disposition: pharmacyWorkspace ? 'quarantined' : 'restock',
         orgId,
       })
 
-      await applyInventoryMovement(tx, { productId: original.productId, productName: original.productName, branchId: originalSale.branchId!, quantity: item.quantity, type: 'return', referenceType: 'refund', referenceId: returnId, reason: `Refund: ${data.reason}`, userId, orgId })
+      const returnedBaseQuantity = item.quantity * original.baseUnitQuantity
+      await applyInventoryMovement(tx, { productId: original.productId, productName: original.productName, branchId: originalSale.branchId!, quantity: returnedBaseQuantity, type: 'return', referenceType: 'refund', referenceId: returnId, reason: `Refund: ${data.reason}`, userId, orgId })
+
+      if (pharmacyWorkspace) {
+        await tx.update(inventoryBalance).set({
+          unavailable: sql`${inventoryBalance.unavailable} + ${returnedBaseQuantity}`,
+          updatedAt: new Date(),
+        }).where(and(
+          eq(inventoryBalance.productId, original.productId),
+          eq(inventoryBalance.branchId, originalSale.branchId!),
+          eq(inventoryBalance.orgId, orgId),
+        ))
+
+        const originalAllocations = await tx.select().from(saleItemLotAllocation).where(and(
+          eq(saleItemLotAllocation.organizationId, orgId),
+          eq(saleItemLotAllocation.saleItemId, original.id),
+        )).orderBy(saleItemLotAllocation.createdAt)
+        const priorDispositionRows = await tx.select({
+          allocationId: pharmacyReturnDisposition.originalAllocationId,
+          quantity: sql<number>`coalesce(sum(${pharmacyReturnDisposition.quantity}), 0)`,
+        }).from(pharmacyReturnDisposition).where(and(
+          eq(pharmacyReturnDisposition.organizationId, orgId),
+          eq(pharmacyReturnDisposition.originalSaleItemId, original.id),
+        )).groupBy(pharmacyReturnDisposition.originalAllocationId)
+        const alreadyReturnedByAllocation = new Map(priorDispositionRows.map((row) => [row.allocationId, Number(row.quantity)]))
+        const tracePlan = planReturnedLotTrace(originalAllocations.map((allocation) => ({
+          id: allocation.id,
+          quantity: Number(allocation.quantity),
+          alreadyReturned: alreadyReturnedByAllocation.get(allocation.id) ?? 0,
+        })), returnedBaseQuantity)
+        const allocationById = new Map(originalAllocations.map((allocation) => [allocation.id, allocation]))
+        for (const traced of tracePlan.traced) {
+          const allocation = allocationById.get(traced.allocationId)!
+          await tx.insert(pharmacyReturnDisposition).values({
+            id: generateId(), organizationId: orgId, branchId: originalSale.branchId!, returnId, returnItemId,
+            originalSaleItemId: original.id, originalAllocationId: allocation.id, productId: original.productId,
+            originalLotId: allocation.lotId, lotNumber: allocation.lotNumber, quantity: String(traced.quantity),
+            status: 'quarantined', notes: data.reason, createdBy: userId,
+          })
+        }
+        if (tracePlan.untracedQuantity > 0) {
+          await tx.insert(pharmacyReturnDisposition).values({
+            id: generateId(), organizationId: orgId, branchId: originalSale.branchId!, returnId, returnItemId,
+            originalSaleItemId: original.id, productId: original.productId, quantity: String(tracePlan.untracedQuantity),
+            status: 'quarantined', notes: `${data.reason} — original batch trace unavailable`, createdBy: userId,
+          })
+        }
+      }
     }
 
     const allItemsReturned = originalItems.every((item) =>
-      (previouslyReturned.get(item.productId) ?? 0) + (data.items.find((requested) => requested.productId === item.productId)?.quantity ?? 0) >= item.quantity
+      (returnedBySaleItem.has(item.id) ? returnedBySaleItem.get(item.id)! : (previouslyReturned.get(item.productId) ?? 0))
+        + (data.items.find((requested) => requested.saleItemId === item.id)?.quantity ?? 0) >= item.quantity
     )
     await tx.update(sale).set({ status: allItemsReturned ? 'refunded' : 'partially_refunded' })
       .where(and(eq(sale.id, data.saleId), eq(sale.orgId, orgId)))
@@ -145,6 +229,7 @@ export async function processRefund(data: {
         reference: refundReference || null,
         itemsCount: data.items.length,
         reason: data.reason,
+        pharmacyDisposition: pharmacyWorkspace ? 'quarantined' : 'restock',
       },
     })
   })
@@ -153,7 +238,10 @@ export async function processRefund(data: {
   revalidatePath('/dashboard/pos')
   revalidatePath('/dashboard/pos/history')
   revalidatePath('/dashboard/sales')
-  return { returnId, returnNo, status: 'success' }
+  let etimsCreditNote: Awaited<ReturnType<typeof enqueueEtimsCreditNote>> | { status: 'FAILED'; message: string }
+  try { etimsCreditNote = await enqueueEtimsCreditNote(returnId, userId) }
+  catch { etimsCreditNote = { status: 'FAILED', message: 'Refund completed. The eTIMS credit note requires administrative review.' } }
+  return { returnId, returnNo, status: 'success', etimsCreditNote }
 }
 
 export async function getRefundHistory(saleId: string) {

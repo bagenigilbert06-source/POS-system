@@ -166,6 +166,7 @@ export function SalesManagementView({
   options,
   analytics,
   hasPos,
+  showAgeVerification,
   manualSale,
 }: {
   data: Data;
@@ -173,6 +174,7 @@ export function SalesManagementView({
   options: Options;
   analytics: Analytics;
   hasPos: boolean;
+  showAgeVerification: boolean;
   manualSale: React.ReactNode;
 }) {
   const router = useRouter();
@@ -290,6 +292,7 @@ export function SalesManagementView({
         pending={pending}
         onExport={exportSales}
         exporting={exporting}
+        showAgeVerification={showAgeVerification}
       />
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
         {primaryCards.map((card) => (
@@ -466,7 +469,7 @@ export function SalesManagementView({
                             event.stopPropagation();
                             openDetail(record.id);
                           }}
-                          className="rounded-md p-2 text-blue-700 hover:bg-blue-50 dark:text-blue-300 dark:hover:bg-blue-950/50"
+                          className="rounded-md p-2 text-muted-foreground hover:bg-muted hover:text-foreground"
                           aria-label={`View ${record.receiptNo}`}
                         >
                           <ChevronRight className="h-4 w-4 text-slate-400" />
@@ -495,6 +498,7 @@ function SalesFilters({
   pending,
   onExport,
   exporting,
+  showAgeVerification,
 }: {
   filters: SalesPageFilters;
   options: Options;
@@ -502,6 +506,7 @@ function SalesFilters({
   pending: boolean;
   onExport: (format: ExportFormat) => void;
   exporting: boolean;
+  showAgeVerification: boolean;
 }) {
   const [search, setSearch] = useState(filters.search ?? '');
   const [exportOpen, setExportOpen] = useState(false);
@@ -556,7 +561,7 @@ function SalesFilters({
             'held',
           ]}
         />
-        <Select
+        {showAgeVerification && <Select
           name="age"
           value={filters.ageVerification}
           label="Age verification"
@@ -564,7 +569,7 @@ function SalesFilters({
             ['verified', 'Age verified'],
             ['not_verified', 'Not verified'],
           ]}
-        />
+        />}
         <Select
           name="customer"
           value={filters.customerId}
@@ -1242,7 +1247,7 @@ function SaleDetail({
                 </button>
               </div>
               <ReceiptTemplate
-                sale={{ ...detail.record, items: detail.items }}
+                sale={{ ...detail.record, items: detail.items, etims: detail.etims?.receiptDetailsEnabled ? detail.etims : null }}
                 businessName={settings.receiptBusinessName}
                 businessPhone={settings.receiptPhone}
                 businessAddress={settings.receiptAddress}
@@ -1265,7 +1270,7 @@ function SaleDetail({
           )}
           <div className="receipt-preview-origin hidden print:block">
             <ReceiptTemplate
-              sale={{ ...detail.record, items: detail.items }}
+              sale={{ ...detail.record, items: detail.items, etims: detail.etims?.receiptDetailsEnabled ? detail.etims : null }}
               businessName={settings.receiptBusinessName}
               businessPhone={settings.receiptPhone}
               businessAddress={settings.receiptAddress}

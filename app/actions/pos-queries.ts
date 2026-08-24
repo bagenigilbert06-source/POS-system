@@ -1,7 +1,7 @@
 'use server'
 
 import { db } from '@/lib/db'
-import { sale, saleItem } from '@/lib/db/schema'
+import { etimsConfiguration, etimsSubmission, sale, saleItem } from '@/lib/db/schema'
 import { and, desc, eq, gte, inArray, like, lte } from 'drizzle-orm'
 import { getPosAuthorizationContext } from '@/lib/pos/pos-auth'
 import { requireAnyPermission } from '@/lib/auth/authorization'
@@ -22,17 +22,22 @@ async function receiptContext() {
 
 async function withItems(records: (typeof sale.$inferSelect)[], orgId: string) {
   if (records.length === 0) return []
-  const items = await db.select().from(saleItem).where(and(
-    eq(saleItem.orgId, orgId),
-    inArray(saleItem.saleId, records.map((record) => record.id)),
-  ))
+  const [items, fiscalRows] = await Promise.all([
+    db.select().from(saleItem).where(and(eq(saleItem.orgId, orgId), inArray(saleItem.saleId, records.map((record) => record.id)))),
+    db.select({ saleId: etimsSubmission.saleId, status: etimsSubmission.status, environment: etimsSubmission.environment,
+      invoiceNumber: etimsSubmission.invoiceNumber, controlNumber: etimsSubmission.controlNumber, receiptNumber: etimsSubmission.receiptNumber,
+      internalReference: etimsSubmission.internalReference, qrData: etimsSubmission.qrData, verificationData: etimsSubmission.verificationData,
+      receiptDetailsEnabled: etimsConfiguration.receiptDetailsEnabled,
+    }).from(etimsSubmission).innerJoin(etimsConfiguration, eq(etimsConfiguration.id, etimsSubmission.configurationId)).where(and(eq(etimsSubmission.organizationId, orgId), inArray(etimsSubmission.saleId, records.map((record) => record.id)))),
+  ])
   const itemsBySale = new Map<string, (typeof saleItem.$inferSelect)[]>()
   for (const item of items) {
     const grouped = itemsBySale.get(item.saleId) ?? []
     grouped.push(item)
     itemsBySale.set(item.saleId, grouped)
   }
-  return records.map((record) => ({ ...record, items: itemsBySale.get(record.id) ?? [] }))
+  const fiscalBySale = new Map(fiscalRows.map((item) => [item.saleId, item]))
+  return records.map((record) => { const fiscal = fiscalBySale.get(record.id); return { ...record, items: itemsBySale.get(record.id) ?? [], etims: fiscal?.receiptDetailsEnabled ? fiscal : null } })
 }
 
 export async function getSalesByReceiptNo(receiptNo: string) {

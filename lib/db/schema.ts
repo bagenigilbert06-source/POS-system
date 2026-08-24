@@ -250,6 +250,64 @@ export const businessSettings = pgTable('business_settings', {
   updatedAt: timestamp('updatedAt').notNull().defaultNow(),
 });
 
+/** Pharmacy-only operating policy. Core business, tax, payment and receipt
+ * settings remain in business_settings and are shared with every vertical. */
+export const pharmacyConfiguration = pgTable('pharmacy_configuration', {
+  organizationId: text('organizationId')
+    .primaryKey()
+    .references(() => organization.id, { onDelete: 'cascade' }),
+  fefoEnabled: boolean('fefoEnabled').notNull().default(true),
+  expiryWarningDays: json('expiryWarningDays').notNull().default([90, 60, 30, 7]),
+  prescriptionWorkflowEnabled: boolean('prescriptionWorkflowEnabled').notNull().default(true),
+  restrictedItemWorkflowEnabled: boolean('restrictedItemWorkflowEnabled').notNull().default(true),
+  returnedStockDefaultStatus: text('returnedStockDefaultStatus').notNull().default('quarantined'),
+  createdAt: timestamp('createdAt').notNull().defaultNow(),
+  updatedAt: timestamp('updatedAt').notNull().defaultNow(),
+});
+
+/** Branch-scoped eTIMS configuration. Secret values are never stored here;
+ * only environment-variable or secret-manager references are persisted. */
+export const etimsConfiguration = pgTable(
+  'etims_configuration',
+  {
+    id: text('id').primaryKey(),
+    organizationId: text('organizationId')
+      .notNull()
+      .references(() => organization.id, { onDelete: 'cascade' }),
+    branchId: text('branchId')
+      .notNull()
+      .references(() => branch.id, { onDelete: 'cascade' }),
+    enabled: boolean('enabled').notNull().default(false),
+    environment: text('environment').notNull().default('sandbox'),
+    integrationMethod: text('integrationMethod').notNull().default('OSCU'),
+    providerName: text('providerName').notNull().default('mock'),
+    businessKraPin: text('businessKraPin'),
+    vatRegistered: boolean('vatRegistered').notNull().default(false),
+    externalBranchId: text('externalBranchId'),
+    deviceId: text('deviceId'),
+    apiBaseUrl: text('apiBaseUrl'),
+    credentialReference: text('credentialReference'),
+    clientId: text('clientId'),
+    clientSecretReference: text('clientSecretReference'),
+    certificateReference: text('certificateReference'),
+    privateKeyReference: text('privateKeyReference'),
+    tokenConfiguration: json('tokenConfiguration').notNull().default({}),
+    invoiceSubmissionEnabled: boolean('invoiceSubmissionEnabled').notNull().default(true),
+    automaticRetryEnabled: boolean('automaticRetryEnabled').notNull().default(true),
+    maximumRetryAttempts: integer('maximumRetryAttempts').notNull().default(5),
+    receiptDetailsEnabled: boolean('receiptDetailsEnabled').notNull().default(true),
+    createdAt: timestamp('createdAt').notNull().defaultNow(),
+    updatedAt: timestamp('updatedAt').notNull().defaultNow(),
+  },
+  (table) => ({
+    organizationBranchUnique: uniqueIndex('etims_configuration_org_branch_unique').on(
+      table.organizationId,
+      table.branchId
+    ),
+    organizationIndex: index('etims_configuration_org_idx').on(table.organizationId),
+  })
+);
+
 export const auditEvent = pgTable(
   'audit_event',
   {
@@ -319,6 +377,11 @@ export const product = pgTable(
     stock: integer('stock').notNull().default(0),
     minStock: integer('minStock').notNull().default(5),
     unit: text('unit').notNull().default('pcs'),
+    etimsItemCode: text('etimsItemCode'),
+    etimsUnitCode: text('etimsUnitCode'),
+    etimsTaxCategory: text('etimsTaxCategory'),
+    etimsTaxRate: numeric('etimsTaxRate', { precision: 5, scale: 2 }),
+    etimsVatClassification: text('etimsVatClassification'),
     volume: numeric('volume', { precision: 10, scale: 2 }),
     volumeUnit: text('volumeUnit'),
     abv: numeric('abv', { precision: 5, scale: 2 }),
@@ -344,6 +407,58 @@ export const product = pgTable(
       table.orgId,
       table.isActive
     ),
+  })
+);
+
+/** One-to-one medicine metadata layered on the shared product catalogue. */
+export const pharmacyProduct = pgTable(
+  'pharmacy_product',
+  {
+    productId: text('productId')
+      .primaryKey()
+      .references(() => product.id, { onDelete: 'cascade' }),
+    organizationId: text('organizationId')
+      .notNull()
+      .references(() => organization.id, { onDelete: 'cascade' }),
+    genericName: text('genericName'),
+    internalCode: text('internalCode'),
+    manufacturer: text('manufacturer'),
+    strength: text('strength'),
+    dosageForm: text('dosageForm'),
+    packSize: text('packSize'),
+    prescriptionRequired: boolean('prescriptionRequired').notNull().default(false),
+    restrictedItem: boolean('restrictedItem').notNull().default(false),
+    notes: text('notes'),
+    createdAt: timestamp('createdAt').notNull().defaultNow(),
+    updatedAt: timestamp('updatedAt').notNull().defaultNow(),
+  },
+  (table) => ({
+    organizationIndex: index('pharmacy_product_org_idx').on(table.organizationId),
+    organizationInternalCodeUnique: uniqueIndex('pharmacy_product_org_internal_code_unique').on(table.organizationId, table.internalCode),
+  })
+);
+
+export const productPackage = pgTable(
+  'product_package',
+  {
+    id: text('id').primaryKey(),
+    organizationId: text('organizationId').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+    productId: text('productId').notNull().references(() => product.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    packageType: text('packageType').notNull(),
+    barcode: text('barcode'),
+    sellingPrice: numeric('sellingPrice', { precision: 12, scale: 2 }).notNull(),
+    baseUnitQuantity: integer('baseUnitQuantity').notNull(),
+    etimsItemCode: text('etimsItemCode'),
+    etimsUnitCode: text('etimsUnitCode'),
+    isActive: boolean('isActive').notNull().default(true),
+    createdAt: timestamp('createdAt').notNull().defaultNow(),
+    updatedAt: timestamp('updatedAt').notNull().defaultNow(),
+  },
+  (table) => ({
+    organizationBarcodeUnique: uniqueIndex('product_package_org_barcode_unique').on(table.organizationId, table.barcode),
+    productNameUnique: uniqueIndex('product_package_product_name_unique').on(table.productId, table.name),
+    productActiveIndex: index('product_package_product_active_idx').on(table.organizationId, table.productId, table.isActive),
   })
 );
 
@@ -398,6 +513,9 @@ export const customer = pgTable('customer', {
   phone: text('phone'),
   email: text('email'),
   address: text('address'),
+  kraPin: text('kraPin'),
+  customerType: text('customerType').notNull().default('individual'),
+  vatRegistered: boolean('vatRegistered').notNull().default(false),
   loyaltyPoints: integer('loyaltyPoints').notNull().default(0),
   userId: text('userId').notNull(),
   orgId: text('orgId').notNull(),
@@ -433,6 +551,12 @@ export const sale = pgTable(
     ageVerifiedBy: text('ageVerifiedBy'),
     status: text('status').notNull().default('completed'),
     idempotencyKey: text('idempotencyKey'), // For duplicate prevention
+    // Offline cash sales receive a provisional browser receipt and are assigned
+    // their official receipt only after this server-side synchronization.
+    origin: text('origin').notNull().default('online'),
+    provisionalReceiptNo: text('provisionalReceiptNo'),
+    offlineCreatedAt: timestamp('offlineCreatedAt'),
+    syncedAt: timestamp('syncedAt'),
     userId: text('userId').notNull(),
     orgId: text('orgId').notNull(),
     branchId: text('branchId'),
@@ -488,6 +612,9 @@ export const saleItem = pgTable(
     productId: text('productId').notNull(),
     productName: text('productName').notNull(),
     quantity: integer('quantity').notNull(),
+    packageId: text('packageId').references(() => productPackage.id, { onDelete: 'restrict' }),
+    packageName: text('packageName'),
+    baseUnitQuantity: integer('baseUnitQuantity').notNull().default(1),
     unitPrice: numeric('unitPrice', { precision: 12, scale: 2 }).notNull(),
     totalPrice: numeric('totalPrice', { precision: 12, scale: 2 }).notNull(),
     unitCostAtSale: numeric('unitCostAtSale', { precision: 12, scale: 4 })
@@ -503,6 +630,65 @@ export const saleItem = pgTable(
     saleOrganizationIndex: index('sale_item_sale_org_idx').on(
       table.saleId,
       table.orgId
+    ),
+  })
+);
+
+/** Durable fiscal outbox and immutable provider result for one sale. */
+export const etimsSubmission = pgTable(
+  'etims_submission',
+  {
+    id: text('id').primaryKey(),
+    organizationId: text('organizationId')
+      .notNull()
+      .references(() => organization.id, { onDelete: 'cascade' }),
+    branchId: text('branchId')
+      .notNull()
+      .references(() => branch.id, { onDelete: 'restrict' }),
+    saleId: text('saleId')
+      .notNull()
+      .references(() => sale.id, { onDelete: 'restrict' }),
+    configurationId: text('configurationId')
+      .notNull()
+      .references(() => etimsConfiguration.id, { onDelete: 'restrict' }),
+    status: text('status').notNull().default('PENDING'),
+    provider: text('provider').notNull(),
+    environment: text('environment').notNull(),
+    idempotencyKey: text('idempotencyKey').notNull(),
+    invoiceNumber: text('invoiceNumber'),
+    internalReference: text('internalReference'),
+    controlNumber: text('controlNumber'),
+    receiptNumber: text('receiptNumber'),
+    providerSubmissionId: text('providerSubmissionId'),
+    qrData: text('qrData'),
+    verificationData: text('verificationData'),
+    requestData: json('requestData'),
+    responseData: json('responseData'),
+    submittedAt: timestamp('submittedAt'),
+    acceptedAt: timestamp('acceptedAt'),
+    lastAttemptAt: timestamp('lastAttemptAt'),
+    nextRetryAt: timestamp('nextRetryAt'),
+    retryCount: integer('retryCount').notNull().default(0),
+    errorCode: text('errorCode'),
+    errorMessage: text('errorMessage'),
+    createdAt: timestamp('createdAt').notNull().defaultNow(),
+    updatedAt: timestamp('updatedAt').notNull().defaultNow(),
+  },
+  (table) => ({
+    saleUnique: uniqueIndex('etims_submission_sale_unique').on(table.saleId),
+    idempotencyUnique: uniqueIndex('etims_submission_idempotency_unique').on(
+      table.organizationId,
+      table.idempotencyKey
+    ),
+    retryIndex: index('etims_submission_retry_idx').on(table.status, table.nextRetryAt),
+    organizationStatusCreatedIndex: index('etims_submission_org_status_created_idx').on(
+      table.organizationId,
+      table.status,
+      table.createdAt
+    ),
+    branchCreatedIndex: index('etims_submission_branch_created_idx').on(
+      table.branchId,
+      table.createdAt
     ),
   })
 );
@@ -767,6 +953,73 @@ export const inventoryLot = pgTable(
   })
 );
 
+/** Immutable FEFO trace: exactly which inventory lots supplied a sale line. */
+export const saleItemLotAllocation = pgTable(
+  'sale_item_lot_allocation',
+  {
+    id: text('id').primaryKey(),
+    organizationId: text('organizationId').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+    saleId: text('saleId').notNull().references(() => sale.id, { onDelete: 'restrict' }),
+    saleItemId: text('saleItemId').notNull().references(() => saleItem.id, { onDelete: 'restrict' }),
+    productId: text('productId').notNull().references(() => product.id, { onDelete: 'restrict' }),
+    lotId: text('lotId').notNull().references(() => inventoryLot.id, { onDelete: 'restrict' }),
+    lotNumber: text('lotNumber').notNull(),
+    expiresAt: timestamp('expiresAt'),
+    quantity: numeric('quantity', { precision: 16, scale: 3 }).notNull(),
+    createdAt: timestamp('createdAt').notNull().defaultNow(),
+  },
+  (table) => ({
+    saleItemLotUnique: uniqueIndex('sale_item_lot_allocation_unique').on(table.saleItemId, table.lotId),
+    organizationSaleIndex: index('sale_item_lot_allocation_org_sale_idx').on(table.organizationId, table.saleId),
+    lotIndex: index('sale_item_lot_allocation_lot_idx').on(table.lotId),
+  })
+);
+
+/** Commercial prescription reference attached to a sale. This deliberately
+ * stores no diagnosis or dosage recommendation. */
+export const pharmacySaleRecord = pgTable(
+  'pharmacy_sale_record',
+  {
+    id: text('id').primaryKey(),
+    organizationId: text('organizationId').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+    branchId: text('branchId').notNull().references(() => branch.id, { onDelete: 'restrict' }),
+    saleId: text('saleId').notNull().references(() => sale.id, { onDelete: 'restrict' }),
+    prescriptionReference: text('prescriptionReference'),
+    prescriberReference: text('prescriberReference'),
+    notes: text('notes'),
+    approvedBy: text('approvedBy').references(() => user.id, { onDelete: 'restrict' }),
+    createdBy: text('createdBy').notNull().references(() => user.id, { onDelete: 'restrict' }),
+    createdAt: timestamp('createdAt').notNull().defaultNow(),
+  },
+  (table) => ({
+    organizationSaleUnique: uniqueIndex('pharmacy_sale_record_org_sale_unique').on(table.organizationId, table.saleId),
+    organizationReferenceIndex: index('pharmacy_sale_record_org_reference_idx').on(table.organizationId, table.prescriptionReference),
+  })
+);
+
+export const restrictedItemAudit = pgTable(
+  'restricted_item_audit',
+  {
+    id: text('id').primaryKey(),
+    organizationId: text('organizationId').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+    branchId: text('branchId').notNull().references(() => branch.id, { onDelete: 'restrict' }),
+    saleId: text('saleId').notNull().references(() => sale.id, { onDelete: 'restrict' }),
+    saleItemId: text('saleItemId').notNull().references(() => saleItem.id, { onDelete: 'restrict' }),
+    productId: text('productId').notNull().references(() => product.id, { onDelete: 'restrict' }),
+    lotId: text('lotId').references(() => inventoryLot.id, { onDelete: 'restrict' }),
+    cashierId: text('cashierId').notNull().references(() => user.id, { onDelete: 'restrict' }),
+    approvedBy: text('approvedBy').references(() => user.id, { onDelete: 'restrict' }),
+    quantity: numeric('quantity', { precision: 16, scale: 3 }).notNull(),
+    customerReference: text('customerReference'),
+    reason: text('reason'),
+    createdAt: timestamp('createdAt').notNull().defaultNow(),
+  },
+  (table) => ({
+    organizationCreatedIndex: index('restricted_item_audit_org_created_idx').on(table.organizationId, table.createdAt),
+    saleIndex: index('restricted_item_audit_sale_idx').on(table.saleId),
+  })
+);
+
 export const inventorySerial = pgTable(
   'inventory_serial',
   {
@@ -906,6 +1159,9 @@ export const salesReturnItem = pgTable('sales_return_item', {
   returnId: text('returnId')
     .notNull()
     .references(() => salesReturn.id, { onDelete: 'cascade' }),
+  originalSaleItemId: text('originalSaleItemId').references(() => saleItem.id, {
+    onDelete: 'restrict',
+  }),
   productId: text('productId').notNull(),
   productName: text('productName').notNull(),
   quantity: integer('quantity').notNull(),
@@ -914,6 +1170,81 @@ export const salesReturnItem = pgTable('sales_return_item', {
   disposition: text('disposition').notNull().default('restock'),
   orgId: text('orgId').notNull(),
 });
+
+/** Pharmacy returns stay unavailable until an authorized disposition decision
+ * is recorded. The original allocation preserves batch recall traceability. */
+export const pharmacyReturnDisposition = pgTable(
+  'pharmacy_return_disposition',
+  {
+    id: text('id').primaryKey(),
+    organizationId: text('organizationId').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+    branchId: text('branchId').notNull().references(() => branch.id, { onDelete: 'restrict' }),
+    returnId: text('returnId').notNull().references(() => salesReturn.id, { onDelete: 'restrict' }),
+    returnItemId: text('returnItemId').notNull().references(() => salesReturnItem.id, { onDelete: 'restrict' }),
+    originalSaleItemId: text('originalSaleItemId').notNull().references(() => saleItem.id, { onDelete: 'restrict' }),
+    originalAllocationId: text('originalAllocationId').references(() => saleItemLotAllocation.id, { onDelete: 'restrict' }),
+    productId: text('productId').notNull().references(() => product.id, { onDelete: 'restrict' }),
+    originalLotId: text('originalLotId').references(() => inventoryLot.id, { onDelete: 'restrict' }),
+    lotNumber: text('lotNumber'),
+    quantity: numeric('quantity', { precision: 16, scale: 3 }).notNull(),
+    status: text('status').notNull().default('quarantined'),
+    notes: text('notes'),
+    createdBy: text('createdBy').notNull().references(() => user.id, { onDelete: 'restrict' }),
+    createdAt: timestamp('createdAt').notNull().defaultNow(),
+    updatedAt: timestamp('updatedAt').notNull().defaultNow(),
+  },
+  (table) => ({
+    organizationStatusIndex: index('pharmacy_return_disposition_org_status_idx').on(table.organizationId, table.status),
+    returnIndex: index('pharmacy_return_disposition_return_idx').on(table.returnId),
+    allocationIndex: index('pharmacy_return_disposition_allocation_idx').on(table.originalAllocationId),
+  })
+);
+
+export const etimsCreditNote = pgTable(
+  'etims_credit_note',
+  {
+    id: text('id').primaryKey(),
+    organizationId: text('organizationId')
+      .notNull()
+      .references(() => organization.id, { onDelete: 'cascade' }),
+    branchId: text('branchId')
+      .notNull()
+      .references(() => branch.id, { onDelete: 'restrict' }),
+    saleId: text('saleId')
+      .notNull()
+      .references(() => sale.id, { onDelete: 'restrict' }),
+    returnId: text('returnId')
+      .notNull()
+      .references(() => salesReturn.id, { onDelete: 'restrict' }),
+    originalSubmissionId: text('originalSubmissionId')
+      .notNull()
+      .references(() => etimsSubmission.id, { onDelete: 'restrict' }),
+    status: text('status').notNull().default('PENDING'),
+    provider: text('provider').notNull(),
+    environment: text('environment').notNull(),
+    idempotencyKey: text('idempotencyKey').notNull(),
+    providerSubmissionId: text('providerSubmissionId'),
+    creditNoteNumber: text('creditNoteNumber'),
+    requestData: json('requestData'),
+    responseData: json('responseData'),
+    retryCount: integer('retryCount').notNull().default(0),
+    lastAttemptAt: timestamp('lastAttemptAt'),
+    nextRetryAt: timestamp('nextRetryAt'),
+    acceptedAt: timestamp('acceptedAt'),
+    errorCode: text('errorCode'),
+    errorMessage: text('errorMessage'),
+    createdAt: timestamp('createdAt').notNull().defaultNow(),
+    updatedAt: timestamp('updatedAt').notNull().defaultNow(),
+  },
+  (table) => ({
+    returnUnique: uniqueIndex('etims_credit_note_return_unique').on(table.returnId),
+    idempotencyUnique: uniqueIndex('etims_credit_note_idempotency_unique').on(
+      table.organizationId,
+      table.idempotencyKey
+    ),
+    retryIndex: index('etims_credit_note_retry_idx').on(table.status, table.nextRetryAt),
+  })
+);
 
 export const inventoryLoss = pgTable(
   'inventory_loss',
@@ -1057,6 +1388,122 @@ export const posAuthSession = pgTable(
   (table) => ({
     terminalIndex: index('pos_auth_session_terminal_idx').on(table.terminalId),
     userIndex: index('pos_auth_session_user_idx').on(table.userId),
+  })
+);
+
+/** Server-side reconciliation ledger for browser-queued offline cash sales. */
+export const offlineSaleSync = pgTable(
+  'offline_sale_sync',
+  {
+    id: text('id').primaryKey(),
+    organizationId: text('organizationId')
+      .notNull()
+      .references(() => organization.id, { onDelete: 'cascade' }),
+    branchId: text('branchId')
+      .notNull()
+      .references(() => branch.id, { onDelete: 'restrict' }),
+    sessionId: text('sessionId')
+      .notNull()
+      .references(() => posSession.id, { onDelete: 'restrict' }),
+    terminalId: text('terminalId').references(() => posTerminal.id, {
+      onDelete: 'restrict',
+    }),
+    userId: text('userId')
+      .notNull()
+      .references(() => user.id, { onDelete: 'restrict' }),
+    saleId: text('saleId').references(() => sale.id, { onDelete: 'restrict' }),
+    idempotencyKey: text('idempotencyKey').notNull(),
+    provisionalReceiptNo: text('provisionalReceiptNo').notNull(),
+    payloadHash: text('payloadHash').notNull(),
+    status: text('status').notNull().default('RECEIVED'),
+    attemptCount: integer('attemptCount').notNull().default(0),
+    offlineCreatedAt: timestamp('offlineCreatedAt').notNull(),
+    firstReceivedAt: timestamp('firstReceivedAt').notNull().defaultNow(),
+    lastAttemptAt: timestamp('lastAttemptAt'),
+    syncedAt: timestamp('syncedAt'),
+    errorCode: text('errorCode'),
+    errorMessage: text('errorMessage'),
+    createdAt: timestamp('createdAt').notNull().defaultNow(),
+    updatedAt: timestamp('updatedAt').notNull().defaultNow(),
+  },
+  (table) => ({
+    organizationIdempotencyUnique: uniqueIndex(
+      'offline_sale_sync_org_idempotency_unique'
+    ).on(table.organizationId, table.idempotencyKey),
+    organizationProvisionalReceiptUnique: uniqueIndex(
+      'offline_sale_sync_org_provisional_unique'
+    ).on(table.organizationId, table.provisionalReceiptNo),
+    organizationStatusIndex: index('offline_sale_sync_org_status_idx').on(
+      table.organizationId,
+      table.status,
+      table.updatedAt
+    ),
+    sessionStatusIndex: index('offline_sale_sync_session_status_idx').on(
+      table.sessionId,
+      table.status
+    ),
+  })
+);
+
+/** Durable held baskets shared by authorized registers in one branch. */
+export const suspendedSale = pgTable(
+  'suspended_sale',
+  {
+    id: text('id').primaryKey(),
+    organizationId: text('organizationId')
+      .notNull()
+      .references(() => organization.id, { onDelete: 'cascade' }),
+    branchId: text('branchId')
+      .notNull()
+      .references(() => branch.id, { onDelete: 'restrict' }),
+    terminalId: text('terminalId').references(() => posTerminal.id, {
+      onDelete: 'restrict',
+    }),
+    sessionId: text('sessionId').references(() => posSession.id, {
+      onDelete: 'restrict',
+    }),
+    cashierId: text('cashierId')
+      .notNull()
+      .references(() => user.id, { onDelete: 'restrict' }),
+    customerId: text('customerId').references(() => customer.id, {
+      onDelete: 'set null',
+    }),
+    idempotencyKey: text('idempotencyKey').notNull(),
+    status: text('status').notNull().default('HELD'),
+    items: json('items').notNull(),
+    discountValue: numeric('discountValue', { precision: 12, scale: 2 })
+      .notNull()
+      .default('0'),
+    discountType: text('discountType').notNull().default('fixed'),
+    subtotal: numeric('subtotal', { precision: 12, scale: 2 }).notNull(),
+    note: text('note'),
+    expiresAt: timestamp('expiresAt').notNull(),
+    resumedBy: text('resumedBy').references(() => user.id, {
+      onDelete: 'restrict',
+    }),
+    resumedTerminalId: text('resumedTerminalId').references(
+      () => posTerminal.id,
+      { onDelete: 'restrict' }
+    ),
+    resumedAt: timestamp('resumedAt'),
+    deletedBy: text('deletedBy').references(() => user.id, {
+      onDelete: 'restrict',
+    }),
+    deletedAt: timestamp('deletedAt'),
+    createdAt: timestamp('createdAt').notNull().defaultNow(),
+    updatedAt: timestamp('updatedAt').notNull().defaultNow(),
+  },
+  (table) => ({
+    organizationIdempotencyUnique: uniqueIndex(
+      'suspended_sale_org_idempotency_unique'
+    ).on(table.organizationId, table.idempotencyKey),
+    branchStatusCreatedIndex: index(
+      'suspended_sale_branch_status_created_idx'
+    ).on(table.organizationId, table.branchId, table.status, table.createdAt),
+    expiryIndex: index('suspended_sale_expiry_idx').on(
+      table.status,
+      table.expiresAt
+    ),
   })
 );
 
@@ -1817,8 +2264,12 @@ export type Workspace = typeof workspace.$inferSelect;
 export type OnboardingState = typeof onboardingState.$inferSelect;
 export type Branch = typeof branch.$inferSelect;
 export type BusinessSettings = typeof businessSettings.$inferSelect;
+export type EtimsConfiguration = typeof etimsConfiguration.$inferSelect;
+export type EtimsSubmission = typeof etimsSubmission.$inferSelect;
+export type EtimsCreditNote = typeof etimsCreditNote.$inferSelect;
 export type Category = typeof category.$inferSelect;
 export type Product = typeof product.$inferSelect;
+export type ProductPackage = typeof productPackage.$inferSelect;
 export type Customer = typeof customer.$inferSelect;
 export type Sale = typeof sale.$inferSelect;
 export type SaleItem = typeof saleItem.$inferSelect;
@@ -1830,6 +2281,12 @@ export type StockMovement = typeof stockMovement.$inferSelect;
 export type InventoryBalance = typeof inventoryBalance.$inferSelect;
 export type InventoryCostLayer = typeof inventoryCostLayer.$inferSelect;
 export type InventoryLot = typeof inventoryLot.$inferSelect;
+export type PharmacyConfiguration = typeof pharmacyConfiguration.$inferSelect;
+export type PharmacyProduct = typeof pharmacyProduct.$inferSelect;
+export type SaleItemLotAllocation = typeof saleItemLotAllocation.$inferSelect;
+export type PharmacySaleRecord = typeof pharmacySaleRecord.$inferSelect;
+export type RestrictedItemAudit = typeof restrictedItemAudit.$inferSelect;
+export type PharmacyReturnDisposition = typeof pharmacyReturnDisposition.$inferSelect;
 export type InventorySerial = typeof inventorySerial.$inferSelect;
 export type ProductPackaging = typeof productPackaging.$inferSelect;
 export type SupplierProduct = typeof supplierProduct.$inferSelect;
@@ -1846,6 +2303,8 @@ export type PosSession = typeof posSession.$inferSelect;
 export type PosPinCredential = typeof posPinCredential.$inferSelect;
 export type PosTerminal = typeof posTerminal.$inferSelect;
 export type PosAuthSession = typeof posAuthSession.$inferSelect;
+export type OfflineSaleSync = typeof offlineSaleSync.$inferSelect;
+export type SuspendedSale = typeof suspendedSale.$inferSelect;
 export type Employee = typeof employee.$inferSelect;
 export type Shift = typeof shift.$inferSelect;
 export type ShiftAssignment = typeof shiftAssignment.$inferSelect;

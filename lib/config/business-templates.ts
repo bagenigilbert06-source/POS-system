@@ -70,7 +70,7 @@ export const BUSINESS_TEMPLATES: Record<string, BusinessTemplate> = {
     id: 'pharmacy',
     name: 'Pharmacy',
     description: 'Pharmacy with prescription management',
-    enabledModules: ['inventory', 'prescriptions', 'sales', 'pos', 'customers', 'compliance', 'analytics'],
+    enabledModules: ['inventory', 'prescriptions', 'sales', 'pos', 'customers', 'purchases', 'expenses', 'reports', 'analytics'],
     defaultCategories: ['Over-the-Counter', 'Prescription', 'Health & Wellness', 'Supplements'],
     defaultProducts: [
       { name: 'Multivitamin', sku: 'PHARM001', price: 9.99, category: 'Supplements' },
@@ -78,11 +78,11 @@ export const BUSINESS_TEMPLATES: Record<string, BusinessTemplate> = {
     ],
     gettingStartedTasks: [
       { id: 'inventory', title: 'Set up inventory', description: 'Add medicines and products to inventory', action: '/dashboard/inventory' },
-      { id: 'prescriptions', title: 'Configure prescriptions', description: 'Set up prescription management', action: '/dashboard/prescriptions/settings' },
-      { id: 'compliance', title: 'Review compliance', description: 'Check regulatory requirements', action: '/dashboard/compliance' },
-      { id: 'doctors', title: 'Add doctors', description: 'Register partnered doctors', action: '/dashboard/settings/doctors' },
-      { id: 'patients', title: 'Register patients', description: 'Set up patient records system', action: '/dashboard/customers' },
-      { id: 'billing', title: 'Configure billing', description: 'Set up insurance and billing', action: '/dashboard/settings/billing' },
+      { id: 'prescriptions', title: 'Review prescription records', description: 'Confirm prescription and restricted-medicine records', action: '/dashboard/pharmacy/prescriptions' },
+      { id: 'batches', title: 'Review batches and expiry', description: 'Check expiring, expired and quarantined medicine stock', action: '/dashboard/inventory/batches' },
+      { id: 'suppliers', title: 'Set up suppliers', description: 'Add medicine suppliers and purchasing details', action: '/dashboard/purchases' },
+      { id: 'customers', title: 'Register customers', description: 'Create customer records for counter sales', action: '/dashboard/customers' },
+      { id: 'payments', title: 'Configure payments', description: 'Enable accepted pharmacy payment methods', action: '/dashboard/admin/payment-methods' },
     ],
     sidebarConfig: {
       primaryNav: [
@@ -92,7 +92,7 @@ export const BUSINESS_TEMPLATES: Record<string, BusinessTemplate> = {
         { id: 'sales', label: 'Sales', icon: 'ShoppingCart' },
         { id: 'pos', label: 'POS', icon: 'CreditCard' },
         { id: 'customers', label: 'Customers', icon: 'Users' },
-        { id: 'compliance', label: 'Compliance', icon: 'ShieldCheck' },
+        { id: 'batches', label: 'Batches & expiry', icon: 'CalendarClock' },
         { id: 'analytics', label: 'Analytics', icon: 'BarChart3' },
       ],
       secondaryNav: [

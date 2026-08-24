@@ -1,7 +1,7 @@
 'use server'
 
 import { db } from '@/lib/db'
-import { auditEvent, branch, branchMembership, employee, organizationMembership, shift, shiftAssignment, employeeCommission, user, verification } from '@/lib/db/schema'
+import { auditEvent, branch, branchMembership, employee, organization, organizationMembership, shift, shiftAssignment, employeeCommission, user, verification } from '@/lib/db/schema'
 import { eq, and, desc, gte, inArray, like, ne } from 'drizzle-orm'
 import { auth } from '@/lib/auth'
 import { headers } from 'next/headers'
@@ -12,6 +12,7 @@ import { canAssignRole, canManageExistingRole, PermissionEnum, RoleEnum, STAFF_M
 import { z } from 'zod'
 import { revalidatePath } from 'next/cache'
 import { STAFF_DEPARTMENTS } from '@/lib/types/staff'
+import { isPharmacyBusiness } from '@/lib/pharmacy/rules'
 
 // Admin is intentionally absent. The primary admin is created with the
 // organization and cannot be created or assigned by Staff & Access actions.
@@ -35,6 +36,15 @@ const INVITATION_COOLDOWN_MS = 60_000
 
 function assertAssignableRole(actor: RoleEnum, role: StaffManagedRole) {
   if (!canAssignRole(actor, role)) throw new Error(`A ${actor} cannot assign the ${role} role`)
+}
+
+async function assertRoleMatchesWorkspace(organizationId: string, role: StaffManagedRole) {
+  if (role !== RoleEnum.PHARMACIST && role !== RoleEnum.PHARMACY_STAFF) return
+  const [workspace] = await db.select({ businessType: organization.businessType, businessCategory: organization.businessCategory })
+    .from(organization).where(eq(organization.id, organizationId)).limit(1)
+  if (!workspace || !isPharmacyBusiness(workspace.businessType, workspace.businessCategory)) {
+    throw new Error('Pharmacy roles can only be assigned inside a pharmacy workspace')
+  }
 }
 
 async function assertCanManageEmployee(
@@ -106,6 +116,7 @@ export async function createEmployee(data: {
   const input = createStaffSchema.parse(data)
   const authorization = await requirePermission(PermissionEnum.STAFF_MANAGE)
   assertAssignableRole(authorization.role, input.role)
+  await assertRoleMatchesWorkspace(authorization.organizationId, input.role)
   const [selectedBranch] = await db.select({ id: branch.id }).from(branch).where(and(
     eq(branch.id, input.branchId),
     eq(branch.organizationId, authorization.organizationId),
@@ -114,6 +125,9 @@ export async function createEmployee(data: {
   if (!selectedBranch) throw new Error('Choose a branch in this organization')
   const result = await db.transaction(async (tx) => {
     const [existingUser] = await tx.select().from(user).where(eq(user.email, input.email)).limit(1)
+    if (existingUser && existingUser.status !== 'active') {
+      throw new Error('This email belongs to an inactive Pesaby account. Reactivate that account before assigning pharmacy access.')
+    }
     const staffUserId = existingUser?.id ?? nanoid()
     const [existingMembership] = await tx.select().from(organizationMembership).where(and(eq(organizationMembership.organizationId, authorization.organizationId), eq(organizationMembership.userId, staffUserId))).limit(1)
     if (existingMembership) throw new Error('This user already has access to the organization')
@@ -174,6 +188,7 @@ export async function updateEmployee(employeeId: string, data: {
   if (!current) throw new Error('Employee not found')
   await assertCanManageEmployee(authorization, current)
   if (input.role) assertAssignableRole(authorization.role, input.role)
+  if (input.role) await assertRoleMatchesWorkspace(orgId, input.role)
 
     const updated = await db.transaction(async (tx) => {
       const emailChanged = Boolean(input.email && input.email !== current.email)

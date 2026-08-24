@@ -24,6 +24,9 @@ export function CustomerForm({ customer, onClose }: CustomerFormProps) {
     phone: customer?.phone ?? '',
     email: customer?.email ?? '',
     address: customer?.address ?? '',
+    kraPin: customer?.kraPin ?? '',
+    customerType: customer?.customerType ?? 'individual',
+    vatRegistered: customer?.vatRegistered ?? false,
   })
 
   const set = (k: string, v: string) => setForm((f) => ({ ...f, [k]: v }))
@@ -47,6 +50,9 @@ export function CustomerForm({ customer, onClose }: CustomerFormProps) {
       phone: form.phone.trim() || undefined,
       email: form.email || undefined,
       address: form.address || undefined,
+      kraPin: form.kraPin || undefined,
+      customerType: form.customerType as 'individual' | 'business',
+      vatRegistered: form.vatRegistered,
     }
     try {
       if (customer) {
@@ -104,7 +110,7 @@ export function CustomerForm({ customer, onClose }: CustomerFormProps) {
         <form onSubmit={handleSubmit} aria-describedby={error ? 'customer-form-error' : undefined}>
           <div className="p-5 sm:p-7">
             <div className="mb-6"><h2 className="text-lg font-semibold">Customer details</h2><p className="mt-1 text-sm text-muted-foreground">Name is required. Contact details help your team find customers during checkout.</p></div>
-            <div className="grid gap-5 sm:grid-cols-2"><div className="sm:col-span-2"><label htmlFor="customer-name" className="mb-1.5 block text-sm font-medium">Full name <span className="text-destructive">*</span></label><input id="customer-name" type="text" required autoFocus placeholder="e.g. Jane Wanjiru" value={form.name} onChange={(e) => set('name', e.target.value)} className={inputCls} /></div><div><label htmlFor="customer-phone" className="mb-1.5 block text-sm font-medium">Phone number <span className="font-normal text-muted-foreground">(optional)</span></label><div className="relative"><Phone className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" /><input id="customer-phone" type="tel" inputMode="tel" placeholder="e.g. 0712 345 678" value={form.phone} onChange={(e) => set('phone', e.target.value)} className={`${inputCls} pl-9`} /></div></div><div><label htmlFor="customer-email" className="mb-1.5 block text-sm font-medium">Email address <span className="font-normal text-muted-foreground">(optional)</span></label><input id="customer-email" type="email" placeholder="jane@example.com" value={form.email} onChange={(e) => set('email', e.target.value)} className={inputCls} /></div><div className="sm:col-span-2"><label htmlFor="customer-address" className="mb-1.5 block text-sm font-medium">Address <span className="font-normal text-muted-foreground">(optional)</span></label><input id="customer-address" type="text" placeholder="e.g. Westlands, Nairobi" value={form.address} onChange={(e) => set('address', e.target.value)} className={inputCls} /></div></div>
+            <div className="grid gap-5 sm:grid-cols-2"><div className="sm:col-span-2"><label htmlFor="customer-name" className="mb-1.5 block text-sm font-medium">Full name <span className="text-destructive">*</span></label><input id="customer-name" type="text" required autoFocus placeholder="e.g. Jane Wanjiru" value={form.name} onChange={(e) => set('name', e.target.value)} className={inputCls} /></div><div><label htmlFor="customer-phone" className="mb-1.5 block text-sm font-medium">Phone number <span className="font-normal text-muted-foreground">(optional)</span></label><div className="relative"><Phone className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" /><input id="customer-phone" type="tel" inputMode="tel" placeholder="e.g. 0712 345 678" value={form.phone} onChange={(e) => set('phone', e.target.value)} className={`${inputCls} pl-9`} /></div></div><div><label htmlFor="customer-email" className="mb-1.5 block text-sm font-medium">Email address <span className="font-normal text-muted-foreground">(optional)</span></label><input id="customer-email" type="email" placeholder="jane@example.com" value={form.email} onChange={(e) => set('email', e.target.value)} className={inputCls} /></div><div className="sm:col-span-2"><label htmlFor="customer-address" className="mb-1.5 block text-sm font-medium">Address <span className="font-normal text-muted-foreground">(optional)</span></label><input id="customer-address" type="text" placeholder="e.g. Westlands, Nairobi" value={form.address} onChange={(e) => set('address', e.target.value)} className={inputCls} /></div><div><label htmlFor="customer-type" className="mb-1.5 block text-sm font-medium">Customer type</label><select id="customer-type" value={form.customerType} onChange={(e) => set('customerType', e.target.value)} className={inputCls}><option value="individual">Individual</option><option value="business">Business</option></select></div><div><label htmlFor="customer-kra-pin" className="mb-1.5 block text-sm font-medium">KRA PIN <span className="font-normal text-muted-foreground">(optional)</span></label><input id="customer-kra-pin" value={form.kraPin} onChange={(e) => set('kraPin', e.target.value.toUpperCase())} placeholder="e.g. A000000000X" className={inputCls} /></div><label className="flex items-center gap-3 sm:col-span-2"><input type="checkbox" checked={Boolean(form.vatRegistered)} onChange={(e) => setForm((current) => ({ ...current, vatRegistered: e.target.checked }))} className="h-4 w-4" /><span className="text-sm font-medium">VAT registered customer</span></label></div>
             {error && <p id="customer-form-error" role="alert" className="mt-4 text-sm text-destructive">{error}</p>}
           </div>
 

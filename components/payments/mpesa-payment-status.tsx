@@ -138,7 +138,7 @@ export function MpesaPaymentStatus({
                 className={cn(
                   'flex-1 px-4 py-2 rounded-lg font-medium text-sm transition-colors',
                   retryCount < 3
-                    ? 'bg-blue-600 text-white hover:bg-blue-700'
+                    ? 'bg-[#e42527] text-white hover:bg-[#c91f22]'
                     : 'bg-muted text-muted-foreground cursor-not-allowed'
                 )}
               >

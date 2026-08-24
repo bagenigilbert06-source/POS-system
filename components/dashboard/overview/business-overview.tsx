@@ -30,6 +30,7 @@ import { ComplianceStatusCard } from './compliance-status-card'
 import { MetricCard, type MetricTrend } from './metric-card'
 import { TimeGreeting } from '../time-greeting'
 import { PermissionEnum, RoleEnum } from '@/lib/types/permissions'
+import { isPharmacyBusiness } from '@/lib/pharmacy/rules'
 
 interface BusinessOverviewProps {
   organizationName: string
@@ -223,6 +224,13 @@ export function BusinessOverview({ organizationName, userName, timeZone, currenc
       {workspaceConfig.businessCategory === 'liquor_shop' && (
         <section aria-label="Liquor-store controls">
           <ComplianceStatusCard verified={overview.liquorCompliance.verifiedToday} needsReview={overview.liquorCompliance.unverifiedToday} />
+        </section>
+      )}
+
+      {isPharmacyBusiness(workspaceConfig.businessType, workspaceConfig.businessCategory) && (
+        <section aria-label="Pharmacy stock controls" className={cn(PANEL, 'overflow-hidden')}>
+          <div className={cn('flex items-center justify-between border-b px-5 py-4', DIVIDER)}><div><h2 className={cn('text-sm font-bold', TEXT)}>Batch and expiry attention</h2><p className={cn('mt-0.5 text-xs', MUTED)}>Actionable medicine stock risks from the inventory ledger.</p></div><Link href="/dashboard/inventory/batches" className={cn('text-xs font-semibold hover:underline', TEXT)}>Review batches</Link></div>
+          <div className="grid divide-y sm:grid-cols-3 sm:divide-x sm:divide-y-0"><div className="p-4"><p className={cn('text-xs', MUTED)}>Expiring within 90 days</p><p className={cn('mt-1 text-xl font-bold tabular-nums', TEXT)}>{overview.pharmacyInventory.expiringSoon}</p></div><div className="p-4"><p className={cn('text-xs', MUTED)}>Expired batches</p><p className="mt-1 text-xl font-bold tabular-nums text-red-600">{overview.pharmacyInventory.expired}</p></div><div className="p-4"><p className={cn('text-xs', MUTED)}>Value at risk</p><p className={cn('mt-1 text-xl font-bold tabular-nums', TEXT)}>{formatCurrency(overview.pharmacyInventory.valueAtRisk, currency)}</p></div></div>
         </section>
       )}
 

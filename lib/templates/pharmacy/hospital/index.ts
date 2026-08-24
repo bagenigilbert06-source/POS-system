@@ -3,8 +3,8 @@ import { PHARMACY_PERMISSIONS, PHARMACY_REPORTS, PHARMACY_SETTINGS } from '../..
 
 const navigation: NavigationConfig = {
   primaryNav: [
-    { id: 'dashboard', label: 'Dashboard', icon: 'LayoutDashboard', route: '/dashboard/pharmacy' },
-    { id: 'prescriptions', label: 'Prescriptions', icon: 'FileText', route: '/dashboard/prescriptions' },
+    { id: 'dashboard', label: 'Dashboard', icon: 'LayoutDashboard', route: '/dashboard' },
+    { id: 'prescriptions', label: 'Dispensing', icon: 'FileText', route: '/dashboard/pos' },
     { id: 'dispensing', label: 'Dispensing', icon: 'Pill', route: '/dashboard/sales' },
     { id: 'products', label: 'Medicines', icon: 'Package', route: '/dashboard/products' },
     { id: 'inventory', label: 'Inventory', icon: 'PackageSearch', route: '/dashboard/inventory' },
@@ -26,10 +26,10 @@ const dashboardWidgets: DashboardWidget[] = [
 ]
 
 const quickActions: QuickAction[] = [
-  { id: 'new-prescription', label: 'New Prescription', href: '/dashboard/prescriptions', icon: 'FileText', primary: true },
+  { id: 'new-prescription', label: 'Dispense medicine', href: '/dashboard/pos', icon: 'FileText', primary: true },
   { id: 'add-medicine', label: 'Add Medicine', href: '/dashboard/products', icon: 'Pill' },
   { id: 'batch-report', label: 'Batch Report', href: '/dashboard/reports/batches', icon: 'Package' },
-  { id: 'expiry-report', label: 'Expiry Report', href: '/dashboard/reports/expiry', icon: 'AlertTriangle' },
+  { id: 'expiry-report', label: 'Expiry Report', href: '/dashboard/inventory/batches', icon: 'AlertTriangle' },
 ]
 
 const starterCategories: StarterCategory[] = [

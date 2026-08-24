@@ -3,7 +3,7 @@ import { PHARMACY_PERMISSIONS, PHARMACY_REPORTS, PHARMACY_SETTINGS } from '../..
 
 const navigation: NavigationConfig = {
   primaryNav: [
-    { id: 'dashboard', label: 'Dashboard', icon: 'LayoutDashboard', route: '/dashboard/pharmacy' },
+    { id: 'dashboard', label: 'Dashboard', icon: 'LayoutDashboard', route: '/dashboard' },
     { id: 'sales', label: 'Sales', icon: 'ShoppingCart', route: '/dashboard/sales' },
     { id: 'products', label: 'Medicines', icon: 'Package', route: '/dashboard/products' },
     { id: 'inventory', label: 'Inventory', icon: 'PackageSearch', route: '/dashboard/inventory' },
@@ -29,7 +29,7 @@ const quickActions: QuickAction[] = [
   { id: 'new-sale', label: 'New Sale', href: '/dashboard/sales', icon: 'ShoppingCart', primary: true },
   { id: 'add-medicine', label: 'Add Medicine', href: '/dashboard/products', icon: 'Package' },
   { id: 'purchase-order', label: 'Purchase Order', href: '/dashboard/purchase-orders', icon: 'ClipboardList' },
-  { id: 'expiry-report', label: 'Expiry Report', href: '/dashboard/reports/expiry', icon: 'AlertTriangle' },
+  { id: 'expiry-report', label: 'Expiry Report', href: '/dashboard/inventory/batches', icon: 'AlertTriangle' },
 ]
 
 const starterCategories: StarterCategory[] = [

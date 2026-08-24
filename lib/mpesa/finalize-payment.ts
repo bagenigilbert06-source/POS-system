@@ -2,16 +2,19 @@ import { and, eq, inArray, isNull } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import {
   auditEvent, businessSettings, customer, mpesaIncomingPayment, mpesaPaymentRequest,
-  posSession, product, sale, saleItem, salePayment,
+  pharmacyProduct, pharmacySaleRecord, posSession, product, productPackage, restrictedItemAudit,
+  sale, saleItem, saleItemLotAllocation, salePayment,
 } from '@/lib/db/schema'
 import { calculateMpesaAmount } from '@/lib/mpesa/amount'
 import { generateId, generateReceiptNo } from '@/lib/utils'
 import { applyInventoryMovement, consumeInventoryCost } from '@/lib/inventory/inventory-service'
+import { enqueueEtimsInvoice } from '@/lib/etims/service'
 
 export type MpesaCheckoutPayload = {
-  items: Array<{ productId: string; quantity: number }>
+  items: Array<{ productId: string; quantity: number; packageId?: string }>
   discountAmount: number
   ageVerified: boolean
+  pharmacy?: { prescriptionReference?: string; prescriberReference?: string; notes?: string }
 }
 
 /**
@@ -49,12 +52,18 @@ export async function finalizeConfirmedMpesaPayment(requestId: string) {
       id: product.id, name: product.name, sellingPrice: product.sellingPrice, active: product.isActive,
     }).from(product).where(and(eq(product.orgId, intent.organizationId), inArray(product.id, productIds)))
     const byId = new Map(catalogue.map((item) => [item.id, item]))
+    const medicineRows = await tx.select().from(pharmacyProduct).where(and(eq(pharmacyProduct.organizationId, intent.organizationId), inArray(pharmacyProduct.productId, productIds)))
+    const packageIds = checkout.items.map((line) => line.packageId).filter((value): value is string => Boolean(value))
+    const packages = packageIds.length ? await tx.select().from(productPackage).where(and(eq(productPackage.organizationId, intent.organizationId), inArray(productPackage.id, packageIds), eq(productPackage.isActive, true))) : []
+    const packageById = new Map(packages.map((item) => [item.id, item]))
     const lines = checkout.items.map((line) => {
       if (!Number.isInteger(line.quantity) || line.quantity <= 0) throw new Error('Invalid M-Pesa basket quantity')
       const item = byId.get(line.productId)
       if (!item?.active) throw new Error('A paid basket product is unavailable')
-      const unitPrice = Number(item.sellingPrice)
-      return { ...line, productName: item.name, unitPrice, totalPrice: unitPrice * line.quantity, saleItemId: generateId() }
+      const selectedPackage = line.packageId ? packageById.get(line.packageId) : null
+      if (line.packageId && (!selectedPackage || selectedPackage.productId !== line.productId)) throw new Error('A paid basket package is unavailable')
+      const unitPrice = Number(selectedPackage?.sellingPrice ?? item.sellingPrice)
+      return { ...line, productName: selectedPackage ? `${item.name} (${selectedPackage.name})` : item.name, packageName: selectedPackage?.name, baseUnitQuantity: selectedPackage?.baseUnitQuantity ?? 1, unitPrice, totalPrice: unitPrice * line.quantity, saleItemId: generateId() }
     })
     if (intent.customerId) {
       const [ownedCustomer] = await tx.select({ id: customer.id }).from(customer).where(and(
@@ -78,9 +87,12 @@ export async function finalizeConfirmedMpesaPayment(requestId: string) {
     if (claimed.length !== 1) throw new Error('M-Pesa payment has already been claimed')
 
     const costByProduct = new Map<string, { unitCost: number; totalCost: number }>()
+    const lotsBySaleItem = new Map<string, Array<{ lotId: string; lotNumber: string; expiresAt: Date | null; quantity: number }>>()
     for (const line of lines) {
-      await applyInventoryMovement(tx, { productId: line.productId, productName: line.productName, branchId: intent.branchId, quantity: -line.quantity, type: 'sale', referenceType: 'sale', referenceId: saleId, reason: receiptNo, userId: intent.userId, orgId: intent.organizationId })
-      costByProduct.set(line.productId, await consumeInventoryCost(tx, { productId: line.productId, branchId: intent.branchId, orgId: intent.organizationId, quantity: line.quantity }))
+      const inventoryQuantity = line.quantity * line.baseUnitQuantity
+      const movement = await applyInventoryMovement(tx, { productId: line.productId, productName: line.productName, branchId: intent.branchId, quantity: -inventoryQuantity, type: 'sale', referenceType: 'sale', referenceId: saleId, reason: receiptNo, userId: intent.userId, orgId: intent.organizationId })
+      if (movement.lotAllocations.length) lotsBySaleItem.set(line.saleItemId, movement.lotAllocations)
+      costByProduct.set(line.productId, await consumeInventoryCost(tx, { productId: line.productId, branchId: intent.branchId, orgId: intent.organizationId, quantity: inventoryQuantity }))
     }
 
     await tx.insert(sale).values({
@@ -93,9 +105,37 @@ export async function finalizeConfirmedMpesaPayment(requestId: string) {
     })
     await tx.insert(saleItem).values(lines.map((line) => ({
       id: line.saleItemId, saleId, productId: line.productId, productName: line.productName, quantity: line.quantity,
+      packageId: line.packageId ?? null, packageName: line.packageName ?? null, baseUnitQuantity: line.baseUnitQuantity,
       unitPrice: String(line.unitPrice), totalPrice: String(line.totalPrice), userId: intent.userId, orgId: intent.organizationId,
       unitCostAtSale: String(costByProduct.get(line.productId)?.unitCost ?? 0), totalCost: String(costByProduct.get(line.productId)?.totalCost ?? 0),
     })))
+    const allocatedLots = lines.flatMap((line) => (lotsBySaleItem.get(line.saleItemId) ?? []).map((allocation) => ({
+      id: generateId(), organizationId: intent.organizationId, saleId, saleItemId: line.saleItemId, productId: line.productId,
+      lotId: allocation.lotId, lotNumber: allocation.lotNumber, expiresAt: allocation.expiresAt, quantity: String(allocation.quantity),
+    })))
+    if (allocatedLots.length) await tx.insert(saleItemLotAllocation).values(allocatedLots)
+    const prescriptionItems = medicineRows.filter((item) => item.prescriptionRequired)
+    const restrictedItems = medicineRows.filter((item) => item.restrictedItem)
+    if (prescriptionItems.length || restrictedItems.length) {
+      await tx.insert(pharmacySaleRecord).values({
+        id: generateId(), organizationId: intent.organizationId, branchId: intent.branchId, saleId,
+        prescriptionReference: checkout.pharmacy?.prescriptionReference || null,
+        prescriberReference: checkout.pharmacy?.prescriberReference || null,
+        notes: checkout.pharmacy?.notes || null,
+        approvedBy: restrictedItems.length ? intent.userId : null, createdBy: intent.userId,
+      })
+      const restrictedIds = new Set(restrictedItems.map((item) => item.productId))
+      const auditRows = lines.filter((line) => restrictedIds.has(line.productId)).flatMap((line) => {
+        const allocations = lotsBySaleItem.get(line.saleItemId) ?? []
+        return (allocations.length ? allocations : [{ lotId: null, quantity: line.quantity * line.baseUnitQuantity }]).map((allocation) => ({
+          id: generateId(), organizationId: intent.organizationId, branchId: intent.branchId!, saleId, saleItemId: line.saleItemId,
+          productId: line.productId, lotId: allocation.lotId, cashierId: intent.userId, approvedBy: intent.userId,
+          quantity: String(allocation.quantity), customerReference: intent.customerId || null,
+          reason: checkout.pharmacy?.notes || 'Restricted medicine sale',
+        }))
+      })
+      if (auditRows.length) await tx.insert(restrictedItemAudit).values(auditRows)
+    }
     await tx.insert(salePayment).values({ id: generateId(), saleId, method: 'mpesa', amount: String(rounded.amount),
       reference: intent.receiptNumber, status: 'completed', userId: intent.userId, orgId: intent.organizationId })
     await tx.update(mpesaIncomingPayment).set({ status: 'MATCHED', matchedRequestId: intent.id })
@@ -105,5 +145,9 @@ export async function finalizeConfirmedMpesaPayment(requestId: string) {
         branchId: intent.branchId, posSessionId: intent.posSessionId, total: rounded.amount } })
     return { saleId, alreadyFinalized: false }
   })
+  if (!result.alreadyFinalized) {
+    try { await enqueueEtimsInvoice(result.saleId) }
+    catch (error) { console.error('[etims] M-Pesa sale queued without immediate fiscal result', { saleId: result.saleId, error: error instanceof Error ? error.message : 'unknown' }) }
+  }
   return result
 }

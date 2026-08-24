@@ -4,9 +4,10 @@ import { useState, useCallback, useRef, useEffect, useMemo, useDeferredValue, ty
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import dynamic from 'next/dynamic'
-import { createSale, type CartItem } from '@/app/actions/sales'
+import { createSale, syncOfflineSale, type CartItem } from '@/app/actions/sales'
 import { getMpesaPaymentStatus, initiateMpesaPaybillPayment, initiateMpesaPayment } from '@/app/actions/mpesa'
 import { createCustomer } from '@/app/actions/customers'
+import { discardHeldSale, holdSaleOnServer, listHeldSales, resumeHeldSaleFromServer, type HeldSaleRecord } from '@/app/actions/held-sales'
 import { formatCurrency, formatDateTime, normalizeBarcode } from '@/lib/utils'
 import { cn } from '@/lib/utils'
 import {
@@ -41,10 +42,14 @@ import {
   BadgeCheck,
   Monitor,
   MapPin,
+  CloudOff,
+  RefreshCw,
 } from 'lucide-react'
-import type { Product, Customer, Sale, SaleItem } from '@/lib/db/schema'
+import type { Product, ProductPackage, PharmacyProduct, Customer, Sale, SaleItem } from '@/lib/db/schema'
 import { toast } from 'sonner'
 import { calculateMpesaAmount } from '@/lib/mpesa/amount'
+import { adoptLegacyOfflineSales, cacheOfflineCatalogue, listOfflineSales, readOfflineCatalogue, saveOfflineSale, updateOfflineSale, type OfflineSaleRecord } from '@/lib/pos/offline-store'
+import { bindPosConnectivityEvents, checkoutAlreadyQueued, createProvisionalReceiptNo, isConnectivityFailure, offlineWorkspaceStorageKey, shouldSynchronizeOfflineSale, summarizeOfflineQueue } from '@/lib/pos/offline-policy'
 
 const RefundDialog = dynamic(() => import('./refund-dialog').then((module) => module.RefundDialog), { ssr: false })
 const ReceiptReprint = dynamic(() => import('./receipt-reprint').then((module) => module.ReceiptReprint), { ssr: false })
@@ -52,10 +57,14 @@ const SalesHistoryModal = dynamic(() => import('./sales-history-modal').then((mo
 const ReceiptTemplate = dynamic(() => import('@/components/receipt/receipt-template').then((module) => module.ReceiptTemplate), { ssr: false })
 const WirelessScannerPairing = dynamic(() => import('@/components/barcode/wireless-scanner-pairing').then((module) => module.WirelessScannerPairing), { ssr: false })
 
+type PosProduct = Product & { packages: ProductPackage[]; pharmacy?: PharmacyProduct | null }
+
 interface POSTerminalProps {
-  products: Product[]
+  organizationId: string
+  products: PosProduct[]
   categories: Array<{ id: string; name: string }>
   requiresAgeVerification?: boolean
+  pharmacyMode?: boolean
   customers: Customer[]
   settings: {
     displayName: string
@@ -86,10 +95,16 @@ interface POSTerminalProps {
   canDiscount?: boolean
   canRefund?: boolean
   canHold?: boolean
+  canApproveRestricted?: boolean
   receiptContext?: {
     cashierName?: string
     registerName?: string | null
     locationName?: string | null
+  }
+  offlineContext?: {
+    sessionId: string | null
+    branchId: string
+    terminalId: string | null
   }
 }
 
@@ -113,16 +128,25 @@ interface ReceiptData {
   discountValue?: number
   customerName: string
   customerEmail?: string | null
+  etims?: {
+    status: string
+    message?: string
+    environment?: string
+    invoiceNumber?: string | null
+    controlNumber?: string | null
+    receiptNumber?: string | null
+    internalReference?: string | null
+    qrData?: string | null
+    verificationData?: string | null
+    showOnReceipt?: boolean
+  }
+  offline?: {
+    status: 'PENDING' | 'SYNCED'
+    provisionalReceiptNo: string
+  }
 }
 
-interface HeldSale {
-  id: string
-  cart: CartItem[]
-  discount: number
-  discountType: 'fixed' | 'percentage'
-  customerId: string
-  createdAt: string
-}
+type HeldSale = HeldSaleRecord
 
 type MpesaStatus = 'idle' | 'initiating' | 'pending' | 'success' | 'failed' | 'timeout'
 
@@ -177,8 +201,11 @@ function ReceiptMeta({ mark, label, value }: { mark: ReactNode; label: string; v
   )
 }
 
-export function POSTerminal({ products, categories, customers, settings, requiresAgeVerification = false, startCheckout = false, checkoutOnly = false, hasActiveShift = false, canDiscount = false, canRefund = false, canHold = false, receiptContext }: POSTerminalProps) {
+export function POSTerminal({ organizationId, products, categories, customers, settings, requiresAgeVerification = false, pharmacyMode = false, startCheckout = false, checkoutOnly = false, hasActiveShift = false, canDiscount = false, canRefund = false, canHold = false, canApproveRestricted = false, receiptContext, offlineContext }: POSTerminalProps) {
   const router = useRouter()
+  const cartStorageKey = offlineWorkspaceStorageKey(organizationId, 'cart')
+  const checkoutStorageKey = offlineWorkspaceStorageKey(organizationId, 'checkout-id')
+  const mpesaStorageKey = offlineWorkspaceStorageKey(organizationId, 'mpesa')
   const [catalogProducts, setCatalogProducts] = useState(products)
   const [search, setSearch] = useState('')
   const [selectedCategory, setSelectedCategory] = useState<string>('')
@@ -198,6 +225,9 @@ export function POSTerminal({ products, categories, customers, settings, require
   const [mpesaMessage, setMpesaMessage] = useState('')
   const [amountPaid, setAmountPaid] = useState('')
   const [selectedCustomer, setSelectedCustomer] = useState<string>('')
+  const [prescriptionReference, setPrescriptionReference] = useState('')
+  const [prescriberReference, setPrescriberReference] = useState('')
+  const [pharmacyNotes, setPharmacyNotes] = useState('')
   const [customerMenuOpen, setCustomerMenuOpen] = useState(false)
   const [discountMenuOpen, setDiscountMenuOpen] = useState(false)
   const [processing, setProcessing] = useState(false)
@@ -213,7 +243,8 @@ export function POSTerminal({ products, categories, customers, settings, require
   const [showSalesHistory, setShowSalesHistory] = useState(false)
   const [showHeldSales, setShowHeldSales] = useState(false)
   const [heldSales, setHeldSales] = useState<HeldSale[]>([])
-  const [heldSalesHydrated, setHeldSalesHydrated] = useState(false)
+  const [heldSalesLoading, setHeldSalesLoading] = useState(false)
+  const [heldSaleActionId, setHeldSaleActionId] = useState<string | null>(null)
   const [refundSale, setRefundSale] = useState<(Sale & { items: SaleItem[] }) | null>(null)
   const [ageVerified, setAgeVerified] = useState(false)
   const [showAgeVerification, setShowAgeVerification] = useState(false)
@@ -224,6 +255,10 @@ export function POSTerminal({ products, categories, customers, settings, require
   const [receiptPaperWidth, setReceiptPaperWidth] = useState<58 | 80>(80)
   const [receiptOptionsOpen, setReceiptOptionsOpen] = useState(false)
   const [receiptPrinted, setReceiptPrinted] = useState(false)
+  const [offlineSales, setOfflineSales] = useState<OfflineSaleRecord[]>([])
+  const [offlineQueueHydrated, setOfflineQueueHydrated] = useState(false)
+  const [offlineSyncing, setOfflineSyncing] = useState(false)
+  const offlineSyncRunningRef = useRef(false)
 
   useEffect(() => {
     document.body.classList.toggle('pos-receipt-active', Boolean(receipt))
@@ -243,29 +278,45 @@ export function POSTerminal({ products, categories, customers, settings, require
 
   useEffect(() => {
     try {
-      const saved = window.localStorage.getItem('pos-active-cart')
+      let saved = window.localStorage.getItem(cartStorageKey)
+      if (!saved) {
+        const legacyCart = window.localStorage.getItem('pos-active-cart')
+        if (legacyCart) {
+          const parsed = JSON.parse(legacyCart) as CartItem[]
+          const allowedProductIds = new Set(products.map((item) => item.id))
+          if (parsed.length > 0 && parsed.every((item) => allowedProductIds.has(item.productId))) {
+            saved = legacyCart
+            window.localStorage.setItem(cartStorageKey, legacyCart)
+            const legacyCheckout = window.localStorage.getItem('pos-active-checkout-id')
+            const legacyMpesa = window.localStorage.getItem('pos-active-mpesa')
+            if (legacyCheckout) window.localStorage.setItem(checkoutStorageKey, legacyCheckout)
+            if (legacyMpesa) window.localStorage.setItem(mpesaStorageKey, legacyMpesa)
+            window.localStorage.removeItem('pos-active-cart')
+            window.localStorage.removeItem('pos-active-checkout-id')
+            window.localStorage.removeItem('pos-active-mpesa')
+          }
+        }
+      }
       if (saved) setCart(JSON.parse(saved) as CartItem[])
+      checkoutIdempotencyKeyRef.current = window.localStorage.getItem(checkoutStorageKey) || ''
     } catch { /* ignore malformed local state */ }
     setCartHydrated(true)
-  }, [])
+  }, [cartStorageKey, checkoutStorageKey, mpesaStorageKey, products])
 
   useEffect(() => {
     if (!cartHydrated) return
-    window.localStorage.setItem('pos-active-cart', JSON.stringify(cart))
-  }, [cart, cartHydrated])
+    window.localStorage.setItem(cartStorageKey, JSON.stringify(cart))
+  }, [cart, cartHydrated, cartStorageKey])
 
-  useEffect(() => {
-    try {
-      const saved = window.localStorage.getItem('pos-held-sales')
-      if (saved) setHeldSales(JSON.parse(saved) as HeldSale[])
-    } catch { /* ignore malformed local state */ }
-    setHeldSalesHydrated(true)
-  }, [])
+  const refreshHeldSales = useCallback(async () => {
+    if (!canHold || !hasActiveShift || typeof navigator === 'undefined' || !navigator.onLine) return
+    setHeldSalesLoading(true)
+    try { setHeldSales(await listHeldSales()) }
+    catch (error) { toast.error(error instanceof Error ? error.message : 'Could not load held sales') }
+    finally { setHeldSalesLoading(false) }
+  }, [canHold, hasActiveShift])
 
-  useEffect(() => {
-    if (!heldSalesHydrated) return
-    window.localStorage.setItem('pos-held-sales', JSON.stringify(heldSales))
-  }, [heldSales, heldSalesHydrated])
+  useEffect(() => { void refreshHeldSales() }, [refreshHeldSales])
 
   useEffect(() => {
     setIsOnline(navigator.onLine)
@@ -274,7 +325,7 @@ export function POSTerminal({ products, categories, customers, settings, require
   useEffect(() => {
     if (!cartHydrated) return
     try {
-      const saved = JSON.parse(window.localStorage.getItem('pos-active-mpesa') || 'null') as { requestId?: string; idempotencyKey?: string; flow?: 'stk' | 'paybill'; accountReference?: string; shortcode?: string; accountType?: 'paybill' | 'till' } | null
+      const saved = JSON.parse(window.localStorage.getItem(mpesaStorageKey) || 'null') as { requestId?: string; idempotencyKey?: string; flow?: 'stk' | 'paybill'; accountReference?: string; shortcode?: string; accountType?: 'paybill' | 'till' } | null
       if (saved?.requestId && cart.length) {
         checkoutIdempotencyKeyRef.current = saved.idempotencyKey || ''
         setMpesaRequestId(saved.requestId)
@@ -287,18 +338,134 @@ export function POSTerminal({ products, categories, customers, settings, require
         setMpesaMessage('Reconnecting to the active M-Pesa checkout…')
         setCheckoutOpen(true)
       }
-    } catch { window.localStorage.removeItem('pos-active-mpesa') }
+    } catch { window.localStorage.removeItem(mpesaStorageKey) }
     // Restore once; subsequent basket updates must not restart an old request.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cartHydrated])
+  }, [cartHydrated, mpesaStorageKey])
+
+  const refreshOfflineSales = useCallback(async () => {
+    const records = await listOfflineSales(organizationId)
+    setOfflineSales(records)
+    return records
+  }, [organizationId])
 
   useEffect(() => {
-    const online = () => setIsOnline(true)
-    const offline = () => setIsOnline(false)
-    window.addEventListener('online', online)
-    window.addEventListener('offline', offline)
-    return () => { window.removeEventListener('online', online); window.removeEventListener('offline', offline) }
-  }, [])
+    let cancelled = false
+    void (async () => {
+      try {
+        await adoptLegacyOfflineSales(organizationId, products.map((item) => item.id))
+        // Reading before replacing the snapshot verifies that the browser cache
+        // remains usable across a reload. Fresh server data wins whenever it is
+        // available; the durable queue is then reserved from visible stock.
+        const [cached, records] = await Promise.all([
+          readOfflineCatalogue<PosProduct, POSTerminalProps['categories'][number], Customer, POSTerminalProps['settings']>(organizationId),
+          listOfflineSales(organizationId),
+        ])
+        if (cancelled) return
+        const activeCheckoutId = window.localStorage.getItem(checkoutStorageKey)
+        if (checkoutAlreadyQueued(activeCheckoutId, records.map((record) => record.id))) {
+          // This basket is already represented by a durable queued sale.
+          window.localStorage.removeItem(cartStorageKey)
+          window.localStorage.removeItem(checkoutStorageKey)
+          checkoutIdempotencyKeyRef.current = ''
+          setCart([])
+        }
+        const baseProducts = products.length ? products : cached?.products ?? []
+        const reserved = new Map<string, number>()
+        for (const record of records) {
+          if (record.status === 'SYNCED') continue
+          for (const item of record.payload.items) reserved.set(item.productId, (reserved.get(item.productId) ?? 0) + item.quantity * (item.baseUnitQuantity ?? 1))
+        }
+        setCatalogProducts(baseProducts.map((item) => ({ ...item, stock: Math.max(0, item.stock - (reserved.get(item.id) ?? 0)) })))
+        if (!customers.length && cached?.customers?.length) setAvailableCustomers(cached.customers)
+        setOfflineSales(records)
+        await cacheOfflineCatalogue(organizationId, { products: baseProducts, categories: categories.length ? categories : cached?.categories ?? [], customers: customers.length ? customers : cached?.customers ?? [], settings })
+      } catch {
+        // Checkout still refuses an offline sale if durable storage itself fails.
+      } finally {
+        if (!cancelled) setOfflineQueueHydrated(true)
+      }
+    })()
+    return () => { cancelled = true }
+  }, [cartStorageKey, categories, checkoutStorageKey, customers, organizationId, products, settings])
+
+  const synchronizeOfflineQueue = useCallback(async () => {
+    if (offlineSyncRunningRef.current || typeof navigator === 'undefined' || !navigator.onLine) return
+    offlineSyncRunningRef.current = true
+    setOfflineSyncing(true)
+    let accepted = 0
+    let failed = 0
+    try {
+      const records = await listOfflineSales(organizationId)
+      for (const record of records) {
+        if (!shouldSynchronizeOfflineSale(record.status) || !navigator.onLine) continue
+        await updateOfflineSale(record.id, organizationId, { status: 'SYNCING', attemptCount: record.attemptCount + 1, lastError: undefined })
+        try {
+          const result = await syncOfflineSale(record.payload)
+          await updateOfflineSale(record.id, organizationId, { status: 'SYNCED', official: {
+            saleId: result.saleId, receiptNo: result.receiptNo, tax: result.tax, rounding: result.rounding,
+            total: result.total, items: result.items,
+          } })
+          setReceipt((current) => {
+            if (!current || current.idempotencyKey !== record.id) return current
+            return {
+              ...current,
+              saleId: result.saleId,
+              receiptNo: result.receiptNo,
+              taxAmount: result.tax,
+              roundingAmount: result.rounding,
+              total: result.total,
+              items: current.items.map((item) => ({ ...item, saleItemId: result.items.find((saved) => saved.productId === item.productId)?.saleItemId ?? item.saleItemId })),
+              offline: { status: 'SYNCED', provisionalReceiptNo: record.provisionalReceiptNo },
+              etims: {
+                status: result.etims.status,
+                message: 'message' in result.etims ? result.etims.message : undefined,
+                showOnReceipt: 'receiptDetailsEnabled' in result.etims ? result.etims.receiptDetailsEnabled : false,
+                ...('submission' in result.etims && result.etims.submission ? {
+                  environment: result.etims.submission.environment,
+                  invoiceNumber: result.etims.submission.invoiceNumber,
+                  controlNumber: result.etims.submission.controlNumber,
+                  receiptNumber: result.etims.submission.receiptNumber,
+                  internalReference: result.etims.submission.internalReference,
+                  qrData: result.etims.submission.qrData,
+                  verificationData: result.etims.submission.verificationData,
+                } : {}),
+              },
+            }
+          })
+          accepted += 1
+        } catch (error) {
+          await updateOfflineSale(record.id, organizationId, { status: 'FAILED', lastError: error instanceof Error ? error.message : 'Synchronization failed' })
+          failed += 1
+        }
+      }
+      await refreshOfflineSales()
+      if (accepted) toast.success(`${accepted} offline sale${accepted === 1 ? '' : 's'} synchronized`)
+      if (failed) toast.error(`${failed} offline sale${failed === 1 ? '' : 's'} need${failed === 1 ? 's' : ''} review`)
+    } finally {
+      offlineSyncRunningRef.current = false
+      setOfflineSyncing(false)
+    }
+  }, [organizationId, refreshOfflineSales])
+
+  useEffect(() => {
+    // The queue starts directly from the connectivity event. The synchronization
+    // lock keeps this and the state-driven fallback from submitting twice.
+    return bindPosConnectivityEvents(window, setIsOnline, synchronizeOfflineQueue)
+  }, [synchronizeOfflineQueue])
+
+  useEffect(() => {
+    if (!offlineQueueHydrated || !isOnline) return
+    void synchronizeOfflineQueue()
+  }, [isOnline, offlineQueueHydrated, synchronizeOfflineQueue])
+
+  useEffect(() => {
+    if (isOnline || paymentMethod === 'cash') return
+    setPaymentMethod('cash')
+    setMpesaStatus('idle')
+    setMpesaMessage('')
+    setMpesaRef('')
+  }, [isOnline, paymentMethod])
 
   useEffect(() => {
     if (!mpesaRequestId || mpesaStatus !== 'pending' || !isOnline) return
@@ -313,7 +480,7 @@ export function POSTerminal({ products, categories, customers, settings, require
           : result.status as MpesaStatus
         setMpesaStatus(nextStatus)
         setMpesaMessage(result.message || '')
-        if (nextStatus === 'failed' || nextStatus === 'timeout') window.localStorage.removeItem('pos-active-mpesa')
+        if (nextStatus === 'failed' || nextStatus === 'timeout') window.localStorage.removeItem(mpesaStorageKey)
         if (nextStatus === 'success' && result.receiptNumber) {
           setMpesaRef(result.receiptNumber)
           toast.success('M-Pesa payment received', { description: `Receipt ${result.receiptNumber}` })
@@ -337,7 +504,7 @@ export function POSTerminal({ products, categories, customers, settings, require
     }
     const timer = window.setInterval(() => { if (navigator.onLine) void poll() }, 8_000)
     return () => { cancelled = true; events.close(); window.clearInterval(timer) }
-  }, [mpesaRequestId, mpesaStatus, isOnline])
+  }, [mpesaRequestId, mpesaStatus, isOnline, mpesaStorageKey])
 
   // Checkout is already mounted in this terminal. Measure the local transition in
   // development without making a network request part of the cashier's Pay action.
@@ -372,7 +539,7 @@ export function POSTerminal({ products, categories, customers, settings, require
       if (checkoutOpen && checkoutStep === 'payment' && !receipt) {
         const paymentShortcut = ({ F3: 'cash', F4: 'mpesa', F5: 'card' } as const)[event.key as 'F3' | 'F4' | 'F5']
         const lockedToMpesa = paymentMethod === 'mpesa' && ['initiating', 'pending', 'success'].includes(mpesaStatus)
-        if (paymentShortcut && settings.paymentMethods.includes(paymentShortcut) && (!lockedToMpesa || paymentShortcut === 'mpesa')) {
+        if (paymentShortcut && settings.paymentMethods.includes(paymentShortcut) && (isOnline || paymentShortcut === 'cash') && (!lockedToMpesa || paymentShortcut === 'mpesa')) {
           event.preventDefault()
           setPaymentMethod(paymentShortcut)
         }
@@ -380,37 +547,49 @@ export function POSTerminal({ products, categories, customers, settings, require
     }
     window.addEventListener('keydown', handleShortcut)
     return () => window.removeEventListener('keydown', handleShortcut)
-  }, [cart.length, checkoutOpen, checkoutStep, receipt, settings.paymentMethods, openCheckout, paymentMethod, mpesaStatus])
+  }, [cart.length, checkoutOpen, checkoutStep, receipt, settings.paymentMethods, openCheckout, paymentMethod, mpesaStatus, isOnline])
 
-  const addToCart = useCallback((product: Product) => {
+  const addToCart = useCallback((product: PosProduct, selectedPackage?: ProductPackage) => {
     if (paymentMethod === 'mpesa' && ['initiating', 'pending', 'success'].includes(mpesaStatus)) {
       toast.error('Finish the current M-Pesa payment before changing the basket')
       return
     }
-    if (product.stock <= 0) {
+    const unitsPerSale = selectedPackage?.baseUnitQuantity ?? 1
+    const availablePackages = Math.floor(product.stock / unitsPerSale)
+    if (availablePackages <= 0) {
       toast.error(`${product.name} is out of stock`)
       return
     }
     setCart((previousCart) => {
       const existing = previousCart.find((item) => item.productId === product.id)
-      const price = parseFloat(product.sellingPrice)
+      const price = Number(selectedPackage?.sellingPrice ?? product.sellingPrice)
+      const packageName = selectedPackage?.name
       if (existing) {
-        if (existing.quantity >= product.stock) {
-          toast.error(`Only ${product.stock} ${product.unit} in stock`)
+        if ((existing.packageId ?? null) !== (selectedPackage?.id ?? null)) {
+          toast.error(`Remove ${product.name} from the basket before changing its package`)
+          return previousCart
+        }
+        if (existing.quantity >= availablePackages) {
+          toast.error(`Only ${availablePackages} ${packageName ?? product.unit} in stock`)
           return previousCart
         }
         return previousCart.map((item) => item.productId === product.id
           ? { ...item, quantity: item.quantity + 1, totalPrice: (item.quantity + 1) * price }
           : item)
       }
-      return [...previousCart, { productId: product.id, productName: product.name, quantity: 1, unitPrice: price, totalPrice: price }]
+      return [...previousCart, { productId: product.id, productName: packageName ? `${product.name} (${packageName})` : product.name, quantity: 1, unitPrice: price, totalPrice: price, packageId: selectedPackage?.id, packageName, baseUnitQuantity: unitsPerSale }]
     })
   }, [paymentMethod, mpesaStatus])
 
   const handleBarcodeScan = useCallback((rawBarcode: string) => {
     const barcode = normalizeBarcode(rawBarcode)
     if (!barcode) return false
-    const matches = catalogProducts.filter((product) => normalizeBarcode(product.barcode ?? '') === barcode && product.isActive)
+    const matches = catalogProducts.flatMap((product) => {
+      const candidates: Array<{ product: PosProduct; selectedPackage?: ProductPackage }> = []
+      if (normalizeBarcode(product.barcode ?? '') === barcode && product.isActive) candidates.push({ product })
+      for (const selectedPackage of product.packages) if (normalizeBarcode(selectedPackage.barcode ?? '') === barcode && selectedPackage.isActive) candidates.push({ product, selectedPackage })
+      return candidates
+    })
     if (matches.length === 0) {
       setScanMessage(`No product found for barcode ${barcode}. Add the barcode to the product first.`)
       toast.error(`No product found for barcode ${barcode}`, {
@@ -424,16 +603,16 @@ export function POSTerminal({ products, categories, customers, settings, require
       toast.error('Duplicate barcode detected. Ask a manager to correct the products.')
       return false
     }
-    const product = matches[0]
-    if (product.stock <= 0) {
+    const { product, selectedPackage } = matches[0]
+    if (product.stock < (selectedPackage?.baseUnitQuantity ?? 1)) {
       setScanMessage(`${product.name} is out of stock.`)
       toast.error(`${product.name} is out of stock`)
       return false
     }
-    addToCart(product)
+    addToCart(product, selectedPackage)
     setSearch('')
     setSelectedCategory('')
-    setScanMessage(`${product.name} added to basket.`)
+    setScanMessage(`${product.name}${selectedPackage ? ` (${selectedPackage.name})` : ''} added to basket.`)
     return true
   }, [addToCart, catalogProducts, router])
 
@@ -483,6 +662,8 @@ export function POSTerminal({ products, categories, customers, settings, require
   const productsById = useMemo(() => new Map(catalogProducts.map((product) => [product.id, product])), [catalogProducts])
   const cartQuantityByProductId = useMemo(() => new Map(cart.map((item) => [item.productId, item.quantity])), [cart])
   const containsAgeRestrictedItem = requiresAgeVerification && cart.length > 0
+  const prescriptionRequired = cart.some((item) => productsById.get(item.productId)?.pharmacy?.prescriptionRequired)
+  const containsRestrictedMedicine = cart.some((item) => productsById.get(item.productId)?.pharmacy?.restrictedItem)
   const deferredSearch = useDeferredValue(search.trim().toLocaleLowerCase())
 
   const filteredProducts = useMemo(() => catalogProducts.filter(
@@ -492,6 +673,10 @@ export function POSTerminal({ products, categories, customers, settings, require
       (!selectedCategory || p.categoryId === selectedCategory) &&
       (!deferredSearch ||
         p.name.toLocaleLowerCase().includes(deferredSearch) ||
+        (p.brand ?? '').toLocaleLowerCase().includes(deferredSearch) ||
+        (p.pharmacy?.genericName ?? '').toLocaleLowerCase().includes(deferredSearch) ||
+        (p.pharmacy?.manufacturer ?? '').toLocaleLowerCase().includes(deferredSearch) ||
+        (p.pharmacy?.internalCode ?? '').toLocaleLowerCase().includes(deferredSearch) ||
         (p.sku ?? '').toLocaleLowerCase().includes(deferredSearch) ||
         (p.barcode ?? '').toLocaleLowerCase().includes(deferredSearch))
   ), [catalogProducts, deferredSearch, selectedCategory])
@@ -505,8 +690,9 @@ export function POSTerminal({ products, categories, customers, settings, require
           const newQty = i.quantity + delta
           if (newQty <= 0) return null
           const product = productsById.get(productId)
-          if (product && newQty > product.stock) {
-            toast.error(`Only ${product.stock} in stock`)
+          const unitsPerSale = i.baseUnitQuantity ?? 1
+          if (product && newQty * unitsPerSale > product.stock) {
+            toast.error(`Only ${Math.floor(product.stock / unitsPerSale)} ${i.packageName ?? product.unit} in stock`)
             return i
           }
           return { ...i, quantity: newQty, totalPrice: newQty * i.unitPrice }
@@ -540,10 +726,76 @@ export function POSTerminal({ products, categories, customers, settings, require
   const total = paymentMethod === 'mpesa' ? mpesaAmount.amount : unroundedTotal
   const roundingAmount = paymentMethod === 'mpesa' ? mpesaAmount.roundingAmount : 0
   const change = paymentMethod === 'cash' ? Math.max(0, parseFloat(amountPaid || '0') - total) : 0
+  const offlineQueueSummary = summarizeOfflineQueue(offlineSales.map((item) => item.status))
+  const showOfflineStatus = !isOnline || offlineQueueSummary.pending > 0 || offlineQueueSummary.failed > 0 || offlineSyncing
+
+  const saveCashCheckoutOffline = async (verified: boolean, queueId: string) => {
+    if (paymentMethod !== 'cash') throw new Error('Offline checkout supports cash only')
+    if (!offlineContext?.sessionId) throw new Error('This register has no cached open shift for offline selling')
+    if (prescriptionRequired || containsRestrictedMedicine) throw new Error('Prescription and restricted medicines require an online approval workflow')
+    const offlineCreatedAt = new Date()
+    const provisionalReceiptNo = createProvisionalReceiptNo(offlineCreatedAt, queueId)
+    const record: OfflineSaleRecord = {
+      id: queueId,
+      organizationId,
+      status: 'PENDING',
+      provisionalReceiptNo,
+      createdAt: offlineCreatedAt.toISOString(),
+      updatedAt: offlineCreatedAt.toISOString(),
+      attemptCount: 0,
+      payload: {
+        queueId,
+        provisionalReceiptNo,
+        offlineCreatedAt: offlineCreatedAt.toISOString(),
+        sessionId: offlineContext.sessionId,
+        customerId: selectedCustomer || undefined,
+        items: cart,
+        subtotal,
+        discountAmount,
+        total,
+        amountReceived: parseFloat(amountPaid || '0'),
+        ageVerified: requiresAgeVerification ? verified : false,
+      },
+    }
+    await saveOfflineSale(record)
+    await refreshOfflineSales()
+    setReceipt({
+      saleId: `offline-${queueId}`,
+      receiptNo: provisionalReceiptNo,
+      items: cart.map((item) => ({ ...item, saleItemId: `offline-${queueId}-${item.productId}` })),
+      subtotal,
+      taxAmount,
+      discountAmount,
+      roundingAmount: 0,
+      total,
+      paymentMethod: 'cash',
+      change: parseFloat(amountPaid || '0') - total,
+      idempotencyKey: queueId,
+      ageVerified: requiresAgeVerification ? verified : false,
+      completedAt: offlineCreatedAt,
+      amountReceived: parseFloat(amountPaid || '0'),
+      discountType: discountAmount > 0 ? discountType : undefined,
+      discountValue: discountAmount > 0 ? discount : undefined,
+      customerName: availableCustomers.find((customer) => customer.id === selectedCustomer)?.name || 'Walk-in customer',
+      customerEmail: availableCustomers.find((customer) => customer.id === selectedCustomer)?.email,
+      offline: { status: 'PENDING', provisionalReceiptNo },
+      etims: { status: 'PENDING', message: 'Fiscal submission will begin after this sale synchronizes.', showOnReceipt: false },
+    })
+    setCatalogProducts((current) => current.map((product) => {
+      const sold = cart.find((item) => item.productId === product.id)
+      return sold ? { ...product, stock: Math.max(0, product.stock - sold.quantity * (sold.baseUnitQuantity ?? 1)) } : product
+    }))
+    setCart([])
+    window.localStorage.removeItem(cartStorageKey)
+    window.localStorage.removeItem(checkoutStorageKey)
+    toast.success('Offline cash sale saved on this register', { description: `${provisionalReceiptNo} · synchronization pending` })
+  }
 
   const processCheckout = async (verified = ageVerified, serverAlreadyConfirmed = false) => {
     if (!hasActiveShift) return toast.error('Start your shift before completing a sale')
     if (cart.length === 0) return toast.error('Cart is empty')
+    if (prescriptionRequired && !prescriptionReference.trim()) return toast.error('Enter the prescription reference')
+    if (containsRestrictedMedicine && !canApproveRestricted) return toast.error('An authorized pharmacist or manager must complete this sale')
     if (paymentMethod === 'mpesa' && ((!serverAlreadyConfirmed && mpesaStatus !== 'success') || !mpesaRequestId || !mpesaRef)) return toast.error('Wait for M-Pesa payment confirmation')
     if (paymentMethod === 'card' && !mpesaRef) return toast.error('Enter the card approval or terminal reference')
     if (paymentMethod === 'cash' && parseFloat(amountPaid || '0') < total) {
@@ -553,7 +805,7 @@ export function POSTerminal({ products, categories, customers, settings, require
     // Check for low stock items
     const lowStockItems = cart.filter(item => {
       const product = catalogProducts.find(p => p.id === item.productId)
-      return product && (product.stock - item.quantity) < product.minStock
+      return product && (product.stock - item.quantity * (item.baseUnitQuantity ?? 1)) < product.minStock
     })
 
     if (lowStockItems.length > 0) {
@@ -565,10 +817,22 @@ export function POSTerminal({ products, categories, customers, settings, require
     // Generate idempotency key on first attempt
     if (!checkoutIdempotencyKeyRef.current) {
       checkoutIdempotencyKeyRef.current = createIdempotencyKey()
+      window.localStorage.setItem(checkoutStorageKey, checkoutIdempotencyKeyRef.current)
+    }
+
+    if (!isOnline) {
+      try {
+        await saveCashCheckoutOffline(verified, checkoutIdempotencyKeyRef.current)
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : 'Could not save this offline sale')
+      } finally {
+        setProcessing(false)
+      }
+      return
     }
 
     try {
-      const { saleId, receiptNo, tax, rounding: returnedRounding, total: returnedTotal, items: savedItems } = await createSale({
+      const { saleId, receiptNo, tax, rounding: returnedRounding, total: returnedTotal, items: savedItems, etims } = await createSale({
         customerId: selectedCustomer || undefined,
         items: cart,
         subtotal,
@@ -580,6 +844,7 @@ export function POSTerminal({ products, categories, customers, settings, require
         amountReceived: paymentMethod === 'cash' ? parseFloat(amountPaid || '0') : undefined,
         idempotencyKey: checkoutIdempotencyKeyRef.current,
         ageVerified: requiresAgeVerification ? verified : undefined,
+        pharmacy: prescriptionRequired || containsRestrictedMedicine ? { prescriptionReference: prescriptionReference.trim() || undefined, prescriberReference: prescriberReference.trim() || undefined, notes: pharmacyNotes.trim() || undefined } : undefined,
       })
       setReceipt({
         saleId,
@@ -605,22 +870,50 @@ export function POSTerminal({ products, categories, customers, settings, require
         discountValue: discountAmount > 0 ? discount : undefined,
         customerName: availableCustomers.find((customer) => customer.id === selectedCustomer)?.name || 'Walk-in customer',
         customerEmail: availableCustomers.find((customer) => customer.id === selectedCustomer)?.email,
+        etims: {
+          status: etims.status,
+          message: 'message' in etims ? etims.message : undefined,
+          showOnReceipt: 'receiptDetailsEnabled' in etims ? etims.receiptDetailsEnabled : false,
+          ...('submission' in etims && etims.submission ? {
+            environment: etims.submission.environment,
+            invoiceNumber: etims.submission.invoiceNumber,
+            controlNumber: etims.submission.controlNumber,
+            receiptNumber: etims.submission.receiptNumber,
+            internalReference: etims.submission.internalReference,
+            qrData: etims.submission.qrData,
+            verificationData: etims.submission.verificationData,
+          } : {}),
+        },
       })
       if (paymentMethod === 'mpesa') {
-        window.localStorage.removeItem('pos-active-mpesa')
-        window.localStorage.removeItem('pos-active-cart')
+        window.localStorage.removeItem(mpesaStorageKey)
+        window.localStorage.removeItem(cartStorageKey)
       }
       setCatalogProducts((current) => current.map((product) => {
         const sold = cart.find((item) => item.productId === product.id)
-        return sold ? { ...product, stock: Math.max(0, product.stock - sold.quantity) } : product
+        return sold ? { ...product, stock: Math.max(0, product.stock - sold.quantity * (sold.baseUnitQuantity ?? 1)) } : product
       }))
+      setCart([])
+      window.localStorage.removeItem(cartStorageKey)
+      window.localStorage.removeItem(checkoutStorageKey)
 
       // Show success toast with inventory update notification
       toast.success('Sale completed & inventory updated', {
-        description: `${cart.length} product(s) - Receipt #${receiptNo}`,
+        description: etims.status === 'ACCEPTED'
+          ? `${cart.length} product(s) · eTIMS accepted · Receipt #${receiptNo}`
+          : ('message' in etims && etims.message) || `${cart.length} product(s) · Receipt #${receiptNo}`,
       })
     } catch (err) {
       autoFinalizingRef.current = false
+      if (paymentMethod === 'cash' && isConnectivityFailure(err)) {
+        try {
+          await saveCashCheckoutOffline(verified, checkoutIdempotencyKeyRef.current)
+          return
+        } catch (offlineError) {
+          toast.error(offlineError instanceof Error ? offlineError.message : 'Could not save this offline sale')
+          return
+        }
+      }
       toast.error(err instanceof Error ? err.message : 'Failed to process sale')
     } finally {
       setProcessing(false)
@@ -687,17 +980,20 @@ export function POSTerminal({ products, categories, customers, settings, require
       return
     }
     if (!mpesaPhone.trim()) return toast.error('Enter the customer M-Pesa phone number')
+    if (prescriptionRequired && !prescriptionReference.trim()) return toast.error('Enter the prescription reference')
+    if (containsRestrictedMedicine && !canApproveRestricted) return toast.error('An authorized pharmacist or manager must complete this sale')
     if (!checkoutIdempotencyKeyRef.current || mpesaStatus === 'failed' || mpesaStatus === 'timeout') checkoutIdempotencyKeyRef.current = createIdempotencyKey()
     setMpesaStatus('initiating')
     setMpesaMessage('Sending the payment prompt…')
     setMpesaRef('')
     try {
       const response = await initiateMpesaPayment({
-        phone: mpesaPhone, items: cart.map(({ productId, quantity }) => ({ productId, quantity })),
+        phone: mpesaPhone, items: cart.map(({ productId, quantity, packageId }) => ({ productId, quantity, packageId })),
         discountAmount, idempotencyKey: checkoutIdempotencyKeyRef.current, ageVerified, customerId: selectedCustomer || undefined,
+        pharmacy: prescriptionRequired || containsRestrictedMedicine ? { prescriptionReference: prescriptionReference.trim() || undefined, prescriberReference: prescriberReference.trim() || undefined, notes: pharmacyNotes.trim() || undefined } : undefined,
       })
       setMpesaRequestId(response.id)
-      window.localStorage.setItem('pos-active-mpesa', JSON.stringify({ requestId: response.id, idempotencyKey: checkoutIdempotencyKeyRef.current, flow: 'stk' }))
+      window.localStorage.setItem(mpesaStorageKey, JSON.stringify({ requestId: response.id, idempotencyKey: checkoutIdempotencyKeyRef.current, flow: 'stk' }))
       setMpesaStatus(response.status === 'CONFIRMED' ? 'success' : response.status === 'FAILED' ? 'failed' : 'pending')
       setMpesaMessage(response.message || 'Check the customer phone and enter the M-Pesa PIN.')
       if (response.status === 'success' && response.receiptNumber) setMpesaRef(response.receiptNumber)
@@ -713,17 +1009,20 @@ export function POSTerminal({ products, categories, customers, settings, require
       setShowAgeVerification(true)
       return
     }
+    if (prescriptionRequired && !prescriptionReference.trim()) return toast.error('Enter the prescription reference')
+    if (containsRestrictedMedicine && !canApproveRestricted) return toast.error('An authorized pharmacist or manager must complete this sale')
     if (!checkoutIdempotencyKeyRef.current || mpesaStatus === 'failed' || mpesaStatus === 'timeout') checkoutIdempotencyKeyRef.current = createIdempotencyKey()
     setMpesaStatus('initiating')
     setMpesaMessage('Preparing Till / PayBill payment details…')
     setMpesaRef('')
     try {
       const response = await initiateMpesaPaybillPayment({
-        items: cart.map(({ productId, quantity }) => ({ productId, quantity })),
+        items: cart.map(({ productId, quantity, packageId }) => ({ productId, quantity, packageId })),
         discountAmount, idempotencyKey: checkoutIdempotencyKeyRef.current, ageVerified, customerId: selectedCustomer || undefined,
+        pharmacy: prescriptionRequired || containsRestrictedMedicine ? { prescriptionReference: prescriptionReference.trim() || undefined, prescriberReference: prescriberReference.trim() || undefined, notes: pharmacyNotes.trim() || undefined } : undefined,
       })
       setMpesaRequestId(response.id)
-      window.localStorage.setItem('pos-active-mpesa', JSON.stringify({ requestId: response.id, idempotencyKey: checkoutIdempotencyKeyRef.current, flow: 'paybill', accountReference: response.accountReference, shortcode: response.shortcode, accountType: response.accountType }))
+      window.localStorage.setItem(mpesaStorageKey, JSON.stringify({ requestId: response.id, idempotencyKey: checkoutIdempotencyKeyRef.current, flow: 'paybill', accountReference: response.accountReference, shortcode: response.shortcode, accountType: response.accountType }))
       setMpesaStatus(response.status === 'CONFIRMED' ? 'success' : response.status === 'FAILED' ? 'failed' : 'pending')
       setMpesaMessage(response.message || 'Waiting for PayBill payment')
       setMpesaAccountReference(response.accountReference || '')
@@ -751,6 +1050,9 @@ export function POSTerminal({ products, categories, customers, settings, require
     setMpesaMessage('')
     setAmountPaid('')
     setSelectedCustomer('')
+    setPrescriptionReference('')
+    setPrescriberReference('')
+    setPharmacyNotes('')
     setPaymentMethod('cash')
     setAgeVerified(false)
     setReceipt(null)
@@ -761,8 +1063,9 @@ export function POSTerminal({ products, categories, customers, settings, require
     setCheckoutStep('customer')
     checkoutIdempotencyKeyRef.current = '' // Reset for new sale
     autoFinalizingRef.current = false
-    window.localStorage.removeItem('pos-active-cart')
-    window.localStorage.removeItem('pos-active-mpesa')
+    window.localStorage.removeItem(cartStorageKey)
+    window.localStorage.removeItem(checkoutStorageKey)
+    window.localStorage.removeItem(mpesaStorageKey)
   }
 
   const handlePrintReceipt = useCallback(() => {
@@ -859,7 +1162,10 @@ export function POSTerminal({ products, categories, customers, settings, require
 
   const handleShareReceipt = useCallback(async () => {
     if (!receipt) return
-    const text = `Receipt ${receipt.receiptNo} · ${formatCurrency(receipt.total)} · ${receipt.paymentMethod}`
+    const provisional = receipt.offline?.status === 'PENDING'
+      ? 'PROVISIONAL OFFLINE RECEIPT · synchronization pending · not an official or fiscal receipt · '
+      : ''
+    const text = `${provisional}Receipt ${receipt.receiptNo} · ${formatCurrency(receipt.total)} · ${receipt.paymentMethod}`
     try {
       if (navigator.share) {
         await navigator.share({ title: `Receipt ${receipt.receiptNo}`, text })
@@ -873,34 +1179,60 @@ export function POSTerminal({ products, categories, customers, settings, require
     }
   }, [receipt])
 
-  const holdSale = () => {
+  const holdSale = async () => {
     if (!canHold || cart.length === 0) return
-    setHeldSales((previous) => [{
-      id: createIdempotencyKey(),
-      cart,
-      discount,
-      discountType,
-      customerId: selectedCustomer,
-      createdAt: new Date().toISOString(),
-    }, ...previous].slice(0, 20))
-    setCart([])
-    setDiscount(0)
-    setSelectedCustomer('')
-    setAmountPaid('')
-    setMpesaRef('')
-    setCheckoutOpen(false)
-    toast.success('Sale held. You can resume it from Held sales.')
+    if (!isOnline) return toast.error('Reconnect to hold this sale on the shared register queue')
+    const requestId = createIdempotencyKey()
+    setHeldSaleActionId(requestId)
+    try {
+      const saved = await holdSaleOnServer({ idempotencyKey: requestId, items: cart, discountValue: discount, discountType, customerId: selectedCustomer || undefined })
+      setHeldSales((previous) => [saved, ...previous.filter((item) => item.id !== saved.id)])
+      setCart([])
+      setDiscount(0)
+      setSelectedCustomer('')
+      setAmountPaid('')
+      setMpesaRef('')
+      setCheckoutOpen(false)
+      checkoutIdempotencyKeyRef.current = ''
+      window.localStorage.removeItem(cartStorageKey)
+      window.localStorage.removeItem(checkoutStorageKey)
+      toast.success('Sale held for this branch', { description: 'It can be resumed from another authorized register.' })
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Could not hold this sale')
+    } finally { setHeldSaleActionId(null) }
   }
 
-  const resumeHeldSale = (heldSale: HeldSale) => {
-    setCart(heldSale.cart)
-    setDiscount(heldSale.discount)
-    setDiscountType(heldSale.discountType)
-    setSelectedCustomer(heldSale.customerId)
-    setHeldSales((previous) => previous.filter((sale) => sale.id !== heldSale.id))
-    setShowHeldSales(false)
-    setCheckoutOpen(false)
-    toast.success('Held sale restored')
+  const resumeHeldSale = async (heldSale: HeldSale) => {
+    if (!isOnline) return toast.error('Reconnect before resuming a shared held sale')
+    setHeldSaleActionId(heldSale.id)
+    try {
+      const result = await resumeHeldSaleFromServer(heldSale.id)
+      setCart(result.heldSale.cart)
+      setDiscount(result.heldSale.discount)
+      setDiscountType(result.heldSale.discountType)
+      setSelectedCustomer(result.heldSale.customerId)
+      setHeldSales((previous) => previous.filter((sale) => sale.id !== heldSale.id))
+      setShowHeldSales(false)
+      setCheckoutOpen(false)
+      checkoutIdempotencyKeyRef.current = ''
+      window.localStorage.removeItem(checkoutStorageKey)
+      toast.success(result.priceChanged ? 'Held sale restored with current prices' : 'Held sale restored')
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Could not resume this held sale')
+      await refreshHeldSales()
+    } finally { setHeldSaleActionId(null) }
+  }
+
+  const deleteHeldSale = async (heldSale: HeldSale) => {
+    if (!isOnline) return toast.error('Reconnect before discarding a shared held sale')
+    setHeldSaleActionId(heldSale.id)
+    try {
+      await discardHeldSale(heldSale.id)
+      setHeldSales((previous) => previous.filter((sale) => sale.id !== heldSale.id))
+      toast.success('Held sale discarded')
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Could not discard this held sale')
+    } finally { setHeldSaleActionId(null) }
   }
 
   const handleCreateCustomer = async () => {
@@ -924,6 +1256,9 @@ export function POSTerminal({ products, categories, customers, settings, require
         phone: newCustomerPhone || null,
         email: newCustomerEmail || null,
         address: null,
+        kraPin: null,
+        customerType: 'individual',
+        vatRegistered: false,
         loyaltyPoints: 0,
         userId: '',
         orgId: '',
@@ -950,7 +1285,7 @@ export function POSTerminal({ products, categories, customers, settings, require
   const inputCls = ui.input
 
   // Show refund dialog if refund sale is set
-  if (showRefundDialog && receipt) {
+  if (showRefundDialog && receipt && receipt.offline?.status !== 'PENDING') {
     const saleWithItems: Sale & { items: SaleItem[] } = {
       ...receipt,
       id: receipt.saleId,
@@ -969,6 +1304,10 @@ export function POSTerminal({ products, categories, customers, settings, require
       ageVerifiedBy: null,
       branchId: null,
       posSessionId: null,
+      origin: receipt.offline ? 'offline' : 'online',
+      provisionalReceiptNo: receipt.offline?.provisionalReceiptNo ?? null,
+      offlineCreatedAt: receipt.offline ? receipt.completedAt : null,
+      syncedAt: receipt.offline?.status === 'SYNCED' ? new Date() : null,
       status: 'completed',
       userId: '',
       orgId: '',
@@ -979,6 +1318,9 @@ export function POSTerminal({ products, categories, customers, settings, require
         productId: item.productId,
         productName: item.productName,
         quantity: item.quantity,
+        packageId: item.packageId ?? null,
+        packageName: item.packageName ?? null,
+        baseUnitQuantity: item.baseUnitQuantity ?? 1,
         unitPrice: item.unitPrice.toString(),
         totalPrice: item.totalPrice.toString(),
         unitCostAtSale: '0',
@@ -1026,6 +1368,8 @@ export function POSTerminal({ products, categories, customers, settings, require
         quantity: item.quantity,
         totalPrice: item.totalPrice.toFixed(2),
       })),
+      etims: receipt.etims?.showOnReceipt ? receipt.etims : null,
+      offline: receipt.offline ?? null,
     }
 
     const paymentLabel = receipt.paymentMethod === 'mpesa' ? 'M-Pesa' : receipt.paymentMethod === 'card' ? 'Card' : 'Cash'
@@ -1042,10 +1386,11 @@ export function POSTerminal({ products, categories, customers, settings, require
         <div className="w-full max-w-5xl">
           <div className="mb-4 flex items-start justify-between gap-4 rounded-2xl border border-[#ead28a] bg-gradient-to-r from-[#fffdf7] via-[#fff9e5] to-[#fff1b8] px-4 py-3.5 shadow-[0_2px_8px_rgba(151,112,0,.08)] dark:border-[rgba(255,214,10,.22)] dark:from-[#15130c] dark:via-[#201b0d] dark:to-[#30270f] dark:shadow-[0_2px_8px_rgba(0,0,0,.18)] sm:px-5">
             <div className="flex min-w-0 items-start gap-3">
-              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-[#b7ebc6] bg-[#ecfdf3] dark:border-[#1d6b3b] dark:bg-[#102417]"><CheckCircle2 className="h-4 w-4 text-[#12b76a] dark:text-[#86efac]" aria-hidden="true" /></span>
+              <span className={cn('flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border', receipt.offline?.status === 'PENDING' ? 'border-amber-300 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/30' : 'border-[#b7ebc6] bg-[#ecfdf3] dark:border-[#1d6b3b] dark:bg-[#102417]')}>{receipt.offline?.status === 'PENDING' ? <CloudOff className="h-4 w-4 text-amber-700 dark:text-amber-300" aria-hidden="true" /> : <CheckCircle2 className="h-4 w-4 text-[#12b76a] dark:text-[#86efac]" aria-hidden="true" />}</span>
               <div>
-                <p className="text-sm font-bold text-[#101828] dark:text-white">Sale completed</p>
-                <p className="mt-0.5 text-xs text-[#667085] dark:text-[#c7b978]">Paid successfully · Receipt #{receipt.receiptNo}</p>
+                <p className="text-sm font-bold text-[#101828] dark:text-white">{receipt.offline?.status === 'PENDING' ? 'Offline cash sale saved' : receipt.offline?.status === 'SYNCED' ? 'Offline sale synchronized' : 'Sale completed'}</p>
+                <p className="mt-0.5 text-xs text-[#667085] dark:text-[#c7b978]">{receipt.offline?.status === 'PENDING' ? `Provisional receipt ${receipt.receiptNo} · sync pending` : `Paid successfully · Receipt #${receipt.receiptNo}`}</p>
+                {receipt.etims && receipt.etims.status !== 'NOT_REQUIRED' && <p className={`mt-1 text-xs font-semibold ${receipt.etims.status === 'ACCEPTED' ? 'text-emerald-700 dark:text-emerald-300' : receipt.etims.status === 'FAILED' ? 'text-rose-700 dark:text-rose-300' : 'text-amber-700 dark:text-amber-300'}`}>eTIMS: {receipt.etims.status === 'ACCEPTED' ? 'Accepted' : receipt.etims.status === 'FAILED' ? 'Action required' : 'Pending submission'}</p>}
               </div>
             </div>
             <div className="shrink-0 text-right">
@@ -1082,6 +1427,7 @@ export function POSTerminal({ products, categories, customers, settings, require
                 </div>
               </div>
               <div className="mt-5 space-y-2 border-t border-[#e4e7ec] pt-4 dark:border-white/10">
+                {receipt.offline?.status === 'PENDING' && <div className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2.5 text-xs text-amber-950 dark:border-amber-800 dark:bg-amber-950/25 dark:text-amber-100"><p className="font-bold">Official receipt and eTIMS pending</p><p className="mt-1 leading-4 opacity-80">Keep this provisional receipt. Pesaby will synchronize it when the register reconnects.</p>{isOnline && <button type="button" disabled={offlineSyncing} onClick={() => void synchronizeOfflineQueue()} className="mt-2 inline-flex items-center gap-1.5 font-bold underline underline-offset-2">{offlineSyncing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}Synchronize now</button>}</div>}
                 <button onClick={handleNewSale} style={{ backgroundColor: ui.primary, color: ui.primaryInk }} className="flex h-11 w-full items-center justify-center gap-2 rounded-lg text-sm font-bold transition-opacity hover:opacity-90"><Plus className="h-4 w-4" />Start next sale</button>
                 <div className="grid grid-cols-2 gap-2"><button onClick={handlePrintReceipt} className={cn(ui.subtleBtn, 'flex h-10 items-center justify-center gap-2')}><Printer className="h-4 w-4" />{receiptPrinted ? 'Reprint receipt' : 'Print receipt'}</button><button onClick={handleDownloadReceipt} className={cn(ui.subtleBtn, 'flex h-10 items-center justify-center gap-2')}><Download className="h-4 w-4" />Download</button></div>
                 <div className="grid grid-cols-[1fr_auto] gap-2"><button onClick={() => void handleShareReceipt()} className={cn(ui.subtleBtn, 'flex h-10 items-center justify-center gap-2')}><Share2 className="h-4 w-4" />Share</button><div className="relative"><button aria-label="Receipt options" aria-expanded={receiptOptionsOpen} onClick={() => setReceiptOptionsOpen((open) => !open)} className={cn(ui.subtleBtn, 'flex h-10 w-10 items-center justify-center px-0')}><MoreHorizontal className="h-4 w-4" /></button>{receiptOptionsOpen && <div className="absolute bottom-12 right-0 z-10 w-40 rounded-lg border border-[#dfe3ea] bg-white p-1.5 shadow-lg dark:border-white/10 dark:bg-[#1c1c1c]"><p className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-[#667085] dark:text-[#a8a8a8]">Paper width</p>{([80, 58] as const).map((width) => <button key={width} onClick={() => { setReceiptPaperWidth(width); setReceiptOptionsOpen(false) }} className={cn('flex w-full rounded-md px-2 py-1.5 text-left text-xs font-medium hover:bg-[#f9fafb] dark:hover:bg-white/5', receiptPaperWidth === width && 'bg-[#fff5cf] text-[#7a5200] dark:bg-[#3a2d0d] dark:text-[#ffd86a]')}>{width} mm</button>)}</div>}</div></div>
@@ -1095,13 +1441,14 @@ export function POSTerminal({ products, categories, customers, settings, require
   }
 
   return (
-    <div className={cn('pos-terminal relative grid min-h-[calc(100vh-10.5rem)] gap-4 bg-[#f7f8fa] dark:bg-[#0c0c0c] sm:gap-5 lg:h-[calc(100dvh-10.5rem)] lg:min-h-[520px] lg:grid-cols-[minmax(0,1fr)_460px] lg:items-stretch xl:grid-cols-[minmax(0,1fr)_520px]', checkoutOnly && 'w-full max-w-none bg-transparent lg:h-auto lg:grid-cols-1 lg:gap-6')}>
+    <div className={cn('pos-terminal relative grid min-h-[calc(100vh-10.5rem)] gap-4 bg-[#f7f8fa] dark:bg-[#0c0c0c] sm:gap-5 lg:h-[calc(100dvh-10.5rem)] lg:min-h-[520px] lg:grid-cols-[minmax(0,1fr)_460px] lg:items-stretch xl:grid-cols-[minmax(0,1fr)_520px]', showOfflineStatus && 'lg:grid-rows-[auto_minmax(0,1fr)]', checkoutOnly && 'w-full max-w-none bg-transparent lg:h-auto lg:grid-cols-1 lg:gap-6')}>
+      {showOfflineStatus && <div className={cn('flex flex-wrap items-center justify-between gap-3 rounded-xl border px-4 py-3 text-xs lg:col-span-2', !isOnline ? 'border-amber-300 bg-amber-50 text-amber-950 dark:border-amber-800 dark:bg-amber-950/25 dark:text-amber-100' : offlineQueueSummary.failed ? 'border-rose-300 bg-rose-50 text-rose-950 dark:border-rose-900 dark:bg-rose-950/25 dark:text-rose-100' : 'border-sky-200 bg-sky-50 text-sky-950 dark:border-sky-900 dark:bg-sky-950/25 dark:text-sky-100')} role="status" aria-live="polite"><div className="flex items-start gap-2.5">{!isOnline ? <CloudOff className="mt-0.5 h-4 w-4 shrink-0" /> : offlineSyncing ? <Loader2 className="mt-0.5 h-4 w-4 shrink-0 animate-spin" /> : <RefreshCw className="mt-0.5 h-4 w-4 shrink-0" />}<div><p className="font-bold">{!isOnline ? 'Offline cash mode' : offlineQueueSummary.failed ? 'Offline sales need attention' : offlineSyncing ? 'Synchronizing offline sales' : 'Offline sales waiting to synchronize'}</p><p className="mt-0.5 opacity-80">{!isOnline ? 'Cash sales are saved on this register. M-Pesa, card and eTIMS remain unavailable until reconnection.' : `${offlineQueueSummary.pending} pending · ${offlineQueueSummary.failed} failed · ${offlineQueueSummary.synced} synchronized on this register`}</p>{offlineQueueSummary.failed > 0 && <details className="mt-1.5"><summary className="cursor-pointer font-semibold underline underline-offset-2">View sync errors</summary><ul className="mt-1 space-y-1">{offlineSales.filter((item) => item.status === 'FAILED').map((item) => <li key={item.id}><b>{item.provisionalReceiptNo}:</b> {item.lastError || 'Synchronization failed'}</li>)}</ul></details>}</div></div>{isOnline && <button type="button" disabled={offlineSyncing} onClick={() => void synchronizeOfflineQueue()} className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-current/20 bg-background/70 px-3 font-bold disabled:opacity-50">{offlineSyncing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}Retry synchronization</button>}</div>}
       {/* Left: Product catalog */}
       <section className={cn(ui.card, 'flex min-h-[520px] min-w-0 flex-col overflow-hidden lg:min-h-0', checkoutOnly && 'hidden')}>
         <div className="border-b border-[#eef0f3] px-5 py-3 dark:border-white/10 sm:px-6">
           <div className="mb-2.5 flex items-center justify-between gap-3">
             <div className="flex items-center gap-2.5">
-              <h2 className="text-base font-semibold tracking-tight text-[#101828] dark:text-white">Catalog</h2>
+              <h2 className="text-base font-semibold tracking-tight text-[#101828] dark:text-white">{pharmacyMode ? 'Medicine catalog' : 'Catalog'}</h2>
               <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-[#067647] dark:text-[#8de1aa]"><span className="h-1.5 w-1.5 rounded-full bg-[#12b76a]" />{filteredProducts.length} available</span>
             </div>
             <p className="hidden text-xs text-[#667085] dark:text-[#8b8b8b] sm:block">Tap to add</p>
@@ -1111,7 +1458,7 @@ export function POSTerminal({ products, categories, customers, settings, require
             <input
               ref={searchInputRef}
               type="text"
-              placeholder="Search by name, SKU or barcode…"
+              placeholder={pharmacyMode ? 'Search medicine, generic name or barcode…' : 'Search by name, SKU or barcode…'}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               onKeyDown={(e) => {
@@ -1167,10 +1514,10 @@ export function POSTerminal({ products, categories, customers, settings, require
             <div className="flex h-48 flex-col items-center justify-center text-center">
               <Package className="mb-3 h-9 w-9 text-[#d0d5dd]" strokeWidth={1.5} />
               <p className="text-sm font-medium text-[#344054]">
-                {search ? 'No products match your search' : 'No active products with stock'}
+                {search ? `No ${pharmacyMode ? 'medicines' : 'products'} match your search` : `No active ${pharmacyMode ? 'medicines' : 'products'} with stock`}
               </p>
               <p className="mt-1 text-xs text-[#98a2b3]">
-                {search ? 'Try a different search term' : 'Add products to begin selling'}
+                {search ? 'Try a different search term' : pharmacyMode ? 'Create medicines, then receive stock with batch and expiry details' : 'Add products to begin selling'}
               </p>
             </div>
           ) : (
@@ -1230,11 +1577,14 @@ export function POSTerminal({ products, categories, customers, settings, require
                     )}
                     <div className="flex flex-1 flex-col px-3.5 pb-3.5 pt-3">
                       <p className="mb-0.5 line-clamp-2 text-sm font-semibold leading-snug text-[#101828] dark:text-white">{product.name}</p>
+                      {product.pharmacy && <p className="line-clamp-1 text-[10px] text-[#667085] dark:text-[#a8a8a8]">{[product.pharmacy.genericName, product.pharmacy.strength, product.pharmacy.dosageForm, product.pharmacy.packSize].filter(Boolean).join(' · ')}</p>}
+                      {product.pharmacy && (product.pharmacy.prescriptionRequired || product.pharmacy.restrictedItem) && <div className="mt-1 flex flex-wrap gap-1">{product.pharmacy.prescriptionRequired && <span className="rounded border px-1 py-0.5 text-[8px] font-bold uppercase tracking-wide">Prescription</span>}{product.pharmacy.restrictedItem && <span className="rounded border border-amber-300 bg-amber-50 px-1 py-0.5 text-[8px] font-bold uppercase tracking-wide text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200">Restricted</span>}</div>}
                       {(product.volume || product.unit) && (
                         <p className="text-[11px] text-[#667085] dark:text-[#8b8b8b]">
                           {product.volume ? `${product.volume} ${product.volumeUnit || ''}` : ''}{product.volume && product.unit ? ' · ' : ''}{product.unit}
                         </p>
                       )}
+                      {product.packages.length > 0 && <div className="mt-2 flex flex-wrap gap-1" onClick={(event) => event.stopPropagation()}>{product.packages.map((item) => <button key={item.id} type="button" disabled={product.stock < item.baseUnitQuantity} onClick={() => addToCart(product, item)} className="rounded-md border border-[#dfe3ea] bg-[#f9fafb] px-1.5 py-1 text-[9px] font-bold text-[#344054] hover:border-[#f9b21d] disabled:cursor-not-allowed disabled:opacity-40 dark:border-white/10 dark:bg-white/5 dark:text-[#e4e7ec]" title={`${item.baseUnitQuantity} base units · ${formatCurrency(item.sellingPrice)}`}>{item.name}</button>)}</div>}
                       <div className="mt-auto flex items-end justify-between gap-2 pt-2">
                         <p className="text-sm font-bold tabular-nums text-[#101828] dark:text-white">{formatCurrency(product.sellingPrice)}</p>
                         {inCartQuantity ? (
@@ -1328,15 +1678,15 @@ export function POSTerminal({ products, categories, customers, settings, require
                 </button>
               {canHold && cart.length > 0 && (
                 <>
-                  <button onClick={holdSale} className="flex items-center justify-center gap-2 rounded-lg border border-[#e4e7ec] bg-white px-2.5 py-2.5 text-xs font-semibold text-[#344054] transition-colors hover:border-[#e6c66f] hover:bg-[#fffdf5] dark:border-white/10 dark:bg-[#1a1a1a] dark:text-[#e4e7ec] dark:hover:bg-[#252116]"><span className="flex h-6 w-6 items-center justify-center rounded-md bg-[#fff3d1] text-[#9a6700] dark:bg-[#3a3016] dark:text-[#ffd166]"><PauseCircle className="h-3.5 w-3.5" /></span>Hold sale</button>
-                  <button onClick={() => setShowHeldSales(true)} className="flex items-center justify-center gap-2 rounded-lg border border-[#e4e7ec] bg-white px-2.5 py-2.5 text-xs font-semibold text-[#344054] transition-colors hover:border-[#a9d7ba] hover:bg-[#f7fdf8] dark:border-white/10 dark:bg-[#1a1a1a] dark:text-[#e4e7ec] dark:hover:bg-[#16261b]">
+                  <button onClick={() => void holdSale()} disabled={Boolean(heldSaleActionId) || !isOnline} title={!isOnline ? 'Reconnect to save held sales to the branch' : undefined} className="flex items-center justify-center gap-2 rounded-lg border border-[#e4e7ec] bg-white px-2.5 py-2.5 text-xs font-semibold text-[#344054] transition-colors hover:border-[#e6c66f] hover:bg-[#fffdf5] disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/10 dark:bg-[#1a1a1a] dark:text-[#e4e7ec] dark:hover:bg-[#252116]"><span className="flex h-6 w-6 items-center justify-center rounded-md bg-[#fff3d1] text-[#9a6700] dark:bg-[#3a3016] dark:text-[#ffd166]">{heldSaleActionId ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <PauseCircle className="h-3.5 w-3.5" />}</span>Hold sale</button>
+                  <button onClick={() => { setShowHeldSales(true); void refreshHeldSales() }} className="flex items-center justify-center gap-2 rounded-lg border border-[#e4e7ec] bg-white px-2.5 py-2.5 text-xs font-semibold text-[#344054] transition-colors hover:border-[#a9d7ba] hover:bg-[#f7fdf8] dark:border-white/10 dark:bg-[#1a1a1a] dark:text-[#e4e7ec] dark:hover:bg-[#16261b]">
                     <span className="flex h-6 w-6 items-center justify-center rounded-md bg-[#e7f7ed] text-[#18794e] dark:bg-[#173c27] dark:text-[#9fe1b9]"><ArchiveRestore className="h-3.5 w-3.5" /></span>
                     Held sales{heldSales.length ? ` (${heldSales.length})` : ''}
                   </button>
                 </>
               )}
               {canHold && cart.length === 0 && heldSales.length > 0 && (
-                <button onClick={() => setShowHeldSales(true)} className="col-span-2 flex items-center justify-center gap-2 rounded-lg border border-[#e4e7ec] bg-white px-2.5 py-2.5 text-xs font-semibold text-[#344054] transition-colors hover:border-[#a9d7ba] hover:bg-[#f7fdf8] dark:border-white/10 dark:bg-[#1a1a1a] dark:text-[#e4e7ec] dark:hover:bg-[#16261b]">
+                <button onClick={() => { setShowHeldSales(true); void refreshHeldSales() }} className="col-span-2 flex items-center justify-center gap-2 rounded-lg border border-[#e4e7ec] bg-white px-2.5 py-2.5 text-xs font-semibold text-[#344054] transition-colors hover:border-[#a9d7ba] hover:bg-[#f7fdf8] dark:border-white/10 dark:bg-[#1a1a1a] dark:text-[#e4e7ec] dark:hover:bg-[#16261b]">
                   <span className="flex h-6 w-6 items-center justify-center rounded-md bg-[#e7f7ed] text-[#18794e] dark:bg-[#173c27] dark:text-[#9fe1b9]"><ArchiveRestore className="h-3.5 w-3.5" /></span>
                   Resume held sale ({heldSales.length})
                 </button>
@@ -1470,7 +1820,7 @@ export function POSTerminal({ products, categories, customers, settings, require
             {checkoutStep === 'customer' && <div className="rounded-xl border border-[#e4e9ef] bg-white p-4 dark:border-white/10 dark:bg-[#171717]">
               <div className="mb-2 flex items-center justify-between">
                 <label className="flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-[0.1em] text-[#667085] dark:text-[#b5bac5]"><span className="flex h-6 w-6 items-center justify-center rounded-md border border-[#f1d56f] bg-[#fff7d6] text-[#9a6700] dark:border-[#5e461c] dark:bg-[#3a3016] dark:text-[#ffd166]"><ContactRound className="h-3.5 w-3.5" strokeWidth={2.25} /></span> Customer</label>
-                <button onClick={() => setShowNewCustomer(!showNewCustomer)} disabled={mpesaLocksBasket} className="rounded-md px-1.5 py-1 text-[11px] font-bold text-[#a47700] transition-colors hover:bg-[#fff8d6] disabled:cursor-not-allowed disabled:opacity-50 dark:text-[#ffd166] dark:hover:bg-[#3a3016]">
+                <button onClick={() => setShowNewCustomer(!showNewCustomer)} disabled={mpesaLocksBasket || !isOnline} title={!isOnline ? 'Reconnect to create a customer' : undefined} className="rounded-md px-1.5 py-1 text-[11px] font-bold text-[#a47700] transition-colors hover:bg-[#fff8d6] disabled:cursor-not-allowed disabled:opacity-50 dark:text-[#ffd166] dark:hover:bg-[#3a3016]">
                   {showNewCustomer ? 'Cancel' : '+ New customer'}
                 </button>
               </div>
@@ -1584,6 +1934,12 @@ export function POSTerminal({ products, categories, customers, settings, require
             >
               ← Back to customer and order details
             </button>
+            {(prescriptionRequired || containsRestrictedMedicine) && <div className="rounded-xl border border-amber-300 bg-amber-50/60 p-3.5 dark:border-amber-900 dark:bg-amber-950/20">
+              <div className="flex items-start gap-2"><ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-amber-700 dark:text-amber-300" /><div><p className="text-xs font-bold text-amber-950 dark:text-amber-100">Pharmacy sale record</p><p className="mt-0.5 text-[11px] text-amber-800 dark:text-amber-300">Record the supplied reference only. Pesaby does not provide clinical advice.</p></div></div>
+              <div className="mt-3 grid gap-2 sm:grid-cols-2"><div><label className={ui.label}>Prescription reference {prescriptionRequired && <span className="text-red-600">*</span>}</label><input value={prescriptionReference} onChange={(event) => setPrescriptionReference(event.target.value)} maxLength={120} placeholder="Prescription or dispensing reference" className={cn(inputCls, 'h-10')} /></div><div><label className={ui.label}>Prescriber/reference details</label><input value={prescriberReference} onChange={(event) => setPrescriberReference(event.target.value)} maxLength={160} placeholder="Optional business reference" className={cn(inputCls, 'h-10')} /></div></div>
+              <div className="mt-2"><label className={ui.label}>Workflow note</label><input value={pharmacyNotes} onChange={(event) => setPharmacyNotes(event.target.value)} maxLength={500} placeholder="Optional audit note" className={cn(inputCls, 'h-10')} /></div>
+              {containsRestrictedMedicine && <p className={cn('mt-2 text-[11px] font-semibold', canApproveRestricted ? 'text-emerald-700 dark:text-emerald-300' : 'text-red-700 dark:text-red-300')}>{canApproveRestricted ? 'Restricted-item approval will be recorded under the current authorized user.' : 'This user cannot approve restricted-item sales. Ask an authorized pharmacist or manager.'}</p>}
+            </div>}
             {/* Payment method */}
             <div className="rounded-2xl border border-[#e4e9ef] bg-white p-3.5 shadow-[0_3px_12px_rgba(16,24,40,0.03)] dark:border-white/10 dark:bg-[#171717]">
               <div className="mb-2 flex items-center justify-between">
@@ -1601,10 +1957,10 @@ export function POSTerminal({ products, categories, customers, settings, require
                     <button
                       key={key}
                       onClick={() => setPaymentMethod(key)}
-                      disabled={mpesaLocksBasket && paymentMethod !== key}
+                      disabled={(!isOnline && key !== 'cash') || (mpesaLocksBasket && paymentMethod !== key)}
                       aria-pressed={paymentMethod === key}
                       aria-label={`${label} payment (${shortcut})`}
-                      title={`${label} (${shortcut})`}
+                      title={!isOnline && key !== 'cash' ? `${label} requires an internet connection` : `${label} (${shortcut})`}
                       style={key === 'mpesa' ? { backgroundColor: '#11ad2d' } : undefined}
                       className={cn(
                         'group relative flex h-[88px] items-center justify-center rounded-xl border-2 bg-white px-3 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-[#1c1c1c]',
@@ -1883,14 +2239,16 @@ export function POSTerminal({ products, categories, customers, settings, require
             <div className="flex items-center justify-between border-b border-[#e4e7ec] px-5 py-4">
               <div>
                 <h2 id="held-sales-title" className="text-sm font-bold text-[#101828]">Held sales</h2>
-                <p className="mt-0.5 text-xs text-[#98a2b3]">Stored on this POS browser until resumed or cleared</p>
+                <p className="mt-0.5 text-xs text-[#98a2b3]">Shared securely with authorized registers at this branch</p>
               </div>
               <button type="button" onClick={() => setShowHeldSales(false)} className="rounded-lg p-1.5 text-[#667085] hover:bg-[#f2f4f7]" aria-label="Close held sales">
                 <X className="h-4 w-4" />
               </button>
             </div>
             <div className="max-h-[55vh] overflow-y-auto p-3">
-              {heldSales.length === 0 ? (
+              {heldSalesLoading ? (
+                <p className="flex items-center justify-center gap-2 py-8 text-sm text-[#98a2b3]"><Loader2 className="h-4 w-4 animate-spin" />Loading held sales…</p>
+              ) : heldSales.length === 0 ? (
                 <p className="py-8 text-center text-sm text-[#98a2b3]">No held sales</p>
               ) : (
                 <div className="space-y-2">
@@ -1898,17 +2256,18 @@ export function POSTerminal({ products, categories, customers, settings, require
                     <div key={heldSale.id} className="flex items-center justify-between gap-3 rounded-xl border border-[#e4e7ec] p-3">
                       <div>
                         <p className="text-sm font-semibold text-[#101828]">{heldSale.cart.length} item{heldSale.cart.length === 1 ? '' : 's'} · {formatCurrency(heldSale.cart.reduce((sum, item) => sum + item.totalPrice, 0))}</p>
-                        <p className="mt-1 text-xs text-[#98a2b3]">Held {new Date(heldSale.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                        <p className="mt-1 text-xs text-[#98a2b3]">Held by {heldSale.cashierName} · {new Date(heldSale.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
                       </div>
                       <div className="flex gap-2">
-                        <button type="button" onClick={() => setHeldSales((previous) => previous.filter((sale) => sale.id !== heldSale.id))} className="rounded-lg border border-[#d0d5dd] px-2.5 py-2 text-xs font-semibold text-[#667085] transition-colors hover:bg-[#f9fafb]">
+                        <button type="button" disabled={heldSaleActionId === heldSale.id} onClick={() => void deleteHeldSale(heldSale)} className="rounded-lg border border-[#d0d5dd] px-2.5 py-2 text-xs font-semibold text-[#667085] transition-colors hover:bg-[#f9fafb] disabled:opacity-50">
                           Discard
                         </button>
                         <button
                           type="button"
-                          onClick={() => resumeHeldSale(heldSale)}
+                          disabled={heldSaleActionId === heldSale.id}
+                          onClick={() => void resumeHeldSale(heldSale)}
                           style={{ backgroundColor: ui.primary, color: ui.primaryInk }}
-                          className="rounded-lg px-3 py-2 text-xs font-bold transition-opacity hover:opacity-90"
+                          className="rounded-lg px-3 py-2 text-xs font-bold transition-opacity hover:opacity-90 disabled:opacity-50"
                         >
                           Resume
                         </button>

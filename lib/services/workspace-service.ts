@@ -9,6 +9,7 @@ import {
 import type { SidebarNavItem, WorkspaceConfig } from '@/lib/types/workspace';
 import { OrganizationService } from '@/lib/services/organization-service';
 import { getBusinessExperience } from '@/lib/workspace/business-experience';
+import { isPharmacyBusiness } from '@/lib/pharmacy/rules';
 
 const workspaceConfigForUser = cache(
   async (
@@ -69,6 +70,12 @@ const MODULE_NAV: Record<string, SidebarNavItem> = {
     icon: 'ReceiptText',
     route: '/dashboard/sales',
   },
+  prescriptions: {
+    id: 'prescriptions',
+    label: 'Prescription records',
+    icon: 'FileText',
+    route: '/dashboard/pharmacy/prescriptions',
+  },
   products: {
     id: 'products',
     label: 'Products',
@@ -86,6 +93,18 @@ const MODULE_NAV: Record<string, SidebarNavItem> = {
     label: 'Inventory',
     icon: 'Boxes',
     route: '/dashboard/inventory',
+  },
+  batches: {
+    id: 'batches',
+    label: 'Batches & expiry',
+    icon: 'Calendar',
+    route: '/dashboard/inventory/batches',
+  },
+  purchases: {
+    id: 'purchases',
+    label: 'Purchasing',
+    icon: 'PackagePlus',
+    route: '/dashboard/purchases',
   },
   customers: {
     id: 'customers',
@@ -181,7 +200,10 @@ function navigationFor(
         const items = [
           { ...MODULE_NAV[id], label: labels[id] ?? MODULE_NAV[id].label },
         ];
-        return id === 'products' ? [...items, MODULE_NAV.categories] : items;
+        if (id === 'sales' && isPharmacyBusiness(businessFamily, businessCategory)) return [...items, MODULE_NAV.prescriptions];
+        if (id === 'products') return [...items, MODULE_NAV.categories];
+        if (id === 'inventory' && isPharmacyBusiness(businessFamily, businessCategory)) return [...items, MODULE_NAV.batches];
+        return items;
       }),
     ],
     secondaryNav: [
@@ -208,9 +230,11 @@ function runtimeConfig(input: {
     'reports',
     'analytics',
   ];
+  const pharmacyWorkspace = isPharmacyBusiness(input.stored?.businessFamily ?? input.businessType, input.stored?.businessCategory ?? input.businessCategory);
   const enabledModules = Array.from(
     new Set([
-      ...storedModules.filter((module) => module !== 'purchases'),
+      ...storedModules,
+      ...(pharmacyWorkspace ? ['pos', 'sales', 'products', 'inventory', 'customers', 'purchases'] : []),
       'expenses',
       'reports',
       'analytics',

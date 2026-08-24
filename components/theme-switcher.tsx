@@ -12,7 +12,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 
 export function ThemeSwitcher({ circular = false }: { circular?: boolean }) {
-  const { theme, resolvedTheme, setTheme } = useTheme();
+  const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
 
   // Prevent hydration mismatch
@@ -62,12 +62,7 @@ export function ThemeSwitcher({ circular = false }: { circular?: boolean }) {
               }
             >
               <Icon className="mr-2 h-4 w-4" />
-              <span>
-                {t.label}
-                {t.value === 'system' && theme === 'system'
-                  ? ` (${resolvedTheme === 'dark' ? 'Dark' : 'Light'})`
-                  : ''}
-              </span>
+              <span>{t.label}</span>
             </DropdownMenuItem>
           );
         })}

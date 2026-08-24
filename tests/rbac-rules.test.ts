@@ -54,6 +54,21 @@ assert.equal(
   'supervisors must be able to record operational stock losses'
 );
 assert.equal(
+  has(RoleEnum.SUPERVISOR, PermissionEnum.PRESCRIPTION_VIEW),
+  true,
+  'pharmacy supervisors must review prescription records'
+);
+assert.equal(
+  has(RoleEnum.SUPERVISOR, PermissionEnum.BATCH_TRACKING_VIEW),
+  true,
+  'pharmacy supervisors must review batches and expiry'
+);
+assert.equal(
+  has(RoleEnum.MANAGER, PermissionEnum.PRESCRIPTION_DISPENSE),
+  true,
+  'pharmacy managers must be able to cover prescription checkout'
+);
+assert.equal(
   has(RoleEnum.INVENTORY, PermissionEnum.INVENTORY_ADJUST),
   true,
   'inventory staff must adjust inventory'

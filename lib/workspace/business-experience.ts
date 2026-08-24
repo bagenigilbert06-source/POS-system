@@ -1,4 +1,5 @@
 import { categoryLabel } from '../onboarding/config'
+import { isPharmacyBusiness } from '../pharmacy/rules'
 
 export type BusinessExperience = {
   kind: 'retail' | 'hospitality' | 'general'
@@ -25,6 +26,23 @@ export type BusinessExperience = {
 export function getBusinessExperience(businessFamily: string, businessCategory: string, customCategory = ''): BusinessExperience {
   const category = businessCategory.toLowerCase()
   const label = categoryLabel(businessFamily, businessCategory, customCategory)
+
+  if (isPharmacyBusiness(businessFamily, businessCategory)) {
+    return {
+      kind: 'retail',
+      label: 'Pharmacy',
+      overviewTitle: 'Pharmacy overview',
+      overviewDescription: 'Monitor medicine sales, stock availability, batches and expiry risk from one workspace.',
+      navigation: { overview: 'Pharmacy dashboard', pos: 'Point of sale', sales: 'Sales', products: 'Medicines', inventory: 'Inventory', customers: 'Customers' },
+      actions: ['primary', 'products', 'inventory'],
+      actionLabels: { primary: 'Start sale', products: 'Add medicine', inventory: 'Receive stock' },
+      metricLabels: ['Sales today', 'Completed sales', 'Average transaction', 'Stock alerts'],
+      activityTitle: 'Recent pharmacy sales',
+      activityDescription: 'Latest completed counter sales.',
+      stockTitle: 'Medicine stock attention',
+      stockDescription: 'Low, unavailable or expiring medicine batches that need action.',
+    }
+  }
 
   if (businessFamily === 'food_hospitality') {
     const foodLabel = category === 'cafe' ? 'Café' : label
