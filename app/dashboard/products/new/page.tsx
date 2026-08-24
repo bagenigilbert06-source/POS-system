@@ -4,8 +4,12 @@ import { DashboardPageHeading } from '@/components/dashboard/page-heading';
 import { PackagePlus } from 'lucide-react';
 import { requireWorkspaceModule } from '@/lib/onboarding/require-module';
 import type { Metadata } from 'next';
+import { getCurrentProductTerminology } from '@/lib/products/current-terminology';
 
-export const metadata: Metadata = { title: 'Add product' };
+export async function generateMetadata(): Promise<Metadata> {
+  const terminology = await getCurrentProductTerminology();
+  return { title: terminology.add };
+}
 
 export default async function NewProductPage({
   searchParams,
@@ -13,7 +17,10 @@ export default async function NewProductPage({
   searchParams?: Promise<{ categoryId?: string; barcode?: string }>;
 }) {
   await requireWorkspaceModule('products');
-  const categories = await getProductCategories();
+  const [categories, terminology] = await Promise.all([
+    getProductCategories(),
+    getCurrentProductTerminology(),
+  ]);
 
   const query = await searchParams;
   const categoryId = query?.categoryId;
@@ -23,8 +30,8 @@ export default async function NewProductPage({
       <DashboardPageHeading
         theme="adaptive"
         icon={PackagePlus}
-        title="Add product"
-        description="Create a POS-ready item with pricing, stock, an image and reorder settings."
+        title={terminology.add}
+        description={`Create a POS-ready ${terminology.singularLower} with pricing, stock, an image and reorder settings.`}
       />
       <ProductForm
         categories={categories}

@@ -1,7 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { and, desc, eq, inArray, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { db } from '@/lib/db';
 import {
@@ -10,6 +10,8 @@ import {
   inventorySerial,
   inventoryTransfer,
   inventoryTransferItem,
+  inventoryTransferLotAllocation,
+  pharmacyProduct,
   product,
   productPackaging,
   purchase,
@@ -32,6 +34,7 @@ import {
 } from '@/lib/inventory/inventory-service';
 import { invalidateProductReadCache } from '@/lib/cache/redis-cache';
 import { generateId } from '@/lib/utils';
+import { planTransferLotReceipt } from '@/lib/pharmacy/transfer-rules';
 
 const poLine = z.object({
   productId: z.string().min(1),
@@ -55,6 +58,7 @@ const receiptLine = z
     rejectedQuantity: z.coerce.number().int().nonnegative().default(0),
     rejectionReason: z.string().trim().max(200).optional(),
     lotNumber: z.string().trim().max(100).optional(),
+    lotBarcode: z.string().trim().max(120).optional(),
     expiresAt: z.coerce.date().optional(),
     serialNumbers: z
       .array(z.string().trim().min(1).max(120))
@@ -598,6 +602,7 @@ export async function receivePurchaseOrder(
               productId: line.productId,
               branchId: record.branchId!,
               lotNumber: item.lotNumber,
+              barcode: item.lotBarcode || null,
               quantity: String(baseQuantity),
               expiresAt: item.expiresAt,
               alertAt:
@@ -866,7 +871,7 @@ export async function dispatchInventoryTransfer(
         orgId,
         quantity: line.quantity,
       });
-      await applyInventoryMovement(tx, {
+      const movement = await applyInventoryMovement(tx, {
         productId: line.productId,
         productName: line.productName,
         branchId: record.fromLocation,
@@ -878,6 +883,15 @@ export async function dispatchInventoryTransfer(
         userId,
         orgId,
       });
+      if (movement.lotAllocations.length) {
+        const sourceLots = await tx.select().from(inventoryLot).where(and(eq(inventoryLot.orgId, orgId), inArray(inventoryLot.id, movement.lotAllocations.map((item) => item.lotId))))
+        const sourceById = new Map(sourceLots.map((item) => [item.id, item]))
+        await tx.insert(inventoryTransferLotAllocation).values(movement.lotAllocations.map((allocation) => {
+          const source = sourceById.get(allocation.lotId)
+          if (!source) throw new Error('A dispatched batch could not be traced')
+          return { id: generateId(), organizationId: orgId, transferId: id, transferItemId: line.id, productId: line.productId, sourceLotId: source.id, lotNumber: source.lotNumber, barcode: source.barcode, manufacturedAt: source.manufacturedAt, bestBeforeAt: source.bestBeforeAt, expiresAt: source.expiresAt, alertAt: source.alertAt, supplierId: source.supplierId, unitCost: source.unitCost, dispatchedQuantity: String(allocation.quantity) }
+        }))
+      }
       await adjustIncoming(tx, {
         productId: line.productId,
         branchId: record.toLocation,
@@ -952,6 +966,11 @@ export async function receiveInventoryTransfer(
     if (lines.length !== data.items.length)
       throw new Error('A transfer line is invalid');
     const requested = new Map(data.items.map((item) => [item.itemId, item]));
+    const [medicineProducts, transferLots] = await Promise.all([
+      tx.select({ productId: pharmacyProduct.productId }).from(pharmacyProduct).where(and(eq(pharmacyProduct.organizationId, orgId), inArray(pharmacyProduct.productId, lines.map((line) => line.productId)))),
+      tx.select().from(inventoryTransferLotAllocation).where(and(eq(inventoryTransferLotAllocation.organizationId, orgId), eq(inventoryTransferLotAllocation.transferId, record.id), inArray(inventoryTransferLotAllocation.transferItemId, lines.map((line) => line.id)))).orderBy(asc(inventoryTransferLotAllocation.createdAt)),
+    ])
+    const medicineIds = new Set(medicineProducts.map((item) => item.productId))
     for (const line of lines) {
       const item = requested.get(line.id)!,
         remaining =
@@ -981,6 +1000,23 @@ export async function receiveInventoryTransfer(
           userId,
           orgId,
         });
+      if (medicineIds.has(line.productId)) {
+        const allocations = transferLots.filter((allocation) => allocation.transferItemId === line.id)
+        if (!allocations.length || allocations.reduce((sum, allocation) => sum + Number(allocation.dispatchedQuantity), 0) !== Number(line.dispatchedQuantity)) throw new Error(`${line.productName}: batch transfer trace is incomplete`)
+        const planned = planTransferLotReceipt(allocations.map((allocation) => ({ id: allocation.id, dispatched: Number(allocation.dispatchedQuantity), received: Number(allocation.receivedQuantity), rejected: Number(allocation.rejectedQuantity) })), item.receivedQuantity, item.rejectedQuantity)
+        const planById = new Map(planned.map((entry) => [entry.id, entry]))
+        for (const allocation of allocations) {
+          const entry = planById.get(allocation.id)
+          if (!entry) continue
+          const receivedFromLot = entry.received
+          const rejectedFromLot = entry.rejected
+          if (receivedFromLot > 0) {
+            if (!allocation.expiresAt || allocation.expiresAt <= new Date()) throw new Error(`${line.productName}: expired or missing-expiry batches must be rejected, not received`)
+            await tx.insert(inventoryLot).values({ id: generateId(), productId: line.productId, branchId: record.toLocation, lotNumber: allocation.lotNumber, barcode: allocation.barcode, quantity: String(receivedFromLot), manufacturedAt: allocation.manufacturedAt, bestBeforeAt: allocation.bestBeforeAt, expiresAt: allocation.expiresAt, alertAt: allocation.alertAt, supplierId: allocation.supplierId, unitCost: allocation.unitCost, status: 'available', orgId }).onConflictDoUpdate({ target: [inventoryLot.productId, inventoryLot.branchId, inventoryLot.lotNumber], set: { quantity: sql`${inventoryLot.quantity} + ${receivedFromLot}`, barcode: allocation.barcode } })
+          }
+          if (receivedFromLot || rejectedFromLot) await tx.update(inventoryTransferLotAllocation).set({ receivedQuantity: sql`${inventoryTransferLotAllocation.receivedQuantity} + ${receivedFromLot}`, rejectedQuantity: sql`${inventoryTransferLotAllocation.rejectedQuantity} + ${rejectedFromLot}`, updatedAt: new Date() }).where(eq(inventoryTransferLotAllocation.id, allocation.id))
+        }
+      }
       await tx
         .update(inventoryTransferItem)
         .set({

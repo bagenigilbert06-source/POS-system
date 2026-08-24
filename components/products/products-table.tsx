@@ -35,12 +35,20 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { WirelessScannerPairing } from '@/components/barcode/wireless-scanner-pairing';
+import {
+  getProductTerminology,
+  type ProductTerminology,
+} from '@/lib/products/terminology';
 
 interface ProductsTableProps {
   initialProducts: Array<Product & { unitsSoldMonth: number; categoryName?: string | null }>;
+  terminology?: ProductTerminology;
 }
 
-export function ProductsTable({ initialProducts }: ProductsTableProps) {
+export function ProductsTable({
+  initialProducts,
+  terminology = getProductTerminology(),
+}: ProductsTableProps) {
   const router = useRouter();
   const [products, setProducts] = useState(initialProducts);
   const [search, setSearch] = useState('');
@@ -97,12 +105,12 @@ export function ProductsTable({ initialProducts }: ProductsTableProps) {
     }
     if (matches.length > 1) {
       toast.error(
-        'This barcode is assigned to multiple products. Correct the duplicate records first.'
+        `This barcode is assigned to multiple ${terminology.pluralLower}. Correct the duplicate records first.`
       );
       return false;
     }
     toast.info('New barcode scanned', {
-      description: 'Complete the product details to add it to your catalogue.',
+      description: `Complete the ${terminology.singularLower} details to add it to your catalogue.`,
     });
     router.push(
       `/dashboard/products/new?barcode=${encodeURIComponent(barcode)}`
@@ -156,9 +164,9 @@ export function ProductsTable({ initialProducts }: ProductsTableProps) {
           item.id === archiveTarget.id ? { ...item, isActive: false } : item
         )
       );
-      toast.success('Product archived');
+      toast.success(`${terminology.singular} archived`);
     } catch {
-      toast.error('Failed to archive product');
+      toast.error(`Failed to archive ${terminology.singularLower}`);
     } finally {
       setArchiving(null);
       setArchiveTarget(null);
@@ -200,7 +208,7 @@ export function ProductsTable({ initialProducts }: ProductsTableProps) {
     archived: products.filter((product) => !product.isActive).length,
   };
   const filterTabs = [
-    { key: 'all', label: 'All Products' },
+    { key: 'all', label: terminology.all },
     { key: 'active', label: 'Active' },
     { key: 'low-stock', label: 'Low Stock' },
     { key: 'critical', label: 'Critical' },
@@ -209,33 +217,33 @@ export function ProductsTable({ initialProducts }: ProductsTableProps) {
   ] as const;
   const emptyCopy = {
     all: [
-      'No products yet',
-      'Add your first product to start selling and tracking stock.',
+      `No ${terminology.pluralLower} yet`,
+      `Add your first ${terminology.singularLower} to start selling and tracking stock.`,
       true,
     ],
     active: [
-      'No active products',
-      'Active products available for sale will appear here.',
+      `No active ${terminology.pluralLower}`,
+      `Active ${terminology.pluralLower} available for sale will appear here.`,
       false,
     ],
     'low-stock': [
-      'No low-stock products',
-      'Products that reach their low-stock alert level will appear here.',
+      `No low-stock ${terminology.pluralLower}`,
+      `${terminology.plural} that reach their low-stock alert level will appear here.`,
       false,
     ],
     critical: [
-      'No critically low products',
-      'Products that are nearly out of stock will appear here.',
+      `No critically low ${terminology.pluralLower}`,
+      `${terminology.plural} that are nearly out of stock will appear here.`,
       false,
     ],
     out: [
-      'No out-of-stock products',
-      'Products with zero available stock will appear here.',
+      `No out-of-stock ${terminology.pluralLower}`,
+      `${terminology.plural} with zero available stock will appear here.`,
       false,
     ],
     archived: [
-      'No archived products',
-      'Products you archive will appear here.',
+      `No archived ${terminology.pluralLower}`,
+      `${terminology.plural} you archive will appear here.`,
       false,
     ],
   }[filter];
@@ -278,19 +286,19 @@ export function ProductsTable({ initialProducts }: ProductsTableProps) {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Archive this product?</AlertDialogTitle>
+            <AlertDialogTitle>Archive this {terminology.singularLower}?</AlertDialogTitle>
             <AlertDialogDescription>
-              {archiveTarget?.name} will no longer appear in active product and
+              {archiveTarget?.name} will no longer appear in active {terminology.singularLower} and
               POS lists. Existing sales records remain unchanged.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Keep product</AlertDialogCancel>
+            <AlertDialogCancel>Keep {terminology.singularLower}</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleArchive}
               className="bg-primary text-primary-foreground hover:bg-primary/90"
             >
-              Archive product
+              Archive {terminology.singularLower}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -303,7 +311,7 @@ export function ProductsTable({ initialProducts }: ProductsTableProps) {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <input
               type="text"
-              placeholder="Search products, SKU, barcode..."
+              placeholder={terminology.searchPlaceholder}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               onKeyDown={(event) => {
@@ -335,7 +343,7 @@ export function ProductsTable({ initialProducts }: ProductsTableProps) {
               className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 flex-shrink-0"
             >
               <Plus className="h-4 w-4" />
-              Add Product
+              {terminology.add}
             </Link>
           </div>
         </div>
@@ -376,7 +384,7 @@ export function ProductsTable({ initialProducts }: ProductsTableProps) {
           </label>
           <div
             className="flex items-center rounded-lg border bg-white p-0.5 dark:bg-[#161616]"
-            aria-label="Product layout"
+            aria-label={`${terminology.singular} layout`}
           >
             <button
               type="button"
@@ -411,13 +419,13 @@ export function ProductsTable({ initialProducts }: ProductsTableProps) {
         {filter === 'low-stock' && (
           <div className="grid gap-3 sm:grid-cols-3">
             <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 dark:border-amber-900/70 dark:bg-amber-950/30">
-              <p className="text-xs font-medium text-amber-800 dark:text-amber-300">Low-stock products</p>
+              <p className="text-xs font-medium text-amber-800 dark:text-amber-300">Low-stock {terminology.pluralLower}</p>
               <p className="mt-1 text-xl font-semibold text-amber-900 dark:text-amber-200">
                 {lowStockCount}
               </p>
             </div>
             <div className="rounded-lg border border-orange-200 bg-orange-50 px-4 py-3 dark:border-orange-900/70 dark:bg-orange-950/30">
-              <p className="text-xs font-medium text-orange-800 dark:text-orange-300">Critical products</p>
+              <p className="text-xs font-medium text-orange-800 dark:text-orange-300">Critical {terminology.pluralLower}</p>
               <p className="mt-1 text-xl font-semibold text-orange-900 dark:text-orange-200">
                 {criticalCount}
               </p>
@@ -550,7 +558,7 @@ export function ProductsTable({ initialProducts }: ProductsTableProps) {
                           onClick={(event) => event.stopPropagation()}
                           className="inline-flex h-8 w-8 items-center justify-center text-slate-500 transition-colors hover:bg-slate-50 hover:text-slate-900 focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary dark:text-slate-400 dark:hover:bg-white/10 dark:hover:text-white"
                           aria-label={`View ${p.name}`}
-                          title="View product"
+                          title={`View ${terminology.singularLower}`}
                         >
                           <Eye className="h-4 w-4" aria-hidden="true" />
                         </Link>
@@ -559,7 +567,7 @@ export function ProductsTable({ initialProducts }: ProductsTableProps) {
                           onClick={(event) => event.stopPropagation()}
                           className="inline-flex h-8 w-8 items-center justify-center border-l border-slate-200 text-slate-500 transition-colors hover:bg-slate-50 hover:text-slate-900 focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary dark:border-white/10 dark:text-slate-400 dark:hover:bg-white/10 dark:hover:text-white"
                           aria-label={`Edit ${p.name}`}
-                          title="Edit product"
+                          title={`Edit ${terminology.singularLower}`}
                         >
                           <Pencil className="h-4 w-4" aria-hidden="true" />
                         </Link>
@@ -573,7 +581,7 @@ export function ProductsTable({ initialProducts }: ProductsTableProps) {
                             disabled={archiving === p.id}
                             className="inline-flex h-8 w-8 items-center justify-center border-l border-slate-200 text-slate-500 transition-colors hover:bg-red-50 hover:text-red-600 focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-red-500 disabled:opacity-40 dark:border-white/10 dark:text-slate-400 dark:hover:bg-red-950/35 dark:hover:text-red-400"
                             aria-label={`Archive ${p.name}`}
-                            title="Archive product"
+                            title={`Archive ${terminology.singularLower}`}
                           >
                             <Archive className="h-4 w-4" aria-hidden="true" />
                           </button>
@@ -590,7 +598,7 @@ export function ProductsTable({ initialProducts }: ProductsTableProps) {
           <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-[#dfe3ea] bg-white py-16 text-center">
             <Package className="mb-3 h-10 w-10 text-muted-foreground/40" />
             <p className="text-sm font-medium">
-              {search ? 'No products found' : emptyCopy[0]}
+              {search ? `No ${terminology.pluralLower} found` : emptyCopy[0]}
             </p>
             <p className="mt-1 max-w-md text-xs text-muted-foreground">
               {search ? 'Try a different search term.' : emptyCopy[1]}
@@ -601,7 +609,7 @@ export function ProductsTable({ initialProducts }: ProductsTableProps) {
                 className="mt-4 inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
               >
                 <Plus className="h-4 w-4" />
-                Add product
+                Add {terminology.singularLower}
               </Link>
             )}
           </div>
@@ -683,7 +691,7 @@ export function ProductsTable({ initialProducts }: ProductsTableProps) {
                   <thead>
                     <tr className="border-b bg-muted/50">
                       <th className="px-4 py-3 text-left font-medium text-muted-foreground">
-                        Product
+                        {terminology.singular}
                       </th>
                       <th className="px-4 py-3 text-right font-medium text-muted-foreground">
                         Buying
@@ -793,7 +801,7 @@ export function ProductsTable({ initialProducts }: ProductsTableProps) {
                                 href={`/dashboard/products/${p.id}`}
                                 className="inline-flex h-8 w-8 items-center justify-center text-slate-500 transition-colors hover:bg-slate-50 hover:text-slate-900 focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary dark:text-slate-400 dark:hover:bg-white/10 dark:hover:text-white"
                                 aria-label={`View ${p.name}`}
-                                title="View product"
+                                title={`View ${terminology.singularLower}`}
                               >
                                 <Eye className="h-4 w-4" aria-hidden="true" />
                               </Link>
@@ -801,7 +809,7 @@ export function ProductsTable({ initialProducts }: ProductsTableProps) {
                                 href={`/dashboard/products/${p.id}?edit=true`}
                                 className="inline-flex h-8 w-8 items-center justify-center border-l border-slate-200 text-slate-500 transition-colors hover:bg-slate-50 hover:text-slate-900 focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary dark:border-white/10 dark:text-slate-400 dark:hover:bg-white/10 dark:hover:text-white"
                                 aria-label={`Edit ${p.name}`}
-                                title="Edit product"
+                                title={`Edit ${terminology.singularLower}`}
                               >
                                 <Pencil className="h-4 w-4" aria-hidden="true" />
                               </Link>
@@ -811,7 +819,7 @@ export function ProductsTable({ initialProducts }: ProductsTableProps) {
                                   disabled={archiving === p.id}
                                   className="inline-flex h-8 w-8 items-center justify-center border-l border-slate-200 text-slate-500 transition-colors hover:bg-red-50 hover:text-red-600 focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-red-500 disabled:opacity-40 dark:border-white/10 dark:text-slate-400 dark:hover:bg-red-950/35 dark:hover:text-red-400"
                                   aria-label={`Archive ${p.name}`}
-                                  title="Archive product"
+                                  title={`Archive ${terminology.singularLower}`}
                                 >
                                   <Archive className="h-4 w-4" aria-hidden="true" />
                                 </button>
@@ -829,7 +837,7 @@ export function ProductsTable({ initialProducts }: ProductsTableProps) {
         </div>
 
         <p className="text-xs text-muted-foreground">
-          Showing {filtered.length} of {products.length} products
+          Showing {filtered.length} of {products.length} {terminology.pluralLower}
         </p>
       </div>
       <WirelessScannerPairing

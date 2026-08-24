@@ -1,5 +1,6 @@
 import { categoryLabel } from '../onboarding/config'
 import { isPharmacyBusiness } from '../pharmacy/rules'
+import { getProductTerminology } from '../products/terminology'
 
 export type BusinessExperience = {
   kind: 'retail' | 'hospitality' | 'general'
@@ -26,6 +27,7 @@ export type BusinessExperience = {
 export function getBusinessExperience(businessFamily: string, businessCategory: string, customCategory = ''): BusinessExperience {
   const category = businessCategory.toLowerCase()
   const label = categoryLabel(businessFamily, businessCategory, customCategory)
+  const productTerms = getProductTerminology(businessFamily, businessCategory)
 
   if (isPharmacyBusiness(businessFamily, businessCategory)) {
     return {
@@ -33,9 +35,9 @@ export function getBusinessExperience(businessFamily: string, businessCategory: 
       label: 'Pharmacy',
       overviewTitle: 'Pharmacy overview',
       overviewDescription: 'Monitor medicine sales, stock availability, batches and expiry risk from one workspace.',
-      navigation: { overview: 'Pharmacy dashboard', pos: 'Point of sale', sales: 'Sales', products: 'Medicines', inventory: 'Inventory', customers: 'Customers' },
+      navigation: { overview: 'Pharmacy dashboard', pos: 'Point of sale', sales: 'Sales', products: productTerms.title, inventory: 'Inventory', customers: 'Customers' },
       actions: ['primary', 'products', 'inventory'],
-      actionLabels: { primary: 'Start sale', products: 'Add medicine', inventory: 'Receive stock' },
+      actionLabels: { primary: 'Start sale', products: productTerms.add, inventory: 'Receive stock' },
       metricLabels: ['Sales today', 'Completed sales', 'Average transaction', 'Stock alerts'],
       activityTitle: 'Recent pharmacy sales',
       activityDescription: 'Latest completed counter sales.',
@@ -69,9 +71,9 @@ export function getBusinessExperience(businessFamily: string, businessCategory: 
         label: 'Liquor shop',
         overviewTitle: 'Liquor shop overview',
         overviewDescription: 'Monitor daily sales, fast-moving drinks, payment mix and stock that needs reordering.',
-        navigation: { overview: 'Liquor dashboard', pos: 'POS', sales: 'Sales', products: 'Products', inventory: 'Inventory', customers: 'Customers' },
+        navigation: { overview: 'Liquor dashboard', pos: 'POS', sales: 'Sales', products: productTerms.title, inventory: 'Inventory', customers: 'Customers' },
         actions: ['primary', 'products', 'inventory'],
-        actionLabels: { primary: 'Start sale', products: 'Add product', inventory: 'Receive stock' },
+        actionLabels: { primary: 'Start sale', products: productTerms.add, inventory: 'Receive stock' },
         metricLabels: ['Sales today', 'Completed sales', 'Average transaction', 'Stock alerts'],
         activityTitle: 'Recent sales',
         activityDescription: 'Latest completed sales.',

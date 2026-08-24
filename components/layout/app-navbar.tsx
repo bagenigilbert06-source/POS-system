@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { authClient } from '@/lib/auth-client';
 import {
+  Building2,
   ChevronDown,
   LifeBuoy,
   LogOut,
@@ -19,6 +20,7 @@ import {
   UserPlus,
   Settings,
 } from 'lucide-react';
+import { switchActiveOrganization } from '@/app/actions/workspace';
 import { PesabyLogoMark } from '@/components/brand/pesaby-logo';
 import { ThemeSwitcher } from '@/components/theme-switcher';
 import { PermissionEnum } from '@/lib/types/permissions';
@@ -30,12 +32,16 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { useWorkspace } from '@/lib/context/workspace-context';
+import { getProductTerminology } from '@/lib/products/terminology';
 
 interface AppNavbarProps {
   userName?: string | null;
   userEmail?: string | null;
   userImage?: string | null;
   organizationName: string;
+  organizationId: string;
+  availableOrganizations: Array<{ id: string; name: string; businessType: string }>;
   branchName?: string | null;
   workspaceDescription: string;
   onOpenSidebar?: () => void;
@@ -55,6 +61,8 @@ export function AppNavbar({
   userEmail,
   userImage,
   organizationName,
+  organizationId,
+  availableOrganizations,
   branchName,
   workspaceDescription,
   onOpenSidebar,
@@ -62,6 +70,11 @@ export function AppNavbar({
   permissions,
 }: AppNavbarProps) {
   const router = useRouter();
+  const { config } = useWorkspace();
+  const productTerms = getProductTerminology(
+    config?.businessType,
+    config?.businessCategory
+  );
   const [avatarFailed, setAvatarFailed] = useState(false);
   const [quickCreateOpen, setQuickCreateOpen] = useState(false);
   const quickCreateRef = useRef<HTMLDivElement>(null);
@@ -85,7 +98,7 @@ export function AppNavbar({
       : null,
     permissions.includes(PermissionEnum.PRODUCT_CREATE)
       ? {
-          label: 'Add product',
+          label: productTerms.add,
           href: '/dashboard/products/new',
           icon: PackagePlus,
         }
@@ -271,6 +284,11 @@ export function AppNavbar({
               </span>
             </DropdownMenuLabel>
             <DropdownMenuSeparator className="bg-border" />
+            {availableOrganizations.length > 1 && <>
+              <DropdownMenuLabel className="px-3 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Workspaces</DropdownMenuLabel>
+              {availableOrganizations.map((item) => <DropdownMenuItem key={item.id} disabled={item.id === organizationId} onSelect={() => { if (item.id !== organizationId) void switchActiveOrganization(item.id) }} className="gap-3 rounded-lg px-3 py-2.5 text-muted-foreground focus:bg-muted focus:text-foreground"><Building2 className="h-4 w-4" /><span className="min-w-0 flex-1 truncate">{item.name}</span>{item.id === organizationId && <span className="text-[10px] font-semibold">Current</span>}</DropdownMenuItem>)}
+              <DropdownMenuSeparator className="bg-border" />
+            </>}
             <DropdownMenuItem
               onSelect={() => router.push('/dashboard/profile')}
               className="gap-3 rounded-lg px-3 py-2.5 text-muted-foreground focus:bg-muted focus:text-foreground"

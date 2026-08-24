@@ -14,6 +14,8 @@ import { formatCurrency } from '@/lib/utils';
 import { getGrossMargin } from '@/lib/pricing/gross-margin';
 import { StockHistoryChart } from './stock-history-chart';
 import { ProductImage } from './product-image';
+import { useWorkspace } from '@/lib/context/workspace-context';
+import { getProductTerminology } from '@/lib/products/terminology';
 
 type ProductOverview = {
   product: Product;
@@ -50,6 +52,11 @@ type ProductOverview = {
 };
 
 export function ProductDetails({ overview }: { overview: ProductOverview }) {
+  const { config } = useWorkspace();
+  const terminology = getProductTerminology(
+    config?.businessType,
+    config?.businessCategory
+  );
   const { product, pharmacyMetadata, categoryName, metrics, movements, lots } = overview;
   const buying = Number(product.buyingPrice);
   const selling = Number(product.sellingPrice);
@@ -76,7 +83,7 @@ export function ProductDetails({ overview }: { overview: ProductOverview }) {
         href="/dashboard/products"
         className="inline-flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground"
       >
-        <ArrowLeft className="h-4 w-4" /> Products
+        <ArrowLeft className="h-4 w-4" /> {terminology.title}
       </Link>
       <section className="overflow-hidden rounded-xl border border-[#dfe3ea] bg-white shadow-sm dark:border-slate-800 dark:bg-[#121212] dark:shadow-none">
         <div className="grid gap-6 p-5 sm:p-7 lg:grid-cols-[300px_1fr]">
@@ -92,7 +99,7 @@ export function ProductDetails({ overview }: { overview: ProductOverview }) {
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-wide text-[#9a6900] dark:text-[#d6aa2d]">
-                  {categoryName ?? 'Product'}
+                  {categoryName ?? terminology.singular}
                 </p>
                 <h1 className="mt-1 text-2xl font-semibold tracking-tight text-[#101828] dark:text-slate-100">
                   {product.name}
@@ -139,7 +146,7 @@ export function ProductDetails({ overview }: { overview: ProductOverview }) {
                 href={`/dashboard/products/${product.id}?edit=true`}
                 className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
               >
-                <Edit3 className="h-4 w-4" /> Edit product
+                <Edit3 className="h-4 w-4" /> Edit {terminology.singularLower}
               </Link>
               <Link
                 href={`/dashboard/inventory?receive=${product.id}`}

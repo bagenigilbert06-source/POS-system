@@ -2,6 +2,7 @@ import { and, eq } from 'drizzle-orm'
 import { cache } from 'react'
 import { db } from '@/lib/db'
 import { employee, organization, organizationMembership } from '@/lib/db/schema'
+import { getActiveOrganizationId } from '@/lib/auth/active-organization'
 
 const organizationsForUser = cache(async (userId: string) => {
   const memberships = await db.select({ organization }).from(organizationMembership)
@@ -34,7 +35,9 @@ export class OrganizationService {
   }
 
   static async getPrimaryOrganization(userId: string) {
-    return (await this.getOrganizationsForUser(userId))[0] ?? null
+    const organizations = await this.getOrganizationsForUser(userId)
+    const activeId = await getActiveOrganizationId()
+    return organizations.find((item) => item.id === activeId) ?? organizations[0] ?? null
   }
 
   static async getOwnedOrganization(userId: string) {

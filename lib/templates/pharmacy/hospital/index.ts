@@ -28,7 +28,7 @@ const dashboardWidgets: DashboardWidget[] = [
 const quickActions: QuickAction[] = [
   { id: 'new-prescription', label: 'Dispense medicine', href: '/dashboard/pos', icon: 'FileText', primary: true },
   { id: 'add-medicine', label: 'Add Medicine', href: '/dashboard/products', icon: 'Pill' },
-  { id: 'batch-report', label: 'Batch Report', href: '/dashboard/reports/batches', icon: 'Package' },
+  { id: 'batch-report', label: 'Batch Report', href: '/dashboard/inventory/batches', icon: 'Package' },
   { id: 'expiry-report', label: 'Expiry Report', href: '/dashboard/inventory/batches', icon: 'AlertTriangle' },
 ]
 
@@ -66,7 +66,7 @@ const settings: WorkspaceSettings = {
 const gettingStartedTasks: GettingStartedTask[] = [
   { id: 'medicines', title: 'Add your medicine catalog', description: 'Import your formulary list', action: '/dashboard/products' },
   { id: 'batches', title: 'Enable batch tracking', description: 'Set up batch numbers for full traceability', action: '/dashboard/settings' },
-  { id: 'wards', title: 'Configure ward distribution', description: 'Set up dispensing locations', action: '/dashboard/settings' },
+  { id: 'recalls', title: 'Review medicine safety', description: 'Set up expiry controls and the recall register', action: '/dashboard/pharmacy/recalls' },
   { id: 'staff', title: 'Invite pharmacy staff', description: 'Add pharmacists and technicians', action: '/dashboard/settings' },
 ]
 
@@ -79,7 +79,7 @@ export const hospitalPharmacyTemplate: WorkspaceTemplate = {
   dashboardWidgets,
   quickActions,
   enabledModules: ['prescriptions', 'inventory', 'batch-tracking', 'sales', 'products', 'reports', 'analytics'],
-  enabledFeatures: ['batch-tracking', 'expiry-tracking', 'ward-distribution', 'prescription-management', 'low-stock-alerts'],
+  enabledFeatures: ['batch-tracking', 'expiry-tracking', 'prescription-management', 'low-stock-alerts'],
   settings,
   permissions: PHARMACY_PERMISSIONS,
   reports: PHARMACY_REPORTS,

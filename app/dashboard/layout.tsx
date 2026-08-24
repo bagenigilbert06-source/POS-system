@@ -65,6 +65,7 @@ export default async function DashboardRouteLayout({
     WorkspaceService.getAuthorizedWorkspaceConfig(organization),
     posAuthorization ?? getAuthorizationContext(),
   ]);
+  const availableOrganizations = posAuthorization ? [organization] : await OrganizationService.getOrganizationsForUser(userId);
   if (!workspaceConfig) redirect('/onboarding');
   const [activeBranch] = await db
     .select({ name: branch.name })
@@ -88,6 +89,7 @@ export default async function DashboardRouteLayout({
       userImage={account?.image ?? session?.user.image ?? null}
       organizationId={organization.id}
       organizationName={organization.name}
+      availableOrganizations={availableOrganizations.map((item) => ({ id: item.id, name: item.name, businessType: item.businessType }))}
       branchName={activeBranch?.name ?? null}
       initialWorkspaceConfig={workspaceConfig}
       role={authorization.role}

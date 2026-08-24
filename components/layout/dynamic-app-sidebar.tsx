@@ -10,6 +10,7 @@ import {
   Apple,
   Baby,
   BarChart3,
+  BellRing,
   BedDouble,
   Beer,
   Bone,
@@ -53,6 +54,7 @@ import {
   Plug,
   ReceiptText,
   Salad,
+  Scale,
   Sandwich,
   Scissors,
   Settings,
@@ -93,6 +95,7 @@ const ICONS: Record<string, LucideIcon> = {
   Apple,
   Baby,
   BarChart3,
+  BellRing,
   BedDouble,
   Beer,
   Bone,
@@ -136,6 +139,7 @@ const ICONS: Record<string, LucideIcon> = {
   Plug,
   ReceiptText,
   Salad,
+  Scale,
   Sandwich,
   Scissors,
   Settings,
@@ -419,6 +423,29 @@ export function DynamicAppSidebar({
             label: 'Batches & expiry',
             icon: 'Calendar',
             route: '/dashboard/inventory/batches',
+          },
+        ]
+      : []),
+    ...(isPharmacyBusiness(config.businessType, config.businessCategory) &&
+    permissions.includes(PermissionEnum.BATCH_TRACKING_VIEW)
+      ? [
+          {
+            id: 'pharmacy-alerts',
+            label: 'Pharmacy alerts',
+            icon: 'BellRing',
+            route: '/dashboard/pharmacy/alerts',
+          },
+          {
+            id: 'medicine-recalls',
+            label: 'Medicine recalls',
+            icon: 'AlertTriangle',
+            route: '/dashboard/pharmacy/recalls',
+          },
+          {
+            id: 'pharmacy-reconciliation',
+            label: 'Batch reconciliation',
+            icon: 'Scale',
+            route: '/dashboard/pharmacy/reconciliation',
           },
         ]
       : []),

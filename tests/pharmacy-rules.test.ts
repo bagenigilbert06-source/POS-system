@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { filterPharmacyCatalog, isPharmacyBusiness, normalizeExpiryWarningDays, pharmacyExpiryState, planFefoAllocation, planReturnedLotTrace } from '../lib/pharmacy/rules'
+import { planTransferLotReceipt } from '../lib/pharmacy/transfer-rules'
 
 test('recognizes current and legacy pharmacy workspace categories', () => {
   assert.equal(isPharmacyBusiness('pharmacy', 'community_pharmacy'), true)
@@ -51,6 +52,10 @@ test('FEFO refuses a sale when unexpired batch stock is insufficient', () => {
   assert.throws(() => planFefoAllocation([{ id: 'only', quantity: 2, expiresAt: null, status: 'available' }], 3), /Insufficient unexpired batch stock/)
 })
 
+test('pharmacy FEFO does not treat a missing expiry date as saleable stock', () => {
+  assert.throws(() => planFefoAllocation([{ id: 'missing-expiry', quantity: 20, expiresAt: null, status: 'available' }], 1), /Insufficient unexpired batch stock/)
+})
+
 test('returned medicine traces only the remaining quantity in each original batch allocation', () => {
   const result = planReturnedLotTrace([
     { id: 'allocation-a', quantity: 6, alreadyReturned: 4 },
@@ -69,4 +74,15 @@ test('returned medicine keeps unmatched legacy quantities quarantined and visibl
   const result = planReturnedLotTrace([{ id: 'allocation-a', quantity: 2, alreadyReturned: 2 }], 3)
   assert.equal(result.traced.length, 0)
   assert.equal(result.untracedQuantity, 3)
+})
+
+test('partial pharmacy transfer receipts preserve source batch quantities', () => {
+  assert.deepEqual(planTransferLotReceipt([{ id: 'early', dispatched: 4, received: 1, rejected: 0 }, { id: 'later', dispatched: 6, received: 0, rejected: 0 }], 5, 2), [
+    { id: 'early', received: 3, rejected: 0 },
+    { id: 'later', received: 2, rejected: 2 },
+  ])
+})
+
+test('pharmacy transfer receipt rejects quantities beyond the batch trace', () => {
+  assert.throws(() => planTransferLotReceipt([{ id: 'only', dispatched: 2, received: 0, rejected: 0 }], 3, 0), /exceed the traced batches/)
 })

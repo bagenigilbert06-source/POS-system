@@ -2,7 +2,7 @@
 
 import { auth } from '@/lib/auth'
 import { db } from '@/lib/db'
-import { branch, sale, saleItem, saleItemLotAllocation, salePayment, product, productPackage, pharmacyConfiguration, pharmacyProduct, pharmacySaleRecord, restrictedItemAudit, businessSettings, auditEvent, posSession, customer, salesReturn, salesReturnItem, expense, user, category, etimsConfiguration, etimsSubmission, offlineSaleSync } from '@/lib/db/schema'
+import { branch, sale, saleItem, saleItemLotAllocation, salePayment, product, productPackage, pharmacyConfiguration, pharmacyPrescriptionItem, pharmacyProduct, pharmacySaleRecord, restrictedItemAudit, businessSettings, auditEvent, posSession, customer, salesReturn, salesReturnItem, expense, user, category, etimsConfiguration, etimsSubmission, offlineSaleSync } from '@/lib/db/schema'
 import { and, asc, desc, eq, gte, ilike, inArray, lt, lte, or, sql } from 'drizzle-orm'
 import { headers } from 'next/headers'
 import { revalidatePath } from 'next/cache'
@@ -57,6 +57,10 @@ const offlineMetadataSchema = z.object({
 const pharmacyWorkflowSchema = z.object({
   prescriptionReference: z.string().trim().min(2).max(120).optional(),
   prescriberReference: z.string().trim().max(160).optional(),
+  patientReference: z.string().trim().max(160).optional(),
+  issuedAt: z.coerce.date().optional(),
+  expiresAt: z.coerce.date().optional(),
+  approvalReason: z.string().trim().max(500).optional(),
   notes: z.string().trim().max(500).optional(),
 }).optional()
 
@@ -229,6 +233,8 @@ export async function createSale(data: CreateSaleInput) {
     throw new Error('Enter the prescription reference for this sale')
   if ((pharmacyPolicy?.restrictedItemWorkflowEnabled ?? true) && restrictedItems.length && !saleAuthorization.permissions.includes(PermissionEnum.PHARMACY_RESTRICTED_APPROVE))
     throw new Error('A pharmacist or authorized manager must approve this restricted-item sale')
+  if (restrictedItems.length && !(pharmacyWorkflow?.approvalReason || pharmacyWorkflow?.notes)?.trim()) throw new Error('Enter the restricted-medicine approval reason')
+  if (pharmacyWorkflow?.expiresAt && pharmacyWorkflow.expiresAt <= new Date()) throw new Error('The prescription has expired')
   if (offline && (prescriptionItems.length || restrictedItems.length))
     throw new Error('Prescription and restricted medicines require an online approval workflow')
   const packageIds = Array.from(new Set(data.items.map((line) => line.packageId).filter((value): value is string => Boolean(value))))
@@ -392,14 +398,28 @@ export async function createSale(data: CreateSaleInput) {
     if (allocatedLots.length) await tx.insert(saleItemLotAllocation).values(allocatedLots)
 
     if (pharmacyWorkspace && (prescriptionItems.length || restrictedItems.length)) {
+      const prescriptionRecordId = generateId()
       await tx.insert(pharmacySaleRecord).values({
-        id: generateId(), organizationId: orgId, branchId: saleBranchId, saleId,
+        id: prescriptionRecordId, organizationId: orgId, branchId: saleBranchId, saleId,
         prescriptionReference: pharmacyWorkflow?.prescriptionReference || null,
         prescriberReference: pharmacyWorkflow?.prescriberReference || null,
+        patientReference: pharmacyWorkflow?.patientReference || null,
+        issuedAt: pharmacyWorkflow?.issuedAt || null,
+        expiresAt: pharmacyWorkflow?.expiresAt || null,
+        status: 'dispensed',
+        verifiedBy: userId,
+        verifiedAt: new Date(),
+        approvalReason: pharmacyWorkflow?.approvalReason || pharmacyWorkflow?.notes || null,
         notes: pharmacyWorkflow?.notes || null,
         approvedBy: restrictedItems.length ? userId : null,
         createdBy: userId,
       })
+      const prescribedProductIds = new Set(prescriptionItems.map((item) => item.productId))
+      const prescriptionLines = saleItems.filter((item) => prescribedProductIds.has(item.productId)).map((item) => ({
+        id: generateId(), organizationId: orgId, prescriptionRecordId, saleItemId: item.saleItemId, productId: item.productId,
+        prescribedQuantity: String(item.quantity * (item.baseUnitQuantity ?? 1)), dispensedQuantity: String(item.quantity * (item.baseUnitQuantity ?? 1)),
+      }))
+      if (prescriptionLines.length) await tx.insert(pharmacyPrescriptionItem).values(prescriptionLines)
       const restrictedProductIds = new Set(restrictedItems.map((item) => item.productId))
       const restrictedAuditRows = saleItems.filter((item) => restrictedProductIds.has(item.productId)).flatMap((item) => {
         const allocations = lotsBySaleItem.get(item.saleItemId) ?? []

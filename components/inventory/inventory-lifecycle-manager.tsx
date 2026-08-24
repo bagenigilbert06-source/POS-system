@@ -148,6 +148,7 @@ export function InventoryLifecycleManager({
           Number(item.receivedQuantity) -
           Number(item.rejectedQuantity);
         let lotNumber: string | undefined,
+          lotBarcode: string | undefined,
           expiresAt: Date | undefined,
           serialNumbers: string[] = [];
         if (catalogueItem?.trackingMode === 'lot') {
@@ -165,6 +166,7 @@ export function InventoryLifecycleManager({
           expiresAt = new Date(`${expiry}T00:00:00`);
           if (Number.isNaN(expiresAt.getTime()))
             throw new Error(`Invalid expiry date for ${item.description}`);
+          lotBarcode = window.prompt(`Scan or enter the batch barcode for ${item.description} (optional)`)?.trim() || undefined;
         }
         if (catalogueItem?.trackingMode === 'serial') {
           serialNumbers = (
@@ -185,6 +187,7 @@ export function InventoryLifecycleManager({
           acceptedQuantity,
           rejectedQuantity: 0,
           lotNumber,
+          lotBarcode,
           expiresAt,
           serialNumbers,
         };

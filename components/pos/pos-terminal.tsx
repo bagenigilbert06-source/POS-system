@@ -227,6 +227,9 @@ export function POSTerminal({ organizationId, products, categories, customers, s
   const [selectedCustomer, setSelectedCustomer] = useState<string>('')
   const [prescriptionReference, setPrescriptionReference] = useState('')
   const [prescriberReference, setPrescriberReference] = useState('')
+  const [patientReference, setPatientReference] = useState('')
+  const [prescriptionIssuedAt, setPrescriptionIssuedAt] = useState('')
+  const [prescriptionExpiresAt, setPrescriptionExpiresAt] = useState('')
   const [pharmacyNotes, setPharmacyNotes] = useState('')
   const [customerMenuOpen, setCustomerMenuOpen] = useState(false)
   const [discountMenuOpen, setDiscountMenuOpen] = useState(false)
@@ -844,7 +847,7 @@ export function POSTerminal({ organizationId, products, categories, customers, s
         amountReceived: paymentMethod === 'cash' ? parseFloat(amountPaid || '0') : undefined,
         idempotencyKey: checkoutIdempotencyKeyRef.current,
         ageVerified: requiresAgeVerification ? verified : undefined,
-        pharmacy: prescriptionRequired || containsRestrictedMedicine ? { prescriptionReference: prescriptionReference.trim() || undefined, prescriberReference: prescriberReference.trim() || undefined, notes: pharmacyNotes.trim() || undefined } : undefined,
+        pharmacy: prescriptionRequired || containsRestrictedMedicine ? { prescriptionReference: prescriptionReference.trim() || undefined, prescriberReference: prescriberReference.trim() || undefined, patientReference: patientReference.trim() || undefined, issuedAt: prescriptionIssuedAt ? new Date(prescriptionIssuedAt) : undefined, expiresAt: prescriptionExpiresAt ? new Date(prescriptionExpiresAt) : undefined, notes: pharmacyNotes.trim() || undefined } : undefined,
       })
       setReceipt({
         saleId,
@@ -990,7 +993,7 @@ export function POSTerminal({ organizationId, products, categories, customers, s
       const response = await initiateMpesaPayment({
         phone: mpesaPhone, items: cart.map(({ productId, quantity, packageId }) => ({ productId, quantity, packageId })),
         discountAmount, idempotencyKey: checkoutIdempotencyKeyRef.current, ageVerified, customerId: selectedCustomer || undefined,
-        pharmacy: prescriptionRequired || containsRestrictedMedicine ? { prescriptionReference: prescriptionReference.trim() || undefined, prescriberReference: prescriberReference.trim() || undefined, notes: pharmacyNotes.trim() || undefined } : undefined,
+        pharmacy: prescriptionRequired || containsRestrictedMedicine ? { prescriptionReference: prescriptionReference.trim() || undefined, prescriberReference: prescriberReference.trim() || undefined, patientReference: patientReference.trim() || undefined, issuedAt: prescriptionIssuedAt ? new Date(prescriptionIssuedAt) : undefined, expiresAt: prescriptionExpiresAt ? new Date(prescriptionExpiresAt) : undefined, notes: pharmacyNotes.trim() || undefined } : undefined,
       })
       setMpesaRequestId(response.id)
       window.localStorage.setItem(mpesaStorageKey, JSON.stringify({ requestId: response.id, idempotencyKey: checkoutIdempotencyKeyRef.current, flow: 'stk' }))
@@ -1019,7 +1022,7 @@ export function POSTerminal({ organizationId, products, categories, customers, s
       const response = await initiateMpesaPaybillPayment({
         items: cart.map(({ productId, quantity, packageId }) => ({ productId, quantity, packageId })),
         discountAmount, idempotencyKey: checkoutIdempotencyKeyRef.current, ageVerified, customerId: selectedCustomer || undefined,
-        pharmacy: prescriptionRequired || containsRestrictedMedicine ? { prescriptionReference: prescriptionReference.trim() || undefined, prescriberReference: prescriberReference.trim() || undefined, notes: pharmacyNotes.trim() || undefined } : undefined,
+        pharmacy: prescriptionRequired || containsRestrictedMedicine ? { prescriptionReference: prescriptionReference.trim() || undefined, prescriberReference: prescriberReference.trim() || undefined, patientReference: patientReference.trim() || undefined, issuedAt: prescriptionIssuedAt ? new Date(prescriptionIssuedAt) : undefined, expiresAt: prescriptionExpiresAt ? new Date(prescriptionExpiresAt) : undefined, notes: pharmacyNotes.trim() || undefined } : undefined,
       })
       setMpesaRequestId(response.id)
       window.localStorage.setItem(mpesaStorageKey, JSON.stringify({ requestId: response.id, idempotencyKey: checkoutIdempotencyKeyRef.current, flow: 'paybill', accountReference: response.accountReference, shortcode: response.shortcode, accountType: response.accountType }))
@@ -1936,7 +1939,7 @@ export function POSTerminal({ organizationId, products, categories, customers, s
             </button>
             {(prescriptionRequired || containsRestrictedMedicine) && <div className="rounded-xl border border-amber-300 bg-amber-50/60 p-3.5 dark:border-amber-900 dark:bg-amber-950/20">
               <div className="flex items-start gap-2"><ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-amber-700 dark:text-amber-300" /><div><p className="text-xs font-bold text-amber-950 dark:text-amber-100">Pharmacy sale record</p><p className="mt-0.5 text-[11px] text-amber-800 dark:text-amber-300">Record the supplied reference only. Pesaby does not provide clinical advice.</p></div></div>
-              <div className="mt-3 grid gap-2 sm:grid-cols-2"><div><label className={ui.label}>Prescription reference {prescriptionRequired && <span className="text-red-600">*</span>}</label><input value={prescriptionReference} onChange={(event) => setPrescriptionReference(event.target.value)} maxLength={120} placeholder="Prescription or dispensing reference" className={cn(inputCls, 'h-10')} /></div><div><label className={ui.label}>Prescriber/reference details</label><input value={prescriberReference} onChange={(event) => setPrescriberReference(event.target.value)} maxLength={160} placeholder="Optional business reference" className={cn(inputCls, 'h-10')} /></div></div>
+              <div className="mt-3 grid gap-2 sm:grid-cols-2"><div><label className={ui.label}>Prescription reference {prescriptionRequired && <span className="text-red-600">*</span>}</label><input value={prescriptionReference} onChange={(event) => setPrescriptionReference(event.target.value)} maxLength={120} placeholder="Prescription or dispensing reference" className={cn(inputCls, 'h-10')} /></div><div><label className={ui.label}>Prescriber/reference details</label><input value={prescriberReference} onChange={(event) => setPrescriberReference(event.target.value)} maxLength={160} placeholder="Prescriber name or registration reference" className={cn(inputCls, 'h-10')} /></div><div><label className={ui.label}>Patient/reference</label><input value={patientReference} onChange={(event) => setPatientReference(event.target.value)} maxLength={160} placeholder="Patient or file reference" className={cn(inputCls, 'h-10')} /></div><div className="grid grid-cols-2 gap-2"><div><label className={ui.label}>Issued</label><input type="date" value={prescriptionIssuedAt} onChange={(event) => setPrescriptionIssuedAt(event.target.value)} className={cn(inputCls, 'h-10')} /></div><div><label className={ui.label}>Expires</label><input type="date" value={prescriptionExpiresAt} min={new Date().toISOString().slice(0, 10)} onChange={(event) => setPrescriptionExpiresAt(event.target.value)} className={cn(inputCls, 'h-10')} /></div></div></div>
               <div className="mt-2"><label className={ui.label}>Workflow note</label><input value={pharmacyNotes} onChange={(event) => setPharmacyNotes(event.target.value)} maxLength={500} placeholder="Optional audit note" className={cn(inputCls, 'h-10')} /></div>
               {containsRestrictedMedicine && <p className={cn('mt-2 text-[11px] font-semibold', canApproveRestricted ? 'text-emerald-700 dark:text-emerald-300' : 'text-red-700 dark:text-red-300')}>{canApproveRestricted ? 'Restricted-item approval will be recorded under the current authorized user.' : 'This user cannot approve restricted-item sales. Ask an authorized pharmacist or manager.'}</p>}
             </div>}

@@ -1,6 +1,6 @@
 import { and, asc, eq, gt, inArray, isNull, or, sql } from 'drizzle-orm'
 import { db } from '@/lib/db'
-import { inventoryBalance, inventoryCostLayer, inventoryLot, inventorySerial, product, stockMovement } from '@/lib/db/schema'
+import { inventoryBalance, inventoryCostLayer, inventoryLot, inventorySerial, pharmacyProduct, product, stockMovement } from '@/lib/db/schema'
 import { generateId } from '@/lib/utils'
 
 export type InventoryTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0]
@@ -52,13 +52,13 @@ export async function applyInventoryMovement(tx: InventoryTransaction, input: Mo
   if (!updated) throw new Error(`Insufficient available stock for ${input.productName}`)
   const stockAfter = Number(updated.stockAfter)
   const lotAllocations: Array<{ lotId: string; lotNumber: string; expiresAt: Date | null; quantity: number }> = []
-  if (input.type === 'sale' && input.quantity < 0) {
-    const [tracked] = await tx.select({ trackingMode: product.trackingMode }).from(product).where(and(eq(product.id, input.productId), eq(product.orgId, input.orgId))).limit(1)
+  if (['sale', 'transfer_dispatch'].includes(input.type) && input.quantity < 0) {
+    const [tracked] = await tx.select({ trackingMode: product.trackingMode, pharmacyProductId: pharmacyProduct.productId }).from(product).leftJoin(pharmacyProduct, and(eq(pharmacyProduct.productId, product.id), eq(pharmacyProduct.organizationId, input.orgId))).where(and(eq(product.id, input.productId), eq(product.orgId, input.orgId))).limit(1)
     if (tracked?.trackingMode === 'lot') {
       let remaining = Math.abs(input.quantity)
       const lots = await tx.select().from(inventoryLot).where(and(
         eq(inventoryLot.productId, input.productId), eq(inventoryLot.branchId, input.branchId), eq(inventoryLot.orgId, input.orgId),
-        eq(inventoryLot.status, 'available'), gt(inventoryLot.quantity, '0'), or(isNull(inventoryLot.expiresAt), gt(inventoryLot.expiresAt, new Date())),
+        eq(inventoryLot.status, 'available'), gt(inventoryLot.quantity, '0'), tracked.pharmacyProductId ? gt(inventoryLot.expiresAt, new Date()) : or(isNull(inventoryLot.expiresAt), gt(inventoryLot.expiresAt, new Date())),
       )).orderBy(asc(inventoryLot.expiresAt), asc(inventoryLot.receivedAt)).for('update')
       for (const lot of lots) {
         const consumed = Math.min(remaining, Number(lot.quantity))
@@ -68,7 +68,7 @@ export async function applyInventoryMovement(tx: InventoryTransaction, input: Mo
         remaining -= consumed
         if (!remaining) break
       }
-      if (remaining) throw new Error(`${input.productName} has insufficient unexpired lot stock`)
+      if (remaining) throw new Error(`${input.productName} has insufficient eligible lot stock`)
     }
     if (tracked?.trackingMode === 'serial') {
       const required = Math.abs(input.quantity)

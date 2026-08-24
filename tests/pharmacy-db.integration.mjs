@@ -8,7 +8,7 @@ test('pharmacy schema, FEFO trace and workflow tables are installed', async (con
   const client = new pg.Client({ connectionString: process.env.DATABASE_URL, ssl: process.env.DATABASE_URL.includes('supabase.com') ? { rejectUnauthorized: false } : undefined })
   await client.connect()
   try {
-    const tables = ['pharmacy_configuration', 'pharmacy_product', 'sale_item_lot_allocation', 'pharmacy_sale_record', 'restricted_item_audit', 'pharmacy_return_disposition']
+    const tables = ['pharmacy_configuration', 'pharmacy_product', 'sale_item_lot_allocation', 'pharmacy_sale_record', 'pharmacy_prescription_item', 'pharmacy_medicine_recall', 'restricted_item_audit', 'pharmacy_return_disposition', 'inventory_transfer_lot_allocation']
     for (const table of tables) {
       const result = await client.query('select to_regclass($1) as name', [`public.${table}`])
       assert.equal(result.rows[0].name, table)
@@ -19,10 +19,17 @@ test('pharmacy schema, FEFO trace and workflow tables are installed', async (con
       'pharmacy_sale_record_org_sale_unique',
       'restricted_item_audit_org_created_idx',
       'pharmacy_return_disposition_org_status_idx',
+      'pharmacy_prescription_item_record_product_idx',
+      'pharmacy_medicine_recall_active_lot_unique',
+      'inventory_transfer_lot_item_idx',
+      'pharmacy_return_supplier_status_idx',
+      'inventory_lot_org_barcode_idx',
     ]])
-    assert.equal(indexes.rowCount, 5)
+    assert.equal(indexes.rowCount, 10)
     const returnItemColumn = await client.query(`select 1 from information_schema.columns where table_schema='public' and table_name='sales_return_item' and column_name='originalSaleItemId'`)
     assert.equal(returnItemColumn.rowCount, 1)
+    const lifecycleColumns = await client.query(`select column_name from information_schema.columns where table_schema='public' and table_name='pharmacy_sale_record' and column_name = any($1::text[])`, [['status','patientReference','expiresAt','verifiedBy','approvalReason']])
+    assert.equal(lifecycleColumns.rowCount, 5)
   } finally {
     await client.end()
   }

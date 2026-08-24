@@ -4,26 +4,32 @@ import { FileText, ShieldCheck, Stethoscope, UserRound } from 'lucide-react'
 import { redirect } from 'next/navigation'
 import { requirePermission } from '@/lib/auth/authorization'
 import { db } from '@/lib/db'
-import { branch, customer, pharmacyProduct, pharmacySaleRecord, sale, saleItem, user } from '@/lib/db/schema'
+import { auditEvent, branch, customer, pharmacyProduct, pharmacySaleRecord, sale, saleItem, user } from '@/lib/db/schema'
 import { isPharmacyBusiness } from '@/lib/pharmacy/rules'
 import { WorkspaceService } from '@/lib/services/workspace-service'
 import { PermissionEnum } from '@/lib/types/permissions'
 import { DashboardPageHeading } from '@/components/dashboard/page-heading'
-import { formatDateTime } from '@/lib/utils'
+import { formatDateTime, generateId } from '@/lib/utils'
 
 export const metadata = { title: 'Prescription records | Pesaby' }
 export const dynamic = 'force-dynamic'
 
-export default async function PrescriptionRecordsPage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
+export default async function PrescriptionRecordsPage({ searchParams }: { searchParams: Promise<{ q?: string; page?: string }> }) {
   const authorization = await requirePermission(PermissionEnum.PRESCRIPTION_VIEW)
   const workspace = await WorkspaceService.getWorkspaceConfig(authorization.organizationId, authorization.userId)
   if (!workspace || !isPharmacyBusiness(workspace.businessType, workspace.businessCategory)) redirect('/dashboard')
-  const query = (await searchParams).q?.trim().slice(0, 80) ?? ''
-  const rows = await db.select({
+  const params = await searchParams
+  const query = params.q?.trim().slice(0, 80) ?? ''
+  const page = Math.max(1, Math.min(10000, Number.parseInt(params.page || '1', 10) || 1))
+  const fetchedRows = await db.select({
     id: pharmacySaleRecord.id,
     saleId: pharmacySaleRecord.saleId,
     prescriptionReference: pharmacySaleRecord.prescriptionReference,
     prescriberReference: pharmacySaleRecord.prescriberReference,
+    patientReference: pharmacySaleRecord.patientReference,
+    status: pharmacySaleRecord.status,
+    issuedAt: pharmacySaleRecord.issuedAt,
+    expiresAt: pharmacySaleRecord.expiresAt,
     approvedBy: pharmacySaleRecord.approvedBy,
     createdAt: pharmacySaleRecord.createdAt,
     receiptNo: sale.receiptNo,
@@ -33,7 +39,7 @@ export default async function PrescriptionRecordsPage({ searchParams }: { search
   }).from(pharmacySaleRecord)
     .innerJoin(sale, and(eq(sale.id, pharmacySaleRecord.saleId), eq(sale.orgId, authorization.organizationId)))
     .innerJoin(branch, and(eq(branch.id, pharmacySaleRecord.branchId), eq(branch.organizationId, authorization.organizationId)))
-    .innerJoin(user, eq(user.id, pharmacySaleRecord.createdBy))
+    .leftJoin(user, eq(user.id, pharmacySaleRecord.createdBy))
     .leftJoin(customer, and(eq(customer.id, sale.customerId), eq(customer.orgId, authorization.organizationId)))
     .where(and(
       eq(pharmacySaleRecord.organizationId, authorization.organizationId),
@@ -44,7 +50,10 @@ export default async function PrescriptionRecordsPage({ searchParams }: { search
         ilike(pharmacySaleRecord.prescriberReference, `%${query}%`),
         ilike(customer.name, `%${query}%`),
       ) : undefined,
-    )).orderBy(desc(pharmacySaleRecord.createdAt)).limit(200)
+    )).orderBy(desc(pharmacySaleRecord.createdAt)).limit(51).offset((page - 1) * 50)
+  const hasNext = fetchedRows.length > 50
+  const rows = fetchedRows.slice(0, 50)
+  await db.insert(auditEvent).values({ id: generateId(), organizationId: authorization.organizationId, userId: authorization.userId, action: 'pharmacy.prescription_register_viewed', metadata: { page, searched: Boolean(query) } })
 
   const saleIds = rows.map((row) => row.saleId)
   const medicineRows = saleIds.length ? await db.select({
@@ -62,7 +71,7 @@ export default async function PrescriptionRecordsPage({ searchParams }: { search
   for (const item of medicineRows) medicinesBySale.set(item.saleId, [...(medicinesBySale.get(item.saleId) ?? []), item])
   const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0)
   const cards = [
-    { label: 'Records shown', value: rows.length, icon: FileText },
+    { label: 'Records on page', value: rows.length, icon: FileText },
     { label: 'Recorded today', value: rows.filter((row) => row.createdAt >= todayStart).length, icon: Stethoscope },
     { label: 'Prescription references', value: rows.filter((row) => Boolean(row.prescriptionReference)).length, icon: UserRound },
     { label: 'Restricted approvals', value: rows.filter((row) => Boolean(row.approvedBy)).length, icon: ShieldCheck },
@@ -73,7 +82,8 @@ export default async function PrescriptionRecordsPage({ searchParams }: { search
     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">{cards.map(({ label, value, icon: Icon }) => <div key={label} className="rounded-xl border bg-card p-4"><div className="flex items-center justify-between"><p className="text-xs font-medium text-muted-foreground">{label}</p><Icon className="h-4 w-4 text-muted-foreground" /></div><p className="mt-2 text-xl font-bold tabular-nums">{value}</p></div>)}</div>
     <section className="overflow-hidden rounded-xl border bg-card">
       <form className="flex flex-wrap items-end gap-2 border-b px-5 py-4"><label className="grid flex-1 gap-1 text-xs font-semibold">Find a record<input name="q" defaultValue={query} placeholder="Receipt, prescription, prescriber or customer" className="h-10 min-w-[240px] rounded-lg border bg-background px-3 text-sm" /></label><button className="h-10 rounded-lg bg-foreground px-4 text-sm font-semibold text-background">Search</button>{query && <Link href="/dashboard/pharmacy/prescriptions" className="inline-flex h-10 items-center rounded-lg border px-4 text-sm font-semibold">Clear</Link>}</form>
-      <div className="overflow-x-auto"><table className="w-full min-w-[1050px] text-left text-sm"><thead className="border-b bg-muted/30 text-xs text-muted-foreground"><tr><th className="px-5 py-3">Receipt</th><th className="px-4 py-3">Prescription</th><th className="px-4 py-3">Medicines</th><th className="px-4 py-3">Customer</th><th className="px-4 py-3">Branch</th><th className="px-4 py-3">Recorded by</th><th className="px-5 py-3">Date</th></tr></thead><tbody className="divide-y">{rows.map((row) => <tr key={row.id} className="align-top hover:bg-muted/20"><td className="px-5 py-3"><Link href={`/dashboard/sales/${row.saleId}`} className="font-mono text-xs font-semibold hover:underline">{row.receiptNo}</Link>{row.approvedBy && <p className="mt-1 text-[10px] font-bold text-emerald-700">Restricted approval recorded</p>}</td><td className="px-4 py-3"><p className="font-medium">{row.prescriptionReference || 'Restricted-item record'}</p><p className="mt-1 text-xs text-muted-foreground">{row.prescriberReference || 'No prescriber reference'}</p></td><td className="px-4 py-3"><div className="space-y-1">{(medicinesBySale.get(row.saleId) ?? []).map((item, index) => <p key={`${item.productName}-${index}`} className="text-xs"><span className="font-semibold">{item.productName}</span> × {item.quantity}<span className="text-muted-foreground"> {[item.strength, item.dosageForm].filter(Boolean).join(' · ')}</span>{item.restrictedItem && <span className="ml-1 font-bold text-amber-700">Restricted</span>}</p>)}</div></td><td className="px-4 py-3">{row.customerName || 'Walk-in'}</td><td className="px-4 py-3">{row.branchName}</td><td className="px-4 py-3">{row.recordedBy}</td><td className="px-5 py-3 whitespace-nowrap">{formatDateTime(row.createdAt)}</td></tr>)}{rows.length === 0 && <tr><td colSpan={7} className="px-5 py-14 text-center text-sm text-muted-foreground">{query ? 'No prescription records match this search.' : 'No prescription or restricted-medicine sales have been recorded yet.'}</td></tr>}</tbody></table></div>
+      <div className="overflow-x-auto"><table className="w-full min-w-[1150px] text-left text-sm"><thead className="border-b bg-muted/30 text-xs text-muted-foreground"><tr><th className="px-5 py-3">Receipt</th><th className="px-4 py-3">Prescription</th><th className="px-4 py-3">Medicines</th><th className="px-4 py-3">Patient/customer</th><th className="px-4 py-3">Branch</th><th className="px-4 py-3">Recorded by</th><th className="px-5 py-3">Date</th></tr></thead><tbody className="divide-y">{rows.map((row) => <tr key={row.id} className="align-top hover:bg-muted/20"><td className="px-5 py-3"><Link href={`/dashboard/sales/${row.saleId}`} className="font-mono text-xs font-semibold hover:underline">{row.receiptNo}</Link><p className="mt-1 text-[10px] font-bold uppercase">{row.status}</p>{row.approvedBy && <p className="mt-1 text-[10px] font-bold text-emerald-700">Restricted approval recorded</p>}</td><td className="px-4 py-3"><p className="font-medium">{row.prescriptionReference || 'Restricted-item record'}</p><p className="mt-1 text-xs text-muted-foreground">{row.prescriberReference || 'No prescriber reference'}</p>{row.expiresAt && <p className="mt-1 text-[10px] text-muted-foreground">Expires {row.expiresAt.toLocaleDateString('en-KE')}</p>}</td><td className="px-4 py-3"><div className="space-y-1">{(medicinesBySale.get(row.saleId) ?? []).map((item, index) => <p key={`${item.productName}-${index}`} className="text-xs"><span className="font-semibold">{item.productName}</span> × {item.quantity}<span className="text-muted-foreground"> {[item.strength, item.dosageForm].filter(Boolean).join(' · ')}</span>{item.restrictedItem && <span className="ml-1 font-bold text-amber-700">Restricted</span>}</p>)}</div></td><td className="px-4 py-3"><p>{row.customerName || 'Walk-in'}</p>{row.patientReference && <p className="text-xs text-muted-foreground">Ref: {row.patientReference}</p>}</td><td className="px-4 py-3">{row.branchName}</td><td className="px-4 py-3">{row.recordedBy || 'Former staff'}</td><td className="px-5 py-3 whitespace-nowrap">{formatDateTime(row.createdAt)}</td></tr>)}{rows.length === 0 && <tr><td colSpan={7} className="px-5 py-14 text-center text-sm text-muted-foreground">{query ? 'No prescription records match this search.' : 'No prescription or restricted-medicine sales have been recorded yet.'}</td></tr>}</tbody></table></div>
+      {(page > 1 || hasNext) && <nav className="flex items-center justify-between border-t p-4 text-xs"><span>Page {page}</span><div className="flex gap-2">{page > 1 && <Link className="rounded-md border px-3 py-2 font-semibold" href={`?q=${encodeURIComponent(query)}&page=${page - 1}`}>Previous</Link>}{hasNext && <Link className="rounded-md border px-3 py-2 font-semibold" href={`?q=${encodeURIComponent(query)}&page=${page + 1}`}>Next</Link>}</div></nav>}
     </section>
   </div>
 }

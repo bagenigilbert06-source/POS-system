@@ -50,6 +50,34 @@
       "when": 1786771000000,
       "tag": "0016_pos_reconciliation_draft",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1787600000000,
+      "tag": "0027_pharmacy_operations",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1787601000000,
+      "tag": "0028_pharmacy_batch_transfers",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1787602000000,
+      "tag": "0029_pharmacy_supplier_returns",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1787603000000,
+      "tag": "0030_pharmacy_batch_barcodes",
+      "breakpoints": true
     }
   ]
 }

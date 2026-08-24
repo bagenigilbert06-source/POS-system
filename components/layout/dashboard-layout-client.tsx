@@ -16,6 +16,7 @@ interface DashboardLayoutClientProps {
   userImage?: string | null;
   organizationId: string;
   organizationName: string;
+  availableOrganizations: Array<{ id: string; name: string; businessType: string }>;
   branchName?: string | null;
   /**
    * Server-resolved WorkspaceConfig passed from the layout Server Component.
@@ -34,6 +35,7 @@ export function DashboardLayoutClient({
   userImage,
   organizationId,
   organizationName,
+  availableOrganizations,
   branchName,
   initialWorkspaceConfig,
   role,
@@ -72,6 +74,8 @@ export function DashboardLayoutClient({
             userEmail={userEmail}
             userImage={userImage}
             organizationName={organizationName}
+            organizationId={organizationId}
+            availableOrganizations={availableOrganizations}
             branchName={branchName}
             workspaceDescription={
               experience?.overviewDescription ?? 'Operating workspace'

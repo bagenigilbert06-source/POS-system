@@ -922,6 +922,7 @@ export const inventoryLot = pgTable(
       .notNull()
       .references(() => branch.id, { onDelete: 'restrict' }),
     lotNumber: text('lotNumber').notNull(),
+    barcode: text('barcode'),
     quantity: numeric('quantity', { precision: 16, scale: 3 })
       .notNull()
       .default('0'),
@@ -986,14 +987,74 @@ export const pharmacySaleRecord = pgTable(
     saleId: text('saleId').notNull().references(() => sale.id, { onDelete: 'restrict' }),
     prescriptionReference: text('prescriptionReference'),
     prescriberReference: text('prescriberReference'),
+    patientReference: text('patientReference'),
+    prescriptionDocumentUrl: text('prescriptionDocumentUrl'),
+    status: text('status').notNull().default('dispensed'),
+    issuedAt: timestamp('issuedAt'),
+    expiresAt: timestamp('expiresAt'),
+    verifiedBy: text('verifiedBy').references(() => user.id, { onDelete: 'restrict' }),
+    verifiedAt: timestamp('verifiedAt'),
+    approvalReason: text('approvalReason'),
     notes: text('notes'),
     approvedBy: text('approvedBy').references(() => user.id, { onDelete: 'restrict' }),
     createdBy: text('createdBy').notNull().references(() => user.id, { onDelete: 'restrict' }),
     createdAt: timestamp('createdAt').notNull().defaultNow(),
+    updatedAt: timestamp('updatedAt').notNull().defaultNow(),
   },
   (table) => ({
     organizationSaleUnique: uniqueIndex('pharmacy_sale_record_org_sale_unique').on(table.organizationId, table.saleId),
     organizationReferenceIndex: index('pharmacy_sale_record_org_reference_idx').on(table.organizationId, table.prescriptionReference),
+  })
+);
+
+/** Per-medicine prescription quantities. Sale items remain the immutable
+ * commercial record; these rows hold the dispensing lifecycle. */
+export const pharmacyPrescriptionItem = pgTable(
+  'pharmacy_prescription_item',
+  {
+    id: text('id').primaryKey(),
+    organizationId: text('organizationId').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+    prescriptionRecordId: text('prescriptionRecordId').notNull().references(() => pharmacySaleRecord.id, { onDelete: 'cascade' }),
+    saleItemId: text('saleItemId').references(() => saleItem.id, { onDelete: 'restrict' }),
+    productId: text('productId').notNull().references(() => product.id, { onDelete: 'restrict' }),
+    prescribedQuantity: numeric('prescribedQuantity', { precision: 16, scale: 3 }).notNull(),
+    dispensedQuantity: numeric('dispensedQuantity', { precision: 16, scale: 3 }).notNull(),
+    repeatsAuthorized: integer('repeatsAuthorized').notNull().default(0),
+    repeatsRemaining: integer('repeatsRemaining').notNull().default(0),
+    directions: text('directions'),
+    createdAt: timestamp('createdAt').notNull().defaultNow(),
+    updatedAt: timestamp('updatedAt').notNull().defaultNow(),
+  },
+  (table) => ({
+    recordProductIndex: index('pharmacy_prescription_item_record_product_idx').on(table.prescriptionRecordId, table.productId),
+    organizationIndex: index('pharmacy_prescription_item_org_idx').on(table.organizationId),
+  })
+);
+
+/** A recall targets one concrete stock lot, which makes enforcement and sale
+ * traceability deterministic across branches. */
+export const pharmacyMedicineRecall = pgTable(
+  'pharmacy_medicine_recall',
+  {
+    id: text('id').primaryKey(),
+    organizationId: text('organizationId').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+    branchId: text('branchId').notNull().references(() => branch.id, { onDelete: 'restrict' }),
+    productId: text('productId').notNull().references(() => product.id, { onDelete: 'restrict' }),
+    lotId: text('lotId').notNull().references(() => inventoryLot.id, { onDelete: 'restrict' }),
+    reference: text('reference').notNull(),
+    reason: text('reason').notNull(),
+    status: text('status').notNull().default('active'),
+    initiatedBy: text('initiatedBy').notNull().references(() => user.id, { onDelete: 'restrict' }),
+    resolvedBy: text('resolvedBy').references(() => user.id, { onDelete: 'restrict' }),
+    initiatedAt: timestamp('initiatedAt').notNull().defaultNow(),
+    resolvedAt: timestamp('resolvedAt'),
+    resolutionNotes: text('resolutionNotes'),
+    createdAt: timestamp('createdAt').notNull().defaultNow(),
+    updatedAt: timestamp('updatedAt').notNull().defaultNow(),
+  },
+  (table) => ({
+    lotIndex: index('pharmacy_medicine_recall_lot_idx').on(table.organizationId, table.lotId),
+    organizationStatusIndex: index('pharmacy_medicine_recall_org_status_idx').on(table.organizationId, table.status, table.createdAt),
   })
 );
 
@@ -1188,6 +1249,11 @@ export const pharmacyReturnDisposition = pgTable(
     lotNumber: text('lotNumber'),
     quantity: numeric('quantity', { precision: 16, scale: 3 }).notNull(),
     status: text('status').notNull().default('quarantined'),
+    supplierReturnReference: text('supplierReturnReference'),
+    supplierReturnStatus: text('supplierReturnStatus'),
+    supplierCreditNote: text('supplierCreditNote'),
+    supplierResolvedBy: text('supplierResolvedBy').references(() => user.id, { onDelete: 'restrict' }),
+    supplierResolvedAt: timestamp('supplierResolvedAt'),
     notes: text('notes'),
     createdBy: text('createdBy').notNull().references(() => user.id, { onDelete: 'restrict' }),
     createdAt: timestamp('createdAt').notNull().defaultNow(),
@@ -2209,6 +2275,35 @@ export const inventoryTransferItem = pgTable('inventory_transfer_item', {
     .default('0'),
   orgId: text('orgId').notNull(),
 });
+
+export const inventoryTransferLotAllocation = pgTable(
+  'inventory_transfer_lot_allocation',
+  {
+    id: text('id').primaryKey(),
+    organizationId: text('organizationId').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+    transferId: text('transferId').notNull().references(() => inventoryTransfer.id, { onDelete: 'cascade' }),
+    transferItemId: text('transferItemId').notNull().references(() => inventoryTransferItem.id, { onDelete: 'cascade' }),
+    productId: text('productId').notNull().references(() => product.id, { onDelete: 'restrict' }),
+    sourceLotId: text('sourceLotId').notNull().references(() => inventoryLot.id, { onDelete: 'restrict' }),
+    lotNumber: text('lotNumber').notNull(),
+    barcode: text('barcode'),
+    manufacturedAt: timestamp('manufacturedAt'),
+    bestBeforeAt: timestamp('bestBeforeAt'),
+    expiresAt: timestamp('expiresAt'),
+    alertAt: timestamp('alertAt'),
+    supplierId: text('supplierId').references(() => supplier.id, { onDelete: 'set null' }),
+    unitCost: numeric('unitCost', { precision: 12, scale: 4 }).notNull().default('0'),
+    dispatchedQuantity: numeric('dispatchedQuantity', { precision: 16, scale: 3 }).notNull(),
+    receivedQuantity: numeric('receivedQuantity', { precision: 16, scale: 3 }).notNull().default('0'),
+    rejectedQuantity: numeric('rejectedQuantity', { precision: 16, scale: 3 }).notNull().default('0'),
+    createdAt: timestamp('createdAt').notNull().defaultNow(),
+    updatedAt: timestamp('updatedAt').notNull().defaultNow(),
+  },
+  (table) => ({
+    transferItemIndex: index('inventory_transfer_lot_item_idx').on(table.transferItemId),
+    organizationTransferIndex: index('inventory_transfer_lot_org_transfer_idx').on(table.organizationId, table.transferId),
+  })
+);
 
 export const task = pgTable(
   'task',

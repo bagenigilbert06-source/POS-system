@@ -29,6 +29,7 @@ import { toast } from 'sonner';
 import { WirelessScannerPairing } from '@/components/barcode/wireless-scanner-pairing';
 import { useWorkspace } from '@/lib/context/workspace-context';
 import { isPharmacyBusiness } from '@/lib/pharmacy/rules';
+import { getProductTerminology } from '@/lib/products/terminology';
 
 interface ProductFormProps {
   product?: Product;
@@ -68,6 +69,10 @@ export function ProductForm({
 }: ProductFormProps) {
   const { config } = useWorkspace();
   const isPharmacy = Boolean(config && isPharmacyBusiness(config.businessType, config.businessCategory));
+  const terminology = getProductTerminology(
+    config?.businessType,
+    config?.businessCategory
+  );
   const router = useRouter();
   const closeEditor = () => {
     if (onClose) onClose();
@@ -249,12 +254,12 @@ export function ProductForm({
     }
   };
 
-  const steps = ['Product', 'Identification', 'Pricing', 'Stock', 'Review'];
+  const steps = [terminology.singular, 'Identification', 'Pricing', 'Stock', 'Review'];
   const continueStep = () => {
     if (step === 1 && (!form.name.trim() || (!product && !form.categoryId))) {
       setErrors((current) => ({
         ...current,
-        name: form.name.trim() ? undefined : 'Enter a product name.',
+        name: form.name.trim() ? undefined : `Enter a ${terminology.singularLower} name.`,
         categoryId:
           !product && !form.categoryId ? 'Choose a category.' : undefined,
       }));
@@ -302,7 +307,7 @@ export function ProductForm({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const nextErrors = {
-      name: form.name.trim() ? undefined : 'Enter a product name.',
+      name: form.name.trim() ? undefined : `Enter a ${terminology.singularLower} name.`,
       categoryId:
         !product && !form.categoryId ? 'Choose a category.' : undefined,
       buyingPrice:
@@ -401,15 +406,15 @@ export function ProductForm({
           product.id,
           data as Parameters<typeof updateProduct>[1]
         );
-        toast.success('Product changes saved.');
+        toast.success(`${terminology.singular} changes saved.`);
       } else {
         await createProduct(data as Parameters<typeof createProduct>[0]);
-        toast.success('Product created');
+        toast.success(`${terminology.singular} created`);
       }
       closeEditor();
     } catch (err) {
       toast.error(
-        err instanceof Error ? err.message : 'Failed to save product'
+        err instanceof Error ? err.message : `Failed to save ${terminology.singularLower}`
       );
     } finally {
       setLoading(false);
@@ -450,10 +455,10 @@ export function ProductForm({
             </div>
             <div>
               <h2 className="text-base font-semibold">
-                {product ? 'Product setup' : 'New product'}
+                {product ? `${terminology.singular} setup` : `New ${terminology.singularLower}`}
               </h2>
               <p className="mt-0.5 text-sm text-muted-foreground">
-                Manage the product information, pricing and stock levels.
+                Manage the {terminology.singularLower} information, pricing and stock levels.
               </p>
             </div>
           </div>
@@ -475,7 +480,7 @@ export function ProductForm({
           <div className="border-b bg-card px-5 py-3 sm:px-6">
             <ol
               className="grid grid-cols-5 gap-2"
-              aria-label="Product setup progress"
+              aria-label={`${terminology.singular} setup progress`}
             >
               {steps.map((label, index) => (
                 <li
@@ -508,7 +513,7 @@ export function ProductForm({
                   <Tag className="h-4 w-4 text-primary" />
                   <div>
                     <h3 className="text-sm font-semibold">
-                      Product information
+                      {terminology.singular} information
                     </h3>
                     <p className="text-xs text-muted-foreground">
                       Tell your team what this item is and how it is sold.
@@ -517,7 +522,7 @@ export function ProductForm({
                 </div>
                 <div className="rounded-lg border bg-muted/20 p-4 sm:p-5">
                   <div>
-                    <FieldLabel required>Product name</FieldLabel>
+                    <FieldLabel required>{terminology.singular} name</FieldLabel>
                     <input
                       type="text"
                       placeholder="e.g. Johnnie Walker Black Label 750ml"
@@ -652,7 +657,7 @@ export function ProductForm({
                       </select>
                     </div>}
                     <div>
-                      <FieldLabel>How this product is sold</FieldLabel>
+                      <FieldLabel>How this {terminology.singularLower} is sold</FieldLabel>
                       <select
                         value={form.unit}
                         onChange={(e) => set('unit', e.target.value)}
@@ -671,10 +676,10 @@ export function ProductForm({
                   </div>
                   <div className="mt-4 grid gap-4 sm:grid-cols-3">
                     <div>
-                      <FieldLabel>Product code (SKU)</FieldLabel>
+                      <FieldLabel>{terminology.singular} code (SKU)</FieldLabel>
                       <p className="mb-1 text-xs text-muted-foreground">
                         A unique code used by your shop to identify this
-                        product. Leave it blank and the system will create one.
+                        {terminology.singularLower}. Leave it blank and the system will create one.
                       </p>
                       <input
                         id="product-sku"
@@ -741,14 +746,14 @@ export function ProductForm({
                           }
                           className="mt-1 text-xs font-medium text-primary hover:underline"
                         >
-                          View existing product
+                          View existing {terminology.singularLower}
                         </button>
                       )}
                     </div>
                   </div>
                   {!isPharmacy && <details className="mt-4 rounded-md border bg-background px-3 py-2">
                     <summary className="cursor-pointer text-sm font-medium">
-                      More product details
+                      More {terminology.singularLower} details
                     </summary>
                     <div className="mt-3 grid gap-4 sm:grid-cols-3">
                       <div>
@@ -793,20 +798,20 @@ export function ProductForm({
                     <FieldLabel>Description</FieldLabel>
                     <textarea
                       rows={2}
-                      placeholder="Optional product description"
+                      placeholder={`Optional ${terminology.singularLower} description`}
                       value={form.description}
                       onChange={(e) => set('description', e.target.value)}
                       className={cn(inputCls, 'resize-y')}
                     />
                   </div>
                   <div className="mt-4">
-                    <FieldLabel>Product image</FieldLabel>
+                    <FieldLabel>{terminology.singular} image</FieldLabel>
                     <div className="flex gap-3">
                       <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-lg border bg-muted/40 text-muted-foreground">
                         {form.imageUrl ? (
                           <Image
                             src={form.imageUrl}
-                            alt="Product preview"
+                            alt={`${terminology.singular} preview`}
                             width={80}
                             height={80}
                             unoptimized
@@ -1018,13 +1023,13 @@ export function ProductForm({
                   </h3>
                 </div>
                 <p className="text-sm text-muted-foreground">
-                  Your product code is generated automatically when you save if
+                  Your {terminology.singularLower} code is generated automatically when you save if
                   it is blank.
                 </p>
                 <dl className="mt-4 grid gap-4 sm:grid-cols-2">
                   <div>
                     <dt className="text-xs text-muted-foreground">
-                      Product code
+                      {terminology.singular} code
                     </dt>
                     <dd className="mt-1 font-medium">
                       {form.sku || 'Generated automatically on save'}
@@ -1144,7 +1149,7 @@ export function ProductForm({
                     <p className="mt-1 text-xs">
                       {margin >= 0
                         ? `Profit per ${form.unit}: ${formatCurrency(margin)} · Profit %: ${grossMargin.valid ? `${grossMargin.percent.toFixed(1)}%` : 'check cost price'}`
-                        : `You will lose ${formatCurrency(Math.abs(margin))} each time this product is sold.`}
+                        : `You will lose ${formatCurrency(Math.abs(margin))} each time this ${terminology.singularLower} is sold.`}
                     </p>
                   </div>
                 </div>
@@ -1164,7 +1169,7 @@ export function ProductForm({
                 </div>
                 <div className="rounded-lg border bg-muted/20 p-4 sm:p-5">
                   <p className="mb-4 text-xs text-muted-foreground">
-                    {isPharmacy ? 'Set the reorder level. Opening medicine stock is received separately with its batch and expiry.' : 'Set the opening quantity and the level at which this product should be flagged for reorder.'}
+                    {isPharmacy ? 'Set the reorder level. Opening medicine stock is received separately with its batch and expiry.' : `Set the opening quantity and the level at which this ${terminology.singularLower} should be flagged for reorder.`}
                   </p>
                   <div className="grid gap-4 sm:grid-cols-3">
                     <div>
@@ -1227,13 +1232,13 @@ export function ProductForm({
 
             {step === 5 && (
               <section className="rounded-lg border bg-muted/20 p-5">
-                <h3 className="text-base font-semibold">Review product</h3>
+                <h3 className="text-base font-semibold">Review {terminology.singularLower}</h3>
                 <p className="mt-1 text-sm text-muted-foreground">
                   Check the details before saving.
                 </p>
                 <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
                   <div>
-                    <dt className="text-muted-foreground">Product</dt>
+                    <dt className="text-muted-foreground">{terminology.singular}</dt>
                     <dd className="font-semibold">
                       {form.name || 'Not provided'}
                     </dd>
@@ -1249,7 +1254,7 @@ export function ProductForm({
                     </dd>
                   </div>
                   <div>
-                    <dt className="text-muted-foreground">Product code</dt>
+                    <dt className="text-muted-foreground">{terminology.singular} code</dt>
                     <dd>{form.sku || 'Generated on save'}</dd>
                   </div>
                   <div>
@@ -1275,7 +1280,7 @@ export function ProductForm({
                 </dl>
                 {selling < buying && (
                   <p className="mt-4 rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
-                    Warning: this product will be sold below cost.
+                    Warning: this {terminology.singularLower} will be sold below cost.
                   </p>
                 )}
               </section>
@@ -1323,7 +1328,7 @@ export function ProductForm({
                   )}
                 >
                   {loading && <Loader2 className="h-4 w-4 animate-spin" />}
-                  {product ? 'Save changes' : 'Save product'}
+                  {product ? 'Save changes' : `Save ${terminology.singularLower}`}
                 </button>
               )}
             </div>

@@ -5,6 +5,7 @@ import { db } from '@/lib/db'
 import { branchMembership, employee, organization, organizationMembership } from '@/lib/db/schema'
 import { PermissionEnum, ROLE_PERMISSIONS, RoleEnum } from '@/lib/types/permissions'
 import { defaultWorkspaceRouteForRole } from './role-routing'
+import { getActiveOrganizationId } from './active-organization'
 
 export class AuthorizationError extends Error {
   constructor(message = 'Forbidden') { super(message); this.name = 'AuthorizationError' }
@@ -30,8 +31,9 @@ export const getAuthorizationContext = cache(async (): Promise<AuthorizationCont
   const session = await getCurrentSession()
   if (!session?.user) throw new AuthorizationError('Unauthorized')
   const memberships = await db.select({ organizationId: organizationMembership.organizationId, role: organizationMembership.role })
-    .from(organizationMembership).where(eq(organizationMembership.userId, session.user.id)).limit(2)
-  const membership = memberships[0]
+    .from(organizationMembership).where(eq(organizationMembership.userId, session.user.id))
+  const activeOrganizationId = await getActiveOrganizationId()
+  const membership = memberships.find((item) => item.organizationId === activeOrganizationId) ?? memberships[0]
   if (!membership) {
     // Older staff records can exist without the corresponding membership row.
     // Treat an active employee record as a scoped recovery path so a valid

@@ -22,5 +22,11 @@ assert.equal(has(RoleEnum.MANAGER, PermissionEnum.PHARMACY_RESTRICTED_APPROVE), 
 assert.equal(has(RoleEnum.PHARMACIST, PermissionEnum.PHARMACY_RESTRICTED_APPROVE), true)
 assert.equal(has(RoleEnum.SUPERVISOR, PermissionEnum.PHARMACY_RESTRICTED_APPROVE), false)
 assert.equal(has(RoleEnum.CASHIER, PermissionEnum.PHARMACY_RESTRICTED_APPROVE), false)
+assert.equal(has(RoleEnum.CASHIER, PermissionEnum.PRESCRIPTION_VIEW), false, 'cashiers must not browse the prescription register')
+assert.equal(has(RoleEnum.PHARMACY_STAFF, PermissionEnum.PRESCRIPTION_VIEW), false, 'pharmacy assistants must not browse all prescription records')
+assert.equal(has(RoleEnum.MANAGER, PermissionEnum.PHARMACY_BATCH_MANAGE), true)
+assert.equal(has(RoleEnum.PHARMACIST, PermissionEnum.PHARMACY_BATCH_MANAGE), true)
+assert.equal(has(RoleEnum.SUPERVISOR, PermissionEnum.PHARMACY_BATCH_MANAGE), false, 'supervisors may review but not release or dispose medicine batches')
+assert.equal(has(RoleEnum.PHARMACIST, PermissionEnum.PHARMACY_RECALL_MANAGE), true)
 
 console.log('Pharmacy staff routing and permissions test passed')

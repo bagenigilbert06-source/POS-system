@@ -17,6 +17,9 @@ const itemSchema = z.object({ productId: z.string().min(1), quantity: z.number()
 const pharmacyWorkflowSchema = z.object({
   prescriptionReference: z.string().trim().min(2).max(120).optional(),
   prescriberReference: z.string().trim().max(160).optional(),
+  patientReference: z.string().trim().max(160).optional(),
+  issuedAt: z.coerce.date().optional(),
+  expiresAt: z.coerce.date().optional(),
   notes: z.string().trim().max(500).optional(),
 }).optional()
 const initiateSchema = z.object({
@@ -57,6 +60,7 @@ async function validatePharmacyPayment(authorization: Awaited<ReturnType<typeof 
     throw new Error('Enter the prescription reference before requesting payment')
   if ((policy?.restrictedItemWorkflowEnabled ?? true) && items.some((item) => item.restrictedItem) && !authorization.permissions.includes(PermissionEnum.PHARMACY_RESTRICTED_APPROVE))
     throw new Error('A pharmacist or authorized manager must approve this restricted-item sale')
+  if (items.some((item) => item.restrictedItem) && !workflow?.notes?.trim()) throw new Error('Enter the restricted-medicine approval reason')
 }
 
 export async function initiateMpesaPayment(input: z.input<typeof initiateSchema>) {

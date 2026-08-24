@@ -7,6 +7,8 @@ import { useRouter } from 'next/navigation'
 import { Archive, ArrowRight, Boxes, Check, CheckCircle2, ExternalLink, FolderCheck, Grid2X2, Layers3, List, Pencil, Plus, RotateCcw, Search, TriangleAlert } from 'lucide-react'
 import { toast } from 'sonner'
 import { createCategory, setCategoryActive, updateCategory } from '@/app/actions/categories'
+import { useWorkspace } from '@/lib/context/workspace-context'
+import { countProductTerm, getProductTerminology } from '@/lib/products/terminology'
 
 type Category = {
   id: string
@@ -42,6 +44,8 @@ function CategoryImage({ src, name, compact = false, priority = false }: { src: 
 }
 
 export function CategoriesClient({ initialCategories }: { initialCategories: Category[] }) {
+  const { config } = useWorkspace()
+  const terminology = getProductTerminology(config?.businessType, config?.businessCategory)
   const router = useRouter()
   const [categories] = useState(initialCategories)
   const [search, setSearch] = useState('')
@@ -111,12 +115,12 @@ export function CategoriesClient({ initialCategories }: { initialCategories: Cat
               <div className={`relative h-36 overflow-hidden bg-[#f5efe3] dark:bg-[#101010] ${item.productCount === 0 ? 'grayscale-[35%]' : ''}`}><CategoryImage src={item.imageUrl} name={item.name} priority={index < 5} /><span className={`absolute left-2.5 top-2.5 rounded-full border bg-white/95 px-2 py-1 text-[10px] font-semibold shadow-sm dark:bg-[#171717]/95 ${item.isActive ? 'border-emerald-100 text-emerald-700 dark:border-emerald-900 dark:text-emerald-400' : 'border-slate-200 text-slate-500 dark:border-slate-700 dark:text-slate-400'}`}>{item.isActive ? 'Active' : 'Archived'}</span></div>
               <div className="p-4 pb-2"><div className="flex items-center justify-between gap-3"><h2 className="truncate text-[15px] font-semibold text-[#111827] dark:text-slate-100">{item.name}</h2><ArrowRight className="h-4 w-4 shrink-0 text-[#b87918] dark:text-[#f0bd2f]" /></div><div className={`mt-2 flex min-h-8 items-start gap-1.5 text-xs leading-4 ${parent.missing ? 'font-medium text-red-600 dark:text-red-400' : 'text-[#61708b] dark:text-slate-400'}`}>{parent.missing && <TriangleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" />}<span className="line-clamp-2">{item.description?.trim() || parent.label}</span></div></div>
             </Link>}
-            <div className="mx-4 mt-auto flex items-center justify-between py-2.5">{incomplete ? <button type="button" onClick={() => setEditing(item)} className="text-[11px] font-semibold text-amber-700 hover:text-primary dark:text-amber-400">Finish setup →</button> : <span className={`text-[11px] font-semibold ${item.productCount === 0 ? 'text-slate-400' : 'text-[#9a620f] dark:text-[#f0bd2f]'}`}>{item.productCount > 0 ? `${item.productCount} ${item.productCount === 1 ? 'product' : 'products'}` : 'No products yet'}</span>}{!incomplete && <div className="flex items-center gap-1"><button onClick={() => setEditing(item)} className="rounded-full p-1.5 text-muted-foreground hover:bg-[#f7f1e7] hover:text-[#9a620f] dark:hover:bg-white/10 dark:hover:text-[#f0bd2f]" aria-label={`Edit ${item.name}`} title="Edit category"><Pencil className="h-3.5 w-3.5" /></button>{item.slug !== 'uncategorised' && <button onClick={async () => { try { await setCategoryActive(item.id, !item.isActive); router.refresh() } catch (error) { toast.error(error instanceof Error ? error.message : 'Could not update category') } }} className="rounded-full p-1.5 text-muted-foreground hover:bg-[#f7f1e7] hover:text-[#9a620f] dark:hover:bg-white/10 dark:hover:text-[#f0bd2f]" aria-label={item.isActive ? `Archive ${item.name}` : `Restore ${item.name}`} title={item.isActive ? 'Archive category' : 'Restore category'}>{item.isActive ? <Archive className="h-3.5 w-3.5" /> : <RotateCcw className="h-3.5 w-3.5" />}</button>}</div>}</div>
+            <div className="mx-4 mt-auto flex items-center justify-between py-2.5">{incomplete ? <button type="button" onClick={() => setEditing(item)} className="text-[11px] font-semibold text-amber-700 hover:text-primary dark:text-amber-400">Finish setup →</button> : <span className={`text-[11px] font-semibold ${item.productCount === 0 ? 'text-slate-400' : 'text-[#9a620f] dark:text-[#f0bd2f]'}`}>{item.productCount > 0 ? `${item.productCount} ${countProductTerm(terminology, item.productCount)}` : `No ${terminology.pluralLower} yet`}</span>}{!incomplete && <div className="flex items-center gap-1"><button onClick={() => setEditing(item)} className="rounded-full p-1.5 text-muted-foreground hover:bg-[#f7f1e7] hover:text-[#9a620f] dark:hover:bg-white/10 dark:hover:text-[#f0bd2f]" aria-label={`Edit ${item.name}`} title="Edit category"><Pencil className="h-3.5 w-3.5" /></button>{item.slug !== 'uncategorised' && <button onClick={async () => { try { await setCategoryActive(item.id, !item.isActive); router.refresh() } catch (error) { toast.error(error instanceof Error ? error.message : 'Could not update category') } }} className="rounded-full p-1.5 text-muted-foreground hover:bg-[#f7f1e7] hover:text-[#9a620f] dark:hover:bg-white/10 dark:hover:text-[#f0bd2f]" aria-label={item.isActive ? `Archive ${item.name}` : `Restore ${item.name}`} title={item.isActive ? 'Archive category' : 'Restore category'}>{item.isActive ? <Archive className="h-3.5 w-3.5" /> : <RotateCcw className="h-3.5 w-3.5" />}</button>}</div>}</div>
           </article>
         })}
       </div> : <div className="overflow-hidden rounded-xl border bg-white dark:border-slate-800 dark:bg-[#141414]">
         <table className="w-full text-sm">
-          <thead className="border-b bg-muted/40 text-left text-muted-foreground"><tr><th className="px-4 py-3">Category</th><th className="px-4 py-3">Parent</th><th className="px-4 py-3">Products</th><th className="px-4 py-3">Status</th><th className="px-4 py-3 text-right">Actions</th></tr></thead>
+          <thead className="border-b bg-muted/40 text-left text-muted-foreground"><tr><th className="px-4 py-3">Category</th><th className="px-4 py-3">Parent</th><th className="px-4 py-3">{terminology.plural}</th><th className="px-4 py-3">Status</th><th className="px-4 py-3 text-right">Actions</th></tr></thead>
           <tbody>
             {filtered.map((item) => {
               const href = `/dashboard/products/categories/${item.id}`

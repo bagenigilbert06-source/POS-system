@@ -2,7 +2,7 @@ import { and, eq, inArray, isNull } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import {
   auditEvent, businessSettings, customer, mpesaIncomingPayment, mpesaPaymentRequest,
-  pharmacyProduct, pharmacySaleRecord, posSession, product, productPackage, restrictedItemAudit,
+  pharmacyPrescriptionItem, pharmacyProduct, pharmacySaleRecord, posSession, product, productPackage, restrictedItemAudit,
   sale, saleItem, saleItemLotAllocation, salePayment,
 } from '@/lib/db/schema'
 import { calculateMpesaAmount } from '@/lib/mpesa/amount'
@@ -14,7 +14,7 @@ export type MpesaCheckoutPayload = {
   items: Array<{ productId: string; quantity: number; packageId?: string }>
   discountAmount: number
   ageVerified: boolean
-  pharmacy?: { prescriptionReference?: string; prescriberReference?: string; notes?: string }
+  pharmacy?: { prescriptionReference?: string; prescriberReference?: string; patientReference?: string; issuedAt?: string | Date; expiresAt?: string | Date; notes?: string }
 }
 
 /**
@@ -117,13 +117,21 @@ export async function finalizeConfirmedMpesaPayment(requestId: string) {
     const prescriptionItems = medicineRows.filter((item) => item.prescriptionRequired)
     const restrictedItems = medicineRows.filter((item) => item.restrictedItem)
     if (prescriptionItems.length || restrictedItems.length) {
+      const prescriptionRecordId = generateId()
       await tx.insert(pharmacySaleRecord).values({
-        id: generateId(), organizationId: intent.organizationId, branchId: intent.branchId, saleId,
+        id: prescriptionRecordId, organizationId: intent.organizationId, branchId: intent.branchId, saleId,
         prescriptionReference: checkout.pharmacy?.prescriptionReference || null,
         prescriberReference: checkout.pharmacy?.prescriberReference || null,
+        patientReference: checkout.pharmacy?.patientReference || null,
+        issuedAt: checkout.pharmacy?.issuedAt ? new Date(checkout.pharmacy.issuedAt) : null,
+        expiresAt: checkout.pharmacy?.expiresAt ? new Date(checkout.pharmacy.expiresAt) : null,
         notes: checkout.pharmacy?.notes || null,
+        status: 'dispensed', verifiedBy: intent.userId, verifiedAt: new Date(), approvalReason: checkout.pharmacy?.notes || null,
         approvedBy: restrictedItems.length ? intent.userId : null, createdBy: intent.userId,
       })
+      const prescriptionIds = new Set(prescriptionItems.map((item) => item.productId))
+      const prescriptionLines = lines.filter((line) => prescriptionIds.has(line.productId)).map((line) => ({ id: generateId(), organizationId: intent.organizationId, prescriptionRecordId, saleItemId: line.saleItemId, productId: line.productId, prescribedQuantity: String(line.quantity * line.baseUnitQuantity), dispensedQuantity: String(line.quantity * line.baseUnitQuantity) }))
+      if (prescriptionLines.length) await tx.insert(pharmacyPrescriptionItem).values(prescriptionLines)
       const restrictedIds = new Set(restrictedItems.map((item) => item.productId))
       const auditRows = lines.filter((line) => restrictedIds.has(line.productId)).flatMap((line) => {
         const allocations = lotsBySaleItem.get(line.saleItemId) ?? []

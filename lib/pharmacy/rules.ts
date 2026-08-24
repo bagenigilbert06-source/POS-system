@@ -46,10 +46,10 @@ export type FefoLot = {
 export function planFefoAllocation(lots: FefoLot[], requestedQuantity: number, now = new Date()) {
   if (!Number.isFinite(requestedQuantity) || requestedQuantity <= 0) throw new Error('Requested quantity must be greater than zero')
   const eligible = lots
-    .filter((lot) => lot.status === 'available' && lot.quantity > 0 && (!lot.expiresAt || lot.expiresAt > now))
+    .filter((lot) => lot.status === 'available' && lot.quantity > 0 && Boolean(lot.expiresAt && lot.expiresAt > now))
     .sort((left, right) => {
-      const leftExpiry = left.expiresAt?.getTime() ?? Number.MAX_SAFE_INTEGER
-      const rightExpiry = right.expiresAt?.getTime() ?? Number.MAX_SAFE_INTEGER
+      const leftExpiry = left.expiresAt!.getTime()
+      const rightExpiry = right.expiresAt!.getTime()
       return leftExpiry - rightExpiry || left.id.localeCompare(right.id)
     })
   let remaining = requestedQuantity

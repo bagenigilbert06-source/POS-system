@@ -245,7 +245,7 @@ export const PHARMACY_CONFIG: BusinessTypeConfig = {
   ],
   modules: ['prescriptions', 'inventory', 'batch-tracking', 'sales', 'products', 'customers', 'reports', 'analytics'],
   requiredModules: ['prescriptions', 'inventory', 'batch-tracking'],
-  features: ['expiry-tracking', 'batch-numbers', 'prescription-management', 'drug-interactions', 'low-stock-alerts'],
+    features: ['expiry-tracking', 'batch-numbers', 'prescription-management', 'low-stock-alerts'],
   defaultCurrency: 'KES',
 };
 
