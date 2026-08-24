@@ -21,6 +21,8 @@ import {
   submitStockCountSession,
 } from '@/app/actions/stock-adjustments';
 import { ProductImage } from '@/components/products/product-image';
+import { useWorkspace } from '@/lib/context/workspace-context';
+import { getProductTerminology } from '@/lib/products/terminology';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { formatCurrency } from '@/lib/utils';
@@ -72,6 +74,8 @@ export function StockCountSessionManager({
   currency: string;
   search: string;
 }) {
+  const { config } = useWorkspace();
+  const terminology = getProductTerminology(config?.businessType, config?.businessCategory);
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const percent = progress.total
@@ -110,7 +114,7 @@ export function StockCountSessionManager({
             <div className="flex items-center justify-between gap-3 text-sm">
               <span className="font-semibold">Counting progress</span>
               <span className="font-bold tabular-nums">
-                {progress.counted} / {progress.total} products · {percent}%
+                {progress.counted} / {progress.total} {terminology.pluralLower} · {percent}%
               </span>
             </div>
             <div className="mt-2 h-2.5 overflow-hidden rounded-full bg-muted">
@@ -223,7 +227,7 @@ export function StockCountSessionManager({
           <Input
             name="search"
             defaultValue={search}
-            placeholder="Search product, SKU or barcode"
+            placeholder={`Search ${terminology.singularLower}, SKU or barcode`}
             className="sm:max-w-md"
           />
           <select
@@ -250,7 +254,7 @@ export function StockCountSessionManager({
           <table className="w-full min-w-[960px] text-sm">
             <thead className="border-b bg-muted/20 text-left text-xs text-muted-foreground">
               <tr>
-                <th className="px-5 py-3 font-semibold">Product</th>
+                <th className="px-5 py-3 font-semibold">{terminology.singular}</th>
                 <th className="px-4 py-3 text-right font-semibold">Expected</th>
                 <th className="px-4 py-3 text-right font-semibold">Physical</th>
                 <th className="px-4 py-3 text-right font-semibold">Variance</th>
@@ -376,7 +380,7 @@ export function StockCountSessionManager({
           <p className="text-xs text-muted-foreground">
             {pagination.total
               ? `Showing ${(pagination.page - 1) * pagination.pageSize + 1}–${Math.min(pagination.page * pagination.pageSize, pagination.total)} of ${pagination.total}`
-              : 'No products'}
+              : `No ${terminology.pluralLower}`}
           </p>
           <div className="flex items-center gap-2">
             <Button

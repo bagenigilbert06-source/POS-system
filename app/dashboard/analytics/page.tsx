@@ -28,6 +28,7 @@ import {
   getPaymentMix,
   getSalesForecast,
 } from '@/app/actions/analytics-actions'
+import { getProductTerminology } from '@/lib/products/terminology'
 
 export const metadata: Metadata = { title: 'Analytics' }
 
@@ -57,7 +58,8 @@ function fillDailyTrend(rows: Array<{ date: string; total: number; count: number
 
 export default async function AnalyticsPage({ searchParams }: { searchParams?: Promise<Params> }) {
   await requireDashboardPermission(PermissionEnum.REPORT_VIEW)
-  await requireWorkspaceModule('analytics')
+  const { config } = await requireWorkspaceModule('analytics')
+  const productTerms = getProductTerminology(config.businessType, config.businessCategory)
   const session = await auth.api.getSession({ headers: await headers() })
   if (!session?.user) redirect('/sign-in')
   const organization = await OrganizationService.getPrimaryOrganization(session.user.id)
@@ -187,7 +189,7 @@ export default async function AnalyticsPage({ searchParams }: { searchParams?: P
       <DashboardPageHeading
         icon={BarChart3}
         title="Analytics"
-        description="Understand revenue, customer behaviour, products and team performance."
+        description={`Understand revenue, customer behaviour, ${productTerms.pluralLower} and team performance.`}
         theme="adaptive"
         action={<div className="flex items-center gap-1 rounded-lg border border-[var(--dashboard-border)] bg-[var(--dashboard-surface)] p-1" aria-label="Analytics period"><CalendarDays className="ml-2 h-4 w-4 text-[var(--dashboard-muted)]" />{[7, 30, 90].map((period) => <Link key={period} href={`/dashboard/analytics?period=${period}`} aria-current={days === period ? 'page' : undefined} className={`rounded-md px-3 py-2 text-xs font-semibold transition-colors ${days === period ? 'bg-[var(--dashboard-accent-cta)] text-[var(--dashboard-accent-cta-ink)]' : 'text-[var(--dashboard-muted)] hover:bg-[var(--dashboard-surface-subtle)] hover:text-[var(--dashboard-text)]'}`}>{period}d</Link>)}</div>}
       />
@@ -204,7 +206,7 @@ export default async function AnalyticsPage({ searchParams }: { searchParams?: P
         <div className="grid divide-y sm:grid-cols-2 sm:divide-x sm:divide-y-0 xl:grid-cols-4">
           <Highlight label="Best sales day" value={bestDay ? formatMoney(bestDay.revenue, currency) : 'No sales yet'} detail={bestDay ? readableDate(bestDay.date) : 'Record a completed sale'} />
           <Highlight label="Peak hour" value={peakHour?.hour ?? 'No pattern yet'} detail={peakHour ? `${formatMoney(peakHour.sales, currency)} across ${peakHour.transactions} sales` : 'Sales by hour will appear here'} />
-          <Highlight label="Top product" value={topProduct?.name ?? 'No product sales'} detail={topProduct ? `${topProduct.units.toLocaleString('en-KE')} units · ${formatMoney(topProduct.revenue, currency)}` : 'Sell a tracked product to rank it'} />
+          <Highlight label={`Top ${productTerms.singularLower}`} value={topProduct?.name ?? `No ${productTerms.singularLower} sales`} detail={topProduct ? `${topProduct.units.toLocaleString('en-KE')} units · ${formatMoney(topProduct.revenue, currency)}` : `Sell a tracked ${productTerms.singularLower} to rank it`} />
           <Highlight label="Top performer" value={topStaff?.name ?? 'No staff sales'} detail={topStaff ? `${topStaff.transactions} transactions · ${formatMoney(topStaff.totalSales, currency)}` : 'Staff sales will appear here'} />
         </div>
       </section>
@@ -228,7 +230,7 @@ export default async function AnalyticsPage({ searchParams }: { searchParams?: P
 
       {/* Product Performance */}
       <section className="grid gap-4">
-        <ProductPerformance products={analytics.productData} currency={currency} />
+        <ProductPerformance products={analytics.productData} currency={currency} terminology={productTerms} />
       </section>
 
       {/* Staff KPIs */}

@@ -12,11 +12,13 @@ import { TopProductsTable } from '@/components/dashboards/top-products-table'
 import { SalesByPaymentChart } from '@/components/dashboards/sales-by-payment'
 import { requireDashboardPermission } from '@/lib/auth/dashboard-access'
 import { PermissionEnum } from '@/lib/types/permissions'
+import { getCurrentProductTerminology } from '@/lib/products/current-terminology'
 
 export const metadata: Metadata = { title: 'Sales Analytics' }
 
 export default async function SalesAnalyticsPage() {
   await requireDashboardPermission(PermissionEnum.REPORT_VIEW)
+  const productTerms = await getCurrentProductTerminology()
   const session = await auth.api.getSession({ headers: await headers() })
   if (!session?.user) redirect('/sign-in')
   
@@ -45,7 +47,7 @@ export default async function SalesAnalyticsPage() {
       <DashboardPageHeading
         icon={BarChart3}
         title="Sales Analytics"
-        description="Daily sales breakdown by time, category, products, and payment methods."
+        description={`Daily sales breakdown by time, category, ${productTerms.pluralLower}, and payment methods.`}
         action={<div className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-[#d9dce3] bg-white px-3 text-sm font-semibold text-[#344054]"><CalendarDays className="h-4 w-4" /><span>Today</span></div>}
       />
 
@@ -62,7 +64,7 @@ export default async function SalesAnalyticsPage() {
 
       {/* Top Products */}
       <section className="grid gap-4">
-        <TopProductsTable products={salesData.topProducts} currency={currency} />
+        <TopProductsTable products={salesData.topProducts} currency={currency} terminology={productTerms} />
       </section>
     </div>
   )

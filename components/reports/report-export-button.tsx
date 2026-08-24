@@ -2,6 +2,8 @@
 
 import { Download } from 'lucide-react'
 import { selectReportExportRows } from '@/lib/reports/report-rules'
+import { useWorkspace } from '@/lib/context/workspace-context'
+import { getProductTerminology } from '@/lib/products/terminology'
 
 interface ReportExportButtonProps {
   section: string
@@ -46,6 +48,8 @@ export function ReportExportButton({
   shifts = [],
   inventory,
 }: ReportExportButtonProps) {
+  const { config } = useWorkspace()
+  const terminology = getProductTerminology(config?.businessType, config?.businessCategory)
   const download = () => {
     const summary: Array<Array<string | number>> = [
       ['Financial summary'],
@@ -63,9 +67,9 @@ export function ReportExportButton({
     ]
     const monthlyRows: Array<Array<string | number>> = [['Monthly performance'], ['Month', 'Net sales', 'Refunds', 'Expenses', 'Net position', 'Transactions'], ...monthly.map((item) => [item.month, item.revenue, item.refunds, item.expenses, item.netProfit, item.count])]
     const paymentRows: Array<Array<string | number>> = [['Payment methods'], ['Method', 'Amount', 'Transactions'], ...payments.map((item) => [item.method, item.amount, item.transactions])]
-    const productRows: Array<Array<string | number>> = [['Top products'], ['Product', 'Quantity', 'Revenue', 'Profit'], ...topProducts.map((item) => [item.name, item.quantity, item.revenue, item.profit ?? 'Cost unavailable'])]
+    const productRows: Array<Array<string | number>> = [[`Top ${terminology.pluralLower}`], [terminology.singular, 'Quantity', 'Revenue', 'Profit'], ...topProducts.map((item) => [item.name, item.quantity, item.revenue, item.profit ?? 'Cost unavailable'])]
     const shiftRows: Array<Array<string | number>> = [['Shift and cash report'], ['Shift', 'Cashier', 'Register', 'Location', 'Opened at', 'Closed at', 'Opening float', 'Cash sales', 'M-Pesa sales', 'Card sales', 'Refunds', 'Cash in', 'Cash out', 'Safe drops', 'Expected cash', 'Counted cash', 'Variance', 'Status', 'Variance reason', 'Approved by'], ...shifts.map((shift) => { const method = (name: string) => shift.sales.filter((row) => row.method.toLowerCase().replace(/[^a-z0-9]/g, '') === name).reduce((sum, row) => sum + row.total, 0); const movement = (name: string) => shift.movements.filter((row) => row.type === name).reduce((sum, row) => sum + row.total, 0); return [shift.sessionNo, shift.cashierName, shift.terminalName, shift.locationName, shift.openedAt.toISOString(), shift.closedAt?.toISOString() ?? '', Number(shift.openingCash), method('cash'), method('mpesa'), method('card'), shift.refunds.reduce((sum, row) => sum + row.total, 0), movement('cash_in'), movement('cash_out'), movement('safe_drop'), Number(shift.expectedCash ?? 0), Number(shift.closingCash ?? 0), Number(shift.variance ?? 0), shift.status, shift.varianceReason ?? '', shift.approvedByName ?? ''] })]
-    const inventoryRows: Array<Array<string | number>> = inventory ? [['Inventory value'], ['Products tracked', inventory.products], ['Available units', inventory.units], ['Inventory cost', inventory.cost], ['Estimated retail value', inventory.retailValue], ['Potential gross margin', Math.max(0, inventory.retailValue - inventory.cost)], ['Low stock', inventory.lowStock], ['Out of stock', inventory.outOfStock], ['Reorder value', inventory.reorderValue]] : []
+    const inventoryRows: Array<Array<string | number>> = inventory ? [['Inventory value'], [`${terminology.plural} tracked`, inventory.products], ['Available units', inventory.units], ['Inventory cost', inventory.cost], ['Estimated retail value', inventory.retailValue], ['Potential gross margin', Math.max(0, inventory.retailValue - inventory.cost)], ['Low stock', inventory.lowStock], ['Out of stock', inventory.outOfStock], ['Reorder value', inventory.reorderValue]] : []
     const selectedRows = selectReportExportRows(section, { summary, monthly: monthlyRows, payments: paymentRows, products: productRows, inventory: inventoryRows, shifts: shiftRows })
     const rows: Array<Array<string | number>> = [
       [`Pesaby ${section} report`, period],

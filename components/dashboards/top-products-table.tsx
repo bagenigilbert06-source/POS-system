@@ -2,6 +2,7 @@
 
 import { formatCurrency, formatNumber } from '@/lib/utils/format'
 import { TrendingUp } from 'lucide-react'
+import type { ProductTerminology } from '@/lib/products/terminology'
 
 interface TopProductsTableProps {
   products: Array<{
@@ -13,24 +14,25 @@ interface TopProductsTableProps {
     unitPrice: number
   }>
   currency: string
+  terminology: ProductTerminology
 }
 
-export function TopProductsTable({ products, currency }: TopProductsTableProps) {
+export function TopProductsTable({ products, currency, terminology }: TopProductsTableProps) {
   return (
     <div className="overflow-hidden rounded-xl border border-[#dfe3ea] bg-white shadow-[0_1px_2px_rgba(16,24,40,.03)]">
       <div className="border-b border-[#edf0f4] px-5 py-4 sm:px-6">
         <div className="flex items-center gap-2">
           <TrendingUp className="h-5 w-5 text-[#e42527]" />
           <div>
-            <h2 className="text-[0.95rem] font-bold text-[#101828]">Top 10 Products</h2>
-            <p className="mt-1 text-xs text-[#7b8495]">Best performing products by revenue today</p>
+            <h2 className="text-[0.95rem] font-bold text-[#101828]">Top 10 {terminology.plural}</h2>
+            <p className="mt-1 text-xs text-[#7b8495]">Best performing {terminology.pluralLower} by revenue today</p>
           </div>
         </div>
       </div>
       
       {products.length === 0 ? (
         <div className="flex h-64 items-center justify-center text-sm text-[#8a94a5]">
-          No product sales data available for today
+          No {terminology.singularLower} sales data available for today
         </div>
       ) : (
         <div className="overflow-x-auto">
@@ -38,7 +40,7 @@ export function TopProductsTable({ products, currency }: TopProductsTableProps) 
             <thead className="border-b border-[#edf0f4] bg-[#fafbfc] text-[0.68rem] uppercase tracking-[0.08em] text-[#8a94a5]">
               <tr>
                 <th className="px-6 py-3 font-semibold">Rank</th>
-                <th className="px-4 py-3 font-semibold">Product</th>
+                <th className="px-4 py-3 font-semibold">{terminology.singular}</th>
                 <th className="px-4 py-3 font-semibold">SKU</th>
                 <th className="px-4 py-3 text-right font-semibold">Unit Price</th>
                 <th className="px-4 py-3 text-right font-semibold">Qty Sold</th>

@@ -22,10 +22,13 @@ import { ProductImage } from '@/components/products/product-image';
 import { inventoryStatus } from '@/lib/inventory/rules';
 import { requireWorkspaceModule } from '@/lib/onboarding/require-module';
 import { formatCurrency, formatDateTime } from '@/lib/utils';
+import { getProductTerminology } from '@/lib/products/terminology';
+import { getCurrentProductTerminology } from '@/lib/products/current-terminology';
 
-export const metadata: Metadata = {
-  title: 'Inventory product details | Pesaby',
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const terminology = await getCurrentProductTerminology();
+  return { title: `Inventory ${terminology.singularLower} details | Pesaby` };
+}
 export const dynamic = 'force-dynamic';
 
 export default async function InventoryProductPage({
@@ -44,7 +47,7 @@ export default async function InventoryProductPage({
 }) {
   const { productId } = await params;
   const query = (await searchParams) ?? {};
-  const [{ organization }, details] = await Promise.all([
+  const [{ organization, config }, details] = await Promise.all([
     requireWorkspaceModule('inventory'),
     getInventoryProductDetails(productId, {
       page: Number(query.movementPage || 1),
@@ -56,6 +59,7 @@ export default async function InventoryProductPage({
     }),
   ]);
   if (!details) notFound();
+  const terminology = getProductTerminology(config.businessType, config.businessCategory);
 
   const {
     product,
@@ -152,7 +156,7 @@ export default async function InventoryProductPage({
       <DashboardPageHeading
         theme="adaptive"
         icon={Boxes}
-        eyebrow="Inventory product"
+        eyebrow={`Inventory ${terminology.singularLower}`}
         title={product.name}
         description="Stock position, location balances and movement history."
         action={
@@ -161,7 +165,7 @@ export default async function InventoryProductPage({
               <Button asChild variant="outline">
                 <Link href={`/dashboard/products/${product.id}?edit=true`}>
                   <Pencil className="mr-2 h-4 w-4" />
-                  Edit product
+                  Edit {terminology.singularLower}
                 </Link>
               </Button>
             )}

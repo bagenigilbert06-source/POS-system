@@ -273,9 +273,11 @@ export function DynamicAppSidebar({
     Boolean(
       permissionForNavItem[id] && permissions.includes(permissionForNavItem[id])
     );
+  const workspaceLabel = (id: string, fallback: string) =>
+    config.sidebarConfig.primaryNav.find((item) => item.id === id)?.label ?? fallback;
   const posNav = {
     id: 'pos',
-    label: 'Point of sale',
+    label: workspaceLabel('pos', 'Point of sale'),
     icon: 'ReceiptText',
     route: '/dashboard/pos',
   };
@@ -362,7 +364,7 @@ export function DynamicAppSidebar({
       ? [
           {
             id: 'customers',
-            label: 'Customers',
+            label: workspaceLabel('customers', 'Customers'),
             icon: 'Users',
             route: '/dashboard/customers',
           },
@@ -388,7 +390,7 @@ export function DynamicAppSidebar({
       ? [
           {
             id: 'sales',
-            label: 'Sales',
+            label: workspaceLabel('sales', 'Sales'),
             icon: 'ReceiptText',
             route: '/dashboard/sales',
           },
@@ -398,7 +400,7 @@ export function DynamicAppSidebar({
       ? [
           {
             id: 'inventory',
-            label: 'Inventory',
+            label: workspaceLabel('inventory', 'Inventory'),
             icon: 'Boxes',
             route: '/dashboard/inventory',
           },

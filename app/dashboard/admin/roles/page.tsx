@@ -29,7 +29,7 @@ const roleSummary: Record<string, string> = {
   manager: 'Runs assigned branches and their day-to-day operations.',
   supervisor: 'Controls registers, shifts and floor exceptions.',
   cashier: 'Sells, handles customers and views their own receipts.',
-  inventory: 'Maintains products, stock and procurement records.',
+  inventory: 'Maintains catalogue items, stock and procurement records.',
   accountant: 'Reviews finance, expenses and organization reports.',
   pharmacist: 'Dispenses medicines, reviews prescriptions and approves restricted medicine sales.',
   pharmacy_staff: 'Supports medicine sales, customer service and stock handling under pharmacy controls.',

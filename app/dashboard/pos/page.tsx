@@ -10,8 +10,12 @@ import { redirect } from 'next/navigation';
 import { getPosPageData } from '@/lib/services/pos-page-service';
 import { getCurrentSession } from '@/lib/auth';
 import { isPharmacyBusiness } from '@/lib/pharmacy/rules';
+import { getCurrentProductTerminology } from '@/lib/products/current-terminology';
 
-export const metadata: Metadata = { title: 'POS Terminal' };
+export async function generateMetadata(): Promise<Metadata> {
+  const terminology = await getCurrentProductTerminology();
+  return { title: terminology.title === 'Medicines' ? 'Pharmacy POS' : terminology.title === 'Stock Items' ? 'Liquor Store POS' : 'POS Terminal' };
+}
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 

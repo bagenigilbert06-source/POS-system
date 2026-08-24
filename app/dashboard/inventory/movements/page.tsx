@@ -12,6 +12,7 @@ import { DashboardPageHeading } from '@/components/dashboard/page-heading';
 import { MovementExportButton } from '@/components/inventory/movement-export-button';
 import { Button } from '@/components/ui/button';
 import { formatDateTime } from '@/lib/utils';
+import { getCurrentProductTerminology } from '@/lib/products/current-terminology';
 
 export const metadata: Metadata = {
   title: 'Inventory movement ledger | Pesaby',
@@ -33,7 +34,7 @@ export default async function InventoryMovementsPage({
   }>;
 }) {
   const query = (await searchParams) ?? {};
-  const data = await getInventoryMovements({
+  const [data, terminology] = await Promise.all([getInventoryMovements({
     page: Number(query.page || 1),
     pageSize: Number(query.pageSize || 25),
     search: query.search || undefined,
@@ -42,7 +43,7 @@ export default async function InventoryMovementsPage({
     userId: query.userId || undefined,
     from: query.from || undefined,
     to: query.to || undefined,
-  });
+  }), getCurrentProductTerminology()]);
   const href = (page: number) => {
     const values = new URLSearchParams({
       page: String(page),
@@ -97,7 +98,7 @@ export default async function InventoryMovementsPage({
           <input
             name="search"
             defaultValue={query.search || ''}
-            placeholder="Product, SKU, barcode or reference"
+            placeholder={`${terminology.singular}, SKU, barcode or reference`}
             className="h-10 rounded-md border bg-background px-3 text-sm"
           />
           <select
@@ -174,7 +175,7 @@ export default async function InventoryMovementsPage({
               <thead className="border-b bg-muted/20 text-left text-xs text-muted-foreground">
                 <tr>
                   <th className="px-5 py-3 font-semibold">Date</th>
-                  <th className="px-4 py-3 font-semibold">Product</th>
+                  <th className="px-4 py-3 font-semibold">{terminology.singular}</th>
                   <th className="px-4 py-3 font-semibold">Location</th>
                   <th className="px-4 py-3 font-semibold">Movement</th>
                   <th className="px-4 py-3 text-right font-semibold">Change</th>

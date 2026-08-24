@@ -75,6 +75,11 @@ export function AppNavbar({
     config?.businessType,
     config?.businessCategory
   );
+  const saleLabel = config?.businessCategory === 'liquor_shop'
+    ? 'New store sale'
+    : productTerms.title === 'Medicines'
+      ? 'New pharmacy sale'
+      : 'Quick sale';
   const [avatarFailed, setAvatarFailed] = useState(false);
   const [quickCreateOpen, setQuickCreateOpen] = useState(false);
   const quickCreateRef = useRef<HTMLDivElement>(null);
@@ -94,7 +99,7 @@ export function AppNavbar({
   const quickActions = [
     permissions.includes(PermissionEnum.POS_SELL) ||
     permissions.includes(PermissionEnum.SALE_CREATE)
-      ? { label: 'Quick sale', href: '/dashboard/pos', icon: ShoppingCart }
+      ? { label: saleLabel, href: '/dashboard/pos', icon: ShoppingCart }
       : null,
     permissions.includes(PermissionEnum.PRODUCT_CREATE)
       ? {

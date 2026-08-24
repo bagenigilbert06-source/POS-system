@@ -24,6 +24,8 @@ import {
 } from '@/components/ui/select';
 import type { Product, Sale } from '@/lib/db/schema';
 import { formatCurrency, formatDateTime } from '@/lib/utils';
+import { useWorkspace } from '@/lib/context/workspace-context';
+import { getProductTerminology } from '@/lib/products/terminology';
 
 type Location = { id: string; name: string };
 
@@ -38,6 +40,8 @@ export function OperationsControl({
   locations: Location[];
   currency: string;
 }) {
+  const { config } = useWorkspace();
+  const terminology = getProductTerminology(config?.businessType, config?.businessCategory);
   const [lossOpen, setLossOpen] = useState(false);
   const [refundOpen, setRefundOpen] = useState(false);
   const [selectedSaleId, setSelectedSaleId] = useState('');
@@ -101,11 +105,11 @@ export function OperationsControl({
                 }
                 className="space-y-4"
               >
-                <Field label="Product">
+                <Field label={terminology.singular}>
                   <Choice
                     name="productId"
                     required
-                    placeholder="Choose product"
+                    placeholder={`Choose ${terminology.singularLower}`}
                     items={products.map((item) => [
                       item.id,
                       `${item.name} · ${item.stock} available`,

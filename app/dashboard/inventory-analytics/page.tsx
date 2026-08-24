@@ -12,6 +12,7 @@ import { SlowMoversTable } from '@/components/dashboards/slow-movers-table'
 import { FastMoversTable } from '@/components/dashboards/fast-movers-table'
 import { requireDashboardPermission } from '@/lib/auth/dashboard-access'
 import { PermissionEnum } from '@/lib/types/permissions'
+import { getProductTerminology } from '@/lib/products/terminology'
 
 export const metadata: Metadata = { title: 'Inventory Analytics' }
 
@@ -24,6 +25,7 @@ export default async function InventoryAnalyticsPage() {
   if (!organization) redirect('/onboarding')
 
   const currency = organization.currency || 'KES'
+  const terminology = getProductTerminology(organization.businessType, organization.businessCategory)
 
   const [inventoryData] = await Promise.all([
     getInventoryDashboardData().catch(() => ({
@@ -38,8 +40,8 @@ export default async function InventoryAnalyticsPage() {
     <div className="mx-auto max-w-[1480px] space-y-5 pb-8">
       <DashboardPageHeading
         icon={Package}
-        title="Inventory Analytics"
-        description="Track inventory value, stock status, slow movers, and fast movers."
+        title={terminology.title === 'Stock Items' ? 'Store Inventory Analytics' : terminology.title === 'Medicines' ? 'Medicine Inventory Analytics' : 'Inventory Analytics'}
+        description={`Track ${terminology.singularLower} inventory value, stock status, slow movers, and fast movers.`}
         action={<div className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-[#d9dce3] bg-white px-3 text-sm font-semibold text-[#344054]"><AlertTriangle className="h-4 w-4" /><span>Real-time</span></div>}
       />
 

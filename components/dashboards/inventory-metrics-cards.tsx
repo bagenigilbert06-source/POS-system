@@ -2,6 +2,8 @@
 
 import { Package, DollarSign } from 'lucide-react'
 import { formatCurrency, formatNumber } from '@/lib/utils/format'
+import { useWorkspace } from '@/lib/context/workspace-context'
+import { getProductTerminology } from '@/lib/products/terminology'
 
 interface InventoryMetricsCardsProps {
   inventory: {
@@ -12,6 +14,8 @@ interface InventoryMetricsCardsProps {
 }
 
 export function InventoryMetricsCards({ inventory, currency }: InventoryMetricsCardsProps) {
+  const { config } = useWorkspace()
+  const terminology = getProductTerminology(config?.businessType, config?.businessCategory)
   const cards = [
     {
       label: 'Total Inventory Value',
@@ -23,7 +27,7 @@ export function InventoryMetricsCards({ inventory, currency }: InventoryMetricsC
     {
       label: 'Total Units in Stock',
       value: formatNumber(inventory.units),
-      detail: 'Across all products',
+      detail: `Across all ${terminology.pluralLower}`,
       icon: Package,
       color: 'bg-blue-100 text-blue-600'
     },

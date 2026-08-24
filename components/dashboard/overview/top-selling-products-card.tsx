@@ -6,6 +6,7 @@ import { ArrowRight, Package } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { cn } from '@/lib/utils'
 import { formatCurrency, formatNumber } from '@/lib/utils/format'
+import type { ProductTerminology } from '@/lib/products/terminology'
 
 type Period = 1 | 7 | 30
 
@@ -22,6 +23,7 @@ interface TopSellingProductsCardProps {
   currency: string
   reportDate: string
   sales: ProductSale[]
+  terminology: ProductTerminology
 }
 
 function startDate(reportDate: string, period: Period) {
@@ -30,7 +32,7 @@ function startDate(reportDate: string, period: Period) {
   return date.toISOString().slice(0, 10)
 }
 
-export function TopSellingProductsCard({ currency, reportDate, sales }: TopSellingProductsCardProps) {
+export function TopSellingProductsCard({ currency, reportDate, sales, terminology }: TopSellingProductsCardProps) {
   const [period, setPeriod] = useState<Period>(30)
   const [periodOpen, setPeriodOpen] = useState(false)
   const products = useMemo(() => {
@@ -58,12 +60,12 @@ export function TopSellingProductsCard({ currency, reportDate, sales }: TopSelli
     <article className="flex h-full min-h-[27rem] flex-col overflow-hidden rounded-2xl border border-[var(--dashboard-border)] bg-[var(--dashboard-surface)] shadow-dark-sm">
       <header className="flex items-start justify-between gap-3 border-b border-[var(--dashboard-border)] px-5 py-4">
         <div className="min-w-0">
-          <h2 className="text-[0.95rem] font-bold text-[var(--dashboard-text)]">Top selling products</h2>
+          <h2 className="text-[0.95rem] font-bold text-[var(--dashboard-text)]">Top selling {terminology.pluralLower}</h2>
           <p className="mt-0.5 text-xs text-[var(--dashboard-muted)]">Best performers by completed sales.</p>
         </div>
-        <label className="sr-only" htmlFor="top-products-period">Top products period</label>
+        <label className="sr-only" htmlFor="top-products-period">Top {terminology.pluralLower} period</label>
         <div className="relative shrink-0">
-          <button type="button" aria-haspopup="listbox" aria-expanded={periodOpen} aria-label="Top products period" onClick={() => setPeriodOpen((open) => !open)} className="flex h-9 min-w-[88px] items-center justify-between gap-2 rounded-lg border border-[var(--dashboard-border)] bg-[var(--dashboard-surface-subtle)] px-2.5 text-[0.7rem] font-semibold text-[var(--dashboard-text)] outline-none transition-colors hover:border-[var(--dashboard-accent-soft-border)] hover:bg-[var(--dashboard-accent-soft)] focus:border-transparent focus:ring-0">
+          <button type="button" aria-haspopup="listbox" aria-expanded={periodOpen} aria-label={`Top ${terminology.pluralLower} period`} onClick={() => setPeriodOpen((open) => !open)} className="flex h-9 min-w-[88px] items-center justify-between gap-2 rounded-lg border border-[var(--dashboard-border)] bg-[var(--dashboard-surface-subtle)] px-2.5 text-[0.7rem] font-semibold text-[var(--dashboard-text)] outline-none transition-colors hover:border-[var(--dashboard-accent-soft-border)] hover:bg-[var(--dashboard-accent-soft)] focus:border-transparent focus:ring-0">
             {period === 1 ? 'Today' : period === 7 ? '7 days' : '30 days'}<span className="text-[var(--dashboard-muted)]">⌄</span>
           </button>
           {periodOpen && <div role="listbox" className="absolute right-0 top-[calc(100%+4px)] z-30 min-w-full overflow-hidden rounded-lg border border-[var(--dashboard-border)] bg-[var(--dashboard-surface)] p-1 shadow-lg">
@@ -105,13 +107,13 @@ export function TopSellingProductsCard({ currency, reportDate, sales }: TopSelli
           <span className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl border border-[var(--dashboard-border)] bg-[var(--dashboard-surface-subtle)] text-[var(--dashboard-muted)]">
             <Package className="h-4 w-4" aria-hidden="true" />
           </span>
-          <p className="text-sm font-semibold text-[var(--dashboard-text)]">No product sales yet</p>
-          <p className="mt-1 max-w-[16rem] text-xs leading-5 text-[var(--dashboard-muted)]">Top-selling products will appear as completed sales are recorded.</p>
+          <p className="text-sm font-semibold text-[var(--dashboard-text)]">No {terminology.singularLower} sales yet</p>
+          <p className="mt-1 max-w-[16rem] text-xs leading-5 text-[var(--dashboard-muted)]">Top-selling {terminology.pluralLower} will appear as completed sales are recorded.</p>
         </div>
       )}
 
       <Link href="/dashboard/products" className="mx-5 mb-4 mt-2 flex h-9 items-center justify-between rounded-lg border border-[var(--dashboard-border)] px-3 text-xs font-semibold text-[var(--dashboard-text)] transition-colors hover:border-[var(--dashboard-accent-soft-border)] hover:bg-[var(--dashboard-surface-subtle)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--dashboard-accent)]">
-        View products <ArrowRight className="h-3.5 w-3.5 text-[var(--dashboard-accent)]" aria-hidden="true" />
+        View {terminology.pluralLower} <ArrowRight className="h-3.5 w-3.5 text-[var(--dashboard-accent)]" aria-hidden="true" />
       </Link>
     </article>
   )

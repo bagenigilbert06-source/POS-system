@@ -6,8 +6,12 @@ import { db } from '@/lib/db'
 import { businessSettings } from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
 import type { Metadata } from 'next'
+import { getCurrentProductTerminology } from '@/lib/products/current-terminology'
 
-export const metadata: Metadata = { title: 'Sales' }
+export async function generateMetadata(): Promise<Metadata> {
+  const terminology = await getCurrentProductTerminology()
+  return { title: terminology.title === 'Medicines' ? 'Pharmacy Sales' : terminology.title === 'Stock Items' ? 'Store Sales' : 'Sales' }
+}
 
 function dateValue(value?: string) {
   if (!value) return undefined

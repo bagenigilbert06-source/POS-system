@@ -2,6 +2,8 @@
 
 import { formatCurrency } from '@/lib/utils/format'
 import { TrendingUp, DollarSign, Percent } from 'lucide-react'
+import { useWorkspace } from '@/lib/context/workspace-context'
+import { getProductTerminology } from '@/lib/products/terminology'
 
 interface ProfitLossCardsProps {
   data: {
@@ -16,6 +18,8 @@ interface ProfitLossCardsProps {
 }
 
 export function ProfitLossCards({ data, currency }: ProfitLossCardsProps) {
+  const { config } = useWorkspace()
+  const terminology = getProductTerminology(config?.businessType, config?.businessCategory)
   const cards = [
     {
       label: 'Total Revenue',
@@ -27,7 +31,7 @@ export function ProfitLossCards({ data, currency }: ProfitLossCardsProps) {
     {
       label: 'Cost of Goods Sold',
       value: formatCurrency(data.cogs, currency),
-      detail: 'Product costs',
+      detail: `${terminology.singular} costs`,
       icon: DollarSign,
       color: 'bg-orange-100 text-orange-600'
     },

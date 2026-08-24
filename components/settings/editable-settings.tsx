@@ -335,7 +335,7 @@ export function EditableSettings({ businessSettings, organization, buttonOnly = 
                   ['receiptShowCustomer', 'Customer name', 'Show the selected customer or walk-in.'],
                   ['receiptShowPayment', 'Payment details', 'Show the payment method and reference.'],
                   ['receiptShowQrCode', 'Receipt QR code', 'Include a scan-friendly receipt reference.'],
-                  ['receiptShowItemSku', 'Item codes', 'Show product identifiers under items.'],
+                  ['receiptShowItemSku', 'Item codes', 'Show catalogue identifiers under receipt items.'],
                 ] as const).map(([key, title, description]) => (
                   <label key={key} className="flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors hover:bg-muted/40">
                     <input type="checkbox" checked={formData[key]} onChange={(event) => setFormData({ ...formData, [key]: event.target.checked })} className="mt-0.5 h-4 w-4 accent-[#e42527]" />

@@ -10,6 +10,7 @@ import type { SidebarNavItem, WorkspaceConfig } from '@/lib/types/workspace';
 import { OrganizationService } from '@/lib/services/organization-service';
 import { getBusinessExperience } from '@/lib/workspace/business-experience';
 import { isPharmacyBusiness } from '@/lib/pharmacy/rules';
+import { getProductTerminology } from '@/lib/products/terminology';
 
 const workspaceConfigForUser = cache(
   async (
@@ -180,6 +181,7 @@ function navigationFor(
   businessCategory: string
 ) {
   const experience = getBusinessExperience(businessFamily, businessCategory);
+  const productTerms = getProductTerminology(businessFamily, businessCategory);
   const labels: Record<string, string> = {
     pos: experience.navigation.pos,
     sales: experience.navigation.sales,
@@ -201,7 +203,7 @@ function navigationFor(
           { ...MODULE_NAV[id], label: labels[id] ?? MODULE_NAV[id].label },
         ];
         if (id === 'sales' && isPharmacyBusiness(businessFamily, businessCategory)) return [...items, MODULE_NAV.prescriptions];
-        if (id === 'products') return [...items, MODULE_NAV.categories];
+        if (id === 'products') return [...items, { ...MODULE_NAV.categories, label: `${productTerms.singular} categories` }];
         if (id === 'inventory' && isPharmacyBusiness(businessFamily, businessCategory)) return [...items, MODULE_NAV.batches];
         return items;
       }),

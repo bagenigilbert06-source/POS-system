@@ -66,6 +66,11 @@ import {
 } from '@/lib/inventory/rules';
 import { cn } from '@/lib/utils';
 import { formatCurrency, formatDateTime } from '@/lib/utils';
+import { useWorkspace } from '@/lib/context/workspace-context';
+import {
+  getProductTerminology,
+  type ProductTerminology,
+} from '@/lib/products/terminology';
 
 type Tab = 'stock' | 'replenishment' | 'counts' | 'movements';
 type InventoryProduct = Product & {
@@ -115,6 +120,11 @@ export function InventoryManager({
   initialReceiveProductId,
   canPurchase,
 }: InventoryManagerProps) {
+  const { config } = useWorkspace();
+  const productTerms = getProductTerminology(
+    config?.businessType,
+    config?.businessCategory
+  );
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [tab, setTab] = useState<Tab>('stock');
@@ -334,7 +344,7 @@ export function InventoryManager({
       `"${String(value ?? '').replaceAll('"', '""')}"`;
     const stockRows = [
       [
-        'Product',
+        productTerms.singular,
         'SKU',
         'Barcode',
         'On hand',
@@ -367,7 +377,7 @@ export function InventoryManager({
         : tab === 'replenishment'
           ? [
               [
-                'Product',
+                productTerms.singular,
                 'SKU',
                 'Available',
                 'Incoming',
@@ -417,7 +427,7 @@ export function InventoryManager({
             : [
                 [
                   'Date',
-                  'Product',
+                  productTerms.singular,
                   'Movement',
                   'Change',
                   'Balance before',
@@ -489,6 +499,7 @@ export function InventoryManager({
         products={products}
         currency={currency}
         statusOf={statusOf}
+        terminology={productTerms}
         onViewStatus={(status) => {
           setTab('stock');
           setStockFilter(status);
@@ -538,8 +549,8 @@ export function InventoryManager({
               }}
               placeholder={
                 tab === 'movements'
-                  ? 'Search product, reason or reference…'
-                  : 'Search product, SKU or barcode…'
+                  ? `Search ${productTerms.singularLower}, reason or reference…`
+                  : `Search ${productTerms.singularLower}, SKU or barcode…`
               }
               className="h-10 pl-9"
             />
@@ -646,10 +657,10 @@ export function InventoryManager({
                   }}
                 >
                   <SelectTrigger className="h-10 w-[180px]">
-                    <SelectValue placeholder="All products" />
+                    <SelectValue placeholder={`All ${productTerms.pluralLower}`} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">All products</SelectItem>
+                    <SelectItem value="all">All {productTerms.pluralLower}</SelectItem>
                     {products.map((item) => (
                       <SelectItem key={item.id} value={item.id}>
                         {item.name}
@@ -750,6 +761,7 @@ export function InventoryManager({
             products={visibleProducts}
             currency={currency}
             statusOf={statusOf}
+            terminology={productTerms}
             canReceive={canReceive}
             onReceive={openReceive}
             page={pages.stock}
@@ -784,6 +796,7 @@ export function InventoryManager({
         {tab === 'movements' && (
           <MovementLedger
             movements={visibleMovements}
+            terminology={productTerms}
             page={pages.movements}
             onPageChange={(page) => setPage('movements', page)}
           />
@@ -795,7 +808,7 @@ export function InventoryManager({
           <DialogHeader>
             <DialogTitle>Start a stock count</DialogTitle>
             <DialogDescription>
-              Creates a count session for every active product at the selected
+              Creates a count session for every active {productTerms.singularLower} at the selected
               location. Stock changes only after the submitted variances are
               approved.
             </DialogDescription>
@@ -887,7 +900,7 @@ export function InventoryManager({
             <DialogTitle>Receive stock</DialogTitle>
             <DialogDescription>
               Record stock that has physically arrived. Quantities are converted
-              to the product&apos;s base inventory unit and added to the
+              to the {productTerms.singularLower}&apos;s base inventory unit and added to the
               movement ledger.
             </DialogDescription>
           </DialogHeader>
@@ -928,7 +941,7 @@ export function InventoryManager({
               </div>
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <Label>Product</Label>
+                  <Label>{productTerms.singular}</Label>
                   <Select
                     value={receiveProduct.id}
                     onValueChange={(id) => {
@@ -1125,7 +1138,7 @@ export function InventoryManager({
               className="space-y-4 pt-2"
             >
               <div className="space-y-2">
-                <Label>Products adjusted</Label>
+                <Label>{productTerms.plural} adjusted</Label>
                 {countLines.map((line, index) => {
                   const selected = products.find(
                     (item) => item.id === line.productId
@@ -1175,7 +1188,7 @@ export function InventoryManager({
                         </SelectContent>
                       </Select>
                       <Input
-                        aria-label={`Physical quantity for ${selected?.name ?? 'product'}`}
+                        aria-label={`Physical quantity for ${selected?.name ?? productTerms.singularLower}`}
                         type="number"
                         min="0"
                         max="10000000"
@@ -1232,7 +1245,7 @@ export function InventoryManager({
                       ]);
                   }}
                 >
-                  Add another product
+                  Add another {productTerms.singularLower}
                 </Button>
               </div>
               <div className="space-y-2">
@@ -1370,11 +1383,13 @@ function InventorySummary({
   currency,
   statusOf,
   onViewStatus,
+  terminology,
 }: {
   products: InventoryProduct[];
   currency: string;
   statusOf: (item: InventoryProduct) => InventoryStatus;
   onViewStatus: (status: InventoryStatus) => void;
+  terminology: ProductTerminology;
 }) {
   const inventoryValue = products.reduce(
     (sum, item) => sum + Number(item.buyingPrice) * (item.onHand ?? item.stock),
@@ -1398,14 +1413,14 @@ function InventorySummary({
     {
       label: 'Stock health',
       value: `${healthPercentage}%`,
-      detail: `${healthyStock} of ${products.length} products ready to sell`,
+      detail: `${healthyStock} of ${products.length} ${terminology.pluralLower} ready to sell`,
       icon: PackageCheck,
       tone: healthPercentage === 100 ? 'success' : 'default',
     },
     {
       label: 'Low stock',
       value: String(lowStock),
-      detail: lowStock ? 'At or below reorder level' : 'No low-stock products',
+      detail: lowStock ? 'At or below reorder level' : `No low-stock ${terminology.pluralLower}`,
       icon: AlertTriangle,
       tone: lowStock ? 'warning' : 'success',
       status: 'low',
@@ -1415,7 +1430,7 @@ function InventorySummary({
       value: String(outOfStock),
       detail: outOfStock
         ? 'Unavailable for sale'
-        : 'All active products available',
+        : `All active ${terminology.pluralLower} available`,
       icon: X,
       tone: outOfStock ? 'warning' : 'success',
       status: 'out',
@@ -1468,6 +1483,7 @@ function StockTable({
   products,
   currency,
   statusOf,
+  terminology,
   canReceive,
   onReceive,
   page,
@@ -1476,6 +1492,7 @@ function StockTable({
   products: InventoryProduct[];
   currency: string;
   statusOf: (item: InventoryProduct) => InventoryStatus;
+  terminology: ProductTerminology;
   canReceive: boolean;
   onReceive: (item: InventoryProduct) => void;
   page: number;
@@ -1495,7 +1512,7 @@ function StockTable({
         <table className="w-full min-w-[820px] text-sm">
           <thead className="border-b bg-muted/20 text-left text-xs text-muted-foreground">
             <tr>
-              <th className="px-5 py-3 font-semibold">Product</th>
+              <th className="px-5 py-3 font-semibold">{terminology.singular}</th>
               <th className="px-4 py-3 text-right font-semibold">Available</th>
               <th className="px-4 py-3 text-right font-semibold">
                 Sold (30 days)
@@ -1873,10 +1890,12 @@ function AdjustmentHistory({
 
 function MovementLedger({
   movements,
+  terminology,
   page,
   onPageChange,
 }: {
   movements: StockMovement[];
+  terminology: ProductTerminology;
   page: number;
   onPageChange: (page: number) => void;
 }) {
@@ -1895,7 +1914,7 @@ function MovementLedger({
           <thead className="border-b bg-muted/20 text-left text-xs text-muted-foreground">
             <tr>
               <th className="px-5 py-3 font-semibold">Date</th>
-              <th className="px-4 py-3 font-semibold">Product</th>
+              <th className="px-4 py-3 font-semibold">{terminology.singular}</th>
               <th className="px-4 py-3 font-semibold">Movement</th>
               <th className="px-4 py-3 text-right font-semibold">Change</th>
               <th className="px-4 py-3 text-right font-semibold">Balance</th>

@@ -31,6 +31,7 @@ import { MetricCard, type MetricTrend } from './metric-card'
 import { TimeGreeting } from '../time-greeting'
 import { PermissionEnum, RoleEnum } from '@/lib/types/permissions'
 import { isPharmacyBusiness } from '@/lib/pharmacy/rules'
+import { countProductTerm, getProductTerminology } from '@/lib/products/terminology'
 
 interface BusinessOverviewProps {
   organizationName: string
@@ -73,13 +74,14 @@ function formatMetricCurrency(value: number, currency: string) {
 
 export function BusinessOverview({ organizationName, userName, timeZone, currency, overview, workspaceConfig, generatedAt, role, permissions }: BusinessOverviewProps) {
   const experience = getBusinessExperience(workspaceConfig.businessType, workspaceConfig.businessCategory)
+  const productTerms = getProductTerminology(workspaceConfig.businessType, workspaceConfig.businessCategory)
   const hasProducts = workspaceConfig.enabledModules.includes('products')
   const hasInventory = workspaceConfig.enabledModules.includes('inventory')
   const hasCustomers = workspaceConfig.enabledModules.includes('customers')
   const saleHref = workspaceConfig.enabledModules.includes('pos') ? '/dashboard/pos' : '/dashboard/sales'
   const availableActions = [
     ...((workspaceConfig.enabledModules.includes('pos') || workspaceConfig.enabledModules.includes('sales')) && permissions.includes(PermissionEnum.POS_VIEW) ? [{ id: 'primary', label: experience.actionLabels.primary, href: saleHref, icon: ShoppingBag, primary: true, description: 'Record a new sale' }] : []),
-    ...(hasProducts && permissions.includes(PermissionEnum.PRODUCT_VIEW) ? [{ id: 'products', label: experience.actionLabels.products, href: '/dashboard/products', icon: Package, primary: false, description: 'Manage products' }] : []),
+    ...(hasProducts && permissions.includes(PermissionEnum.PRODUCT_VIEW) ? [{ id: 'products', label: experience.actionLabels.products, href: '/dashboard/products', icon: Package, primary: false, description: `Manage ${productTerms.pluralLower}` }] : []),
     ...(hasInventory && permissions.includes(PermissionEnum.INVENTORY_VIEW) ? [{ id: 'inventory', label: experience.actionLabels.inventory, href: '/dashboard/inventory', icon: Boxes, primary: false, description: 'Check stock levels' }] : []),
     ...(hasCustomers && permissions.includes(PermissionEnum.CUSTOMER_VIEW) ? [{ id: 'customers', label: 'Customers', href: '/dashboard/customers', icon: UsersRound, primary: false, description: 'Manage customers' }] : []),
     ...(workspaceConfig.enabledModules.includes('reports') && permissions.includes(PermissionEnum.REPORT_VIEW) ? [{ id: 'reports', label: 'Reports', href: '/dashboard/reports', icon: BarChart3, primary: false, description: 'View insights' }] : []),
@@ -105,7 +107,7 @@ export function BusinessOverview({ organizationName, userName, timeZone, currenc
       value: profitAvailable ? formatCurrency(todayProfit, currency) : 'Unavailable',
       description: profitAvailable
         ? overview.today.profitMargin === null ? 'No sales to calculate margin' : `${overview.today.profitMargin.toFixed(1)}% gross margin`
-        : 'Some sold products are missing cost',
+        : `Some sold ${productTerms.pluralLower} are missing cost`,
       trend: profitAvailable && overview.previousDay.grossProfit !== null
         ? yesterdayTrend(todayProfit, overview.previousDay.grossProfit)
         : undefined,
@@ -118,17 +120,17 @@ export function BusinessOverview({ organizationName, userName, timeZone, currenc
       label: 'Stock Value',
       value: formatMetricCurrency(overview.records.inventoryCost, currency),
       description: 'Based on current buying cost',
-      primaryMeta: `${formatNumber(overview.records.products)} products tracked`,
+      primaryMeta: `${formatNumber(overview.records.products)} ${productTerms.pluralLower} tracked`,
       icon: Boxes,
       href: '/dashboard/inventory',
       linkLabel: 'View inventory',
     },
     {
       label: 'Low Stock',
-      value: `${formatNumber(overview.records.lowStock)} ${overview.records.lowStock === 1 ? 'product' : 'products'}`,
+      value: `${formatNumber(overview.records.lowStock)} ${countProductTerm(productTerms, overview.records.lowStock)}`,
       description: overview.records.lowStock > 0
         ? `${formatNumber(lowStockCount)} low · ${formatNumber(overview.records.outOfStock)} critical`
-        : 'No products need replenishing',
+        : `No ${productTerms.pluralLower} need replenishing`,
       status: overview.records.lowStock > 0 ? 'Reorder required' : 'All stock levels healthy',
       icon: TriangleAlert,
       href: '/dashboard/inventory',
@@ -215,7 +217,7 @@ export function BusinessOverview({ organizationName, userName, timeZone, currenc
         paymentMix={overview.paymentMix}
         salesPerformance={overview.salesPerformanceSeries}
         stock={{ healthy: overview.records.products - overview.records.lowStock, low: overview.records.lowStock - overview.records.outOfStock, out: overview.records.outOfStock }}
-        productLabel={workspaceConfig.businessCategory === 'liquor_shop' ? 'drinks' : 'products'}
+        productLabel={productTerms.pluralLower}
       />
 
       {/* ---------------------------------------------------------------- */}
@@ -324,7 +326,7 @@ export function BusinessOverview({ organizationName, userName, timeZone, currenc
 
         {hasInventory && (
           <aside className="h-full">
-            <TopSellingProductsCard currency={currency} reportDate={overview.reportDate} sales={overview.productSales} />
+            <TopSellingProductsCard currency={currency} reportDate={overview.reportDate} sales={overview.productSales} terminology={productTerms} />
           </aside>
         )}
       </section>

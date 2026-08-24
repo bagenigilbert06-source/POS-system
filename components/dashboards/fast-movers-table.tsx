@@ -2,6 +2,8 @@
 
 import { TrendingUp } from 'lucide-react'
 import { formatNumber } from '@/lib/utils/format'
+import { useWorkspace } from '@/lib/context/workspace-context'
+import { getProductTerminology } from '@/lib/products/terminology'
 
 interface FastMoversTableProps {
   products: Array<{
@@ -13,6 +15,8 @@ interface FastMoversTableProps {
 }
 
 export function FastMoversTable({ products }: FastMoversTableProps) {
+  const { config } = useWorkspace()
+  const terminology = getProductTerminology(config?.businessType, config?.businessCategory)
   return (
     <div className="overflow-hidden rounded-xl border border-[#dfe3ea] bg-white shadow-[0_1px_2px_rgba(16,24,40,.03)]">
       <div className="border-b border-[#edf0f4] px-5 py-4 sm:px-6">
@@ -20,14 +24,14 @@ export function FastMoversTable({ products }: FastMoversTableProps) {
           <TrendingUp className="h-5 w-5 text-[#00b4d8]" />
           <div>
             <h2 className="text-[0.95rem] font-bold text-[#101828]">Fast Movers</h2>
-            <p className="mt-1 text-xs text-[#7b8495]">Top 10 products by sales quantity</p>
+            <p className="mt-1 text-xs text-[#7b8495]">Top 10 {terminology.pluralLower} by sales quantity</p>
           </div>
         </div>
       </div>
       
       {products.length === 0 ? (
         <div className="flex h-64 items-center justify-center text-sm text-[#8a94a5]">
-          No product sales data available
+          No {terminology.singularLower} sales data available
         </div>
       ) : (
         <ol className="divide-y divide-[#edf0f4]">

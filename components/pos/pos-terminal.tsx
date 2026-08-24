@@ -50,6 +50,8 @@ import { toast } from 'sonner'
 import { calculateMpesaAmount } from '@/lib/mpesa/amount'
 import { adoptLegacyOfflineSales, cacheOfflineCatalogue, listOfflineSales, readOfflineCatalogue, saveOfflineSale, updateOfflineSale, type OfflineSaleRecord } from '@/lib/pos/offline-store'
 import { bindPosConnectivityEvents, checkoutAlreadyQueued, createProvisionalReceiptNo, isConnectivityFailure, offlineWorkspaceStorageKey, shouldSynchronizeOfflineSale, summarizeOfflineQueue } from '@/lib/pos/offline-policy'
+import { useWorkspace } from '@/lib/context/workspace-context'
+import { getProductTerminology } from '@/lib/products/terminology'
 
 const RefundDialog = dynamic(() => import('./refund-dialog').then((module) => module.RefundDialog), { ssr: false })
 const ReceiptReprint = dynamic(() => import('./receipt-reprint').then((module) => module.ReceiptReprint), { ssr: false })
@@ -202,6 +204,8 @@ function ReceiptMeta({ mark, label, value }: { mark: ReactNode; label: string; v
 }
 
 export function POSTerminal({ organizationId, products, categories, customers, settings, requiresAgeVerification = false, pharmacyMode = false, startCheckout = false, checkoutOnly = false, hasActiveShift = false, canDiscount = false, canRefund = false, canHold = false, canApproveRestricted = false, receiptContext, offlineContext }: POSTerminalProps) {
+  const { config } = useWorkspace()
+  const productTerms = getProductTerminology(config?.businessType, config?.businessCategory)
   const router = useRouter()
   const cartStorageKey = offlineWorkspaceStorageKey(organizationId, 'cart')
   const checkoutStorageKey = offlineWorkspaceStorageKey(organizationId, 'checkout-id')
@@ -594,16 +598,16 @@ export function POSTerminal({ organizationId, products, categories, customers, s
       return candidates
     })
     if (matches.length === 0) {
-      setScanMessage(`No product found for barcode ${barcode}. Add the barcode to the product first.`)
-      toast.error(`No product found for barcode ${barcode}`, {
+      setScanMessage(`No ${productTerms.singularLower} found for barcode ${barcode}. Add the barcode to the ${productTerms.singularLower} first.`)
+      toast.error(`No ${productTerms.singularLower} found for barcode ${barcode}`, {
         description: 'Register the item once, then future scans will add it to the basket.',
-        action: { label: 'Register product', onClick: () => router.push(`/dashboard/products/new?barcode=${encodeURIComponent(barcode)}`) },
+        action: { label: `Register ${productTerms.singularLower}`, onClick: () => router.push(`/dashboard/products/new?barcode=${encodeURIComponent(barcode)}`) },
       })
       return false
     }
     if (matches.length > 1) {
-      setScanMessage(`Barcode ${barcode} is assigned to more than one product. Correct the product records before selling.`)
-      toast.error('Duplicate barcode detected. Ask a manager to correct the products.')
+      setScanMessage(`Barcode ${barcode} is assigned to more than one ${productTerms.singularLower}. Correct the ${productTerms.singularLower} records before selling.`)
+      toast.error(`Duplicate barcode detected. Ask a manager to correct the ${productTerms.pluralLower}.`)
       return false
     }
     const { product, selectedPackage } = matches[0]
@@ -617,7 +621,7 @@ export function POSTerminal({ organizationId, products, categories, customers, s
     setSelectedCategory('')
     setScanMessage(`${product.name}${selectedPackage ? ` (${selectedPackage.name})` : ''} added to basket.`)
     return true
-  }, [addToCart, catalogProducts, router])
+  }, [addToCart, catalogProducts, productTerms, router])
 
   const SCANNER_INACTIVITY_MS = 450
 
@@ -903,8 +907,8 @@ export function POSTerminal({ organizationId, products, categories, customers, s
       // Show success toast with inventory update notification
       toast.success('Sale completed & inventory updated', {
         description: etims.status === 'ACCEPTED'
-          ? `${cart.length} product(s) · eTIMS accepted · Receipt #${receiptNo}`
-          : ('message' in etims && etims.message) || `${cart.length} product(s) · Receipt #${receiptNo}`,
+          ? `${cart.length} ${cart.length === 1 ? productTerms.singularLower : productTerms.pluralLower} · eTIMS accepted · Receipt #${receiptNo}`
+          : ('message' in etims && etims.message) || `${cart.length} ${cart.length === 1 ? productTerms.singularLower : productTerms.pluralLower} · Receipt #${receiptNo}`,
       })
     } catch (err) {
       autoFinalizingRef.current = false
@@ -1451,7 +1455,7 @@ export function POSTerminal({ organizationId, products, categories, customers, s
         <div className="border-b border-[#eef0f3] px-5 py-3 dark:border-white/10 sm:px-6">
           <div className="mb-2.5 flex items-center justify-between gap-3">
             <div className="flex items-center gap-2.5">
-              <h2 className="text-base font-semibold tracking-tight text-[#101828] dark:text-white">{pharmacyMode ? 'Medicine catalog' : 'Catalog'}</h2>
+              <h2 className="text-base font-semibold tracking-tight text-[#101828] dark:text-white">{productTerms.title}</h2>
               <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-[#067647] dark:text-[#8de1aa]"><span className="h-1.5 w-1.5 rounded-full bg-[#12b76a]" />{filteredProducts.length} available</span>
             </div>
             <p className="hidden text-xs text-[#667085] dark:text-[#8b8b8b] sm:block">Tap to add</p>
@@ -1492,7 +1496,7 @@ export function POSTerminal({ organizationId, products, categories, customers, s
                   : 'border-[#dfe3e8] bg-white text-[#344054] hover:border-[#cfd4dc] hover:bg-[#f9fafb] dark:border-white/15 dark:bg-[#151515] dark:text-[#e4e7ec] dark:hover:border-white/25 dark:hover:bg-[#1c1c1c]'
               )}
             >
-              All products
+              All {productTerms.pluralLower}
             </button>
             {availableCategories.map((category) => (
               <button
@@ -1517,10 +1521,10 @@ export function POSTerminal({ organizationId, products, categories, customers, s
             <div className="flex h-48 flex-col items-center justify-center text-center">
               <Package className="mb-3 h-9 w-9 text-[#d0d5dd]" strokeWidth={1.5} />
               <p className="text-sm font-medium text-[#344054]">
-                {search ? `No ${pharmacyMode ? 'medicines' : 'products'} match your search` : `No active ${pharmacyMode ? 'medicines' : 'products'} with stock`}
+                {search ? `No ${productTerms.pluralLower} match your search` : `No active ${productTerms.pluralLower} with stock`}
               </p>
               <p className="mt-1 text-xs text-[#98a2b3]">
-                {search ? 'Try a different search term' : pharmacyMode ? 'Create medicines, then receive stock with batch and expiry details' : 'Add products to begin selling'}
+                {search ? 'Try a different search term' : pharmacyMode ? 'Create medicines, then receive stock with batch and expiry details' : `Add ${productTerms.pluralLower} to begin selling`}
               </p>
             </div>
           ) : (
@@ -1715,7 +1719,7 @@ export function POSTerminal({ organizationId, products, categories, customers, s
             <div className="flex h-full flex-col items-center justify-center px-4 py-12 text-center">
               <ShoppingCart className="mb-3 h-10 w-10 text-[#d0d5dd]" strokeWidth={1.5} />
               <p className="text-sm font-semibold text-[#101828] dark:text-white">Basket is empty</p>
-              <p className="mt-1 max-w-[220px] text-xs leading-5 text-[#98a2b3]">Select products from the catalog to build this sale.</p>
+              <p className="mt-1 max-w-[220px] text-xs leading-5 text-[#98a2b3]">Select {productTerms.pluralLower} from the catalogue to build this sale.</p>
             </div>
           ) : (
             <ul className="divide-y divide-[#eef0f3] dark:divide-white/10">

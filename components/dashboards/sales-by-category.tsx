@@ -2,6 +2,8 @@
 
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts'
 import { formatCurrency, formatNumber } from '@/lib/utils/format'
+import { useWorkspace } from '@/lib/context/workspace-context'
+import { getProductTerminology } from '@/lib/products/terminology'
 
 interface SalesByCategoryProps {
   data: Array<{
@@ -15,13 +17,15 @@ interface SalesByCategoryProps {
 const COLORS = ['#ffda32', '#e42527', '#00b4d8', '#90e0ef', '#0077b6', '#001d3d', '#ffc300', '#ff006e']
 
 export function SalesByCategoryChart({ data, currency }: SalesByCategoryProps) {
+  const { config } = useWorkspace()
+  const terminology = getProductTerminology(config?.businessType, config?.businessCategory)
   const chartData = data.length > 0 ? data : [{ category: 'No data', revenue: 1, quantity: 0 }]
 
   return (
     <div className="overflow-hidden rounded-xl border border-[#dfe3ea] bg-white shadow-[0_1px_2px_rgba(16,24,40,.03)]">
       <div className="border-b border-[#edf0f4] px-5 py-4 sm:px-6">
         <h2 className="text-[0.95rem] font-bold text-[#101828]">Sales by Category</h2>
-        <p className="mt-1 text-xs text-[#7b8495]">Revenue and quantity breakdown by product category</p>
+        <p className="mt-1 text-xs text-[#7b8495]">Revenue and quantity breakdown by {terminology.singularLower} category</p>
       </div>
       <div className="p-4 sm:p-6">
         {chartData[0].category === 'No data' ? (

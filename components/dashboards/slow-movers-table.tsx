@@ -1,6 +1,8 @@
 'use client'
 
 import { TrendingDown } from 'lucide-react'
+import { useWorkspace } from '@/lib/context/workspace-context'
+import { getProductTerminology } from '@/lib/products/terminology'
 
 interface SlowMoversTableProps {
   products: Array<{
@@ -12,6 +14,8 @@ interface SlowMoversTableProps {
 }
 
 export function SlowMoversTable({ products }: SlowMoversTableProps) {
+  const { config } = useWorkspace()
+  const terminology = getProductTerminology(config?.businessType, config?.businessCategory)
   return (
     <div className="overflow-hidden rounded-xl border border-[#dfe3ea] bg-white shadow-[0_1px_2px_rgba(16,24,40,.03)]">
       <div className="border-b border-[#edf0f4] px-5 py-4 sm:px-6">
@@ -19,14 +23,14 @@ export function SlowMoversTable({ products }: SlowMoversTableProps) {
           <TrendingDown className="h-5 w-5 text-[#ffda32]" />
           <div>
             <h2 className="text-[0.95rem] font-bold text-[#101828]">Slow Movers</h2>
-            <p className="mt-1 text-xs text-[#7b8495]">Products not sold in 60+ days</p>
+            <p className="mt-1 text-xs text-[#7b8495]">{terminology.plural} not sold in 60+ days</p>
           </div>
         </div>
       </div>
       
       {products.length === 0 ? (
         <div className="flex h-64 items-center justify-center text-sm text-[#8a94a5]">
-          No slow-moving products identified
+          No slow-moving {terminology.pluralLower} identified
         </div>
       ) : (
         <div className="divide-y divide-[#edf0f4]">

@@ -1,6 +1,8 @@
 'use client'
 
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, Cell } from 'recharts'
+import { useWorkspace } from '@/lib/context/workspace-context'
+import { getProductTerminology } from '@/lib/products/terminology'
 
 interface StockStatusChartProps {
   stockStatus: {
@@ -11,6 +13,8 @@ interface StockStatusChartProps {
 }
 
 export function StockStatusChart({ stockStatus }: StockStatusChartProps) {
+  const { config } = useWorkspace()
+  const terminology = getProductTerminology(config?.businessType, config?.businessCategory)
   const data = [
     { status: 'In Stock', count: stockStatus.inStock, fill: '#00b4d8' },
     { status: 'Low Stock', count: stockStatus.lowStock, fill: '#ffda32' },
@@ -21,7 +25,7 @@ export function StockStatusChart({ stockStatus }: StockStatusChartProps) {
     <div className="overflow-hidden rounded-xl border border-[#dfe3ea] bg-white shadow-[0_1px_2px_rgba(16,24,40,.03)]">
       <div className="border-b border-[#edf0f4] px-5 py-4 sm:px-6">
         <h2 className="text-[0.95rem] font-bold text-[#101828]">Stock Status Overview</h2>
-        <p className="mt-1 text-xs text-[#7b8495]">Number of products by stock status</p>
+        <p className="mt-1 text-xs text-[#7b8495]">Number of {terminology.pluralLower} by stock status</p>
       </div>
       <div className="p-4 sm:p-6">
         <ResponsiveContainer width="100%" height={300}>
@@ -31,9 +35,9 @@ export function StockStatusChart({ stockStatus }: StockStatusChartProps) {
             <YAxis stroke="#8a94a5" />
             <Tooltip 
               contentStyle={{ backgroundColor: '#fff', border: '1px solid #d9dce3' }}
-              formatter={(value: any) => `${value} products`}
+              formatter={(value: any) => `${value} ${terminology.pluralLower}`}
             />
-            <Bar dataKey="count" name="Products">
+            <Bar dataKey="count" name={terminology.plural}>
               {data.map((entry, index) => (
                 <Cell key={`cell-${index}`} fill={entry.fill} />
               ))}

@@ -2,6 +2,7 @@
 
 import { TrendingUp, Package } from 'lucide-react'
 import { formatCurrency, formatNumber } from '@/lib/utils/format'
+import type { ProductTerminology } from '@/lib/products/terminology'
 
 interface ProductPerf {
   id: string
@@ -15,20 +16,21 @@ interface ProductPerf {
 interface ProductPerformanceProps {
   products: ProductPerf[]
   currency: string
+  terminology: ProductTerminology
 }
 
-export function ProductPerformance({ products, currency }: ProductPerformanceProps) {
+export function ProductPerformance({ products, currency, terminology }: ProductPerformanceProps) {
   if (!products.length) {
     return (
       <article className="app-panel overflow-hidden">
         <div className="border-b px-4 py-4 sm:px-5">
           <div className="flex items-start justify-between gap-3">
-            <div><h2>Top products</h2><p className="mt-1 text-xs text-muted-foreground">Ranked by revenue in the selected period</p></div>
+            <div><h2>Top {terminology.pluralLower}</h2><p className="mt-1 text-xs text-muted-foreground">Ranked by revenue in the selected period</p></div>
             <Package className="h-4 w-4 text-[var(--dashboard-accent)]" />
           </div>
         </div>
         <div className="flex h-40 items-center justify-center text-center">
-          <div><p className="text-sm font-semibold">No product data</p><p className="text-xs text-muted-foreground mt-1">Data will appear after sales are recorded</p></div>
+          <div><p className="text-sm font-semibold">No {terminology.singularLower} data</p><p className="text-xs text-muted-foreground mt-1">Data will appear after sales are recorded</p></div>
         </div>
       </article>
     )
@@ -38,7 +40,7 @@ export function ProductPerformance({ products, currency }: ProductPerformancePro
     <article className="app-panel overflow-hidden">
       <div className="border-b px-4 py-4 sm:px-5">
         <div className="flex items-start justify-between gap-3">
-          <div><h2>Top products</h2><p className="mt-1 text-xs text-muted-foreground">Ranked by revenue in the selected period</p></div>
+          <div><h2>Top {terminology.pluralLower}</h2><p className="mt-1 text-xs text-muted-foreground">Ranked by revenue in the selected period</p></div>
           <Package className="h-4 w-4 text-[var(--dashboard-accent)]" />
         </div>
       </div>

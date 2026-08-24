@@ -32,6 +32,8 @@ import {
 import { getBusinessSettings } from '@/app/actions/business';
 import { ReceiptTemplate } from '@/components/receipt/receipt-template';
 import { RefundDialog } from '@/components/pos/refund-dialog';
+import { useWorkspace } from '@/lib/context/workspace-context';
+import { getBusinessExperience } from '@/lib/workspace/business-experience';
 
 const SalesAnalyticsPanels = dynamic(
   () => import('@/components/sales/sales-analytics-panels').then((module) => module.SalesAnalyticsPanels),
@@ -177,6 +179,13 @@ export function SalesManagementView({
   showAgeVerification: boolean;
   manualSale: React.ReactNode;
 }) {
+  const { config } = useWorkspace();
+  const experience = getBusinessExperience(
+    config?.businessType ?? '',
+    config?.businessCategory ?? ''
+  );
+  const pharmacySales = experience.label === 'Pharmacy';
+  const liquorStoreSales = experience.label === 'Liquor store';
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [exporting, setExporting] = useState(false);
@@ -268,9 +277,9 @@ export function SalesManagementView({
           <p className="text-xs font-bold uppercase tracking-[.18em] text-[#9b7000]">
             Pesaby workspace
           </p>
-          <h1 className="mt-1 text-2xl font-bold text-slate-950 dark:text-slate-100">Sales</h1>
+          <h1 className="mt-1 text-2xl font-bold text-slate-950 dark:text-slate-100">{experience.navigation.sales}</h1>
           <p className="mt-1 text-sm text-muted-foreground dark:text-slate-300">
-            A complete view of transactions, returns and profitability.
+            {pharmacySales ? 'A complete view of pharmacy sales, dispensing records, returns and profitability.' : liquorStoreSales ? 'A complete view of liquor store transactions, returns and profitability.' : 'A complete view of transactions, returns and profitability.'}
           </p>
         </div>
         {hasPos ? (
@@ -279,7 +288,7 @@ export function SalesManagementView({
             className="inline-flex items-center gap-2 rounded-lg bg-[#e42527] px-4 py-3 text-sm font-bold text-white"
           >
             <Plus className="h-4 w-4" />
-            New sale
+            {experience.actionLabels.primary}
           </Link>
         ) : (
           manualSale

@@ -3,6 +3,8 @@
 import { memo } from 'react'
 import { Bar, BarChart, CartesianGrid, Cell, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { formatCurrency } from '@/lib/utils'
+import { useWorkspace } from '@/lib/context/workspace-context'
+import { getProductTerminology } from '@/lib/products/terminology'
 
 type Analytics = Awaited<ReturnType<typeof import('@/app/actions/sales').getSalesAnalytics>>
 const COLORS = ['#f9b21d', '#16a34a', '#2563eb', '#e42527', '#7c3aed']
@@ -13,13 +15,15 @@ const PAYMENT_METHODS = [
 ] as const
 
 export const SalesAnalyticsPanels = memo(function SalesAnalyticsPanels({ analytics }: { analytics: Analytics }) {
+  const { config } = useWorkspace()
+  const productTerms = getProductTerminology(config?.businessType, config?.businessCategory)
   const paymentValues = new Map(analytics.payments.map((item) => [String(item.label).toLowerCase(), Number(item.value)]))
   const payments = PAYMENT_METHODS.map((method, index) => ({ label: method.label, display: method.display, value: paymentValues.get(method.label) ?? 0, color: COLORS[index], icon: method.label === 'cash' ? 'C' : method.label === 'mpesa' ? 'M' : 'V' })).sort((a, b) => b.value - a.value)
   const paymentTotal = payments.reduce((total, item) => total + item.value, 0)
   return <section className="grid min-w-0 gap-5 lg:grid-cols-2">
     <Panel title="Sales trend"><SalesTrendChart data={analytics.trend} /></Panel>
     <Panel title="Payment mix"><div className="flex items-start justify-between gap-3"><p className="text-[11px] text-muted-foreground">Sales value by payment method for selected period</p><div className="flex shrink-0 flex-col items-end gap-1 rounded-lg border border-[#ead48d] bg-[#fff8e8] px-3 py-2 text-right dark:border-[#80651d] dark:bg-[#30270f]"><span className="text-[8px] font-bold uppercase leading-none tracking-[.14em] text-[#9a6900] dark:text-[#f5c542]">Total</span><span className="text-xs font-bold leading-none tabular-nums text-[#111827] dark:text-slate-100">{formatCurrency(paymentTotal)}</span></div></div><div className="mt-4 h-36"><ResponsiveContainer width="100%" height="100%" debounce={80}><BarChart layout="vertical" data={payments} margin={{ top: 0, right: 8, bottom: 0, left: 0 }}><XAxis type="number" hide /><YAxis type="category" dataKey="display" width={62} tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))', fontWeight: 600 }} axisLine={false} tickLine={false} /><Tooltip cursor={{ fill: 'hsl(var(--muted) / 0.35)' }} formatter={(value) => [formatCurrency(Number(value)), 'Sales']} contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px', color: 'hsl(var(--foreground))', boxShadow: '0 10px 24px rgba(0,0,0,.24)' }} labelStyle={{ color: 'hsl(var(--muted-foreground))', marginBottom: 4 }} itemStyle={{ color: 'hsl(var(--foreground))', fontWeight: 600 }} /><Bar dataKey="value" name="Sales" minPointSize={4} radius={[0, 5, 5, 0]} barSize={18} isAnimationActive={false}>{payments.map((item) => <Cell key={item.label} fill={item.color} />)}</Bar></BarChart></ResponsiveContainer></div><div className="mt-3 grid grid-cols-3 gap-2 border-t border-slate-200 pt-3 dark:border-slate-800">{payments.map((item) => { const share = paymentTotal ? item.value / paymentTotal * 100 : 0; return <div key={item.label} className="min-w-0"><span className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-600 dark:text-slate-300"><i className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: item.color }} />{item.display}</span><b className="mt-1 block truncate text-xs tabular-nums text-slate-900 dark:text-slate-100">{formatCurrency(item.value)}</b><span className="text-[10px] text-muted-foreground">{share < 0.05 && share > 0 ? '<0.1' : share.toFixed(1)}%</span></div> })}</div></Panel>
-    <Table title="Top products" rows={analytics.products} columns={['Product', 'Qty', 'Revenue', 'Profit']} />
+    <Table title={`Top ${productTerms.pluralLower}`} rows={analytics.products} columns={[productTerms.singular, 'Qty', 'Revenue', 'Profit']} />
     <Table title="Top cashiers" rows={analytics.cashiers} columns={['Cashier', 'Sales', 'Revenue']} />
     <div className="lg:col-span-2"><Table title="Top customers" rows={analytics.customers} columns={['Customer', 'Orders', 'Revenue']} /></div>
   </section>

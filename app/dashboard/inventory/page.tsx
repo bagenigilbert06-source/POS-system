@@ -7,8 +7,13 @@ import { InventoryManager } from '@/components/inventory/inventory-manager';
 import { getAuthorizationContext } from '@/lib/auth/authorization';
 import { requireWorkspaceModule } from '@/lib/onboarding/require-module';
 import { PermissionEnum } from '@/lib/types/permissions';
+import { isPharmacyBusiness } from '@/lib/pharmacy/rules';
+import { getCurrentProductTerminology } from '@/lib/products/current-terminology';
 
-export const metadata: Metadata = { title: 'Inventory control | Pesaby' };
+export async function generateMetadata(): Promise<Metadata> {
+  const terminology = await getCurrentProductTerminology();
+  return { title: terminology.title === 'Medicines' ? 'Medicine Inventory | Pesaby' : terminology.title === 'Stock Items' ? 'Store Inventory | Pesaby' : 'Inventory control | Pesaby' };
+}
 export const dynamic = 'force-dynamic';
 
 export default async function InventoryPage({
@@ -18,12 +23,14 @@ export default async function InventoryPage({
 }) {
   const authorization = await getAuthorizationContext();
   const initialReceiveProductId = (await searchParams)?.receive;
-  const [{ organization }, products, control] = await Promise.all([
+  const [{ organization, config }, products, control] = await Promise.all([
     requireWorkspaceModule('inventory'),
     getProductsPageData(),
     getInventoryControlData(),
   ]);
   const activeProducts = products.filter((item) => item.isActive);
+  const pharmacy = isPharmacyBusiness(config.businessType, config.businessCategory);
+  const liquorStore = config.businessCategory === 'liquor_shop';
   const canAdjust = authorization.permissions.includes(
     PermissionEnum.INVENTORY_ADJUST
   );
@@ -50,9 +57,9 @@ export default async function InventoryPage({
       <DashboardPageHeading
         theme="adaptive"
         icon={Boxes}
-        eyebrow="Stock control"
-        title="Inventory"
-        description="Count, replenish, adjust and audit every change to stock on hand."
+        eyebrow={pharmacy ? 'Pharmacy stock control' : liquorStore ? 'Liquor store stock control' : 'Stock control'}
+        title={pharmacy ? 'Medicine Inventory' : liquorStore ? 'Store Inventory' : 'Inventory'}
+        description={pharmacy ? 'Count, receive and audit medicine stock with batch and expiry controls.' : liquorStore ? 'Count, replenish and audit bottles, packs, cases and other store stock.' : 'Count, replenish, adjust and audit every change to stock on hand.'}
       />
 
       <InventoryManager
