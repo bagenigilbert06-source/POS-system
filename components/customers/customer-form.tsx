@@ -93,14 +93,14 @@ export function CustomerForm({ customer, onClose }: CustomerFormProps) {
   }
 
   const inputCls = cn(
-    'w-full rounded-md border border-[#d7dce5] bg-white px-3 py-2 text-sm outline-none shadow-[0_1px_2px_rgba(16,24,40,.03)]',
+    'w-full rounded-md border border-[var(--dashboard-border)] bg-[var(--dashboard-surface-subtle)] px-3 py-2 text-sm text-[var(--dashboard-text)] outline-none shadow-[0_1px_2px_rgba(16,24,40,.03)]',
     'placeholder:text-muted-foreground',
     'focus:border-primary focus:ring-2 focus:ring-primary/20 transition-colors'
   )
 
   return (
     <div className="mx-auto w-full max-w-3xl">
-      <div className="overflow-hidden rounded-xl border border-[#eadfbd] bg-[#fffdf7] shadow-[0_2px_8px_rgba(16,24,40,.05)]">
+      <div className="overflow-hidden rounded-xl border border-[var(--dashboard-border)] bg-[var(--dashboard-surface)] shadow-[0_2px_8px_rgba(16,24,40,.05)]">
         <form onSubmit={handleSubmit} aria-describedby={error ? 'customer-form-error' : undefined}>
           <div className="p-5 sm:p-7">
             <div className="mb-6"><h2 className="text-lg font-semibold">Customer details</h2><p className="mt-1 text-sm text-muted-foreground">Name is required. Contact details help your team find customers during checkout.</p></div>
@@ -108,7 +108,7 @@ export function CustomerForm({ customer, onClose }: CustomerFormProps) {
             {error && <p id="customer-form-error" role="alert" className="mt-4 text-sm text-destructive">{error}</p>}
           </div>
 
-          <div className="flex items-center justify-between gap-2 border-t border-[#eadfbd] bg-[#fff8df] px-5 py-4 sm:px-6">
+          <div className="flex items-center justify-between gap-2 border-t border-[var(--dashboard-border)] bg-[var(--dashboard-surface-subtle)] px-5 py-4 sm:px-6">
             <p className="hidden items-center gap-1.5 text-xs text-muted-foreground sm:flex" aria-live="polite">
               {loading ? <><Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />Saving securely…</> : <><Check className="h-3.5 w-3.5 text-[hsl(var(--success))]" />Ready to use at the POS after saving.</>}
             </p>

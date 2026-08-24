@@ -13,7 +13,7 @@ function validDraft(overrides: Partial<OnboardingDraft> = {}): OnboardingDraft {
     businessFamily: 'retail', businessCategory: 'general_shop', sellsProducts: true, tracksInventory: true,
     keepsCustomers: true, usesSuppliers: true, branchName: 'Main location', branchPhone: '+254700000000',
     branchAddress: 'Test Street', branchRegion: 'Nairobi', branchCity: 'Nairobi',
-    enabledModules: ['pos', 'sales', 'products', 'inventory', 'purchases', 'customers', 'reports', 'analytics'],
+    enabledModules: ['pos', 'sales', 'products', 'inventory', 'customers', 'reports', 'analytics'],
     receiptBusinessName: 'Test Business', receiptPhone: '+254700000000',
     ...overrides,
   }
@@ -47,6 +47,7 @@ assert.equal(getBusinessExperience('food_hospitality', 'cafe').navigation.produc
 assert.equal(getBusinessExperience('food_hospitality', 'cafe').actionLabels.primary, 'New order', 'cafés must use order-oriented actions')
 
 assert.equal(validate(validDraft()).success, true, 'product and inventory workflow should validate')
+assert.equal(validate(validDraft({ usesSuppliers: true })).success, true, 'supplier records should work with the current operations workflow')
 assert.equal(validate(validDraft({ enabledModules: ['pos', 'sales', 'products', 'inventory', 'customers', 'reports'] })).success, false, 'analytics must be enabled for the working dashboard')
 assert.equal(validate(validDraft({
   businessFamily: 'professional_services', businessCategory: 'consulting', sellsProducts: false, providesServices: true,

@@ -23,17 +23,17 @@ async function getOrgId(userId: string) {
 }
 
 // Get sales trend data for charts
-export async function getSalesTrendData(days: number = 30) {
+export async function getSalesTrendData(days: number = 30, timezone: string = 'Africa/Nairobi') {
   const userId = await getUserId()
   const orgId = await getOrgId(userId)
 
   const startDate = new Date()
-  startDate.setDate(startDate.getDate() - days)
+  startDate.setDate(startDate.getDate() - (days - 1))
 
   try {
     const trends = await db
       .select({
-        date: sql<string>`DATE(${sale.createdAt})`,
+        date: sql<string>`DATE(${sale.createdAt} AT TIME ZONE ${timezone})`,
         total: sql<number>`SUM(CAST(${sale.total} AS FLOAT))`,
         count: sql<number>`COUNT(*)`,
       })
@@ -41,11 +41,12 @@ export async function getSalesTrendData(days: number = 30) {
       .where(
         and(
           eq(sale.orgId, orgId),
+          eq(sale.status, 'completed'),
           gte(sale.createdAt, startDate)
         )
       )
-      .groupBy(sql`DATE(${sale.createdAt})`)
-      .orderBy(sql`DATE(${sale.createdAt})`)
+      .groupBy(sql`1`)
+      .orderBy(sql`1`)
 
     return trends
   } catch (error) {
@@ -64,7 +65,7 @@ export async function getCustomerCohorts() {
       .select({
         joinMonth: sql<string>`DATE_TRUNC('month', ${customer.createdAt})`,
         cohortSize: sql<number>`COUNT(DISTINCT ${customer.id})`,
-        repeatPurchases: sql<number>`COUNT(DISTINCT CASE WHEN (SELECT COUNT(*) FROM ${sale} WHERE ${sale.customerId} = ${customer.id}) > 1 THEN ${customer.id} END)`,
+        repeatPurchases: sql<number>`COUNT(DISTINCT CASE WHEN (SELECT COUNT(*) FROM ${sale} WHERE ${sale.customerId} = ${customer.id} AND ${sale.orgId} = ${orgId} AND ${sale.status} = 'completed') > 1 THEN ${customer.id} END)`,
       })
       .from(customer)
       .where(eq(customer.orgId, orgId))
@@ -79,9 +80,11 @@ export async function getCustomerCohorts() {
 }
 
 // Get repeat customer metrics
-export async function getRepeatCustomerMetrics() {
+export async function getRepeatCustomerMetrics(days: number = 30) {
   const userId = await getUserId()
   const orgId = await getOrgId(userId)
+  const startDate = new Date()
+  startDate.setDate(startDate.getDate() - (days - 1))
 
   try {
     const metrics = await db
@@ -94,11 +97,16 @@ export async function getRepeatCustomerMetrics() {
         lastPurchaseDate: sql<string>`MAX(${sale.createdAt})`,
       })
       .from(customer)
-      .leftJoin(sale, eq(customer.id, sale.customerId))
+      .leftJoin(sale, and(
+        eq(customer.id, sale.customerId),
+        eq(sale.orgId, orgId),
+        eq(sale.status, 'completed'),
+        gte(sale.createdAt, startDate),
+      ))
       .where(eq(customer.orgId, orgId))
       .groupBy(customer.id, customer.name)
+      .having(sql`COUNT(DISTINCT ${sale.id}) > 0`)
       .orderBy(desc(sql`COUNT(DISTINCT ${sale.id})`))
-      .limit(20)
 
     return metrics
   } catch (error) {
@@ -108,9 +116,11 @@ export async function getRepeatCustomerMetrics() {
 }
 
 // Get product performance
-export async function getProductPerformance() {
+export async function getProductPerformance(days: number = 30) {
   const userId = await getUserId()
   const orgId = await getOrgId(userId)
+  const startDate = new Date()
+  startDate.setDate(startDate.getDate() - (days - 1))
 
   try {
     const performance = await db
@@ -123,6 +133,12 @@ export async function getProductPerformance() {
         margin: sql<number>`((SUM(CAST(${saleItem.totalPrice} AS FLOAT)) - SUM(CAST(${saleItem.totalCost} AS FLOAT))) / NULLIF(SUM(CAST(${saleItem.totalPrice} AS FLOAT)), 0)) * 100`,
       })
       .from(saleItem)
+      .innerJoin(sale, and(
+        eq(saleItem.saleId, sale.id),
+        eq(sale.orgId, orgId),
+        eq(sale.status, 'completed'),
+        gte(sale.createdAt, startDate),
+      ))
       .innerJoin(product, eq(saleItem.productId, product.id))
       .where(eq(product.orgId, orgId))
       .groupBy(product.id, product.name)
@@ -137,9 +153,11 @@ export async function getProductPerformance() {
 }
 
 // Get staff KPIs
-export async function getStaffKPIs() {
+export async function getStaffKPIs(days: number = 30) {
   const userId = await getUserId()
   const orgId = await getOrgId(userId)
+  const startDate = new Date()
+  startDate.setDate(startDate.getDate() - (days - 1))
 
   try {
     const kpis = await db
@@ -152,7 +170,12 @@ export async function getStaffKPIs() {
         averageTransaction: sql<number>`AVG(CAST(${sale.total} AS FLOAT))`,
       })
       .from(employee)
-      .leftJoin(sale, and(eq(employee.userId, sale.userId), eq(sale.orgId, orgId)))
+      .leftJoin(sale, and(
+        eq(employee.userId, sale.userId),
+        eq(sale.orgId, orgId),
+        eq(sale.status, 'completed'),
+        gte(sale.createdAt, startDate),
+      ))
       .where(eq(employee.orgId, orgId))
       .groupBy(employee.id, employee.name, employee.department)
       .orderBy(desc(sql`SUM(CAST(${sale.total} AS FLOAT))`))
@@ -165,26 +188,60 @@ export async function getStaffKPIs() {
 }
 
 // Get hourly sales patterns
-export async function getHourlyPatterns() {
+export async function getHourlyPatterns(days: number = 30, timezone: string = 'Africa/Nairobi') {
   const userId = await getUserId()
   const orgId = await getOrgId(userId)
+  const startDate = new Date()
+  startDate.setDate(startDate.getDate() - (days - 1))
 
   try {
     const patterns = await db
       .select({
-        hour: sql<number>`EXTRACT(HOUR FROM ${sale.createdAt})`,
+        hour: sql<number>`EXTRACT(HOUR FROM ${sale.createdAt} AT TIME ZONE ${timezone})`,
         totalSales: sql<number>`SUM(CAST(${sale.total} AS FLOAT))`,
         transactionCount: sql<number>`COUNT(DISTINCT ${sale.id})`,
         averageTransaction: sql<number>`AVG(CAST(${sale.total} AS FLOAT))`,
       })
       .from(sale)
-      .where(eq(sale.orgId, orgId))
-      .groupBy(sql`EXTRACT(HOUR FROM ${sale.createdAt})`)
-      .orderBy(sql`EXTRACT(HOUR FROM ${sale.createdAt})`)
+      .where(and(
+        eq(sale.orgId, orgId),
+        eq(sale.status, 'completed'),
+        gte(sale.createdAt, startDate),
+      ))
+      .groupBy(sql`1`)
+      .orderBy(sql`1`)
 
     return patterns
   } catch (error) {
     console.error('[v0] Error fetching hourly patterns:', error)
+    return []
+  }
+}
+
+// Get the completed-sales payment mix for the selected analytics period
+export async function getPaymentMix(days: number = 30) {
+  const userId = await getUserId()
+  const orgId = await getOrgId(userId)
+  const startDate = new Date()
+  startDate.setDate(startDate.getDate() - (days - 1))
+
+  try {
+    return await db
+      .select({
+        method: sale.paymentMethod,
+        revenue: sql<number>`SUM(CAST(${sale.total} AS FLOAT))`,
+        transactions: sql<number>`COUNT(*)`,
+      })
+      .from(sale)
+      .where(and(
+        eq(sale.orgId, orgId),
+        eq(sale.status, 'completed'),
+        gte(sale.createdAt, startDate),
+      ))
+      .groupBy(sale.paymentMethod)
+      .orderBy(desc(sql`SUM(CAST(${sale.total} AS FLOAT))`))
+  } catch (error) {
+    console.error('[analytics] Error fetching payment mix:', error)
     return []
   }
 }
@@ -204,6 +261,7 @@ export async function getSalesForecast(days: number = 30) {
       .where(
         and(
           eq(sale.orgId, orgId),
+          eq(sale.status, 'completed'),
           gte(sale.createdAt, new Date(Date.now() - 90 * 24 * 60 * 60 * 1000))
         )
       )
@@ -214,7 +272,7 @@ export async function getSalesForecast(days: number = 30) {
     if (historicalData.length < 2) return []
 
     const dates = historicalData.map((d, i) => i)
-    const values = historicalData.map(d => d.total || 0)
+    const values = historicalData.map(d => Number(d.total ?? 0))
     
     const n = dates.length
     const sumX = dates.reduce((a, b) => a + b, 0)
@@ -225,8 +283,18 @@ export async function getSalesForecast(days: number = 30) {
     const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX)
     const intercept = (sumY - slope * sumX) / n
 
-    const forecast = []
-    const lastDate = new Date(historicalData[historicalData.length - 1].date)
+    const forecast: Array<{
+      date: string
+      actual?: number
+      predicted: number
+      confidence: 'high' | 'medium' | 'low'
+    }> = historicalData.slice(-30).map((row, index) => ({
+      date: String(row.date),
+      actual: Number(row.total ?? 0),
+      predicted: Math.max(0, intercept + slope * (n - Math.min(30, n) + index)),
+      confidence: 'high' as const,
+    }))
+    const lastDate = new Date()
     
     for (let i = 1; i <= days; i++) {
       const forecastDate = new Date(lastDate)
@@ -236,6 +304,7 @@ export async function getSalesForecast(days: number = 30) {
       forecast.push({
         date: forecastDate.toISOString().split('T')[0],
         predicted: Math.max(0, predictedValue),
+        confidence: i <= 10 ? 'high' as const : i <= 20 ? 'medium' as const : 'low' as const,
       })
     }
 

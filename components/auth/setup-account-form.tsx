@@ -23,13 +23,10 @@ export function SetupAccountForm({ token, email, invalid }: { token?: string; em
       }
       const signIn = await authClient.signIn.email({ email, password, rememberMe: true })
       if (signIn.error) throw new Error(signIn.error.message || 'Password created. Please sign in.')
-      const landing = await fetch('/api/auth/landing', { cache: 'no-store', credentials: 'include' })
-      const data = landing.ok ? await landing.json() as { destination?: string } : {}
-      router.replace(data.destination || '/dashboard')
-      router.refresh()
+      router.replace('/dashboard')
+      return
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Unable to activate account')
-    } finally {
       setPending(false)
     }
   }

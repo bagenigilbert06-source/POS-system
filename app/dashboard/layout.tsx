@@ -19,34 +19,37 @@ export default async function DashboardRouteLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const session = await getCurrentSession();
-  const posAuthorization = await getPosAuthorizationContext();
+  const [session, posAuthorization] = await Promise.all([
+    getCurrentSession(),
+    getPosAuthorizationContext(),
+  ]);
   if (!session?.user && !posAuthorization) redirect('/sign-in');
   const userId = posAuthorization?.userId ?? session!.user.id;
 
-  const [account] = await withDatabaseRetry(() =>
-    db
-      .select({
-        status: user.status,
-        name: user.name,
-        email: user.email,
-        image: user.image,
-      })
-      .from(user)
-      .where(eq(user.id, userId))
-      .limit(1)
-  );
-  if (account?.status && account.status !== 'active') redirect('/restricted');
-
-  const organization = posAuthorization
-    ? (
-        await db
+  const [accountRows, organization] = await Promise.all([
+    withDatabaseRetry(() =>
+      db
+        .select({
+          status: user.status,
+          name: user.name,
+          email: user.email,
+          image: user.image,
+        })
+        .from(user)
+        .where(eq(user.id, userId))
+        .limit(1)
+    ),
+    posAuthorization
+      ? db
           .select()
           .from(organizationTable)
           .where(eq(organizationTable.id, posAuthorization.organizationId))
           .limit(1)
-      )[0]
-    : await OrganizationService.getPrimaryOrganization(userId);
+          .then((rows) => rows[0] ?? null)
+      : OrganizationService.getPrimaryOrganization(userId),
+  ]);
+  const account = accountRows[0];
+  if (account?.status && account.status !== 'active') redirect('/restricted');
 
   if (!organization) {
     const ownedOrganization =
@@ -58,12 +61,11 @@ export default async function DashboardRouteLayout({
 
   // Build a full WorkspaceConfig from the persisted businessType + businessCategory.
   // This is done once on the server so the client never needs to fetch it separately.
-  const workspaceConfig = await WorkspaceService.getWorkspaceConfig(
-    organization.id,
-    userId
-  );
+  const [workspaceConfig, authorization] = await Promise.all([
+    WorkspaceService.getAuthorizedWorkspaceConfig(organization),
+    posAuthorization ?? getAuthorizationContext(),
+  ]);
   if (!workspaceConfig) redirect('/onboarding');
-  const authorization = posAuthorization ?? (await getAuthorizationContext());
   const [activeBranch] = await db
     .select({ name: branch.name })
     .from(branch)

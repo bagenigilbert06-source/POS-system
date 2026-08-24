@@ -23,8 +23,8 @@ export function ProductPerformance({ products, currency }: ProductPerformancePro
       <article className="app-panel overflow-hidden">
         <div className="border-b px-4 py-4 sm:px-5">
           <div className="flex items-start justify-between gap-3">
-            <div><h2 className="font-bold">Top products</h2><p className="mt-1 text-sm text-muted-foreground">Best performing products by revenue</p></div>
-            <Package className="h-5 w-5 text-primary" />
+            <div><h2>Top products</h2><p className="mt-1 text-xs text-muted-foreground">Ranked by revenue in the selected period</p></div>
+            <Package className="h-4 w-4 text-[var(--dashboard-accent)]" />
           </div>
         </div>
         <div className="flex h-40 items-center justify-center text-center">
@@ -38,19 +38,19 @@ export function ProductPerformance({ products, currency }: ProductPerformancePro
     <article className="app-panel overflow-hidden">
       <div className="border-b px-4 py-4 sm:px-5">
         <div className="flex items-start justify-between gap-3">
-          <div><h2 className="font-bold">Top products</h2><p className="mt-1 text-sm text-muted-foreground">Best performing products by revenue</p></div>
-          <Package className="h-5 w-5 text-primary" />
+          <div><h2>Top products</h2><p className="mt-1 text-xs text-muted-foreground">Ranked by revenue in the selected period</p></div>
+          <Package className="h-4 w-4 text-[var(--dashboard-accent)]" />
         </div>
       </div>
       <div className="divide-y">
         {products.map((product, idx) => (
           <div key={product.id} className="flex items-center gap-3 px-4 py-3.5 sm:px-5 hover:bg-muted/50 transition-colors">
-            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent text-xs font-extrabold text-accent-foreground">
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-[var(--dashboard-accent-soft-border)] bg-[var(--dashboard-accent-soft)] text-xs font-extrabold text-[var(--dashboard-accent)]">
               {idx + 1}
             </span>
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-bold">{product.name}</p>
-              <p className="text-xs text-muted-foreground">{formatNumber(product.units)} units • {product.margin}% profit</p>
+              <p className="text-xs text-muted-foreground">{formatNumber(product.units)} units • {Number(product.margin).toFixed(1)}% margin</p>
             </div>
             <div className="text-right">
               <p className="text-sm font-bold tabular-nums">{formatCurrency(product.revenue, currency)}</p>

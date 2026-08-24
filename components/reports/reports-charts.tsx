@@ -1,6 +1,6 @@
 'use client'
 
-import { Area, CartesianGrid, Cell, ComposedChart, Line, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+import { Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { CreditCard, TrendingUp } from 'lucide-react'
 import { formatCurrency, formatNumber } from '@/lib/utils/format'
 import { paymentShareLabel } from '@/lib/reports/report-rules'
@@ -13,7 +13,14 @@ interface ReportsChartsProps {
   currency: string
   periodLabel: string
 }
-const PAYMENT_COLORS = ['#b7791f', '#16865a', '#2563eb', '#7c3aed', '#db2777', '#64748b']
+const PAYMENT_COLORS = [
+  'var(--dashboard-chart-secondary)',
+  'var(--dashboard-success)',
+  'var(--dashboard-danger)',
+  'var(--dashboard-muted)',
+  'var(--dashboard-accent)',
+  'var(--dashboard-accent-strong)',
+]
 
 function paymentLabel(value: string) {
   const normalized = value.toLowerCase().replace(/[^a-z0-9]+/g, '_')
@@ -30,13 +37,20 @@ function total(points: TrendPoint[], key: 'revenue' | 'expenses' | 'refunds' | '
 }
 
 export function ReportsCharts({ dailyData, monthlyData, paymentData, currency, periodLabel }: ReportsChartsProps) {
-  const chartData: TrendPoint[] = dailyData.length === 62 && monthlyData.length > 2 ? monthlyData.map((point) => ({ ...point, label: point.month })) : dailyData
+  const useMonthlyView = dailyData.length === 62 && monthlyData.length > 2
+  const chartData: TrendPoint[] = useMonthlyView
+    ? monthlyData.map((point) => ({
+        ...point,
+        label: new Date(`${point.month}-01T00:00:00Z`).toLocaleDateString('en-KE', { month: 'short', year: 'numeric', timeZone: 'UTC' }),
+      }))
+    : dailyData
 
   const revenue = total(chartData, 'revenue')
   const expenses = total(chartData, 'expenses')
   const refunds = total(chartData, 'refunds')
   const netProfit = total(chartData, 'netProfit')
   const transactions = total(chartData, 'count')
+  const activePeriods = chartData.filter((point) => point.revenue > 0).length
   const hasActivity = chartData.some((point) => point.revenue || point.expenses || point.refunds)
   const paymentChartData = paymentData.slice(0, 6).map((item, index) => ({ ...item, label: paymentLabel(item.method), color: PAYMENT_COLORS[index % PAYMENT_COLORS.length] }))
   const paymentTotal = paymentChartData.reduce((sum, item) => sum + item.amount, 0)
@@ -48,7 +62,7 @@ export function ReportsCharts({ dailyData, monthlyData, paymentData, currency, p
         <div className="flex flex-col gap-4 border-b px-4 py-4 sm:flex-row sm:items-start sm:justify-between sm:px-5">
           <div className="flex items-center gap-2">
             <span className="flex h-8 w-8 items-center justify-center rounded-lg border border-[var(--dashboard-accent-soft-border)] bg-[var(--dashboard-accent-soft)] text-[var(--dashboard-accent)]"><TrendingUp className="h-4 w-4" aria-hidden="true" /></span>
-            <div><h2>Sales performance</h2><p className="mt-0.5 text-xs text-muted-foreground">Net sales against operating expenses.</p></div>
+            <div><h2>{useMonthlyView ? 'Monthly sales' : 'Daily sales'}</h2><p className="mt-0.5 text-xs text-muted-foreground">Each bar shows the net sales collected {useMonthlyView ? 'that month' : 'that day'}.</p></div>
           </div>
           <span className="rounded-lg border bg-[var(--dashboard-surface-subtle)] px-3 py-2 text-[11px] font-semibold text-muted-foreground">{periodLabel}</span>
         </div>
@@ -62,18 +76,16 @@ export function ReportsCharts({ dailyData, monthlyData, paymentData, currency, p
 
         {hasActivity ? <>
           <p className="sr-only">{periodLabel}: net sales {formatCurrency(revenue, currency)}, expenses {formatCurrency(expenses, currency)}, refunds {formatCurrency(refunds, currency)}.</p>
-          <div className="h-[300px] px-2 pb-2 pt-5 sm:h-[330px] sm:px-4">
-            <ResponsiveContainer width="100%" height="100%" debounce={100}><ComposedChart data={chartData} margin={{ top: 8, right: 12, left: -5, bottom: 0 }} accessibilityLayer={false}>
-              <defs><linearGradient id="reportSalesArea" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="var(--dashboard-chart-revenue)" stopOpacity={0.3} /><stop offset="72%" stopColor="var(--dashboard-chart-revenue)" stopOpacity={0.06} /><stop offset="100%" stopColor="var(--dashboard-chart-revenue)" stopOpacity={0} /></linearGradient></defs>
+          <div className="h-[270px] px-2 pb-2 pt-5 sm:h-[290px] sm:px-4">
+            <ResponsiveContainer width="100%" height="100%" debounce={100}><BarChart data={chartData} margin={{ top: 8, right: 12, left: -5, bottom: 0 }} accessibilityLayer={false} barCategoryGap="28%">
               <CartesianGrid vertical={false} stroke="var(--dashboard-chart-grid)" strokeDasharray="3 5" />
               <XAxis dataKey="label" axisLine={false} tickLine={false} minTickGap={28} tick={{ fill: 'var(--dashboard-chart-tick)', fontSize: 10 }} dy={9} />
-              <YAxis axisLine={false} tickLine={false} width={54} tick={{ fill: 'var(--dashboard-chart-tick)', fontSize: 10 }} tickFormatter={(value) => compact(Number(value))} />
-              <Tooltip content={<TrendTooltip currency={currency} />} cursor={{ stroke: 'var(--dashboard-muted)', strokeDasharray: '4 4', opacity: 0.55 }} isAnimationActive={false} />
-              <Area type="monotone" dataKey="revenue" name="Net sales" stroke="var(--dashboard-chart-revenue)" strokeWidth={2.5} fill="url(#reportSalesArea)" dot={false} activeDot={{ r: 4, stroke: 'var(--dashboard-surface)', strokeWidth: 2 }} isAnimationActive={false} />
-              {expenses > 0 && <Line type="monotone" dataKey="expenses" name="Expenses" stroke="var(--dashboard-chart-secondary)" strokeWidth={2} strokeDasharray="5 4" dot={false} activeDot={{ r: 4 }} isAnimationActive={false} />}
-            </ComposedChart></ResponsiveContainer>
+              <YAxis axisLine={false} tickLine={false} width={54} tickCount={4} tick={{ fill: 'var(--dashboard-chart-tick)', fontSize: 10 }} tickFormatter={(value) => compact(Number(value))} />
+              <Tooltip content={<TrendTooltip currency={currency} />} cursor={{ fill: 'var(--dashboard-accent-soft)', opacity: 0.55 }} isAnimationActive={false} />
+              <Bar dataKey="revenue" name="Net sales" fill="var(--dashboard-accent-cta)" radius={[4, 4, 0, 0]} maxBarSize={34} isAnimationActive={false} />
+            </BarChart></ResponsiveContainer>
           </div>
-          <div className="flex flex-wrap items-center gap-5 border-t px-5 py-3 text-[11px] font-medium text-muted-foreground"><span className="inline-flex items-center gap-2"><i className="h-2 w-2 rounded-full bg-[var(--dashboard-chart-revenue)]" />Net sales</span><span className="inline-flex items-center gap-2"><i className="h-0.5 w-3 bg-[var(--dashboard-chart-secondary)]" />Expenses</span>{refunds > 0 && <span className="ml-auto tabular-nums">Refunds: {formatCurrency(refunds, currency)}</span>}</div>
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-2 border-t px-5 py-3 text-[11px] font-medium text-muted-foreground"><span><strong className="text-foreground">{activePeriods}</strong> {useMonthlyView ? 'months' : 'days'} with sales</span>{expenses > 0 && <span>Expenses: <strong className="text-foreground tabular-nums">{formatCurrency(expenses, currency)}</strong></span>}{refunds > 0 && <span className="sm:ml-auto">Refunds: <strong className="text-foreground tabular-nums">{formatCurrency(refunds, currency)}</strong></span>}</div>
         </> : <ChartEmpty title="No activity in this period" detail="Sales and expenses will appear here as they are recorded." />}
       </article>
 

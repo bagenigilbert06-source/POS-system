@@ -20,8 +20,8 @@ export function CustomerCohort({ cohorts }: CustomerCohortProps) {
       <article className="app-panel overflow-hidden">
         <div className="border-b px-4 py-4 sm:px-5">
           <div className="flex items-start justify-between gap-3">
-            <div><h2 className="font-bold">Customer cohorts</h2><p className="mt-1 text-sm text-muted-foreground">Monthly acquisition & retention analysis</p></div>
-            <Users className="h-5 w-5 text-primary" />
+            <div><h2>Customer cohorts</h2><p className="mt-1 text-xs text-muted-foreground">Monthly acquisition and retention</p></div>
+            <Users className="h-4 w-4 text-[var(--dashboard-accent)]" />
           </div>
         </div>
         <div className="flex h-40 items-center justify-center text-center">
@@ -35,8 +35,8 @@ export function CustomerCohort({ cohorts }: CustomerCohortProps) {
     <article className="app-panel overflow-hidden">
       <div className="border-b px-4 py-4 sm:px-5">
         <div className="flex items-start justify-between gap-3">
-          <div><h2 className="font-bold">Customer cohorts</h2><p className="mt-1 text-sm text-muted-foreground">Monthly acquisition & retention analysis</p></div>
-          <Users className="h-5 w-5 text-primary" />
+          <div><h2>Customer cohorts</h2><p className="mt-1 text-xs text-muted-foreground">Monthly acquisition and retention</p></div>
+          <Users className="h-4 w-4 text-[var(--dashboard-accent)]" />
         </div>
       </div>
       <div className="divide-y">
@@ -44,7 +44,7 @@ export function CustomerCohort({ cohorts }: CustomerCohortProps) {
           <div key={cohort.period} className="px-4 py-4 sm:px-5">
             <div className="flex items-center justify-between mb-3">
               <p className="font-semibold text-sm">{cohort.period}</p>
-              <span className="inline-flex items-center gap-1 rounded-lg bg-accent/10 px-2 py-1 text-xs font-medium text-accent">
+              <span className="inline-flex items-center gap-1 rounded-md border border-[var(--dashboard-accent-soft-border)] bg-[var(--dashboard-accent-soft)] px-2 py-1 text-xs font-medium text-[var(--dashboard-accent)]">
                 {cohort.retention}% retained
               </span>
             </div>

@@ -35,9 +35,9 @@ export function StaffMetricsCards({
         'bg-green-100 text-green-600 dark:bg-green-950/60 dark:text-green-300',
     },
     {
-      label: 'Total Sales',
+      label: 'Total Revenue',
       value: formatCurrency(metrics.totalSalesValue, currency),
-      detail: 'Combined revenue',
+      detail: 'Net revenue from all paid sales',
       icon: Target,
       color:
         'bg-purple-100 text-purple-600 dark:bg-purple-950/60 dark:text-purple-300',
@@ -45,7 +45,7 @@ export function StaffMetricsCards({
     {
       label: 'Transactions',
       value: formatNumber(metrics.totalTransactions),
-      detail: 'Completed today',
+      detail: 'All completed sales',
       icon: TrendingUp,
       color:
         'bg-orange-100 text-orange-600 dark:bg-orange-950/60 dark:text-orange-300',
@@ -53,7 +53,7 @@ export function StaffMetricsCards({
     {
       label: 'Avg Sales/Staff',
       value: formatCurrency(metrics.avgPerStaff, currency),
-      detail: 'Per active staff member',
+      detail: 'Per staff member with sales',
       icon: Target,
       color: 'bg-pink-100 text-pink-600 dark:bg-pink-950/60 dark:text-pink-300',
     },

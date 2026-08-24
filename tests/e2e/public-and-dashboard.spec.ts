@@ -30,6 +30,59 @@ test.describe('public experience', () => {
     await expect(page.getByRole('textbox', { name: 'Password' })).toBeVisible()
   })
 
+  test('shows clear registration validation without submitting incomplete data', async ({ page }) => {
+    await navigate(page, '/sign-up')
+    await page.waitForFunction(() => {
+      const form = document.querySelector('form')
+      return form && Object.keys(form).some((key) => key.startsWith('__reactProps'))
+    })
+
+    await page.getByRole('button', { name: 'Create account' }).click()
+    await expect(page.getByText('Enter your full name.')).toBeVisible()
+    await expect(page.getByText('Enter your work email.')).toBeVisible()
+    await expect(page.getByText('Enter your password.')).toBeVisible()
+
+    await page.getByLabel('Full name').fill('Amina Kamau')
+    await page.getByLabel('Work email').fill('amina@example.com')
+    await page.getByLabel('Create password').fill('secure-pass')
+    await page.getByLabel('Confirm password').fill('different-pass')
+    await page.getByRole('button', { name: 'Create account' }).click()
+
+    await expect(page.getByText('Passwords do not match.')).toBeVisible()
+    await expect(page).toHaveURL(/\/sign-up$/)
+  })
+
+  test('shows immediate progress while sign-in and registration requests are pending', async ({ page }) => {
+    await page.route('**/api/auth/sign-in/email', async (route) => {
+      await new Promise((resolve) => setTimeout(resolve, 700))
+      await route.fulfill({ status: 401, contentType: 'application/json', body: JSON.stringify({ message: 'Invalid credentials' }) })
+    })
+    await navigate(page, '/sign-in')
+    await page.getByLabel('Work email').fill('user@example.com')
+    await page.getByRole('textbox', { name: 'Password' }).fill('secure-pass')
+    await page.getByRole('button', { name: 'Sign in to Pesaby' }).click()
+    await expect(page.getByRole('status', { name: 'Authenticating' })).toBeVisible()
+    await expect(page.getByRole('status', { name: 'Authenticating' })).toBeHidden()
+
+    await page.unroute('**/api/auth/sign-in/email')
+    await page.route('**/api/auth/sign-up/email', async (route) => {
+      await new Promise((resolve) => setTimeout(resolve, 700))
+      await route.fulfill({ status: 409, contentType: 'application/json', body: JSON.stringify({ message: 'Account already exists' }) })
+    })
+    await navigate(page, '/sign-up')
+    await page.waitForFunction(() => {
+      const form = document.querySelector('form')
+      return form && Object.keys(form).some((key) => key.startsWith('__reactProps'))
+    })
+    await page.getByLabel('Full name').fill('Amina Kamau')
+    await page.getByLabel('Work email').fill('amina@example.com')
+    await page.getByLabel('Create password').fill('secure-pass')
+    await page.getByLabel('Confirm password').fill('secure-pass')
+    await page.getByRole('button', { name: 'Create account' }).click()
+    await expect(page.getByRole('status', { name: 'Authenticating' })).toBeVisible()
+    await expect(page.getByRole('status', { name: 'Authenticating' })).toBeHidden()
+  })
+
   test('redirects protected routes to sign-in for guests', async ({ request }) => {
     for (const path of ['/dashboard', '/dashboard/products', '/dashboard/sales', '/dashboard/reports']) {
       const response = await request.get(path, { maxRedirects: 0 })

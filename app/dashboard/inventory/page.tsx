@@ -2,10 +2,8 @@ import type { Metadata } from 'next';
 import { Boxes } from 'lucide-react';
 import { getProductsPageData } from '@/app/actions/products';
 import { getInventoryControlData } from '@/app/actions/stock-adjustments';
-import { getInventoryLifecycleData } from '@/app/actions/inventory-lifecycle';
 import { DashboardPageHeading } from '@/components/dashboard/page-heading';
 import { InventoryManager } from '@/components/inventory/inventory-manager';
-import { InventoryLifecycleManager } from '@/components/inventory/inventory-lifecycle-manager';
 import { getAuthorizationContext } from '@/lib/auth/authorization';
 import { requireWorkspaceModule } from '@/lib/onboarding/require-module';
 import { PermissionEnum } from '@/lib/types/permissions';
@@ -20,11 +18,10 @@ export default async function InventoryPage({
 }) {
   const authorization = await getAuthorizationContext();
   const initialReceiveProductId = (await searchParams)?.receive;
-  const [{ organization }, products, control, lifecycle] = await Promise.all([
+  const [{ organization }, products, control] = await Promise.all([
     requireWorkspaceModule('inventory'),
     getProductsPageData(),
     getInventoryControlData(),
-    getInventoryLifecycleData(),
   ]);
   const activeProducts = products.filter((item) => item.isActive);
   const canAdjust = authorization.permissions.includes(
@@ -75,21 +72,6 @@ export default async function InventoryPage({
         currentUserId={authorization.userId}
         initialReceiveProductId={initialReceiveProductId}
         canPurchase={false}
-      />
-      <InventoryLifecycleManager
-        products={activeProducts}
-        suppliers={[]}
-        branches={lifecycle.branches}
-        purchaseOrders={[]}
-        poItems={[]}
-        transfers={lifecycle.transfers}
-        transferItems={lifecycle.transferItems}
-        currency={organization.currency}
-        canPurchase={false}
-        canTransfer={authorization.permissions.includes(
-          PermissionEnum.INVENTORY_TRANSFER
-        )}
-        showPurchases={false}
       />
     </div>
   );

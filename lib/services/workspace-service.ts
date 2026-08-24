@@ -20,18 +20,7 @@ const workspaceConfigForUser = cache(
       userId
     );
     if (!org) return null;
-    const [stored] = await db
-      .select({ config: workspace.config })
-      .from(workspace)
-      .where(eq(workspace.organizationId, organizationId))
-      .limit(1);
-    return runtimeConfig({
-      organizationId: org.id,
-      name: org.name,
-      businessType: org.businessType,
-      businessCategory: org.businessCategory ?? 'custom',
-      stored: (stored?.config ?? {}) as StoredWorkspaceConfig,
-    });
+    return loadWorkspaceConfig(org);
   }
 );
 
@@ -42,6 +31,30 @@ type StoredWorkspaceConfig = {
   businessFamily?: string;
   businessCategory?: string;
 };
+
+type AuthorizedOrganization = {
+  id: string;
+  name: string;
+  businessType: string;
+  businessCategory: string | null;
+};
+
+async function loadWorkspaceConfig(
+  organization: AuthorizedOrganization
+): Promise<WorkspaceConfig> {
+  const [stored] = await db
+    .select({ config: workspace.config })
+    .from(workspace)
+    .where(eq(workspace.organizationId, organization.id))
+    .limit(1);
+  return runtimeConfig({
+    organizationId: organization.id,
+    name: organization.name,
+    businessType: organization.businessType,
+    businessCategory: organization.businessCategory ?? 'custom',
+    stored: (stored?.config ?? {}) as StoredWorkspaceConfig,
+  });
+}
 
 const MODULE_NAV: Record<string, SidebarNavItem> = {
   pos: {
@@ -262,6 +275,13 @@ export class WorkspaceService {
     userId: string
   ): Promise<WorkspaceConfig | null> {
     return workspaceConfigForUser(organizationId, userId);
+  }
+
+  /** Use only after the caller has established access to this organization. */
+  static async getAuthorizedWorkspaceConfig(
+    organization: AuthorizedOrganization
+  ): Promise<WorkspaceConfig> {
+    return loadWorkspaceConfig(organization);
   }
 
   static getDashboardRoute(): string {

@@ -84,7 +84,9 @@ export const onboardingStepSchemas = {
   }),
   receipt: z.object({
     receiptBusinessName: z.string().trim().min(2).max(120), receiptPhone: phone, receiptAddress: optionalText(180),
-    receiptFooter: optionalText(160), showTaxOnReceipt: z.boolean(), receiptShowPhone: z.boolean(), receiptShowAddress: z.boolean(),
+    receiptFooter: optionalText(160), receiptLayout: z.enum(['detailed', 'thermal']),
+    receiptTemplate: z.enum(['classic', 'logo', 'cafe']), receiptLogoUrl: optionalText(500),
+    showTaxOnReceipt: z.boolean(), receiptShowPhone: z.boolean(), receiptShowAddress: z.boolean(),
     receiptShowCashier: z.boolean(), receiptShowCustomer: z.boolean(), receiptShowPayment: z.boolean(), receiptShowQrCode: z.boolean(),
     receiptShowItemSku: z.boolean(), receiptNumbering: z.literal('automatic'),
   }),
@@ -118,7 +120,6 @@ export function validateCompleteDraft(data: Record<string, unknown>) {
   if (!draft.tracksInventory && modules.has('inventory')) return draftError('modules', 'enabledModules', 'Inventory cannot be enabled when stock tracking is not selected')
   if (draft.keepsCustomers && !modules.has('customers')) return draftError('modules', 'enabledModules', 'Customers must be enabled when customer records are selected')
   if (!draft.keepsCustomers && modules.has('customers')) return draftError('modules', 'enabledModules', 'Customers cannot be enabled when customer records are not selected')
-  if (draft.usesSuppliers && !modules.has('purchases')) return draftError('modules', 'enabledModules', 'Purchases must be enabled when supplier records are selected')
   if (modules.has('pos') && draft.sellsProducts && !modules.has('products')) return draftError('modules', 'enabledModules', 'Product checkout requires Products')
 
   const payments = new Set(draft.paymentMethods)

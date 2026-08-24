@@ -489,6 +489,11 @@ export function InventoryManager({
         products={products}
         currency={currency}
         statusOf={statusOf}
+        onViewStatus={(status) => {
+          setTab('stock');
+          setStockFilter(status);
+          resetPage('stock');
+        }}
       />
       <section className="overflow-hidden rounded-2xl border bg-card shadow-sm">
         <div className="flex gap-1 overflow-x-auto border-b bg-muted/20 p-2">
@@ -1364,10 +1369,12 @@ function InventorySummary({
   products,
   currency,
   statusOf,
+  onViewStatus,
 }: {
   products: InventoryProduct[];
   currency: string;
   statusOf: (item: InventoryProduct) => InventoryStatus;
+  onViewStatus: (status: InventoryStatus) => void;
 }) {
   const inventoryValue = products.reduce(
     (sum, item) => sum + Number(item.buyingPrice) * (item.onHand ?? item.stock),
@@ -1375,21 +1382,25 @@ function InventorySummary({
   );
   const lowStock = products.filter((item) => statusOf(item) === 'low').length;
   const outOfStock = products.filter((item) => statusOf(item) === 'out').length;
+  const healthyStock = Math.max(0, products.length - lowStock - outOfStock);
+  const healthPercentage = products.length
+    ? Math.round((healthyStock / products.length) * 100)
+    : 0;
   const unitCount = products.reduce((sum, item) => sum + item.stock, 0);
   const metrics = [
     {
       label: 'Inventory value',
       value: formatCurrency(inventoryValue, currency),
-      detail: 'Current buying cost on hand',
+      detail: `${unitCount} units at recorded buying cost`,
       icon: WalletCards,
       tone: 'default',
     },
     {
-      label: 'Active SKUs',
-      value: String(products.length),
-      detail: `${unitCount} total units tracked`,
+      label: 'Stock health',
+      value: `${healthPercentage}%`,
+      detail: `${healthyStock} of ${products.length} products ready to sell`,
       icon: PackageCheck,
-      tone: 'default',
+      tone: healthPercentage === 100 ? 'success' : 'default',
     },
     {
       label: 'Low stock',
@@ -1397,6 +1408,7 @@ function InventorySummary({
       detail: lowStock ? 'At or below reorder level' : 'No low-stock products',
       icon: AlertTriangle,
       tone: lowStock ? 'warning' : 'success',
+      status: 'low',
     },
     {
       label: 'Out of stock',
@@ -1406,6 +1418,7 @@ function InventorySummary({
         : 'All active products available',
       icon: X,
       tone: outOfStock ? 'warning' : 'success',
+      status: 'out',
     },
   ] as const;
 
@@ -1414,7 +1427,7 @@ function InventorySummary({
       aria-label="Inventory summary"
       className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4"
     >
-      {metrics.map(({ label, value, detail, icon: Icon, tone }) => (
+      {metrics.map(({ label, value, detail, icon: Icon, tone, ...metric }) => (
         <article key={label} className="metric-card min-h-[132px]">
           <div className="flex items-start justify-between gap-3">
             <p className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
@@ -1436,6 +1449,15 @@ function InventorySummary({
             {value}
           </p>
           <p className="mt-1 text-xs text-muted-foreground">{detail}</p>
+          {'status' in metric && Number(value) > 0 && (
+            <button
+              type="button"
+              onClick={() => onViewStatus(metric.status)}
+              className="mt-2 text-xs font-semibold text-[var(--dashboard-accent)] hover:underline"
+            >
+              View items <ArrowRight className="ml-0.5 inline h-3 w-3" />
+            </button>
+          )}
         </article>
       ))}
     </section>

@@ -26,25 +26,9 @@ export default async function StaffPerformancePage() {
 
   const currency = organization.currency || 'KES';
 
-  // Get today's date range
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const endOfDay = new Date(today);
-  endOfDay.setHours(23, 59, 59, 999);
-
-  const [staffData] = await Promise.all([
-    getStaffPerformanceData(today, endOfDay).catch(() => ({
-      topStaff: [],
-      staffMetrics: {
-        totalStaff: 0,
-        activeStaff: 0,
-        totalSalesValue: 0,
-        totalTransactions: 0,
-        avgPerStaff: 0,
-      },
-      performanceTrend: [],
-    })),
-  ]);
+  const staffData = await getStaffPerformanceData(
+    organization.timezone || 'Africa/Nairobi'
+  );
 
   return (
     <div className="mx-auto max-w-[1480px] space-y-5 pb-8">
@@ -56,7 +40,7 @@ export default async function StaffPerformancePage() {
         action={
           <div className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-[#d9dce3] bg-white px-3 text-sm font-semibold text-[#344054] dark:border-white/10 dark:bg-[#171717] dark:text-[#f5f5f7]">
             <CalendarDays className="h-4 w-4" />
-            <span>Today</span>
+            <span>Live overview</span>
           </div>
         }
       />

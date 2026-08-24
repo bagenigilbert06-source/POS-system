@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 import { authClient } from '@/lib/auth-client';
 import {
   ArrowLeft,
@@ -34,7 +35,7 @@ import {
   type OnboardingDraft,
   type OnboardingStepId,
 } from '@/lib/onboarding/config';
-import { ReceiptPreview } from '@/components/receipt/receipt-preview';
+import { ReceiptTemplate } from '@/components/receipt/receipt-template';
 
 type FieldErrors = Record<string, string[] | undefined>;
 
@@ -208,7 +209,7 @@ function Field({
         aria-invalid={Boolean(error?.length)}
         aria-describedby={error?.length ? errorId : undefined}
         onChange={(event) => onChange(name, event.target.value)}
-        className="mt-2 h-12 w-full rounded-lg border border-zinc-300 bg-white px-3.5 text-base text-slate-950 outline-none transition-colors placeholder:text-zinc-400 focus:border-[#e42527] focus:ring-2 focus:ring-[#e42527]/15 aria-[invalid=true]:border-red-500"
+        className="mt-2 h-11 w-full rounded-lg border border-zinc-300 bg-white px-3.5 text-sm text-slate-950 outline-none transition-colors placeholder:text-zinc-400 focus:border-slate-900 focus:ring-4 focus:ring-[#ffda32]/45 aria-[invalid=true]:border-red-500"
       />
       {error?.[0] && (
         <span
@@ -245,12 +246,57 @@ function SelectField({
         value={value}
         onChange={(event) => onChange(name, event.target.value)}
         aria-invalid={Boolean(error?.length)}
-        className="mt-2 h-12 w-full rounded-lg border border-zinc-300 bg-white px-3.5 text-base outline-none focus:border-[#e42527] focus:ring-2 focus:ring-[#e42527]/15"
+        className="mt-2 h-11 w-full rounded-lg border border-zinc-300 bg-white px-3.5 text-sm outline-none focus:border-slate-900 focus:ring-4 focus:ring-[#ffda32]/45"
       >
         {children}
       </select>
       {error?.[0] && (
         <span className="mt-1.5 block text-xs font-medium text-red-700">
+          {error[0]}
+        </span>
+      )}
+    </label>
+  );
+}
+
+function TextareaField({
+  label,
+  name,
+  value,
+  onChange,
+  error,
+  optional,
+  placeholder,
+}: {
+  label: string;
+  name: keyof OnboardingDraft;
+  value: string;
+  onChange: (name: keyof OnboardingDraft, value: string) => void;
+  error?: string[];
+  optional?: boolean;
+  placeholder?: string;
+}) {
+  const errorId = `${String(name)}-error`;
+  return (
+    <label className="block min-w-0 text-sm font-semibold text-slate-900">
+      <span>
+        {label}
+        {optional && (
+          <span className="ml-1 font-normal text-zinc-500">(optional)</span>
+        )}
+      </span>
+      <textarea
+        name={String(name)}
+        value={value}
+        placeholder={placeholder}
+        rows={2}
+        aria-invalid={Boolean(error?.length)}
+        aria-describedby={error?.length ? errorId : undefined}
+        onChange={(event) => onChange(name, event.target.value)}
+        className="mt-2 min-h-20 w-full resize-y rounded-lg border border-zinc-300 bg-white px-3.5 py-3 text-sm text-slate-950 outline-none transition-colors placeholder:text-zinc-400 focus:border-slate-900 focus:ring-4 focus:ring-[#ffda32]/45 aria-[invalid=true]:border-red-500"
+      />
+      {error?.[0] && (
+        <span id={errorId} className="mt-1.5 block text-xs font-medium text-red-700">
           {error[0]}
         </span>
       )}
@@ -279,6 +325,7 @@ export function OnboardingContainer({
   const [errors, setErrors] = useState<FieldErrors>({});
   const [pageError, setPageError] = useState('');
   const [saving, setSaving] = useState(false);
+  const [logoUploading, setLogoUploading] = useState(false);
   const [workspaceCreated, setWorkspaceCreated] = useState(false);
   const stepId = ONBOARDING_STEPS[stepIndex];
   const progress = Math.round(
@@ -373,6 +420,15 @@ export function OnboardingContainer({
               receiptAddress:
                 synchronizedData.receiptAddress ||
                 synchronizedData.branchAddress,
+              receiptLayout:
+                synchronizedData.receiptLayout ??
+                DEFAULT_ONBOARDING_DATA.receiptLayout,
+              receiptTemplate:
+                synchronizedData.receiptTemplate ??
+                DEFAULT_ONBOARDING_DATA.receiptTemplate,
+              receiptLogoUrl:
+                synchronizedData.receiptLogoUrl ??
+                DEFAULT_ONBOARDING_DATA.receiptLogoUrl,
               receiptShowPhone:
                 synchronizedData.receiptShowPhone ??
                 DEFAULT_ONBOARDING_DATA.receiptShowPhone,
@@ -480,6 +536,73 @@ export function OnboardingContainer({
   const edit = (id: OnboardingStepId) =>
     navigateTo(ONBOARDING_STEPS.indexOf(id));
 
+  const uploadReceiptLogo = async (file?: File) => {
+    if (!file) return;
+    setLogoUploading(true);
+    setPageError('');
+    try {
+      const body = new FormData();
+      body.set('file', file);
+      const response = await fetch('/api/onboarding/receipt-logo', {
+        method: 'POST',
+        credentials: 'include',
+        body,
+      });
+      const result = (await response.json()) as { url?: string; error?: string };
+      if (!response.ok || !result.url)
+        throw new Error(result.error || 'Could not upload logo');
+      update('receiptLogoUrl', result.url);
+    } catch (error) {
+      setPageError(
+        error instanceof Error ? error.message : 'Could not upload logo'
+      );
+    } finally {
+      setLogoUploading(false);
+    }
+  };
+
+  const submitLabel = saving
+    ? stepId === 'welcome'
+      ? 'Preparing setup…'
+      : stepId === 'review'
+        ? 'Creating workspace…'
+        : 'Saving progress…'
+    : stepId === 'welcome'
+      ? 'Start setup'
+      : stepId === 'review'
+        ? 'Create my workspace'
+        : 'Save & continue';
+
+  const receiptPreview = {
+    id: 'preview-sale-001',
+    receiptNo: 'PREVIEW-001',
+    createdAt: new Date('2026-08-04T10:30:00'),
+    subtotal: '2500.00',
+    taxAmount: data.taxEnabled ? '400.00' : '0.00',
+    discountAmount: '0.00',
+    roundingAmount: '0.00',
+    total: data.taxEnabled ? '2900.00' : '2500.00',
+    paymentMethod: data.defaultPaymentMethod,
+    mpesaRef:
+      data.defaultPaymentMethod === 'mpesa' ? 'QWE123ABC' : null,
+    items: [
+      {
+        id: 'preview-1',
+        productId: 'ITEM-001',
+        productName: 'Sample product',
+        quantity: 2,
+        totalPrice: '1800.00',
+      },
+      {
+        id: 'preview-2',
+        productId: 'ITEM-002',
+        productName: 'Another item',
+        quantity: 1,
+        totalPrice: '700.00',
+      },
+    ],
+  };
+
   const setBusinessFamily = (id: string) => {
     const firstCategory = categoriesFor(id)[0]?.id ?? '';
     setData((current) => ({
@@ -532,10 +655,10 @@ export function OnboardingContainer({
         <p className="mt-6 text-xs font-extrabold uppercase tracking-[0.18em] text-[#e42527]">
           Workspace created
         </p>
-        <h1 className="mt-2 text-3xl font-extrabold tracking-[-0.04em] text-slate-950">
+        <h1 className="mt-2 text-3xl font-bold tracking-[-0.035em] text-slate-950">
           You’re ready to start selling
         </h1>
-        <p className="mt-3 text-base leading-7 text-zinc-600">
+        <p className="mt-3 text-sm leading-6 text-zinc-600">
           Your business, modules and receipt defaults are saved. Add your first
           records next, then return here anytime from workspace settings.
         </p>
@@ -569,14 +692,14 @@ export function OnboardingContainer({
           <p className="text-xs font-extrabold uppercase tracking-[0.2em] text-[#e42527]">
             Workspace setup
           </p>
-          <h1 className="mt-3 text-3xl font-extrabold tracking-[-0.04em] text-slate-950 sm:text-4xl">
+          <h1 className="mt-3 text-3xl font-bold tracking-[-0.035em] text-slate-950">
             Let’s set up your business
           </h1>
-          <p className="mx-auto mt-4 max-w-xl text-base leading-7 text-zinc-600">
+          <p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-zinc-600">
             Tell us how your business operates and Pesaby will prepare the right
             workspace, tools and defaults for you.
           </p>
-          <div className="mx-auto mt-8 grid max-w-xl gap-3 text-left sm:grid-cols-3">
+          <div className="mx-auto mt-6 grid max-w-xl gap-3 text-left sm:grid-cols-3">
             {[
               ['About 10 minutes', Clock3],
               ['Saved each step', ShieldCheck],
@@ -591,7 +714,7 @@ export function OnboardingContainer({
               </div>
             ))}
           </div>
-          <label className="mx-auto mt-7 flex max-w-xl items-start gap-3 rounded-lg border border-zinc-200 bg-white p-4 text-left text-sm leading-5 text-zinc-700">
+          <label className="mx-auto mt-6 flex max-w-xl items-start gap-3 rounded-lg border border-zinc-200 bg-white p-4 text-left text-sm leading-5 text-zinc-700">
             <input
               type="checkbox"
               checked={data.acceptsTerms}
@@ -1212,132 +1335,334 @@ export function OnboardingContainer({
             title="Make every receipt clear and professional"
             description="Set the details customers need, then check the live printer-style preview before you continue."
           />
-          <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_360px]">
-            <div className="grid content-start gap-5 sm:grid-cols-2">
-              <Field
-                label="Receipt business name"
-                name="receiptBusinessName"
-                value={
-                  data.receiptBusinessName ||
-                  data.displayName ||
-                  data.businessName
-                }
-                onChange={update}
-                error={errors.receiptBusinessName}
-              />
-              <Field
-                label="Business phone"
-                name="receiptPhone"
-                value={data.receiptPhone || data.phone}
-                onChange={update}
-                error={errors.receiptPhone}
-                type="tel"
-              />
-              <div className="sm:col-span-2">
+          <div className="grid gap-7 lg:grid-cols-[minmax(0,1fr)_360px]">
+            <div className="space-y-6">
+              <div className="grid gap-4 rounded-xl border border-zinc-200 bg-zinc-50/70 p-4 sm:grid-cols-2">
                 <Field
-                  label="Address"
-                  name="receiptAddress"
-                  value={data.receiptAddress || data.branchAddress}
-                  onChange={update}
-                  error={errors.receiptAddress}
-                  optional
-                />
-              </div>
-              <div className="sm:col-span-2">
-                <Field
-                  label="Footer message"
-                  name="receiptFooter"
-                  value={data.receiptFooter}
-                  onChange={update}
-                  error={errors.receiptFooter}
-                  optional
-                  placeholder="Thank you for shopping with us."
-                />
-              </div>
-              <label className="flex min-h-12 items-center gap-3 rounded-lg border border-zinc-200 px-4 text-sm font-bold">
-                <input
-                  type="checkbox"
-                  disabled={!data.taxEnabled}
-                  checked={data.taxEnabled && data.showTaxOnReceipt}
-                  onChange={(event) =>
-                    update('showTaxOnReceipt', event.target.checked)
+                  label="Receipt business name"
+                  name="receiptBusinessName"
+                  value={
+                    data.receiptBusinessName ||
+                    data.displayName ||
+                    data.businessName
                   }
-                  className="h-4 w-4 accent-[#e42527]"
+                  onChange={update}
+                  error={errors.receiptBusinessName}
                 />
-                Show {data.taxName || 'tax'} as a separate line
-              </label>
-              <p className="text-xs leading-5 text-zinc-500">
-                Receipt numbers are generated automatically, keeping each
-                completed sale traceable and easy to reprint.
-              </p>
-              <div className="sm:col-span-2">
-                <p className="mb-3 text-sm font-extrabold text-slate-950">
-                  Choose what customers see
+                <Field
+                  label="Receipt phone"
+                  name="receiptPhone"
+                  value={data.receiptPhone || data.phone}
+                  onChange={update}
+                  error={errors.receiptPhone}
+                  type="tel"
+                />
+                <div className="sm:col-span-2">
+                  <TextareaField
+                    label="Receipt address"
+                    name="receiptAddress"
+                    value={data.receiptAddress || data.branchAddress}
+                    onChange={update}
+                    error={errors.receiptAddress}
+                    optional
+                  />
+                </div>
+                <div className="sm:col-span-2">
+                  <TextareaField
+                    label="Receipt footer"
+                    name="receiptFooter"
+                    value={data.receiptFooter}
+                    onChange={update}
+                    error={errors.receiptFooter}
+                    optional
+                    placeholder="Thank you for shopping with us."
+                  />
+                </div>
+                <SelectField
+                  label="Default payment method"
+                  name="defaultPaymentMethod"
+                  value={data.defaultPaymentMethod}
+                  onChange={update}
+                  error={errors.defaultPaymentMethod}
+                >
+                  {data.paymentMethods.map((method) => (
+                    <option key={method} value={method}>
+                      {PAYMENT_METHODS.find((option) => option.id === method)
+                        ?.label ?? method}
+                    </option>
+                  ))}
+                </SelectField>
+                <label className="flex min-h-11 items-center gap-3 self-end rounded-lg border border-zinc-200 bg-white px-4 text-sm font-bold">
+                  <input
+                    type="checkbox"
+                    disabled={!data.taxEnabled}
+                    checked={data.taxEnabled && data.showTaxOnReceipt}
+                    onChange={(event) =>
+                      update('showTaxOnReceipt', event.target.checked)
+                    }
+                    className="h-4 w-4 accent-[#e42527]"
+                  />
+                  Show {data.taxName || 'tax'} separately
+                </label>
+              </div>
+
+              <div>
+                <h3 className="text-sm font-extrabold text-slate-950">
+                  Receipt layout
+                </h3>
+                <p className="mt-1 text-xs leading-5 text-zinc-500">
+                  Choose the format used by your counter and printers.
                 </p>
-                <div className="grid gap-2 sm:grid-cols-2">
-                  {RECEIPT_DISPLAY_OPTIONS.map(
-                    ({ key, title, description }) => {
-                      const checked = Boolean(data[key]);
+                <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                  {(
+                    [
+                      [
+                        'thermal',
+                        'Thermal printer',
+                        'Compact format designed for 80 mm receipt printers.',
+                      ],
+                      [
+                        'detailed',
+                        'Detailed receipt',
+                        'A polished full-page transaction confirmation.',
+                      ],
+                    ] as const
+                  ).map(([value, title, description]) => {
+                    const selected = data.receiptLayout === value;
+                    return (
+                      <label
+                        key={value}
+                        className={cn(
+                          'cursor-pointer rounded-xl border p-4 transition-colors',
+                          selected
+                            ? 'border-[#e42527] bg-[#fff3f3]'
+                            : 'border-zinc-200 hover:bg-zinc-50'
+                        )}
+                      >
+                        <input
+                          type="radio"
+                          name="receiptLayout"
+                          value={value}
+                          checked={selected}
+                          onChange={() => update('receiptLayout', value)}
+                          className="sr-only"
+                        />
+                        <span className="flex items-center justify-between gap-3">
+                          <span className="text-sm font-extrabold text-slate-950">
+                            {title}
+                          </span>
+                          <span
+                            className={cn(
+                              'flex h-5 w-5 items-center justify-center rounded-full border',
+                              selected
+                                ? 'border-[#e42527] bg-[#e42527] text-white'
+                                : 'border-zinc-300'
+                            )}
+                          >
+                            {selected && <Check className="h-3 w-3" />}
+                          </span>
+                        </span>
+                        <span className="mt-1.5 block text-xs leading-5 text-zinc-600">
+                          {description}
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {data.receiptLayout === 'thermal' && (
+                <div>
+                  <h3 className="text-sm font-extrabold text-slate-950">
+                    Thermal receipt template
+                  </h3>
+                  <p className="mt-1 text-xs leading-5 text-zinc-500">
+                    Select the visual style for thermal receipts.
+                  </p>
+                  <div className="mt-3 grid gap-2 sm:grid-cols-3">
+                    {(
+                      [
+                        ['classic', 'Classic', 'Simple and familiar.'],
+                        ['logo', 'Logo', 'Lead with your brand.'],
+                        ['cafe', 'Café', 'Compact store style.'],
+                      ] as const
+                    ).map(([value, title, description]) => {
+                      const selected = data.receiptTemplate === value;
                       return (
                         <label
-                          key={key}
+                          key={value}
                           className={cn(
-                            'flex cursor-pointer items-start gap-3 rounded-lg border p-3',
-                            checked
-                              ? 'border-[#e7be16] bg-[#fff8d7]'
-                              : 'border-zinc-200'
+                            'cursor-pointer rounded-lg border p-3 transition-colors',
+                            selected
+                              ? 'border-[#e42527] bg-[#fff3f3]'
+                              : 'border-zinc-200 hover:bg-zinc-50'
                           )}
                         >
                           <input
-                            type="checkbox"
-                            checked={checked}
-                            onChange={(event) =>
-                              update(key, event.target.checked)
-                            }
-                            className="mt-0.5 h-4 w-4 accent-[#e42527]"
+                            type="radio"
+                            name="receiptTemplate"
+                            value={value}
+                            checked={selected}
+                            onChange={() => update('receiptTemplate', value)}
+                            className="sr-only"
                           />
-                          <span>
-                            <span className="block text-sm font-bold">
-                              {title}
-                            </span>
-                            <span className="mt-0.5 block text-xs leading-4 text-zinc-600">
-                              {description}
-                            </span>
+                          <span className="block text-sm font-bold text-slate-950">
+                            {title}
+                          </span>
+                          <span className="mt-1 block text-[11px] leading-4 text-zinc-500">
+                            {description}
                           </span>
                         </label>
                       );
-                    }
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {data.receiptLayout === 'thermal' &&
+                data.receiptTemplate === 'logo' && (
+                  <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-4">
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <h3 className="text-sm font-extrabold text-slate-950">
+                          Business logo
+                        </h3>
+                        <p className="mt-1 max-w-sm text-xs leading-5 text-zinc-500">
+                          PNG, JPG, or WebP up to 2 MB. Transparent or wide logos
+                          fit thermal printers best.
+                        </p>
+                      </div>
+                      {data.receiptLogoUrl && (
+                        <Image
+                          src={data.receiptLogoUrl}
+                          alt="Receipt logo preview"
+                          width={120}
+                          height={48}
+                          unoptimized
+                          className="h-12 w-[120px] rounded-lg border border-zinc-200 bg-white object-contain p-1"
+                        />
+                      )}
+                    </div>
+                    <div className="mt-3 flex flex-wrap items-center gap-3">
+                      <label className="inline-flex min-h-9 cursor-pointer items-center gap-2 rounded-lg border border-zinc-300 bg-white px-3 text-xs font-bold text-slate-900 hover:bg-zinc-50">
+                        {logoUploading && (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        )}
+                        {logoUploading
+                          ? 'Uploading…'
+                          : data.receiptLogoUrl
+                            ? 'Replace logo'
+                            : 'Upload logo'}
+                        <input
+                          type="file"
+                          accept="image/png,image/jpeg,image/webp"
+                          disabled={logoUploading}
+                          onChange={(event) =>
+                            uploadReceiptLogo(event.target.files?.[0])
+                          }
+                          className="sr-only"
+                        />
+                      </label>
+                      {data.receiptLogoUrl && (
+                        <button
+                          type="button"
+                          onClick={() => update('receiptLogoUrl', '')}
+                          className="text-xs font-bold text-[#e42527] hover:underline"
+                        >
+                          Remove logo
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+              <div>
+                <h3 className="text-sm font-extrabold text-slate-950">
+                  Receipt appearance
+                </h3>
+                <p className="mt-1 text-xs leading-5 text-zinc-500">
+                  Choose the details customers see on each receipt.
+                </p>
+                <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                  {RECEIPT_DISPLAY_OPTIONS.map(
+                    ({ key, title, description }) => (
+                      <label
+                        key={key}
+                        className="flex cursor-pointer items-start gap-3 rounded-lg border border-zinc-200 p-3 transition-colors hover:bg-zinc-50"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={Boolean(data[key])}
+                          onChange={(event) =>
+                            update(key, event.target.checked)
+                          }
+                          className="mt-0.5 h-4 w-4 accent-[#e42527]"
+                        />
+                        <span>
+                          <span className="block text-sm font-bold text-slate-950">
+                            {title}
+                          </span>
+                          <span className="mt-0.5 block text-xs leading-4 text-zinc-500">
+                            {description}
+                          </span>
+                        </span>
+                      </label>
+                    )
                   )}
                 </div>
               </div>
-            </div>
-            <div>
-              <p className="mb-3 text-xs font-extrabold uppercase tracking-[0.16em] text-zinc-500">
-                Live preview
+              <p className="text-xs leading-5 text-zinc-500">
+                Receipt numbers are generated automatically so every completed
+                sale stays traceable and easy to reprint.
               </p>
-              <ReceiptPreview
-                businessName={
-                  data.receiptBusinessName ||
-                  data.displayName ||
-                  data.businessName
-                }
-                phone={data.receiptPhone || data.phone}
-                address={data.receiptAddress || data.branchAddress}
-                header={data.receiptHeader}
-                footer={data.receiptFooter}
-                taxEnabled={data.taxEnabled}
-                taxName={data.taxName}
-                taxRate={data.taxRate}
-                showTax={data.showTaxOnReceipt}
-                paymentMethod={data.defaultPaymentMethod}
-                showPhone={data.receiptShowPhone}
-                showAddress={data.receiptShowAddress}
-                showCashier={data.receiptShowCashier}
-                showCustomer={data.receiptShowCustomer}
-                showPayment={data.receiptShowPayment}
-                showQrCode={data.receiptShowQrCode}
-                showItemSku={data.receiptShowItemSku}
-              />
+            </div>
+
+            <div className="self-start overflow-hidden rounded-xl border border-zinc-800 bg-[#181818] shadow-[0_12px_30px_rgba(15,23,42,.16)] lg:sticky lg:top-5">
+              <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
+                <div>
+                  <h3 className="text-sm font-bold text-white">
+                    Live receipt preview
+                  </h3>
+                  <p className="mt-0.5 text-[11px] text-zinc-400">
+                    Matches the receipt used in your POS.
+                  </p>
+                </div>
+                <span className="rounded-full bg-white/10 px-2.5 py-1 text-[10px] font-bold text-zinc-300">
+                  Preview
+                </span>
+              </div>
+              <div className="max-h-[560px] overflow-y-auto bg-zinc-100 p-4">
+                <div style={{ zoom: 0.78 }}>
+                  <ReceiptTemplate
+                    sale={receiptPreview}
+                    businessName={
+                      data.receiptBusinessName ||
+                      data.displayName ||
+                      data.businessName
+                    }
+                    businessPhone={data.receiptPhone || data.phone}
+                    businessAddress={
+                      data.receiptAddress || data.branchAddress
+                    }
+                    receiptFooter={
+                      data.receiptFooter || 'Thank you for your business.'
+                    }
+                    cashierName="Alex"
+                    customerName="Walk-in"
+                    taxName={data.taxName}
+                    layout={data.receiptLayout}
+                    template={data.receiptTemplate}
+                    logoUrl={data.receiptLogoUrl}
+                    showPhone={data.receiptShowPhone}
+                    showAddress={data.receiptShowAddress}
+                    showCashier={data.receiptShowCashier}
+                    showCustomer={data.receiptShowCustomer}
+                    showPayment={data.receiptShowPayment}
+                    showQrCode={data.receiptShowQrCode}
+                    showItemSku={data.receiptShowItemSku}
+                  />
+                </div>
+              </div>
             </div>
           </div>
         </section>
@@ -1488,22 +1813,29 @@ export function OnboardingContainer({
           type="button"
           onClick={next}
           disabled={saving}
-          className="inline-flex min-h-12 min-w-40 items-center justify-center gap-2 rounded-lg bg-[#e42527] px-6 text-sm font-extrabold text-white shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-[#e42527] focus-visible:ring-offset-2 disabled:cursor-wait disabled:opacity-60"
+          aria-busy={saving}
+          className="relative inline-flex min-h-12 min-w-[190px] items-center justify-center gap-2 overflow-hidden rounded-lg bg-[#e42527] px-6 text-sm font-extrabold text-white shadow-[0_7px_18px_rgba(228,37,39,0.18)] outline-none transition hover:bg-[#cf1f22] hover:shadow-[0_9px_22px_rgba(228,37,39,0.24)] active:translate-y-px focus-visible:ring-2 focus-visible:ring-[#e42527] focus-visible:ring-offset-2 disabled:cursor-wait disabled:bg-[#d92326] disabled:shadow-[0_7px_18px_rgba(228,37,39,0.16)]"
         >
-          {saving && <Loader2 className="h-4 w-4 animate-spin" />}
-          {stepId === 'welcome'
-            ? 'Start setup'
-            : stepId === 'review'
-              ? 'Create my workspace'
-              : 'Save & continue'}
+          {saving && <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2.5} aria-hidden="true" />}
+          <span aria-live="polite">{submitLabel}</span>
           {!saving && <ArrowRight className="h-4 w-4" />}
+          {saving && (
+            <span className="absolute inset-x-0 bottom-0 h-0.5 bg-white/20" aria-hidden="true">
+              <span className="onboarding-button-progress block h-full w-1/3 rounded-full bg-white" />
+            </span>
+          )}
         </button>
       </div>
-      {stepId !== 'welcome' && (
-        <p className="mt-4 text-right text-xs text-zinc-500">
-          Progress is saved securely after each completed step.
-        </p>
-      )}
+      <div className="mt-4 flex min-h-5 justify-end" aria-live="polite">
+        {saving ? (
+          <p className="inline-flex items-center gap-2 text-xs font-semibold text-zinc-600" role="status">
+            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" aria-hidden="true" />
+            Saving your setup securely…
+          </p>
+        ) : stepId !== 'welcome' ? (
+          <p className="text-xs text-zinc-500">Progress is saved securely after each completed step.</p>
+        ) : null}
+      </div>
     </div>
   );
 }
@@ -1525,7 +1857,7 @@ function StepTitle({
       <h1 className="mt-2 text-2xl font-extrabold tracking-[-0.035em] text-slate-950 sm:text-3xl">
         {title}
       </h1>
-      <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-600 sm:text-base">
+      <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-600">
         {description}
       </p>
     </div>

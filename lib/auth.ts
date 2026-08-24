@@ -11,6 +11,7 @@ import { sendStaffInvitation } from '@/lib/email/staff-invitation';
 import { emailVerificationEmail } from '@/lib/email/templates/email-verification';
 import { sendEmail } from '@/lib/email/client';
 import { withDatabaseRetry } from '@/lib/db/retry';
+import { after } from 'next/server';
 
 export const auth = betterAuth({
   database: pool,
@@ -105,6 +106,20 @@ export const auth = betterAuth({
   session: {
     expiresIn: 60 * 60 * 24 * 7, // 7 days
     updateAge: 60 * 60 * 24, // 1 day
+    cookieCache: {
+      // Avoid a second database session lookup immediately after authentication.
+      // Keep this deliberately short; account status is still checked per request.
+      enabled: true,
+      maxAge: 60,
+      strategy: 'compact',
+    },
+  },
+  advanced: {
+    backgroundTasks: {
+      // Better Auth uses this for non-critical work such as verification
+      // email delivery, allowing the auth response to return immediately.
+      handler: (promise) => after(() => promise),
+    },
   },
   plugins: [
     bearer(),

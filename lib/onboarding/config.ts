@@ -313,6 +313,9 @@ export interface OnboardingDraft {
   receiptPhone: string;
   receiptAddress: string;
   receiptFooter: string;
+  receiptLayout: 'detailed' | 'thermal';
+  receiptTemplate: 'classic' | 'logo' | 'cafe';
+  receiptLogoUrl: string;
   showTaxOnReceipt: boolean;
   receiptShowPhone: boolean;
   receiptShowAddress: boolean;
@@ -374,6 +377,9 @@ export const DEFAULT_ONBOARDING_DATA: OnboardingDraft = {
   receiptPhone: '',
   receiptAddress: '',
   receiptFooter: 'Thank you for your business.',
+  receiptLayout: 'thermal',
+  receiptTemplate: 'classic',
+  receiptLogoUrl: '',
   showTaxOnReceipt: false,
   receiptShowPhone: true,
   receiptShowAddress: true,

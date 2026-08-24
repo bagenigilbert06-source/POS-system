@@ -1,5 +1,5 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400;1,500&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -10,6 +10,79 @@
   --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
   --font-dashboard:
     'Manrope', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+/* Public setup flows use the same typography system as the dashboard and POS. */
+.auth-workspace,
+.landing-workspace,
+.onboarding-workspace {
+  --font-sans: var(--font-dashboard);
+  --font-display: var(--font-dashboard);
+  font-family: var(--font-dashboard);
+  font-feature-settings:
+    'kern' 1,
+    'liga' 1,
+    'ss01' 1,
+    'tnum' 1;
+  font-variant-numeric: tabular-nums lining-nums;
+  letter-spacing: -0.006em;
+  text-rendering: optimizeLegibility;
+}
+
+.auth-workspace button,
+.auth-workspace input,
+.auth-workspace select,
+.auth-workspace textarea,
+.landing-workspace button,
+.landing-workspace input,
+.landing-workspace select,
+.landing-workspace textarea,
+.onboarding-workspace button,
+.onboarding-workspace input,
+.onboarding-workspace select,
+.onboarding-workspace textarea {
+  font-family: inherit;
+}
+
+@keyframes auth-progress-slide {
+  0% {
+    transform: translateX(-110%);
+  }
+  100% {
+    transform: translateX(260%);
+  }
+}
+
+@keyframes onboarding-button-progress {
+  0% {
+    transform: translateX(-110%);
+  }
+  100% {
+    transform: translateX(310%);
+  }
+}
+
+.onboarding-button-progress {
+  animation: onboarding-button-progress 1s cubic-bezier(0.4, 0, 0.2, 1)
+    infinite;
+  will-change: transform;
+}
+
+.auth-progress-indicator {
+  animation: auth-progress-slide 1.15s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  will-change: transform;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .auth-progress-indicator {
+    animation: none;
+    transform: translateX(75%);
+  }
+
+  .onboarding-button-progress {
+    animation: none;
+    transform: translateX(100%);
+  }
 }
 
 /* Keep checkout visually continuous with the business dashboard. */
@@ -471,6 +544,28 @@ body.pos-receipt-active .pos-workspace > :nth-child(2) {
     background: var(--dashboard-surface-subtle) !important;
   }
 
+  .dashboard-analytics h2 {
+    font-family: var(--font-dashboard);
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+    font-weight: 650;
+    letter-spacing: -0.015em;
+  }
+
+  .dashboard-analytics .app-panel {
+    border-radius: 0.75rem;
+    box-shadow: none;
+    transition:
+      border-color 120ms ease,
+      background-color 120ms ease !important;
+  }
+
+  .dashboard-analytics .app-panel:hover {
+    border-color: var(--dashboard-border);
+    box-shadow: none;
+    transform: none;
+  }
+
   .dashboard-reports .bg-muted\/60 {
     background: var(--dashboard-surface-subtle) !important;
   }
@@ -571,7 +666,8 @@ body:has(.dashboard-shell) {
   --dashboard-chart-revenue: #ff6b0a;
   --dashboard-chart-revenue-fill: #ff6b0a;
   --dashboard-chart-secondary: #b7791f;
-  --dashboard-chart-active: #0891b2;
+  --dashboard-chart-active: #b45309;
+  --staff-chart-active: #4f8f78;
   --dashboard-chart-transactions: #d4a72c;
   --dashboard-highlight: #e42527;
   /* Semantic tokens used by the overview dashboard. One accent, used consistently. */
@@ -655,9 +751,10 @@ body:has(.dashboard-shell) {
   --dashboard-chart-revenue: #ff6b0a;
   --dashboard-chart-revenue-fill: #ff6b0a;
   --dashboard-chart-secondary: #d4a72c;
-  --dashboard-chart-active: #22d3ee;
+  --dashboard-chart-active: #ffd60a;
+  --staff-chart-active: #79b79d;
   --dashboard-chart-transactions: #ffd60a;
-  --dashboard-highlight: #3b82f6;
+  --dashboard-highlight: #e42527;
   --dashboard-accent: #ffd60a;
   --dashboard-accent-strong: #ffdf3a;
   --dashboard-accent-cta: #ffd60a;

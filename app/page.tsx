@@ -325,7 +325,7 @@ export default async function RootPage() {
   if (session?.user) redirect('/dashboard');
 
   return (
-    <div className="min-h-screen overflow-x-clip bg-white font-sans text-slate-950">
+    <div className="landing-workspace min-h-screen overflow-x-clip bg-white text-slate-950">
       <a
         href="#main-content"
         className="fixed left-4 top-3 z-[100] -translate-y-20 rounded-lg bg-slate-950 px-4 py-2 text-sm font-bold text-white transition focus:translate-y-0"

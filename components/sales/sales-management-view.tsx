@@ -815,31 +815,30 @@ function MetricCard({
   primary?: boolean;
 }) {
   const tones = {
-    plain: 'border-slate-200 bg-white dark:border-slate-700 dark:bg-[#111111]',
-    slate: 'border-slate-200 bg-white dark:border-slate-700 dark:bg-[#111111]',
-    gold: 'border-[#f0d77f] bg-gradient-to-br from-[#fffefa] to-[#fff5ca] dark:border-[#80651d] dark:from-[#30270f] dark:via-[#24200f] dark:to-[#1b180d]',
-    cash: 'border-[#f2d27b] bg-gradient-to-br from-[#fffefa] via-[#fff9e8] to-[#fff0bd] dark:border-[#80651d] dark:from-[#30270f] dark:via-[#24200f] dark:to-[#1b180d]',
-    mpesa:
-      'border-[#9cdbb3] bg-gradient-to-br from-[#ffffff] via-[#f4fff7] to-[#dcf6e5] dark:border-[#2f7650] dark:from-[#10261b] dark:via-[#102019] dark:to-[#102b1d]',
-    card: 'border-[#9bbcf4] bg-gradient-to-br from-[#ffffff] via-[#f4f8ff] to-[#dce9ff] dark:border-[#365b9a] dark:from-[#111b30] dark:via-[#111a2a] dark:to-[#162443]',
+    plain: 'border-[var(--dashboard-border)] bg-[var(--dashboard-surface)]',
+    slate: 'border-[var(--dashboard-border)] bg-[var(--dashboard-surface)]',
+    gold: 'border-[var(--dashboard-accent-soft-border)] bg-[var(--dashboard-accent-soft)]',
+    cash: 'border-[var(--dashboard-accent-soft-border)] bg-[var(--dashboard-accent-soft)]',
+    mpesa: 'border-[var(--dashboard-success-soft-border)] bg-[var(--dashboard-success-soft)]',
+    card: 'border-[#9bbcf4] bg-[#f4f8ff] dark:border-[#365b9a] dark:bg-[#111b30]',
   };
   return (
     <div
-      className={`min-w-0 rounded-xl border px-5 shadow-[0_1px_2px_rgba(16,24,40,.04)] ${primary ? 'min-h-[104px] py-5' : 'min-h-[84px] py-[18px]'} ${tones[tone]}`}
+      className={`min-w-0 rounded-lg border px-4 ${primary ? 'min-h-[104px] py-5' : 'min-h-[84px] py-[18px]'} ${tones[tone]}`}
     >
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-xs font-semibold tracking-wide text-slate-600 dark:text-slate-300">
+          <p className="text-xs font-semibold tracking-wide text-[var(--dashboard-muted)]">
             {label}
           </p>
           <p
-            className={`${primary ? 'mt-1.5 text-[1.25rem]' : 'mt-1 text-[1.125rem]'} whitespace-nowrap font-semibold leading-[1.08] tracking-[-.025em] text-slate-950 dark:text-slate-100 tabular-nums`}
+            className={`${primary ? 'mt-1.5 text-[1.25rem]' : 'mt-1 text-[1.125rem]'} whitespace-nowrap font-semibold leading-[1.08] tracking-[-.025em] text-[var(--dashboard-text)] tabular-nums`}
           >
             {value}
           </p>
         </div>
         {logo && (
-          <span className={`flex h-10 w-14 shrink-0 items-center justify-center rounded-lg border p-1.5 shadow-sm ${logo.includes('visa') ? 'border-[#b8c9ef] bg-[#ffffff] dark:border-[#78a9ff] dark:bg-[#ffffff]' : logo.includes('mpesa') ? 'border-[#b8e2c7] bg-white dark:border-[#2f7650] dark:bg-[#18251d]' : 'border-[#ead48d] bg-white dark:border-[#80651d] dark:bg-[#211d12]'}`}>
+          <span className={`flex h-10 w-14 shrink-0 items-center justify-center rounded-md border p-1.5 ${logo.includes('visa') ? 'border-[#b8c9ef] bg-white dark:border-[#78a9ff]' : logo.includes('mpesa') ? 'border-[#b8e2c7] bg-white dark:border-[#2f7650] dark:bg-[#18251d]' : 'border-[#ead48d] bg-white dark:border-[#80651d] dark:bg-[#211d12]'}`}>
             <Image
               src={logo}
               alt={`${label} payment method`}

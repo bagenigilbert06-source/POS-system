@@ -2,327 +2,344 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { authClient } from '@/lib/auth-client'
-import { cn } from '@/lib/utils'
-import { Loader2, Eye, EyeOff, Check } from 'lucide-react'
 import Link from 'next/link'
+import { AlertCircle, Check, Eye, EyeOff, Loader2, ShieldCheck } from 'lucide-react'
+import { authClient } from '@/lib/auth-client'
+import { PesabyLogoMark } from '@/components/brand/pesaby-logo'
+import { cn } from '@/lib/utils'
 
 interface AuthFormProps {
   mode: 'sign-in' | 'sign-up'
 }
 
+type FieldName = 'name' | 'email' | 'password' | 'confirmPassword'
+type FieldErrors = Partial<Record<FieldName, string>>
+type AuthPhase = 'authenticating' | 'navigating' | null
+
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
 export function AuthForm({ mode }: AuthFormProps) {
   const router = useRouter()
+  const isSignUp = mode === 'sign-up'
   const [loading, setLoading] = useState(false)
-  const [googleLoading, setGoogleLoading] = useState(false)
+  const [phase, setPhase] = useState<AuthPhase>(null)
   const [error, setError] = useState('')
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({})
   const [showPassword, setShowPassword] = useState(false)
   const [rememberMe, setRememberMe] = useState(true)
-  const [form, setForm] = useState({ name: '', email: '', password: '' })
+  const [form, setForm] = useState({ name: '', email: '', password: '', confirmPassword: '' })
 
   const getAuthErrorMessage = (message: string) => {
-    if (/invalid|credential|password|email/i.test(message)) {
+    if (isSignUp && /already|exists|registered|unique/i.test(message)) {
+      return 'An account with this email already exists. Sign in instead or reset your password.'
+    }
+    if (!isSignUp && /invalid|credential|password|email/i.test(message)) {
       return 'The email or password you entered is incorrect.'
     }
-
+    if (/too short|at least 8|min.*8/i.test(message)) {
+      return 'Your password must contain at least 8 characters.'
+    }
     if (/server|database|network|fetch|connect|unexpected/i.test(message)) {
       return 'We could not connect to Pesaby right now. Please try again shortly.'
     }
-
     return message || 'Something went wrong. Please try again.'
   }
 
+  const updateField = (field: FieldName, value: string) => {
+    setForm((current) => ({ ...current, [field]: value }))
+    setFieldErrors((current) => ({ ...current, [field]: undefined }))
+    if (error) setError('')
+  }
+
+  const validate = () => {
+    const errors: FieldErrors = {}
+    const name = form.name.trim()
+    const email = form.email.trim()
+
+    if (isSignUp) {
+      if (name.length < 2) errors.name = 'Enter your full name.'
+      else if (name.length > 80) errors.name = 'Name must be 80 characters or fewer.'
+    }
+    if (!email) errors.email = 'Enter your work email.'
+    else if (email.length > 254 || !EMAIL_PATTERN.test(email)) errors.email = 'Enter a valid email address.'
+    if (!form.password) errors.password = 'Enter your password.'
+    else if (form.password.length < 8) errors.password = 'Use at least 8 characters.'
+    else if (form.password.length > 128) errors.password = 'Password must be 128 characters or fewer.'
+    if (isSignUp && form.confirmPassword !== form.password) errors.confirmPassword = 'Passwords do not match.'
+
+    setFieldErrors(errors)
+    return Object.keys(errors).length === 0
+  }
+
   const clearStoredAuthState = () => {
-    if (typeof window !== 'undefined') {
+    try {
       sessionStorage.removeItem('accessToken')
+    } catch {
+      // Storage can be unavailable in hardened/private browser contexts.
     }
   }
 
-  const loadAccessToken = async () => {
-    const response = await fetch('/api/auth-tokens', {
-      method: 'POST',
-      cache: 'no-store',
-      credentials: 'include',
-    })
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (!validate()) return
 
-    if (!response.ok) {
-      throw new Error('Signed in, but failed to create an access token')
-    }
-
-    const tokens = await response.json()
-    sessionStorage.setItem('accessToken', tokens.accessToken)
-    return tokens
-  }
-
-  const getPostLoginDestination = async () => {
-    const response = await fetch('/api/auth/landing', { cache: 'no-store', credentials: 'include' })
-    if (!response.ok) return '/dashboard'
-    const data = await response.json()
-    return typeof data.destination === 'string' ? data.destination : '/dashboard'
-  }
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
     setLoading(true)
+    setPhase('authenticating')
     setError('')
     clearStoredAuthState()
 
     try {
-      if (mode === 'sign-up') {
+      const email = form.email.trim().toLowerCase()
+      if (isSignUp) {
         const result = await authClient.signUp.email({
-          name: form.name,
-          email: form.email,
+          name: form.name.trim().replace(/\s+/g, ' '),
+          email,
           password: form.password,
         })
         if (result.error) throw new Error(result.error.message)
-        await loadAccessToken()
 
-        const setupResponse = await fetch('/api/auth/post-signup', {
-          method: 'POST',
-          credentials: 'include',
-        })
-        if (!setupResponse.ok) throw new Error('Signed up, but setup could not be initialized')
-
-        router.push('/onboarding')
+        setPhase('navigating')
+        // The session cookie is complete at this point. Onboarding owns its
+        // idempotent draft creation, so no extra request blocks navigation.
+        router.replace('/onboarding')
+        return
       } else {
-        const result = await authClient.signIn.email({
-          email: form.email,
-          password: form.password,
-          rememberMe,
-        })
+        const result = await authClient.signIn.email({ email, password: form.password, rememberMe })
         if (result.error) throw new Error(result.error.message)
-        await loadAccessToken()
-        router.push(await getPostLoginDestination())
+        setPhase('navigating')
+        // Dashboard route guards perform the role-aware destination decision.
+        // Going there directly avoids doing the same authorization queries twice.
+        router.replace('/dashboard')
+        return
       }
-      router.refresh()
     } catch (err: unknown) {
       clearStoredAuthState()
       setError(getAuthErrorMessage(err instanceof Error ? err.message : 'Something went wrong'))
-    } finally {
       setLoading(false)
+      setPhase(null)
     }
   }
 
-  const handleGoogleSignIn = async () => {
-    setGoogleLoading(true)
-    setError('')
-    clearStoredAuthState()
-    try {
-      await authClient.signIn.social({
-        provider: 'google',
-        callbackURL: '/dashboard',
-      })
-    } catch (err: unknown) {
-      setError(getAuthErrorMessage(err instanceof Error ? err.message : 'Failed to sign in with Google'))
-      setGoogleLoading(false)
-    }
-  }
+  const inputClass = (invalid: boolean) => cn(
+    'h-12 w-full rounded-lg border bg-white px-3.5 text-sm text-slate-950 outline-none transition',
+    'placeholder:text-zinc-400 hover:border-zinc-400 focus:border-slate-900 focus:ring-4 focus:ring-[#ffda32]/45',
+    invalid ? 'border-red-500 ring-2 ring-red-100' : 'border-zinc-300',
+    'disabled:cursor-not-allowed disabled:bg-zinc-100 disabled:text-zinc-500',
+  )
+
+  const fieldError = (field: FieldName) => fieldErrors[field] ? (
+    <p id={`${field}-error`} className="mt-1.5 text-xs font-medium text-red-700">{fieldErrors[field]}</p>
+  ) : null
 
   return (
-    <div className="w-full space-y-5">
+    <div className="w-full">
+      {phase && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-[#090b0f]/80 px-5 backdrop-blur-[5px]"
+          role="status"
+          aria-live="polite"
+          aria-label={phase === 'authenticating' ? 'Authenticating' : 'Opening your workspace'}
+        >
+          <div className="w-full max-w-[410px] overflow-hidden rounded-2xl border border-white/[0.12] bg-[#181a1f] text-white shadow-[0_32px_100px_rgba(0,0,0,0.58)] ring-1 ring-black/20">
+            <div className="h-1 bg-[linear-gradient(90deg,#ffda32_0_74%,#e42527_74%_82%,#ffda32_82%)]" aria-hidden="true" />
+            <div className="flex items-center justify-between border-b border-white/[0.08] px-6 py-4">
+              <div className="flex items-center gap-3">
+                <PesabyLogoMark className="h-9 w-9" />
+                <span className="leading-none">
+                  <span className="block text-sm font-extrabold tracking-tight">Pesaby</span>
+                  <span className="mt-1 block text-[9px] font-bold uppercase tracking-[0.18em] text-zinc-500">Business OS</span>
+                </span>
+              </div>
+              <span className="rounded-full border border-white/10 bg-white/[0.05] px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.14em] text-zinc-400">
+                Secure access
+              </span>
+            </div>
+
+            <div className="px-6 py-6 sm:px-7">
+              <div className="flex items-start gap-4">
+                <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[#ffda32] text-slate-950 shadow-[0_8px_24px_rgba(255,218,50,0.18)]">
+                  {phase === 'authenticating'
+                    ? <Loader2 className="h-5 w-5 animate-spin" strokeWidth={2.25} aria-hidden="true" />
+                    : <Check className="h-5 w-5" strokeWidth={2.75} aria-hidden="true" />}
+                </span>
+                <div className="min-w-0 pt-0.5">
+                  <p className="text-base font-extrabold leading-6 tracking-[-0.02em]">
+                    {phase === 'authenticating'
+                      ? isSignUp ? 'Creating your secure account' : 'Signing you in securely'
+                      : isSignUp ? 'Opening business setup' : 'Opening your dashboard'}
+                  </p>
+                  <p className="mt-1 text-xs font-medium leading-5 text-zinc-400">
+                    {phase === 'authenticating'
+                      ? 'Verifying your details and preparing your session.'
+                      : 'Authentication complete. Taking you to Pesaby.'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-6 h-1.5 overflow-hidden rounded-full bg-white/[0.08]" aria-hidden="true">
+                <div className={cn('h-full rounded-full bg-[#ffda32]', phase === 'authenticating' ? 'auth-progress-indicator w-2/5' : 'w-full transition-[width] duration-300')} />
+              </div>
+              <div className="mt-3 flex items-center justify-between text-[10px] font-bold uppercase tracking-[0.12em] text-zinc-500">
+                <span>{phase === 'authenticating' ? 'Authenticating' : 'Access confirmed'}</span>
+                <span className="flex items-center gap-1.5"><ShieldCheck className="h-3.5 w-3.5 text-[#ffda32]" aria-hidden="true" /> Encrypted</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
       {error && (
-        <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2.5 text-sm">
-          <p className="font-semibold text-destructive">{error}</p>
+        <div role="alert" aria-live="polite" className="mb-5 flex gap-3 rounded-lg border border-red-200 bg-red-50 px-3.5 py-3 text-sm text-red-800">
+          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+          <p className="leading-5">{error}</p>
         </div>
       )}
 
-      {/* Google Sign In */}
-      <button
-        type="button"
-        onClick={handleGoogleSignIn}
-        disabled={googleLoading}
-        className={cn(
-          'hidden w-full items-center justify-center gap-2.5 rounded-lg px-4 py-2.5',
-          'bg-white border-zinc-300 text-zinc-900 text-sm font-semibold',
-          'hover:bg-zinc-50 active:bg-zinc-100 transition-all duration-150 shadow-sm',
-          'disabled:opacity-50 disabled:cursor-not-allowed',
-          'bg-white'
-        )}
-      >
-        {googleLoading ? (
-          <Loader2 className="h-4 w-4 animate-spin text-gray-700" />
-        ) : (
-          <svg className="h-4 w-4" viewBox="0 0 24 24">
-            <path
-              fill="#4285F4"
-              d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-            />
-            <path
-              fill="#34A853"
-              d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-            />
-            <path
-              fill="#FBBC04"
-              d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
-            />
-            <path
-              fill="#EA4335"
-              d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-            />
-          </svg>
-        )}
-        {googleLoading ? 'Connecting...' : 'Continue with Google'}
-      </button>
-
-      {/* Divider */}
-      <div className="hidden items-center gap-3">
-        <div className="flex-1 border-t border-zinc-200" />
-        <span className="text-xs font-medium text-zinc-500">or</span>
-        <div className="flex-1 border-t border-zinc-200" />
-      </div>
-
-      <form onSubmit={handleSubmit} className="space-y-4">
-        {mode === 'sign-up' && (
+      <form onSubmit={handleSubmit} noValidate aria-busy={loading} className="space-y-4">
+        {isSignUp && (
           <div>
-            <label htmlFor="name" className="mb-2 block text-sm font-semibold text-zinc-800">
-              Full name
-            </label>
+            <label htmlFor="name" className="mb-1.5 block text-sm font-semibold text-slate-900">Full name</label>
             <input
               id="name"
+              name="name"
               type="text"
               autoComplete="name"
+              autoFocus
               required
-              placeholder="Your full name"
+              maxLength={80}
+              placeholder="e.g. Amina Kamau"
               value={form.name}
-              onChange={(e) => setForm({ ...form, name: e.target.value })}
-              className={cn(
-                'w-full rounded-md border border-zinc-300 bg-white px-4 py-3 text-sm text-zinc-900 outline-none',
-                'placeholder:text-zinc-600',
-                'focus:border-[#e42527] focus:ring-2 focus:ring-[#e42527]/15',
-                'transition-all duration-150'
-              )}
+              disabled={loading}
+              aria-invalid={Boolean(fieldErrors.name)}
+              aria-describedby={fieldErrors.name ? 'name-error' : undefined}
+              onChange={(event) => updateField('name', event.target.value)}
+              className={inputClass(Boolean(fieldErrors.name))}
             />
+            {fieldError('name')}
           </div>
         )}
 
         <div>
-          <label htmlFor="email" className="mb-2 block text-sm font-semibold text-zinc-800">
-            Work email
-          </label>
+          <label htmlFor="email" className="mb-1.5 block text-sm font-semibold text-slate-900">Work email</label>
           <input
             id="email"
+            name="email"
             type="email"
+            inputMode="email"
             autoComplete="email"
+            autoCapitalize="none"
+            autoCorrect="off"
+            autoFocus={!isSignUp}
             required
+            maxLength={254}
             placeholder="you@business.com"
             value={form.email}
-            onChange={(e) => setForm({ ...form, email: e.target.value })}
-            className={cn(
-              'w-full rounded-md border border-zinc-300 bg-white px-4 py-3 text-sm text-zinc-900 outline-none',
-              'placeholder:text-zinc-600',
-              'focus:border-[#e42527] focus:ring-2 focus:ring-[#e42527]/15',
-              'transition-all duration-150'
-            )}
+            disabled={loading}
+            aria-invalid={Boolean(fieldErrors.email)}
+            aria-describedby={fieldErrors.email ? 'email-error' : undefined}
+            onChange={(event) => updateField('email', event.target.value)}
+            className={inputClass(Boolean(fieldErrors.email))}
           />
+          {fieldError('email')}
         </div>
 
         <div>
-          <div className="flex items-center justify-between mb-2">
-            <label htmlFor="password" className="block text-sm font-semibold text-zinc-800">
-              {mode === 'sign-up' ? 'Create password' : 'Password'}
-            </label>
-          </div>
+          <label htmlFor="password" className="mb-1.5 block text-sm font-semibold text-slate-900">
+            {isSignUp ? 'Create password' : 'Password'}
+          </label>
           <div className="relative">
             <input
               id="password"
+              name="password"
               type={showPassword ? 'text' : 'password'}
-              autoComplete={mode === 'sign-in' ? 'current-password' : 'new-password'}
+              autoComplete={isSignUp ? 'new-password' : 'current-password'}
               required
               minLength={8}
-              placeholder={mode === 'sign-up' ? 'Create a secure password' : 'Enter your password'}
+              maxLength={128}
+              placeholder={isSignUp ? 'At least 8 characters' : 'Enter your password'}
               value={form.password}
-              onChange={(e) => setForm({ ...form, password: e.target.value })}
-              className={cn(
-                'w-full rounded-md border border-zinc-300 bg-white px-4 py-3 pr-10 text-sm text-zinc-900 outline-none',
-                'placeholder:text-zinc-600',
-                'focus:border-[#e42527] focus:ring-2 focus:ring-[#e42527]/15',
-                'transition-all duration-150'
-              )}
+              disabled={loading}
+              aria-invalid={Boolean(fieldErrors.password)}
+              aria-describedby={fieldErrors.password ? 'password-error' : isSignUp ? 'password-hint' : undefined}
+              onChange={(event) => updateField('password', event.target.value)}
+              className={cn(inputClass(Boolean(fieldErrors.password)), 'pr-12')}
             />
             <button
               type="button"
-              onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 transition-colors hover:text-zinc-900"
+              onClick={() => setShowPassword((visible) => !visible)}
+              className="absolute right-1.5 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-md text-zinc-500 transition hover:bg-zinc-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e42527]"
               aria-label={showPassword ? 'Hide password' : 'Show password'}
             >
-              {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              {showPassword ? <EyeOff className="h-[18px] w-[18px]" /> : <Eye className="h-[18px] w-[18px]" />}
             </button>
           </div>
-          {mode === 'sign-up' && (
-            <p className="mt-2 text-xs leading-5 text-zinc-500">
-              Use at least 8 characters with a number and symbol.
+          {fieldError('password')}
+          {isSignUp && !fieldErrors.password && (
+            <p id="password-hint" className="mt-1.5 flex items-center gap-1.5 text-xs text-zinc-500">
+              <Check className={cn('h-3.5 w-3.5', form.password.length >= 8 ? 'text-emerald-600' : 'text-zinc-400')} aria-hidden="true" />
+              Use 8 or more characters
             </p>
           )}
         </div>
 
-        {mode === 'sign-in' && (
-          <div className="flex items-center justify-between pt-1 text-sm">
-            <label className="inline-flex items-center gap-2 text-zinc-600">
+        {isSignUp && (
+          <div>
+            <label htmlFor="confirmPassword" className="mb-1.5 block text-sm font-semibold text-slate-900">Confirm password</label>
+            <input
+              id="confirmPassword"
+              name="confirmPassword"
+              type={showPassword ? 'text' : 'password'}
+              autoComplete="new-password"
+              required
+              maxLength={128}
+              placeholder="Enter your password again"
+              value={form.confirmPassword}
+              disabled={loading}
+              aria-invalid={Boolean(fieldErrors.confirmPassword)}
+              aria-describedby={fieldErrors.confirmPassword ? 'confirmPassword-error' : undefined}
+              onChange={(event) => updateField('confirmPassword', event.target.value)}
+              className={inputClass(Boolean(fieldErrors.confirmPassword))}
+            />
+            {fieldError('confirmPassword')}
+          </div>
+        )}
+
+        {!isSignUp && (
+          <div className="flex items-center justify-between gap-4 pt-0.5 text-sm">
+            <label className="inline-flex cursor-pointer items-center gap-2 text-zinc-600">
               <input
                 type="checkbox"
                 checked={rememberMe}
+                disabled={loading}
                 onChange={(event) => setRememberMe(event.target.checked)}
-                className="h-4 w-4 rounded border-zinc-300 bg-white accent-[#ffda32]"
+                className="h-4 w-4 rounded border-zinc-300 accent-[#e42527]"
               />
               Remember me
             </label>
-            <Link href="/forgot-password" className="font-semibold text-[#b91c1c] hover:underline">Forgot password?</Link>
+            <Link href="/forgot-password" className="font-semibold text-[#b91c1c] underline-offset-4 hover:underline">Forgot password?</Link>
           </div>
         )}
 
         <button
           type="submit"
           disabled={loading}
-          className={cn(
-            'mt-6 flex w-full items-center justify-center gap-2 rounded-md px-4 py-3',
-            'bg-[#ffda32] text-slate-950 text-sm font-extrabold',
-            'hover:bg-[#e8c42d] active:bg-[#d4b020] focus:outline-none',
-            'disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-150',
-            'shadow-md shadow-black/20'
-          )}
+          className="mt-2 flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-[#ffda32] px-4 text-sm font-extrabold text-slate-950 shadow-sm ring-1 ring-black/5 transition hover:bg-[#f3cd26] hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e42527] focus-visible:ring-offset-2 active:translate-y-px disabled:cursor-not-allowed disabled:opacity-60"
         >
-          {loading && <Loader2 className="h-4 w-4 animate-spin" />}
-          {mode === 'sign-in' ? 'Sign in to Pesaby' : 'Create my account'}
+          {loading && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
+          {loading ? (isSignUp ? 'Creating your account…' : 'Signing you in…') : (isSignUp ? 'Create account' : 'Sign in to Pesaby')}
         </button>
       </form>
 
-      <p className="text-center text-sm text-zinc-600">
-        {mode === 'sign-in' ? (
-          <>
-            New to Pesaby?{' '}
-            <a href="/sign-up" className="font-semibold text-[#e42527] transition-colors hover:text-red-700">
-              Create an account
-            </a>
-          </>
-        ) : (
-          <>
-            Already using Pesaby?{' '}
-            <a href="/sign-in" className="font-semibold text-[#e42527] transition-colors hover:text-red-700">
-              Sign in
-            </a>
-          </>
-        )}
+      <p className="mt-5 text-center text-sm text-zinc-600">
+        {isSignUp ? 'Already have an account?' : 'New to Pesaby?'}{' '}
+        <Link href={isSignUp ? '/sign-in' : '/sign-up'} className="font-bold text-[#c91f21] underline-offset-4 hover:underline">
+          {isSignUp ? 'Sign in' : 'Create an account'}
+        </Link>
       </p>
 
-      {mode === 'sign-up' && (
-        <p className="text-center text-xs leading-relaxed text-zinc-500">
-          <Check className="mr-1 inline h-3.5 w-3.5 text-[#ffda32]" aria-hidden="true" />
-          By creating an account, you agree to our{' '}
-          <a href="#" className="font-semibold text-zinc-800 transition-colors hover:text-[#ffda32]">
-            Terms of Service
-          </a>{' '}
-          and{' '}
-          <a href="#" className="font-semibold text-zinc-800 transition-colors hover:text-[#ffda32]">
-            Privacy Policy
-          </a>.
-        </p>
-      )}
-
-      {mode === 'sign-in' && (
-        <p className="text-center text-xs leading-relaxed text-zinc-500">
-          Your account is protected with secure authentication.
-        </p>
-      )}
+      <div className="mt-5 flex items-center justify-center gap-2 border-t border-zinc-200 pt-5 text-xs text-zinc-500">
+        <ShieldCheck className="h-4 w-4 text-zinc-600" aria-hidden="true" />
+        <span>{isSignUp ? 'Your details are protected with secure authentication.' : 'Secure, encrypted account access.'}</span>
+      </div>
     </div>
   )
 }

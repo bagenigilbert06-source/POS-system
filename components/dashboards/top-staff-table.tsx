@@ -25,7 +25,7 @@ export function TopStaffTable({ staff, currency }: TopStaffTableProps) {
               Top Performers
             </h2>
             <p className="mt-1 text-xs text-[var(--dashboard-muted)]">
-              Best staff by sales revenue today
+              Best staff by total net sales revenue
             </p>
           </div>
         </div>
