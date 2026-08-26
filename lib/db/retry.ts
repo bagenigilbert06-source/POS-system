@@ -4,20 +4,37 @@ const TRANSIENT_DATABASE_ERROR_CODES = new Set([
   'ECONNREFUSED',
   'ETIMEDOUT',
   'ENOTFOUND',
+  '08000',
+  '08003',
+  '08006',
+  '57P01',
+  '57P02',
+  '57P03',
 ])
 const TRANSIENT_DATABASE_ERROR_MESSAGES = [
   'timeout exceeded when trying to connect',
+  'connection terminated due to connection timeout',
   'connection terminated unexpectedly',
+  'connection ended unexpectedly',
+  'failed to get session',
   'database dns lookup failed',
 ]
 
 function isTransientDatabaseError(error: unknown) {
   if (!(error instanceof Error)) return false
 
-  const errorWithCode = error as Error & { code?: string; cause?: unknown }
-  if (errorWithCode.code && TRANSIENT_DATABASE_ERROR_CODES.has(errorWithCode.code)) return true
+  const errorWithCode = error as Error & {
+    code?: string
+    cause?: unknown
+    body?: { code?: string; message?: string }
+  }
+  const codes = [errorWithCode.code, errorWithCode.body?.code].filter(Boolean) as string[]
+  if (codes.some((code) => TRANSIENT_DATABASE_ERROR_CODES.has(code))) return true
 
-  const message = `${error.message} ${String(errorWithCode.cause ?? '')}`
+  const cause = errorWithCode.cause
+  if (cause instanceof Error && isTransientDatabaseError(cause)) return true
+
+  const message = `${error.message} ${errorWithCode.body?.message ?? ''} ${String(cause ?? '')}`
   const normalizedMessage = message.toLowerCase()
   return (
     [...TRANSIENT_DATABASE_ERROR_CODES].some((code) => message.includes(code)) ||
@@ -26,7 +43,7 @@ function isTransientDatabaseError(error: unknown) {
 }
 
 /** Retries short-lived database and DNS failures without masking permanent errors. */
-export async function withDatabaseRetry<T>(operation: () => Promise<T>, attempts = 2): Promise<T> {
+export async function withDatabaseRetry<T>(operation: () => Promise<T>, attempts = 3): Promise<T> {
   let lastError: unknown
 
   for (let attempt = 0; attempt < attempts; attempt += 1) {
@@ -36,7 +53,7 @@ export async function withDatabaseRetry<T>(operation: () => Promise<T>, attempts
       lastError = error
       if (!isTransientDatabaseError(error) || attempt === attempts - 1) throw error
 
-      await new Promise((resolve) => setTimeout(resolve, 200 * (attempt + 1)))
+      await new Promise((resolve) => setTimeout(resolve, 250 * (attempt + 1)))
     }
   }
 
