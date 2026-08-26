@@ -1552,7 +1552,7 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
         )}
 
         {/* Product grid */}
-        <div className="pos-scroll-region min-h-0 flex-1 overflow-y-auto bg-[#fbfbfc] p-3 dark:bg-[#0f0f0f] sm:p-4">
+        <div className="pos-scroll-region min-h-0 flex-1 overflow-y-auto bg-[#fbfbfc] p-3.5 dark:bg-[#0f0f0f] sm:p-4">
           {filteredProducts.length === 0 ? (
             <div className="flex h-48 flex-col items-center justify-center text-center">
               <Package className="mb-3 h-9 w-9 text-[#d0d5dd]" strokeWidth={1.5} />
@@ -1566,7 +1566,7 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
           ) : (
             <div className={cn(
               'grid grid-cols-2 sm:grid-cols-3',
-              standalone ? 'gap-2.5 lg:grid-cols-[repeat(auto-fill,minmax(172px,1fr))]' : 'gap-3.5 xl:grid-cols-4'
+              standalone ? 'gap-3 lg:grid-cols-[repeat(auto-fill,minmax(220px,1fr))]' : 'gap-3.5 xl:grid-cols-4'
             )}>
               {filteredProducts.map((product) => {
                 const inCartQuantity = cartQuantityByProductId.get(product.id)
@@ -1586,7 +1586,7 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
                     aria-label={`Add ${product.name} to basket${inCartQuantity ? `, currently ${inCartQuantity}` : ''}`}
                     className={cn(
                       'pos-product-card group relative flex flex-col overflow-hidden rounded-lg border bg-white text-left shadow-[0_1px_2px_rgba(16,24,40,.03)] transition-colors duration-100 motion-reduce:transition-none after:pointer-events-none after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:bg-[#f2b705] after:opacity-0',
-                      standalone ? 'min-h-[184px]' : 'min-h-[224px]',
+                      standalone ? 'min-h-[232px]' : 'min-h-[224px]',
                       'disabled:cursor-not-allowed disabled:opacity-50',
                       outOfStock
                         ? 'cursor-not-allowed opacity-65'
@@ -1607,23 +1607,24 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
 
                     {/* Product image or icon */}
                     {product.imageUrl ? (
-                      <span className={cn('relative block w-full overflow-hidden bg-[#f5f6f8] dark:bg-[#1f1f1f]', standalone ? 'h-[86px]' : 'h-[112px]')}>
+                      <span className={cn('relative block w-full shrink-0 overflow-hidden bg-[#f5f6f8] dark:bg-[#1f1f1f]', standalone ? 'h-[120px]' : 'h-[112px]')}>
                         <Image
                           src={product.imageUrl}
                           alt={product.name}
                           fill
+                          unoptimized={product.imageUrl.startsWith('http')}
                           sizes="(min-width: 1280px) 240px, (min-width: 640px) 30vw, 50vw"
                           quality={60}
-                          className="object-contain p-1.5"
+                          className="object-cover transition-transform duration-200 group-hover:scale-[1.025] motion-reduce:transform-none"
                         />
                       </span>
                     ) : (
-                      <div className={cn('flex w-full items-center justify-center bg-[#f5f6f8] text-[#98a2b3] dark:bg-[#1f1f1f]', standalone ? 'h-[86px]' : 'h-[112px]')}>
+                      <div className={cn('flex w-full shrink-0 items-center justify-center bg-[#f5f6f8] text-[#98a2b3] dark:bg-[#1f1f1f]', standalone ? 'h-[120px]' : 'h-[112px]')}>
                         <Package className="h-7 w-7" strokeWidth={1.5} />
                       </div>
                     )}
-                    <div className={cn('flex flex-1 flex-col', standalone ? 'px-3 pb-3 pt-2.5' : 'px-3.5 pb-3.5 pt-3')}>
-                      <p className={cn('mb-0.5 line-clamp-2 font-semibold leading-snug text-[#101828] dark:text-white', standalone ? 'text-[13px]' : 'text-sm')}>{product.name}</p>
+                    <div className="flex flex-1 flex-col px-3.5 pb-3.5 pt-3">
+                      <p className="mb-0.5 line-clamp-2 text-sm font-semibold leading-snug text-[#101828] dark:text-white">{product.name}</p>
                       {product.pharmacy && <p className="line-clamp-1 text-[10px] text-[#667085] dark:text-[#a8a8a8]">{[product.pharmacy.genericName, product.pharmacy.strength, product.pharmacy.dosageForm, product.pharmacy.packSize].filter(Boolean).join(' · ')}</p>}
                       {product.pharmacy && (product.pharmacy.prescriptionRequired || product.pharmacy.restrictedItem) && <div className="mt-1 flex flex-wrap gap-1">{product.pharmacy.prescriptionRequired && <span className="rounded border px-1 py-0.5 text-[8px] font-bold uppercase tracking-wide">Prescription</span>}{product.pharmacy.restrictedItem && <span className="rounded border border-amber-300 bg-amber-50 px-1 py-0.5 text-[8px] font-bold uppercase tracking-wide text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200">Restricted</span>}</div>}
                       {(product.volume || product.unit) && (
@@ -1633,7 +1634,7 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
                       )}
                       {product.packages.length > 0 && <div className="mt-2 flex flex-wrap gap-1" onClick={(event) => event.stopPropagation()}>{product.packages.map((item) => <button key={item.id} type="button" disabled={product.stock < item.baseUnitQuantity} onClick={() => addToCart(product, item)} className="rounded-md border border-[#dfe3ea] bg-[#f9fafb] px-1.5 py-1 text-[9px] font-bold text-[#344054] hover:border-[#f9b21d] disabled:cursor-not-allowed disabled:opacity-40 dark:border-white/10 dark:bg-white/5 dark:text-[#e4e7ec]" title={`${item.baseUnitQuantity} base units · ${formatCurrency(item.sellingPrice)}`}>{item.name}</button>)}</div>}
                       <div className="mt-auto flex items-end justify-between gap-2 pt-2">
-                        <p className={cn('font-bold tabular-nums text-[#101828] dark:text-white', standalone ? 'text-[13px]' : 'text-sm')}>{formatCurrency(product.sellingPrice)}</p>
+                        <p className="text-sm font-bold tabular-nums text-[#101828] dark:text-white">{formatCurrency(product.sellingPrice)}</p>
                         {inCartQuantity ? (
                           <div
                             className="relative z-20 flex h-8 shrink-0 items-center overflow-hidden rounded-lg border border-[#101828] bg-white dark:border-white/20 dark:bg-[#1c1c1c]"
@@ -1766,7 +1767,7 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
               {cart.map((item) => (
                 <li key={item.productId} className="group grid min-h-[64px] grid-cols-[36px_minmax(0,1fr)_minmax(190px,auto)] items-center gap-3 px-4 py-2 transition-colors duration-75 hover:bg-[#fbfbfc] dark:bg-[#161616] dark:hover:bg-[#202020]">
                   {productsById.get(item.productId)?.imageUrl ? (
-                    <Image src={productsById.get(item.productId)?.imageUrl ?? ''} alt="" width={36} height={36} quality={50} className="h-9 w-9 shrink-0 rounded-lg object-cover" />
+                    <Image src={productsById.get(item.productId)?.imageUrl ?? ''} alt="" width={36} height={36} quality={50} unoptimized={(productsById.get(item.productId)?.imageUrl ?? '').startsWith('http')} className="h-9 w-9 shrink-0 rounded-lg object-cover" />
                   ) : (
                     <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#f2f4f7] text-[#667085] dark:bg-white/10 dark:text-[#c4c4c4]">
                       <Package className="h-4 w-4" />
@@ -2255,14 +2256,14 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
       </aside>
 
       {standalone && !checkoutOnly && (
-        <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-[#e2e5e9] bg-white/95 px-2 py-1.5 shadow-[0_-5px_18px_rgba(16,24,40,.06)] backdrop-blur-md dark:border-white/10 dark:bg-[#111]/95" aria-label="POS register actions">
-          <div className="pos-action-scroll mx-auto flex max-w-4xl items-center justify-center gap-1.5 overflow-x-auto">
-            <button type="button" onClick={() => void holdSale()} disabled={!canHold || cart.length === 0 || Boolean(heldSaleActionId)} className="inline-flex h-9 min-w-[82px] shrink-0 items-center justify-center gap-1.5 rounded-md bg-[#e95513] px-3 text-xs font-bold text-white transition hover:bg-[#cf4510] disabled:cursor-not-allowed disabled:opacity-40"><PauseCircle className="h-3.5 w-3.5" />Hold</button>
-            <button type="button" onClick={voidCurrentSale} disabled={cart.length === 0} className="inline-flex h-9 min-w-[82px] shrink-0 items-center justify-center gap-1.5 rounded-md bg-[#2563eb] px-3 text-xs font-bold text-white transition hover:bg-[#1d4ed8] disabled:cursor-not-allowed disabled:opacity-40"><Trash2 className="h-3.5 w-3.5" />Void</button>
-            <button type="button" onClick={openCheckout} disabled={cart.length === 0 || !hasActiveShift} className="inline-flex h-9 min-w-[94px] shrink-0 items-center justify-center gap-1.5 rounded-md bg-[#08a9c7] px-3 text-xs font-bold text-white transition hover:bg-[#078ca6] disabled:cursor-not-allowed disabled:opacity-40"><WalletCards className="h-3.5 w-3.5" />Payment</button>
-            <button type="button" onClick={openHeldOrders} className="inline-flex h-9 min-w-[108px] shrink-0 items-center justify-center gap-1.5 rounded-md bg-[#082f49] px-3 text-xs font-bold text-white transition hover:bg-[#0c4a6e]"><ArchiveRestore className="h-3.5 w-3.5" />View Orders</button>
-            <button type="button" onClick={resetRegister} className="inline-flex h-9 min-w-[82px] shrink-0 items-center justify-center gap-1.5 rounded-md bg-[#4938ca] px-3 text-xs font-bold text-white transition hover:bg-[#3929ad]"><RefreshCw className="h-3.5 w-3.5" />Reset</button>
-            <button type="button" onClick={() => setShowSalesHistory(true)} className="inline-flex h-9 min-w-[106px] shrink-0 items-center justify-center gap-1.5 rounded-md bg-[#dc2626] px-3 text-xs font-bold text-white transition hover:bg-[#b91c1c]"><History className="h-3.5 w-3.5" />Transaction</button>
+        <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-[#e6eaed] bg-white p-3 dark:border-white/10 dark:bg-[#111]" aria-label="POS register actions">
+          <div className="pos-action-scroll mx-auto flex items-center justify-center gap-2 overflow-x-auto">
+            <button type="button" onClick={() => void holdSale()} disabled={!canHold || cart.length === 0 || Boolean(heldSaleActionId)} className="inline-flex h-[34px] shrink-0 items-center justify-center gap-2 rounded-[5px] bg-[#e04f16] px-3.5 text-[13px] font-semibold text-white shadow-[0_4px_20px_rgba(224,79,22,.15)] transition-all duration-200 hover:bg-[#bf4313] hover:shadow-[0_3px_10px_rgba(224,79,22,.5)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e04f16]/40 disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none"><PauseCircle className="h-4 w-4" />Hold</button>
+            <button type="button" onClick={voidCurrentSale} disabled={cart.length === 0} className="inline-flex h-[34px] shrink-0 items-center justify-center gap-2 rounded-[5px] bg-[#155eef] px-3.5 text-[13px] font-semibold text-white shadow-[0_4px_20px_rgba(21,94,239,.15)] transition-all duration-200 hover:bg-[#124fc9] hover:shadow-[0_3px_10px_rgba(21,94,239,.5)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#155eef]/40 disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none"><Trash2 className="h-4 w-4" />Void</button>
+            <button type="button" onClick={openCheckout} disabled={cart.length === 0 || !hasActiveShift} className="inline-flex h-[34px] shrink-0 items-center justify-center gap-2 rounded-[5px] bg-[#06aed4] px-3.5 text-[13px] font-semibold text-white shadow-[0_4px_20px_rgba(6,174,212,.15)] transition-all duration-200 hover:bg-[#0592b1] hover:shadow-[0_3px_10px_rgba(6,174,212,.5)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#06aed4]/40 disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none"><WalletCards className="h-4 w-4" />Payment</button>
+            <button type="button" onClick={openHeldOrders} className="inline-flex h-[34px] shrink-0 items-center justify-center gap-2 rounded-[5px] bg-[#092c4c] px-3.5 text-[13px] font-semibold text-white shadow-[0_4px_20px_rgba(9,44,76,.15)] transition-all duration-200 hover:bg-[#071f36] hover:shadow-[0_3px_10px_rgba(9,44,76,.5)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#092c4c]/40"><ArchiveRestore className="h-4 w-4" />View Orders</button>
+            <button type="button" onClick={resetRegister} className="inline-flex h-[34px] shrink-0 items-center justify-center gap-2 rounded-[5px] bg-[#3538cd] px-3.5 text-[13px] font-semibold text-white shadow-[0_4px_20px_rgba(53,56,205,.15)] transition-all duration-200 hover:bg-[#2c2fb2] hover:shadow-[0_3px_10px_rgba(53,56,205,.5)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3538cd]/40"><RefreshCw className="h-4 w-4" />Reset</button>
+            <button type="button" onClick={() => setShowSalesHistory(true)} className="inline-flex h-[34px] shrink-0 items-center justify-center gap-2 rounded-[5px] bg-[#ff0000] px-3.5 text-[13px] font-semibold text-white shadow-[0_4px_20px_rgba(255,0,0,.15)] transition-all duration-200 hover:bg-[#db0000] hover:shadow-[0_3px_10px_rgba(255,0,0,.5)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff0000]/40"><History className="h-4 w-4" />Transaction</button>
           </div>
         </nav>
       )}
