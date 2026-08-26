@@ -17,7 +17,7 @@ function isTransientDatabaseError(error: unknown) {
 }
 
 /** Retries short-lived database and DNS failures without masking permanent errors. */
-export async function withDatabaseRetry<T>(operation: () => Promise<T>, attempts = 3): Promise<T> {
+export async function withDatabaseRetry<T>(operation: () => Promise<T>, attempts = 2): Promise<T> {
   let lastError: unknown
 
   for (let attempt = 0; attempt < attempts; attempt += 1) {

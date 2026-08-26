@@ -46,6 +46,7 @@ export function DashboardLayoutClient({
   const pathname = usePathname();
   const adminMode =
     pathname === '/dashboard/admin' || pathname.startsWith('/dashboard/admin/');
+  const isEmployeesPage = pathname === '/dashboard/staff';
   const experience = initialWorkspaceConfig
     ? getBusinessExperience(
         initialWorkspaceConfig.businessType,
@@ -69,21 +70,23 @@ export function DashboardLayoutClient({
           onMobileClose={() => setMobileSidebarOpen(false)}
         />
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-          <AppNavbar
-            userName={userName}
-            userEmail={userEmail}
-            userImage={userImage}
-            organizationName={organizationName}
-            organizationId={organizationId}
-            availableOrganizations={availableOrganizations}
-            branchName={branchName}
-            workspaceDescription={
-              experience?.overviewDescription ?? 'Operating workspace'
-            }
-            role={role}
-            permissions={permissions}
-            onOpenSidebar={() => setMobileSidebarOpen(true)}
-          />
+          {!isEmployeesPage && (
+            <AppNavbar
+              userName={userName}
+              userEmail={userEmail}
+              userImage={userImage}
+              organizationName={organizationName}
+              organizationId={organizationId}
+              availableOrganizations={availableOrganizations}
+              branchName={branchName}
+              workspaceDescription={
+                experience?.overviewDescription ?? 'Operating workspace'
+              }
+              role={role}
+              permissions={permissions}
+              onOpenSidebar={() => setMobileSidebarOpen(true)}
+            />
+          )}
           <main
             id="dashboard-content"
             tabIndex={-1}

@@ -16,9 +16,10 @@ import type { Employee } from '@/lib/db/schema'
 import { RoleEnum, STAFF_ROLE_LABELS, isStaffManagedRole, type StaffManagedRole } from '@/lib/types/permissions'
 import { STAFF_DEPARTMENTS, STAFF_DEPARTMENT_LABELS, normalizeStaffDepartment, type StaffDepartment } from '@/lib/types/staff'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { StaffPhotoField } from './staff-photo-field'
 
 interface EditStaffDialogProps {
-  employee: Employee
+  employee: Employee & { image?: string | null }
   open: boolean
   onOpenChange: (open: boolean) => void
   assignableRoles: StaffManagedRole[]
@@ -35,6 +36,7 @@ export function EditStaffDialog({ employee, open, onOpenChange, assignableRoles 
     name: employee.name,
     email: employee.email || '',
     phone: employee.phone || '',
+    image: employee.image || '',
     role: editableRole(employee.role),
     department: normalizeStaffDepartment(employee.department),
     salary: employee.salary.toString(),
@@ -46,6 +48,7 @@ export function EditStaffDialog({ employee, open, onOpenChange, assignableRoles 
       name: employee.name,
       email: employee.email || '',
       phone: employee.phone || '',
+      image: employee.image || '',
       role: editableRole(employee.role),
       department: normalizeStaffDepartment(employee.department),
       salary: employee.salary.toString(),
@@ -76,13 +79,14 @@ export function EditStaffDialog({ employee, open, onOpenChange, assignableRoles 
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-[600px]">
         <DialogHeader>
           <DialogTitle>Edit Staff Member</DialogTitle>
           <DialogDescription>Update employee information.</DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          <StaffPhotoField name={formData.name} value={formData.image} onChange={(image) => setFormData({ ...formData, image })} />
           <div className="space-y-2">
             <label className="text-sm font-medium">Full Name*</label>
             <input

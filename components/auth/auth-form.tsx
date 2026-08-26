@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { AlertCircle, Check, Eye, EyeOff, Loader2, ShieldCheck } from 'lucide-react'
 import { authClient } from '@/lib/auth-client'
-import { PesabyLogoMark } from '@/components/brand/pesaby-logo'
 import { cn } from '@/lib/utils'
 
 interface AuthFormProps {
@@ -14,15 +13,12 @@ interface AuthFormProps {
 
 type FieldName = 'name' | 'email' | 'password' | 'confirmPassword'
 type FieldErrors = Partial<Record<FieldName, string>>
-type AuthPhase = 'authenticating' | 'navigating' | null
-
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 export function AuthForm({ mode }: AuthFormProps) {
   const router = useRouter()
   const isSignUp = mode === 'sign-up'
   const [loading, setLoading] = useState(false)
-  const [phase, setPhase] = useState<AuthPhase>(null)
   const [error, setError] = useState('')
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({})
   const [showPassword, setShowPassword] = useState(false)
@@ -39,7 +35,7 @@ export function AuthForm({ mode }: AuthFormProps) {
     if (/too short|at least 8|min.*8/i.test(message)) {
       return 'Your password must contain at least 8 characters.'
     }
-    if (/server|database|network|fetch|connect|unexpected/i.test(message)) {
+    if (/server|database|network|fetch|connect|unexpected|unavailable|timeout|internal/i.test(message)) {
       return 'We could not connect to Pesaby right now. Please try again shortly.'
     }
     return message || 'Something went wrong. Please try again.'
@@ -84,7 +80,6 @@ export function AuthForm({ mode }: AuthFormProps) {
     if (!validate()) return
 
     setLoading(true)
-    setPhase('authenticating')
     setError('')
     clearStoredAuthState()
 
@@ -96,17 +91,27 @@ export function AuthForm({ mode }: AuthFormProps) {
           email,
           password: form.password,
         })
-        if (result.error) throw new Error(result.error.message)
+        if (result.error) {
+          throw new Error(
+            result.error.status >= 500
+              ? 'Authentication service is temporarily unavailable.'
+              : result.error.message,
+          )
+        }
 
-        setPhase('navigating')
         // The session cookie is complete at this point. Onboarding owns its
         // idempotent draft creation, so no extra request blocks navigation.
         router.replace('/onboarding')
         return
       } else {
         const result = await authClient.signIn.email({ email, password: form.password, rememberMe })
-        if (result.error) throw new Error(result.error.message)
-        setPhase('navigating')
+        if (result.error) {
+          throw new Error(
+            result.error.status >= 500
+              ? 'Authentication service is temporarily unavailable.'
+              : result.error.message,
+          )
+        }
         // Dashboard route guards perform the role-aware destination decision.
         // Going there directly avoids doing the same authorization queries twice.
         router.replace('/dashboard')
@@ -116,7 +121,6 @@ export function AuthForm({ mode }: AuthFormProps) {
       clearStoredAuthState()
       setError(getAuthErrorMessage(err instanceof Error ? err.message : 'Something went wrong'))
       setLoading(false)
-      setPhase(null)
     }
   }
 
@@ -133,60 +137,6 @@ export function AuthForm({ mode }: AuthFormProps) {
 
   return (
     <div className="w-full">
-      {phase && (
-        <div
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-[#090b0f]/80 px-5 backdrop-blur-[5px]"
-          role="status"
-          aria-live="polite"
-          aria-label={phase === 'authenticating' ? 'Authenticating' : 'Opening your workspace'}
-        >
-          <div className="w-full max-w-[410px] overflow-hidden rounded-2xl border border-white/[0.12] bg-[#181a1f] text-white shadow-[0_32px_100px_rgba(0,0,0,0.58)] ring-1 ring-black/20">
-            <div className="h-1 bg-[linear-gradient(90deg,#ffda32_0_74%,#e42527_74%_82%,#ffda32_82%)]" aria-hidden="true" />
-            <div className="flex items-center justify-between border-b border-white/[0.08] px-6 py-4">
-              <div className="flex items-center gap-3">
-                <PesabyLogoMark className="h-9 w-9" />
-                <span className="leading-none">
-                  <span className="block text-sm font-extrabold tracking-tight">Pesaby</span>
-                  <span className="mt-1 block text-[9px] font-bold uppercase tracking-[0.18em] text-zinc-500">Business OS</span>
-                </span>
-              </div>
-              <span className="rounded-full border border-white/10 bg-white/[0.05] px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.14em] text-zinc-400">
-                Secure access
-              </span>
-            </div>
-
-            <div className="px-6 py-6 sm:px-7">
-              <div className="flex items-start gap-4">
-                <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[#ffda32] text-slate-950 shadow-[0_8px_24px_rgba(255,218,50,0.18)]">
-                  {phase === 'authenticating'
-                    ? <Loader2 className="h-5 w-5 animate-spin" strokeWidth={2.25} aria-hidden="true" />
-                    : <Check className="h-5 w-5" strokeWidth={2.75} aria-hidden="true" />}
-                </span>
-                <div className="min-w-0 pt-0.5">
-                  <p className="text-base font-extrabold leading-6 tracking-[-0.02em]">
-                    {phase === 'authenticating'
-                      ? isSignUp ? 'Creating your secure account' : 'Signing you in securely'
-                      : isSignUp ? 'Opening business setup' : 'Opening your dashboard'}
-                  </p>
-                  <p className="mt-1 text-xs font-medium leading-5 text-zinc-400">
-                    {phase === 'authenticating'
-                      ? 'Verifying your details and preparing your session.'
-                      : 'Authentication complete. Taking you to Pesaby.'}
-                  </p>
-                </div>
-              </div>
-
-              <div className="mt-6 h-1.5 overflow-hidden rounded-full bg-white/[0.08]" aria-hidden="true">
-                <div className={cn('h-full rounded-full bg-[#ffda32]', phase === 'authenticating' ? 'auth-progress-indicator w-2/5' : 'w-full transition-[width] duration-300')} />
-              </div>
-              <div className="mt-3 flex items-center justify-between text-[10px] font-bold uppercase tracking-[0.12em] text-zinc-500">
-                <span>{phase === 'authenticating' ? 'Authenticating' : 'Access confirmed'}</span>
-                <span className="flex items-center gap-1.5"><ShieldCheck className="h-3.5 w-3.5 text-[#ffda32]" aria-hidden="true" /> Encrypted</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
       {error && (
         <div role="alert" aria-live="polite" className="mb-5 flex gap-3 rounded-lg border border-red-200 bg-red-50 px-3.5 py-3 text-sm text-red-800">
           <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />

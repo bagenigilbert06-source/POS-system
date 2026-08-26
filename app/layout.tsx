@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import { ThemeProvider } from '@/components/providers/theme-provider';
 import { AppToaster } from '@/components/ui/app-toaster';
+import { PageLoader } from '@/components/ui/page-loader';
 
 export const metadata: Metadata = {
   title: {
@@ -49,11 +50,17 @@ export default function RootLayout({
             __html: `(function(){try{var k='theme',s=localStorage.getItem(k),d=window.matchMedia('(prefers-color-scheme: dark)').matches,t=s==='dark'||(s!=='light'&&d);document.documentElement.classList.toggle('dark',t);document.documentElement.dataset.pesabyTheme=t?'dark':'light';document.documentElement.style.colorScheme=t?'dark':'light'}catch(e){}})();`,
           }}
         />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){document.addEventListener('DOMContentLoaded',function(){window.setTimeout(function(){window.setTimeout(function(){var l=document.querySelector('[data-pesaby-initial-loader]');if(l){l.style.transition='opacity 400ms';l.style.opacity='0';window.setTimeout(function(){l.style.display='none'},400)}},100)},500)})})();`,
+          }}
+        />
       </head>
       <body
         className="font-sans text-base antialiased"
         suppressHydrationWarning
       >
+        <PageLoader initial />
         <ThemeProvider
           attribute="class"
           defaultTheme="system"

@@ -20,6 +20,7 @@ const staffRoleSchema = z.enum(STAFF_MANAGED_ROLES)
 const createStaffSchema = z.object({
   name: z.string().trim().min(2).max(100), email: z.string().trim().toLowerCase().email(),
   phone: z.string().trim().max(30).optional(),
+  image: z.string().trim().max(2048).nullable().optional(),
   role: staffRoleSchema, branchId: z.string().min(1), department: z.enum(STAFF_DEPARTMENTS).default('unassigned'),
   salary: z.coerce.number().nonnegative().max(999_999_999), status: z.enum(['active', 'inactive']).default('active'),
 })
@@ -27,12 +28,19 @@ const updateStaffSchema = z.object({
   name: z.string().trim().min(2).max(100).optional(),
   email: z.string().trim().toLowerCase().email().optional(),
   phone: z.string().trim().max(30).optional(),
+  image: z.string().trim().max(2048).nullable().optional(),
   role: staffRoleSchema.optional(),
   department: z.enum(STAFF_DEPARTMENTS).optional(),
   salary: z.coerce.number().nonnegative().max(999_999_999).optional(),
   status: z.enum(['active', 'inactive', 'invited', 'terminated']).optional(),
 })
 const INVITATION_COOLDOWN_MS = 60_000
+
+function validStaffImage(value: string | null | undefined) {
+  if (!value) return true
+  if (value.startsWith('/uploads/profile/')) return true
+  try { return ['http:', 'https:'].includes(new URL(value).protocol) } catch { return false }
+}
 
 function assertAssignableRole(actor: RoleEnum, role: StaffManagedRole) {
   if (!canAssignRole(actor, role)) throw new Error(`A ${actor} cannot assign the ${role} role`)
@@ -107,6 +115,7 @@ export async function createEmployee(data: {
   name: string
   email: string
   phone?: string
+  image?: string | null
   role: StaffManagedRole
   branchId: string
   department?: string
@@ -114,6 +123,7 @@ export async function createEmployee(data: {
   status?: string
 }) {
   const input = createStaffSchema.parse(data)
+  if (!validStaffImage(input.image)) throw new Error('Choose a valid employee photo')
   const authorization = await requirePermission(PermissionEnum.STAFF_MANAGE)
   assertAssignableRole(authorization.role, input.role)
   await assertRoleMatchesWorkspace(authorization.organizationId, input.role)
@@ -131,7 +141,7 @@ export async function createEmployee(data: {
     const staffUserId = existingUser?.id ?? nanoid()
     const [existingMembership] = await tx.select().from(organizationMembership).where(and(eq(organizationMembership.organizationId, authorization.organizationId), eq(organizationMembership.userId, staffUserId))).limit(1)
     if (existingMembership) throw new Error('This user already has access to the organization')
-    if (!existingUser) await tx.insert(user).values({ id: staffUserId, name: input.name, email: input.email, status: 'invited' })
+    if (!existingUser) await tx.insert(user).values({ id: staffUserId, name: input.name, email: input.email, image: input.image || null, status: 'invited' })
     const employeeId = nanoid()
     await tx.insert(organizationMembership).values({ id: nanoid(), organizationId: authorization.organizationId, userId: staffUserId, role: input.role })
     await tx.insert(branchMembership).values({ id: nanoid(), branchId: input.branchId, userId: staffUserId, role: input.role })
@@ -176,12 +186,14 @@ export async function updateEmployee(employeeId: string, data: {
   name?: string
   email?: string
   phone?: string
+  image?: string | null
   role?: StaffManagedRole
   department?: string
   salary?: number
   status?: string
 }) {
   const input = updateStaffSchema.parse(data)
+  if (!validStaffImage(input.image)) throw new Error('Choose a valid employee photo')
   const authorization = await requirePermission(PermissionEnum.STAFF_MANAGE)
   const orgId = authorization.organizationId
   const [current] = await db.select().from(employee).where(and(eq(employee.id, employeeId), eq(employee.orgId, orgId))).limit(1)
@@ -199,10 +211,11 @@ export async function updateEmployee(employeeId: string, data: {
         const [emailOwner] = await tx.select({ id: user.id }).from(user).where(emailOwnerQuery).limit(1)
         if (emailOwner) throw new Error('That email address is already used by another account')
       }
-      if (current.userId && (emailChanged || input.name)) {
+      if (current.userId && (emailChanged || input.name || input.image !== undefined)) {
         const syncedUser = await tx.update(user).set({
           ...(emailChanged && { email: input.email! }),
           ...(input.name && { name: input.name }),
+          ...(input.image !== undefined && { image: input.image || null }),
           updatedAt: new Date(),
         }).where(eq(user.id, current.userId)).returning({ id: user.id })
         if (syncedUser.length !== 1) throw new Error('The staff login account is missing and cannot be updated')
@@ -227,7 +240,7 @@ export async function updateEmployee(employeeId: string, data: {
           inArray(branchMembership.branchId, organizationBranches.map(({ id }) => id)),
         ))
       }
-      await tx.insert(auditEvent).values({ id: nanoid(), organizationId: orgId, userId: authorization.userId, action: 'staff_access_updated', metadata: { employeeId, previousRole: current.role, role: input.role ?? current.role, status: input.status ?? current.status, emailChanged } })
+      await tx.insert(auditEvent).values({ id: nanoid(), organizationId: orgId, userId: authorization.userId, action: 'staff_access_updated', metadata: { employeeId, previousRole: current.role, role: input.role ?? current.role, status: input.status ?? current.status, emailChanged, avatarChanged: input.image !== undefined } })
       return rows
     })
     revalidatePath('/dashboard/staff')

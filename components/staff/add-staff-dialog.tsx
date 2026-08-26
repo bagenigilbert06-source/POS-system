@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Plus, Loader2 } from 'lucide-react'
+import { CirclePlus, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import {
@@ -17,6 +17,7 @@ import { createEmployee } from '@/app/actions/staff-actions'
 import { STAFF_ROLE_LABELS, type StaffManagedRole } from '@/lib/types/permissions'
 import { STAFF_DEPARTMENTS, STAFF_DEPARTMENT_LABELS, type StaffDepartment } from '@/lib/types/staff'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { StaffPhotoField } from './staff-photo-field'
 
 export function AddStaffDialog({ branches, assignableRoles }: { branches: Array<{ id: string; name: string }>; assignableRoles: StaffManagedRole[] }) {
   const router = useRouter()
@@ -26,6 +27,7 @@ export function AddStaffDialog({ branches, assignableRoles }: { branches: Array<
     name: '',
     email: '',
     phone: '',
+    image: '',
     role: '' as StaffManagedRole | '',
     branchId: branches[0]?.id ?? '',
     department: 'unassigned' as StaffDepartment,
@@ -47,7 +49,7 @@ export function AddStaffDialog({ branches, assignableRoles }: { branches: Array<
       if (result.existingUser) toast.success('Existing Pesaby user added to this organization')
       else if (result.invitationSent) toast.success('Employee created and invitation sent')
       else toast.warning('Employee created as Invited, but email was not delivered. Configure Brevo or use Resend invitation.')
-      setFormData({ name: '', email: '', phone: '', role: '', branchId: branches[0]?.id ?? '', department: 'unassigned', salary: '0' })
+      setFormData({ name: '', email: '', phone: '', image: '', role: '', branchId: branches[0]?.id ?? '', department: 'unassigned', salary: '0' })
       setOpen(false)
       router.refresh()
     } catch (error) {
@@ -60,18 +62,19 @@ export function AddStaffDialog({ branches, assignableRoles }: { branches: Array<
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button className="gap-2">
-          <Plus className="h-4 w-4" />
-          Add Staff
+        <Button className="h-10 gap-2 bg-[var(--dashboard-accent-cta)] px-4 font-semibold text-[var(--dashboard-accent-cta-ink)] shadow-none hover:bg-[var(--dashboard-accent-cta-hover)]">
+          <CirclePlus className="h-4 w-4" />
+          Add Employee
         </Button>
       </DialogTrigger>
-      <DialogContent>
+      <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-[600px]">
         <DialogHeader>
-          <DialogTitle>Add New Staff Member</DialogTitle>
+          <DialogTitle>Add Employee</DialogTitle>
           <DialogDescription>Create a login account and assign its role and branch access.</DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          <StaffPhotoField name={formData.name} value={formData.image} onChange={(image) => setFormData({ ...formData, image })} />
           <div className="space-y-2">
             <label className="text-sm font-medium">Full Name*</label>
             <input

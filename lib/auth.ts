@@ -15,6 +15,7 @@ import { after } from 'next/server';
 
 export const auth = betterAuth({
   database: pool,
+  basePath: '/api/auth',
   baseURL:
     process.env.BETTER_AUTH_URL ??
     (process.env.VERCEL_PROJECT_PRODUCTION_URL
