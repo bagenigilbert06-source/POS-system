@@ -85,31 +85,6 @@
   }
 }
 
-/* Compact, branded scrollbars for the dedicated register workspace. */
-.pos-workspace,
-.pos-workspace * {
-  scrollbar-width: thin;
-  scrollbar-color: #f2b705 transparent;
-}
-
-.pos-workspace ::-webkit-scrollbar {
-  width: 5px;
-  height: 5px;
-}
-
-.pos-workspace ::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.pos-workspace ::-webkit-scrollbar-thumb {
-  border-radius: 999px;
-  background: #f2b705;
-}
-
-.pos-workspace ::-webkit-scrollbar-thumb:hover {
-  background: #dca600;
-}
-
 /* Keep checkout visually continuous with the business dashboard. */
 .pos-workspace {
   font-family: var(--font-dashboard);
@@ -153,18 +128,18 @@
   -webkit-overflow-scrolling: touch;
 }
 
-/* POS keeps scrolling available without letting scrollbars compete with the
-   catalog and checkout controls. The thumb remains visible on hover/focus. */
+/* POS scrolling stays fully functional while the rails remain visually quiet.
+   A narrow brand-colored thumb only appears on the area being used. */
 .pos-workspace,
 .pos-workspace * {
   scrollbar-width: thin;
-  scrollbar-color: rgba(100, 116, 139, 0.28) transparent;
+  scrollbar-color: transparent transparent;
 }
 
 .pos-workspace *::-webkit-scrollbar,
 html:has(.pos-workspace)::-webkit-scrollbar {
-  width: 5px;
-  height: 5px;
+  width: 2px;
+  height: 2px;
 }
 
 .pos-workspace *::-webkit-scrollbar-track,
@@ -174,39 +149,53 @@ html:has(.pos-workspace)::-webkit-scrollbar-track {
 
 .pos-workspace *::-webkit-scrollbar-thumb,
 html:has(.pos-workspace)::-webkit-scrollbar-thumb {
-  border: 1px solid transparent;
   border-radius: 999px;
-  background: rgba(100, 116, 139, 0.3);
-  background-clip: padding-box;
+  background: transparent;
+}
+
+.pos-workspace *:hover {
+  scrollbar-color: rgba(242, 183, 5, 0.3) transparent;
 }
 
 .pos-workspace *:hover::-webkit-scrollbar-thumb,
-.pos-workspace *:focus-within::-webkit-scrollbar-thumb,
-html:has(.pos-workspace):hover::-webkit-scrollbar-thumb {
-  background: rgba(100, 116, 139, 0.52);
-  background-clip: padding-box;
+.pos-workspace *:focus-within::-webkit-scrollbar-thumb {
+  background: rgba(242, 183, 5, 0.3);
 }
 
 .dark .pos-workspace,
 .dark .pos-workspace * {
-  scrollbar-color: rgba(255, 255, 255, 0.22) transparent;
+  scrollbar-color: transparent transparent;
 }
 
 html.dark:has(.pos-workspace) {
-  scrollbar-color: rgba(255, 255, 255, 0.22) transparent;
+  scrollbar-color: transparent transparent;
 }
 
 .dark .pos-workspace *::-webkit-scrollbar-thumb,
 html.dark:has(.pos-workspace)::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.22);
-  background-clip: padding-box;
+  background: transparent;
+}
+
+.dark .pos-workspace *:hover {
+  scrollbar-color: rgba(242, 183, 5, 0.38) transparent;
 }
 
 .dark .pos-workspace *:hover::-webkit-scrollbar-thumb,
-.dark .pos-workspace *:focus-within::-webkit-scrollbar-thumb,
-html.dark:has(.pos-workspace):hover::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.4);
-  background-clip: padding-box;
+.dark .pos-workspace *:focus-within::-webkit-scrollbar-thumb {
+  background: rgba(242, 183, 5, 0.38);
+}
+
+.pos-action-scroll,
+.pos-mobile-category-scroll {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none;
+}
+
+.pos-action-scroll::-webkit-scrollbar,
+.pos-mobile-category-scroll::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
 }
 
 .pos-product-card {

@@ -31,6 +31,8 @@ import {
   Zap,
   Banknote,
   ContactRound,
+  UserRoundPlus,
+  ScanBarcode,
   BadgePercent,
   ChevronDown,
   ArrowLeft,
@@ -260,6 +262,7 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
   const [checkoutStep, setCheckoutStep] = useState<'customer' | 'payment'>(startCheckout ? 'payment' : 'customer')
   const [scanMessage, setScanMessage] = useState('')
   const [showWirelessScanner, setShowWirelessScanner] = useState(false)
+  const [scannerPurpose, setScannerPurpose] = useState<'product' | 'customer'>('product')
   const [receiptPaperWidth, setReceiptPaperWidth] = useState<58 | 80>(80)
   const [receiptOptionsOpen, setReceiptOptionsOpen] = useState(false)
   const [receiptPrinted, setReceiptPrinted] = useState(false)
@@ -630,6 +633,29 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
     const categoryIds = new Set(catalogProducts.map((product) => product.categoryId).filter(Boolean))
     return categories.filter((category) => category.name.trim() && categoryIds.has(category.id))
   }, [catalogProducts, categories])
+
+  const categoryImages = useMemo(() => {
+    const images = new Map<string, string>()
+    for (const product of catalogProducts) {
+      if (product.categoryId && product.imageUrl && !images.has(product.categoryId)) {
+        images.set(product.categoryId, product.imageUrl)
+      }
+    }
+    return images
+  }, [catalogProducts])
+
+  const categoryProductCounts = useMemo(() => {
+    const counts = new Map<string, number>()
+    for (const product of catalogProducts) {
+      if (product.categoryId) counts.set(product.categoryId, (counts.get(product.categoryId) ?? 0) + 1)
+    }
+    return counts
+  }, [catalogProducts])
+
+  const allCategoryImage = useMemo(
+    () => catalogProducts.find((product) => product.imageUrl)?.imageUrl ?? null,
+    [catalogProducts]
+  )
 
   // USB scanners type rapidly like a keyboard and normally finish with Enter.
   useEffect(() => {
@@ -1320,7 +1346,24 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
     }
   }
 
+  const handleCustomerBarcode = (rawBarcode: string) => {
+    const code = normalizeBarcode(rawBarcode)
+    if (!code) return
+    const customer = availableCustomers.find((item) =>
+      [item.id, item.phone, item.name].some((value) => normalizeBarcode(value ?? '') === code)
+    )
+    if (!customer) {
+      toast.error('No customer found for that code')
+      return
+    }
+    setSelectedCustomer(customer.id)
+    setCustomerMenuOpen(false)
+    setShowWirelessScanner(false)
+    toast.success(customer.name + ' selected')
+  }
+
   const inputCls = ui.input
+  const activeCustomer = availableCustomers.find((customer) => customer.id === selectedCustomer)
 
   // Show refund dialog if refund sale is set
   if (showRefundDialog && receipt && receipt.offline?.status !== 'PENDING') {
@@ -1480,7 +1523,7 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
 
   return (
     <div className={cn(
-      'pos-terminal relative grid gap-4 bg-[#f7f8fa] dark:bg-[#0c0c0c] sm:gap-5 lg:grid-cols-[minmax(0,1fr)_460px] lg:items-stretch xl:grid-cols-[minmax(0,1fr)_520px]',
+      'pos-terminal relative grid gap-4 bg-transparent sm:gap-5 lg:grid-cols-[minmax(0,1fr)_460px] lg:items-stretch xl:grid-cols-[minmax(0,1fr)_minmax(500px,30%)]',
       standalone ? 'h-full min-h-0 lg:h-full lg:min-h-0' : 'min-h-[calc(100vh-10.5rem)] lg:h-[calc(100dvh-10.5rem)] lg:min-h-[520px]',
       showOfflineStatus && 'lg:grid-rows-[auto_minmax(0,1fr)]',
       checkoutOnly && 'w-full max-w-none bg-transparent lg:h-auto lg:grid-cols-1 lg:gap-6'
@@ -1494,9 +1537,12 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
               <h2 className="text-base font-semibold tracking-tight text-[#101828] dark:text-white">{productTerms.title}</h2>
               <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-[#067647] dark:text-[#8de1aa]"><span className="h-1.5 w-1.5 rounded-full bg-[#12b76a]" />{filteredProducts.length} available</span>
             </div>
-            <p className="hidden text-xs text-[#667085] dark:text-[#8b8b8b] sm:block">Tap to add</p>
+            <p className="hidden items-center gap-1.5 text-[11px] font-medium text-[#667085] dark:text-[#8b8b8b] sm:flex" role="status" aria-live="polite">
+              <span className="h-1.5 w-1.5 rounded-full bg-[#12b76a]" />
+              {scanMessage || 'Scanner ready'}
+            </p>
           </div>
-          <div className="relative">
+          <div className="relative w-full max-w-2xl">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#98a2b3]" />
             <input
               ref={searchInputRef}
@@ -1512,43 +1558,67 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
               className={cn(inputCls, 'h-10 rounded-lg pl-9 pr-32')}
               autoFocus
             />
-            <button type="button" onClick={() => setShowWirelessScanner(true)} className="absolute right-1.5 top-1/2 inline-flex h-7 -translate-y-1/2 items-center gap-1 rounded-md border border-[#e4e7ec] bg-white px-2 text-[11px] font-semibold text-[#344054] shadow-sm transition-colors hover:border-[#f9b21d] hover:bg-[#fff8e6] dark:border-white/15 dark:bg-[#1c1c1c] dark:text-white dark:hover:border-[#f9b21d]"><Smartphone className="h-3.5 w-3.5" /> Pair phone</button>
+            <button type="button" onClick={() => { setScannerPurpose('product'); setShowWirelessScanner(true) }} className="absolute right-1.5 top-1/2 inline-flex h-7 -translate-y-1/2 items-center gap-1 rounded-md border border-[#e4e7ec] bg-white px-2 text-[11px] font-semibold text-[#344054] shadow-sm transition-colors hover:border-[#f9b21d] hover:bg-[#fff8e6] dark:border-white/15 dark:bg-[#1c1c1c] dark:text-white dark:hover:border-[#f9b21d]"><Smartphone className="h-3.5 w-3.5" /> Pair phone</button>
           </div>
-          <p className="mt-1.5 flex items-center gap-1.5 text-[11px] font-medium text-[#667085] dark:text-[#8b8b8b]" role="status" aria-live="polite">
-            <span className="h-1.5 w-1.5 rounded-full bg-[#12b76a]" />
-            {scanMessage || 'Scanner ready'}
-          </p>
         </div>
 
-        {/* Category filter */}
+        {/* Category selector */}
         {availableCategories.length > 0 && (
-          <div className="flex gap-2 overflow-x-auto border-b border-[#eef0f3] px-4 py-3 dark:border-white/10 sm:px-5">
+          <nav className="pos-mobile-category-scroll flex gap-2.5 overflow-x-auto border-b border-[#eef0f3] bg-[#f8f9fb] px-4 py-3 dark:border-white/10 dark:bg-[#111] sm:px-5" aria-label="Product categories">
             <button
+              type="button"
               onClick={() => setSelectedCategory('')}
+              aria-pressed={!selectedCategory}
               className={cn(
-                'flex-shrink-0 rounded-full border px-3 py-1.5 text-xs font-semibold whitespace-nowrap transition-colors',
+                'flex h-14 min-w-[142px] shrink-0 items-center gap-2.5 rounded-xl border px-2.5 text-left transition-[border-color,background-color,box-shadow] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#f9b21d]/45',
                 !selectedCategory
-                  ? 'border-[#f9b21d] bg-[#f9b21d] text-[#241d00] shadow-sm dark:border-[#f9b21d] dark:bg-[#f9b21d] dark:text-[#241d00]'
-                  : 'border-[#dfe3e8] bg-white text-[#344054] hover:border-[#cfd4dc] hover:bg-[#f9fafb] dark:border-white/15 dark:bg-[#151515] dark:text-[#e4e7ec] dark:hover:border-white/25 dark:hover:bg-[#1c1c1c]'
+                  ? 'border-[#f9b21d] bg-[#fff8e6] shadow-[0_2px_7px_rgba(174,119,0,.10)] dark:border-[#f9b21d] dark:bg-[#2a2111]'
+                  : 'border-[#e1e5ea] bg-white hover:border-[#cfd4dc] dark:border-white/10 dark:bg-[#181818] dark:hover:border-white/20'
               )}
             >
-              All {productTerms.pluralLower}
+              {allCategoryImage ? (
+                <span className="relative h-9 w-9 shrink-0 overflow-hidden rounded-lg bg-[#eef1f4] dark:bg-white/10">
+                  <Image src={allCategoryImage} alt="" fill unoptimized={allCategoryImage.startsWith('http')} sizes="36px" quality={45} className="object-cover" />
+                </span>
+              ) : (
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#fff0bd] text-[#8a6500] dark:bg-[#3a3016] dark:text-[#ffd166]"><Package className="h-4 w-4" /></span>
+              )}
+              <span className="min-w-0">
+                <span className="block truncate text-xs font-bold text-[#101828] dark:text-white">All {productTerms.pluralLower}</span>
+                <span className="mt-0.5 block text-[10px] font-medium text-[#667085] dark:text-[#9ca3af]">{catalogProducts.length} available</span>
+              </span>
             </button>
-            {availableCategories.map((category) => (
-              <button
-                key={category.id}
-                onClick={() => setSelectedCategory(category.id)}
-                className={cn(
-                'flex-shrink-0 rounded-full border px-3 py-1.5 text-xs font-semibold whitespace-nowrap transition-colors',
-                selectedCategory === category.id
-                    ? 'border-[#f9b21d] bg-[#f9b21d] text-[#241d00] shadow-sm dark:border-[#f9b21d] dark:bg-[#f9b21d] dark:text-[#241d00]'
-                    : 'border-[#dfe3e8] bg-white text-[#344054] hover:border-[#cfd4dc] hover:bg-[#f9fafb] dark:border-white/15 dark:bg-[#151515] dark:text-[#e4e7ec] dark:hover:border-white/25 dark:hover:bg-[#1c1c1c]'
-                )}
-              >
-                {category.name}
-              </button>
-            ))}
-          </div>
+            {availableCategories.map((category) => {
+              const imageUrl = categoryImages.get(category.id)
+              const active = selectedCategory === category.id
+              return (
+                <button
+                  key={category.id}
+                  type="button"
+                  onClick={() => setSelectedCategory(category.id)}
+                  aria-pressed={active}
+                  className={cn(
+                    'flex h-14 min-w-[142px] shrink-0 items-center gap-2.5 rounded-xl border px-2.5 text-left transition-[border-color,background-color,box-shadow] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#f9b21d]/45',
+                    active
+                      ? 'border-[#f9b21d] bg-[#fff8e6] shadow-[0_2px_7px_rgba(174,119,0,.10)] dark:border-[#f9b21d] dark:bg-[#2a2111]'
+                      : 'border-[#e1e5ea] bg-white hover:border-[#cfd4dc] dark:border-white/10 dark:bg-[#181818] dark:hover:border-white/20'
+                  )}
+                >
+                  {imageUrl ? (
+                    <span className="relative h-9 w-9 shrink-0 overflow-hidden rounded-lg bg-[#eef1f4] dark:bg-white/10">
+                      <Image src={imageUrl} alt="" fill unoptimized={imageUrl.startsWith('http')} sizes="36px" quality={45} className="object-cover" />
+                    </span>
+                  ) : (
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#eef1f4] text-[#667085] dark:bg-white/10 dark:text-[#c4c4c4]"><Package className="h-4 w-4" /></span>
+                  )}
+                  <span className="min-w-0">
+                    <span className="block truncate text-xs font-bold text-[#101828] dark:text-white">{category.name}</span>
+                    <span className="mt-0.5 block text-[10px] font-medium text-[#667085] dark:text-[#9ca3af]">{categoryProductCounts.get(category.id) ?? 0} {productTerms.pluralLower}</span>
+                  </span>
+                </button>
+              )
+            })}
+          </nav>
         )}
 
         {/* Product grid */}
@@ -1585,15 +1655,15 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
                     aria-disabled={outOfStock}
                     aria-label={`Add ${product.name} to basket${inCartQuantity ? `, currently ${inCartQuantity}` : ''}`}
                     className={cn(
-                      'pos-product-card group relative flex flex-col overflow-hidden rounded-lg border bg-white text-left shadow-[0_1px_2px_rgba(16,24,40,.03)] transition-colors duration-100 motion-reduce:transition-none after:pointer-events-none after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:bg-[#f2b705] after:opacity-0',
+                      'pos-product-card relative flex flex-col overflow-hidden rounded-lg border bg-white text-left shadow-[0_1px_2px_rgba(16,24,40,.03)] transition-[border-color,box-shadow] duration-150 motion-reduce:transition-none',
                       standalone ? 'min-h-[232px]' : 'min-h-[224px]',
                       'disabled:cursor-not-allowed disabled:opacity-50',
                       outOfStock
                         ? 'cursor-not-allowed opacity-65'
-                        : 'cursor-pointer hover:border-[#cfd4dc] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#f9b21d]/45 focus-visible:ring-offset-2 dark:hover:border-white/20 dark:hover:bg-[#181818]',
+                        : 'cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#f9b21d]/45 focus-visible:ring-offset-2',
                       'dark:bg-[#161616]',
                       inCartQuantity
-                        ? 'border-[#f9b21d] bg-[#fff8e6] ring-1 ring-[#f9b21d]/55 after:opacity-100 dark:border-[#f9b21d] dark:bg-[#2a2111] dark:ring-[#f9b21d]/35'
+                        ? 'border-[#12b76a] bg-white ring-1 ring-[#12b76a]/20 dark:border-[#12b76a] dark:bg-[#161616] dark:ring-[#12b76a]/25'
                         : 'border-[#e4e7ec] dark:border-white/10'
                     )}
                   >
@@ -1615,7 +1685,7 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
                           unoptimized={product.imageUrl.startsWith('http')}
                           sizes="(min-width: 1280px) 240px, (min-width: 640px) 30vw, 50vw"
                           quality={60}
-                          className="object-cover transition-transform duration-200 group-hover:scale-[1.025] motion-reduce:transform-none"
+                          className="object-cover"
                         />
                       </span>
                     ) : (
@@ -1672,7 +1742,7 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
 
                     {/* Cart badge */}
                     {inCartQuantity && (
-                      <div className="absolute right-2 top-2 flex h-6 min-w-6 items-center justify-center rounded-full bg-[#f9b21d] px-1.5 text-xs font-extrabold text-[#241d00] shadow-sm">
+                      <div className="absolute right-2 top-2 flex h-6 min-w-6 items-center justify-center rounded-full bg-[#12b76a] px-1.5 text-xs font-bold text-white shadow-sm">
                         {inCartQuantity}
                       </div>
                     )}
@@ -1716,28 +1786,48 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
 
           {!checkoutOpen && (
             <div className="mt-3 grid grid-cols-2 gap-2 rounded-xl border border-[#eef0f3] bg-[#fbfcfe] p-2 dark:border-white/10 dark:bg-[#141414]">
-                <button onClick={() => setShowSalesHistory(true)} className="flex items-center justify-center gap-2 rounded-lg border border-[#e4e7ec] bg-white px-2.5 py-2.5 text-xs font-semibold text-[#344054] transition-colors hover:border-[#cbd5e1] hover:bg-[#f8fafc] dark:border-white/10 dark:bg-[#1a1a1a] dark:text-[#e4e7ec] dark:hover:bg-[#222222]">
-                  <span className="flex h-6 w-6 items-center justify-center rounded-md bg-[#f2f4f7] text-[#475467] dark:bg-white/10 dark:text-[#d0d5dd]"><History className="h-3.5 w-3.5" /></span>
+                <button onClick={() => setShowSalesHistory(true)} className="flex h-9 items-center justify-center gap-2 rounded-md bg-[var(--dashboard-accent)] px-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[var(--dashboard-accent-strong)]">
+                  <History className="h-3.5 w-3.5" />
                   History
                 </button>
-                <button onClick={() => setShowReceiptReprint(true)} className="flex items-center justify-center gap-2 rounded-lg border border-[#e4e7ec] bg-white px-2.5 py-2.5 text-xs font-semibold text-[#344054] transition-colors hover:border-[#cbd5e1] hover:bg-[#f8fafc] dark:border-white/10 dark:bg-[#1a1a1a] dark:text-[#e4e7ec] dark:hover:bg-[#222222]">
-                  <span className="flex h-6 w-6 items-center justify-center rounded-md bg-[#f2f4f7] text-[#475467] dark:bg-white/10 dark:text-[#d0d5dd]"><Printer className="h-3.5 w-3.5" /></span>
+                <button onClick={() => setShowReceiptReprint(true)} className="flex h-9 items-center justify-center gap-2 rounded-md bg-[var(--dashboard-accent-cta)] px-2.5 text-sm font-semibold text-[var(--dashboard-accent-cta-ink)] shadow-sm transition-colors hover:bg-[var(--dashboard-accent-cta-hover)]">
+                  <Printer className="h-3.5 w-3.5" />
                   Reprint
                 </button>
-              {canHold && cart.length > 0 && (
-                <>
-                  <button onClick={() => void holdSale()} disabled={Boolean(heldSaleActionId) || !isOnline} title={!isOnline ? 'Reconnect to save held sales to the branch' : undefined} className="flex items-center justify-center gap-2 rounded-lg border border-[#e4e7ec] bg-white px-2.5 py-2.5 text-xs font-semibold text-[#344054] transition-colors hover:border-[#e6c66f] hover:bg-[#fffdf5] disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/10 dark:bg-[#1a1a1a] dark:text-[#e4e7ec] dark:hover:bg-[#252116]"><span className="flex h-6 w-6 items-center justify-center rounded-md bg-[#fff3d1] text-[#9a6700] dark:bg-[#3a3016] dark:text-[#ffd166]">{heldSaleActionId ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <PauseCircle className="h-3.5 w-3.5" />}</span>Hold sale</button>
-                  <button onClick={() => { setShowHeldSales(true); void refreshHeldSales() }} className="flex items-center justify-center gap-2 rounded-lg border border-[#e4e7ec] bg-white px-2.5 py-2.5 text-xs font-semibold text-[#344054] transition-colors hover:border-[#a9d7ba] hover:bg-[#f7fdf8] dark:border-white/10 dark:bg-[#1a1a1a] dark:text-[#e4e7ec] dark:hover:bg-[#16261b]">
-                    <span className="flex h-6 w-6 items-center justify-center rounded-md bg-[#e7f7ed] text-[#18794e] dark:bg-[#173c27] dark:text-[#9fe1b9]"><ArchiveRestore className="h-3.5 w-3.5" /></span>
-                    Held sales{heldSales.length ? ` (${heldSales.length})` : ''}
+            </div>
+          )}
+          {!checkoutOpen && (
+            <div className="mt-4 border-t border-dashed border-[#e4e7ec] pt-4 dark:border-white/10">
+              <div className="mb-2 flex items-center justify-between">
+                <span className="text-sm font-bold text-[#101828] dark:text-white">Customer Information</span>
+                {activeCustomer && <button type="button" onClick={() => setSelectedCustomer('')} className="text-[11px] font-semibold text-[#b54708] hover:underline dark:text-[#fdb022]">Clear customer</button>}
+              </div>
+              <div className="flex gap-2">
+                <div className="relative min-w-0 flex-1">
+                  <button type="button" disabled={mpesaLocksBasket} onClick={() => setCustomerMenuOpen((open) => !open)} aria-haspopup="listbox" aria-expanded={customerMenuOpen} className={cn(inputCls, 'flex h-10 w-full items-center justify-between text-left text-[13px] font-medium focus:border-[#f2b705] focus:ring-[#f2b705]/10 disabled:cursor-not-allowed dark:bg-[#161616]')}>
+                    <span className="truncate">{activeCustomer?.name ?? 'Walk-in customer'}{activeCustomer?.phone ? ' (' + activeCustomer.phone + ')' : ''}</span>
+                    <ChevronDown className={cn('h-4 w-4 shrink-0 text-[#667085] transition-transform dark:text-[#aeb4c0]', customerMenuOpen && 'rotate-180')} />
                   </button>
-                </>
-              )}
-              {canHold && cart.length === 0 && heldSales.length > 0 && (
-                <button onClick={() => { setShowHeldSales(true); void refreshHeldSales() }} className="col-span-2 flex items-center justify-center gap-2 rounded-lg border border-[#e4e7ec] bg-white px-2.5 py-2.5 text-xs font-semibold text-[#344054] transition-colors hover:border-[#a9d7ba] hover:bg-[#f7fdf8] dark:border-white/10 dark:bg-[#1a1a1a] dark:text-[#e4e7ec] dark:hover:bg-[#16261b]">
-                  <span className="flex h-6 w-6 items-center justify-center rounded-md bg-[#e7f7ed] text-[#18794e] dark:bg-[#173c27] dark:text-[#9fe1b9]"><ArchiveRestore className="h-3.5 w-3.5" /></span>
-                  Resume held sale ({heldSales.length})
+                  {customerMenuOpen && !mpesaLocksBasket && (
+                    <div role="listbox" className="absolute inset-x-0 top-full z-30 mt-1 max-h-56 overflow-y-auto rounded-lg border border-[#e4e7ec] bg-white p-1 shadow-[0_10px_24px_rgba(16,24,40,0.14)] dark:border-white/10 dark:bg-[#1b1b1b]">
+                      <button type="button" role="option" aria-selected={!selectedCustomer} onClick={() => { setSelectedCustomer(''); setCustomerMenuOpen(false) }} className={cn('flex w-full items-center rounded-md px-3 py-2 text-left text-[13px] transition-colors hover:bg-[#fff8df] dark:hover:bg-[#302812]', !selectedCustomer ? 'bg-[#fff8df] font-semibold text-[#7a5b00] dark:bg-[#302812] dark:text-[#ffd166]' : 'text-[#344054] dark:text-[#e4e7ec]')}>Walk-in customer</button>
+                      {availableCustomers.map((customer) => <button key={customer.id} type="button" role="option" aria-selected={selectedCustomer === customer.id} onClick={() => { setSelectedCustomer(customer.id); setCustomerMenuOpen(false) }} className={cn('flex w-full items-center rounded-md px-3 py-2 text-left text-[13px] transition-colors hover:bg-[#fff8df] dark:hover:bg-[#302812]', selectedCustomer === customer.id ? 'bg-[#fff8df] font-semibold text-[#7a5b00] dark:bg-[#302812] dark:text-[#ffd166]' : 'text-[#344054] dark:text-[#e4e7ec]')}>{customer.name}{customer.phone ? ' (' + customer.phone + ')' : ''}</button>)}
+                    </div>
+                  )}
+                </div>
+                <button type="button" disabled={mpesaLocksBasket || !isOnline} onClick={() => setShowNewCustomer(true)} title="Add customer" aria-label="Add customer" className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#0f766e] text-white transition-colors hover:bg-[#0b5e58] disabled:cursor-not-allowed disabled:opacity-50">
+                  <UserRoundPlus className="h-4 w-4" />
                 </button>
+                <button type="button" disabled={mpesaLocksBasket || !isOnline} onClick={() => { setScannerPurpose('customer'); setShowWirelessScanner(true) }} title="Scan customer barcode" aria-label="Scan customer barcode" className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#1d4ed8] text-white transition-colors hover:bg-[#1e40af] disabled:cursor-not-allowed disabled:opacity-50">
+                  <ScanBarcode className="h-4 w-4" />
+                </button>
+              </div>
+              {activeCustomer && (
+                <div className="relative mt-3 rounded-lg border border-[#f4b183] bg-[#fff2eb] px-3 py-2.5 text-[#6b3014] dark:border-[#7c3d1d] dark:bg-[#3a1e13] dark:text-[#ffd4bd]">
+                  <button type="button" onClick={() => setSelectedCustomer('')} aria-label="Remove customer" className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-[#e85d22] text-white shadow-sm hover:bg-[#c94710]"><X className="h-3 w-3" /></button>
+                  <p className="text-sm font-bold">{activeCustomer.name}</p>
+                  <p className="mt-0.5 text-xs opacity-80">{activeCustomer.phone || activeCustomer.email || 'Customer account selected'}</p>
+                </div>
               )}
             </div>
           )}
@@ -1868,8 +1958,8 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
             {checkoutStep === 'customer' && <div className="rounded-xl border border-[#e4e9ef] bg-white p-4 dark:border-white/10 dark:bg-[#171717]">
               <div className="mb-2 flex items-center justify-between">
                 <label className="flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-[0.1em] text-[#667085] dark:text-[#b5bac5]"><span className="flex h-6 w-6 items-center justify-center rounded-md border border-[#f1d56f] bg-[#fff7d6] text-[#9a6700] dark:border-[#5e461c] dark:bg-[#3a3016] dark:text-[#ffd166]"><ContactRound className="h-3.5 w-3.5" strokeWidth={2.25} /></span> Customer</label>
-                <button onClick={() => setShowNewCustomer(!showNewCustomer)} disabled={mpesaLocksBasket || !isOnline} title={!isOnline ? 'Reconnect to create a customer' : undefined} className="rounded-md px-1.5 py-1 text-[11px] font-bold text-[#a47700] transition-colors hover:bg-[#fff8d6] disabled:cursor-not-allowed disabled:opacity-50 dark:text-[#ffd166] dark:hover:bg-[#3a3016]">
-                  {showNewCustomer ? 'Cancel' : '+ New customer'}
+                <button type="button" onClick={() => setShowNewCustomer(!showNewCustomer)} disabled={mpesaLocksBasket || !isOnline} title={!isOnline ? 'Reconnect to create a customer' : showNewCustomer ? 'Cancel' : 'Add customer'} aria-label={showNewCustomer ? 'Cancel adding customer' : 'Add customer'} className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[#e4e7ec] bg-white text-[#a47700] transition-colors hover:border-[#f9b21d] hover:bg-[#fff8e6] disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/10 dark:bg-[#1c1c1c] dark:text-[#ffd166] dark:hover:border-[#f9b21d] dark:hover:bg-[#3a3016]">
+                  {showNewCustomer ? <X className="h-4 w-4" /> : <UserRoundPlus className="h-4 w-4" />}
                 </button>
               </div>
               {showNewCustomer ? (
@@ -1887,7 +1977,8 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
                   </button>
                 </div>
               ) : (
-                <div className="relative">
+                <div className="flex gap-2">
+                <div className="relative min-w-0 flex-1">
                   <button type="button" disabled={mpesaLocksBasket} onClick={() => setCustomerMenuOpen((open) => !open)} aria-haspopup="listbox" aria-expanded={customerMenuOpen} className={cn(inputCls, 'flex h-11 items-center justify-between text-left text-[13px] font-semibold focus:border-[#f2b705] focus:ring-[#f2b705]/10 disabled:cursor-not-allowed dark:bg-[#161616]')}>
                     <span className="truncate">{selectedCustomer ? `${availableCustomers.find((customer) => customer.id === selectedCustomer)?.name ?? 'Customer'}${availableCustomers.find((customer) => customer.id === selectedCustomer)?.phone ? ` (${availableCustomers.find((customer) => customer.id === selectedCustomer)?.phone})` : ''}` : 'Walk-in customer'}</span>
                     <ChevronDown className={cn('h-4 w-4 shrink-0 text-[#667085] transition-transform dark:text-[#aeb4c0]', customerMenuOpen && 'rotate-180')} />
@@ -1901,6 +1992,10 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
                       })}
                     </div>
                   )}
+                </div>
+                <button type="button" disabled={mpesaLocksBasket || !isOnline} onClick={() => { setScannerPurpose('customer'); setShowWirelessScanner(true) }} title="Scan customer barcode" aria-label="Scan customer barcode" className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-[#e4e7ec] bg-white text-[#0f766e] transition-colors hover:border-[#0f766e] hover:bg-[#ecfdf5] disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/10 dark:bg-[#161616] dark:text-[#5eead4] dark:hover:border-[#14b8a6] dark:hover:bg-[#12302d]">
+                  <ScanBarcode className="h-5 w-5" />
+                </button>
                 </div>
               )}
 
@@ -2083,7 +2178,10 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
                     <div className="flex items-center gap-1.5 rounded-lg bg-[#f9fafb] px-3 py-2.5 text-[11px] font-medium text-[#667085] dark:bg-white/5 dark:text-[#a3a3a3]"><Zap className="h-3.5 w-3.5 text-[#a47700]" /> Choose the exact tender or enter the amount received.</div>
                   )}
                 </div>
-              </div>
+                <button type="button" disabled={mpesaLocksBasket || !isOnline} onClick={() => { setScannerPurpose('customer'); setShowWirelessScanner(true) }} title="Scan customer barcode" aria-label="Scan customer barcode" className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-[#e4e7ec] bg-white text-[#0f766e] transition-colors hover:border-[#0f766e] hover:bg-[#ecfdf5] disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/10 dark:bg-[#161616] dark:text-[#5eead4] dark:hover:border-[#14b8a6] dark:hover:bg-[#12302d]">
+                  <ScanBarcode className="h-5 w-5" />
+                </button>
+                </div>
             )}
 
             {paymentMethod === 'mpesa' && (
@@ -2258,12 +2356,12 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
       {standalone && !checkoutOnly && (
         <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-[#e6eaed] bg-white p-3 dark:border-white/10 dark:bg-[#111]" aria-label="POS register actions">
           <div className="pos-action-scroll mx-auto flex items-center justify-center gap-2 overflow-x-auto">
-            <button type="button" onClick={() => void holdSale()} disabled={!canHold || cart.length === 0 || Boolean(heldSaleActionId)} className="inline-flex h-[34px] shrink-0 items-center justify-center gap-2 rounded-[5px] bg-[#e04f16] px-3.5 text-[13px] font-semibold text-white shadow-[0_4px_20px_rgba(224,79,22,.15)] transition-all duration-200 hover:bg-[#bf4313] hover:shadow-[0_3px_10px_rgba(224,79,22,.5)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e04f16]/40 disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none"><PauseCircle className="h-4 w-4" />Hold</button>
-            <button type="button" onClick={voidCurrentSale} disabled={cart.length === 0} className="inline-flex h-[34px] shrink-0 items-center justify-center gap-2 rounded-[5px] bg-[#155eef] px-3.5 text-[13px] font-semibold text-white shadow-[0_4px_20px_rgba(21,94,239,.15)] transition-all duration-200 hover:bg-[#124fc9] hover:shadow-[0_3px_10px_rgba(21,94,239,.5)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#155eef]/40 disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none"><Trash2 className="h-4 w-4" />Void</button>
-            <button type="button" onClick={openCheckout} disabled={cart.length === 0 || !hasActiveShift} className="inline-flex h-[34px] shrink-0 items-center justify-center gap-2 rounded-[5px] bg-[#06aed4] px-3.5 text-[13px] font-semibold text-white shadow-[0_4px_20px_rgba(6,174,212,.15)] transition-all duration-200 hover:bg-[#0592b1] hover:shadow-[0_3px_10px_rgba(6,174,212,.5)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#06aed4]/40 disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none"><WalletCards className="h-4 w-4" />Payment</button>
-            <button type="button" onClick={openHeldOrders} className="inline-flex h-[34px] shrink-0 items-center justify-center gap-2 rounded-[5px] bg-[#092c4c] px-3.5 text-[13px] font-semibold text-white shadow-[0_4px_20px_rgba(9,44,76,.15)] transition-all duration-200 hover:bg-[#071f36] hover:shadow-[0_3px_10px_rgba(9,44,76,.5)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#092c4c]/40"><ArchiveRestore className="h-4 w-4" />View Orders</button>
-            <button type="button" onClick={resetRegister} className="inline-flex h-[34px] shrink-0 items-center justify-center gap-2 rounded-[5px] bg-[#3538cd] px-3.5 text-[13px] font-semibold text-white shadow-[0_4px_20px_rgba(53,56,205,.15)] transition-all duration-200 hover:bg-[#2c2fb2] hover:shadow-[0_3px_10px_rgba(53,56,205,.5)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3538cd]/40"><RefreshCw className="h-4 w-4" />Reset</button>
-            <button type="button" onClick={() => setShowSalesHistory(true)} className="inline-flex h-[34px] shrink-0 items-center justify-center gap-2 rounded-[5px] bg-[#ff0000] px-3.5 text-[13px] font-semibold text-white shadow-[0_4px_20px_rgba(255,0,0,.15)] transition-all duration-200 hover:bg-[#db0000] hover:shadow-[0_3px_10px_rgba(255,0,0,.5)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff0000]/40"><History className="h-4 w-4" />Transaction</button>
+            <button type="button" onClick={() => void holdSale()} disabled={!canHold || cart.length === 0 || Boolean(heldSaleActionId)} className="inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-md bg-[var(--dashboard-accent)] px-2.5 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-[var(--dashboard-accent-strong)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--dashboard-accent)]/40 disabled:cursor-not-allowed disabled:opacity-40"><PauseCircle className="h-3.5 w-3.5" />Hold</button>
+            <button type="button" onClick={voidCurrentSale} disabled={cart.length === 0} className="inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-md bg-[var(--dashboard-danger)] px-2.5 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-[#8f1d14] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--dashboard-danger)]/40 disabled:cursor-not-allowed disabled:opacity-40"><Trash2 className="h-3.5 w-3.5" />Void</button>
+            <button type="button" onClick={openCheckout} disabled={cart.length === 0 || !hasActiveShift} className="inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-md bg-[var(--dashboard-success)] px-2.5 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-[#166534] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--dashboard-success)]/40 disabled:cursor-not-allowed disabled:opacity-40"><WalletCards className="h-3.5 w-3.5" />Payment</button>
+            <button type="button" onClick={openHeldOrders} className="inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-md bg-[var(--dashboard-accent-strong)] px-2.5 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-[#78350f] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--dashboard-accent)]/40"><ArchiveRestore className="h-3.5 w-3.5" />View Orders</button>
+            <button type="button" onClick={resetRegister} className="inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-md border border-[var(--dashboard-border)] bg-[var(--dashboard-surface-subtle)] px-2.5 text-xs font-semibold text-[var(--dashboard-text)] shadow-sm transition-colors hover:border-[var(--dashboard-accent-soft-border)] hover:bg-[var(--dashboard-accent-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--dashboard-accent)]/40"><RefreshCw className="h-3.5 w-3.5" />Reset</button>
+            <button type="button" onClick={() => setShowSalesHistory(true)} className="inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-md bg-[var(--dashboard-danger)] px-2.5 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-[#8f1d14] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--dashboard-danger)]/40"><History className="h-3.5 w-3.5" />Transaction</button>
           </div>
         </nav>
       )}
@@ -2380,10 +2478,32 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
           }}
         />
       )}
+      {showNewCustomer && !checkoutOpen && (
+        <div className="fixed inset-0 z-[80] grid place-items-center bg-black/60 p-4" role="dialog" aria-modal="true" aria-labelledby="new-customer-title">
+          <div className="w-full max-w-2xl overflow-hidden rounded-xl border border-[#e4e7ec] bg-white shadow-2xl dark:border-white/10 dark:bg-[#171717]">
+            <div className="flex items-center justify-between border-b border-[#e4e7ec] px-5 py-4 dark:border-white/10">
+              <div className="flex items-center gap-2.5">
+                <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#0f766e] text-white"><UserRoundPlus className="h-4 w-4" /></span>
+                <div><h2 id="new-customer-title" className="text-base font-bold text-[#101828] dark:text-white">Add customer</h2><p className="text-xs text-[#667085] dark:text-[#aeb4c0]">Create a customer and add them to this sale.</p></div>
+              </div>
+              <button type="button" onClick={() => setShowNewCustomer(false)} aria-label="Close" className="flex h-8 w-8 items-center justify-center rounded-full bg-[#fef3f2] text-[#d92d20] hover:bg-[#fee4e2] dark:bg-red-950/30 dark:text-[#f97066]"><X className="h-4 w-4" /></button>
+            </div>
+            <div className="grid gap-4 p-5 sm:grid-cols-2">
+              <label className="grid gap-1.5 text-xs font-semibold text-[#344054] dark:text-[#e4e7ec]">Customer name <span className="text-[#d92d20]">*</span><input autoFocus type="text" value={newCustomerName} onChange={(event) => setNewCustomerName(event.target.value)} className={cn(inputCls, 'h-10 text-sm')} disabled={creatingCustomer} /></label>
+              <label className="grid gap-1.5 text-xs font-semibold text-[#344054] dark:text-[#e4e7ec]">Phone <input type="tel" value={newCustomerPhone} onChange={(event) => setNewCustomerPhone(event.target.value)} className={cn(inputCls, 'h-10 text-sm')} disabled={creatingCustomer} /></label>
+              <label className="grid gap-1.5 text-xs font-semibold text-[#344054] dark:text-[#e4e7ec] sm:col-span-2">Email <input type="email" value={newCustomerEmail} onChange={(event) => setNewCustomerEmail(event.target.value)} className={cn(inputCls, 'h-10 text-sm')} disabled={creatingCustomer} /></label>
+            </div>
+            <div className="flex justify-end gap-2 border-t border-[#e4e7ec] bg-[#fbfcfe] px-5 py-3.5 dark:border-white/10 dark:bg-[#111]">
+              <button type="button" onClick={() => setShowNewCustomer(false)} className="rounded-lg bg-[#092c4c] px-4 py-2 text-xs font-bold text-white hover:bg-[#071f36]">Cancel</button>
+              <button type="button" onClick={handleCreateCustomer} disabled={creatingCustomer || !newCustomerName.trim()} className="rounded-lg bg-[#e85d22] px-4 py-2 text-xs font-bold text-white hover:bg-[#c94710] disabled:cursor-not-allowed disabled:opacity-50">{creatingCustomer ? 'Creating…' : 'Add customer'}</button>
+            </div>
+          </div>
+        </div>
+      )}
       <WirelessScannerPairing
         open={showWirelessScanner}
         onClose={() => setShowWirelessScanner(false)}
-        onBarcode={handleBarcodeScan}
+        onBarcode={scannerPurpose === 'customer' ? handleCustomerBarcode : handleBarcodeScan}
       />
     </div>
   )

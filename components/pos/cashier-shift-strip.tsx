@@ -580,17 +580,17 @@ function Metric({
         ? 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-300'
         : 'border-[#e4e7ec] bg-white/70 text-[#526078] dark:border-white/10 dark:bg-white/5 dark:text-[#c4c4c4]';
   return (
-    <div className="flex min-w-0 items-center gap-2.5">
+    <div className="flex min-w-0 items-center gap-3">
       <span
-        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border ${colour}`}
+        className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border ${colour}`}
       >
         {mark ?? (Icon ? <Icon className="h-4 w-4" /> : null)}
       </span>
       <div className="min-w-0">
-        <dt className="text-[10px] font-semibold text-[var(--dashboard-muted)]">
+        <dt className="text-[11px] font-semibold text-[var(--dashboard-muted)]">
           {label}
         </dt>
-        <dd className="mt-0.5 truncate text-sm font-bold tabular-nums text-[var(--dashboard-text)]">
+        <dd className="mt-0.5 whitespace-nowrap text-base font-bold tabular-nums text-[var(--dashboard-text)]">
           {value}
         </dd>
       </div>

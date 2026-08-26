@@ -89,6 +89,12 @@ const MODULE_NAV: Record<string, SidebarNavItem> = {
     icon: 'Tags',
     route: '/dashboard/products/categories',
   },
+  barcodes: {
+    id: 'barcodes',
+    label: 'Print barcodes',
+    icon: 'Barcode',
+    route: '/dashboard/barcodes',
+  },
   inventory: {
     id: 'inventory',
     label: 'Inventory',
@@ -203,7 +209,11 @@ function navigationFor(
           { ...MODULE_NAV[id], label: labels[id] ?? MODULE_NAV[id].label },
         ];
         if (id === 'sales' && isPharmacyBusiness(businessFamily, businessCategory)) return [...items, MODULE_NAV.prescriptions];
-        if (id === 'products') return [...items, { ...MODULE_NAV.categories, label: `${productTerms.singular} categories` }];
+        if (id === 'products') return [
+          ...items,
+          { ...MODULE_NAV.categories, label: `${productTerms.singular} categories` },
+          MODULE_NAV.barcodes,
+        ];
         if (id === 'inventory' && isPharmacyBusiness(businessFamily, businessCategory)) return [...items, MODULE_NAV.batches];
         return items;
       }),
