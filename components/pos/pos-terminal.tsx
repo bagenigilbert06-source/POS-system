@@ -62,6 +62,7 @@ const WirelessScannerPairing = dynamic(() => import('@/components/barcode/wirele
 type PosProduct = Product & { packages: ProductPackage[]; pharmacy?: PharmacyProduct | null }
 
 interface POSTerminalProps {
+  standalone?: boolean
   organizationId: string
   products: PosProduct[]
   categories: Array<{ id: string; name: string }>
@@ -203,7 +204,7 @@ function ReceiptMeta({ mark, label, value }: { mark: ReactNode; label: string; v
   )
 }
 
-export function POSTerminal({ organizationId, products, categories, customers, settings, requiresAgeVerification = false, pharmacyMode = false, startCheckout = false, checkoutOnly = false, hasActiveShift = false, canDiscount = false, canRefund = false, canHold = false, canApproveRestricted = false, receiptContext, offlineContext }: POSTerminalProps) {
+export function POSTerminal({ standalone = false, organizationId, products, categories, customers, settings, requiresAgeVerification = false, pharmacyMode = false, startCheckout = false, checkoutOnly = false, hasActiveShift = false, canDiscount = false, canRefund = false, canHold = false, canApproveRestricted = false, receiptContext, offlineContext }: POSTerminalProps) {
   const { config } = useWorkspace()
   const productTerms = getProductTerminology(config?.businessType, config?.businessCategory)
   const router = useRouter()
@@ -1075,6 +1076,36 @@ export function POSTerminal({ organizationId, products, categories, customers, s
     window.localStorage.removeItem(mpesaStorageKey)
   }
 
+  const voidCurrentSale = () => {
+    if (cart.length === 0) return
+    if (!window.confirm('Void the current order? All items and discounts in this order will be removed.')) return
+    setCart([])
+    setDiscount(0)
+    setAmountPaid('')
+    setMpesaRef('')
+    setCheckoutOpen(false)
+    setCheckoutStep('customer')
+    checkoutIdempotencyKeyRef.current = ''
+    window.localStorage.removeItem(cartStorageKey)
+    window.localStorage.removeItem(checkoutStorageKey)
+    toast.success('Current order voided')
+  }
+
+  const resetRegister = () => {
+    if (cart.length > 0 && !window.confirm('Reset the register? The current order will be cleared.')) return
+    handleNewSale()
+    toast.success('Register reset')
+  }
+
+  const openHeldOrders = () => {
+    if (!canHold) {
+      setShowSalesHistory(true)
+      return
+    }
+    setShowHeldSales(true)
+    void refreshHeldSales()
+  }
+
   const handlePrintReceipt = useCallback(() => {
     const paper = document.querySelector<HTMLElement>('.receipt-preview-origin .receipt-paper')
     if (!paper) {
@@ -1448,7 +1479,12 @@ export function POSTerminal({ organizationId, products, categories, customers, s
   }
 
   return (
-    <div className={cn('pos-terminal relative grid min-h-[calc(100vh-10.5rem)] gap-4 bg-[#f7f8fa] dark:bg-[#0c0c0c] sm:gap-5 lg:h-[calc(100dvh-10.5rem)] lg:min-h-[520px] lg:grid-cols-[minmax(0,1fr)_460px] lg:items-stretch xl:grid-cols-[minmax(0,1fr)_520px]', showOfflineStatus && 'lg:grid-rows-[auto_minmax(0,1fr)]', checkoutOnly && 'w-full max-w-none bg-transparent lg:h-auto lg:grid-cols-1 lg:gap-6')}>
+    <div className={cn(
+      'pos-terminal relative grid gap-4 bg-[#f7f8fa] dark:bg-[#0c0c0c] sm:gap-5 lg:grid-cols-[minmax(0,1fr)_460px] lg:items-stretch xl:grid-cols-[minmax(0,1fr)_520px]',
+      standalone ? 'h-full min-h-0 lg:h-full lg:min-h-0' : 'min-h-[calc(100vh-10.5rem)] lg:h-[calc(100dvh-10.5rem)] lg:min-h-[520px]',
+      showOfflineStatus && 'lg:grid-rows-[auto_minmax(0,1fr)]',
+      checkoutOnly && 'w-full max-w-none bg-transparent lg:h-auto lg:grid-cols-1 lg:gap-6'
+    )}>
       {showOfflineStatus && <div className={cn('flex flex-wrap items-center justify-between gap-3 rounded-xl border px-4 py-3 text-xs lg:col-span-2', !isOnline ? 'border-amber-300 bg-amber-50 text-amber-950 dark:border-amber-800 dark:bg-amber-950/25 dark:text-amber-100' : offlineQueueSummary.failed ? 'border-rose-300 bg-rose-50 text-rose-950 dark:border-rose-900 dark:bg-rose-950/25 dark:text-rose-100' : 'border-sky-200 bg-sky-50 text-sky-950 dark:border-sky-900 dark:bg-sky-950/25 dark:text-sky-100')} role="status" aria-live="polite"><div className="flex items-start gap-2.5">{!isOnline ? <CloudOff className="mt-0.5 h-4 w-4 shrink-0" /> : offlineSyncing ? <Loader2 className="mt-0.5 h-4 w-4 shrink-0 animate-spin" /> : <RefreshCw className="mt-0.5 h-4 w-4 shrink-0" />}<div><p className="font-bold">{!isOnline ? 'Offline cash mode' : offlineQueueSummary.failed ? 'Offline sales need attention' : offlineSyncing ? 'Synchronizing offline sales' : 'Offline sales waiting to synchronize'}</p><p className="mt-0.5 opacity-80">{!isOnline ? 'Cash sales are saved on this register. M-Pesa, card and eTIMS remain unavailable until reconnection.' : `${offlineQueueSummary.pending} pending · ${offlineQueueSummary.failed} failed · ${offlineQueueSummary.synced} synchronized on this register`}</p>{offlineQueueSummary.failed > 0 && <details className="mt-1.5"><summary className="cursor-pointer font-semibold underline underline-offset-2">View sync errors</summary><ul className="mt-1 space-y-1">{offlineSales.filter((item) => item.status === 'FAILED').map((item) => <li key={item.id}><b>{item.provisionalReceiptNo}:</b> {item.lastError || 'Synchronization failed'}</li>)}</ul></details>}</div></div>{isOnline && <button type="button" disabled={offlineSyncing} onClick={() => void synchronizeOfflineQueue()} className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-current/20 bg-background/70 px-3 font-bold disabled:opacity-50">{offlineSyncing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}Retry synchronization</button>}</div>}
       {/* Left: Product catalog */}
       <section className={cn(ui.card, 'flex min-h-[520px] min-w-0 flex-col overflow-hidden lg:min-h-0', checkoutOnly && 'hidden')}>
@@ -1516,7 +1552,7 @@ export function POSTerminal({ organizationId, products, categories, customers, s
         )}
 
         {/* Product grid */}
-        <div className="pos-scroll-region min-h-0 flex-1 overflow-y-auto bg-[#fbfbfc] p-4 dark:bg-[#0f0f0f] sm:p-5">
+        <div className="pos-scroll-region min-h-0 flex-1 overflow-y-auto bg-[#fbfbfc] p-3 dark:bg-[#0f0f0f] sm:p-4">
           {filteredProducts.length === 0 ? (
             <div className="flex h-48 flex-col items-center justify-center text-center">
               <Package className="mb-3 h-9 w-9 text-[#d0d5dd]" strokeWidth={1.5} />
@@ -1528,7 +1564,10 @@ export function POSTerminal({ organizationId, products, categories, customers, s
               </p>
             </div>
           ) : (
-            <div className="grid grid-cols-2 gap-3.5 sm:grid-cols-3 xl:grid-cols-4">
+            <div className={cn(
+              'grid grid-cols-2 sm:grid-cols-3',
+              standalone ? 'gap-2.5 lg:grid-cols-[repeat(auto-fill,minmax(172px,1fr))]' : 'gap-3.5 xl:grid-cols-4'
+            )}>
               {filteredProducts.map((product) => {
                 const inCartQuantity = cartQuantityByProductId.get(product.id)
                 const outOfStock = product.stock === 0
@@ -1546,7 +1585,8 @@ export function POSTerminal({ organizationId, products, categories, customers, s
                     aria-disabled={outOfStock}
                     aria-label={`Add ${product.name} to basket${inCartQuantity ? `, currently ${inCartQuantity}` : ''}`}
                     className={cn(
-                      'pos-product-card group relative flex min-h-[224px] flex-col overflow-hidden rounded-xl border bg-white text-left shadow-[0_1px_2px_rgba(16,24,40,.03)] transition-colors duration-100 motion-reduce:transition-none after:pointer-events-none after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:bg-[#f9b21d] after:opacity-0',
+                      'pos-product-card group relative flex flex-col overflow-hidden rounded-lg border bg-white text-left shadow-[0_1px_2px_rgba(16,24,40,.03)] transition-colors duration-100 motion-reduce:transition-none after:pointer-events-none after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:bg-[#f2b705] after:opacity-0',
+                      standalone ? 'min-h-[184px]' : 'min-h-[224px]',
                       'disabled:cursor-not-allowed disabled:opacity-50',
                       outOfStock
                         ? 'cursor-not-allowed opacity-65'
@@ -1567,23 +1607,23 @@ export function POSTerminal({ organizationId, products, categories, customers, s
 
                     {/* Product image or icon */}
                     {product.imageUrl ? (
-                      <span className="relative block h-[112px] w-full overflow-hidden bg-[#f2f4f7] dark:bg-[#1f1f1f]">
+                      <span className={cn('relative block w-full overflow-hidden bg-[#f5f6f8] dark:bg-[#1f1f1f]', standalone ? 'h-[86px]' : 'h-[112px]')}>
                         <Image
                           src={product.imageUrl}
                           alt={product.name}
                           fill
                           sizes="(min-width: 1280px) 240px, (min-width: 640px) 30vw, 50vw"
                           quality={60}
-                          className="object-cover"
+                          className="object-contain p-1.5"
                         />
                       </span>
                     ) : (
-                      <div className="flex h-[112px] w-full items-center justify-center bg-[#f2f4f7] text-[#98a2b3] dark:bg-[#1f1f1f]">
+                      <div className={cn('flex w-full items-center justify-center bg-[#f5f6f8] text-[#98a2b3] dark:bg-[#1f1f1f]', standalone ? 'h-[86px]' : 'h-[112px]')}>
                         <Package className="h-7 w-7" strokeWidth={1.5} />
                       </div>
                     )}
-                    <div className="flex flex-1 flex-col px-3.5 pb-3.5 pt-3">
-                      <p className="mb-0.5 line-clamp-2 text-sm font-semibold leading-snug text-[#101828] dark:text-white">{product.name}</p>
+                    <div className={cn('flex flex-1 flex-col', standalone ? 'px-3 pb-3 pt-2.5' : 'px-3.5 pb-3.5 pt-3')}>
+                      <p className={cn('mb-0.5 line-clamp-2 font-semibold leading-snug text-[#101828] dark:text-white', standalone ? 'text-[13px]' : 'text-sm')}>{product.name}</p>
                       {product.pharmacy && <p className="line-clamp-1 text-[10px] text-[#667085] dark:text-[#a8a8a8]">{[product.pharmacy.genericName, product.pharmacy.strength, product.pharmacy.dosageForm, product.pharmacy.packSize].filter(Boolean).join(' · ')}</p>}
                       {product.pharmacy && (product.pharmacy.prescriptionRequired || product.pharmacy.restrictedItem) && <div className="mt-1 flex flex-wrap gap-1">{product.pharmacy.prescriptionRequired && <span className="rounded border px-1 py-0.5 text-[8px] font-bold uppercase tracking-wide">Prescription</span>}{product.pharmacy.restrictedItem && <span className="rounded border border-amber-300 bg-amber-50 px-1 py-0.5 text-[8px] font-bold uppercase tracking-wide text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200">Restricted</span>}</div>}
                       {(product.volume || product.unit) && (
@@ -1593,7 +1633,7 @@ export function POSTerminal({ organizationId, products, categories, customers, s
                       )}
                       {product.packages.length > 0 && <div className="mt-2 flex flex-wrap gap-1" onClick={(event) => event.stopPropagation()}>{product.packages.map((item) => <button key={item.id} type="button" disabled={product.stock < item.baseUnitQuantity} onClick={() => addToCart(product, item)} className="rounded-md border border-[#dfe3ea] bg-[#f9fafb] px-1.5 py-1 text-[9px] font-bold text-[#344054] hover:border-[#f9b21d] disabled:cursor-not-allowed disabled:opacity-40 dark:border-white/10 dark:bg-white/5 dark:text-[#e4e7ec]" title={`${item.baseUnitQuantity} base units · ${formatCurrency(item.sellingPrice)}`}>{item.name}</button>)}</div>}
                       <div className="mt-auto flex items-end justify-between gap-2 pt-2">
-                        <p className="text-sm font-bold tabular-nums text-[#101828] dark:text-white">{formatCurrency(product.sellingPrice)}</p>
+                        <p className={cn('font-bold tabular-nums text-[#101828] dark:text-white', standalone ? 'text-[13px]' : 'text-sm')}>{formatCurrency(product.sellingPrice)}</p>
                         {inCartQuantity ? (
                           <div
                             className="relative z-20 flex h-8 shrink-0 items-center overflow-hidden rounded-lg border border-[#101828] bg-white dark:border-white/20 dark:bg-[#1c1c1c]"
@@ -2213,6 +2253,19 @@ export function POSTerminal({ organizationId, products, categories, customers, s
           </div>
         )}
       </aside>
+
+      {standalone && !checkoutOnly && (
+        <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-[#e2e5e9] bg-white/95 px-2 py-1.5 shadow-[0_-5px_18px_rgba(16,24,40,.06)] backdrop-blur-md dark:border-white/10 dark:bg-[#111]/95" aria-label="POS register actions">
+          <div className="pos-action-scroll mx-auto flex max-w-4xl items-center justify-center gap-1.5 overflow-x-auto">
+            <button type="button" onClick={() => void holdSale()} disabled={!canHold || cart.length === 0 || Boolean(heldSaleActionId)} className="inline-flex h-9 min-w-[82px] shrink-0 items-center justify-center gap-1.5 rounded-md bg-[#e95513] px-3 text-xs font-bold text-white transition hover:bg-[#cf4510] disabled:cursor-not-allowed disabled:opacity-40"><PauseCircle className="h-3.5 w-3.5" />Hold</button>
+            <button type="button" onClick={voidCurrentSale} disabled={cart.length === 0} className="inline-flex h-9 min-w-[82px] shrink-0 items-center justify-center gap-1.5 rounded-md bg-[#2563eb] px-3 text-xs font-bold text-white transition hover:bg-[#1d4ed8] disabled:cursor-not-allowed disabled:opacity-40"><Trash2 className="h-3.5 w-3.5" />Void</button>
+            <button type="button" onClick={openCheckout} disabled={cart.length === 0 || !hasActiveShift} className="inline-flex h-9 min-w-[94px] shrink-0 items-center justify-center gap-1.5 rounded-md bg-[#08a9c7] px-3 text-xs font-bold text-white transition hover:bg-[#078ca6] disabled:cursor-not-allowed disabled:opacity-40"><WalletCards className="h-3.5 w-3.5" />Payment</button>
+            <button type="button" onClick={openHeldOrders} className="inline-flex h-9 min-w-[108px] shrink-0 items-center justify-center gap-1.5 rounded-md bg-[#082f49] px-3 text-xs font-bold text-white transition hover:bg-[#0c4a6e]"><ArchiveRestore className="h-3.5 w-3.5" />View Orders</button>
+            <button type="button" onClick={resetRegister} className="inline-flex h-9 min-w-[82px] shrink-0 items-center justify-center gap-1.5 rounded-md bg-[#4938ca] px-3 text-xs font-bold text-white transition hover:bg-[#3929ad]"><RefreshCw className="h-3.5 w-3.5" />Reset</button>
+            <button type="button" onClick={() => setShowSalesHistory(true)} className="inline-flex h-9 min-w-[106px] shrink-0 items-center justify-center gap-1.5 rounded-md bg-[#dc2626] px-3 text-xs font-bold text-white transition hover:bg-[#b91c1c]"><History className="h-3.5 w-3.5" />Transaction</button>
+          </div>
+        </nav>
+      )}
 
       {showAgeVerification && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0c111d]/50 p-4" role="dialog" aria-modal="true" aria-labelledby="age-check-title">

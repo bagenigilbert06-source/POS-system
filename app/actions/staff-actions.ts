@@ -17,12 +17,32 @@ import { isPharmacyBusiness } from '@/lib/pharmacy/rules'
 // Admin is intentionally absent. The primary admin is created with the
 // organization and cannot be created or assigned by Staff & Access actions.
 const staffRoleSchema = z.enum(STAFF_MANAGED_ROLES)
+const staffProfileSchema = z.object({
+  employeeCode: z.string().trim().max(40).optional(),
+  dateOfBirth: z.string().trim().max(20).optional(),
+  gender: z.string().trim().max(30).optional(),
+  nationality: z.string().trim().max(80).optional(),
+  bloodGroup: z.string().trim().max(10).optional(),
+  about: z.string().trim().max(500).optional(),
+  address: z.string().trim().max(200).optional(),
+  country: z.string().trim().max(80).optional(),
+  state: z.string().trim().max(80).optional(),
+  city: z.string().trim().max(80).optional(),
+  zipcode: z.string().trim().max(20).optional(),
+  emergencyContact1: z.string().trim().max(120).optional(),
+  emergencyContact2: z.string().trim().max(120).optional(),
+  bankName: z.string().trim().max(100).optional(),
+  bankAccountNumber: z.string().trim().max(80).optional(),
+  bankCode: z.string().trim().max(40).optional(),
+  bankBranch: z.string().trim().max(100).optional(),
+}).optional()
 const createStaffSchema = z.object({
   name: z.string().trim().min(2).max(100), email: z.string().trim().toLowerCase().email(),
   phone: z.string().trim().max(30).optional(),
   image: z.string().trim().max(2048).nullable().optional(),
   role: staffRoleSchema, branchId: z.string().min(1), department: z.enum(STAFF_DEPARTMENTS).default('unassigned'),
   salary: z.coerce.number().nonnegative().max(999_999_999), status: z.enum(['active', 'inactive']).default('active'),
+  joinDate: z.coerce.date().optional(), shiftId: z.string().trim().optional(), profile: staffProfileSchema,
 })
 const updateStaffSchema = z.object({
   name: z.string().trim().min(2).max(100).optional(),
@@ -121,6 +141,9 @@ export async function createEmployee(data: {
   department?: string
   salary: number
   status?: string
+  joinDate?: Date | string
+  shiftId?: string
+  profile?: z.input<typeof staffProfileSchema>
 }) {
   const input = createStaffSchema.parse(data)
   if (!validStaffImage(input.image)) throw new Error('Choose a valid employee photo')
@@ -133,6 +156,13 @@ export async function createEmployee(data: {
     authorization.isOrganizationWide ? undefined : inArray(branch.id, authorization.branchIds),
   )).limit(1)
   if (!selectedBranch) throw new Error('Choose a branch in this organization')
+  if (input.shiftId) {
+    const [selectedShift] = await db.select({ id: shift.id }).from(shift).where(and(
+      eq(shift.id, input.shiftId),
+      eq(shift.orgId, authorization.organizationId),
+    )).limit(1)
+    if (!selectedShift) throw new Error('Choose a shift in this organization')
+  }
   const result = await db.transaction(async (tx) => {
     const [existingUser] = await tx.select().from(user).where(eq(user.email, input.email)).limit(1)
     if (existingUser && existingUser.status !== 'active') {
@@ -146,8 +176,9 @@ export async function createEmployee(data: {
     await tx.insert(organizationMembership).values({ id: nanoid(), organizationId: authorization.organizationId, userId: staffUserId, role: input.role })
     await tx.insert(branchMembership).values({ id: nanoid(), branchId: input.branchId, userId: staffUserId, role: input.role })
     const status = existingUser ? 'active' : 'invited'
-    const [record] = await tx.insert(employee).values({ id: employeeId, userId: staffUserId, name: input.name, email: input.email, phone: input.phone || null, role: input.role, department: input.department || null, salary: String(input.salary), status, orgId: authorization.organizationId }).returning()
-    await tx.insert(auditEvent).values({ id: nanoid(), organizationId: authorization.organizationId, userId: authorization.userId, action: 'staff.created', metadata: { employeeId, staffUserId, role: input.role, branchId: input.branchId, existingUser: Boolean(existingUser) } })
+    const [record] = await tx.insert(employee).values({ id: employeeId, userId: staffUserId, name: input.name, email: input.email, phone: input.phone || null, role: input.role, department: input.department || null, salary: String(input.salary), profile: input.profile ?? {}, joinDate: input.joinDate ?? new Date(), status, orgId: authorization.organizationId }).returning()
+    if (input.shiftId) await tx.insert(shiftAssignment).values({ id: nanoid(), employeeId, shiftId: input.shiftId, date: input.joinDate ?? new Date(), orgId: authorization.organizationId })
+    await tx.insert(auditEvent).values({ id: nanoid(), organizationId: authorization.organizationId, userId: authorization.userId, action: 'staff.created', metadata: { employeeId, staffUserId, role: input.role, branchId: input.branchId, shiftId: input.shiftId, existingUser: Boolean(existingUser) } })
     return { record, existingUser: Boolean(existingUser) }
   })
   let invitationSent = false

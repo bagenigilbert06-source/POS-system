@@ -5,6 +5,11 @@ const TRANSIENT_DATABASE_ERROR_CODES = new Set([
   'ETIMEDOUT',
   'ENOTFOUND',
 ])
+const TRANSIENT_DATABASE_ERROR_MESSAGES = [
+  'timeout exceeded when trying to connect',
+  'connection terminated unexpectedly',
+  'database dns lookup failed',
+]
 
 function isTransientDatabaseError(error: unknown) {
   if (!(error instanceof Error)) return false
@@ -13,7 +18,11 @@ function isTransientDatabaseError(error: unknown) {
   if (errorWithCode.code && TRANSIENT_DATABASE_ERROR_CODES.has(errorWithCode.code)) return true
 
   const message = `${error.message} ${String(errorWithCode.cause ?? '')}`
-  return [...TRANSIENT_DATABASE_ERROR_CODES].some((code) => message.includes(code))
+  const normalizedMessage = message.toLowerCase()
+  return (
+    [...TRANSIENT_DATABASE_ERROR_CODES].some((code) => message.includes(code)) ||
+    TRANSIENT_DATABASE_ERROR_MESSAGES.some((part) => normalizedMessage.includes(part))
+  )
 }
 
 /** Retries short-lived database and DNS failures without masking permanent errors. */

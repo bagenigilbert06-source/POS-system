@@ -162,7 +162,13 @@ export function StaffManagementTable({
     () => new Map(
       employees.map((employee, index) => [
         employee.id,
-        `POS${String(index + 1).padStart(3, '0')}`,
+        employee.profile &&
+        typeof employee.profile === 'object' &&
+        'employeeCode' in employee.profile &&
+        typeof employee.profile.employeeCode === 'string' &&
+        employee.profile.employeeCode.trim()
+          ? employee.profile.employeeCode.trim()
+          : `POS${String(index + 1).padStart(3, '0')}`,
       ])
     ),
     [employees]

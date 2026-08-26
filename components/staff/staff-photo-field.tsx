@@ -10,10 +10,12 @@ export function StaffPhotoField({
   name,
   value,
   onChange,
+  variant = 'default',
 }: {
   name: string;
   value: string;
   onChange: (value: string) => void;
+  variant?: 'default' | 'employee-form';
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
@@ -55,6 +57,69 @@ export function StaffPhotoField({
     .map((part) => part[0]?.toUpperCase())
     .join('');
 
+  const fileInput = (
+    <input
+      ref={inputRef}
+      type="file"
+      accept="image/jpeg,image/png,image/webp"
+      className="sr-only"
+      onChange={(event) => void upload(event.target.files?.[0])}
+    />
+  );
+
+  if (variant === 'employee-form') {
+    return (
+      <div className="flex flex-wrap items-center gap-6">
+        {fileInput}
+        <button
+          type="button"
+          disabled={uploading}
+          onClick={() => inputRef.current?.click()}
+          className="relative flex h-[122px] w-[122px] shrink-0 flex-col items-center justify-center overflow-hidden rounded-lg border border-dashed border-[var(--dashboard-border)] bg-[var(--dashboard-surface)] text-[var(--dashboard-muted)] transition hover:border-[var(--dashboard-accent-soft-border)] hover:bg-[var(--dashboard-surface-subtle)] disabled:opacity-60"
+        >
+          {value ? (
+            <Image
+              src={value}
+              alt={`${name || 'Employee'} preview`}
+              fill
+              sizes="122px"
+              unoptimized
+              className="object-cover"
+            />
+          ) : uploading ? (
+            <Loader2 className="mb-2 h-5 w-5 animate-spin" />
+          ) : (
+            <>
+              <Camera className="mb-2 h-5 w-5" />
+              <span className="text-sm">Profile Photo</span>
+            </>
+          )}
+        </button>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            type="button"
+            disabled={uploading}
+            onClick={() => inputRef.current?.click()}
+            className="h-10 bg-[var(--dashboard-accent-cta)] px-4 font-semibold text-[var(--dashboard-accent-cta-ink)] hover:bg-[var(--dashboard-accent-cta-hover)]"
+          >
+            {uploading ? 'Uploading…' : value ? 'Change Image' : 'Add Image'}
+          </Button>
+          {value && (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onChange('')}
+              className="h-10 gap-1.5"
+            >
+              <Trash2 className="h-4 w-4" />
+              Remove
+            </Button>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex items-center gap-4 rounded-xl border border-dashed border-slate-300 bg-slate-50/70 p-3 dark:border-white/15 dark:bg-white/[0.025]">
       <div className="relative flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-full border-4 border-white bg-[#fff3b5] text-lg font-extrabold text-slate-950 shadow-sm ring-1 ring-slate-200 dark:border-zinc-900 dark:ring-white/15">
@@ -78,13 +143,7 @@ export function StaffPhotoField({
         <p className="mt-0.5 text-xs leading-5 text-muted-foreground">
           Square JPG, PNG or WebP, up to 3 MB.
         </p>
-        <input
-          ref={inputRef}
-          type="file"
-          accept="image/jpeg,image/png,image/webp"
-          className="sr-only"
-          onChange={(event) => void upload(event.target.files?.[0])}
-        />
+        {fileInput}
         <div className="mt-2 flex flex-wrap gap-2">
           <Button
             type="button"

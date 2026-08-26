@@ -4,18 +4,26 @@ import { drizzle } from 'drizzle-orm/node-postgres'
 import { Pool } from 'pg'
 import * as schema from './schema'
 
-const databaseDnsServers = process.env.DATABASE_DNS_SERVERS
+// Supabase's session endpoint (typically DIRECT_URL / port 5432) is better
+// suited to the long-lived pg pool used by the Next.js server. Fall back to
+// DATABASE_URL for providers that only expose one connection string.
+// Supabase pooler hostnames occasionally fail through the host/WSL resolver
+// with EAI_AGAIN. Use explicit public resolvers by default for this public
+// endpoint, while still allowing deployments to supply their own DNS servers.
+const connectionString = process.env.DIRECT_URL ?? process.env.DATABASE_URL
+const configuredDatabaseDnsServers = process.env.DATABASE_DNS_SERVERS
   ?.split(',')
   .map((server) => server.trim())
   .filter(Boolean) ?? []
+const databaseDnsServers = configuredDatabaseDnsServers.length > 0
+  ? configuredDatabaseDnsServers
+  : connectionString?.includes('supabase.com')
+    ? ['1.1.1.1', '8.8.8.8']
+    : []
 
 const configuredConnectionTimeout = Number(
   process.env.DATABASE_CONNECTION_TIMEOUT_MS ?? 4_000,
 )
-// Supabase's session endpoint (typically DIRECT_URL / port 5432) is better
-// suited to the long-lived pg pool used by the Next.js server. Fall back to
-// DATABASE_URL for providers that only expose one connection string.
-const connectionString = process.env.DIRECT_URL ?? process.env.DATABASE_URL
 
 function createDatabaseStream() {
   const socket = new Socket()

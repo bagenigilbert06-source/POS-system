@@ -1875,6 +1875,7 @@ export const employee = pgTable(
     salary: numeric('salary', { precision: 12, scale: 2 })
       .notNull()
       .default('0'),
+    profile: json('profile').notNull().default({}),
     joinDate: timestamp('joinDate').notNull().defaultNow(),
     status: text('status').notNull().default('active'), // active, inactive, terminated
     orgId: text('orgId')

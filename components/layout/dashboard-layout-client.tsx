@@ -46,7 +46,11 @@ export function DashboardLayoutClient({
   const pathname = usePathname();
   const adminMode =
     pathname === '/dashboard/admin' || pathname.startsWith('/dashboard/admin/');
-  const isEmployeesPage = pathname === '/dashboard/staff';
+  const isEmployeesPage =
+    pathname === '/dashboard/staff' || pathname.startsWith('/dashboard/staff/');
+  const isPosWorkspace =
+    pathname === '/dashboard/pos' || pathname.startsWith('/dashboard/pos/');
+  const isPosTerminal = pathname === '/dashboard/pos';
   const experience = initialWorkspaceConfig
     ? getBusinessExperience(
         initialWorkspaceConfig.businessType,
@@ -63,14 +67,16 @@ export function DashboardLayoutClient({
         <a href="#dashboard-content" className="skip-link">
           Skip to main content
         </a>
-        <DynamicAppSidebar
-          initialPermissions={permissions}
-          initialRole={role}
-          mobileOpen={mobileSidebarOpen}
-          onMobileClose={() => setMobileSidebarOpen(false)}
-        />
+        {!isPosWorkspace && (
+          <DynamicAppSidebar
+            initialPermissions={permissions}
+            initialRole={role}
+            mobileOpen={mobileSidebarOpen}
+            onMobileClose={() => setMobileSidebarOpen(false)}
+          />
+        )}
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-          {!isEmployeesPage && (
+          {!isEmployeesPage && !isPosWorkspace && (
             <AppNavbar
               userName={userName}
               userEmail={userEmail}
@@ -90,7 +96,11 @@ export function DashboardLayoutClient({
           <main
             id="dashboard-content"
             tabIndex={-1}
-            className="dashboard-scroll-region min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-4 py-4 outline-none sm:px-6 sm:py-5 lg:px-7 lg:py-5"
+            className={
+              isPosTerminal
+                ? 'min-h-0 flex-1 overflow-hidden bg-[#f4f6f8] p-0 outline-none dark:bg-[#090909]'
+                : 'dashboard-scroll-region min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-4 py-4 outline-none sm:px-6 sm:py-5 lg:px-7 lg:py-5'
+            }
           >
             {Children.toArray(children)}
           </main>

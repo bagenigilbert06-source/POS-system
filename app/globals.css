@@ -85,6 +85,31 @@
   }
 }
 
+/* Compact, branded scrollbars for the dedicated register workspace. */
+.pos-workspace,
+.pos-workspace * {
+  scrollbar-width: thin;
+  scrollbar-color: #f2b705 transparent;
+}
+
+.pos-workspace ::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+.pos-workspace ::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.pos-workspace ::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: #f2b705;
+}
+
+.pos-workspace ::-webkit-scrollbar-thumb:hover {
+  background: #dca600;
+}
+
 /* Keep checkout visually continuous with the business dashboard. */
 .pos-workspace {
   font-family: var(--font-dashboard);
@@ -2375,7 +2400,7 @@ html.dark [data-sonner-toast].pesaby-alert .pesaby-alert-cancel {
 }
 
 .loader {
-  --color-1: #fff;
+  --color-1: #1f2937;
   --color-2: #ff3d00;
   --size: 1.333333px;
   position: relative;
@@ -2385,6 +2410,12 @@ html.dark [data-sonner-toast].pesaby-alert .pesaby-alert-cancel {
   width: calc(48 * var(--size));
   height: calc(48 * var(--size));
   color: var(--color-1);
+}
+
+/* Preserve the original white/red loader treatment on dark surfaces. */
+html.dark .loader {
+  --color-1: #fff;
+  --color-2: #ff3d00;
 }
 
 .loader::before,
