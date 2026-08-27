@@ -2,7 +2,7 @@
 
 import { useState, useRef } from 'react'
 import { Search, Printer, X, Loader2, RefreshCw } from 'lucide-react'
-import { toast } from 'sonner'
+import { notify } from '@/lib/notify'
 import { formatCurrency } from '@/lib/utils'
 import { ReceiptTemplate } from '@/components/receipt/receipt-template'
 import { getSalesByReceiptNo, getSalesByDateRange } from '@/app/actions/pos-queries'
@@ -42,7 +42,7 @@ export function ReceiptReprint({ onClose, settings, onRefund }: ReceiptReprintPr
 
   const handleSearch = async () => {
     if (!searchQuery.trim()) {
-      toast.error('Enter search criteria')
+      notify.error('Enter search criteria')
       return
     }
 
@@ -53,9 +53,9 @@ export function ReceiptReprint({ onClose, settings, onRefund }: ReceiptReprintPr
       if (searchType === 'receipt') {
         results = await getSalesByReceiptNo(searchQuery.trim())
         if (results.length === 0) {
-          toast.error('No receipts found matching that number')
+          notify.error('No receipts found matching that number')
         } else {
-          toast.success(`Found ${results.length} receipt(s)`)
+          notify.success(`Found ${results.length} receipt(s)`)
         }
       } else if (searchType === 'date') {
         // Parse date range (format: YYYY-MM-DD or YYYY-MM-DD to YYYY-MM-DD)
@@ -64,7 +64,7 @@ export function ReceiptReprint({ onClose, settings, onRefund }: ReceiptReprintPr
         const endDate = parts[1] ? new Date(parts[1].trim()) : new Date(parts[0].trim())
         
         if (isNaN(startDate.getTime())) {
-          toast.error('Invalid date format. Use YYYY-MM-DD')
+          notify.error('Invalid date format. Use YYYY-MM-DD')
           setSearching(false)
           return
         }
@@ -72,15 +72,15 @@ export function ReceiptReprint({ onClose, settings, onRefund }: ReceiptReprintPr
         endDate.setHours(23, 59, 59, 999)
         results = await getSalesByDateRange(startDate, endDate)
         if (results.length === 0) {
-          toast.error('No receipts found for that date range')
+          notify.error('No receipts found for that date range')
         } else {
-          toast.success(`Found ${results.length} receipt(s)`)
+          notify.success(`Found ${results.length} receipt(s)`)
         }
       }
       
       setSales(results)
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to search receipts')
+      notify.error(error instanceof Error ? error.message : 'Failed to search receipts')
     } finally {
       setSearching(false)
     }

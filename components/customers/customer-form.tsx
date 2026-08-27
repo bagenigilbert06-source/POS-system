@@ -6,7 +6,7 @@ import { createCustomer, updateCustomer } from '@/app/actions/customers'
 import { cn } from '@/lib/utils'
 import { Check, Loader2, Phone } from 'lucide-react'
 import type { Customer } from '@/lib/db/schema'
-import { toast } from 'sonner'
+import { notify } from '@/lib/notify'
 import { broadcastCustomerCreated, useCustomersStore } from '@/lib/stores/customers-store'
 
 interface CustomerFormProps {
@@ -57,7 +57,7 @@ export function CustomerForm({ customer, onClose }: CustomerFormProps) {
     try {
       if (customer) {
         await updateCustomer(customer.id, data)
-        toast.success('Customer updated')
+        notify.success('Customer updated')
         closeEditor()
       } else {
         // Optimistic instant UX using zustand store
@@ -81,7 +81,7 @@ export function CustomerForm({ customer, onClose }: CustomerFormProps) {
           const res = await createCustomer(data)
           useCustomersStore.getState().replaceOptimistic(tempId, res)
           broadcastCustomerCreated(res)
-          toast.success('Customer added')
+          notify.success('Customer added')
           closeEditor()
         } catch (err) {
           useCustomersStore.getState().markFailed(tempId)
@@ -91,7 +91,7 @@ export function CustomerForm({ customer, onClose }: CustomerFormProps) {
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to save customer'
       setError(message)
-      toast.error(message)
+      notify.error(message)
     } finally {
       submitting.current = false
       setLoading(false)

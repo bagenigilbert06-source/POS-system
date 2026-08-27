@@ -2,7 +2,7 @@
 
 import { useTransition } from 'react';
 import { Download } from 'lucide-react';
-import { toast } from 'sonner';
+import { notify } from '@/lib/notify';
 import { exportInventoryMovementsCsv } from '@/app/actions/stock-adjustments';
 import { Button } from '@/components/ui/button';
 
@@ -37,7 +37,7 @@ export function MovementExportButton({
             anchor.click();
             URL.revokeObjectURL(url);
           } catch (error) {
-            toast.error(
+            notify.error(
               error instanceof Error ? error.message : 'Export failed'
             );
           }

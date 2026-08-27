@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import dynamic from 'next/dynamic'
 import { createSale, syncOfflineSale, type CartItem } from '@/app/actions/sales'
-import { getMpesaPaymentStatus, initiateMpesaPaybillPayment, initiateMpesaPayment } from '@/app/actions/mpesa'
+import { findManualMpesaPayment, getFinalizedMpesaSale, getManualMpesaOptions, getMpesaPaymentStatus, initiateMpesaPaybillPayment, initiateMpesaPayment, setManualMpesaPayerPhone } from '@/app/actions/mpesa'
 import { createCustomer } from '@/app/actions/customers'
 import { discardHeldSale, holdSaleOnServer, listHeldSales, resumeHeldSaleFromServer, type HeldSaleRecord } from '@/app/actions/held-sales'
 import { formatCurrency, formatDateTime, normalizeBarcode } from '@/lib/utils'
@@ -28,6 +28,7 @@ import {
   Search,
   Building2,
   Smartphone,
+  Copy,
   Zap,
   Banknote,
   UserRoundPlus,
@@ -46,9 +47,11 @@ import {
   MapPin,
   CloudOff,
   RefreshCw,
+  Info,
 } from 'lucide-react'
 import type { Product, ProductPackage, PharmacyProduct, Customer, Sale, SaleItem } from '@/lib/db/schema'
-import { toast } from 'sonner'
+import { notify } from '@/lib/notify'
+import { CompactScrollArea } from '@/components/ui/compact-scroll-area'
 import { calculateMpesaAmount } from '@/lib/mpesa/amount'
 import { adoptLegacyOfflineSales, cacheOfflineCatalogue, listOfflineSales, readOfflineCatalogue, saveOfflineSale, updateOfflineSale, type OfflineSaleRecord } from '@/lib/pos/offline-store'
 import { bindPosConnectivityEvents, checkoutAlreadyQueued, createProvisionalReceiptNo, isConnectivityFailure, offlineWorkspaceStorageKey, shouldSynchronizeOfflineSale, summarizeOfflineQueue } from '@/lib/pos/offline-policy'
@@ -125,6 +128,10 @@ interface ReceiptData {
   total: number
   paymentMethod: string
   mpesaRef?: string
+  mpesaMode?: 'stk' | 'till' | 'paybill'
+  mpesaPhone?: string
+  mpesaMerchant?: string
+  mpesaAccountReference?: string | null
   change: number
   idempotencyKey: string
   ageVerified: boolean
@@ -154,11 +161,37 @@ interface ReceiptData {
 
 type HeldSale = HeldSaleRecord
 
-type MpesaStatus = 'idle' | 'initiating' | 'pending' | 'success' | 'failed' | 'timeout'
+type MpesaStatus = 'idle' | 'initiating' | 'pending' | 'success' | 'cancelled' | 'failed' | 'timeout'
 type SummaryEditor = 'tax' | 'coupon' | 'discount' | 'shipping' | null
 
 function createIdempotencyKey() {
   return crypto.randomUUID()
+}
+
+function formatMpesaAmount(value: number, decimals = true) {
+  return `KES ${value.toLocaleString('en-KE', { minimumFractionDigits: decimals ? 2 : 0, maximumFractionDigits: decimals ? 2 : 0 })}`
+}
+
+function maskKenyanPhone(value: string) {
+  const digits = value.replace(/\D/g, '')
+  const normalized = digits.startsWith('254') ? digits : digits.startsWith('0') ? `254${digits.slice(1)}` : `254${digits}`
+  return normalized.length >= 12 ? `+254 ${normalized.slice(3, 6)} *** ${normalized.slice(-3)}` : value
+}
+
+function normalizeKenyanPhoneDraft(value: string) {
+  const digits = value.replace(/\D/g, '')
+  if (!digits) return ''
+  if (digits.startsWith('254')) return digits.slice(0, 12)
+  if (digits.startsWith('0')) return `254${digits.slice(1)}`.slice(0, 12)
+  return `254${digits}`.slice(0, 12)
+}
+
+function formatKenyanPhoneInput(value: string) {
+  const digits = value.replace(/\D/g, '')
+  if (!digits) return ''
+  if (!digits.startsWith('254')) return value
+  const national = digits.slice(3, 12)
+  return ['+254', national.slice(0, 3), national.slice(3, 6), national.slice(6, 9)].filter(Boolean).join(' ')
 }
 
 function SummaryEditIcon({ className }: { className?: string }) {
@@ -188,21 +221,25 @@ const ui = {
   primaryInk: '#241D00',
 }
 
-function PaymentBrand({ method }: { method: 'cash' | 'mpesa' | 'card' }) {
+type PosPaymentMethod = 'cash' | 'mpesa' | 'airtel_money' | 'card' | 'bank_transfer'
+
+function PaymentBrand({ method, compact = false }: { method: PosPaymentMethod; compact?: boolean }) {
   if (method === 'cash') return (
-    <span className="flex h-[88px] w-full items-center justify-center overflow-hidden rounded-xl bg-[#f7e5c9]">
-      <Image src="/payment-logos/cash-ksh-note.png" alt="" width={1665} height={945} className="h-[112px] w-full scale-[1.18] object-cover" />
+    <span className={cn('flex items-center justify-center overflow-hidden bg-[#f5b800] text-[#241d00]', compact ? 'h-11 w-16 rounded-md' : 'h-full w-full rounded-[7px]')}>
+      <span className={cn('flex items-center font-extrabold tracking-tight', compact ? 'gap-1 text-[11px]' : 'gap-2 text-base')}><Banknote className={compact ? 'h-4 w-4' : 'h-6 w-6'} aria-hidden="true" /><span>Cash</span></span>
     </span>
   )
   if (method === 'mpesa') return (
-    <span style={{ backgroundColor: '#11ad2d' }} className="flex h-[88px] w-full items-center justify-center rounded-xl px-4">
-      <Image src="/payment-logos/mpesa.svg" alt="" width={132} height={54} className="h-10 w-auto object-contain brightness-0 invert" />
+    <span className={cn('flex items-center justify-center px-5', compact ? 'h-11 w-16 rounded-md bg-white' : 'h-full w-full rounded-[7px] bg-[#08ad35]')}>
+      <Image src="/payment-logos/mpesa.svg" alt="M-Pesa" width={150} height={80} className={cn('w-auto object-contain', compact ? 'h-8' : 'h-8 brightness-0 invert')} />
     </span>
   )
+  if (method === 'airtel_money') return <span className={cn('flex items-center justify-center bg-[#e40000] px-5', compact ? 'h-11 w-16 rounded-md' : 'h-full w-full rounded-[7px]')}><Image src="/payment-logos/airtel-money.svg" alt="Airtel Money" width={150} height={55} className={cn('w-auto object-contain', compact ? 'h-8' : 'h-9')} /></span>
+  if (method === 'bank_transfer') return <span className={cn('flex items-center justify-center bg-[#092c4c] text-white', compact ? 'h-11 w-16 rounded-md' : 'h-full w-full rounded-[10px]')}><Building2 className={compact ? 'h-6 w-6' : 'h-10 w-10'} /></span>
   return (
-    <span style={{ backgroundColor: '#1a4f9a' }} className="flex h-[88px] w-full items-center justify-center gap-3 rounded-xl px-4">
-      <Image src="/payment-logos/visa.svg" alt="" width={70} height={40} className="h-9 w-auto object-contain brightness-0 invert" />
-      <Image src="/payment-logos/mastercard-color.svg" alt="" width={52} height={32} className="h-8 w-auto object-contain" />
+    <span className={cn('flex items-center justify-center gap-2.5 px-5', compact ? 'h-11 w-16 rounded-md bg-white' : 'h-full w-full rounded-[7px] bg-[#2056a0]')}>
+      <Image src="/payment-logos/visa.svg" alt="Visa" width={70} height={40} className={cn('w-auto object-contain', compact ? 'h-4' : 'h-5 brightness-0 invert')} />
+      <Image src="/payment-logos/mastercard-color.svg" alt="Mastercard" width={48} height={30} style={{ width: 'auto' }} className={cn('object-contain', compact ? 'h-4' : 'h-5')} />
     </span>
   )
 }
@@ -238,13 +275,20 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
   const [summaryDraftType, setSummaryDraftType] = useState<'fixed' | 'percentage'>('fixed')
   const [summaryDraftValue, setSummaryDraftValue] = useState('')
   const [couponDraftCode, setCouponDraftCode] = useState('')
-  const [paymentMethod, setPaymentMethod] = useState<'cash' | 'mpesa' | 'card'>('cash')
+  const [paymentMethod, setPaymentMethod] = useState<PosPaymentMethod>('cash')
+  const [paymentReceiver, setPaymentReceiver] = useState('')
+  const [cardApproved, setCardApproved] = useState(false)
+  const [paymentNote, setPaymentNote] = useState('')
+  const [saleNote, setSaleNote] = useState('')
+  const [staffNote, setStaffNote] = useState('')
   const [mpesaRef, setMpesaRef] = useState('')
   const [mpesaPhone, setMpesaPhone] = useState('')
   const [mpesaFlow, setMpesaFlow] = useState<'stk' | 'paybill'>('stk')
   const [mpesaAccountReference, setMpesaAccountReference] = useState('')
   const [mpesaShortcode, setMpesaShortcode] = useState('')
   const [mpesaAccountType, setMpesaAccountType] = useState<'paybill' | 'till'>('paybill')
+  const [mpesaManualAccounts, setMpesaManualAccounts] = useState<Array<{ shortcode: string; accountType: 'paybill' | 'till' }>>([])
+  const [mpesaMerchantName, setMpesaMerchantName] = useState<string | null>(null)
   const [mpesaRequestId, setMpesaRequestId] = useState('')
   const [mpesaStatus, setMpesaStatus] = useState<MpesaStatus>('idle')
   const [mpesaMessage, setMpesaMessage] = useState('')
@@ -263,6 +307,9 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
   const [newCustomerName, setNewCustomerName] = useState('')
   const [newCustomerPhone, setNewCustomerPhone] = useState('')
   const [newCustomerEmail, setNewCustomerEmail] = useState('')
+  const [newCustomerAddress, setNewCustomerAddress] = useState('')
+  const [newCustomerCity, setNewCustomerCity] = useState('')
+  const [newCustomerCountry, setNewCustomerCountry] = useState('Kenya')
   const [creatingCustomer, setCreatingCustomer] = useState(false)
   const [availableCustomers, setAvailableCustomers] = useState(customers || [])
   const [showRefundDialog, setShowRefundDialog] = useState(false)
@@ -277,6 +324,7 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
   const [showAgeVerification, setShowAgeVerification] = useState(false)
   const [checkoutOpen, setCheckoutOpen] = useState(startCheckout)
   const [checkoutStep, setCheckoutStep] = useState<'customer' | 'payment'>(startCheckout ? 'payment' : 'customer')
+  const [paymentDialogOpen, setPaymentDialogOpen] = useState(false)
   const [scanMessage, setScanMessage] = useState('')
   const [showWirelessScanner, setShowWirelessScanner] = useState(false)
   const [scannerPurpose, setScannerPurpose] = useState<'product' | 'customer'>('product')
@@ -297,6 +345,7 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
   const barcodeTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const lastScanRef = useRef<{ barcode: string; at: number } | null>(null)
   const checkoutIdempotencyKeyRef = useRef<string>('')
+  const mpesaToastIdRef = useRef<string | number | null>(null)
   const autoFinalizeRef = useRef<() => void>(() => undefined)
   const autoFinalizingRef = useRef(false)
   const processCheckoutRef = useRef<(verified?: boolean, serverAlreadyConfirmed?: boolean) => Promise<unknown>>(async () => undefined)
@@ -340,7 +389,7 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
     if (!canHold || !hasActiveShift || typeof navigator === 'undefined' || !navigator.onLine) return
     setHeldSalesLoading(true)
     try { setHeldSales(await listHeldSales()) }
-    catch (error) { toast.error(error instanceof Error ? error.message : 'Could not load held sales') }
+    catch (error) { notify.error(error instanceof Error ? error.message : 'Could not load held sales') }
     finally { setHeldSalesLoading(false) }
   }, [canHold, hasActiveShift])
 
@@ -468,8 +517,8 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
         }
       }
       await refreshOfflineSales()
-      if (accepted) toast.success(`${accepted} offline sale${accepted === 1 ? '' : 's'} synchronized`)
-      if (failed) toast.error(`${failed} offline sale${failed === 1 ? '' : 's'} need${failed === 1 ? 's' : ''} review`)
+      if (accepted) notify.success(`${accepted} offline sale${accepted === 1 ? '' : 's'} synchronized`)
+      if (failed) notify.error(`${failed} offline sale${failed === 1 ? '' : 's'} need${failed === 1 ? 's' : ''} review`)
     } finally {
       offlineSyncRunningRef.current = false
       setOfflineSyncing(false)
@@ -496,22 +545,49 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
   }, [isOnline, paymentMethod])
 
   useEffect(() => {
+    if (paymentMethod !== 'mpesa' || mpesaPhone.trim()) return
+    const savedPhone = availableCustomers.find((entry) => entry.id === selectedCustomer)?.phone?.trim()
+    if (savedPhone) setMpesaPhone(savedPhone)
+  }, [availableCustomers, selectedCustomer, paymentMethod, mpesaPhone])
+
+  useEffect(() => {
+    if (paymentMethod !== 'mpesa' || mpesaFlow !== 'paybill' || mpesaRequestId) return
+    let active = true
+    void getManualMpesaOptions().then((result) => {
+      if (!active) return
+      setMpesaManualAccounts(result.accounts)
+      setMpesaAccountType(result.defaultMode)
+      setMpesaMerchantName(result.merchantName)
+    }).catch((error) => notify.error('Could not load branch M-Pesa accounts', { description: error instanceof Error ? error.message : 'Check the branch payment configuration.' }))
+    return () => { active = false }
+  }, [paymentMethod, mpesaFlow, mpesaRequestId])
+
+  useEffect(() => {
     if (!mpesaRequestId || mpesaStatus !== 'pending' || !isOnline) return
     let cancelled = false
-    const applyResult = (result: { status: string; message?: string | null; receiptNumber?: string | null; saleId?: string | null }) => {
+    const applyResult = (result: { status: string; amount?: number | string; message?: string | null; receiptNumber?: string | null; saleId?: string | null }) => {
         if (cancelled) return
         const nextStatus: MpesaStatus = result.status === 'CONFIRMED' && result.saleId ? 'success'
           : ['SENDING_STK'].includes(result.status) ? 'initiating'
           : ['AWAITING_CUSTOMER', 'AWAITING_CONFIRMATION', 'CONFIRMED'].includes(result.status) ? 'pending'
           : result.status === 'EXPIRED' ? 'timeout'
-          : ['FAILED', 'CANCELLED'].includes(result.status) ? 'failed'
+          : result.status === 'CANCELLED' ? 'cancelled'
+          : result.status === 'FAILED' ? 'failed'
           : result.status as MpesaStatus
         setMpesaStatus(nextStatus)
         setMpesaMessage(result.message || '')
-        if (nextStatus === 'failed' || nextStatus === 'timeout') window.localStorage.removeItem(mpesaStorageKey)
+        if (nextStatus === 'failed' || nextStatus === 'timeout' || nextStatus === 'cancelled') {
+          window.localStorage.removeItem(mpesaStorageKey)
+          notify.error(nextStatus === 'timeout' ? 'M-Pesa payment not confirmed' : nextStatus === 'cancelled' ? 'M-Pesa payment cancelled' : 'M-Pesa payment failed', {
+            id: mpesaToastIdRef.current ?? undefined,
+            description: result.message || 'No payment confirmation was received.',
+          })
+          mpesaToastIdRef.current = null
+        }
         if (nextStatus === 'success' && result.receiptNumber) {
           setMpesaRef(result.receiptNumber)
-          toast.success('M-Pesa payment received', { description: `Receipt ${result.receiptNumber}` })
+          notify.success('M-Pesa payment received', { id: mpesaToastIdRef.current ?? undefined, description: result.amount ? `${formatMpesaAmount(Number(result.amount))} confirmed.` : 'Payment confirmed by Safaricom.' })
+          mpesaToastIdRef.current = null
           if (!autoFinalizingRef.current) {
             autoFinalizingRef.current = true
             window.setTimeout(() => autoFinalizeRef.current(), 500)
@@ -528,7 +604,7 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
     void poll()
     const events = new EventSource(`/api/mpesa/status/${encodeURIComponent(mpesaRequestId)}`)
     events.onmessage = (event) => {
-      try { applyResult(JSON.parse(event.data) as { status: string; message?: string | null; receiptNumber?: string | null; saleId?: string | null }) } catch { /* polling remains available */ }
+      try { applyResult(JSON.parse(event.data) as { status: string; amount?: number | string; message?: string | null; receiptNumber?: string | null; saleId?: string | null }) } catch { /* polling remains available */ }
     }
     const timer = window.setInterval(() => { if (navigator.onLine) void poll() }, 8_000)
     return () => { cancelled = true; events.close(); window.clearInterval(timer) }
@@ -538,7 +614,7 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
   // development without making a network request part of the cashier's Pay action.
   const openCheckout = useCallback(() => {
     if (!hasActiveShift) {
-      toast.error('Start your shift before taking payment')
+      notify.error('Start your shift before taking payment')
       return
     }
     performance.mark('pos-pay-click')
@@ -552,6 +628,11 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
 
   useEffect(() => {
     const handleShortcut = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && paymentDialogOpen && !mpesaLocksBasket) {
+        event.preventDefault()
+        setPaymentDialogOpen(false)
+        return
+      }
       if (event.key === 'Escape' && checkoutOpen) {
         setCheckoutOpen(false)
         return
@@ -565,27 +646,28 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
         searchInputRef.current?.focus()
       }
       if (checkoutOpen && checkoutStep === 'payment' && !receipt) {
-        const paymentShortcut = ({ F3: 'cash', F4: 'mpesa', F5: 'card' } as const)[event.key as 'F3' | 'F4' | 'F5']
+        const paymentShortcut = ({ F3: 'cash', F4: 'mpesa', F5: 'card', F6: 'airtel_money' } as const)[event.key as 'F3' | 'F4' | 'F5' | 'F6']
         const lockedToMpesa = paymentMethod === 'mpesa' && ['initiating', 'pending', 'success'].includes(mpesaStatus)
         if (paymentShortcut && settings.paymentMethods.includes(paymentShortcut) && (isOnline || paymentShortcut === 'cash') && (!lockedToMpesa || paymentShortcut === 'mpesa')) {
           event.preventDefault()
           setPaymentMethod(paymentShortcut)
+          setPaymentDialogOpen(true)
         }
       }
     }
     window.addEventListener('keydown', handleShortcut)
     return () => window.removeEventListener('keydown', handleShortcut)
-  }, [cart.length, checkoutOpen, checkoutStep, receipt, settings.paymentMethods, openCheckout, paymentMethod, mpesaStatus, isOnline])
+  }, [cart.length, checkoutOpen, checkoutStep, receipt, settings.paymentMethods, openCheckout, paymentMethod, mpesaStatus, isOnline, paymentDialogOpen, mpesaLocksBasket])
 
   const addToCart = useCallback((product: PosProduct, selectedPackage?: ProductPackage) => {
     if (paymentMethod === 'mpesa' && ['initiating', 'pending', 'success'].includes(mpesaStatus)) {
-      toast.error('Finish the current M-Pesa payment before changing the basket')
+      notify.error('Finish the current M-Pesa payment before changing the basket')
       return
     }
     const unitsPerSale = selectedPackage?.baseUnitQuantity ?? 1
     const availablePackages = Math.floor(product.stock / unitsPerSale)
     if (availablePackages <= 0) {
-      toast.error(`${product.name} is out of stock`)
+      notify.error(`${product.name} is out of stock`)
       return
     }
     setCart((previousCart) => {
@@ -594,11 +676,11 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
       const packageName = selectedPackage?.name
       if (existing) {
         if ((existing.packageId ?? null) !== (selectedPackage?.id ?? null)) {
-          toast.error(`Remove ${product.name} from the basket before changing its package`)
+          notify.error(`Remove ${product.name} from the basket before changing its package`)
           return previousCart
         }
         if (existing.quantity >= availablePackages) {
-          toast.error(`Only ${availablePackages} ${packageName ?? product.unit} in stock`)
+          notify.error(`Only ${availablePackages} ${packageName ?? product.unit} in stock`)
           return previousCart
         }
         return previousCart.map((item) => item.productId === product.id
@@ -620,7 +702,7 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
     })
     if (matches.length === 0) {
       setScanMessage(`No ${productTerms.singularLower} found for barcode ${barcode}. Add the barcode to the ${productTerms.singularLower} first.`)
-      toast.error(`No ${productTerms.singularLower} found for barcode ${barcode}`, {
+      notify.error(`No ${productTerms.singularLower} found for barcode ${barcode}`, {
         description: 'Register the item once, then future scans will add it to the basket.',
         action: { label: `Register ${productTerms.singularLower}`, onClick: () => router.push(`/dashboard/products/new?barcode=${encodeURIComponent(barcode)}`) },
       })
@@ -628,13 +710,13 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
     }
     if (matches.length > 1) {
       setScanMessage(`Barcode ${barcode} is assigned to more than one ${productTerms.singularLower}. Correct the ${productTerms.singularLower} records before selling.`)
-      toast.error(`Duplicate barcode detected. Ask a manager to correct the ${productTerms.pluralLower}.`)
+      notify.error(`Duplicate barcode detected. Ask a manager to correct the ${productTerms.pluralLower}.`)
       return false
     }
     const { product, selectedPackage } = matches[0]
     if (product.stock < (selectedPackage?.baseUnitQuantity ?? 1)) {
       setScanMessage(`${product.name} is out of stock.`)
-      toast.error(`${product.name} is out of stock`)
+      notify.error(`${product.name} is out of stock`)
       return false
     }
     addToCart(product, selectedPackage)
@@ -733,7 +815,7 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
   ), [catalogProducts, deferredSearch, selectedCategory])
 
   const updateQty = (productId: string, delta: number) => {
-    if (mpesaLocksBasket) return toast.error('The basket is locked while M-Pesa payment is in progress')
+    if (mpesaLocksBasket) return notify.error('The basket is locked while M-Pesa payment is in progress')
     setCart((prev) =>
       prev
         .map((i) => {
@@ -743,7 +825,7 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
           const product = productsById.get(productId)
           const unitsPerSale = i.baseUnitQuantity ?? 1
           if (product && newQty * unitsPerSale > product.stock) {
-            toast.error(`Only ${Math.floor(product.stock / unitsPerSale)} ${i.packageName ?? product.unit} in stock`)
+            notify.error(`Only ${Math.floor(product.stock / unitsPerSale)} ${i.packageName ?? product.unit} in stock`)
             return i
           }
           return { ...i, quantity: newQty, totalPrice: newQty * i.unitPrice }
@@ -753,7 +835,7 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
   }
 
   const removeFromCart = (productId: string) => {
-    if (mpesaLocksBasket) return toast.error('The basket is locked while M-Pesa payment is in progress')
+    if (mpesaLocksBasket) return notify.error('The basket is locked while M-Pesa payment is in progress')
     setCart((prev) => prev.filter((i) => i.productId !== productId))
   }
 
@@ -787,9 +869,9 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
   const showOfflineStatus = !isOnline || offlineQueueSummary.pending > 0 || offlineQueueSummary.failed > 0 || offlineSyncing
 
   const openSummaryEditor = (editor: Exclude<SummaryEditor, null>) => {
-    if (mpesaLocksBasket) return toast.error('The order is locked while M-Pesa payment is in progress')
+    if (mpesaLocksBasket) return notify.error('The order is locked while M-Pesa payment is in progress')
     if ((editor === 'coupon' || editor === 'discount') && !canDiscount) {
-      return toast.error('Your role does not have permission to apply discounts')
+      return notify.error('Your role does not have permission to apply discounts')
     }
     if (editor === 'discount') {
       setSummaryDraftType(discountType)
@@ -807,27 +889,39 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
   const applySummaryAdjustment = () => {
     if (summaryEditor === 'shipping') {
       const value = summaryDraftValue.trim() === '' ? 0 : Number(summaryDraftValue)
-      if (!Number.isFinite(value) || value < 0) return toast.error('Enter a valid shipping cost')
+      if (!Number.isFinite(value) || value < 0) return notify.error('Enter a valid shipping cost')
       setShippingCost(value)
       setSummaryEditor(null)
-      toast.success(value > 0 ? 'Shipping cost applied' : 'Shipping cost removed')
+      notify.success(value > 0 ? 'Shipping cost applied' : 'Shipping cost removed')
       return
     }
     const value = Number(summaryDraftValue)
-    if (!Number.isFinite(value) || value < 0) return toast.error('Enter a valid value')
+    if (!Number.isFinite(value) || value < 0) return notify.error('Enter a valid value')
     if (summaryEditor === 'discount') {
-      if (summaryDraftType === 'percentage' && value > 100) return toast.error('Percentage discount cannot exceed 100%')
+      if (summaryDraftType === 'percentage' && value > 100) return notify.error('Percentage discount cannot exceed 100%')
       setDiscountType(summaryDraftType)
       setDiscount(value)
       setSummaryEditor(null)
-      toast.success(value > 0 ? 'Discount applied' : 'Discount removed')
+      notify.success(value > 0 ? 'Discount applied' : 'Discount removed')
     } else if (summaryEditor === 'coupon') {
-      if (value > 0 && !couponDraftCode.trim()) return toast.error('Enter the coupon or reference code')
+      if (value > 0 && !couponDraftCode.trim()) return notify.error('Enter the coupon or reference code')
       setCouponCode(value > 0 ? couponDraftCode.trim().toUpperCase() : '')
       setCouponValue(value)
       setSummaryEditor(null)
-      toast.success(value > 0 ? 'Coupon applied' : 'Coupon removed')
+      notify.success(value > 0 ? 'Coupon applied' : 'Coupon removed')
     }
+  }
+
+  const removeAppliedPromotion = (kind: 'discount' | 'coupon') => {
+    if (mpesaLocksBasket) return notify.error('The order is locked while M-Pesa payment is in progress')
+    if (kind === 'discount') {
+      setDiscount(0)
+      notify.success('Discount removed')
+      return
+    }
+    setCouponCode('')
+    setCouponValue(0)
+    notify.success('Coupon removed')
   }
 
   const saveCashCheckoutOffline = async (verified: boolean, queueId: string) => {
@@ -892,18 +986,21 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
     setCart([])
     window.localStorage.removeItem(cartStorageKey)
     window.localStorage.removeItem(checkoutStorageKey)
-    toast.success('Offline cash sale saved on this register', { description: `${provisionalReceiptNo} · synchronization pending` })
+    notify.success('Offline cash sale saved on this register', { description: `${provisionalReceiptNo} · synchronization pending` })
   }
 
   const processCheckout = async (verified = ageVerified, serverAlreadyConfirmed = false) => {
-    if (!hasActiveShift) return toast.error('Start your shift before completing a sale')
-    if (cart.length === 0) return toast.error('Cart is empty')
-    if (prescriptionRequired && !prescriptionReference.trim()) return toast.error('Enter the prescription reference')
-    if (containsRestrictedMedicine && !canApproveRestricted) return toast.error('An authorized pharmacist or manager must complete this sale')
-    if (paymentMethod === 'mpesa' && ((!serverAlreadyConfirmed && mpesaStatus !== 'success') || !mpesaRequestId || !mpesaRef)) return toast.error('Wait for M-Pesa payment confirmation')
-    if (paymentMethod === 'card' && !mpesaRef) return toast.error('Enter the card approval or terminal reference')
+    if (!hasActiveShift) return notify.error('Start your shift before completing a sale')
+    if (cart.length === 0) return notify.error('Cart is empty')
+    if (prescriptionRequired && !prescriptionReference.trim()) return notify.error('Enter the prescription reference')
+    if (containsRestrictedMedicine && !canApproveRestricted) return notify.error('An authorized pharmacist or manager must complete this sale')
+    if (paymentMethod === 'mpesa' && ((!serverAlreadyConfirmed && mpesaStatus !== 'success') || !mpesaRequestId || !mpesaRef)) return notify.error('Wait for M-Pesa payment confirmation')
+    if (paymentMethod === 'card' && !mpesaRef.trim()) return notify.error('Authorization code required', { description: 'Enter the approval code shown by the physical terminal.' })
+    if (paymentMethod === 'card' && !cardApproved) return notify.error('Confirm the card terminal shows APPROVED')
+    if (paymentMethod === 'airtel_money' && !mpesaRef) return notify.error('Enter the Airtel Money transaction reference')
+    if (paymentMethod === 'bank_transfer' && !mpesaRef) return notify.error('Enter the confirmed bank transfer reference')
     if (paymentMethod === 'cash' && parseFloat(amountPaid || '0') < total) {
-      return toast.error('Amount paid is less than total')
+      return notify.error('Amount received is too low', { description: `${formatCurrency(total)} is required to complete this sale.` })
     }
 
     // Check for low stock items
@@ -913,7 +1010,7 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
     })
 
     if (lowStockItems.length > 0) {
-      toast.warning(`${lowStockItems.length} item(s) will go below minimum stock level after this sale`)
+      notify.warning(`${lowStockItems.length} item(s) will go below minimum stock level after this sale`)
     }
 
     setProcessing(true)
@@ -928,15 +1025,20 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
       try {
         await saveCashCheckoutOffline(verified, checkoutIdempotencyKeyRef.current)
       } catch (error) {
-        toast.error(error instanceof Error ? error.message : 'Could not save this offline sale')
+        notify.error(error instanceof Error ? error.message : 'Could not save this offline sale')
       } finally {
         setProcessing(false)
       }
       return
     }
 
+    const saleToastId = notify.loading('Completing saleâ€¦', {
+      description: paymentMethod === 'mpesa' ? 'Confirming payment and saving the receipt.' : 'Saving payment and updating inventory.',
+    })
     try {
-      const { saleId, receiptNo, tax, rounding: returnedRounding, total: returnedTotal, items: savedItems, etims } = await createSale({
+      const completed = paymentMethod === 'mpesa' && serverAlreadyConfirmed
+        ? await getFinalizedMpesaSale(mpesaRequestId)
+        : await createSale({
         customerId: selectedCustomer || undefined,
         items: cart,
         subtotal,
@@ -948,10 +1050,16 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
         paymentReference: mpesaRef || undefined,
         mpesaPaymentRequestId: paymentMethod === 'mpesa' ? mpesaRequestId : undefined,
         amountReceived: paymentMethod === 'cash' ? parseFloat(amountPaid || '0') : undefined,
+        paymentReceiver: paymentReceiver || undefined,
+        paymentNote: paymentNote || undefined,
+        saleNote: saleNote || undefined,
+        staffNote: staffNote || undefined,
         idempotencyKey: checkoutIdempotencyKeyRef.current,
         ageVerified: requiresAgeVerification ? verified : undefined,
         pharmacy: prescriptionRequired || containsRestrictedMedicine ? { prescriptionReference: prescriptionReference.trim() || undefined, prescriberReference: prescriberReference.trim() || undefined, patientReference: patientReference.trim() || undefined, issuedAt: prescriptionIssuedAt ? new Date(prescriptionIssuedAt) : undefined, expiresAt: prescriptionExpiresAt ? new Date(prescriptionExpiresAt) : undefined, notes: pharmacyNotes.trim() || undefined } : undefined,
-      })
+        })
+      const { saleId, receiptNo, tax, rounding: returnedRounding, total: returnedTotal, items: savedItems, etims } = completed
+      const completedMpesaDetails = 'mpesaDetails' in completed ? completed.mpesaDetails : undefined
       setReceipt({
         saleId,
         receiptNo,
@@ -967,6 +1075,10 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
         roundingAmount: returnedRounding ?? roundingAmount,
         total: returnedTotal || total,
         paymentMethod,
+        mpesaMode: paymentMethod === 'mpesa' ? (completedMpesaDetails?.mode as 'stk' | 'till' | 'paybill' | undefined) : undefined,
+        mpesaPhone: paymentMethod === 'mpesa' ? completedMpesaDetails?.phone : undefined,
+        mpesaMerchant: paymentMethod === 'mpesa' ? mpesaShortcode : undefined,
+        mpesaAccountReference: paymentMethod === 'mpesa' ? completedMpesaDetails?.accountReference : undefined,
         mpesaRef: mpesaRef || undefined,
         change: paymentMethod === 'cash' ? (parseFloat(amountPaid || '0') - (returnedTotal || total)) : 0,
         idempotencyKey: checkoutIdempotencyKeyRef.current,
@@ -1004,24 +1116,40 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
       window.localStorage.removeItem(cartStorageKey)
       window.localStorage.removeItem(checkoutStorageKey)
 
-      // Show success toast with inventory update notification
-      toast.success('Sale completed & inventory updated', {
+      const paymentSuccessTitle = paymentMethod === 'cash'
+        ? 'Cash payment completed'
+        : paymentMethod === 'mpesa'
+          ? 'M-Pesa payment received'
+          : paymentMethod === 'card'
+            ? 'Card payment recorded'
+            : paymentMethod === 'airtel_money'
+              ? 'Airtel Money payment recorded'
+              : 'Payment recorded'
+      const paymentSuccessDescription = paymentMethod === 'cash'
+        ? `${formatCurrency(parseFloat(amountPaid || '0'))} received · Receipt #${receiptNo}`
+        : `${formatCurrency(total)} confirmed · Receipt #${receiptNo}`
+      notify.success(paymentSuccessTitle, {
+        id: saleToastId,
         description: etims.status === 'ACCEPTED'
-          ? `${cart.length} ${cart.length === 1 ? productTerms.singularLower : productTerms.pluralLower} · eTIMS accepted · Receipt #${receiptNo}`
-          : ('message' in etims && etims.message) || `${cart.length} ${cart.length === 1 ? productTerms.singularLower : productTerms.pluralLower} · Receipt #${receiptNo}`,
+          ? `${paymentSuccessDescription} · eTIMS accepted`
+          : paymentSuccessDescription,
       })
     } catch (err) {
       autoFinalizingRef.current = false
       if (paymentMethod === 'cash' && isConnectivityFailure(err)) {
+        notify.dismiss(saleToastId)
         try {
           await saveCashCheckoutOffline(verified, checkoutIdempotencyKeyRef.current)
           return
         } catch (offlineError) {
-          toast.error(offlineError instanceof Error ? offlineError.message : 'Could not save this offline sale')
+          notify.error(offlineError instanceof Error ? offlineError.message : 'Could not save this offline sale')
           return
         }
       }
-      toast.error(err instanceof Error ? err.message : 'Failed to process sale')
+      notify.error('Sale failed', {
+        id: saleToastId,
+        description: err instanceof Error ? err.message : 'The sale could not be processed.',
+      })
     } finally {
       setProcessing(false)
     }
@@ -1086,8 +1214,8 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
   })
 
   const handleCheckout = () => {
-    if (!hasActiveShift) return toast.error('Start your shift before completing a sale')
-    if (paymentMethod === 'mpesa' && mpesaStatus !== 'success') return toast.error('Send the M-Pesa prompt and wait for confirmation')
+    if (!hasActiveShift) return notify.error('Start your shift before completing a sale')
+    if (paymentMethod === 'mpesa' && mpesaStatus !== 'success') return notify.error('Send the M-Pesa prompt and wait for confirmation')
     if (requiresAgeVerification && !ageVerified) {
       setShowAgeVerification(true)
       return
@@ -1100,13 +1228,16 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
       setShowAgeVerification(true)
       return
     }
-    if (!mpesaPhone.trim()) return toast.error('Enter the customer M-Pesa phone number')
-    if (prescriptionRequired && !prescriptionReference.trim()) return toast.error('Enter the prescription reference')
-    if (containsRestrictedMedicine && !canApproveRestricted) return toast.error('An authorized pharmacist or manager must complete this sale')
-    if (!checkoutIdempotencyKeyRef.current || mpesaStatus === 'failed' || mpesaStatus === 'timeout') checkoutIdempotencyKeyRef.current = createIdempotencyKey()
+    if (!mpesaPhone.trim()) return notify.error('Enter the customer M-Pesa phone number')
+    if (prescriptionRequired && !prescriptionReference.trim()) return notify.error('Enter the prescription reference')
+    if (containsRestrictedMedicine && !canApproveRestricted) return notify.error('An authorized pharmacist or manager must complete this sale')
+    if (!checkoutIdempotencyKeyRef.current || mpesaStatus === 'failed' || mpesaStatus === 'timeout' || mpesaStatus === 'cancelled') checkoutIdempotencyKeyRef.current = createIdempotencyKey()
     setMpesaStatus('initiating')
     setMpesaMessage('Sending the payment prompt…')
     setMpesaRef('')
+    mpesaToastIdRef.current = notify.loading('Sending M-Pesa prompt...', {
+      description: 'Waiting for Safaricom to accept the request.',
+    })
     try {
       const response = await initiateMpesaPayment({
         phone: mpesaPhone, items: cart.map(({ productId, quantity, packageId }) => ({ productId, quantity, packageId })),
@@ -1117,27 +1248,37 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
       window.localStorage.setItem(mpesaStorageKey, JSON.stringify({ requestId: response.id, idempotencyKey: checkoutIdempotencyKeyRef.current, flow: 'stk' }))
       setMpesaStatus(response.status === 'CONFIRMED' ? 'success' : response.status === 'FAILED' ? 'failed' : 'pending')
       setMpesaMessage(response.message || 'Check the customer phone and enter the M-Pesa PIN.')
+      notify.loading('Waiting for M-Pesa confirmation...', {
+        id: mpesaToastIdRef.current ?? undefined,
+        description: 'Ask the customer to enter their M-Pesa PIN.',
+      })
       if (response.status === 'success' && response.receiptNumber) setMpesaRef(response.receiptNumber)
     } catch (error) {
       setMpesaStatus('failed')
       setMpesaMessage(error instanceof Error ? error.message : 'Could not send the M-Pesa prompt')
-      toast.error(error instanceof Error ? error.message : 'Could not send the M-Pesa prompt')
+      notify.error('Could not send M-Pesa prompt', {
+        id: mpesaToastIdRef.current ?? undefined,
+        description: error instanceof Error ? error.message : 'Please retry the payment request.',
+      })
+      mpesaToastIdRef.current = null
     }
   }
 
-  const handlePaybillPayment = async () => {
+  const handlePaybillPayment = async (manualMode: 'till' | 'paybill' = mpesaAccountType) => {
     if (requiresAgeVerification && !ageVerified) {
       setShowAgeVerification(true)
       return
     }
-    if (prescriptionRequired && !prescriptionReference.trim()) return toast.error('Enter the prescription reference')
-    if (containsRestrictedMedicine && !canApproveRestricted) return toast.error('An authorized pharmacist or manager must complete this sale')
-    if (!checkoutIdempotencyKeyRef.current || mpesaStatus === 'failed' || mpesaStatus === 'timeout') checkoutIdempotencyKeyRef.current = createIdempotencyKey()
+    if (prescriptionRequired && !prescriptionReference.trim()) return notify.error('Enter the prescription reference')
+    if (containsRestrictedMedicine && !canApproveRestricted) return notify.error('An authorized pharmacist or manager must complete this sale')
+    if (!checkoutIdempotencyKeyRef.current || mpesaStatus === 'failed' || mpesaStatus === 'timeout' || mpesaStatus === 'cancelled') checkoutIdempotencyKeyRef.current = createIdempotencyKey()
     setMpesaStatus('initiating')
     setMpesaMessage('Preparing Till / PayBill payment details…')
     setMpesaRef('')
     try {
       const response = await initiateMpesaPaybillPayment({
+        phone: mpesaPhone,
+        manualMode,
         items: cart.map(({ productId, quantity, packageId }) => ({ productId, quantity, packageId })),
         discountAmount, shippingAmount: shippingCost, roundoffEnabled, idempotencyKey: checkoutIdempotencyKeyRef.current, ageVerified, customerId: selectedCustomer || undefined,
         pharmacy: prescriptionRequired || containsRestrictedMedicine ? { prescriptionReference: prescriptionReference.trim() || undefined, prescriberReference: prescriberReference.trim() || undefined, patientReference: patientReference.trim() || undefined, issuedAt: prescriptionIssuedAt ? new Date(prescriptionIssuedAt) : undefined, expiresAt: prescriptionExpiresAt ? new Date(prescriptionExpiresAt) : undefined, notes: pharmacyNotes.trim() || undefined } : undefined,
@@ -1153,8 +1294,102 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
     } catch (error) {
       setMpesaStatus('failed')
       setMpesaMessage(error instanceof Error ? error.message : 'Could not prepare PayBill payment')
-      toast.error(error instanceof Error ? error.message : 'Could not prepare PayBill payment')
+      notify.error(error instanceof Error ? error.message : 'Could not prepare PayBill payment')
     }
+  }
+
+  const changeManualMpesaMode = async (manualMode: 'till' | 'paybill') => {
+    if (manualMode === mpesaAccountType) return
+    resetMpesaPrompt(false)
+    setMpesaAccountType(manualMode)
+    await handlePaybillPayment(manualMode)
+  }
+
+  const openManualMpesaFlow = () => {
+    if (mpesaLocksBasket) return
+    setMpesaFlow('paybill')
+    void handlePaybillPayment()
+  }
+
+  const copyManualPaymentValue = async (value: string, label: string) => {
+    await navigator.clipboard.writeText(value)
+    notify.success(`${label} copied`)
+  }
+
+  const saveOptionalManualPhone = async () => {
+    if (!mpesaRequestId) return
+    try {
+      await setManualMpesaPayerPhone(mpesaRequestId, mpesaPhone)
+    } catch (error) {
+      notify.error('Could not save payer phone', { description: error instanceof Error ? error.message : 'Try again.' })
+    }
+  }
+
+  const checkMpesaStatusNow = async () => {
+    if (!mpesaRequestId) return
+    try {
+      const result = await getMpesaPaymentStatus(mpesaRequestId)
+      if (result.status === 'CONFIRMED' && result.saleId) setMpesaStatus('success')
+      else if (['SENDING_STK', 'AWAITING_CUSTOMER', 'AWAITING_CONFIRMATION', 'FINALIZING'].includes(result.status)) setMpesaStatus('pending')
+      else if (result.status === 'EXPIRED') setMpesaStatus('timeout')
+      else if (result.status === 'CANCELLED') setMpesaStatus('cancelled')
+      else if (result.status === 'FAILED') setMpesaStatus('failed')
+      setMpesaMessage(result.message || '')
+      if (result.receiptNumber) setMpesaRef(result.receiptNumber)
+      if (result.status === 'CONFIRMED' && result.saleId && result.receiptNumber && !autoFinalizingRef.current) {
+        autoFinalizingRef.current = true
+        notify.success('M-Pesa payment received', { description: `${formatMpesaAmount(Number(result.amount))} confirmed.` })
+        window.setTimeout(() => autoFinalizeRef.current(), 500)
+      }
+    } catch (error) {
+      notify.error('Could not check M-Pesa status', { description: error instanceof Error ? error.message : 'Try again shortly.' })
+    }
+  }
+
+  const prepareNewMpesaPrompt = async () => {
+    if (mpesaStatus === 'timeout' && mpesaRequestId) {
+      await checkMpesaStatusNow()
+      const latest = await getMpesaPaymentStatus(mpesaRequestId)
+      if (latest.status === 'CONFIRMED' || latest.status === 'FINALIZING') return
+    }
+    resetMpesaPrompt(false)
+  }
+
+  const findManualPayment = async () => {
+    if (!mpesaRequestId) return
+    try {
+      const result = await findManualMpesaPayment(mpesaRequestId)
+      if (result.status === 'confirmed') {
+        setMpesaRef(result.receiptNumber || '')
+        setMpesaStatus('success')
+        notify.success('M-Pesa payment received', { description: `${formatMpesaAmount(result.amount)} confirmed.` })
+        if (!autoFinalizingRef.current) {
+          autoFinalizingRef.current = true
+          window.setTimeout(() => autoFinalizeRef.current(), 500)
+        }
+      } else if (result.status === 'amount_mismatch') {
+        setMpesaMessage(`Payment amount does not match. Expected ${formatMpesaAmount(result.expected)}; received ${formatMpesaAmount(result.received)}.`)
+        notify.error('Payment amount does not match', { description: `Expected ${formatMpesaAmount(result.expected)} · Received ${formatMpesaAmount(result.received)}` })
+      } else if (result.status === 'ambiguous') {
+        setMpesaMessage('Multiple matching payments found. A manager must resolve them in M-Pesa reconciliation.')
+        notify.error('Multiple matching payments found', { description: 'Open M-Pesa reconciliation to select the correct transaction.' })
+      } else {
+        setMpesaMessage('Payment not found yet. We have not received Safaricom confirmation.')
+        notify.info('Payment not found yet', { description: 'Check again after the customer receives their M-Pesa message.' })
+      }
+    } catch (error) {
+      notify.error('Could not find M-Pesa payment', { description: error instanceof Error ? error.message : 'Try again shortly.' })
+    }
+  }
+
+  const resetMpesaPrompt = (changePhone = false) => {
+    setMpesaRequestId('')
+    setMpesaStatus('idle')
+    setMpesaMessage('')
+    setMpesaRef('')
+    checkoutIdempotencyKeyRef.current = ''
+    window.localStorage.removeItem(mpesaStorageKey)
+    if (changePhone) setMpesaPhone('')
   }
 
   const handleNewSale = () => {
@@ -1174,6 +1409,11 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
     setMpesaStatus('idle')
     setMpesaMessage('')
     setAmountPaid('')
+    setPaymentReceiver('')
+    setPaymentNote('')
+    setSaleNote('')
+    setStaffNote('')
+    setPaymentDialogOpen(false)
     setSelectedCustomer('')
     setPrescriptionReference('')
     setPrescriberReference('')
@@ -1209,13 +1449,13 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
     checkoutIdempotencyKeyRef.current = ''
     window.localStorage.removeItem(cartStorageKey)
     window.localStorage.removeItem(checkoutStorageKey)
-    toast.success('Current order voided')
+    notify.success('Current order voided')
   }
 
   const resetRegister = () => {
     if (cart.length > 0 && !window.confirm('Reset the register? The current order will be cleared.')) return
     handleNewSale()
-    toast.success('Register reset')
+    notify.success('Register reset')
   }
 
   const openHeldOrders = () => {
@@ -1233,11 +1473,11 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
       try {
         window.addEventListener('afterprint', () => {
           setReceiptPrinted(true)
-          toast.success('Print request completed')
+          notify.success('Print request completed')
         }, { once: true })
         window.print()
       } catch {
-        toast.error('Could not open the print dialog')
+        notify.error('Could not open the print dialog')
       }
       return
     }
@@ -1263,13 +1503,13 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
     window.addEventListener('afterprint', () => {
       cleanup()
       setReceiptPrinted(true)
-      toast.success('Print request completed')
+      notify.success('Print request completed')
     }, { once: true })
     try {
       window.print()
     } catch {
       cleanup()
-      toast.error('Could not open the print dialog')
+      notify.error('Could not open the print dialog')
     }
   }, [receiptPaperWidth])
 
@@ -1277,7 +1517,7 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
     if (!receipt) return
     try {
       const paper = document.querySelector<HTMLElement>('.receipt-preview-origin .receipt-paper')
-      if (!paper) return toast.error('Receipt preview is unavailable')
+      if (!paper) return notify.error('Receipt preview is unavailable')
 
       // Keep the exported paper width identical to the receipt preview.
       const originalWidth = paper.style.width
@@ -1309,13 +1549,13 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
         })
         pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, paperWidthMm, paperHeightMm, undefined, 'FAST')
         pdf.save(`${receipt.receiptNo}.pdf`)
-        toast.success('Receipt PDF downloaded')
+        notify.success('Receipt PDF downloaded')
       } finally {
         paper.style.width = originalWidth
         paper.style.maxWidth = originalMaxWidth
       }
     } catch {
-      toast.error('Could not download receipt')
+      notify.error('Could not download receipt')
     }
   }, [receipt, receiptPaperWidth])
 
@@ -1331,16 +1571,16 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
         return
       }
       await navigator.clipboard.writeText(text)
-      toast.success('Receipt details copied')
+      notify.success('Receipt details copied')
     } catch (error) {
       if (error instanceof DOMException && error.name === 'AbortError') return
-      toast.error('Could not share receipt details')
+      notify.error('Could not share receipt details')
     }
   }, [receipt])
 
   const holdSale = async () => {
     if (!canHold || cart.length === 0) return
-    if (!isOnline) return toast.error('Reconnect to hold this sale on the shared register queue')
+    if (!isOnline) return notify.error('Reconnect to hold this sale on the shared register queue')
     const requestId = createIdempotencyKey()
     setHeldSaleActionId(requestId)
     try {
@@ -1359,14 +1599,14 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
       checkoutIdempotencyKeyRef.current = ''
       window.localStorage.removeItem(cartStorageKey)
       window.localStorage.removeItem(checkoutStorageKey)
-      toast.success('Sale held for this branch', { description: 'It can be resumed from another authorized register.' })
+      notify.success('Sale held for this branch', { description: 'It can be resumed from another authorized register.' })
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Could not hold this sale')
+      notify.error(error instanceof Error ? error.message : 'Could not hold this sale')
     } finally { setHeldSaleActionId(null) }
   }
 
   const resumeHeldSale = async (heldSale: HeldSale) => {
-    if (!isOnline) return toast.error('Reconnect before resuming a shared held sale')
+    if (!isOnline) return notify.error('Reconnect before resuming a shared held sale')
     setHeldSaleActionId(heldSale.id)
     try {
       const result = await resumeHeldSaleFromServer(heldSale.id)
@@ -1383,37 +1623,43 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
       setCheckoutOpen(false)
       checkoutIdempotencyKeyRef.current = ''
       window.localStorage.removeItem(checkoutStorageKey)
-      toast.success(result.priceChanged ? 'Held sale restored with current prices' : 'Held sale restored')
+      notify.success(result.priceChanged ? 'Held sale restored with current prices' : 'Held sale restored')
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Could not resume this held sale')
+      notify.error(error instanceof Error ? error.message : 'Could not resume this held sale')
       await refreshHeldSales()
     } finally { setHeldSaleActionId(null) }
   }
 
   const deleteHeldSale = async (heldSale: HeldSale) => {
-    if (!isOnline) return toast.error('Reconnect before discarding a shared held sale')
+    if (!isOnline) return notify.error('Reconnect before discarding a shared held sale')
     setHeldSaleActionId(heldSale.id)
     try {
       await discardHeldSale(heldSale.id)
       setHeldSales((previous) => previous.filter((sale) => sale.id !== heldSale.id))
-      toast.success('Held sale discarded')
+      notify.success('Held sale discarded')
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Could not discard this held sale')
+      notify.error(error instanceof Error ? error.message : 'Could not discard this held sale')
     } finally { setHeldSaleActionId(null) }
   }
 
   const handleCreateCustomer = async () => {
     if (!newCustomerName.trim()) {
-      toast.error('Customer name is required')
+      notify.error('Customer name is required')
+      return
+    }
+    if (!newCustomerPhone.trim()) {
+      notify.error('Customer phone is required')
       return
     }
 
     setCreatingCustomer(true)
     try {
+      const customerAddress = [newCustomerAddress.trim(), newCustomerCity.trim(), newCustomerCountry.trim()].filter(Boolean).join(', ')
       const { id } = await createCustomer({
         name: newCustomerName,
-        phone: newCustomerPhone || undefined,
+        phone: newCustomerPhone,
         email: newCustomerEmail || undefined,
+        address: customerAddress || undefined,
       })
 
       // Add new customer to list
@@ -1422,7 +1668,7 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
         name: newCustomerName,
         phone: newCustomerPhone || null,
         email: newCustomerEmail || null,
-        address: null,
+        address: customerAddress || null,
         kraPin: null,
         customerType: 'individual',
         vatRegistered: false,
@@ -1439,11 +1685,14 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
       setNewCustomerName('')
       setNewCustomerPhone('')
       setNewCustomerEmail('')
+      setNewCustomerAddress('')
+      setNewCustomerCity('')
+      setNewCustomerCountry('Kenya')
       setShowNewCustomer(false)
 
-      toast.success('Customer created successfully')
+      notify.success('Customer created successfully')
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to create customer')
+      notify.error(err instanceof Error ? err.message : 'Failed to create customer')
     } finally {
       setCreatingCustomer(false)
     }
@@ -1453,16 +1702,16 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
     const code = normalizeBarcode(rawBarcode)
     if (!code) return
     const customer = availableCustomers.find((item) =>
-      [item.id, item.phone, item.name].some((value) => normalizeBarcode(value ?? '') === code)
+      [item.id, item.phone, item.email, item.kraPin, item.name].some((value) => normalizeBarcode(value ?? '') === code)
     )
     if (!customer) {
-      toast.error('No customer found for that code')
+      notify.error('No customer found for that code')
       return
     }
     setSelectedCustomer(customer.id)
     setCustomerMenuOpen(false)
     setShowWirelessScanner(false)
-    toast.success(customer.name + ' selected')
+    notify.success(customer.name + ' selected')
   }
 
   const inputCls = ui.input
@@ -1479,6 +1728,13 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
       shippingAmount: receipt.shippingAmount.toString(),
       roundingAmount: receipt.roundingAmount.toString(),
       total: receipt.total.toString(),
+      loyaltyPointsEarned: 0,
+      loyaltyPointsRedeemed: 0,
+      loyaltyRedemptionValue: '0',
+      bonusRedeemed: '0',
+      rewardEligibleSpend: '0',
+      rewardEarningRateSnapshot: null,
+      rewardPointValueSnapshot: null,
       customerId: selectedCustomer || null,
       amountReceived: receipt.paymentMethod === 'cash' ? String(parseFloat(amountPaid || '0')) : null,
       change: receipt.change.toString(),
@@ -1510,6 +1766,7 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
         totalPrice: item.totalPrice.toString(),
         unitCostAtSale: '0',
         totalCost: '0',
+        rewardEligibleAmount: '0',
         userId: '',
         orgId: '',
       })),
@@ -1526,7 +1783,7 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
           }))
           setShowRefundDialog(false)
           handleNewSale()
-          toast.success('Refund processed successfully')
+          notify.success('Refund processed successfully')
         }}
       />
     )
@@ -1555,9 +1812,10 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
       })),
       etims: receipt.etims?.showOnReceipt ? receipt.etims : null,
       offline: receipt.offline ?? null,
+      mpesaDetails: receipt.paymentMethod === 'mpesa' ? { mode: receipt.mpesaMode, phone: receipt.mpesaPhone ? maskKenyanPhone(receipt.mpesaPhone) : undefined, merchant: receipt.mpesaMerchant, accountReference: receipt.mpesaAccountReference } : null,
     }
 
-    const paymentLabel = receipt.paymentMethod === 'mpesa' ? 'M-Pesa' : receipt.paymentMethod === 'card' ? 'Card' : 'Cash'
+    const paymentLabel = receipt.paymentMethod === 'mpesa' ? 'M-Pesa' : receipt.paymentMethod === 'airtel_money' ? 'Airtel Money' : receipt.paymentMethod === 'card' ? 'Card' : receipt.paymentMethod === 'bank_transfer' ? 'Bank transfer' : 'Cash'
     const taxLabel = settings.taxEnabled && settings.taxRate > 0 ? `${settings.taxName} (${settings.taxRate}%)` : settings.taxName
     const discountDetail = receipt.discountType === 'percentage' && receipt.discountValue != null
       ? `${receipt.discountValue}% discount`
@@ -1600,7 +1858,7 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
                   <div className="rounded-lg border border-[#e4e7ec] bg-[#fbfbfc] p-3 dark:border-white/10 dark:bg-white/5">
                     <div className="flex items-center justify-between gap-3"><span className="flex items-center gap-2 text-sm font-semibold text-[#101828] dark:text-white"><WalletCards className="h-4 w-4 text-[#b77900]" />{paymentLabel}</span><span className="text-sm font-bold text-[#101828] dark:text-white">{formatCurrency(receipt.total)}</span></div>
                     {receipt.paymentMethod === 'cash' && receipt.amountReceived != null && <div className="mt-3 grid grid-cols-2 gap-2 border-t border-[#e4e7ec] pt-3 text-xs dark:border-white/10"><span className="text-[#667085] dark:text-[#a8a8a8]">Cash received</span><span className="text-right font-semibold text-[#101828] dark:text-white">{formatCurrency(receipt.amountReceived)}</span><span className={cn('font-semibold', receipt.change > 0 ? 'text-[#067647] dark:text-[#8de1aa]' : 'text-[#667085] dark:text-[#a8a8a8]')}>{receipt.change > 0 ? 'Change due' : 'Change'}</span><span className={cn('text-right font-semibold tabular-nums', receipt.change > 0 ? 'rounded-md bg-[#ecfdf3] px-2 py-1 text-base font-bold text-[#067647] dark:bg-emerald-950/45 dark:text-[#8de1aa]' : 'text-xs text-[#667085] dark:text-[#a8a8a8]')}>{formatCurrency(receipt.change)}</span></div>}
-                    {receipt.mpesaRef && <div className="mt-3 flex items-center justify-between gap-3 border-t border-[#e4e7ec] pt-3 text-xs dark:border-white/10"><span className="text-[#667085] dark:text-[#a8a8a8]">Reference</span><span className="font-semibold text-[#101828] dark:text-white">{receipt.mpesaRef}</span></div>}
+                    {receipt.mpesaRef && <div className="mt-3 space-y-1.5 border-t border-[#e4e7ec] pt-3 text-xs dark:border-white/10"><div className="flex justify-between gap-3"><span className="text-[#667085] dark:text-[#a8a8a8]">M-Pesa receipt</span><span className="font-semibold text-[#101828] dark:text-white">{receipt.mpesaRef}</span></div>{receipt.mpesaMode && <div className="flex justify-between gap-3"><span className="text-[#667085] dark:text-[#a8a8a8]">Mode</span><span className="font-semibold text-[#101828] dark:text-white">{receipt.mpesaMode === 'stk' ? 'STK Push' : receipt.mpesaMode === 'till' ? 'Till' : 'PayBill'}</span></div>}{receipt.mpesaMerchant && receipt.mpesaMode !== 'stk' && <div className="flex justify-between gap-3"><span className="text-[#667085] dark:text-[#a8a8a8]">{receipt.mpesaMode === 'till' ? 'Till' : 'PayBill'}</span><span className="font-semibold text-[#101828] dark:text-white">{receipt.mpesaMerchant}</span></div>}{receipt.mpesaAccountReference && <div className="flex justify-between gap-3"><span className="text-[#667085] dark:text-[#a8a8a8]">Account</span><span className="font-semibold text-[#101828] dark:text-white">{receipt.mpesaAccountReference}</span></div>}{receipt.mpesaPhone && <div className="flex justify-between gap-3"><span className="text-[#667085] dark:text-[#a8a8a8]">Phone</span><span className="font-semibold text-[#101828] dark:text-white">{maskKenyanPhone(receipt.mpesaPhone)}</span></div>}</div>}
                     {(receipt.taxAmount > 0 || receipt.discountAmount > 0) && <div className="mt-3 space-y-1.5 border-t border-[#e4e7ec] pt-3 text-xs dark:border-white/10">{receipt.taxAmount > 0 && <div className="flex justify-between gap-3"><span className="text-[#667085] dark:text-[#a8a8a8]">{taxLabel}</span><span className="font-semibold text-[#101828] dark:text-white">{formatCurrency(receipt.taxAmount)}</span></div>}{receipt.discountAmount > 0 && <><div className="flex justify-between gap-3"><span className="text-[#667085] dark:text-[#a8a8a8]">{discountDetail}</span><span className="font-semibold text-[#101828] dark:text-white">{discountValue}</span></div><div className="flex justify-between gap-3"><span className="text-[#067647] dark:text-[#8de1aa]">Amount saved</span><span className="font-semibold text-[#067647] dark:text-[#8de1aa]">−{formatCurrency(receipt.discountAmount)}</span></div></>}</div>}
                   </div>
                 </div>
@@ -1659,10 +1917,9 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
                 const barcode = normalizeBarcode(search)
                 if (barcode) { e.preventDefault(); handleBarcodeScan(barcode) }
               }}
-              className={cn(inputCls, 'h-10 rounded-lg pl-9 pr-32')}
+              className={cn(inputCls, 'h-10 rounded-lg pl-9 pr-3')}
               autoFocus
             />
-            <button type="button" onClick={() => { setScannerPurpose('product'); setShowWirelessScanner(true) }} className="absolute right-1.5 top-1/2 inline-flex h-7 -translate-y-1/2 items-center gap-1 rounded-md border border-[#e4e7ec] bg-white px-2 text-[11px] font-semibold text-[#344054] shadow-sm transition-colors hover:border-[#f9b21d] hover:bg-[#fff8e6] dark:border-white/15 dark:bg-[#1c1c1c] dark:text-white dark:hover:border-[#f9b21d]"><Smartphone className="h-3.5 w-3.5" /> Pair phone</button>
           </div>
         </div>
 
@@ -1726,7 +1983,7 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
         )}
 
         {/* Product grid */}
-        <div className="pos-scroll-region min-h-0 flex-1 overflow-y-auto bg-[#fbfbfc] p-3.5 dark:bg-[#0f0f0f] sm:p-4">
+        <CompactScrollArea className="pos-scroll-region bg-[#fbfbfc] p-3.5 dark:bg-[#0f0f0f] sm:p-4">
           {filteredProducts.length === 0 ? (
             <div className="flex h-48 flex-col items-center justify-center text-center">
               <Package className="mb-3 h-9 w-9 text-[#d0d5dd]" strokeWidth={1.5} />
@@ -1742,7 +1999,7 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
               'grid grid-cols-2 sm:grid-cols-3',
               standalone ? 'gap-3 lg:grid-cols-[repeat(auto-fill,minmax(220px,1fr))]' : 'gap-3.5 xl:grid-cols-4'
             )}>
-              {filteredProducts.map((product) => {
+              {filteredProducts.map((product, productIndex) => {
                 const inCartQuantity = cartQuantityByProductId.get(product.id)
                 const outOfStock = product.stock === 0
                 return (
@@ -1789,6 +2046,7 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
                           unoptimized={product.imageUrl.startsWith('http')}
                           sizes="(min-width: 1280px) 240px, (min-width: 640px) 30vw, 50vw"
                           quality={60}
+                          loading={productIndex === 0 ? 'eager' : 'lazy'}
                           className="object-cover"
                         />
                       </span>
@@ -1855,7 +2113,7 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
               })}
             </div>
           )}
-        </div>
+        </CompactScrollArea>
       </section>
 
       {/* Right: Cart + Payment */}
@@ -1893,48 +2151,52 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
           </div>
 
           {!checkoutOpen && (
-            <div className="mt-3 grid grid-cols-2 gap-2 rounded-xl border border-[#eef0f3] bg-[#fbfcfe] p-2 dark:border-white/10 dark:bg-[#141414]">
-                <button onClick={() => setShowSalesHistory(true)} className="flex h-9 items-center justify-center gap-2 rounded-md bg-[var(--dashboard-accent)] px-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[var(--dashboard-accent-strong)]">
+            <div className="mt-3 grid grid-cols-2 gap-2 rounded-md border border-[#e7e9ed] bg-[#fafbfc] p-2 dark:border-white/10 dark:bg-[#141414]">
+                <button onClick={() => setShowSalesHistory(true)} className="flex h-9 items-center justify-center gap-2 rounded-[5px] bg-[var(--dashboard-accent)] px-2.5 text-sm font-semibold text-white transition-colors hover:bg-[var(--dashboard-accent-strong)]">
                   <History className="h-3.5 w-3.5" />
                   History
                 </button>
-                <button onClick={() => setShowReceiptReprint(true)} className="flex h-9 items-center justify-center gap-2 rounded-md bg-[var(--dashboard-accent-cta)] px-2.5 text-sm font-semibold text-[var(--dashboard-accent-cta-ink)] shadow-sm transition-colors hover:bg-[var(--dashboard-accent-cta-hover)]">
+                <button onClick={() => setShowReceiptReprint(true)} className="flex h-9 items-center justify-center gap-2 rounded-[5px] bg-[var(--dashboard-accent-cta)] px-2.5 text-sm font-semibold text-[var(--dashboard-accent-cta-ink)] transition-colors hover:bg-[var(--dashboard-accent-cta-hover)]">
                   <Printer className="h-3.5 w-3.5" />
                   Reprint
                 </button>
             </div>
           )}
           {!checkoutOpen && (
-            <div className="mt-4 border-t border-dashed border-[#e4e7ec] pt-4 dark:border-white/10">
-              <div className="mb-2 flex items-center justify-between">
-                <span className="text-sm font-bold text-[#101828] dark:text-white">Customer Information</span>
+            <div className="mt-4 border-t border-solid border-[#e7e9ed] pt-4 dark:border-white/10">
+    <div className="mb-2 flex items-center justify-between">
+      <span className="text-base font-semibold leading-5 text-[#111827] dark:text-white">Customer Information</span>
                 {activeCustomer && <button type="button" onClick={() => setSelectedCustomer('')} className="text-[11px] font-semibold text-[#b54708] hover:underline dark:text-[#fdb022]">Clear customer</button>}
               </div>
-              <div className="flex gap-2">
+              <div className="flex items-center gap-2">
                 <div className="relative min-w-0 flex-1">
-                  <button type="button" disabled={mpesaLocksBasket} onClick={() => setCustomerMenuOpen((open) => !open)} aria-haspopup="listbox" aria-expanded={customerMenuOpen} className={cn(inputCls, 'flex h-10 w-full items-center justify-between text-left text-[13px] font-medium focus:border-[#f2b705] focus:ring-[#f2b705]/10 disabled:cursor-not-allowed dark:bg-[#161616]')}>
-                    <span className="truncate">{activeCustomer?.name ?? 'Walk-in customer'}{activeCustomer?.phone ? ' (' + activeCustomer.phone + ')' : ''}</span>
-                    <ChevronDown className={cn('h-4 w-4 shrink-0 text-[#667085] transition-transform dark:text-[#aeb4c0]', customerMenuOpen && 'rotate-180')} />
+                  <button type="button" disabled={mpesaLocksBasket} onClick={() => setCustomerMenuOpen((open) => !open)} aria-haspopup="listbox" aria-expanded={customerMenuOpen} className="flex h-10 w-full items-center justify-between rounded-[5px] border border-[#d9dde3] bg-white px-3.5 text-left text-sm font-normal text-[#344054] outline-none transition-colors hover:border-[#bfc5ce] focus:border-[#86a5c9] focus:ring-1 focus:ring-[#155eef]/15 disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/15 dark:bg-[#161616] dark:text-[#e4e7ec]">
+          <span className="truncate">{activeCustomer?.name ?? 'Walk in Customer'}{activeCustomer?.phone ? ' (' + activeCustomer.phone + ')' : ''}</span>
+                    <ChevronDown className={cn('h-3.5 w-3.5 shrink-0 text-[#273142] transition-transform dark:text-[#aeb4c0]', customerMenuOpen && 'rotate-180')} />
                   </button>
                   {customerMenuOpen && !mpesaLocksBasket && (
-                    <div role="listbox" className="absolute inset-x-0 top-full z-30 mt-1 max-h-56 overflow-y-auto rounded-lg border border-[#e4e7ec] bg-white p-1 shadow-[0_10px_24px_rgba(16,24,40,0.14)] dark:border-white/10 dark:bg-[#1b1b1b]">
-                      <button type="button" role="option" aria-selected={!selectedCustomer} onClick={() => { setSelectedCustomer(''); setCustomerMenuOpen(false) }} className={cn('flex w-full items-center rounded-md px-3 py-2 text-left text-[13px] transition-colors hover:bg-[#fff8df] dark:hover:bg-[#302812]', !selectedCustomer ? 'bg-[#fff8df] font-semibold text-[#7a5b00] dark:bg-[#302812] dark:text-[#ffd166]' : 'text-[#344054] dark:text-[#e4e7ec]')}>Walk-in customer</button>
+                    <div role="listbox" className="absolute inset-x-0 top-full z-30 mt-1 max-h-56 overflow-y-auto rounded-md border border-[#e1e4e8] bg-white p-1 shadow-[0_4px_12px_rgba(16,24,40,0.08)] dark:border-white/10 dark:bg-[#1b1b1b]">
+            <button type="button" role="option" aria-selected={!selectedCustomer} onClick={() => { setSelectedCustomer(''); setCustomerMenuOpen(false) }} className={cn('flex w-full items-center rounded-md px-3 py-2 text-left text-[13px] transition-colors hover:bg-[#fff8df] dark:hover:bg-[#302812]', !selectedCustomer ? 'bg-[#fff8df] font-semibold text-[#7a5b00] dark:bg-[#302812] dark:text-[#ffd166]' : 'text-[#344054] dark:text-[#e4e7ec]')}>Walk in Customer</button>
                       {availableCustomers.map((customer) => <button key={customer.id} type="button" role="option" aria-selected={selectedCustomer === customer.id} onClick={() => { setSelectedCustomer(customer.id); setCustomerMenuOpen(false) }} className={cn('flex w-full items-center rounded-md px-3 py-2 text-left text-[13px] transition-colors hover:bg-[#fff8df] dark:hover:bg-[#302812]', selectedCustomer === customer.id ? 'bg-[#fff8df] font-semibold text-[#7a5b00] dark:bg-[#302812] dark:text-[#ffd166]' : 'text-[#344054] dark:text-[#e4e7ec]')}>{customer.name}{customer.phone ? ' (' + customer.phone + ')' : ''}</button>)}
                     </div>
                   )}
                 </div>
-                <button type="button" disabled={mpesaLocksBasket || !isOnline} onClick={() => setShowNewCustomer(true)} title="Add customer" aria-label="Add customer" className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#0f766e] text-white transition-colors hover:bg-[#0b5e58] disabled:cursor-not-allowed disabled:opacity-50">
-                  <UserRoundPlus className="h-4 w-4" />
+      <button type="button" disabled={mpesaLocksBasket || !isOnline} onClick={() => setShowNewCustomer(true)} title="Add customer" aria-label="Add customer" className="inline-flex h-10 w-[38px] shrink-0 items-center justify-center rounded-[5px] bg-[#009688] text-white shadow-none transition-colors hover:bg-[#007f73] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#009688]/30 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">
+                  <UserRoundPlus className="h-[17px] w-[17px]" strokeWidth={2} />
                 </button>
-                <button type="button" disabled={mpesaLocksBasket || !isOnline} onClick={() => { setScannerPurpose('customer'); setShowWirelessScanner(true) }} title="Scan customer barcode" aria-label="Scan customer barcode" className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#1d4ed8] text-white transition-colors hover:bg-[#1e40af] disabled:cursor-not-allowed disabled:opacity-50">
-                  <ScanBarcode className="h-4 w-4" />
+      <button type="button" disabled={mpesaLocksBasket || !isOnline} onClick={() => { setScannerPurpose('customer'); setShowWirelessScanner(true) }} title="Scan customer barcode" aria-label="Scan customer barcode" className="inline-flex h-10 w-[38px] shrink-0 items-center justify-center rounded-[5px] bg-[#155eef] text-white shadow-none transition-colors hover:bg-[#004eeb] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#155eef]/30 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">
+                  <ScanBarcode className="h-[17px] w-[17px]" strokeWidth={2} />
                 </button>
               </div>
               {activeCustomer && (
-                <div className="relative mt-3 rounded-lg border border-[#f4b183] bg-[#fff2eb] px-3 py-2.5 text-[#6b3014] dark:border-[#7c3d1d] dark:bg-[#3a1e13] dark:text-[#ffd4bd]">
-                  <button type="button" onClick={() => setSelectedCustomer('')} aria-label="Remove customer" className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-[#e85d22] text-white shadow-sm hover:bg-[#c94710]"><X className="h-3 w-3" /></button>
-                  <p className="text-sm font-bold">{activeCustomer.name}</p>
-                  <p className="mt-0.5 text-xs opacity-80">{activeCustomer.phone || activeCustomer.email || 'Customer account selected'}</p>
+      <div className="relative mt-3 rounded-[5px] border border-[#e1e5ea] border-l-[3px] border-l-[#009688] bg-[#f8fafb] px-3 py-2.5 text-[#101828] dark:border-white/10 dark:border-l-[#34b8aa] dark:bg-white/[0.04] dark:text-white">
+                  <button type="button" onClick={() => setSelectedCustomer('')} aria-label="Remove customer" className="absolute right-2 top-2 flex h-5 w-5 items-center justify-center rounded text-[#667085] transition-colors hover:bg-[#e9edf1] hover:text-[#344054] dark:text-[#aeb4c0] dark:hover:bg-white/10 dark:hover:text-white"><X className="h-3 w-3" /></button>
+        <p className="text-sm font-semibold">{activeCustomer.name}</p>
+        <p className="mt-1 text-xs text-[#667085] dark:text-[#aeb4c0]">
+          Bonus: <span className="font-semibold text-[#0f8b83]">0</span>
+          <span className="mx-1.5">|</span>
+          Loyalty: <span className="font-semibold text-[#0f8b83]">{activeCustomer.loyaltyPoints ?? 0}</span>
+        </p>
                 </div>
               )}
             </div>
@@ -2064,6 +2326,31 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
             {/* Customer details are managed in the basket panel to avoid duplicate selectors. */}
             {checkoutStep === 'customer' && !checkoutOnly && <button type="button" onClick={() => setCheckoutOpen(false)} className="inline-flex items-center gap-1 self-start rounded-lg px-1 py-1 text-xs font-semibold text-[#667085] transition-colors hover:text-[#101828] dark:text-[#a3a3a3] dark:hover:text-white">← Back to basket</button>}
 
+            {checkoutStep === 'customer' && (manualDiscountAmount > 0 || couponAmount > 0) && (
+              <section aria-label="Applied promotions" className="space-y-2">
+                {manualDiscountAmount > 0 && (
+                  <div className="flex items-center gap-3 rounded-[7px] border border-[#6f42f5] bg-[#f7f3ff] px-3 py-3 text-[#382080] dark:bg-[#241a3d] dark:text-[#ddd1ff]">
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[5px] bg-[#6f42f5] text-white"><BadgePercent className="h-4 w-4" /></span>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-bold">{discountType === 'percentage' ? `Discount ${discount.toFixed(discount % 1 === 0 ? 0 : 1)}%` : 'Order discount'}</p>
+                      <p className="mt-0.5 text-xs text-[#667085] dark:text-[#bdb5d1]">You save {formatCurrency(manualDiscountAmount)} on this order</p>
+                    </div>
+                    <button type="button" onClick={() => removeAppliedPromotion('discount')} disabled={mpesaLocksBasket} aria-label="Remove discount" title="Remove discount" className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-[#475467] transition-colors hover:bg-[#ede5ff] hover:text-[#101828] disabled:opacity-40 dark:text-[#d0c8df] dark:hover:bg-white/10"><Trash2 className="h-4 w-4" /></button>
+                  </div>
+                )}
+                {couponAmount > 0 && (
+                  <div className="flex items-center gap-3 rounded-[7px] border border-[#6f42f5] bg-[#f7f3ff] px-3 py-3 text-[#382080] dark:bg-[#241a3d] dark:text-[#ddd1ff]">
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[5px] bg-[#6f42f5] text-white"><BadgePercent className="h-4 w-4" /></span>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-bold">Coupon {couponCode}</p>
+                      <p className="mt-0.5 text-xs text-[#667085] dark:text-[#bdb5d1]">You save {formatCurrency(couponAmount)} on this order</p>
+                    </div>
+                    <button type="button" onClick={() => removeAppliedPromotion('coupon')} disabled={mpesaLocksBasket} aria-label="Remove coupon" title="Remove coupon" className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-[#475467] transition-colors hover:bg-[#ede5ff] hover:text-[#101828] disabled:opacity-40 dark:text-[#d0c8df] dark:hover:bg-white/10"><Trash2 className="h-4 w-4" /></button>
+                  </div>
+                )}
+              </section>
+            )}
+
             {/* Payment summary */}
             {checkoutStep === 'customer' && <section aria-labelledby="pos-payment-summary" className="overflow-hidden rounded-xl border border-[var(--dashboard-border)] bg-[var(--dashboard-surface)] text-[var(--dashboard-text)] shadow-sm dark:shadow-none">
               <div className="flex items-center justify-between border-b border-[var(--dashboard-border)] px-4 py-3">
@@ -2140,7 +2427,10 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
               <div className="rounded-xl border border-[#e4e7ec] bg-white p-3.5 dark:border-white/10 dark:bg-[#171717]">
                 <button
                   type="button"
-                  onClick={() => setCheckoutStep('payment')}
+                  onClick={() => {
+                    if (paymentMethod === 'cash' && !amountPaid) setAmountPaid(String(total))
+                    setCheckoutStep('payment')
+                  }}
                   style={{ backgroundColor: ui.primary, color: ui.primaryInk }}
                   className="flex w-full items-center justify-center gap-2 rounded-lg px-4 py-3.5 text-base font-bold transition-opacity hover:opacity-90"
                 >
@@ -2151,13 +2441,6 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
             )}
 
             {checkoutStep === 'payment' && <>
-            <button
-              type="button"
-              onClick={() => setCheckoutStep('customer')}
-              className="inline-flex items-center gap-1 rounded-lg px-1 py-1 text-xs font-semibold text-[#667085] transition-colors hover:text-[#101828] dark:text-[#a3a3a3] dark:hover:text-white"
-            >
-              ← Back to customer and order details
-            </button>
             {(prescriptionRequired || containsRestrictedMedicine) && <div className="rounded-xl border border-amber-300 bg-amber-50/60 p-3.5 dark:border-amber-900 dark:bg-amber-950/20">
               <div className="flex items-start gap-2"><ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-amber-700 dark:text-amber-300" /><div><p className="text-xs font-bold text-amber-950 dark:text-amber-100">Pharmacy sale record</p><p className="mt-0.5 text-[11px] text-amber-800 dark:text-amber-300">Record the supplied reference only. Pesaby does not provide clinical advice.</p></div></div>
               <div className="mt-3 grid gap-2 sm:grid-cols-2"><div><label className={ui.label}>Prescription reference {prescriptionRequired && <span className="text-red-600">*</span>}</label><input value={prescriptionReference} onChange={(event) => setPrescriptionReference(event.target.value)} maxLength={120} placeholder="Prescription or dispensing reference" className={cn(inputCls, 'h-10')} /></div><div><label className={ui.label}>Prescriber/reference details</label><input value={prescriberReference} onChange={(event) => setPrescriberReference(event.target.value)} maxLength={160} placeholder="Prescriber name or registration reference" className={cn(inputCls, 'h-10')} /></div><div><label className={ui.label}>Patient/reference</label><input value={patientReference} onChange={(event) => setPatientReference(event.target.value)} maxLength={160} placeholder="Patient or file reference" className={cn(inputCls, 'h-10')} /></div><div className="grid grid-cols-2 gap-2"><div><label className={ui.label}>Issued</label><input type="date" value={prescriptionIssuedAt} onChange={(event) => setPrescriptionIssuedAt(event.target.value)} className={cn(inputCls, 'h-10')} /></div><div><label className={ui.label}>Expires</label><input type="date" value={prescriptionExpiresAt} min={new Date().toISOString().slice(0, 10)} onChange={(event) => setPrescriptionExpiresAt(event.target.value)} className={cn(inputCls, 'h-10')} /></div></div></div>
@@ -2165,70 +2448,78 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
               {containsRestrictedMedicine && <p className={cn('mt-2 text-[11px] font-semibold', canApproveRestricted ? 'text-emerald-700 dark:text-emerald-300' : 'text-red-700 dark:text-red-300')}>{canApproveRestricted ? 'Restricted-item approval will be recorded under the current authorized user.' : 'This user cannot approve restricted-item sales. Ask an authorized pharmacist or manager.'}</p>}
             </div>}
             {/* Payment method */}
-            <div className="rounded-xl border border-[#e4e7ec] bg-white p-3.5 shadow-sm dark:border-white/10 dark:bg-[#171717]">
-              <div className="mb-2 flex items-center justify-between">
-                <label className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-[#667085] dark:text-[#9d9d9d]">Payment method</label>
-                <span className="rounded-full bg-[#fff3be] px-2 py-0.5 text-[10px] font-bold text-[#7a5a00] dark:bg-[rgba(255,214,10,.12)] dark:text-[#ffd60a]">F3–F5 to switch</span>
+            <div className="overflow-hidden bg-transparent font-sans">
+              <div className="flex items-center justify-between px-4 pb-3 pt-4">
+                <p className="text-xs font-bold uppercase tracking-[0.1em] text-[#667085] dark:text-[#a3a3a3]">Payment method</p>
+                <span className="rounded-full bg-[#fff9e6] px-2.5 py-1 text-[11px] font-bold text-[#806000] dark:bg-[rgba(255,214,10,.1)] dark:text-[#ffd60a]">F3–F6 to switch</span>
               </div>
-              <div className="grid grid-cols-3 gap-2" role="group" aria-label="Payment method">
+              <div className="grid grid-cols-2 gap-2.5 px-4 pb-4" role="group" aria-label="Payment method">
                 {([
-                  { key: 'cash', label: 'Cash', shortcut: 'F3' },
-                  { key: 'mpesa', label: 'M-Pesa', shortcut: 'F4' },
-                  { key: 'card', label: 'Card', shortcut: 'F5' },
+                  { key: 'cash', label: 'Cash', detail: 'Enter cash received', shortcut: 'F3' },
+                  { key: 'mpesa', label: 'M-Pesa', detail: 'STK Push · Till / PayBill', shortcut: 'F4' },
+                  { key: 'airtel_money', label: 'Airtel Money', detail: 'Confirm transaction code', shortcut: 'F6' },
+                  { key: 'card', label: 'Card', detail: 'Visa · Mastercard', shortcut: 'F5' },
+                  { key: 'bank_transfer', label: 'Bank transfer', detail: 'Confirm bank reference', shortcut: '' },
                 ] as const)
-                  .filter(({ key }) => settings.paymentMethods.includes(key))
-                  .map(({ key, label, shortcut }) => (
+                  .filter(({ key }) => key === 'airtel_money' || settings.paymentMethods.includes(key))
+                  .map(({ key, label, detail, shortcut }) => (
                     <button
                       key={key}
-                      onClick={() => setPaymentMethod(key)}
+                      onClick={() => { if (key !== paymentMethod) setMpesaRef(''); if (key === 'cash' && !amountPaid) setAmountPaid(String(total)); setPaymentMethod(key); setPaymentDialogOpen(true) }}
                       disabled={(!isOnline && key !== 'cash') || (mpesaLocksBasket && paymentMethod !== key)}
                       aria-pressed={paymentMethod === key}
                       aria-label={`${label} payment (${shortcut})`}
                       title={!isOnline && key !== 'cash' ? `${label} requires an internet connection` : `${label} (${shortcut})`}
-                      style={key === 'mpesa' ? { backgroundColor: '#11ad2d' } : undefined}
                       className={cn(
-                        'group relative flex h-[84px] items-center justify-center rounded-lg border-2 bg-white px-3 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-[#1c1c1c]',
-                        (key === 'cash' || key === 'mpesa' || key === 'card') && '!border-transparent !bg-transparent px-0 hover:!border-transparent hover:!bg-transparent dark:!bg-transparent',
-                        paymentMethod === key
-                          ? key === 'mpesa'
-                            ? '!border-transparent !bg-transparent text-white'
-                            : '!border-transparent !bg-transparent text-[#5f4600]'
-                          : key === 'mpesa'
-                            ? 'text-white'
-                            : key === 'card'
-                              ? 'text-white'
-                              : 'text-[#5f4600]'
+                        'group relative h-[68px] overflow-hidden rounded-lg border bg-white p-0 transition-colors duration-150 hover:border-[#98a2b3] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e94e1b]/25 disabled:cursor-not-allowed disabled:opacity-45 dark:bg-[#1c1c1c]',
+                        paymentMethod === key ? 'border-[#344054] ring-2 ring-[#344054]/15' : 'border-[#e4e7ec] dark:border-white/10'
                       )}
                     >
                       <PaymentBrand method={key} />
-                      {paymentMethod === key && <span className="absolute right-1.5 top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-white text-[#101828] shadow-sm"><CheckCircle2 className="h-3.5 w-3.5" /></span>}
-                      <span className="sr-only">{label}</span>
+                      <span className="sr-only">{label} · {detail}</span>{paymentMethod === key && <span className="absolute right-1.5 top-1.5 inline-flex h-5 w-5 items-center justify-center rounded-full border border-[#344054] bg-white text-[#344054]"><CheckCircle2 className="h-3.5 w-3.5" /></span>}
                     </button>
                   ))}
               </div>
-            </div>
 
+            {(paymentDialogOpen || checkoutStep === 'payment') && (
+            <div className="border-t border-[#e4e7ec]" role="region" aria-labelledby="payment-dialog-title">
+              <div className="w-full">
+                <h2 id="payment-dialog-title" className="sr-only">Payment details</h2>
+                <div>
             {paymentMethod === 'cash' && (
-              <div className="overflow-hidden rounded-xl border border-[#e4e7ec] border-t-2 border-t-[#e0a800] bg-white shadow-sm dark:border-white/10 dark:border-t-[#ffd60a] dark:bg-[#171717]">
-                <div className="flex items-center justify-between gap-3 border-b border-[#eef0f3] bg-[#fffdf5] px-3.5 py-3 dark:border-white/10 dark:bg-[rgba(255,214,10,.06)]">
+              <div>
+                <div className="hidden space-y-[18px]">
+                  <div className="grid grid-cols-3 gap-6">
+                    <label className="text-sm font-medium text-[#343a46]">Received Amount <span className="text-[#ff0000]">*</span><div className="relative mt-2"><span className="absolute inset-y-0 left-3 flex items-center text-xs text-[#344054]">KSh</span><input type="number" min={total} step="0.01" value={amountPaid} onChange={(event) => setAmountPaid(event.target.value)} className="h-10 w-full rounded-[5px] border border-[#d8dde5] bg-white pl-12 pr-3 text-sm outline-none focus:border-[#e94e1b]" /></div></label>
+                    <label className="text-sm font-medium text-[#343a46]">Paying Amount <span className="text-[#ff0000]">*</span><div className="relative mt-2"><span className="absolute inset-y-0 left-3 flex items-center text-xs text-[#344054]">KSh</span><input readOnly value={total.toFixed(2)} className="h-10 w-full rounded-[5px] border border-[#d8dde5] bg-white pl-12 pr-3 text-sm text-[#344054]" /></div></label>
+                    <label className="text-sm font-medium text-[#343a46]">Change<div className="relative mt-2"><span className="absolute inset-y-0 left-3 flex items-center text-xs text-[#344054]">KSh</span><input readOnly value={change.toFixed(2)} className="h-10 w-full rounded-[5px] border border-[#d8dde5] bg-white pl-12 pr-3 text-sm text-[#344054]" /></div></label>
+                  </div>
+                  <label className="block text-sm font-medium text-[#343a46]">Payment Type <span className="text-[#ff0000]">*</span><select value={paymentMethod} onChange={(event) => { setPaymentMethod(event.target.value as PosPaymentMethod); setMpesaRef('') }} className="mt-2 h-10 w-full rounded-[5px] border border-[#d8dde5] bg-white px-3 text-sm outline-none focus:border-[#e94e1b]">{settings.paymentMethods.filter((method): method is PosPaymentMethod => ['cash', 'mpesa', 'airtel_money', 'card', 'bank_transfer'].includes(method)).map((method) => <option key={method} value={method}>{method === 'mpesa' ? 'M-Pesa' : method === 'airtel_money' ? 'Airtel Money' : method === 'bank_transfer' ? 'Bank Transfer' : method[0].toUpperCase() + method.slice(1)}</option>)}</select></label>
+                  <label className="block text-sm font-medium text-[#343a46]">Payment Receiver<input value={paymentReceiver} onChange={(event) => setPaymentReceiver(event.target.value)} className="mt-2 h-10 w-full rounded-[5px] border border-[#d8dde5] bg-white px-3 text-sm outline-none focus:border-[#e94e1b]" /></label>
+                  <label className="block text-sm font-medium text-[#343a46]">Payment Note<textarea value={paymentNote} onChange={(event) => setPaymentNote(event.target.value)} placeholder="Type your message" className="mt-2 h-[85px] w-full resize-none rounded-[5px] border border-[#d8dde5] bg-white px-3 py-2 text-sm outline-none placeholder:text-[#a7adb7] focus:border-[#e94e1b]" /></label>
+                  <label className="block text-sm font-medium text-[#343a46]">Sale Note<textarea value={saleNote} onChange={(event) => setSaleNote(event.target.value)} placeholder="Type your message" className="mt-2 h-[85px] w-full resize-none rounded-[5px] border border-[#d8dde5] bg-white px-3 py-2 text-sm outline-none placeholder:text-[#a7adb7] focus:border-[#e94e1b]" /></label>
+                  <label className="block text-sm font-medium text-[#343a46]">Staff Note<textarea value={staffNote} onChange={(event) => setStaffNote(event.target.value)} placeholder="Type your message" className="mt-2 h-[85px] w-full resize-none rounded-[5px] border border-[#d8dde5] bg-white px-3 py-2 text-sm outline-none placeholder:text-[#a7adb7] focus:border-[#e94e1b]" /></label>
+                </div>
+              <div className="overflow-hidden bg-white dark:bg-[#171717]">
+                  <div className="flex items-center justify-between gap-3 border-b border-[#eef0f3] bg-[#fafbfc] px-3.5 py-3 dark:border-white/10 dark:bg-white/[.03]">
                     <div className="flex items-center gap-2.5">
-                      <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-white text-[#a47700] shadow-sm dark:bg-[#1b1b1b]"><Banknote className="h-4 w-4" /></span>
+                      <span className="flex h-8 w-8 items-center justify-center rounded-lg border border-[#f3d77a] bg-[#fff9e6] text-[#a56b00] dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-300"><Banknote className="h-4 w-4" /></span>
                       <div>
-                        <p className="text-sm font-bold tracking-tight text-[#241d00] dark:text-[#ffd60a]">Cash payment</p>
-                        <p className="mt-0.5 text-[11px] font-medium text-[#6f5600] dark:text-[#d9c05a]">Enter the tendered amount</p>
+                        <p className="text-[15px] font-bold tracking-tight text-[#101828] dark:text-white">Cash payment</p>
+                        <p className="mt-0.5 text-xs font-medium text-[#667085] dark:text-[#a3a3a3]">Enter the tendered amount</p>
                       </div>
                     </div>
                     <div className="text-right">
-                      <span className="block text-[9px] font-bold uppercase tracking-[0.12em] text-[#6f5600] dark:text-[#d9c05a]">Total due</span>
-                      <strong className="mt-0.5 block text-lg font-extrabold tabular-nums text-[#241d00] dark:text-white">{formatCurrency(total)}</strong>
+                      <span className="block text-[10px] font-bold uppercase tracking-[0.1em] text-[#6f5600] dark:text-[#d9c05a]">Total due</span>
+                      <strong className="mt-0.5 block text-xl font-extrabold tabular-nums text-[#241d00] dark:text-white">{formatCurrency(total)}</strong>
                     </div>
                   </div>
 
                 <div className="space-y-3.5 p-3.5">
                   <div>
-                    <div className="mb-1.5 flex items-center justify-between"><label className="text-xs font-bold text-[#344054] dark:text-white">Cash received</label><span className="text-[10px] font-medium text-[#667085] dark:text-[#a3a3a3]">Amount tendered</span></div>
+                    <div className="mb-1.5 flex items-center justify-between"><label className="text-sm font-bold text-[#344054] dark:text-white">Cash received</label><span className="text-xs font-medium text-[#667085] dark:text-[#a3a3a3]">Amount tendered</span></div>
                     <div className="relative">
-                      <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-xs font-bold text-[#a47700]">KSh</span>
+                      <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-xs font-bold text-[#a56b00]">KSh</span>
                       <input
                         type="number"
                         min={total}
@@ -2236,47 +2527,51 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
                         placeholder={formatCurrency(total).replace('KES', '').trim()}
                         value={amountPaid}
                         onChange={(e) => setAmountPaid(e.target.value)}
-                        className={cn(inputCls, 'h-11 border-[#d0d5dd] bg-white pl-12 text-base font-bold tabular-nums focus:border-[#e0a800] focus:ring-[#f2b705]/15 dark:bg-[#111113]')}
+                        className={cn(inputCls, 'h-12 appearance-none rounded-md border-[#d0d5dd] bg-white pl-14 text-base font-semibold tabular-nums shadow-none transition-colors focus:border-[#98a2b3] focus:ring-1 focus:ring-[#98a2b3]/20 dark:bg-[#111113] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none')}
                       />
                     </div>
                   </div>
                   <div>
-                    <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.12em] text-[#667085] dark:text-[#a3a3a3]">Quick tender</p>
-                    <div className="flex flex-wrap gap-1.5">
+                    <div className="mb-2 flex items-center gap-1.5">
+                      <p className="text-[11px] font-bold uppercase tracking-[0.1em] text-[#667085] dark:text-[#a3a3a3]">Quick tender</p>
+                      <span className="group/help relative inline-flex">
+                        <button type="button" aria-label="Quick tender help" aria-describedby="quick-tender-help" className="inline-flex h-5 w-5 items-center justify-center rounded-full text-[#b77900] outline-none transition-colors hover:text-[#7a5700] focus-visible:ring-2 focus-visible:ring-[#f5b800]/40 dark:text-[#ffd75a] dark:hover:text-[#ffe58a]"><Info className="h-4 w-4" /></button>
+                        <span id="quick-tender-help" role="tooltip" className="pointer-events-none absolute bottom-full left-1/2 z-20 mb-2 w-52 -translate-x-1/2 rounded-md border border-[#d7a400] bg-[#f5b800] px-2.5 py-2 text-center text-[11px] font-semibold normal-case leading-4 tracking-normal text-[#241d00] opacity-0 shadow-sm transition-opacity group-hover/help:opacity-100 group-focus-within/help:opacity-100 dark:border-[#f5b800] dark:bg-[#f5b800] dark:text-[#241d00]">Choose the exact tender or enter the amount received.</span>
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2">
                       {[total, ...[1000, 2000, 5000, 10000, 20000, 50000].filter((amount) => amount >= total)].filter((amount, index, values) => values.indexOf(amount) === index).slice(0, 5).map((amount) => (
-                        <button key={amount} type="button" onClick={() => setAmountPaid(String(amount))} className={cn('rounded-lg border px-2.5 py-2 text-xs font-bold transition-colors', amount === total ? 'border-[#e0a800] bg-[#fff3be] text-[#5f4600] hover:bg-[#ffec91] dark:bg-[rgba(255,214,10,.15)] dark:text-[#ffd60a]' : 'border-[#e4e7ec] bg-white text-[#475467] hover:border-[#f2b705] hover:bg-[#fffdf2] dark:border-white/10 dark:bg-transparent dark:text-[#d0d5dd]')}>
+                        <button key={amount} type="button" onClick={() => setAmountPaid(String(amount))} className={cn('h-12 w-full whitespace-nowrap rounded-md border px-1.5 text-xs font-semibold shadow-none transition-colors', amount === total ? 'border-[#d7a400] bg-[#fff9df] text-[#5f4800] hover:bg-[#fff3c0] dark:bg-amber-950/25 dark:text-amber-200' : 'border-[#dfe3e8] bg-white text-[#475467] hover:border-[#b8bec8] hover:bg-[#f9fafb] dark:border-white/10 dark:bg-transparent dark:text-[#d0d5dd]')}>
                           {amount === total ? `Exact · ${formatCurrency(total)}` : formatCurrency(amount)}
                         </button>
                       ))}
                     </div>
                   </div>
                   {parseFloat(amountPaid || '0') >= total ? (
-                    <div className="flex items-center justify-between rounded-lg border border-[#9addb0] bg-[#effcf2] px-3 py-2.5 text-[#145c2a] dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-300">
-                      <span className="flex items-center gap-1.5 text-xs font-bold"><CheckCircle2 className="h-4 w-4" /> Change due</span>
+                    <div className="flex items-center justify-between border-t border-[#e4e7ec] px-1 py-2.5 text-[#344054] dark:border-white/10 dark:text-white">
+                      <span className="flex items-center gap-1.5 text-xs font-bold"><CheckCircle2 className="h-4 w-4 text-[#6f5600]" /> Change due</span>
                       <strong className="text-base tabular-nums">{formatCurrency(change)}</strong>
                     </div>
-                  ) : (
-                    <div className="flex items-center gap-1.5 rounded-lg bg-[#f9fafb] px-3 py-2.5 text-[11px] font-medium text-[#667085] dark:bg-white/5 dark:text-[#a3a3a3]"><Zap className="h-3.5 w-3.5 text-[#a47700]" /> Choose the exact tender or enter the amount received.</div>
-                  )}
+                  ) : null}
                 </div>
-              </div>
+              </div></div>
             )}
 
             {paymentMethod === 'mpesa' && (
-              <div className="overflow-hidden rounded-xl border border-[#b9e6c2] border-t-2 border-t-[#11ad2d] bg-white shadow-sm dark:border-emerald-900 dark:border-t-[#11ad2d] dark:bg-[#171717]">
+              <div className="overflow-hidden bg-white dark:bg-[#171717]">
                 <div className="flex items-center justify-between gap-4 border-b border-[#e5efe7] px-3.5 py-3 dark:border-emerald-900/60">
                   <div className="flex min-w-0 items-center gap-2.5">
                       <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-[#d6ecda] bg-[#f5fcf6] dark:border-emerald-900 dark:bg-emerald-950/30">
                         <Image src="/payment-logos/mpesa.svg" alt="M-Pesa" width={52} height={22} className="h-4 w-auto" />
                       </span>
                       <div>
-                        <p className="text-sm font-bold tracking-tight text-[#183625] dark:text-emerald-100">M-Pesa payment</p>
-                        <p className="mt-0.5 text-[11px] text-[#66806c] dark:text-emerald-300">Confirmed automatically by Safaricom</p>
+                        <p className="text-sm font-bold tracking-tight text-[#183625] dark:text-emerald-100">{mpesaFlow === 'paybill' && mpesaRequestId ? 'M-Pesa — Pay manually' : 'M-Pesa payment'}</p>
+                        <p className="mt-0.5 text-[11px] text-[#66806c] dark:text-emerald-300">{mpesaStatus === 'success' ? 'Confirmed by Safaricom' : 'Payment verified before sale completion'}</p>
                       </div>
                   </div>
                   <div className="shrink-0 text-right">
                     <span className="block text-[9px] font-bold uppercase tracking-[0.12em] text-[#69816f] dark:text-emerald-400">Amount due</span>
-                    <strong className="mt-0.5 block text-base font-extrabold tabular-nums text-[#183625] dark:text-white">{formatCurrency(total)}</strong>
+                    <strong className="mt-0.5 block text-base font-extrabold tabular-nums text-[#183625] dark:text-white">{formatMpesaAmount(total)}</strong>
                   </div>
                 </div>
 
@@ -2284,86 +2579,112 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
                   <div>
                     <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.12em] text-[#66806c] dark:text-emerald-300">Payment option</p>
                     <div className="grid grid-cols-2 gap-2">
-                      <button type="button" onClick={() => { if (!mpesaLocksBasket) setMpesaFlow('stk') }} disabled={mpesaLocksBasket && mpesaFlow !== 'stk'} className={cn('flex min-h-[62px] items-center gap-2.5 rounded-lg border px-3 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-50', mpesaFlow === 'stk' ? 'border-[#11ad2d] bg-[#effcf1] dark:bg-emerald-950/30' : 'border-[#e4ece6] bg-white hover:border-[#85d993] hover:bg-[#f8fdf8] dark:border-white/10 dark:bg-transparent')}><span className={cn('flex h-7 w-7 shrink-0 items-center justify-center rounded-md', mpesaFlow === 'stk' ? 'bg-[#11ad2d] text-white' : 'bg-[#eff7f0] text-[#168337] dark:bg-emerald-950/40')}><Smartphone className="h-3.5 w-3.5" /></span><span><span className="block text-xs font-bold text-[#183625] dark:text-emerald-100">Send to phone</span><span className="mt-0.5 block text-[10px] text-[#6b7c71]">STK prompt</span></span></button>
-                      <button type="button" onClick={() => { if (!mpesaLocksBasket) setMpesaFlow('paybill') }} disabled={mpesaLocksBasket && mpesaFlow !== 'paybill'} className={cn('flex min-h-[62px] items-center gap-2.5 rounded-lg border px-3 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-50', mpesaFlow === 'paybill' ? 'border-[#11ad2d] bg-[#effcf1] dark:bg-emerald-950/30' : 'border-[#e4ece6] bg-white hover:border-[#85d993] hover:bg-[#f8fdf8] dark:border-white/10 dark:bg-transparent')}><span className={cn('flex h-7 w-7 shrink-0 items-center justify-center rounded-md', mpesaFlow === 'paybill' ? 'bg-[#11ad2d] text-white' : 'bg-[#eff7f0] text-[#168337] dark:bg-emerald-950/40')}><Building2 className="h-3.5 w-3.5" /></span><span><span className="block text-xs font-bold text-[#183625] dark:text-emerald-100">Till / PayBill</span><span className="mt-0.5 block text-[10px] text-[#6b7c71]">Pay manually</span></span></button>
+                      <button type="button" onClick={() => { if (!mpesaLocksBasket) setMpesaFlow('stk') }} disabled={mpesaLocksBasket && mpesaFlow !== 'stk'} className={cn('flex min-h-[62px] items-center gap-2.5 rounded-lg border px-3 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-50', mpesaFlow === 'stk' ? 'border-[#11ad2d] bg-[#effcf1] dark:bg-emerald-950/30' : 'border-[#e4ece6] bg-white hover:border-[#85d993] hover:bg-[#f8fdf8] dark:border-white/10 dark:bg-transparent')}><span className={cn('flex h-7 w-7 shrink-0 items-center justify-center rounded-md', mpesaFlow === 'stk' ? 'bg-[#11ad2d] text-white' : 'bg-[#eff7f0] text-[#168337] dark:bg-emerald-950/40')}><Smartphone className="h-3.5 w-3.5" /></span><span><span className="block text-xs font-bold text-[#183625] dark:text-emerald-100">Safaricom Prompt</span><span className="mt-0.5 block text-[10px] text-[#6b7c71]">Send STK Push</span></span></button>
+                      <button type="button" onClick={openManualMpesaFlow} disabled={mpesaLocksBasket && mpesaFlow !== 'paybill'} className={cn('flex min-h-[62px] items-center gap-2.5 rounded-lg border px-3 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-50', mpesaFlow === 'paybill' ? 'border-[#11ad2d] bg-[#effcf1] dark:bg-emerald-950/30' : 'border-[#e4ece6] bg-white hover:border-[#85d993] hover:bg-[#f8fdf8] dark:border-white/10 dark:bg-transparent')}><span className={cn('flex h-7 w-7 shrink-0 items-center justify-center rounded-md', mpesaFlow === 'paybill' ? 'bg-[#11ad2d] text-white' : 'bg-[#eff7f0] text-[#168337] dark:bg-emerald-950/40')}><Building2 className="h-3.5 w-3.5" /></span><span><span className="block text-xs font-bold text-[#183625] dark:text-emerald-100">Till / PayBill</span><span className="mt-0.5 block text-[10px] text-[#6b7c71]">Pay manually</span></span></button>
                     </div>
                   </div>
                 {mpesaFlow === 'stk' ? (
                   <div className="rounded-lg border border-[#e5efe7] bg-[#fafdfb] p-3 dark:border-emerald-900/60 dark:bg-emerald-950/20">
-                    <label className="mb-1.5 block text-xs font-bold text-[#183625] dark:text-emerald-200">Customer M-Pesa number</label>
-                    <div className="flex gap-2">
-                      <input
-                        type="tel"
-                        inputMode="tel"
-                        autoComplete="tel"
-                        placeholder="e.g. 0712 345 678"
-                        value={mpesaPhone}
-                        onChange={(event) => setMpesaPhone(event.target.value)}
-                        disabled={mpesaStatus === 'initiating' || mpesaStatus === 'pending' || mpesaStatus === 'success'}
-                        className={cn(inputCls, 'h-11 flex-1 border-[#c9e9ce] bg-white focus:border-[#11ad2d] focus:ring-[#11ad2d]/10 dark:bg-[#171717]')}
-                      />
-                      <button
-                        type="button"
-                        onClick={handleMpesaPrompt}
-                        disabled={!isOnline || mpesaStatus === 'initiating' || mpesaStatus === 'pending' || mpesaStatus === 'success' || (requiresAgeVerification && !ageVerified)}
-                        className="inline-flex min-w-[138px] items-center justify-center gap-2 rounded-lg bg-[#11ad2d] px-3 text-xs font-bold text-white transition-colors hover:bg-[#079c35] disabled:cursor-not-allowed disabled:opacity-50"
-                      >
-                        {(mpesaStatus === 'initiating' || mpesaStatus === 'pending') && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-                        {mpesaStatus === 'pending' ? 'Waiting…' : mpesaStatus === 'initiating' ? 'Sending…' : mpesaStatus === 'failed' || mpesaStatus === 'timeout' ? 'Try again' : mpesaStatus === 'success' ? 'Paid' : `Charge ${formatCurrency(total)} via M-Pesa`}
-                      </button>
-                    </div>
+                    {mpesaStatus === 'initiating' || mpesaStatus === 'pending' ? (
+                      <div className="py-2 text-center">
+                        <Loader2 className="mx-auto h-7 w-7 animate-spin text-[#11ad2d]" />
+                        <p className="mt-2 text-sm font-bold text-[#183625] dark:text-emerald-100">{mpesaStatus === 'initiating' ? 'Sending STK Push' : 'Waiting for payment'}</p>
+                        <p className="mt-1 text-xs text-[#66806c] dark:text-emerald-300">STK Push sent to <strong>{maskKenyanPhone(mpesaPhone)}</strong></p>
+                        <p className="mx-auto mt-2 max-w-xs text-[11px] leading-4 text-[#66806c] dark:text-emerald-300">Ask the customer to check their phone and enter their M-Pesa PIN.</p>
+                        <div className="mt-3 flex justify-center gap-2">
+                          <button type="button" onClick={() => void checkMpesaStatusNow()} className="h-9 rounded-md border border-[#b9d9c0] bg-white px-3 text-xs font-bold text-[#176b2c] shadow-none hover:bg-[#f4fbf5] dark:border-emerald-800 dark:bg-transparent dark:text-emerald-300">Check status</button>
+                          <button type="button" onClick={() => resetMpesaPrompt(true)} className="h-9 rounded-md px-3 text-xs font-semibold text-[#475467] hover:bg-white dark:text-[#d0d5dd] dark:hover:bg-white/5">Change phone</button>
+                        </div>
+                      </div>
+                    ) : mpesaStatus === 'success' ? (
+                      <div className="py-2 text-center">
+                        <CheckCircle2 className="mx-auto h-7 w-7 text-[#11ad2d]" />
+                        <p className="mt-2 text-sm font-bold text-[#183625] dark:text-emerald-100">M-Pesa payment received</p>
+                        <p className="mt-1 text-base font-extrabold text-[#183625] dark:text-white">{formatMpesaAmount(total)}</p>
+                        <p className="mt-1 text-xs text-[#66806c]">Receipt <strong>{mpesaRef}</strong> · Completing sale…</p>
+                      </div>
+                    ) : mpesaStatus === 'failed' || mpesaStatus === 'timeout' || mpesaStatus === 'cancelled' ? (
+                      <div className="py-1">
+                        <p className="text-sm font-bold text-[#7a271a] dark:text-red-300">{mpesaStatus === 'cancelled' ? 'Payment cancelled' : mpesaStatus === 'timeout' ? 'Payment not confirmed' : 'M-Pesa payment failed'}</p>
+                        <p className="mt-1 text-xs leading-4 text-[#667085] dark:text-[#b8b8b8]">{mpesaMessage || (mpesaStatus === 'cancelled' ? 'The customer cancelled the M-Pesa request.' : 'No payment confirmation was received.')}</p>
+                        <p className="mt-1 text-xs font-semibold text-[#344054] dark:text-white">{formatMpesaAmount(total)} was not confirmed.</p>
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {mpesaStatus === 'timeout' && <button type="button" onClick={() => void checkMpesaStatusNow()} className="h-9 rounded-md border border-[#d0d5dd] bg-white px-3 text-xs font-bold text-[#344054]">Check status</button>}
+                          <button type="button" onClick={() => void prepareNewMpesaPrompt()} className="h-9 rounded-md bg-[#11ad2d] px-3 text-xs font-bold text-white">Send new request</button>
+                          <button type="button" onClick={() => resetMpesaPrompt(true)} className="h-9 rounded-md px-3 text-xs font-semibold text-[#475467] dark:text-[#d0d5dd]">Change number</button>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <label className="mb-1.5 block text-xs font-bold text-[#183625] dark:text-emerald-200">Customer phone number</label>
+                        <input type="tel" inputMode="tel" autoComplete="tel" placeholder="0712 345 678" value={mpesaPhone} onChange={(event) => setMpesaPhone(event.target.value)} className={cn(inputCls, 'h-11 w-full border-[#c9e9ce] bg-white focus:border-[#11ad2d] focus:ring-[#11ad2d]/10 dark:bg-[#171717]')} />
+                        <p className="mt-2 text-[11px] text-[#66806c] dark:text-emerald-300">An M-Pesa prompt will be sent to this phone.</p>
+                        <button type="button" onClick={handleMpesaPrompt} disabled={!isOnline} className="mt-3 inline-flex h-11 w-full items-center justify-center rounded-lg bg-[#11ad2d] px-3 text-xs font-bold text-white transition-colors hover:bg-[#079c35] disabled:cursor-not-allowed disabled:opacity-50">Send STK Push · {formatMpesaAmount(total, false)}</button>
+                      </>
+                    )}
                   </div>
                 ) : (
                   <div className="space-y-2 rounded-lg border border-[#e5efe7] bg-[#fafdfb] p-3 dark:border-emerald-900/60 dark:bg-emerald-950/20">
-                    {!mpesaAccountReference || mpesaStatus === 'failed' || mpesaStatus === 'timeout' ? (
-                      <button
-                        type="button"
-                        onClick={handlePaybillPayment}
-                        disabled={!isOnline || mpesaStatus === 'initiating' || mpesaStatus === 'pending' || mpesaStatus === 'success' || (requiresAgeVerification && !ageVerified)}
-                        className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-[#11ad2d] px-3 text-xs font-bold text-white transition-colors hover:bg-[#079c35] disabled:cursor-not-allowed disabled:opacity-50"
-                      >
-                        {mpesaStatus === 'initiating' && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-                        {mpesaStatus === 'initiating' ? 'Preparing payment details…' : 'Generate payment details'}
-                      </button>
+                    {!mpesaRequestId || mpesaStatus === 'failed' || mpesaStatus === 'timeout' ? (
+                      <div className="py-3 text-center">
+                        {mpesaStatus === 'initiating' ? <Loader2 className="mx-auto h-6 w-6 animate-spin text-[#11ad2d]" /> : <AlertTriangle className="mx-auto h-6 w-6 text-[#b54708]" />}
+                        <p className="mt-2 text-sm font-bold text-[#183625] dark:text-emerald-100">{mpesaStatus === 'initiating' ? 'Loading payment details' : 'Payment details unavailable'}</p>
+                        <p className="mt-1 text-[11px] text-[#667085] dark:text-[#b8b8b8]">{mpesaStatus === 'initiating' ? 'Preparing the branch Till or PayBill account.' : mpesaMessage}</p>
+                        {mpesaStatus !== 'initiating' && <button type="button" onClick={() => void handlePaybillPayment()} disabled={!isOnline} className="mt-3 h-9 rounded-md border border-[#b9d9c0] bg-white px-4 text-xs font-bold text-[#176b2c] dark:border-emerald-800 dark:bg-transparent dark:text-emerald-300">Try again</button>}
+                        {mpesaStatus === 'initiating' ? 'Preparing payment details…' : 'Continue to payment instructions'}
+                      </div>
                     ) : (
-                      <div className={cn('grid gap-2', mpesaAccountType === 'paybill' ? 'grid-cols-2' : 'grid-cols-1')}>
-                        <div className="rounded-lg border border-[#c9e9ce] bg-white p-3 dark:border-emerald-900 dark:bg-[#171717]">
+                      <div className="grid grid-cols-2 gap-2">
+                        {mpesaManualAccounts.length > 1 && <div className="col-span-2"><p className="mb-1.5 text-xs font-bold text-[#183625] dark:text-emerald-200">Pay using</p><div className="grid grid-cols-2 gap-2">{mpesaManualAccounts.map((account) => <button key={`${account.accountType}-${account.shortcode}`} type="button" onClick={() => void changeManualMpesaMode(account.accountType)} disabled={mpesaStatus === 'initiating'} className={cn('h-10 rounded-md border text-xs font-bold transition-colors disabled:opacity-50', mpesaAccountType === account.accountType ? 'border-[#11ad2d] bg-[#effcf1] text-[#176b2c] dark:bg-emerald-950/30 dark:text-emerald-200' : 'border-[#dfe5e0] bg-white text-[#475467] hover:border-[#85d993] dark:border-white/10 dark:bg-transparent dark:text-[#d0d5dd]')}>{account.accountType === 'till' ? 'Till Number' : 'PayBill'}</button>)}</div></div>}
+                        <div className={cn('rounded-lg border border-[#c9e9ce] bg-white p-3 dark:border-emerald-900 dark:bg-[#171717]', mpesaAccountType === 'till' && 'col-span-2')}>
                           <span className="block text-[9px] font-bold uppercase tracking-wider text-[#69816f]">{mpesaAccountType === 'till' ? 'Till number' : 'PayBill number'}</span>
-                          <strong className="mt-1 block text-lg tabular-nums text-[#183625] dark:text-white">{mpesaShortcode}</strong>
+                          <span className="mt-1 flex items-center justify-between gap-3"><strong className="text-xl tabular-nums text-[#183625] dark:text-white">{mpesaShortcode}</strong><button type="button" onClick={() => void copyManualPaymentValue(mpesaShortcode, mpesaAccountType === 'till' ? 'Till number' : 'PayBill number')} className="inline-flex h-7 items-center gap-1 rounded px-2 text-[10px] font-semibold text-[#43784f] hover:bg-[#effcf1] dark:text-emerald-300"><Copy className="h-3 w-3" />Copy</button></span>
+                          {mpesaMerchantName && <span className="mt-1 block text-[10px] text-[#667085] dark:text-[#b8b8b8]">Pay to {mpesaMerchantName}</span>}
                         </div>
                         {mpesaAccountType === 'paybill' && <div className="rounded-lg border border-[#c9e9ce] bg-white p-3 dark:border-emerald-900 dark:bg-[#171717]">
                           <span className="block text-[9px] font-bold uppercase tracking-wider text-[#69816f]">Account reference</span>
-                          <strong className="mt-1 block text-lg tracking-wide text-[#183625] dark:text-white">{mpesaAccountReference}</strong>
+                          <span className="mt-1 flex items-center justify-between gap-3"><strong className="text-lg tracking-wide text-[#183625] dark:text-white">{mpesaAccountReference}</strong><button type="button" onClick={() => void copyManualPaymentValue(mpesaAccountReference, 'Account number')} className="inline-flex h-7 items-center gap-1 rounded px-2 text-[10px] font-semibold text-[#43784f] hover:bg-[#effcf1] dark:text-emerald-300"><Copy className="h-3 w-3" />Copy</button></span>
                         </div>}
-                        <p className="col-span-2 flex items-center gap-1.5 text-[11px] leading-4 text-[#43784f] dark:text-emerald-400">
-                          <Zap className="h-3.5 w-3.5 shrink-0 text-[#11ad2d]" /> Pay exactly <strong>{formatCurrency(total)}</strong>; this screen confirms automatically.
-                        </p>
+                        <div className="col-span-2 rounded-md border border-[#e4ece6] bg-white px-3 py-2.5 dark:border-white/10 dark:bg-transparent"><span className="block text-[9px] font-bold uppercase tracking-wider text-[#69816f]">Amount</span><strong className="mt-1 block text-lg tabular-nums text-[#183625] dark:text-white">{formatMpesaAmount(total)}</strong></div>
+                        <div className="col-span-2 rounded-md border border-[#e4ece6] bg-white px-3 py-2.5 text-[11px] leading-5 text-[#475467] dark:border-white/10 dark:bg-transparent dark:text-[#d0d5dd]">
+                          <p className="mb-1 font-bold text-[#183625] dark:text-emerald-200">How to pay</p>
+                          <ol className="list-inside list-decimal">
+                            <li>Open M-Pesa</li>
+                            <li>Select Lipa na M-Pesa</li>
+                            <li>Select {mpesaAccountType === 'till' ? 'Buy Goods and Services' : 'PayBill'}</li>
+                            <li>Enter {mpesaAccountType === 'till' ? 'Till' : 'PayBill'} {mpesaShortcode}</li>
+                            {mpesaAccountType === 'paybill' && <li>Enter account {mpesaAccountReference}</li>}
+                            <li>Enter {formatMpesaAmount(total, false)}</li>
+                            <li>Confirm and enter M-Pesa PIN</li>
+                          </ol>
+                        </div>
+                        <div className="col-span-2 flex items-center justify-center gap-2 py-1 text-xs font-semibold text-[#43784f] dark:text-emerald-300"><Loader2 className="h-4 w-4 animate-spin text-[#11ad2d]" />Waiting for Safaricom confirmation…</div>
+                        <div className="col-span-2 grid grid-cols-3 gap-2">
+                          <button type="button" onClick={() => void checkMpesaStatusNow()} className="h-9 rounded-md border border-[#b9d9c0] bg-white text-xs font-bold text-[#176b2c] dark:border-emerald-800 dark:bg-transparent dark:text-emerald-300">Check for payment</button>
+                          <button type="button" onClick={() => void findManualPayment()} className="h-9 rounded-md border border-[#b9d9c0] bg-white text-xs font-bold text-[#176b2c] dark:border-emerald-800 dark:bg-transparent dark:text-emerald-300">Find payment</button>
+                          <button type="button" onClick={() => resetMpesaPrompt(false)} className="h-9 rounded-md border border-[#dfe5e0] bg-white text-xs font-semibold text-[#475467] dark:border-white/10 dark:bg-transparent dark:text-[#d0d5dd]">Change payment details</button>
+                        </div>
                       </div>
                     )}
                   </div>
-                )}
-                {requiresAgeVerification && !ageVerified && (
-                  <p className="flex items-center gap-1.5 text-[11px] font-medium text-[#b54708]">
-                    <AlertTriangle className="h-3.5 w-3.5 shrink-0" /> Complete the age check before sending the payment prompt
-                  </p>
                 )}
                 {!isOnline && (
                   <p className="flex items-center gap-1.5 rounded-lg border border-[#fedf89] bg-[#fffaeb] px-3 py-2.5 text-[11px] font-medium text-[#93370d]">
                     <AlertTriangle className="h-3.5 w-3.5 shrink-0" /> M-Pesa confirmation unavailable. Reconnect, retry, or choose another payment method.
                   </p>
                 )}
-                {mpesaStatus !== 'idle' && (
+                {mpesaFlow === 'paybill' && mpesaStatus !== 'idle' && (
                   <div
                     className={cn(
                       'flex items-start gap-2 rounded-lg border px-3 py-2.5 text-[11px] font-medium',
                       mpesaStatus === 'success' ? 'border-[#bbf0d0] bg-[#effcf1] text-[#0c4a26] dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-300' :
-                      mpesaStatus === 'failed' || mpesaStatus === 'timeout' ? 'border-[#fecdca] bg-[#fef3f2] text-[#b42318] dark:border-red-900 dark:bg-red-950/30 dark:text-red-300' :
+                      mpesaStatus === 'failed' || mpesaStatus === 'timeout' || mpesaStatus === 'cancelled' ? 'border-[#fecdca] bg-[#fef3f2] text-[#b42318] dark:border-red-900 dark:bg-red-950/30 dark:text-red-300' :
                       'border-[#bdebc6] bg-[#f2fcf4] text-[#246e36] dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-300'
                     )}
                     role="status"
                     aria-live="polite"
                   >
-                    {mpesaStatus === 'success' ? <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0" /> : mpesaStatus === 'failed' || mpesaStatus === 'timeout' ? <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" /> : <Loader2 className="mt-0.5 h-3.5 w-3.5 shrink-0 animate-spin" />}
+                    {mpesaStatus === 'success' ? <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0" /> : mpesaStatus === 'failed' || mpesaStatus === 'timeout' || mpesaStatus === 'cancelled' ? <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" /> : <Loader2 className="mt-0.5 h-3.5 w-3.5 shrink-0 animate-spin" />}
                     <span>{mpesaStatus === 'success' ? `Payment received · ${mpesaRef}` : mpesaMessage}</span>
                   </div>
                 )}
@@ -2372,60 +2693,66 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
             )}
 
             {paymentMethod === 'card' && (
-              <div className={cn(ui.card, 'space-y-3 p-3.5')}>
-                <div className="flex gap-2 rounded-lg bg-[#fffaeb] p-2.5 ring-1 ring-inset ring-[#fedf89]">
-                  <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0 text-[#b54708]" />
-                  <p className="text-xs font-medium text-[#93370d]">Confirm approval on the card terminal before completing this sale.</p>
-                </div>
-                <div>
-                  <label className={ui.label}>Approval / terminal reference <span className="text-[#d92d20]">*</span></label>
+              <div className="overflow-hidden bg-white dark:bg-[#171717]">
+                <div className="flex items-center justify-between border-b bg-[#fff7f7] px-3.5 py-3 dark:border-white/10 dark:bg-red-950/15"><div className="flex items-center gap-2.5"><PaymentBrand method="card" compact /><div><p className="text-sm font-bold">Card payment</p><p className="text-[11px] text-[#667085]">Charge this exact amount on the physical terminal</p></div></div><div className="text-right"><span className="block text-[9px] font-bold uppercase tracking-wider text-[#667085]">Amount to charge</span><strong className="text-base tabular-nums">{formatCurrency(total)}</strong></div></div>
+                <div className="space-y-3 p-3.5">
+                  <div><label className={ui.label}>Terminal</label><select className={cn(inputCls, 'h-10')} defaultValue="counter-01"><option value="counter-01">Counter Terminal 01</option></select></div>
+                  <div>
+                  <label className={ui.label}>Authorization code <span className="text-[#d92d20]">*</span></label>
                   <input
                     type="text"
-                    placeholder="Enter terminal approval reference"
+                    placeholder="Enter approval code"
                     value={mpesaRef}
                     onChange={(event) => setMpesaRef(event.target.value.toUpperCase())}
                     className={cn(inputCls, 'h-10')}
                   />
                 </div>
+                  <div><label className={ui.label}>Reference / RRN <span className="font-normal text-[#98a2b3]">(optional)</span></label><input type="text" placeholder="Enter retrieval reference" value={paymentReceiver} onChange={(event) => setPaymentReceiver(event.target.value.toUpperCase())} className={cn(inputCls, 'h-10')} /></div>
+                  <label className="flex cursor-pointer items-start gap-2.5 rounded-lg border border-[#e4e7ec] bg-[#f9fafb] p-3 text-xs font-semibold text-[#344054] dark:border-white/10 dark:bg-white/5 dark:text-white"><input type="checkbox" checked={cardApproved} onChange={(event) => setCardApproved(event.target.checked)} className="mt-0.5 h-4 w-4 accent-[#e42527]" /><span><span className="block">I confirm the terminal shows APPROVED</span><span className="mt-0.5 block text-[10px] font-normal text-[#667085]">Never record the card number, CVV, or PIN.</span></span></label>
+                </div>
               </div>
             )}
 
-            {requiresAgeVerification && (
-              <button
-                type="button"
-                onClick={() => setShowAgeVerification(true)}
-                className={cn(
-                  'flex w-full items-center gap-2 rounded-lg border px-3 py-2.5 text-left text-xs font-medium transition-colors',
-                  ageVerified
-                    ? 'border-[#bbf0d0] bg-[#effbf3] text-[#0c4a26] dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-300'
-                    : 'border-[#fedf89] bg-[#fffaeb] text-[#93370d] hover:bg-[#fef3d6] dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-300'
-                )}
-              >
-                <ShieldCheck className="h-4 w-4 shrink-0" />
-                <span>{ageVerified ? 'Age check recorded for this sale' : 'Age check required before charging'}</span>
-              </button>
+            {paymentMethod === 'bank_transfer' && (
+              <div className="overflow-hidden bg-white dark:bg-[#171717]">
+                <div className="flex items-center justify-between border-b bg-[#fff7f7] px-3.5 py-3 dark:border-white/10 dark:bg-red-950/15"><div className="flex items-center gap-2.5"><PaymentBrand method="bank_transfer" compact /><div><p className="text-sm font-bold">Bank transfer</p><p className="text-[11px] text-[#667085]">Record the confirmed transfer</p></div></div><strong className="text-base tabular-nums">{formatCurrency(total)}</strong></div>
+                <div className="space-y-3 p-3.5"><div><label className={ui.label}>Bank transaction reference <span className="text-[#d92d20]">*</span></label><input type="text" placeholder="Enter confirmed bank reference" value={mpesaRef} onChange={(event) => setMpesaRef(event.target.value.toUpperCase())} className={cn(inputCls, 'h-10')} /></div><p className="flex items-center gap-2 rounded-lg bg-[#f9fafb] px-3 py-2.5 text-[11px] text-[#667085] dark:bg-white/5"><ShieldCheck className="h-3.5 w-3.5 text-[#e42527]" />Verify the funds before completing the sale.</p></div>
+              </div>
             )}
 
-            {paymentMethod !== 'mpesa' && <button
+            {paymentMethod === 'airtel_money' && (
+              <div className="overflow-hidden bg-white dark:bg-[#171717]">
+                <div className="flex items-center justify-between border-b bg-[#fff6f6] px-4 py-3"><div className="flex items-center gap-3"><span className="flex h-11 w-16 items-center justify-center rounded-md bg-[#ed1c24] px-2"><Image src="/payment-logos/airtel-money.svg" alt="Airtel Money" width={64} height={28} /></span><div><p className="text-sm font-bold text-[#252b36]">Airtel Money</p><p className="text-[11px] text-[#667085]">Confirm the customer transaction</p></div></div><strong className="text-base tabular-nums">{formatCurrency(total)}</strong></div>
+                <div className="p-4"><label className="block text-sm font-medium text-[#343a46]">Transaction Reference <span className="text-[#ff0000]">*</span><input value={mpesaRef} onChange={(event) => setMpesaRef(event.target.value.toUpperCase())} placeholder="Enter Airtel Money reference" className="mt-2 h-10 w-full rounded-[5px] border border-[#d8dde5] bg-white px-3 text-sm outline-none focus:border-[#e94e1b]" /></label></div>
+              </div>
+            )}
+
+            {paymentMethod !== 'mpesa' && <div className="flex gap-2 border-t border-[#e4e7ec] p-4 dark:border-white/10"><button type="button" onClick={() => setCheckoutStep('customer')} className="h-[50px] rounded-lg border border-[#d0d5dd] bg-white px-5 text-sm font-semibold text-[#344054] shadow-none transition-colors hover:bg-[#f9fafb]">Back</button><button
               onClick={handleCheckout}
-              disabled={processing || cart.length === 0 || !hasActiveShift}
+              disabled={processing || cart.length === 0 || !hasActiveShift || (paymentMethod === 'cash' && parseFloat(amountPaid || '0') < total) || (paymentMethod === 'card' && (!mpesaRef.trim() || !cardApproved)) || (paymentMethod === 'airtel_money' && !mpesaRef.trim()) || (paymentMethod === 'bank_transfer' && !mpesaRef.trim())}
               className={cn(
-                'flex w-full items-center justify-center gap-2 rounded-xl py-3.5 text-sm font-bold shadow-[0_4px_12px_rgba(16,24,40,.16)] transition-colors',
-                processing || cart.length === 0 || !hasActiveShift
+                'flex h-[50px] flex-1 items-center justify-center gap-2 rounded-lg px-4 text-sm font-bold shadow-none transition-colors',
+                processing || cart.length === 0 || !hasActiveShift || (paymentMethod === 'cash' && parseFloat(amountPaid || '0') < total) || (paymentMethod === 'card' && (!mpesaRef.trim() || !cardApproved)) || (paymentMethod === 'airtel_money' && !mpesaRef.trim()) || (paymentMethod === 'bank_transfer' && !mpesaRef.trim())
                   ? 'cursor-not-allowed !bg-[#e4e7ec] !text-[#667085] shadow-none dark:!bg-white/10 dark:!text-[#8b8b8b]'
-                  : 'hover:opacity-90'
+                  : 'hover:bg-[#e2a900]'
               )}
-              style={processing || cart.length === 0 || !hasActiveShift ? undefined : { backgroundColor: ui.primary, color: ui.primaryInk }}
+              style={processing || cart.length === 0 || !hasActiveShift ? undefined : { backgroundColor: '#f5b800', color: '#241d00' }}
             >
               {processing ? (
-                <><Loader2 className="h-4 w-4 animate-spin" /> Processing…</>
+                <><Loader2 className="h-4 w-4 animate-spin" />{paymentMethod === 'cash' ? 'Processing cash sale…' : paymentMethod === 'card' ? 'Recording card payment…' : 'Processing payment…'}</>
               ) : (
                 <>
-                  <CheckCircle2 className="h-4 w-4" />
-                  {!hasActiveShift ? 'Start shift to take payment' : `Complete sale · ${formatCurrency(total)}`}
+                  <CheckCircle2 className="hidden h-4 w-4" />
+                  {!hasActiveShift ? 'Start shift to take payment' : paymentMethod === 'cash' ? `Complete cash sale · ${formatCurrency(total)}` : paymentMethod === 'card' ? `Complete card sale · ${formatCurrency(total)}` : paymentMethod === 'airtel_money' ? `Record Airtel payment · ${formatCurrency(total)}` : `Complete sale · ${formatCurrency(total)}`}
                 </>
               )}
-            </button>}
+            </button></div>}
+            {paymentMethod === 'mpesa' && <div className="flex border-t border-[#e4e7ec] p-4 dark:border-white/10"><button type="button" onClick={() => setCheckoutStep('customer')} disabled={mpesaLocksBasket} className="h-[50px] rounded-lg border border-[#d0d5dd] bg-white px-5 text-sm font-semibold text-[#344054] shadow-none transition-colors hover:bg-[#f9fafb] disabled:cursor-not-allowed disabled:opacity-50">Back</button></div>}
+                </div>
+              </div>
+            </div>
+            )}
+            </div>
             </>}
           </div>
         )}
@@ -2437,7 +2764,7 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
             <button type="button" onClick={() => void holdSale()} disabled={!canHold || cart.length === 0 || Boolean(heldSaleActionId)} className="inline-flex shrink-0 items-center justify-center gap-2 rounded-[5px] border border-[#E04F16] bg-[#E04F16] px-[0.85rem] py-[0.4rem] text-[0.85rem] font-semibold leading-normal text-white shadow-[0_4px_20px_rgba(224,79,22,0.15)] transition-all duration-500 hover:border-[#BF4313] hover:bg-[#BF4313] hover:shadow-[0_3px_10px_rgba(224,79,22,0.5)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E04F16]/40 disabled:cursor-not-allowed disabled:opacity-[0.65]"><PauseCircle className="h-4 w-4" />Hold</button>
             <button type="button" onClick={voidCurrentSale} disabled={cart.length === 0} className="inline-flex shrink-0 items-center justify-center gap-2 rounded-[5px] border border-[#155EEF] bg-[#155EEF] px-[0.85rem] py-[0.4rem] text-[0.85rem] font-semibold leading-normal text-white shadow-[0_4px_20px_rgba(21,94,239,0.15)] transition-all duration-500 hover:border-[#0E50D2] hover:bg-[#0E50D2] hover:shadow-[0_3px_10px_rgba(21,94,239,0.5)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#155EEF]/40 disabled:cursor-not-allowed disabled:opacity-[0.65]"><Trash2 className="h-4 w-4" />Void</button>
             <button type="button" onClick={openCheckout} disabled={cart.length === 0 || !hasActiveShift} className="inline-flex shrink-0 items-center justify-center gap-2 rounded-[5px] border border-[#06AED4] bg-[#06AED4] px-[0.85rem] py-[0.4rem] text-[0.85rem] font-semibold leading-normal text-white shadow-[0_4px_20px_rgba(6,174,212,0.15)] transition-all duration-500 hover:border-[#0592B1] hover:bg-[#0592B1] hover:shadow-[0_3px_10px_rgba(6,174,212,0.5)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#06AED4]/40 disabled:cursor-not-allowed disabled:opacity-[0.65]"><WalletCards className="h-4 w-4" />Payment</button>
-            <button type="button" onClick={openHeldOrders} className="inline-flex shrink-0 items-center justify-center gap-2 rounded-[5px] border border-[#092C4C] bg-[#092C4C] px-[0.85rem] py-[0.4rem] text-[0.85rem] font-semibold leading-normal text-white shadow-[0_4px_20px_rgba(9,44,76,0.15)] transition-all duration-500 hover:border-[#05192C] hover:bg-[#05192C] hover:shadow-[0_3px_10px_rgba(9,44,76,0.5)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#092C4C]/40"><ArchiveRestore className="h-4 w-4" />View Orders</button>
+            <button type="button" onClick={openHeldOrders} disabled={!canHold} title="Open and resume held sales" className="relative inline-flex shrink-0 items-center justify-center gap-2 rounded-[5px] border border-[#092C4C] bg-[#092C4C] px-[0.85rem] py-[0.4rem] text-[0.85rem] font-semibold leading-normal text-white shadow-[0_4px_20px_rgba(9,44,76,0.15)] transition-all duration-500 hover:border-[#05192C] hover:bg-[#05192C] hover:shadow-[0_3px_10px_rgba(9,44,76,0.5)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#092C4C]/40 disabled:cursor-not-allowed disabled:opacity-50"><ArchiveRestore className="h-4 w-4" />Held{heldSales.length > 0 && <span className="inline-flex min-w-5 items-center justify-center rounded-full bg-white px-1.5 text-[10px] font-extrabold text-[#092C4C]">{heldSales.length}</span>}</button>
             <button type="button" onClick={resetRegister} className="inline-flex shrink-0 items-center justify-center gap-2 rounded-[5px] border border-[#3538CD] bg-[#3538CD] px-[0.85rem] py-[0.4rem] text-[0.85rem] font-semibold leading-normal text-white shadow-[0_4px_20px_rgba(53,56,205,0.15)] transition-all duration-500 hover:border-[#2C2FB2] hover:bg-[#2C2FB2] hover:shadow-[0_3px_10px_rgba(53,56,205,0.5)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3538CD]/40"><RefreshCw className="h-4 w-4" />Reset</button>
             <button type="button" onClick={() => setShowSalesHistory(true)} className="inline-flex shrink-0 items-center justify-center gap-2 rounded-[5px] border border-[#FF0000] bg-[#FF0000] px-[0.85rem] py-[0.4rem] text-[0.85rem] font-semibold leading-normal text-white shadow-[0_4px_20px_rgba(255,0,0,0.15)] transition-all duration-500 hover:border-[#DB0000] hover:bg-[#DB0000] hover:shadow-[0_3px_10px_rgba(255,0,0,0.5)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF0000]/40"><History className="h-4 w-4" />Transaction</button>
           </div>
@@ -2446,7 +2773,7 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
 
       {summaryEditor && (
         <div
-          className="fixed inset-0 z-[90] flex items-center justify-center bg-[#0c111d]/55 p-4 backdrop-blur-[1px]"
+          className="fixed inset-0 z-[90] flex items-center justify-center bg-black/50 p-4"
           role="dialog"
           aria-modal="true"
           aria-labelledby="summary-editor-title"
@@ -2454,96 +2781,88 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
             if (event.target === event.currentTarget) setSummaryEditor(null)
           }}
         >
-          <div className="w-full max-w-lg overflow-hidden rounded-xl border border-[var(--dashboard-border)] bg-[var(--dashboard-surface)] text-[var(--dashboard-text)] shadow-[0_24px_70px_rgba(16,24,40,.30)]">
-            <div className="flex items-center justify-between border-b border-[var(--dashboard-border)] px-5 py-4">
+          <div className="w-full max-w-lg overflow-hidden rounded-[7px] border border-[var(--dashboard-border)] bg-[var(--dashboard-surface)] text-[var(--dashboard-text)] shadow-[0_8px_24px_rgba(16,24,40,.16)]">
+            <div className="flex h-[58px] items-center justify-between border-b border-[var(--dashboard-border)] px-5">
               <div className="flex min-w-0 items-center gap-3">
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-[var(--dashboard-accent-soft-border)] bg-[var(--dashboard-accent-soft)] text-[var(--dashboard-accent)]">
-                  {summaryEditor === 'tax' ? <Banknote className="h-4 w-4" /> : summaryEditor === 'shipping' ? <Package className="h-4 w-4" /> : <BadgePercent className="h-4 w-4" />}
-                </span>
                 <div className="min-w-0">
-                  <h2 id="summary-editor-title" className="text-base font-bold tracking-tight">
-                    {summaryEditor === 'tax' ? 'Order tax' : summaryEditor === 'shipping' ? 'Shipping cost' : summaryEditor === 'coupon' ? 'Coupon' : 'Discount'}
+                  <h2 id="summary-editor-title" className="text-[20px] font-bold leading-6 tracking-tight">
+                    {summaryEditor === 'tax' ? 'Kenya VAT (eTIMS)' : summaryEditor === 'shipping' ? 'Shipping Cost' : summaryEditor === 'coupon' ? 'Coupon Code' : 'Discount'}
                   </h2>
-                  <p className="mt-0.5 text-xs text-[var(--dashboard-muted)]">
-                    {summaryEditor === 'tax' ? 'Review the tax rule used for this sale.' : summaryEditor === 'shipping' ? 'Set the delivery or shipping charge for this sale.' : summaryEditor === 'coupon' ? 'Apply a coupon or approved reference.' : 'Apply an approved order discount.'}
-                  </p>
                 </div>
               </div>
-              <button type="button" onClick={() => setSummaryEditor(null)} aria-label="Close editor" className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#fee4e2] text-[#d92d20] transition-colors hover:bg-[#fecdca] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d92d20]/30 dark:bg-red-950/50 dark:text-red-300">
-                <X className="h-4 w-4" aria-hidden="true" />
+              <button type="button" onClick={() => setSummaryEditor(null)} aria-label="Close editor" className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#ff0000] text-white transition-colors hover:bg-[#db0000] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d92d20]/30">
+                <X className="h-3 w-3" aria-hidden="true" />
               </button>
             </div>
 
-            <div className="space-y-4 px-5 py-5">
+            <div className="space-y-4 px-5 py-[23px]">
               {summaryEditor === 'tax' ? (
                 <>
                   <div>
-                    <label className="mb-1.5 block text-sm font-semibold">Order tax</label>
-                    <div className="flex min-h-11 items-center justify-between rounded-lg border border-[var(--dashboard-border)] bg-[var(--dashboard-surface-subtle)] px-3.5 text-sm">
-                      <span className="font-medium">{settings.taxEnabled ? settings.taxName || 'Tax' : 'Tax disabled'}</span>
-                      <span className="font-bold tabular-nums text-[var(--dashboard-accent)]">{settings.taxEnabled ? `${settings.taxRate.toFixed(1)}%` : '0.0%'}</span>
+                    <p className="mb-2 block text-sm font-medium text-[#273142] dark:text-[#e4e7ec]">Order VAT</p>
+                    <div id="pos-order-tax" className="flex h-10 w-full items-center justify-between rounded-[5px] border border-[#d5d9df] bg-[#f8fafc] px-3 text-sm text-[#273142] dark:border-white/15 dark:bg-[#161616] dark:text-white">
+                      <span>{settings.taxEnabled ? `${settings.taxName || 'VAT'} — ${settings.taxRate.toFixed(1)}%` : 'Non-VAT / VAT disabled'}</span>
+                      <span className="rounded bg-[#eaf8f0] px-2 py-0.5 text-[11px] font-semibold text-[#067647] dark:bg-emerald-950/40 dark:text-emerald-300">{settings.taxEnabled ? (settings.pricesIncludeTax ? 'Inclusive' : 'Exclusive') : 'Not charged'}</span>
                     </div>
-                  </div>
-                  <div className="rounded-lg border border-[var(--dashboard-accent-soft-border)] bg-[var(--dashboard-accent-soft)] px-3.5 py-3 text-xs leading-5 text-[var(--dashboard-muted)]">
-                    Tax is controlled by your organization settings and recalculated by the server when the sale is completed. This keeps receipts and reports consistent.
+                    <p className="mt-2 text-xs leading-5 text-[#667085] dark:text-[#a8a8a8]">
+                      {settings.taxEnabled
+                        ? `Server-calculated ${settings.taxRate.toFixed(1)}% VAT. Product tax categories are used for the eTIMS invoice.`
+                        : 'No VAT is charged. eTIMS invoicing can still apply to non-VAT businesses.'}
+                    </p>
                   </div>
                 </>
               ) : summaryEditor === 'coupon' ? (
                 <>
                   <div>
-                    <label htmlFor="pos-coupon-code" className="mb-1.5 block text-sm font-semibold">Coupon or reference code <span className="text-[#d92d20]">*</span></label>
-                    <input id="pos-coupon-code" autoFocus value={couponDraftCode} onChange={(event) => setCouponDraftCode(event.target.value)} placeholder="Enter coupon code" maxLength={40} className={cn(inputCls, 'h-11 uppercase')} />
+                    <label htmlFor="pos-coupon-code" className="mb-2 block text-sm font-medium text-[#273142] dark:text-[#e4e7ec]">Coupon Code <span className="text-[#ff0000]">*</span></label>
+                    <input id="pos-coupon-code" autoFocus value={couponDraftCode} onChange={(event) => setCouponDraftCode(event.target.value)} placeholder="Enter coupon or approval reference" maxLength={40} className="h-10 w-full rounded-[5px] border border-[#d5d9df] bg-white px-3 text-sm uppercase text-[#273142] outline-none transition-colors placeholder:normal-case placeholder:text-[#98a2b3] focus:border-[#86a5c9] focus:ring-1 focus:ring-[#155eef]/15 dark:border-white/15 dark:bg-[#161616] dark:text-white" />
                   </div>
                   <div>
-                    <label htmlFor="pos-coupon-value" className="mb-1.5 block text-sm font-semibold">Coupon value <span className="text-[#d92d20]">*</span></label>
+                    <label htmlFor="pos-coupon-value" className="mb-2 block text-sm font-medium text-[#273142] dark:text-[#e4e7ec]">Coupon Value <span className="text-[#ff0000]">*</span></label>
                     <div className="relative">
-                      <span className="pointer-events-none absolute inset-y-0 left-3.5 flex items-center text-xs font-bold text-[var(--dashboard-accent)]">KES</span>
-                      <input id="pos-coupon-value" type="number" min="0" max={grossBeforeDiscount} value={summaryDraftValue} onChange={(event) => setSummaryDraftValue(event.target.value)} placeholder="0.00" className={cn(inputCls, 'h-11 pl-12 tabular-nums')} />
+                      <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-xs font-semibold text-[#667085]">KES</span>
+                      <input id="pos-coupon-value" type="number" min="0" max={grossBeforeDiscount} step="0.01" value={summaryDraftValue} onChange={(event) => setSummaryDraftValue(event.target.value)} placeholder="0.00" className="h-10 w-full rounded-[5px] border border-[#d5d9df] bg-white pl-12 pr-3 text-sm tabular-nums text-[#273142] outline-none transition-colors placeholder:text-[#98a2b3] focus:border-[#86a5c9] focus:ring-1 focus:ring-[#155eef]/15 dark:border-white/15 dark:bg-[#161616] dark:text-white" />
                     </div>
                   </div>
                 </>
               ) : summaryEditor === 'shipping' ? (
                 <>
                   <div>
-                    <label htmlFor="pos-shipping-cost" className="mb-1.5 block text-sm font-semibold">Shipping cost <span className="text-[#d92d20]">*</span></label>
-                    <div className="relative">
-                      <span className="pointer-events-none absolute inset-y-0 left-3.5 flex items-center text-xs font-bold text-[var(--dashboard-accent)]">KES</span>
-                      <input id="pos-shipping-cost" autoFocus type="number" min="0" step="0.01" value={summaryDraftValue} onChange={(event) => setSummaryDraftValue(event.target.value)} placeholder="0.00" className={cn(inputCls, 'h-11 pl-12 tabular-nums')} />
-                    </div>
+                    <label htmlFor="pos-shipping-cost" className="mb-2 block text-sm font-medium text-[#273142] dark:text-[#e4e7ec]">Shipping Cost <span className="text-[#ff0000]">*</span></label>
+                    <input id="pos-shipping-cost" autoFocus type="number" min="0" step="0.01" value={summaryDraftValue} onChange={(event) => setSummaryDraftValue(event.target.value)} className="h-10 w-full rounded-[5px] border border-[#d5d9df] bg-white px-3 text-sm tabular-nums text-[#273142] outline-none transition-colors focus:border-[#86a5c9] focus:ring-1 focus:ring-[#155eef]/15 dark:border-white/15 dark:bg-[#161616] dark:text-white" />
                   </div>
-                  <p className="text-xs leading-5 text-[var(--dashboard-muted)]">Leave this blank or set it to zero to remove the shipping charge.</p>
                 </>
               ) : (
                 <>
                   <div>
-                    <label htmlFor="pos-discount-type" className="mb-1.5 block text-sm font-semibold">Order discount type <span className="text-[#d92d20]">*</span></label>
-                    <select id="pos-discount-type" value={summaryDraftType} onChange={(event) => setSummaryDraftType(event.target.value as 'fixed' | 'percentage')} className={cn(inputCls, 'h-11')}>
-                      <option value="fixed">KES amount</option>
-                      <option value="percentage">Percentage</option>
+                    <label htmlFor="pos-discount-type" className="mb-2 block text-sm font-medium text-[#273142] dark:text-[#e4e7ec]">Order Discount Type <span className="text-[#ff0000]">*</span></label>
+                    <select id="pos-discount-type" autoFocus value={summaryDraftType} onChange={(event) => setSummaryDraftType(event.target.value as 'fixed' | 'percentage')} className="h-10 w-full rounded-[5px] border border-[#d5d9df] bg-white px-3 text-sm text-[#273142] outline-none transition-colors focus:border-[#86a5c9] focus:ring-1 focus:ring-[#155eef]/15 dark:border-white/15 dark:bg-[#161616] dark:text-white">
+                      <option value="percentage">Percentage (%)</option>
+                      <option value="fixed">Fixed amount (KES)</option>
                     </select>
                   </div>
                   <div>
-                    <label htmlFor="pos-discount-value" className="mb-1.5 block text-sm font-semibold">Value <span className="text-[#d92d20]">*</span></label>
+                    <label htmlFor="pos-discount-value" className="mb-2 block text-sm font-medium text-[#273142] dark:text-[#e4e7ec]">Value <span className="text-[#ff0000]">*</span></label>
                     <div className="relative">
-                      <span className="pointer-events-none absolute inset-y-0 left-3.5 flex items-center text-xs font-bold text-[var(--dashboard-accent)]">{summaryDraftType === 'fixed' ? 'KES' : '%'}</span>
-                      <input id="pos-discount-value" autoFocus type="number" min="0" max={summaryDraftType === 'percentage' ? 100 : grossBeforeDiscount} value={summaryDraftValue} onChange={(event) => setSummaryDraftValue(event.target.value)} placeholder={summaryDraftType === 'percentage' ? '0–100' : '0.00'} className={cn(inputCls, 'h-11 pl-12 tabular-nums')} />
+                      <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-xs font-semibold text-[#667085]">{summaryDraftType === 'fixed' ? 'KES' : '%'}</span>
+                      <input id="pos-discount-value" type="number" min="0" max={summaryDraftType === 'percentage' ? 100 : grossBeforeDiscount} step="0.01" value={summaryDraftValue} onChange={(event) => setSummaryDraftValue(event.target.value)} placeholder={summaryDraftType === 'percentage' ? '0–100' : '0.00'} className="h-10 w-full rounded-[5px] border border-[#d5d9df] bg-white pl-12 pr-3 text-sm tabular-nums text-[#273142] outline-none transition-colors placeholder:text-[#98a2b3] focus:border-[#86a5c9] focus:ring-1 focus:ring-[#155eef]/15 dark:border-white/15 dark:bg-[#161616] dark:text-white" />
                     </div>
                   </div>
                 </>
               )}
             </div>
 
-            <div className="flex flex-col-reverse gap-2 border-t border-[var(--dashboard-border)] bg-[var(--dashboard-surface-subtle)] px-5 py-4 sm:flex-row sm:justify-end">
-              <button type="button" onClick={() => setSummaryEditor(null)} className="min-h-10 rounded-lg border border-[var(--dashboard-border)] bg-[var(--dashboard-surface)] px-4 text-sm font-semibold text-[var(--dashboard-text)] transition-colors hover:bg-[var(--dashboard-surface-subtle)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--dashboard-accent)]/30">
+            <div className="flex min-h-[67px] flex-col-reverse items-center gap-2 border-t border-[var(--dashboard-border)] bg-white px-5 py-3 sm:flex-row sm:justify-end dark:bg-[#161616]">
+              <button type="button" onClick={() => setSummaryEditor(null)} className="h-[38px] rounded-[5px] border border-[#092c4c] bg-[#092c4c] px-[13px] text-sm font-semibold text-white transition-colors hover:border-[#05192c] hover:bg-[#05192c] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#092c4c]/30">
                 Cancel
               </button>
               {summaryEditor === 'tax' ? (
-                <button type="button" onClick={() => { setSummaryEditor(null); router.push('/dashboard/settings') }} style={{ backgroundColor: ui.primary, color: ui.primaryInk }} className="min-h-10 rounded-lg px-4 text-sm font-bold transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--dashboard-accent)]/30">
-                  Manage tax settings
+                <button type="button" onClick={() => { setSummaryEditor(null); router.push('/dashboard/settings') }} className="h-[38px] rounded-[5px] border border-[#e94e16] bg-[#e94e16] px-[13px] text-sm font-bold text-white transition-colors hover:border-[#cf3f0b] hover:bg-[#cf3f0b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e94e16]/30">
+                  Manage VAT
                 </button>
               ) : (
-                <button type="button" onClick={applySummaryAdjustment} style={{ backgroundColor: ui.primary, color: ui.primaryInk }} className="min-h-10 rounded-lg px-4 text-sm font-bold transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--dashboard-accent)]/30">
-                  Apply
+                <button type="button" onClick={applySummaryAdjustment} className="h-[38px] rounded-[5px] border border-[#e94e16] bg-[#e94e16] px-[13px] text-sm font-bold text-white transition-colors hover:border-[#cf3f0b] hover:bg-[#cf3f0b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e94e16]/30">
+                  Submit
                 </button>
               )}
             </div>
@@ -2659,28 +2978,28 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
               return returned ? { ...product, stock: product.stock + returned.quantity } : product
             }))
             setRefundSale(null)
-            toast.success('Refund processed successfully')
+            notify.success('Refund processed successfully')
           }}
         />
       )}
       {showNewCustomer && !checkoutOpen && (
-        <div className="fixed inset-0 z-[80] grid place-items-center bg-black/60 p-4" role="dialog" aria-modal="true" aria-labelledby="new-customer-title">
-          <div className="w-full max-w-2xl overflow-hidden rounded-xl border border-[#e4e7ec] bg-white shadow-2xl dark:border-white/10 dark:bg-[#171717]">
-            <div className="flex items-center justify-between border-b border-[#e4e7ec] px-5 py-4 dark:border-white/10">
-              <div className="flex items-center gap-2.5">
-                <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#0f766e] text-white"><UserRoundPlus className="h-4 w-4" /></span>
-                <div><h2 id="new-customer-title" className="text-base font-bold text-[#101828] dark:text-white">Add customer</h2><p className="text-xs text-[#667085] dark:text-[#aeb4c0]">Create a customer and add them to this sale.</p></div>
-              </div>
-              <button type="button" onClick={() => setShowNewCustomer(false)} aria-label="Close" className="flex h-8 w-8 items-center justify-center rounded-full bg-[#fef3f2] text-[#d92d20] hover:bg-[#fee4e2] dark:bg-red-950/30 dark:text-[#f97066]"><X className="h-4 w-4" /></button>
+        <div className="fixed inset-0 z-[80] grid place-items-center bg-black/50 p-4" role="dialog" aria-modal="true" aria-labelledby="new-customer-title">
+          <div className="w-full max-w-[815px] overflow-hidden rounded-[7px] border border-[#d5d9df] bg-white text-[#273142] shadow-[0_8px_24px_rgba(16,24,40,.16)] dark:border-white/10 dark:bg-[#171717] dark:text-white">
+            <div className="flex h-[58px] items-center justify-between border-b border-[#e4e7ec] px-5 dark:border-white/10">
+              <h2 id="new-customer-title" className="text-[20px] font-bold leading-6">Create</h2>
+              <button type="button" onClick={() => setShowNewCustomer(false)} aria-label="Close" className="flex h-5 w-5 items-center justify-center rounded-full bg-[#ff0000] text-white transition-colors hover:bg-[#db0000] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff0000]/30"><X className="h-3 w-3" /></button>
             </div>
-            <div className="grid gap-4 p-5 sm:grid-cols-2">
-              <label className="grid gap-1.5 text-xs font-semibold text-[#344054] dark:text-[#e4e7ec]">Customer name <span className="text-[#d92d20]">*</span><input autoFocus type="text" value={newCustomerName} onChange={(event) => setNewCustomerName(event.target.value)} className={cn(inputCls, 'h-10 text-sm')} disabled={creatingCustomer} /></label>
-              <label className="grid gap-1.5 text-xs font-semibold text-[#344054] dark:text-[#e4e7ec]">Phone <input type="tel" value={newCustomerPhone} onChange={(event) => setNewCustomerPhone(event.target.value)} className={cn(inputCls, 'h-10 text-sm')} disabled={creatingCustomer} /></label>
-              <label className="grid gap-1.5 text-xs font-semibold text-[#344054] dark:text-[#e4e7ec] sm:col-span-2">Email <input type="email" value={newCustomerEmail} onChange={(event) => setNewCustomerEmail(event.target.value)} className={cn(inputCls, 'h-10 text-sm')} disabled={creatingCustomer} /></label>
+            <div className="grid gap-x-6 gap-y-4 px-5 py-[23px] sm:grid-cols-2">
+              <label className="grid gap-2 text-sm font-medium"><span>Customer Name <span className="text-[#ff0000]">*</span></span><input autoFocus required type="text" value={newCustomerName} onChange={(event) => setNewCustomerName(event.target.value)} className="h-10 rounded-[5px] border border-[#d5d9df] bg-white px-3 text-sm outline-none transition-colors focus:border-[#86a5c9] focus:ring-1 focus:ring-[#155eef]/15 disabled:opacity-60 dark:border-white/15 dark:bg-[#161616]" disabled={creatingCustomer} /></label>
+              <label className="grid gap-2 text-sm font-medium"><span>Phone <span className="text-[#ff0000]">*</span></span><input required type="tel" inputMode="tel" value={newCustomerPhone} onChange={(event) => setNewCustomerPhone(event.target.value)} className="h-10 rounded-[5px] border border-[#d5d9df] bg-white px-3 text-sm outline-none transition-colors focus:border-[#86a5c9] focus:ring-1 focus:ring-[#155eef]/15 disabled:opacity-60 dark:border-white/15 dark:bg-[#161616]" disabled={creatingCustomer} /></label>
+              <label className="grid gap-2 text-sm font-medium sm:col-span-2"><span>Email</span><input type="email" value={newCustomerEmail} onChange={(event) => setNewCustomerEmail(event.target.value)} className="h-10 rounded-[5px] border border-[#d5d9df] bg-white px-3 text-sm outline-none transition-colors focus:border-[#86a5c9] focus:ring-1 focus:ring-[#155eef]/15 disabled:opacity-60 dark:border-white/15 dark:bg-[#161616]" disabled={creatingCustomer} /></label>
+              <label className="grid gap-2 text-sm font-medium sm:col-span-2"><span>Address</span><input type="text" value={newCustomerAddress} onChange={(event) => setNewCustomerAddress(event.target.value)} className="h-10 rounded-[5px] border border-[#d5d9df] bg-white px-3 text-sm outline-none transition-colors focus:border-[#86a5c9] focus:ring-1 focus:ring-[#155eef]/15 disabled:opacity-60 dark:border-white/15 dark:bg-[#161616]" disabled={creatingCustomer} /></label>
+              <label className="grid gap-2 text-sm font-medium"><span>City</span><input type="text" value={newCustomerCity} onChange={(event) => setNewCustomerCity(event.target.value)} className="h-10 rounded-[5px] border border-[#d5d9df] bg-white px-3 text-sm outline-none transition-colors focus:border-[#86a5c9] focus:ring-1 focus:ring-[#155eef]/15 disabled:opacity-60 dark:border-white/15 dark:bg-[#161616]" disabled={creatingCustomer} /></label>
+              <label className="grid gap-2 text-sm font-medium"><span>Country</span><input type="text" value={newCustomerCountry} onChange={(event) => setNewCustomerCountry(event.target.value)} className="h-10 rounded-[5px] border border-[#d5d9df] bg-white px-3 text-sm outline-none transition-colors focus:border-[#86a5c9] focus:ring-1 focus:ring-[#155eef]/15 disabled:opacity-60 dark:border-white/15 dark:bg-[#161616]" disabled={creatingCustomer} /></label>
             </div>
-            <div className="flex justify-end gap-2 border-t border-[#e4e7ec] bg-[#fbfcfe] px-5 py-3.5 dark:border-white/10 dark:bg-[#111]">
-              <button type="button" onClick={() => setShowNewCustomer(false)} className="rounded-lg bg-[#092c4c] px-4 py-2 text-xs font-bold text-white hover:bg-[#071f36]">Cancel</button>
-              <button type="button" onClick={handleCreateCustomer} disabled={creatingCustomer || !newCustomerName.trim()} className="rounded-lg bg-[#e85d22] px-4 py-2 text-xs font-bold text-white hover:bg-[#c94710] disabled:cursor-not-allowed disabled:opacity-50">{creatingCustomer ? 'Creating…' : 'Add customer'}</button>
+            <div className="flex min-h-[67px] items-center justify-end gap-2 border-t border-[#e4e7ec] bg-white px-5 py-3 dark:border-white/10 dark:bg-[#171717]">
+              <button type="button" onClick={() => setShowNewCustomer(false)} className="h-[38px] rounded-[5px] border border-[#092c4c] bg-[#092c4c] px-[13px] text-sm font-semibold text-white transition-colors hover:bg-[#05192c]">Cancel</button>
+              <button type="button" onClick={handleCreateCustomer} disabled={creatingCustomer || !newCustomerName.trim() || !newCustomerPhone.trim()} className="h-[38px] rounded-[5px] border border-[#e94e16] bg-[#e94e16] px-[13px] text-sm font-bold text-white transition-colors hover:bg-[#cf3f0b] disabled:cursor-not-allowed disabled:opacity-50">{creatingCustomer ? 'Creating…' : 'Submit'}</button>
             </div>
           </div>
         </div>
@@ -2689,6 +3008,7 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
         open={showWirelessScanner}
         onClose={() => setShowWirelessScanner(false)}
         onBarcode={scannerPurpose === 'customer' ? handleCustomerBarcode : handleBarcodeScan}
+        purpose={scannerPurpose}
       />
     </div>
   )

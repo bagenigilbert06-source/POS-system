@@ -17,7 +17,7 @@ import { TransactionData } from '@/types/transaction';
 import axios from 'axios';
 import { z } from 'zod';
 import { useState } from 'react';
-import { toast } from 'sonner';
+import { notify } from '@/lib/notify';
 import eventBus from '@/lib/even';
 import { ReloadIcon } from '@radix-ui/react-icons';
 
@@ -63,7 +63,7 @@ export default function Detail({
         const isOnline = navigator.onLine;
 
         if (!isOnline) {
-          toast.error(
+          notify.error(
             'You are offline. Please check your internet connection.'
           );
           return;
@@ -75,10 +75,10 @@ export default function Detail({
         if (response.status === 200) {
           setTaxRate(shopdata.tax);
         } else {
-          toast.error('Failed to fetch data: ' + shopdata.error);
+          notify.error('Failed to fetch data: ' + shopdata.error);
         }
       } catch (error: any) {
-        toast.error(
+        notify.error(
           'Failed to fetch data: ' +
             (error.response?.data.error || error.message)
         );
@@ -119,7 +119,7 @@ export default function Detail({
     } catch (error) {
       if (error instanceof z.ZodError) {
         const fieldErrors: { [key: string]: string } = {};
-        toast.error('Validation errors:' + error.errors);
+        notify.error('Validation errors:' + error.errors);
         error.errors.forEach((err) => {
           const path = err.path.join('.');
           fieldErrors[path] = err.message;
@@ -129,7 +129,7 @@ export default function Detail({
           ...fieldErrors,
         }));
       } else {
-        toast.error('Error during checkout:' + (error as Error).message);
+        notify.error('Error during checkout:' + (error as Error).message);
       }
     } finally {
       setLoading(false);

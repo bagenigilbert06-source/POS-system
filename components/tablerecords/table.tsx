@@ -14,7 +14,7 @@ import { fetchRecords } from '@/data/records';
 import { PageProps } from '@/types/paginations';
 import { PaginationDemo } from '@/components/paginations/pagination';
 import { SearchInput } from '@/components/search/search';
-import { toast } from 'sonner';
+import { notify } from '@/lib/notify';
 interface Product {
   id: string;
   productId: string;
@@ -41,7 +41,7 @@ export async function Records(props: PageProps) {
   const result = await fetchRecords({ take, skip, query: search });
   if (!result) {
     // Handle the case where fetchProduct returns undefined, e.g., show an error message
-    toast.error('Failed to fetch product data');
+    notify.error('Failed to fetch product data');
     return;
   }
   const { data, metadata } = result;

@@ -9,7 +9,7 @@ import type { Customer } from '@/lib/db/schema'
 import { useCustomersStore, OptimisticItem } from '@/lib/stores/customers-store'
 import { createCustomer, deleteCustomer } from '@/app/actions/customers'
 import { useDebounce } from 'use-debounce'
-import { toast } from 'sonner'
+import { notify } from '@/lib/notify'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
 import { GmailMark, GoogleMapsMark, PhoneMark } from '@/components/ui/contact-marks'
@@ -68,11 +68,11 @@ export function CustomersClient({ initialCustomers }: CustomersClientProps) {
       await deleteCustomer(deleteTarget.id)
       setCustomers((items) => items.filter((item) => item.id !== deleteTarget.id))
       useCustomersStore.getState().setCanonical(canonical.filter((item) => item.id !== deleteTarget.id))
-      toast.success('Customer deleted')
+      notify.success('Customer deleted')
       setDeleteTarget(null)
       router.refresh()
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Could not delete customer')
+      notify.error(error instanceof Error ? error.message : 'Could not delete customer')
     } finally {
       setIsDeleting(false)
     }

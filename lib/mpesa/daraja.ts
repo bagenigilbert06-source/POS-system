@@ -76,7 +76,16 @@ export function normalizeKenyanPhone(value: string) {
   if (/^0[17]\d{8}$/.test(digits)) return `254${digits.slice(1)}`
   if (/^[17]\d{8}$/.test(digits)) return `254${digits}`
   if (/^254[17]\d{8}$/.test(digits)) return digits
-  throw new Error('Enter a valid Kenyan M-Pesa number, for example 0712 345 678')
+  throw new Error('Enter a valid M-Pesa phone number.')
+}
+
+export function friendlyMpesaFailure(resultCode: number, resultDescription?: string) {
+  if (resultCode === 1) return 'Insufficient M-Pesa balance'
+  if (resultCode === 1032) return 'The customer cancelled the M-Pesa request.'
+  if (resultCode === 1037) return 'No M-Pesa confirmation was received in time.'
+  if (resultCode === 2001) return 'The customer entered an incorrect M-Pesa PIN.'
+  if (/insufficient/i.test(resultDescription || '')) return 'Insufficient M-Pesa balance'
+  return 'Payment could not be completed. Please try again or choose another payment method.'
 }
 
 function callbackUrl(configuredUrl: string) {

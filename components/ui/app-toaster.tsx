@@ -18,11 +18,11 @@ export function AppToaster() {
     <SonnerToaster
       theme={(resolvedTheme || 'system') as ToasterProps['theme']}
       position="top-right"
-      offset={{ top: 78, right: 20 }}
+      offset={{ top: 20, right: 20 }}
       mobileOffset={{ top: 14, right: 14, left: 14 }}
       gap={10}
       visibleToasts={5}
-      duration={8000}
+      duration={4000}
       expand
       closeButton
       icons={{

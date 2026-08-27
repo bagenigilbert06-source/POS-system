@@ -4,7 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { motion } from 'framer-motion';
 import { useEffect, useState } from 'react';
 import { getTotal } from '@/data/stock';
-import { toast } from 'sonner';
+import { notify } from '@/lib/notify';
 
 function DashboardCard(): React.ReactNode {
   // State variables to store total stock, total amount, and total quantity
@@ -24,9 +24,9 @@ function DashboardCard(): React.ReactNode {
       } catch (error) {
         // Handle errors with type assertion
         if (error instanceof Error) {
-          toast.error(`Error: ${error.message}`);
+          notify.error(`Error: ${error.message}`);
         } else {
-          toast.error('An unknown error occurred');
+          notify.error('An unknown error occurred');
         }
       }
     };

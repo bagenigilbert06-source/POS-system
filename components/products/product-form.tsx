@@ -25,7 +25,7 @@ import {
   X,
 } from 'lucide-react';
 import type { PharmacyProduct, Product } from '@/lib/db/schema';
-import { toast } from 'sonner';
+import { notify } from '@/lib/notify';
 import { WirelessScannerPairing } from '@/components/barcode/wireless-scanner-pairing';
 import { useWorkspace } from '@/lib/context/workspace-context';
 import { isPharmacyBusiness } from '@/lib/pharmacy/rules';
@@ -183,9 +183,9 @@ export function ProductForm({
       );
       setNewCategory({ name: '', parentCategoryId: '', description: '' });
       setCategoryDialogOpen(false);
-      toast.success('Category created');
+      notify.success('Category created');
     } catch (err) {
-      toast.error(
+      notify.error(
         err instanceof Error ? err.message : 'Could not create category'
       );
     } finally {
@@ -196,9 +196,9 @@ export function ProductForm({
   const handleImageSelection = async (file?: File) => {
     if (!file) return;
     if (!file.type.startsWith('image/'))
-      return toast.error('Choose an image file');
+      return notify.error('Choose an image file');
     if (file.size > 5 * 1024 * 1024)
-      return toast.error(
+      return notify.error(
         'Image is too large. Choose an image smaller than 5 MB.'
       );
     setUploadingImage(true);
@@ -244,9 +244,9 @@ export function ProductForm({
       if (!result.url)
         throw new Error('Image upload did not return a file URL. Try again.');
       set('imageUrl', result.url);
-      toast.success('Image uploaded successfully.');
+      notify.success('Image uploaded successfully.');
     } catch (err) {
-      toast.error(
+      notify.error(
         err instanceof Error ? err.message : 'Image upload failed. Try again.'
       );
     } finally {
@@ -406,14 +406,14 @@ export function ProductForm({
           product.id,
           data as Parameters<typeof updateProduct>[1]
         );
-        toast.success(`${terminology.singular} changes saved.`);
+        notify.success(`${terminology.singular} changes saved.`);
       } else {
         await createProduct(data as Parameters<typeof createProduct>[0]);
-        toast.success(`${terminology.singular} created`);
+        notify.success(`${terminology.singular} created`);
       }
       closeEditor();
     } catch (err) {
-      toast.error(
+      notify.error(
         err instanceof Error ? err.message : `Failed to save ${terminology.singularLower}`
       );
     } finally {

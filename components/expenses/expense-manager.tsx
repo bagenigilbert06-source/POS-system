@@ -15,7 +15,7 @@ import {
   Trash2,
   WalletCards,
 } from 'lucide-react';
-import { toast } from 'sonner';
+import { notify } from '@/lib/notify';
 import {
   createExpense,
   deleteExpense,
@@ -105,11 +105,11 @@ export function ExpenseManager({
       try {
         if (editing) await updateExpense(editing.record.id, input);
         else await createExpense(input);
-        toast.success(editing ? 'Expense updated' : 'Expense recorded');
+        notify.success(editing ? 'Expense updated' : 'Expense recorded');
         closeEditor();
         router.refresh();
       } catch (error) {
-        toast.error(
+        notify.error(
           error instanceof Error ? error.message : 'Could not save expense'
         );
       }
@@ -121,10 +121,10 @@ export function ExpenseManager({
     startTransition(async () => {
       try {
         await deleteExpense(id);
-        toast.success('Expense deleted');
+        notify.success('Expense deleted');
         router.refresh();
       } catch (error) {
-        toast.error(
+        notify.error(
           error instanceof Error ? error.message : 'Could not delete expense'
         );
       }

@@ -17,7 +17,7 @@ import {
   Trash2,
   UserRound,
 } from 'lucide-react';
-import { toast } from 'sonner';
+import { notify } from '@/lib/notify';
 import {
   removeOwnAvatar,
   updateOwnProfile,
@@ -70,11 +70,11 @@ export function ProfileSettings({ profile }: { profile: ProfileData }) {
       if (result.error)
         throw new Error(result.error.message || 'Could not send verification');
       setVerificationCooldown(60);
-      toast.success(
+      notify.success(
         'Verification email sent. Check your inbox and spam folder.'
       );
     } catch (error) {
-      toast.error(
+      notify.error(
         error instanceof Error
           ? error.message
           : 'Could not send verification email'
@@ -101,11 +101,11 @@ export function ProfileSettings({ profile }: { profile: ProfileData }) {
       if (!response.ok || !result.url)
         throw new Error(result.error || 'Upload failed');
       setImage(result.url);
-      toast.success(
+      notify.success(
         'Photo uploaded. Save your profile to use it in the header.'
       );
     } catch (error) {
-      toast.error(
+      notify.error(
         error instanceof Error ? error.message : 'Could not upload photo'
       );
     } finally {
@@ -121,10 +121,10 @@ export function ProfileSettings({ profile }: { profile: ProfileData }) {
           phone: String(formData.get('phone') || ''),
           image: image || null,
         });
-        toast.success('Profile updated');
+        notify.success('Profile updated');
         router.refresh();
       } catch (error) {
-        toast.error(
+        notify.error(
           error instanceof Error ? error.message : 'Could not update profile'
         );
       }
@@ -136,10 +136,10 @@ export function ProfileSettings({ profile }: { profile: ProfileData }) {
       try {
         await removeOwnAvatar();
         setImage('');
-        toast.success('Profile photo removed');
+        notify.success('Profile photo removed');
         router.refresh();
       } catch (error) {
-        toast.error(
+        notify.error(
           error instanceof Error ? error.message : 'Could not remove photo'
         );
       }
@@ -151,11 +151,11 @@ export function ProfileSettings({ profile }: { profile: ProfileData }) {
     const newPassword = String(formData.get('newPassword') || '');
     const confirmPassword = String(formData.get('confirmPassword') || '');
     if (newPassword.length < 8) {
-      toast.error('New password must be at least 8 characters');
+      notify.error('New password must be at least 8 characters');
       return;
     }
     if (newPassword !== confirmPassword) {
-      toast.error('New passwords do not match');
+      notify.error('New passwords do not match');
       return;
     }
     startTransition(async () => {
@@ -165,9 +165,9 @@ export function ProfileSettings({ profile }: { profile: ProfileData }) {
         revokeOtherSessions: true,
       });
       if (result.error)
-        toast.error(result.error.message || 'Could not change password');
+        notify.error(result.error.message || 'Could not change password');
       else {
-        toast.success('Password changed');
+        notify.success('Password changed');
         (
           document.getElementById('password-form') as HTMLFormElement | null
         )?.reset();

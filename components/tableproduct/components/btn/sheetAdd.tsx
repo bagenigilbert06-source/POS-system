@@ -24,7 +24,7 @@ import { productSchema } from '@/schema';
 import { z } from 'zod';
 import axios from 'axios';
 import { useRouter } from 'next/navigation';
-import { toast } from 'sonner';
+import { notify } from '@/lib/notify';
 export function SheetAdd({
   open,
   onClose,
@@ -70,7 +70,7 @@ export function SheetAdd({
     const isOnline = navigator.onLine;
 
     if (!isOnline) {
-      toast.error('You are offline. Please check your internet connection.');
+      notify.error('You are offline. Please check your internet connection.');
       setLoading(false);
       return;
     }
@@ -104,7 +104,7 @@ export function SheetAdd({
       } else {
         console.error(error);
         // Handle other types of errors here
-        toast.error('An error occurred. Please try again later.');
+        notify.error('An error occurred. Please try again later.');
       }
     } finally {
       setLoading(false);

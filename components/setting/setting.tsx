@@ -1,6 +1,6 @@
 'use client';
 import React, { useState, useEffect } from 'react';
-import { toast } from 'sonner';
+import { notify } from '@/lib/notify';
 import axios from 'axios';
 import ShopnameCard from './components/shopname';
 import TaxrateCard from './components/taxrate';
@@ -16,7 +16,7 @@ export function Setting() {
         const isOnline = navigator.onLine;
 
         if (!isOnline) {
-          toast.error(
+          notify.error(
             'You are offline. Please check your internet connection.'
           );
           return;
@@ -30,10 +30,10 @@ export function Setting() {
           setStoreName(shopdata.name);
           setTaxRate(shopdata.tax);
         } else {
-          toast.error('Failed to fetch data: ' + shopdata.error);
+          notify.error('Failed to fetch data: ' + shopdata.error);
         }
       } catch (error: any) {
-        toast.error(
+        notify.error(
           'Failed to fetch data: ' +
             (error.response?.data.error || error.message)
         );

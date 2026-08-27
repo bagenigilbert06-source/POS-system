@@ -69,7 +69,7 @@ export const onboardingStepSchemas = {
     receiptHeader: optionalText(120),
   }),
   'payments-tax': z.object({
-    paymentMethods: z.array(z.enum(['cash', 'mpesa', 'card', 'bank_transfer', 'other'])).min(1, 'Choose at least one payment method'),
+    paymentMethods: z.array(z.enum(['cash', 'mpesa', 'airtel_money', 'card', 'bank_transfer', 'other'])).min(1, 'Choose at least one payment method'),
     defaultPaymentMethod: z.string().min(1),
     taxEnabled: z.boolean(),
     pricesIncludeTax: z.boolean(),

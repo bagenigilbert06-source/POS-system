@@ -14,7 +14,7 @@ import * as AlertDialogR from '@radix-ui/react-alert-dialog';
 import { ReloadIcon } from '@radix-ui/react-icons';
 import axios from 'axios';
 import { useState, useEffect } from 'react';
-import { toast } from 'sonner';
+import { notify } from '@/lib/notify';
 
 export function AlertDialogDeletetransaction({
   open,
@@ -39,7 +39,7 @@ export function AlertDialogDeletetransaction({
       const isOnline = navigator.onLine;
 
       if (!isOnline) {
-        toast.error('You are offline. Please check your internet connection.');
+        notify.error('You are offline. Please check your internet connection.');
         return;
       }
 
@@ -52,14 +52,14 @@ export function AlertDialogDeletetransaction({
         // Data not found in the database, remove transactionId from localStorage
         localStorage.removeItem('transactionId');
         setTransactionId(null);
-        toast.warning('Transaction not found in the database.');
+        notify.warning('Transaction not found in the database.');
       } else {
-        toast.error('Failed to delete transaction');
+        notify.error('Failed to delete transaction');
       }
     } catch (error: unknown) {
       // Handle errors
       if (error instanceof Error) {
-        toast.error('Error deleting transaction: ' + error.message);
+        notify.error('Error deleting transaction: ' + error.message);
       }
     } finally {
       setLoading(false); // Set loading state to false

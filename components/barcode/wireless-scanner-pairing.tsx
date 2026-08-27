@@ -2,9 +2,9 @@
 
 import { useEffect, useRef, useState } from 'react'
 import Image from 'next/image'
-import { CheckCircle2, Copy, Loader2, Smartphone, X } from 'lucide-react'
+import { CheckCircle2, Copy, Loader2, ScanBarcode, X } from 'lucide-react'
 
-export function WirelessScannerPairing({ open, onClose, onBarcode }: { open: boolean; onClose: () => void; onBarcode: (barcode: string) => void }) {
+export function WirelessScannerPairing({ open, onClose, onBarcode, purpose = 'product' }: { open: boolean; onClose: () => void; onBarcode: (barcode: string) => void; purpose?: 'product' | 'customer' }) {
   const [session, setSession] = useState<{ id: string; token: string; expiresAt: string } | null>(null)
   const [pairUrl, setPairUrl] = useState('')
   const [qrUrl, setQrUrl] = useState('')
@@ -41,6 +41,7 @@ export function WirelessScannerPairing({ open, onClose, onBarcode }: { open: boo
   useEffect(() => {
     if (!session) return
     let stopped = false
+    let timer: number | undefined
     const poll = async () => {
       try {
         const response = await fetch(`/api/pos/scanner/session?sessionId=${encodeURIComponent(session.id)}`, { cache: 'no-store' })
@@ -61,11 +62,17 @@ export function WirelessScannerPairing({ open, onClose, onBarcode }: { open: boo
         })
       } catch (cause) {
         if (!stopped) setError(cause instanceof Error ? cause.message : 'Scanner connection failed')
+      } finally {
+        // Schedule only after the request completes so a slow database cannot
+        // build up overlapping scanner requests in development or production.
+        if (!stopped) timer = window.setTimeout(poll, 2000)
       }
     }
     void poll()
-    const timer = window.setInterval(poll, 700)
-    return () => { stopped = true; window.clearInterval(timer) }
+    return () => {
+      stopped = true
+      if (timer !== undefined) window.clearTimeout(timer)
+    }
   }, [session])
 
   const close = () => {
@@ -76,16 +83,27 @@ export function WirelessScannerPairing({ open, onClose, onBarcode }: { open: boo
   if (!open) return null
   const localOnly = pairUrl.includes('://localhost') || pairUrl.includes('://127.0.0.1')
 
-  return <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/60 p-4" role="dialog" aria-modal="true">
-    <div className="w-full max-w-md rounded-2xl border bg-background p-5 shadow-2xl">
-      <div className="flex items-start justify-between"><div className="flex gap-3"><span className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#f9b21d] text-[#241d00]"><Smartphone className="h-5 w-5" /></span><div><h2 className="font-bold">Pair phone scanner</h2><p className="mt-0.5 text-sm text-muted-foreground">Scan on your phone; items appear on this PC.</p></div></div><button onClick={close} className="rounded-md p-2 hover:bg-muted" aria-label="Close"><X className="h-5 w-5" /></button></div>
-      {error ? <p className="mt-5 rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">{error}</p> : !qrUrl ? <div className="flex h-72 items-center justify-center"><Loader2 className="h-7 w-7 animate-spin text-[#f9b21d]" /></div> : <>
-        <div className="mx-auto mt-5 w-fit rounded-xl border bg-white p-3"><Image src={qrUrl} alt="Phone scanner pairing QR code" width={240} height={240} unoptimized /></div>
-        <div className={`mt-4 flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold ${connected ? 'bg-emerald-50 text-emerald-700' : 'bg-muted text-muted-foreground'}`}>{connected ? <><CheckCircle2 className="h-4 w-4" /> Phone connected</> : <><Loader2 className="h-4 w-4 animate-spin" /> Waiting for phone</>}</div>
-        {localOnly && <p className="mt-3 rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs leading-5 text-amber-900">This QR uses localhost, which a phone cannot reach. Open the POS using its HTTPS network/deployed address, or configure NEXT_PUBLIC_APP_URL.</p>}
-        <button type="button" onClick={() => navigator.clipboard.writeText(pairUrl)} className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-lg border px-3 py-2 text-sm font-semibold hover:bg-muted"><Copy className="h-4 w-4" /> Copy phone link</button>
-        <p className="mt-3 text-center text-xs text-muted-foreground">Once connected this window closes automatically. The phone stays paired for up to 12 hours.</p>
-      </>}
+  const targetLabel = purpose === 'customer' ? 'customer barcode or QR code' : 'product barcode'
+
+  return <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/50 p-4" role="dialog" aria-modal="true" aria-labelledby="wireless-scanner-title">
+    <div className="w-full max-w-[510px] overflow-hidden rounded-[7px] border border-[#d5d9df] bg-white text-[#273142] shadow-[0_8px_24px_rgba(16,24,40,.16)] dark:border-white/10 dark:bg-[#171717] dark:text-white">
+      <div className="flex h-[58px] items-center justify-between border-b border-[#e4e7ec] px-5 dark:border-white/10">
+        <div className="flex items-center gap-2.5"><ScanBarcode className="h-5 w-5 text-[#155eef]" /><h2 id="wireless-scanner-title" className="text-[20px] font-bold">{purpose === 'customer' ? 'Customer Barcode Scanner' : 'Product Barcode Scanner'}</h2></div>
+        <button type="button" onClick={close} className="flex h-5 w-5 items-center justify-center rounded-full bg-[#ff0000] text-white transition-colors hover:bg-[#db0000]" aria-label="Close scanner"><X className="h-3 w-3" /></button>
+      </div>
+      <div className="px-5 py-5">
+        <p className="text-center text-sm text-[#667085] dark:text-[#aeb4c0]">Scan this QR code with your phone, then scan the {targetLabel}.</p>
+        {error ? <p className="mt-4 rounded-[5px] border border-red-200 bg-red-50 p-3 text-sm text-[#b42318] dark:border-red-900 dark:bg-red-950/25 dark:text-red-300">{error}</p> : !qrUrl ? <div className="flex h-64 items-center justify-center"><Loader2 className="h-7 w-7 animate-spin text-[#e94e16]" /></div> : <>
+          <div className="mx-auto mt-4 w-fit rounded-[7px] border border-[#d5d9df] bg-white p-3"><Image src={qrUrl} alt={`${purpose === 'customer' ? 'Customer' : 'Product'} scanner connection QR code`} width={230} height={230} unoptimized /></div>
+          <div className={`mx-auto mt-3 flex max-w-[278px] items-center justify-center gap-2 rounded-[5px] px-3 py-2 text-sm font-semibold ${connected ? 'bg-emerald-50 text-emerald-700' : 'bg-[#f2f4f7] text-[#667085]'}`}>{connected ? <><CheckCircle2 className="h-4 w-4" /> Scanner connected</> : <><Loader2 className="h-4 w-4 animate-spin" /> Waiting for scanner</>}</div>
+          {localOnly && <p className="mt-3 rounded-[5px] border border-amber-300 bg-amber-50 p-3 text-xs leading-5 text-amber-900">This QR uses localhost, which your phone cannot reach. Open the POS using its network or deployed HTTPS address, or configure NEXT_PUBLIC_APP_URL.</p>}
+          <p className="mt-3 text-center text-xs text-[#667085] dark:text-[#aeb4c0]">The window closes when connected. Scans remain active for up to 12 hours.</p>
+        </>}
+      </div>
+      <div className="flex min-h-[67px] items-center justify-end gap-2 border-t border-[#e4e7ec] px-5 py-3 dark:border-white/10">
+        <button type="button" onClick={close} className="h-[38px] rounded-[5px] border border-[#092c4c] bg-[#092c4c] px-[13px] text-sm font-semibold text-white hover:bg-[#05192c]">Cancel</button>
+        {qrUrl && <button type="button" onClick={() => navigator.clipboard.writeText(pairUrl)} className="inline-flex h-[38px] items-center gap-2 rounded-[5px] border border-[#e94e16] bg-[#e94e16] px-[13px] text-sm font-bold text-white hover:bg-[#cf3f0b]"><Copy className="h-4 w-4" />Copy Link</button>}
+      </div>
     </div>
   </div>
 }

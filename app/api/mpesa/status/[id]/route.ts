@@ -11,7 +11,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   const authorization = await getPosAuthorizationContext() ?? await getAuthorizationContext()
   const { id } = await params
   const owned = async () => (await db.select({
-    status: mpesaPaymentRequest.status, message: mpesaPaymentRequest.resultDescription,
+    status: mpesaPaymentRequest.status, amount: mpesaPaymentRequest.amount, message: mpesaPaymentRequest.resultDescription,
     receiptNumber: mpesaPaymentRequest.receiptNumber, saleId: mpesaPaymentRequest.saleId,
   }).from(mpesaPaymentRequest).where(and(
     eq(mpesaPaymentRequest.id, id), eq(mpesaPaymentRequest.organizationId, authorization.organizationId),

@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { formatCurrency } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Eye, Trash2, AlertCircle } from 'lucide-react'
-import { toast } from 'sonner'
+import { notify } from '@/lib/notify'
 import { deleteInvoice } from '@/app/actions/invoice-actions'
 import { InvoiceViewDialog } from './invoice-view-dialog'
 import type { Invoice } from '@/lib/db/schema'
@@ -25,9 +25,9 @@ export function InvoicesTable({ invoices, orgId }: InvoicesTableProps) {
     setIsDeleting(true)
     try {
       await deleteInvoice(invoiceId)
-      toast.success('Invoice deleted successfully')
+      notify.success('Invoice deleted successfully')
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to delete invoice')
+      notify.error(error instanceof Error ? error.message : 'Failed to delete invoice')
     } finally {
       setIsDeleting(false)
     }

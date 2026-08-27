@@ -14,6 +14,7 @@ import {
 } from '@/app/actions/operations';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { notify } from '@/lib/notify';
 import {
   Dialog,
   DialogContent,
@@ -91,15 +92,26 @@ export function CashierShiftStrip({
     }
     if (session?.countedCash != null) setCloseStep('result');
   }, [isClosing, session?.countedCash]);
-  const run = (task: () => Promise<void>) =>
+  const run = (
+    task: () => Promise<void>,
+    notice?: { loading: string; success: string; description?: string }
+  ) =>
     startTransition(async () => {
       try {
         setError('');
-        await task();
+        if (notice) {
+          await notify.track(task, {
+            ...notice,
+            error: (cause) =>
+              cause instanceof Error ? cause.message : 'Unable to update this shift',
+          });
+        } else {
+          await task();
+        }
       } catch (cause) {
-        setError(
-          cause instanceof Error ? cause.message : 'Unable to update this shift'
-        );
+        const message = cause instanceof Error ? cause.message : 'Unable to update this shift';
+        setError(message);
+        if (!notice) notify.error(message);
       }
     });
   const openReconciliation = () =>
@@ -278,6 +290,10 @@ export function CashierShiftStrip({
                   setOpeningFloat('');
                   setOpeningOpen(false);
                   router.refresh();
+                }, {
+                  loading: 'Opening shiftâ€¦',
+                  success: 'Shift opened',
+                  description: 'Register is ready for sales.',
                 })
               }
             >
@@ -348,6 +364,10 @@ export function CashierShiftStrip({
                   setMovementReason('');
                   setMovementOpen(false);
                   router.refresh();
+                }, {
+                  loading: 'Recording cash movementâ€¦',
+                  success: 'Cash movement recorded',
+                  description: `${movementType === 'cash_in' ? 'Cash in' : movementType === 'cash_out' ? 'Cash out' : 'Safe drop'} of ${money(Number(movementAmount))} was recorded.`,
                 })
               }
             >
@@ -407,6 +427,10 @@ export function CashierShiftStrip({
                       setResult(submitted);
                       setCloseStep('result');
                       router.refresh();
+                    }, {
+                      loading: 'Closing shiftâ€¦',
+                      success: 'Shift closed',
+                      description: 'Reconciliation was saved successfully.',
                     })
                   }
                 >

@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react';
 import { AlertTriangle, Boxes, Loader2, ReceiptText } from 'lucide-react';
-import { toast } from 'sonner';
+import { notify } from '@/lib/notify';
 import { recordInventoryLoss, refundSale } from '@/app/actions/operations';
 import { Button } from '@/components/ui/button';
 import {
@@ -92,10 +92,10 @@ export function OperationsControl({
                         reason: String(form.get('reason')),
                         note: String(form.get('note') || ''),
                       });
-                      toast.success('Stock loss recorded');
+                      notify.success('Stock loss recorded');
                       setLossOpen(false);
                     } catch (error) {
-                      toast.error(
+                      notify.error(
                         error instanceof Error
                           ? error.message
                           : 'Unable to record stock loss'
@@ -217,11 +217,11 @@ export function OperationsControl({
                         disposition: String(form.get('disposition')),
                         reason: String(form.get('reason')),
                       });
-                      toast.success('Credit note and refund recorded');
+                      notify.success('Credit note and refund recorded');
                       setRefundOpen(false);
                       setSelectedSaleId('');
                     } catch (error) {
-                      toast.error(
+                      notify.error(
                         error instanceof Error
                           ? error.message
                           : 'Unable to issue refund'

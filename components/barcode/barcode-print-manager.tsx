@@ -16,7 +16,7 @@ import {
   Store,
   Trash2,
 } from 'lucide-react'
-import { toast } from 'sonner'
+import { notify } from '@/lib/notify'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { formatCurrency } from '@/lib/utils'
 
@@ -121,15 +121,15 @@ export function BarcodePrintManager({ locations, products, storeName, currency }
   }
   const ensureLabels = () => {
     if (!lines.length) {
-      toast.error('Select at least one product to generate labels.')
+      notify.error('Select at least one product to generate labels.')
       return false
     }
     if (!warehouseId || !storeId) {
-      toast.error('Select a warehouse and store first.')
+      notify.error('Select a warehouse and store first.')
       return false
     }
     if (totalLabels > 200) {
-      toast.error('A print job can contain at most 200 labels.')
+      notify.error('A print job can contain at most 200 labels.')
       return false
     }
     return true
@@ -148,13 +148,13 @@ export function BarcodePrintManager({ locations, products, storeName, currency }
     }).join('')
     const popup = window.open('', '_blank', 'width=980,height=760')
     if (!popup) {
-      toast.error('Allow pop-ups to open the printer window.')
+      notify.error('Allow pop-ups to open the printer window.')
       return
     }
     popup.document.write(`<!doctype html><html><head><title>Pesaby barcode labels</title><style>@page{size:${paper.width} ${paper.height};margin:${thermal ? '2mm' : '6mm'}}*{box-sizing:border-box}body{margin:0;background:#fff;color:#111;font-family:Arial,sans-serif}.sheet{display:${thermal ? 'block' : 'grid'};grid-template-columns:repeat(${paper.columns},minmax(0,1fr));gap:3mm}.label{min-width:0;break-inside:avoid;border:${thermal ? '0' : '1px solid #ddd'};border-radius:2mm;padding:${thermal ? '1mm' : '2.5mm'};text-align:center;display:flex;flex-direction:column;justify-content:center;overflow:hidden;${thermal ? 'height:26mm;page-break-after:always' : ''}}.store{margin:0 0 1mm;font-size:8pt;font-weight:700;text-transform:uppercase;letter-spacing:.04em}.product{margin:0 0 1.2mm;font-size:9pt;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.barcode{height:${thermal ? '10mm' : '15mm'}}.barcode svg{display:block;width:100%;height:100%}.code{margin:1mm 0 0;font:7.5pt monospace;letter-spacing:.08em}.price{margin:.7mm 0 0;font-size:9pt;font-weight:700}@media print{.label{border-color:#bbb}}</style></head><body><main class="sheet">${labelMarkup}</main><script>window.addEventListener('load',()=>{window.print()});window.addEventListener('afterprint',()=>{window.close()});<\/script></body></html>`)
     popup.document.close()
     popup.opener = null
-    toast.success(`${totalLabels} barcode label${totalLabels === 1 ? '' : 's'} sent to the print dialog.`)
+    notify.success(`${totalLabels} barcode label${totalLabels === 1 ? '' : 's'} sent to the print dialog.`)
   }
 
   return (

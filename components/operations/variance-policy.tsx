@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { toast } from 'sonner';
+import { notify } from '@/lib/notify';
 import { updateCashVarianceTolerance } from '@/app/actions/operations';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -21,9 +21,9 @@ export function VariancePolicy({
       try {
         const result = await updateCashVarianceTolerance(Number(value));
         setValue(result.cashVarianceTolerance.toFixed(2));
-        toast.success('Variance policy saved');
+        notify.success('Variance policy saved');
       } catch (error) {
-        toast.error(
+        notify.error(
           error instanceof Error
             ? error.message
             : 'Unable to save variance policy'

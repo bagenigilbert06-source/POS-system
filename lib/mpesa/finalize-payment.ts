@@ -9,6 +9,7 @@ import { calculateMpesaAmount } from '@/lib/mpesa/amount'
 import { generateId, generateReceiptNo } from '@/lib/utils'
 import { applyInventoryMovement, consumeInventoryCost } from '@/lib/inventory/inventory-service'
 import { enqueueEtimsInvoice } from '@/lib/etims/service'
+import { applySaleRewards } from '@/lib/services/rewards-service'
 
 export type MpesaCheckoutPayload = {
   items: Array<{ productId: string; quantity: number; packageId?: string }>
@@ -16,6 +17,8 @@ export type MpesaCheckoutPayload = {
   shippingAmount?: number
   roundoffEnabled?: boolean
   ageVerified: boolean
+  pointsToRedeem?: number
+  bonusToUse?: number
   pharmacy?: { prescriptionReference?: string; prescriberReference?: string; patientReference?: string; issuedAt?: string | Date; expiresAt?: string | Date; notes?: string }
 }
 
@@ -51,7 +54,7 @@ export async function finalizeConfirmedMpesaPayment(requestId: string) {
       pricesIncludeTax: businessSettings.pricesIncludeTax,
     }).from(businessSettings).where(eq(businessSettings.organizationId, intent.organizationId)).limit(1)
     const catalogue = await tx.select({
-      id: product.id, name: product.name, sellingPrice: product.sellingPrice, active: product.isActive,
+      id: product.id, name: product.name, sellingPrice: product.sellingPrice, active: product.isActive, categoryId: product.categoryId,
     }).from(product).where(and(eq(product.orgId, intent.organizationId), inArray(product.id, productIds)))
     const byId = new Map(catalogue.map((item) => [item.id, item]))
     const medicineRows = await tx.select().from(pharmacyProduct).where(and(eq(pharmacyProduct.organizationId, intent.organizationId), inArray(pharmacyProduct.productId, productIds)))
@@ -80,15 +83,22 @@ export async function finalizeConfirmedMpesaPayment(requestId: string) {
     if (checkout.discountAmount < 0 || checkout.discountAmount > gross) throw new Error('Invalid checkout discount')
     const shippingAmount = Number(checkout.shippingAmount ?? 0)
     if (!Number.isFinite(shippingAmount) || shippingAmount < 0) throw new Error('Invalid checkout shipping')
-    const unroundedTotal = Number((gross + shippingAmount - checkout.discountAmount).toFixed(2))
+    const saleId = generateId()
+    const rewards = intent.customerId ? await applySaleRewards(tx, {
+      organizationId: intent.organizationId, customerId: intent.customerId, branchId: intent.branchId,
+      saleId, userId: intent.userId,
+      lines: lines.map((line) => ({ productId: line.productId, categoryId: byId.get(line.productId)?.categoryId ?? null, amount: line.totalPrice, discounted: checkout.discountAmount > 0 })),
+      ordinaryDiscount: checkout.discountAmount, pointsToRedeem: checkout.pointsToRedeem, bonusToUse: checkout.bonusToUse,
+      paymentRequestId: intent.id,
+    }) : null
+    const unroundedTotal = Number((gross + shippingAmount - checkout.discountAmount - (rewards?.externalAmountReduction ?? 0)).toFixed(2))
     const rounded = checkout.roundoffEnabled === false
       ? { amount: unroundedTotal, roundingAmount: 0 }
       : calculateMpesaAmount(unroundedTotal)
     if (Math.abs(rounded.amount - Number(intent.amount)) > 0.001) throw new Error('Paid amount no longer matches the checkout')
 
-    const saleId = generateId()
     const receiptNo = generateReceiptNo()
-    const claimed = await tx.update(mpesaPaymentRequest).set({ saleId, updatedAt: new Date() }).where(and(
+    const claimed = await tx.update(mpesaPaymentRequest).set({ saleId, finalizedAt: new Date(), updatedAt: new Date() }).where(and(
       eq(mpesaPaymentRequest.id, intent.id), eq(mpesaPaymentRequest.status, 'CONFIRMED'), isNull(mpesaPaymentRequest.saleId),
     )).returning({ id: mpesaPaymentRequest.id })
     if (claimed.length !== 1) throw new Error('M-Pesa payment has already been claimed')
@@ -109,12 +119,17 @@ export async function finalizeConfirmedMpesaPayment(requestId: string) {
       ageVerifiedAt: checkout.ageVerified ? new Date() : null, ageVerifiedBy: checkout.ageVerified ? intent.userId : null,
       status: 'completed', idempotencyKey: intent.idempotencyKey, userId: intent.userId, orgId: intent.organizationId,
       branchId: intent.branchId, posSessionId: intent.posSessionId,
+      loyaltyPointsEarned: rewards?.pointsEarned ?? 0, loyaltyPointsRedeemed: rewards?.pointsRedeemed ?? 0,
+      loyaltyRedemptionValue: String(rewards?.loyaltyRedemptionValue ?? 0), bonusRedeemed: String(rewards?.bonusRedeemed ?? 0),
+      rewardEligibleSpend: String(rewards?.loyaltyEligible ?? 0), rewardEarningRateSnapshot: rewards ? String(rewards.settings.spendPerPoint) : null,
+      rewardPointValueSnapshot: rewards ? String(rewards.settings.pointValue) : null,
     })
     await tx.insert(saleItem).values(lines.map((line) => ({
       id: line.saleItemId, saleId, productId: line.productId, productName: line.productName, quantity: line.quantity,
       packageId: line.packageId ?? null, packageName: line.packageName ?? null, baseUnitQuantity: line.baseUnitQuantity,
       unitPrice: String(line.unitPrice), totalPrice: String(line.totalPrice), userId: intent.userId, orgId: intent.organizationId,
       unitCostAtSale: String(costByProduct.get(line.productId)?.unitCost ?? 0), totalCost: String(costByProduct.get(line.productId)?.totalCost ?? 0),
+      rewardEligibleAmount: String(rewards?.lineEligibility.get(line.productId) ?? 0),
     })))
     const allocatedLots = lines.flatMap((line) => (lotsBySaleItem.get(line.saleItemId) ?? []).map((allocation) => ({
       id: generateId(), organizationId: intent.organizationId, saleId, saleItemId: line.saleItemId, productId: line.productId,
@@ -153,7 +168,7 @@ export async function finalizeConfirmedMpesaPayment(requestId: string) {
     }
     await tx.insert(salePayment).values({ id: generateId(), saleId, method: 'mpesa', amount: String(rounded.amount),
       reference: intent.receiptNumber, status: 'completed', userId: intent.userId, orgId: intent.organizationId })
-    await tx.update(mpesaIncomingPayment).set({ status: 'MATCHED', matchedRequestId: intent.id })
+    await tx.update(mpesaIncomingPayment).set({ status: 'MATCHED', matchedRequestId: intent.id, matchedAt: new Date(), matchedBy: intent.userId })
       .where(eq(mpesaIncomingPayment.transactionId, intent.receiptNumber))
     await tx.insert(auditEvent).values({ id: generateId(), organizationId: intent.organizationId, userId: intent.userId,
       action: 'mpesa_sale_finalized', metadata: { saleId, receiptNo, mpesaReceipt: intent.receiptNumber, requestId: intent.id,

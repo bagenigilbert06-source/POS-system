@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { X, Loader2, History } from 'lucide-react'
-import { toast } from 'sonner'
+import { notify } from '@/lib/notify'
 import { formatCurrency } from '@/lib/utils'
 import { getRecentSales } from '@/app/actions/pos-queries'
 import type { Sale, SaleItem } from '@/lib/db/schema'
@@ -22,7 +22,7 @@ export function SalesHistoryModal({ onClose, onSelectSale }: SalesHistoryModalPr
         const data = await getRecentSales(30)
         setSales(data)
       } catch (error) {
-        toast.error('Failed to load sales history')
+        notify.error('Failed to load sales history')
       } finally {
         setLoading(false)
       }

@@ -5,7 +5,7 @@ import { archiveProductPackage, saveProductPackage } from '@/app/actions/product
 import type { ProductPackage } from '@/lib/db/schema'
 import { formatCurrency } from '@/lib/utils'
 import { Loader2, PackagePlus, Trash2 } from 'lucide-react'
-import { toast } from 'sonner'
+import { notify } from '@/lib/notify'
 
 export function ProductPackagesManager({ productId, initialPackages, pharmacyMode = false, baseUnitLabel = 'bottle' }: { productId: string; initialPackages: ProductPackage[]; pharmacyMode?: boolean; baseUnitLabel?: string }) {
   const [packages, setPackages] = useState(initialPackages)
@@ -17,13 +17,13 @@ export function ProductPackagesManager({ productId, initialPackages, pharmacyMod
       const saved = await saveProductPackage({ productId, name: form.name, packageType: form.packageType, barcode: form.barcode || undefined, sellingPrice: Number(form.sellingPrice), baseUnitQuantity: Number(form.baseUnitQuantity), etimsItemCode: form.etimsItemCode || undefined, etimsUnitCode: form.etimsUnitCode || undefined })
       setPackages((current) => [...current.filter((item) => item.id !== saved.id), saved].sort((a, b) => a.baseUnitQuantity - b.baseUnitQuantity))
       setForm({ name: '', packageType: pharmacyMode ? 'custom' : 'case', barcode: '', sellingPrice: '', baseUnitQuantity: pharmacyMode ? '1' : '12', etimsItemCode: '', etimsUnitCode: '' })
-      toast.success('Selling package added')
-    } catch (error) { toast.error(error instanceof Error ? error.message : 'Could not save package') }
+      notify.success('Selling package added')
+    } catch (error) { notify.error(error instanceof Error ? error.message : 'Could not save package') }
     finally { setSaving(false) }
   }
   return <section className="rounded-xl border bg-white p-5 shadow-sm dark:bg-[#141414]">
     <div><h2 className="text-base font-bold">{pharmacyMode ? 'Medicine pack prices' : 'Bottle, pack and case prices'}</h2><p className="mt-1 text-xs text-muted-foreground">{pharmacyMode ? `Configure sellable packs and how many base ${baseUnitLabel} units each pack deducts.` : 'Stock stays in base bottles. Each package deducts its configured bottle quantity.'}</p></div>
-    {packages.length > 0 && <div className="mt-4 divide-y rounded-lg border">{packages.map((item) => <div key={item.id} className="flex items-center justify-between gap-4 px-3 py-3 text-sm"><div><p className="font-semibold">{item.name} · {item.baseUnitQuantity} {pharmacyMode ? baseUnitLabel : 'bottles'}</p><p className="mt-0.5 text-xs text-muted-foreground">{formatCurrency(item.sellingPrice)}{item.barcode ? ` · ${item.barcode}` : ''}</p></div><button type="button" aria-label={`Archive ${item.name}`} onClick={async () => { try { await archiveProductPackage(item.id); setPackages((current) => current.filter((entry) => entry.id !== item.id)); toast.success('Package archived') } catch (error) { toast.error(error instanceof Error ? error.message : 'Could not archive package') } }} className="rounded-md border p-2 text-muted-foreground hover:text-destructive"><Trash2 className="h-4 w-4" /></button></div>)}</div>}
+    {packages.length > 0 && <div className="mt-4 divide-y rounded-lg border">{packages.map((item) => <div key={item.id} className="flex items-center justify-between gap-4 px-3 py-3 text-sm"><div><p className="font-semibold">{item.name} · {item.baseUnitQuantity} {pharmacyMode ? baseUnitLabel : 'bottles'}</p><p className="mt-0.5 text-xs text-muted-foreground">{formatCurrency(item.sellingPrice)}{item.barcode ? ` · ${item.barcode}` : ''}</p></div><button type="button" aria-label={`Archive ${item.name}`} onClick={async () => { try { await archiveProductPackage(item.id); setPackages((current) => current.filter((entry) => entry.id !== item.id)); notify.success('Package archived') } catch (error) { notify.error(error instanceof Error ? error.message : 'Could not archive package') } }} className="rounded-md border p-2 text-muted-foreground hover:text-destructive"><Trash2 className="h-4 w-4" /></button></div>)}</div>}
     <div className="mt-4 grid gap-3 border-t pt-4 sm:grid-cols-2 lg:grid-cols-4">
       <label className="text-xs font-semibold">Package name<input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder={pharmacyMode ? 'Box of 20' : 'Case of 12'} className="mt-1 h-10 w-full rounded-md border bg-background px-3 text-sm" /></label>
       <label className="text-xs font-semibold">Type<select value={form.packageType} onChange={(e) => { const type=e.target.value as typeof form.packageType; const quantity=type==='six_pack'?'6':type==='twelve_pack'?'12':form.baseUnitQuantity; setForm({ ...form, packageType:type, baseUnitQuantity:quantity }) }} className="mt-1 h-10 w-full rounded-md border bg-background px-3 text-sm">{!pharmacyMode && <><option value="six_pack">Six-pack</option><option value="twelve_pack">Twelve-pack</option><option value="case">Case</option></>}<option value="custom">{pharmacyMode ? 'Medicine pack' : 'Custom'}</option></select></label>

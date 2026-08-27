@@ -20,7 +20,7 @@ import { TransactionData } from '@/types/transaction';
 import eventBus from '@/lib/even';
 import { ReloadIcon } from '@radix-ui/react-icons';
 import { AlertDialogDeletetransaction } from './components/dialogDelete';
-import { toast } from 'sonner';
+import { notify } from '@/lib/notify';
 export function Orders() {
   const [dialogAddOpen, setDialogAddOpen] = useState(false);
   const [dialogDeleteOpen, setDialogDeleteOpen] = useState(false);
@@ -50,7 +50,7 @@ export function Orders() {
         const isOnline = navigator.onLine;
 
         if (!isOnline) {
-          toast.error(
+          notify.error(
             'You are offline. Please check your internet connection.'
           );
           return;
@@ -68,12 +68,12 @@ export function Orders() {
           // Data not found, remove transactionId from localStorage
           localStorage.removeItem('transactionId');
           setTransactionId(null);
-          toast.warning('Transaction not found in the database.');
+          notify.warning('Transaction not found in the database.');
         } else if (error.response && error.response.status === 404) {
           // Data not found, no need to show error
           setTransactionData([]);
         } else {
-          toast.error(
+          notify.error(
             'An error occurred while fetching transaction data:' + error
           );
         }
@@ -111,7 +111,7 @@ export function Orders() {
         const isOnline = navigator.onLine;
 
         if (!isOnline) {
-          toast.error(
+          notify.error(
             'You are offline. Please check your internet connection.'
           );
           return;
@@ -124,12 +124,12 @@ export function Orders() {
           setTransactionId(id);
           setLoading(false);
         } else {
-          toast.error('Failed to create transaction');
+          notify.error('Failed to create transaction');
           setLoading(false);
           return;
         }
       } catch (error) {
-        toast.error('An error occurred:' + error);
+        notify.error('An error occurred:' + error);
         setLoading(false);
         return;
       }

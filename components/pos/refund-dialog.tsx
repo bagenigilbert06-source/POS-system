@@ -5,7 +5,7 @@ import { processRefund } from '@/app/actions/refunds'
 import { formatCurrency } from '@/lib/utils'
 import { cn } from '@/lib/utils'
 import { X, Loader2, CheckCircle2 } from 'lucide-react'
-import { toast } from 'sonner'
+import { notify } from '@/lib/notify'
 import type { Sale, SaleItem } from '@/lib/db/schema'
 import { calculateRefundAmount } from '@/lib/pos/refund-calculation'
 
@@ -33,21 +33,21 @@ export function RefundDialog({ sale, onClose, onSuccess }: RefundDialogProps) {
 
   const handleRefund = async () => {
     if (selectedSaleItems.length === 0) {
-      toast.error('Select at least one item to refund')
+      notify.error('Select at least one item to refund')
       return
     }
     if (reason.trim().length < 3) {
-      toast.error('Please provide a refund reason of at least 3 characters')
+      notify.error('Please provide a refund reason of at least 3 characters')
       return
     }
     if (refundMethod === 'mpesa' && !refundReference.trim()) {
-      toast.error('Enter the confirmed M-Pesa refund reference')
+      notify.error('Enter the confirmed M-Pesa refund reference')
       return
     }
 
     setProcessing(true)
     try {
-      await processRefund({
+      await notify.track(() => processRefund({
         saleId: sale.id,
         receiptNo: sale.receiptNo,
         items: selectedSaleItems.map(item => ({
@@ -61,16 +61,17 @@ export function RefundDialog({ sale, onClose, onSuccess }: RefundDialogProps) {
         refundMethod,
         refundReference: refundReference || undefined,
         reason,
+      }), {
+        loading: 'Processing refundâ€¦',
+        success: 'Refund processed',
+        error: (error) => error instanceof Error ? error.message : 'Failed to process refund',
       })
       setSuccess(true)
-      toast.success('Refund processed successfully')
       setTimeout(() => {
         onSuccess(selectedSaleItems)
         onClose()
       }, 1500)
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to process refund')
-    } finally {
+    } catch { /* notify.track reports the failure */ } finally {
       setProcessing(false)
     }
   }

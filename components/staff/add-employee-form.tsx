@@ -15,7 +15,7 @@ import {
   RefreshCw,
   UserRound,
 } from 'lucide-react'
-import { toast } from 'sonner'
+import { notify } from '@/lib/notify'
 import { createEmployee } from '@/app/actions/staff-actions'
 import { StaffPhotoField } from './staff-photo-field'
 import { STAFF_DEPARTMENTS, STAFF_DEPARTMENT_LABELS, type StaffDepartment } from '@/lib/types/staff'
@@ -47,7 +47,7 @@ export function AddEmployeeForm({ branches, shifts, assignableRoles }: Props) {
     event.preventDefault()
     if (!form.firstName.trim() || !form.lastName.trim() || !form.email || !form.phone || !form.branchId || !form.role) {
       setOpen((current) => ({ ...current, employee: true }))
-      return toast.error('Complete the required employee information')
+      return notify.error('Complete the required employee information')
     }
     setSaving(true)
     try {
@@ -82,13 +82,13 @@ export function AddEmployeeForm({ branches, shifts, assignableRoles }: Props) {
           bankBranch: form.bankBranch,
         },
       })
-      if (result.existingUser) toast.success('Existing Pesaby user added as an employee')
-      else if (result.invitationSent) toast.success('Employee created and invitation sent')
-      else toast.warning('Employee created. Configure transactional email to deliver the setup invitation.')
+      if (result.existingUser) notify.success('Existing Pesaby user added as an employee')
+      else if (result.invitationSent) notify.success('Employee created and invitation sent')
+      else notify.warning('Employee created. Configure transactional email to deliver the setup invitation.')
       router.push('/dashboard/staff')
       router.refresh()
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to add employee')
+      notify.error(error instanceof Error ? error.message : 'Failed to add employee')
     } finally {
       setSaving(false)
     }

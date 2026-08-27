@@ -1,6 +1,6 @@
 'use client';
 import React, { Component, ErrorInfo, ReactNode } from 'react';
-import { toast } from 'sonner';
+import { notify } from '@/lib/notify';
 
 interface Props {
   children: ReactNode;
@@ -21,7 +21,7 @@ class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    toast.error(`An unexpected error occurred: ${error.message}`);
+    notify.error(`An unexpected error occurred: ${error.message}`);
   }
 
   render() {

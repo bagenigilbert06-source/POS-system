@@ -92,6 +92,13 @@
       "when": 1787734851571,
       "tag": "0032_sale_shipping",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1787817600000,
+      "tag": "0033_customer_rewards",
+      "breakpoints": true
     }
   ]
 }

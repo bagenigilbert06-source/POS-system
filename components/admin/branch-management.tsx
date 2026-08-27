@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { Loader2, MapPin, Pencil, Plus, Trash2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { toast } from 'sonner';
+import { notify } from '@/lib/notify';
 import {
   createBranch,
   deleteEmptyBranch,
@@ -54,12 +54,12 @@ export function BranchManagement({ branches }: { branches: BranchRecord[] }) {
     setBusy(true);
     try {
       await createBranch(form);
-      toast.success('Branch created');
+      notify.success('Branch created');
       setCreateOpen(false);
       setForm(emptyForm);
       router.refresh();
     } catch (error) {
-      toast.error(
+      notify.error(
         error instanceof Error ? error.message : 'Unable to create branch'
       );
     } finally {
@@ -72,11 +72,11 @@ export function BranchManagement({ branches }: { branches: BranchRecord[] }) {
     setBusy(true);
     try {
       await updateBranch(editing.id, form);
-      toast.success('Branch updated');
+      notify.success('Branch updated');
       setEditing(null);
       router.refresh();
     } catch (error) {
-      toast.error(
+      notify.error(
         error instanceof Error ? error.message : 'Unable to update branch'
       );
     } finally {
@@ -93,10 +93,10 @@ export function BranchManagement({ branches }: { branches: BranchRecord[] }) {
     setBusy(true);
     try {
       await deleteEmptyBranch(record.id);
-      toast.success('Empty branch deleted');
+      notify.success('Empty branch deleted');
       router.refresh();
     } catch (error) {
-      toast.error(
+      notify.error(
         error instanceof Error ? error.message : 'Unable to delete branch'
       );
     } finally {

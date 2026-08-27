@@ -23,6 +23,8 @@ import { invalidateProductReadCache } from '@/lib/cache/redis-cache'
 import { applyInventoryMovement } from '@/lib/inventory/inventory-service'
 import { enqueueEtimsCreditNote } from '@/lib/etims/service'
 import { isPharmacyBusiness, planReturnedLotTrace } from '@/lib/pharmacy/rules'
+import { money } from '@/lib/rewards/rules'
+import { reverseRewardsForReturn } from '@/lib/services/rewards-service'
 
 interface RefundItem {
   saleItemId: string
@@ -213,6 +215,26 @@ export async function processRefund(data: {
     await tx.update(sale).set({ status: allItemsReturned ? 'refunded' : 'partially_refunded' })
       .where(and(eq(sale.id, data.saleId), eq(sale.orgId, orgId)))
 
+    const returnedEligibleSpend = money(data.items.reduce((sum, requested) => {
+      const original = originalById.get(requested.saleItemId)!
+      return sum + (Number(original.rewardEligibleAmount) * requested.quantity / original.quantity)
+    }, 0))
+    const rewardReversal = await reverseRewardsForReturn(tx, {
+      organizationId: orgId,
+      saleId: data.saleId,
+      returnId,
+      branchId: originalSale.branchId!,
+      userId,
+      returnedEligibleSpend,
+    })
+    await tx.update(salesReturn).set({
+      pointsEarnedReversed: rewardReversal.pointsEarnedReversed,
+      pointsRedeemedRestored: rewardReversal.pointsRedeemedRestored,
+      bonusRestored: String(rewardReversal.bonusRestored),
+      rewardEligibleSpendReversed: String(returnedEligibleSpend),
+      rewardEffectsAppliedAt: new Date(),
+    }).where(and(eq(salesReturn.id, returnId), eq(salesReturn.orgId, orgId)))
+
     // Create audit event
     await tx.insert(auditEvent).values({
       id: generateId(),
@@ -230,6 +252,7 @@ export async function processRefund(data: {
         itemsCount: data.items.length,
         reason: data.reason,
         pharmacyDisposition: pharmacyWorkspace ? 'quarantined' : 'restock',
+        rewardReversal: { ...rewardReversal, returnedEligibleSpend },
       },
     })
   })

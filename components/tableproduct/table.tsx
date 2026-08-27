@@ -16,7 +16,7 @@ import { PageProps } from '@/types/paginations';
 import AddButtonComponent from './components/btn/addProduct';
 import RestockButtonComponent from './components/btn/restockProduct';
 import { SearchInput } from '@/components/search/search';
-import { toast } from 'sonner';
+import { notify } from '@/lib/notify';
 // TableProduct component to display a table of products
 export default async function TableProduct(props: PageProps) {
   // Calculate pagination values
@@ -30,7 +30,7 @@ export default async function TableProduct(props: PageProps) {
   const result = await fetchProduct({ take, skip, query: search });
   if (!result) {
     // Handle the case where fetchProduct returns undefined, e.g., show an error message
-    toast.error('Failed to fetch product data');
+    notify.error('Failed to fetch product data');
     return;
   }
   // Fetch product data based on pagination and search parameters

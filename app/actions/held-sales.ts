@@ -1,7 +1,7 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { and, desc, eq, inArray, lt, sql } from 'drizzle-orm'
+import { and, desc, eq, gt, inArray, lt, sql } from 'drizzle-orm'
 import { z } from 'zod'
 import { db } from '@/lib/db'
 import { auditEvent, customer, posSession, product, productPackage, suspendedSale, user } from '@/lib/db/schema'
@@ -96,17 +96,21 @@ async function expireHeldSales(organizationId: string, branchId: string, userId:
 
 export async function listHeldSales() {
   const { authorization, session } = await heldSaleContext()
-  await expireHeldSales(authorization.organizationId, session.branchId!, authorization.userId)
-  const rows = await db.select({ record: suspendedSale, cashierName: user.name })
-    .from(suspendedSale)
-    .leftJoin(user, eq(user.id, suspendedSale.cashierId))
-    .where(and(
-      eq(suspendedSale.organizationId, authorization.organizationId),
-      eq(suspendedSale.branchId, session.branchId!),
-      eq(suspendedSale.status, 'HELD'),
-    ))
-    .orderBy(desc(suspendedSale.createdAt))
-    .limit(100)
+  const now = new Date()
+  const [, rows] = await Promise.all([
+    expireHeldSales(authorization.organizationId, session.branchId!, authorization.userId),
+    db.select({ record: suspendedSale, cashierName: user.name })
+      .from(suspendedSale)
+      .leftJoin(user, eq(user.id, suspendedSale.cashierId))
+      .where(and(
+        eq(suspendedSale.organizationId, authorization.organizationId),
+        eq(suspendedSale.branchId, session.branchId!),
+        eq(suspendedSale.status, 'HELD'),
+        gt(suspendedSale.expiresAt, now),
+      ))
+      .orderBy(desc(suspendedSale.createdAt))
+      .limit(100),
+  ])
   return rows.map(({ record, cashierName }) => asHeldSale({ ...record, cashierName }))
 }
 

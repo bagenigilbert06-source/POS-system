@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { Plus, Loader2, Trash2 } from 'lucide-react'
-import { toast } from 'sonner'
+import { notify } from '@/lib/notify'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -43,9 +43,9 @@ export function CreateInvoiceDialog() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (items.length === 0) return toast.error('Add at least one item')
+    if (items.length === 0) return notify.error('Add at least one item')
     if (items.some((item) => !item.description || item.quantity <= 0 || item.unitPrice <= 0)) {
-      return toast.error('Fill in all item details')
+      return notify.error('Fill in all item details')
     }
 
     setIsLoading(true)
@@ -57,7 +57,7 @@ export function CreateInvoiceDialog() {
         notes: formData.notes || undefined,
         dueDate: formData.dueDate ? new Date(formData.dueDate) : undefined,
       })
-      toast.success('Invoice created successfully')
+      notify.success('Invoice created successfully')
       setFormData({
         invoiceNo: '',
         customerId: '',
@@ -67,7 +67,7 @@ export function CreateInvoiceDialog() {
       setItems([{ description: '', quantity: 1, unitPrice: 0 }])
       setOpen(false)
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to create invoice')
+      notify.error(error instanceof Error ? error.message : 'Failed to create invoice')
     } finally {
       setIsLoading(false)
     }

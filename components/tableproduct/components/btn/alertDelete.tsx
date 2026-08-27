@@ -14,7 +14,7 @@ import axios from 'axios';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ReloadIcon } from '@radix-ui/react-icons';
-import { toast } from 'sonner';
+import { notify } from '@/lib/notify';
 type Data = {
   id: string;
   productstock: {
@@ -43,7 +43,7 @@ export function DeleteAlertDialog({
     const isOnline = navigator.onLine;
 
     if (!isOnline) {
-      toast.error('You are offline. Please check your internet connection.');
+      notify.error('You are offline. Please check your internet connection.');
       setLoading(false);
       return;
     }

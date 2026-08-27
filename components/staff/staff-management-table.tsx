@@ -25,7 +25,7 @@ import {
   UserX,
   Users,
 } from 'lucide-react';
-import { toast } from 'sonner';
+import { notify } from '@/lib/notify';
 import { Button } from '@/components/ui/button';
 import {
   Select,
@@ -235,10 +235,10 @@ export function StaffManagementTable({
         setIsDeleting(true);
         try {
           await deleteEmployee(employee.id);
-          toast.success('Employee access revoked');
+          notify.success('Employee access revoked');
           refresh();
         } catch (error) {
-          toast.error(
+          notify.error(
             error instanceof Error
               ? error.message
               : 'Failed to revoke employee access'
@@ -254,16 +254,16 @@ export function StaffManagementTable({
     try {
       const result = await resendStaffInvitation(employee.id);
       result.reused
-        ? toast.info(
+        ? notify.info(
             'A current invitation was already sent. Wait one minute before resending.'
           )
         : result.delivered
-          ? toast.success('Invitation resent')
-          : toast.warning(
+          ? notify.success('Invitation resent')
+          : notify.warning(
               'Invitation refreshed, but transactional email is not configured'
             );
     } catch (error) {
-      toast.error(
+      notify.error(
         error instanceof Error ? error.message : 'Unable to resend invitation'
       );
     } finally {
@@ -279,10 +279,10 @@ export function StaffManagementTable({
       action: async () => {
         try {
           await resetStaffPosPin(employee.id);
-          toast.success('POS PIN reset');
+          notify.success('POS PIN reset');
           refresh();
         } catch (error) {
-          toast.error(
+          notify.error(
             error instanceof Error ? error.message : 'Unable to reset POS PIN'
           );
         }
@@ -300,10 +300,10 @@ export function StaffManagementTable({
       action: async () => {
         try {
           await updateEmployee(employee.id, { status: nextStatus });
-          toast.success(`${employee.name} is now ${nextStatus}`);
+          notify.success(`${employee.name} is now ${nextStatus}`);
           refresh();
         } catch (error) {
-          toast.error(
+          notify.error(
             error instanceof Error
               ? error.message
               : 'Unable to update employee status'

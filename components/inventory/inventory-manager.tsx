@@ -23,7 +23,7 @@ import {
   X,
 } from 'lucide-react';
 import { receiveStock } from '@/app/actions/receive-stock';
-import { toast } from 'sonner';
+import { notify } from '@/lib/notify';
 import {
   approveStockAdjustment,
   authorizeInventoryExport,
@@ -320,22 +320,22 @@ export function InventoryManager({
   ) =>
     startTransition(async () => {
       try {
-        await action();
-        toast.success(success);
+        await notify.track(action, {
+          loading: 'Saving inventory changesâ€¦',
+          success,
+          error: (error) =>
+            error instanceof Error ? error.message : 'Inventory action failed',
+        });
         after?.();
         router.refresh();
-      } catch (error) {
-        toast.error(
-          error instanceof Error ? error.message : 'Inventory action failed'
-        );
-      }
+      } catch { /* notify.track reports the failure */ }
     });
 
   const exportCurrentTab = async () => {
     try {
       await authorizeInventoryExport();
     } catch (error) {
-      toast.error(
+      notify.error(
         error instanceof Error ? error.message : 'Export permission denied'
       );
       return;
@@ -824,13 +824,13 @@ export function InventoryManager({
                     blindCount: form.get('blindCount') === 'on',
                     notes: String(form.get('notes') || ''),
                   });
-                  toast.success('Stock count session started');
+                  notify.success('Stock count session started');
                   setStartCountOpen(false);
                   router.push(
                     `/dashboard/inventory/counts/${result.sessionId}`
                   );
                 } catch (error) {
-                  toast.error(
+                  notify.error(
                     error instanceof Error
                       ? error.message
                       : 'Could not start stock count'

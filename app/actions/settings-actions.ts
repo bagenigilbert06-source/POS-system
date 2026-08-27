@@ -55,7 +55,7 @@ export async function updateBusinessSettings(data: {
   const orgId = await getOrgId(userId)
 
   const paymentMethods = data.paymentMethods
-    ? Array.from(new Set(data.paymentMethods.filter((method) => ['cash', 'card', 'mpesa'].includes(method))))
+    ? Array.from(new Set(data.paymentMethods.filter((method) => ['cash', 'card', 'mpesa', 'airtel_money', 'bank_transfer'].includes(method))))
     : undefined
   if (paymentMethods && paymentMethods.length === 0) throw new Error('Enable at least one payment method')
   if (data.defaultPaymentMethod && paymentMethods && !paymentMethods.includes(data.defaultPaymentMethod)) throw new Error('The default payment method must be enabled')

@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { Loader2, Save, X } from 'lucide-react'
-import { toast } from 'sonner'
+import { notify } from '@/lib/notify'
 import { Button } from '@/components/ui/button'
 import { ReceiptTemplate } from '@/components/receipt/receipt-template'
 import { updateAccountName, updateBusinessSettings, updateOrganizationSettings } from '@/app/actions/settings-actions'
@@ -113,11 +113,11 @@ export function EditableSettings({ businessSettings, organization, buttonOnly = 
         ...(section === 'account' ? [updateAccountName(formData.accountName)] : []),
       ])
 
-      toast.success('Settings updated successfully')
+      notify.success('Settings updated successfully')
       setIsEditing(false)
       router.refresh()
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to update settings')
+      notify.error(error instanceof Error ? error.message : 'Failed to update settings')
     } finally {
       setIsSaving(false)
     }
@@ -132,8 +132,8 @@ export function EditableSettings({ businessSettings, organization, buttonOnly = 
       const result = await response.json() as { url?: string; error?: string }
       if (!response.ok || !result.url) throw new Error(result.error || 'Could not upload logo')
       setFormData({ ...formData, receiptLogoUrl: result.url })
-      toast.success('Logo added to the receipt preview')
-    } catch (error) { toast.error(error instanceof Error ? error.message : 'Could not upload logo') } finally { setLogoUploading(false) }
+      notify.success('Logo added to the receipt preview')
+    } catch (error) { notify.error(error instanceof Error ? error.message : 'Could not upload logo') } finally { setLogoUploading(false) }
   }
 
   if (buttonOnly && !isEditing) {
@@ -212,7 +212,7 @@ export function EditableSettings({ businessSettings, organization, buttonOnly = 
               <div><label className="text-sm font-medium">Timezone</label><input type="text" value={formData.timezone} onChange={(e) => setFormData({ ...formData, timezone: e.target.value })} className="mt-1 w-full rounded-lg border px-3 py-2 text-sm" /></div>
               <div><label className="text-sm font-medium">Financial year starts</label><input type="text" inputMode="numeric" placeholder="07-01" value={formData.financialYearStart} onChange={(e) => setFormData({ ...formData, financialYearStart: e.target.value })} pattern="\d{2}-\d{2}" className="mt-1 w-full rounded-lg border px-3 py-2 text-sm" /><p className="mt-1 text-xs text-muted-foreground">MM-DD, for example 07-01</p></div>
             </div>
-            <div><label className="text-sm font-medium">Enabled payment methods</label><div className="mt-2 grid gap-2 sm:grid-cols-3">{(['cash', 'card', 'mpesa'] as const).map((method) => { const checked = formData.paymentMethods.includes(method); return <label key={method} className="flex cursor-pointer items-center gap-3 rounded-lg border p-3 capitalize"><input type="checkbox" checked={checked} onChange={(event) => { const methods = event.target.checked ? [...formData.paymentMethods, method] : formData.paymentMethods.filter((item) => item !== method); const defaultPaymentMethod = methods.includes(formData.defaultPaymentMethod) ? formData.defaultPaymentMethod : methods[0] || ''; setFormData({ ...formData, paymentMethods: methods, defaultPaymentMethod }) }} className="h-4 w-4 accent-[#e42527]" />{method === 'mpesa' ? 'M-Pesa' : method}</label> })}</div></div>
+            <div><label className="text-sm font-medium">Enabled payment methods</label><div className="mt-2 grid gap-2 sm:grid-cols-5">{(['cash', 'mpesa', 'airtel_money', 'card', 'bank_transfer'] as const).map((method) => { const checked = formData.paymentMethods.includes(method); return <label key={method} className="flex cursor-pointer items-center gap-3 rounded-lg border p-3 capitalize"><input type="checkbox" checked={checked} onChange={(event) => { const methods = event.target.checked ? [...formData.paymentMethods, method] : formData.paymentMethods.filter((item) => item !== method); const defaultPaymentMethod = methods.includes(formData.defaultPaymentMethod) ? formData.defaultPaymentMethod : methods[0] || ''; setFormData({ ...formData, paymentMethods: methods, defaultPaymentMethod }) }} className="h-4 w-4 accent-[#e42527]" />{method === 'mpesa' ? 'M-Pesa' : method === 'airtel_money' ? 'Airtel Money' : method === 'bank_transfer' ? 'Bank transfer' : method}</label> })}</div></div>
             <div><label className="text-sm font-medium">Default payment method</label><select value={formData.defaultPaymentMethod} onChange={(e) => setFormData({ ...formData, defaultPaymentMethod: e.target.value })} className="mt-1 w-full rounded-lg border px-3 py-2 text-sm">{formData.paymentMethods.map((method) => <option key={method} value={method}>{method === 'mpesa' ? 'M-Pesa' : method.replace(/\b\w/g, (letter) => letter.toUpperCase())}</option>)}</select></div>
             <div className="grid gap-2 sm:grid-cols-3">{([
               ['taxEnabled', 'Enable tax', 'Calculate tax on new sales.'],

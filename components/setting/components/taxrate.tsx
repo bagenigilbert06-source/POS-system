@@ -9,7 +9,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { toast } from 'sonner';
+import { notify } from '@/lib/notify';
 import axios from 'axios';
 import { Input } from '@/components/ui/input';
 import { taxSchema } from '@/schema';
@@ -37,17 +37,17 @@ const TaxrateCard: React.FC<TaxrateCardProps> = ({ tax, storeId }) => {
     const isOnline = navigator.onLine;
 
     if (!isOnline) {
-      toast.error('You are offline. Please check your internet connection.');
+      notify.error('You are offline. Please check your internet connection.');
       return;
     }
 
     if (!storeId) {
-      toast.error('Store ID is required to save the store name.');
+      notify.error('Store ID is required to save the store name.');
       return;
     }
 
     if (taxNumber === tax) {
-      toast.info('No changes to save.');
+      notify.info('No changes to save.');
       return;
     }
     setIsLoading(true);
@@ -58,15 +58,15 @@ const TaxrateCard: React.FC<TaxrateCardProps> = ({ tax, storeId }) => {
 
       await axios.patch(`/api/shopdata/${storeId}`, validatedData);
 
-      toast.success('Tax updated successfully.');
+      notify.success('Tax updated successfully.');
       eventBus.emit('fetchStoreData');
     } catch (error) {
       if (error instanceof ZodError) {
         // Handle ZodError
         const fieldErrors = error.errors.map((err) => err.message);
-        toast.error(`${fieldErrors.join(', ')}`);
+        notify.error(`${fieldErrors.join(', ')}`);
       } else {
-        toast.error('Failed to update store tax.');
+        notify.error('Failed to update store tax.');
       }
     } finally {
       setIsLoading(false);

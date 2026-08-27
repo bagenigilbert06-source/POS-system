@@ -3,7 +3,7 @@
 import Image from 'next/image';
 import { useRef, useState } from 'react';
 import { Camera, Loader2, Trash2, UserRound } from 'lucide-react';
-import { toast } from 'sonner';
+import { notify } from '@/lib/notify';
 import { Button } from '@/components/ui/button';
 
 export function StaffPhotoField({
@@ -37,9 +37,9 @@ export function StaffPhotoField({
       if (!response.ok || !result.url)
         throw new Error(result.error || 'Photo upload failed');
       onChange(result.url);
-      toast.success('Employee photo uploaded');
+      notify.success('Employee photo uploaded');
     } catch (error) {
-      toast.error(
+      notify.error(
         error instanceof Error
           ? error.message
           : 'Could not upload employee photo'

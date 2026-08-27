@@ -12,7 +12,7 @@ import {
   Send,
   X,
 } from 'lucide-react';
-import { toast } from 'sonner';
+import { notify } from '@/lib/notify';
 import {
   approveStockAdjustment,
   exportStockCountSessionCsv,
@@ -97,10 +97,10 @@ export function StockCountSessionManager({
     startTransition(async () => {
       try {
         await action();
-        toast.success(success);
+        notify.success(success);
         router.refresh();
       } catch (error) {
-        toast.error(
+        notify.error(
           error instanceof Error ? error.message : 'Count action failed'
         );
       }
@@ -157,7 +157,7 @@ export function StockCountSessionManager({
                       anchor.click();
                       URL.revokeObjectURL(url);
                     } catch (error) {
-                      toast.error(
+                      notify.error(
                         error instanceof Error ? error.message : 'Export failed'
                       );
                     }

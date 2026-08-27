@@ -3,7 +3,7 @@
 import { useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowRight, Check, PackagePlus, Send, Truck, X } from 'lucide-react';
-import { toast } from 'sonner';
+import { notify } from '@/lib/notify';
 import {
   approveInventoryTransfer,
   cancelInventoryTransfer,
@@ -113,15 +113,15 @@ export function InventoryLifecycleManager({
   ) =>
     startTransition(async () => {
       try {
-        await work();
-        toast.success(message);
+        await notify.track(work, {
+          loading: 'Saving inventory changesâ€¦',
+          success: message,
+          error: (error) =>
+            error instanceof Error ? error.message : 'Inventory action failed',
+        });
         close?.();
         router.refresh();
-      } catch (error) {
-        toast.error(
-          error instanceof Error ? error.message : 'Inventory action failed'
-        );
-      }
+      } catch { /* notify.track reports the failure */ }
     });
   const updatePoLine = (index: number, patch: Partial<Line>) =>
     setPoLines((current) =>
@@ -607,7 +607,7 @@ export function InventoryLifecycleManager({
                               try {
                                 receiveRemainingOrder(po, lines);
                               } catch (error) {
-                                toast.error(
+                                notify.error(
                                   error instanceof Error
                                     ? error.message
                                     : 'Could not prepare receipt'

@@ -21,6 +21,8 @@ import { createHash } from 'node:crypto'
 import { classifyOfflineSyncError, offlineAmountConflicts } from '@/lib/pos/offline-policy'
 import { baseUnitsForSale } from '@/lib/pos/product-packaging'
 import { isPharmacyBusiness } from '@/lib/pharmacy/rules'
+import { applySaleRewards, reverseRewardsForVoid } from '@/lib/services/rewards-service'
+import { money } from '@/lib/rewards/rules'
 
 async function getUserId() {
   const session = await auth.api.getSession({ headers: await headers() })
@@ -77,6 +79,12 @@ export type CreateSaleInput = {
   paymentReference?: string
   mpesaPaymentRequestId?: string
   amountReceived?: number
+  pointsToRedeem?: number
+  bonusToUse?: number
+  paymentReceiver?: string
+  paymentNote?: string
+  saleNote?: string
+  staffNote?: string
   idempotencyKey?: string
   ageVerified?: boolean
   pharmacy?: z.input<typeof pharmacyWorkflowSchema>
@@ -110,6 +118,7 @@ export async function voidSale(input: z.input<typeof voidSaleSchema>) {
     if (existingReturn) throw new Error('A refunded sale cannot be voided')
     const lines = await tx.select().from(saleItem).where(and(eq(saleItem.saleId, record.id), eq(saleItem.orgId, orgId)))
     if (record.status === 'completed') for (const line of lines) await applyInventoryMovement(tx, { productId: line.productId, productName: line.productName, branchId: record.branchId, quantity: line.quantity * line.baseUnitQuantity, type: 'sale_void', referenceType: 'sale_void', referenceId: record.id, reason: data.reason, userId, orgId, unitCost: Number(line.unitCostAtSale) })
+    if (record.status === 'completed') await reverseRewardsForVoid(tx, { organizationId: orgId, saleId: record.id, branchId: record.branchId, userId })
     await tx.update(sale).set({ status: 'cancelled' }).where(and(eq(sale.id, record.id), eq(sale.orgId, orgId)))
     if (fiscal && ['PENDING', 'FAILED'].includes(fiscal.status)) await tx.update(etimsSubmission).set({ status: 'CANCELLED', nextRetryAt: null, errorMessage: 'Sale voided before fiscal acceptance', updatedAt: new Date() }).where(eq(etimsSubmission.id, fiscal.id))
     await tx.insert(auditEvent).values({ id: generateId(), organizationId: orgId, userId, action: 'sale_voided', metadata: { saleId: record.id, receiptNo: record.receiptNo, reason: data.reason, previousStatus: record.status, etimsStatus: fiscal?.status ?? null } })
@@ -222,7 +231,7 @@ export async function createSale(data: CreateSaleInput) {
   if (data.discountAmount > 0 && !saleAuthorization.permissions.includes(PermissionEnum.POS_DISCOUNT)) throw new Error('A supervisor or manager must apply this discount')
   const productIds = Array.from(new Set(data.items.map((line) => line.productId)))
   if (productIds.length !== data.items.length) throw new Error('Duplicate products must be combined into one basket line')
-  const catalogue = await db.select({ id: product.id, name: product.name, sellingPrice: product.sellingPrice, active: product.isActive })
+  const catalogue = await db.select({ id: product.id, name: product.name, sellingPrice: product.sellingPrice, categoryId: product.categoryId, active: product.isActive })
     .from(product).where(and(eq(product.orgId, orgId), inArray(product.id, productIds)))
   const catalogueById = new Map(catalogue.map((item) => [item.id, item]))
   const medicineRows = pharmacyWorkspace ? await db.select().from(pharmacyProduct).where(and(eq(pharmacyProduct.organizationId, orgId), inArray(pharmacyProduct.productId, productIds))) : []
@@ -271,8 +280,8 @@ export async function createSale(data: CreateSaleInput) {
     .where(eq(businessSettings.organizationId, orgId)).limit(1)
   
   const configuredMethods = Array.isArray(settings?.paymentMethods) ? settings.paymentMethods as string[] : []
-  const allowedMethods = configuredMethods.length > 0 ? configuredMethods : ['cash']
-  if (!['cash', 'mpesa', 'card'].includes(data.paymentMethod)) {
+  const allowedMethods = Array.from(new Set([...(configuredMethods.length > 0 ? configuredMethods : ['cash']), 'airtel_money']))
+  if (!['cash', 'mpesa', 'airtel_money', 'card', 'bank_transfer'].includes(data.paymentMethod)) {
     throw new Error('Unsupported POS payment method')
   }
   if (!allowedMethods.includes(data.paymentMethod)) {
@@ -280,6 +289,8 @@ export async function createSale(data: CreateSaleInput) {
   }
   let paymentReference = (data.paymentReference ?? data.mpesaRef ?? '').trim().slice(0, 120)
   if (data.paymentMethod === 'card' && !paymentReference) throw new Error('Enter the card approval or terminal reference')
+  if (data.paymentMethod === 'bank_transfer' && !paymentReference) throw new Error('Enter the bank transfer reference')
+  if (data.paymentMethod === 'airtel_money' && !paymentReference) throw new Error('Enter the Airtel Money transaction reference')
   
   // Server-side calculation of tax (do not trust client)
   const rate = settings?.taxEnabled ? Number(settings.taxRate ?? 0) / 100 : 0
@@ -302,23 +313,19 @@ export async function createSale(data: CreateSaleInput) {
   const unroundedTotal = Number((grossBeforeDiscount + shippingAmount - data.discountAmount).toFixed(2))
   const mpesaAmount = calculateMpesaAmount(unroundedTotal)
   const appliesRoundoff = data.roundoffEnabled !== false
-  const calculatedTotal = appliesRoundoff ? mpesaAmount.amount : unroundedTotal
-  const roundingAmount = appliesRoundoff ? mpesaAmount.roundingAmount : 0
+  let calculatedTotal = appliesRoundoff ? mpesaAmount.amount : unroundedTotal
+  let roundingAmount = appliesRoundoff ? mpesaAmount.roundingAmount : 0
 
   if (data.paymentMethod === 'mpesa') {
     throw new Error('M-Pesa sales are completed automatically by the verified Daraja callback')
   }
   if (offline && offlineAmountConflicts(Number(data.total), calculatedTotal)) throw new Error('Offline total conflicts with the current tax or pricing configuration. Review this sale before synchronizing.')
   
-  // Validate cash payment
+  // Cash validation is repeated after authoritative reward redemption inside
+  // the sale transaction because rewards reduce only the external amount due.
   let changeAmount = 0
   const amountReceived = Number(data.amountReceived)
-  if (data.paymentMethod === 'cash') {
-    if (!Number.isFinite(amountReceived) || amountReceived < calculatedTotal) {
-      throw new Error('Insufficient payment received')
-    }
-    changeAmount = amountReceived - calculatedTotal
-  }
+  if (data.paymentMethod === 'cash' && !Number.isFinite(amountReceived)) throw new Error('Invalid payment received')
   
   const saleId = generateId()
   const receiptNo = generateReceiptNo()
@@ -337,6 +344,22 @@ export async function createSale(data: CreateSaleInput) {
       eq(posSession.status, 'open'),
     )).limit(1).for('update')
     if (!lockedShift) throw new Error('This shift is no longer open. Start a new shift before completing the sale.')
+    if ((data.pointsToRedeem || data.bonusToUse) && !data.customerId) throw new Error('Select a customer before using rewards')
+    if ((data.pointsToRedeem || data.bonusToUse) && !saleAuthorization.permissions.includes(PermissionEnum.REWARDS_REDEEM)) throw new Error('Reward redemption permission denied')
+    const rewards = data.customerId ? await applySaleRewards(tx, {
+      organizationId: orgId, customerId: data.customerId, branchId: saleBranchId, saleId, userId,
+      lines: normalizedItems.map((item) => ({ productId: item.productId, categoryId: catalogueById.get(item.productId)?.categoryId ?? null, amount: item.totalPrice, discounted: data.discountAmount > 0 })),
+      ordinaryDiscount: data.discountAmount, pointsToRedeem: data.pointsToRedeem, bonusToUse: data.bonusToUse,
+    }) : null
+    const rewardAdjustedUnrounded = money(unroundedTotal - (rewards?.externalAmountReduction ?? 0))
+    const rewardAdjustedMpesa = calculateMpesaAmount(rewardAdjustedUnrounded)
+    calculatedTotal = appliesRoundoff ? rewardAdjustedMpesa.amount : rewardAdjustedUnrounded
+    roundingAmount = appliesRoundoff ? rewardAdjustedMpesa.roundingAmount : 0
+    if (calculatedTotal < 0) throw new Error('Rewards exceed the amount due')
+    if (data.paymentMethod === 'cash') {
+      if (amountReceived < calculatedTotal) throw new Error('Insufficient payment received')
+      changeAmount = amountReceived - calculatedTotal
+    }
     // Verify and deduct branch stock atomically through the inventory ledger.
     const costByProduct = new Map<string, { unitCost: number; totalCost: number }>()
     const lotsBySaleItem = new Map<string, Array<{ lotId: string; lotNumber: string; expiresAt: Date | null; quantity: number }>>()
@@ -357,6 +380,13 @@ export async function createSale(data: CreateSaleInput) {
       discountAmount: String(data.discountAmount),
       shippingAmount: String(shippingAmount),
       roundingAmount: String(roundingAmount),
+      loyaltyPointsEarned: rewards?.pointsEarned ?? 0,
+      loyaltyPointsRedeemed: rewards?.pointsRedeemed ?? 0,
+      loyaltyRedemptionValue: String(rewards?.loyaltyRedemptionValue ?? 0),
+      bonusRedeemed: String(rewards?.bonusRedeemed ?? 0),
+      rewardEligibleSpend: String(rewards?.loyaltyEligible ?? 0),
+      rewardEarningRateSnapshot: rewards ? String(rewards.settings.spendPerPoint) : null,
+      rewardPointValueSnapshot: rewards ? String(rewards.settings.pointValue) : null,
       total: String(calculatedTotal),
       amountReceived: data.paymentMethod === 'cash' ? String(amountReceived) : null,
       change: data.paymentMethod === 'cash' ? String(changeAmount) : null,
@@ -392,6 +422,7 @@ export async function createSale(data: CreateSaleInput) {
         totalPrice: String(item.totalPrice),
         unitCostAtSale: String(costByProduct.get(item.productId)?.unitCost ?? 0),
         totalCost: String(costByProduct.get(item.productId)?.totalCost ?? 0),
+        rewardEligibleAmount: String(rewards?.lineEligibility.get(item.productId) ?? 0),
         userId,
         orgId,
       })))
@@ -458,10 +489,18 @@ export async function createSale(data: CreateSaleInput) {
         discount: data.discountAmount,
         rounding: roundingAmount,
         total: calculatedTotal,
+        loyaltyPointsEarned: rewards?.pointsEarned ?? 0,
+        loyaltyPointsRedeemed: rewards?.pointsRedeemed ?? 0,
+        loyaltyRedemptionValue: rewards?.loyaltyRedemptionValue ?? 0,
+        bonusRedeemed: rewards?.bonusRedeemed ?? 0,
         items: normalizedItems.length,
         paymentMethod: data.paymentMethod,
         amountReceived: data.paymentMethod === 'cash' ? amountReceived : null,
         change: data.paymentMethod === 'cash' ? changeAmount : null,
+        paymentReceiver: data.paymentReceiver?.trim().slice(0, 120) || null,
+        paymentNote: data.paymentNote?.trim().slice(0, 500) || null,
+        saleNote: data.saleNote?.trim().slice(0, 500) || null,
+        staffNote: data.staffNote?.trim().slice(0, 500) || null,
         origin: offline ? 'offline' : 'online',
         provisionalReceiptNo: offline?.provisionalReceiptNo ?? null,
       },

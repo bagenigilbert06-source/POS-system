@@ -523,6 +523,104 @@ export const customer = pgTable('customer', {
   updatedAt: timestamp('updatedAt').notNull().defaultNow(),
 });
 
+export const rewardSettings = pgTable('reward_settings', {
+  id: text('id').primaryKey(),
+  organizationId: text('organizationId').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  loyaltyEnabled: boolean('loyaltyEnabled').notNull().default(true),
+  spendPerPoint: numeric('spendPerPoint', { precision: 12, scale: 2 }).notNull().default('100'),
+  pointValue: numeric('pointValue', { precision: 12, scale: 2 }).notNull().default('1'),
+  minimumRedemptionPoints: integer('minimumRedemptionPoints').notNull().default(100),
+  maximumPointsRedemptionPercent: numeric('maximumPointsRedemptionPercent', { precision: 5, scale: 2 }).notNull().default('50'),
+  minimumEligibleSpend: numeric('minimumEligibleSpend', { precision: 12, scale: 2 }).notNull().default('0'),
+  pointsExpiryDays: integer('pointsExpiryDays'),
+  bonusEnabled: boolean('bonusEnabled').notNull().default(true),
+  maximumBonusRedemptionPercent: numeric('maximumBonusRedemptionPercent', { precision: 5, scale: 2 }).notNull().default('100'),
+  allowPointsWithBonus: boolean('allowPointsWithBonus').notNull().default(true),
+  discountedItemsEarnPoints: boolean('discountedItemsEarnPoints').notNull().default(true),
+  bonusPaidAmountEarnsPoints: boolean('bonusPaidAmountEarnsPoints').notNull().default(false),
+  loyaltyPaidAmountEarnsPoints: boolean('loyaltyPaidAmountEarnsPoints').notNull().default(false),
+  roundingMode: text('roundingMode').notNull().default('floor'),
+  createdAt: timestamp('createdAt').notNull().defaultNow(),
+  updatedAt: timestamp('updatedAt').notNull().defaultNow(),
+}, (table) => ({ organizationUnique: uniqueIndex('reward_settings_org_unique').on(table.organizationId) }));
+
+export const rewardBranchEligibility = pgTable('reward_branch_eligibility', {
+  id: text('id').primaryKey(),
+  rewardSettingsId: text('rewardSettingsId').notNull().references(() => rewardSettings.id, { onDelete: 'cascade' }),
+  branchId: text('branchId').notNull().references(() => branch.id, { onDelete: 'cascade' }),
+  rewardKind: text('rewardKind').notNull(),
+}, (table) => ({ settingsBranchKindUnique: uniqueIndex('reward_branch_eligibility_unique').on(table.rewardSettingsId, table.branchId, table.rewardKind) }));
+
+export const rewardCategoryEligibility = pgTable('reward_category_eligibility', {
+  id: text('id').primaryKey(),
+  rewardSettingsId: text('rewardSettingsId').notNull().references(() => rewardSettings.id, { onDelete: 'cascade' }),
+  categoryId: text('categoryId').notNull().references(() => category.id, { onDelete: 'cascade' }),
+  rewardKind: text('rewardKind').notNull(),
+  mode: text('mode').notNull(),
+}, (table) => ({ settingsCategoryKindUnique: uniqueIndex('reward_category_eligibility_unique').on(table.rewardSettingsId, table.categoryId, table.rewardKind) }));
+
+export const rewardProductEligibility = pgTable('reward_product_eligibility', {
+  id: text('id').primaryKey(),
+  rewardSettingsId: text('rewardSettingsId').notNull().references(() => rewardSettings.id, { onDelete: 'cascade' }),
+  productId: text('productId').notNull().references(() => product.id, { onDelete: 'cascade' }),
+  rewardKind: text('rewardKind').notNull(),
+  mode: text('mode').notNull(),
+}, (table) => ({ settingsProductKindUnique: uniqueIndex('reward_product_eligibility_unique').on(table.rewardSettingsId, table.productId, table.rewardKind) }));
+
+export const customerRewardAccount = pgTable('customer_reward_account', {
+  id: text('id').primaryKey(),
+  organizationId: text('organizationId').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  customerId: text('customerId').notNull().references(() => customer.id, { onDelete: 'cascade' }),
+  pointsBalance: integer('pointsBalance').notNull().default(0),
+  pointsDebt: integer('pointsDebt').notNull().default(0),
+  bonusBalance: numeric('bonusBalance', { precision: 12, scale: 2 }).notNull().default('0'),
+  bonusDebt: numeric('bonusDebt', { precision: 12, scale: 2 }).notNull().default('0'),
+  lifetimePointsEarned: integer('lifetimePointsEarned').notNull().default(0),
+  lifetimePointsRedeemed: integer('lifetimePointsRedeemed').notNull().default(0),
+  lifetimeBonusCredited: numeric('lifetimeBonusCredited', { precision: 12, scale: 2 }).notNull().default('0'),
+  lifetimeBonusRedeemed: numeric('lifetimeBonusRedeemed', { precision: 12, scale: 2 }).notNull().default('0'),
+  createdAt: timestamp('createdAt').notNull().defaultNow(),
+  updatedAt: timestamp('updatedAt').notNull().defaultNow(),
+}, (table) => ({ customerUnique: uniqueIndex('customer_reward_account_customer_unique').on(table.customerId), organizationIndex: index('customer_reward_account_org_idx').on(table.organizationId) }));
+
+export const rewardLedger = pgTable('reward_ledger', {
+  id: text('id').primaryKey(),
+  organizationId: text('organizationId').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  customerId: text('customerId').notNull().references(() => customer.id, { onDelete: 'restrict' }),
+  rewardAccountId: text('rewardAccountId').notNull().references(() => customerRewardAccount.id, { onDelete: 'restrict' }),
+  branchId: text('branchId').references(() => branch.id, { onDelete: 'restrict' }),
+  saleId: text('saleId'),
+  salesReturnId: text('salesReturnId'),
+  campaignSource: text('campaignSource'),
+  type: text('type').notNull(),
+  pointsDelta: integer('pointsDelta').notNull().default(0),
+  bonusDelta: numeric('bonusDelta', { precision: 12, scale: 2 }).notNull().default('0'),
+  monetaryValue: numeric('monetaryValue', { precision: 12, scale: 2 }),
+  reason: text('reason').notNull(),
+  reference: text('reference'),
+  createdBy: text('createdBy').references(() => user.id, { onDelete: 'restrict' }),
+  idempotencyKey: text('idempotencyKey').notNull(),
+  metadata: json('metadata').notNull().default({}),
+  createdAt: timestamp('createdAt').notNull().defaultNow(),
+}, (table) => ({ organizationIdempotencyUnique: uniqueIndex('reward_ledger_org_idempotency_unique').on(table.organizationId, table.idempotencyKey), customerCreatedIndex: index('reward_ledger_customer_created_idx').on(table.customerId, table.createdAt), branchCreatedIndex: index('reward_ledger_branch_created_idx').on(table.branchId, table.createdAt) }));
+
+export const rewardReservation = pgTable('reward_reservation', {
+  id: text('id').primaryKey(),
+  organizationId: text('organizationId').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  customerId: text('customerId').notNull().references(() => customer.id, { onDelete: 'restrict' }),
+  rewardAccountId: text('rewardAccountId').notNull().references(() => customerRewardAccount.id, { onDelete: 'restrict' }),
+  paymentRequestId: text('paymentRequestId').notNull(),
+  pointsReserved: integer('pointsReserved').notNull().default(0),
+  pointsValueReserved: numeric('pointsValueReserved', { precision: 12, scale: 2 }).notNull().default('0'),
+  bonusReserved: numeric('bonusReserved', { precision: 12, scale: 2 }).notNull().default('0'),
+  status: text('status').notNull().default('ACTIVE'),
+  expiresAt: timestamp('expiresAt').notNull(),
+  consumedAt: timestamp('consumedAt'),
+  releasedAt: timestamp('releasedAt'),
+  createdAt: timestamp('createdAt').defaultNow().notNull(),
+  updatedAt: timestamp('updatedAt').defaultNow().notNull(),
+}, (table) => ({ paymentRequestUnique: uniqueIndex('reward_reservation_payment_request_unique').on(table.paymentRequestId), accountStatusIndex: index('reward_reservation_account_status_idx').on(table.rewardAccountId, table.status, table.expiresAt) }));
+
 export const sale = pgTable(
   'sale',
   {
@@ -542,6 +640,13 @@ export const sale = pgTable(
     roundingAmount: numeric('roundingAmount', { precision: 12, scale: 2 })
       .notNull()
       .default('0'),
+    loyaltyPointsEarned: integer('loyaltyPointsEarned').notNull().default(0),
+    loyaltyPointsRedeemed: integer('loyaltyPointsRedeemed').notNull().default(0),
+    loyaltyRedemptionValue: numeric('loyaltyRedemptionValue', { precision: 12, scale: 2 }).notNull().default('0'),
+    bonusRedeemed: numeric('bonusRedeemed', { precision: 12, scale: 2 }).notNull().default('0'),
+    rewardEligibleSpend: numeric('rewardEligibleSpend', { precision: 12, scale: 2 }).notNull().default('0'),
+    rewardEarningRateSnapshot: numeric('rewardEarningRateSnapshot', { precision: 12, scale: 2 }),
+    rewardPointValueSnapshot: numeric('rewardPointValueSnapshot', { precision: 12, scale: 2 }),
     total: numeric('total', { precision: 12, scale: 2 }).notNull(),
     amountReceived: numeric('amountReceived', { precision: 12, scale: 2 }), // Cash only
     change: numeric('change', { precision: 12, scale: 2 }), // Cash only
@@ -626,6 +731,7 @@ export const saleItem = pgTable(
     totalCost: numeric('totalCost', { precision: 12, scale: 4 })
       .notNull()
       .default('0'),
+    rewardEligibleAmount: numeric('rewardEligibleAmount', { precision: 12, scale: 2 }).notNull().default('0'),
     userId: text('userId').notNull(),
     orgId: text('orgId').notNull(),
   },
@@ -1210,6 +1316,11 @@ export const salesReturn = pgTable(
     posSessionId: text('posSessionId').references(() => posSession.id, {
       onDelete: 'restrict',
     }),
+    pointsEarnedReversed: integer('pointsEarnedReversed').notNull().default(0),
+    pointsRedeemedRestored: integer('pointsRedeemedRestored').notNull().default(0),
+    bonusRestored: numeric('bonusRestored', { precision: 12, scale: 2 }).notNull().default('0'),
+    rewardEligibleSpendReversed: numeric('rewardEligibleSpendReversed', { precision: 12, scale: 2 }).notNull().default('0'),
+    rewardEffectsAppliedAt: timestamp('rewardEffectsAppliedAt'),
     createdAt: timestamp('createdAt').notNull().defaultNow(),
   },
   (table) => ({
@@ -1646,6 +1757,7 @@ export const mpesaPaymentRequest = pgTable(
     callbackPayload: json('callbackPayload'),
     expiresAt: timestamp('expiresAt').notNull(),
     completedAt: timestamp('completedAt'),
+    finalizedAt: timestamp('finalizedAt'),
     createdAt: timestamp('createdAt').notNull().defaultNow(),
     updatedAt: timestamp('updatedAt').notNull().defaultNow(),
   },
@@ -1682,6 +1794,8 @@ export const mpesaIncomingPayment = pgTable(
     payerName: text('payerName'),
     amount: numeric('amount', { precision: 12, scale: 2 }).notNull(),
     matchedRequestId: text('matchedRequestId'),
+    matchedAt: timestamp('matchedAt'),
+    matchedBy: text('matchedBy'),
     status: text('status').notNull().default('unmatched'),
     payload: json('payload'),
     transactionAt: timestamp('transactionAt'),

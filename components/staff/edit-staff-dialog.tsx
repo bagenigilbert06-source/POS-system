@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { Loader2 } from 'lucide-react'
-import { toast } from 'sonner'
+import { notify } from '@/lib/notify'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -59,7 +59,7 @@ export function EditStaffDialog({ employee, open, onOpenChange, assignableRoles 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     const role = formData.role
-    if (!formData.name.trim() || !role) return toast.error('Name and role are required')
+    if (!formData.name.trim() || !role) return notify.error('Name and role are required')
 
     setIsLoading(true)
     try {
@@ -68,10 +68,10 @@ export function EditStaffDialog({ employee, open, onOpenChange, assignableRoles 
         role,
         salary: parseFloat(formData.salary),
       })
-      toast.success('Employee updated successfully')
+      notify.success('Employee updated successfully')
       onOpenChange(false)
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to update employee')
+      notify.error(error instanceof Error ? error.message : 'Failed to update employee')
     } finally {
       setIsLoading(false)
     }

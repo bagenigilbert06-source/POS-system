@@ -25,7 +25,7 @@ import {
 import { DropdownMenuContent } from '@radix-ui/react-dropdown-menu';
 import { onsaleSchema } from '@/schema';
 import { z } from 'zod';
-import { toast } from 'sonner';
+import { notify } from '@/lib/notify';
 
 type ProductDetail = {
   sellprice: number;
@@ -67,7 +67,7 @@ export function DialogAdd({
           const isOnline = navigator.onLine;
 
           if (!isOnline) {
-            toast.error(
+            notify.error(
               'You are offline. Please check your internet connection.'
             );
             return;
@@ -77,9 +77,9 @@ export function DialogAdd({
           setProductStocks(response.data);
         } catch (error) {
           if (error instanceof Error) {
-            toast.error('Error fetching product stocks: ' + error.message);
+            notify.error('Error fetching product stocks: ' + error.message);
           } else {
-            toast.error(
+            notify.error(
               'An unknown error occurred while fetching product stocks'
             );
           }

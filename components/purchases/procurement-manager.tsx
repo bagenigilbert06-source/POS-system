@@ -10,7 +10,7 @@ import {
   Truck,
   UserPlus,
 } from 'lucide-react';
-import { toast } from 'sonner';
+import { notify } from '@/lib/notify';
 import {
   createSupplier,
   receivePurchase,
@@ -99,11 +99,11 @@ export function ProcurementManager({
     startTransition(async () => {
       try {
         await work();
-        toast.success(message);
+        notify.success(message);
         close?.();
         router.refresh();
       } catch (error) {
-        toast.error(
+        notify.error(
           error instanceof Error ? error.message : 'Could not save record'
         );
       }
@@ -117,7 +117,7 @@ export function ProcurementManager({
     if (entered === null) return;
     const amount = Number(entered);
     if (!Number.isFinite(amount) || amount <= 0)
-      return toast.error('Enter a valid payment amount');
+      return notify.error('Enter a valid payment amount');
     const reference =
       window.prompt('Payment reference (optional)') || undefined;
     run(

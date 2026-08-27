@@ -5,7 +5,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft, Check, ChevronDown, Clipboard, Copy, Download, Printer, Receipt as ReceiptIcon, RotateCcw, WalletCards } from 'lucide-react'
-import { toast } from 'sonner'
+import { notify } from '@/lib/notify'
 import { formatCurrency, formatDateTime } from '@/lib/utils'
 import { voidSale, type getSaleWithItems } from '@/app/actions/sales'
 import type { getBusinessSettings } from '@/app/actions/business'
@@ -46,11 +46,11 @@ export function SaleDetailPage({ detail, settings }: { detail: Detail; settings:
     setVoiding(true)
     try {
       await voidSale({ saleId: detail.record.id, reason: voidReason })
-      toast.success('Sale voided and inventory restored')
+      notify.success('Sale voided and inventory restored')
       router.push('/dashboard/sales')
       router.refresh()
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Could not void sale')
+      notify.error(error instanceof Error ? error.message : 'Could not void sale')
     } finally {
       setVoiding(false)
     }

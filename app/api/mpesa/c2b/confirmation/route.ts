@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { and, eq, gte } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { mpesaBusinessAccount, mpesaIncomingPayment, mpesaPaymentRequest } from '@/lib/db/schema'
-import { validCallbackToken, validC2bShortcode } from '@/lib/mpesa/daraja'
+import { normalizeKenyanPhone, validCallbackToken } from '@/lib/mpesa/daraja'
 import { generateId } from '@/lib/utils'
 import { finalizeConfirmedMpesaPayment } from '@/lib/mpesa/finalize-payment'
 import { selectUnambiguousTillCandidate } from '@/lib/mpesa/matching'
@@ -27,10 +27,10 @@ export async function POST(request: NextRequest) {
   const reference = String(payload.BillRefNumber || '').trim().toUpperCase()
   const amount = Number(payload.TransAmount)
   const shortcode = String(payload.BusinessShortCode || '').trim()
-  const phone = String(payload.MSISDN || '').trim()
+  const rawPhone = String(payload.MSISDN || '').trim()
+  let phone = rawPhone
+  try { phone = normalizeKenyanPhone(rawPhone) } catch { /* preserve invalid provider data for reconciliation */ }
   if (!transactionId || !Number.isFinite(amount) || amount <= 0 || !shortcode) return NextResponse.json({ ResultCode: 1, ResultDesc: 'Invalid payment confirmation' }, { status: 400 })
-  if (!validC2bShortcode(shortcode)) return NextResponse.json({ ResultCode: 1, ResultDesc: 'Invalid business shortcode' }, { status: 400 })
-
   const [alreadyRecorded] = await db.select({ id: mpesaIncomingPayment.id, matchedRequestId: mpesaIncomingPayment.matchedRequestId }).from(mpesaIncomingPayment)
     .where(eq(mpesaIncomingPayment.transactionId, transactionId)).limit(1)
   if (alreadyRecorded) {
@@ -61,17 +61,20 @@ export async function POST(request: NextRequest) {
     ? await db.select().from(mpesaPaymentRequest).where(and(
       eq(mpesaPaymentRequest.organizationId, account.organizationId), eq(mpesaPaymentRequest.branchId, account.branchId),
       eq(mpesaPaymentRequest.accountReference, reference), eq(mpesaPaymentRequest.paymentMode, 'paybill'),
-      eq(mpesaPaymentRequest.status, 'AWAITING_CONFIRMATION'), gte(mpesaPaymentRequest.expiresAt, new Date()),
+      eq(mpesaPaymentRequest.status, 'AWAITING_CONFIRMATION'),
+      gte(mpesaPaymentRequest.expiresAt, new Date()),
     )).limit(2)
     : await db.select().from(mpesaPaymentRequest).where(and(
       eq(mpesaPaymentRequest.organizationId, account.organizationId), eq(mpesaPaymentRequest.branchId, account.branchId),
       eq(mpesaPaymentRequest.paymentMode, 'till'), eq(mpesaPaymentRequest.status, 'AWAITING_CONFIRMATION'),
-      eq(mpesaPaymentRequest.amount, String(amount)), gte(mpesaPaymentRequest.createdAt, new Date(Date.now() - 10 * 60_000)),
+      eq(mpesaPaymentRequest.amount, String(amount)),
+      gte(mpesaPaymentRequest.createdAt, new Date(Date.now() - 10 * 60_000)),
       gte(mpesaPaymentRequest.expiresAt, new Date()),
     )).limit(2)
+  const phoneCompatibleCandidates = candidates.filter((candidate) => !candidate.phone || candidate.phone === phone)
   const payment = account.accountType === 'till'
-    ? selectUnambiguousTillCandidate(candidates, amount)
-    : candidates.length === 1 && Number(candidates[0].amount) === amount ? candidates[0] : null
+    ? selectUnambiguousTillCandidate(phoneCompatibleCandidates, amount)
+    : phoneCompatibleCandidates.length === 1 && Number(phoneCompatibleCandidates[0].amount) === amount ? phoneCompatibleCandidates[0] : null
   let claimed = false
   try {
     await db.transaction(async (tx) => {
@@ -81,7 +84,7 @@ export async function POST(request: NextRequest) {
         status: 'CONFIRMED', callbackPayload: payload, completedAt: new Date(), updatedAt: new Date(),
         }).where(and(eq(mpesaPaymentRequest.id, payment.id), eq(mpesaPaymentRequest.status, 'AWAITING_CONFIRMATION'))).returning({ id: mpesaPaymentRequest.id })
         claimed = updated.length === 1
-        if (claimed) await tx.update(mpesaIncomingPayment).set({ matchedRequestId: payment.id, status: 'MATCHED_PENDING_FINALIZATION' })
+        if (claimed) await tx.update(mpesaIncomingPayment).set({ matchedRequestId: payment.id, matchedAt: new Date(), matchedBy: payment.userId, status: 'MATCHED_PENDING_FINALIZATION' })
           .where(eq(mpesaIncomingPayment.transactionId, transactionId))
       }
     })

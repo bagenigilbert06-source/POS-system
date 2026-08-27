@@ -17,7 +17,7 @@ import { useState } from 'react';
 import axios from 'axios';
 import { ReloadIcon } from '@radix-ui/react-icons';
 import eventBus from '@/lib/even';
-import { toast } from 'sonner';
+import { notify } from '@/lib/notify';
 interface DialogDeleteProps {
   data: TransactionData;
 }
@@ -41,7 +41,7 @@ export function AlertDialogDelete({ data }: DialogDeleteProps) {
       const isOnline = navigator.onLine;
 
       if (!isOnline) {
-        toast.error('You are offline. Please check your internet connection.');
+        notify.error('You are offline. Please check your internet connection.');
         return;
       }
 
@@ -53,11 +53,11 @@ export function AlertDialogDelete({ data }: DialogDeleteProps) {
     } catch (error: unknown) {
       // Handle errors
       if (axios.isAxiosError(error)) {
-        toast.error('Server Error:' + error.response?.data);
+        notify.error('Server Error:' + error.response?.data);
       } else if (error instanceof Error) {
-        toast.error('Error:' + error.message);
+        notify.error('Error:' + error.message);
       } else {
-        toast.error('Unknown error:' + error);
+        notify.error('Unknown error:' + error);
       }
     } finally {
       setLoading(false);

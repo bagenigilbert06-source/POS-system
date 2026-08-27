@@ -23,7 +23,7 @@ import {
   Smartphone,
 } from 'lucide-react';
 import type { Product } from '@/lib/db/schema';
-import { toast } from 'sonner';
+import { notify } from '@/lib/notify';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -99,17 +99,17 @@ export function ProductsTable({
     );
     setShowPhoneScanner(false);
     if (matches.length === 1) {
-      toast.success(`${matches[0].name} found`);
+      notify.success(`${matches[0].name} found`);
       router.push(`/dashboard/products/${matches[0].id}?edit=true`);
       return true;
     }
     if (matches.length > 1) {
-      toast.error(
+      notify.error(
         `This barcode is assigned to multiple ${terminology.pluralLower}. Correct the duplicate records first.`
       );
       return false;
     }
-    toast.info('New barcode scanned', {
+    notify.info('New barcode scanned', {
       description: `Complete the ${terminology.singularLower} details to add it to your catalogue.`,
     });
     router.push(
@@ -164,9 +164,9 @@ export function ProductsTable({
           item.id === archiveTarget.id ? { ...item, isActive: false } : item
         )
       );
-      toast.success(`${terminology.singular} archived`);
+      notify.success(`${terminology.singular} archived`);
     } catch {
-      toast.error(`Failed to archive ${terminology.singularLower}`);
+      notify.error(`Failed to archive ${terminology.singularLower}`);
     } finally {
       setArchiving(null);
       setArchiveTarget(null);

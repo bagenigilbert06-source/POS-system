@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import Image from 'next/image';
 import { motion } from 'framer-motion';
-import { toast } from 'sonner';
+import { notify } from '@/lib/notify';
 
 function WeatherComponent(): React.ReactNode {
   // State variables to store weather data and icon URL
@@ -72,7 +72,7 @@ function WeatherComponent(): React.ReactNode {
       })
       .catch((error) => {
         // Handle errors
-        toast.error(`${error.message}`);
+        notify.error(`${error.message}`);
       });
   }, [apiKey]);
 

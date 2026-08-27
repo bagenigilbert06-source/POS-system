@@ -20,7 +20,7 @@ import axios from 'axios';
 import { z } from 'zod';
 import { ReloadIcon } from '@radix-ui/react-icons';
 import eventBus from '@/lib/even';
-import { toast } from 'sonner';
+import { notify } from '@/lib/notify';
 // Interface for the DialogEdit component
 interface DialogEditProps {
   data: TransactionData;
@@ -50,7 +50,7 @@ export function DialogEdit({ data }: DialogEditProps) {
       const isOnline = navigator.onLine;
 
       if (!isOnline) {
-        toast.error('You are offline. Please check your internet connection.');
+        notify.error('You are offline. Please check your internet connection.');
         return;
       }
       const validatedData = orderSchema.parse({
@@ -78,7 +78,7 @@ export function DialogEdit({ data }: DialogEditProps) {
         }));
       } else {
         // Handle other types of errors
-        toast.error(
+        notify.error(
           'An unexpected error occurred: ' + (error as Error).message
         );
       }

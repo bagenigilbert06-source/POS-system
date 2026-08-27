@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { LogOut, Loader2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { toast } from 'sonner';
+import { notify } from '@/lib/notify';
 import { revokeStaffSessions } from '@/app/actions/admin-actions';
 import { Button } from '@/components/ui/button';
 
@@ -23,10 +23,10 @@ export function RevokeSessionsButton({
     setBusy(true);
     try {
       await revokeStaffSessions(userId);
-      toast.success(`${name} signed out`);
+      notify.success(`${name} signed out`);
       router.refresh();
     } catch (error) {
-      toast.error(
+      notify.error(
         error instanceof Error ? error.message : 'Unable to revoke sessions'
       );
     } finally {

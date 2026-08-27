@@ -25,7 +25,7 @@ import { productSchema } from '@/schema';
 import { z } from 'zod';
 import axios from 'axios';
 import { useRouter } from 'next/navigation';
-import { toast } from 'sonner';
+import { notify } from '@/lib/notify';
 type Data = {
   id: string;
   sellprice: number;
@@ -103,7 +103,7 @@ export function SheetEdit({
     const isOnline = navigator.onLine;
 
     if (!isOnline) {
-      toast.error('You are offline. Please check your internet connection.');
+      notify.error('You are offline. Please check your internet connection.');
       setLoading(false);
       return;
     }
@@ -116,7 +116,7 @@ export function SheetEdit({
       stockProductNumber === data.productstock.stock &&
       categoryProduct === data.productstock.cat
     ) {
-      toast.info('No changes made.');
+      notify.info('No changes made.');
       setLoading(false);
       onClose();
       return;
