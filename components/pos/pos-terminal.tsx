@@ -30,10 +30,10 @@ import {
   Smartphone,
   Zap,
   Banknote,
-  ContactRound,
   UserRoundPlus,
   ScanBarcode,
   BadgePercent,
+  Pencil,
   ChevronDown,
   ArrowLeft,
   Download,
@@ -119,6 +119,7 @@ interface ReceiptData {
   items: Array<CartItem & { saleItemId: string }>
   subtotal: number
   taxAmount: number
+  shippingAmount: number
   discountAmount: number
   roundingAmount: number
   total: number
@@ -154,9 +155,18 @@ interface ReceiptData {
 type HeldSale = HeldSaleRecord
 
 type MpesaStatus = 'idle' | 'initiating' | 'pending' | 'success' | 'failed' | 'timeout'
+type SummaryEditor = 'tax' | 'coupon' | 'discount' | 'shipping' | null
 
 function createIdempotencyKey() {
   return crypto.randomUUID()
+}
+
+function SummaryEditIcon({ className }: { className?: string }) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960" fill="currentColor" aria-hidden="true" className={className}>
+      <path d="M200-120q-33 0-56.5-23.5T120-200v-560q0-33 23.5-56.5T200-840h357l-80 80H200v560h560v-278l80-80v358q0 33-23.5 56.5T760-120H200Zm280-360ZM360-360v-170l367-367q12-12 27-18t30-6q16 0 30.5 6t26.5 18l56 57q11 12 17 26.5t6 29.5q0 15-5.5 29.5T897-728L530-360H360Zm481-424-56-56 56 56ZM440-440h56l232-232-28-28-29-28-231 231v57Zm260-260-29-28 29 28 28 28-28-28Z" />
+    </svg>
+  )
 }
 
 /**
@@ -220,6 +230,14 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
   const [cartHydrated, setCartHydrated] = useState(false)
   const [discount, setDiscount] = useState(0)
   const [discountType, setDiscountType] = useState<'fixed' | 'percentage'>('fixed')
+  const [couponCode, setCouponCode] = useState('')
+  const [couponValue, setCouponValue] = useState(0)
+  const [shippingCost, setShippingCost] = useState(0)
+  const [roundoffEnabled, setRoundoffEnabled] = useState(true)
+  const [summaryEditor, setSummaryEditor] = useState<SummaryEditor>(null)
+  const [summaryDraftType, setSummaryDraftType] = useState<'fixed' | 'percentage'>('fixed')
+  const [summaryDraftValue, setSummaryDraftValue] = useState('')
+  const [couponDraftCode, setCouponDraftCode] = useState('')
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'mpesa' | 'card'>('cash')
   const [mpesaRef, setMpesaRef] = useState('')
   const [mpesaPhone, setMpesaPhone] = useState('')
@@ -239,7 +257,6 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
   const [prescriptionExpiresAt, setPrescriptionExpiresAt] = useState('')
   const [pharmacyNotes, setPharmacyNotes] = useState('')
   const [customerMenuOpen, setCustomerMenuOpen] = useState(false)
-  const [discountMenuOpen, setDiscountMenuOpen] = useState(false)
   const [processing, setProcessing] = useState(false)
   const [receipt, setReceipt] = useState<ReceiptData | null>(null)
   const [showNewCustomer, setShowNewCustomer] = useState(false)
@@ -747,21 +764,71 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
     : 0
   const grossBeforeDiscount = settings.pricesIncludeTax ? subtotal : subtotal + taxAmount
 
-  // Calculate discount based on type
-  let discountAmount = 0
+  // Tax remains server-authoritative. Manual discounts and coupon reductions are
+  // combined into the single audited discount amount accepted by checkout.
+  let manualDiscountAmount = 0
   if (discountType === 'percentage') {
-    discountAmount = canDiscount ? Math.min((discount / 100) * grossBeforeDiscount, grossBeforeDiscount) : 0
+    manualDiscountAmount = canDiscount ? Math.min((discount / 100) * grossBeforeDiscount, grossBeforeDiscount) : 0
   } else {
-    discountAmount = canDiscount ? Math.min(discount, grossBeforeDiscount) : 0
+    manualDiscountAmount = canDiscount ? Math.min(discount, grossBeforeDiscount) : 0
   }
+  const couponAmount = canDiscount
+    ? Math.min(Math.max(0, couponValue), Math.max(0, grossBeforeDiscount - manualDiscountAmount))
+    : 0
+  const discountAmount = Math.min(manualDiscountAmount + couponAmount, grossBeforeDiscount)
 
-  const unroundedTotal = Number((grossBeforeDiscount - discountAmount).toFixed(2))
+  const unroundedTotal = Number((grossBeforeDiscount + shippingCost - discountAmount).toFixed(2))
   const mpesaAmount = calculateMpesaAmount(unroundedTotal)
-  const total = paymentMethod === 'mpesa' ? mpesaAmount.amount : unroundedTotal
-  const roundingAmount = paymentMethod === 'mpesa' ? mpesaAmount.roundingAmount : 0
+  const appliesRoundoff = roundoffEnabled
+  const total = appliesRoundoff ? mpesaAmount.amount : unroundedTotal
+  const roundingAmount = appliesRoundoff ? mpesaAmount.roundingAmount : 0
   const change = paymentMethod === 'cash' ? Math.max(0, parseFloat(amountPaid || '0') - total) : 0
   const offlineQueueSummary = summarizeOfflineQueue(offlineSales.map((item) => item.status))
   const showOfflineStatus = !isOnline || offlineQueueSummary.pending > 0 || offlineQueueSummary.failed > 0 || offlineSyncing
+
+  const openSummaryEditor = (editor: Exclude<SummaryEditor, null>) => {
+    if (mpesaLocksBasket) return toast.error('The order is locked while M-Pesa payment is in progress')
+    if ((editor === 'coupon' || editor === 'discount') && !canDiscount) {
+      return toast.error('Your role does not have permission to apply discounts')
+    }
+    if (editor === 'discount') {
+      setSummaryDraftType(discountType)
+      setSummaryDraftValue(discount > 0 ? String(discount) : '')
+    } else if (editor === 'coupon') {
+      setSummaryDraftType('fixed')
+      setSummaryDraftValue(couponValue > 0 ? String(couponValue) : '')
+      setCouponDraftCode(couponCode)
+    } else if (editor === 'shipping') {
+      setSummaryDraftValue(shippingCost > 0 ? String(shippingCost) : '')
+    }
+    setSummaryEditor(editor)
+  }
+
+  const applySummaryAdjustment = () => {
+    if (summaryEditor === 'shipping') {
+      const value = summaryDraftValue.trim() === '' ? 0 : Number(summaryDraftValue)
+      if (!Number.isFinite(value) || value < 0) return toast.error('Enter a valid shipping cost')
+      setShippingCost(value)
+      setSummaryEditor(null)
+      toast.success(value > 0 ? 'Shipping cost applied' : 'Shipping cost removed')
+      return
+    }
+    const value = Number(summaryDraftValue)
+    if (!Number.isFinite(value) || value < 0) return toast.error('Enter a valid value')
+    if (summaryEditor === 'discount') {
+      if (summaryDraftType === 'percentage' && value > 100) return toast.error('Percentage discount cannot exceed 100%')
+      setDiscountType(summaryDraftType)
+      setDiscount(value)
+      setSummaryEditor(null)
+      toast.success(value > 0 ? 'Discount applied' : 'Discount removed')
+    } else if (summaryEditor === 'coupon') {
+      if (value > 0 && !couponDraftCode.trim()) return toast.error('Enter the coupon or reference code')
+      setCouponCode(value > 0 ? couponDraftCode.trim().toUpperCase() : '')
+      setCouponValue(value)
+      setSummaryEditor(null)
+      toast.success(value > 0 ? 'Coupon applied' : 'Coupon removed')
+    }
+  }
 
   const saveCashCheckoutOffline = async (verified: boolean, queueId: string) => {
     if (paymentMethod !== 'cash') throw new Error('Offline checkout supports cash only')
@@ -786,6 +853,8 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
         items: cart,
         subtotal,
         discountAmount,
+        shippingAmount: shippingCost,
+        roundoffEnabled,
         total,
         amountReceived: parseFloat(amountPaid || '0'),
         ageVerified: requiresAgeVerification ? verified : false,
@@ -800,6 +869,7 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
       subtotal,
       taxAmount,
       discountAmount,
+      shippingAmount: shippingCost,
       roundingAmount: 0,
       total,
       paymentMethod: 'cash',
@@ -808,8 +878,8 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
       ageVerified: requiresAgeVerification ? verified : false,
       completedAt: offlineCreatedAt,
       amountReceived: parseFloat(amountPaid || '0'),
-      discountType: discountAmount > 0 ? discountType : undefined,
-      discountValue: discountAmount > 0 ? discount : undefined,
+      discountType: discountAmount > 0 ? (couponAmount > 0 ? 'fixed' : discountType) : undefined,
+      discountValue: discountAmount > 0 ? (couponAmount > 0 ? discountAmount : discount) : undefined,
       customerName: availableCustomers.find((customer) => customer.id === selectedCustomer)?.name || 'Walk-in customer',
       customerEmail: availableCustomers.find((customer) => customer.id === selectedCustomer)?.email,
       offline: { status: 'PENDING', provisionalReceiptNo },
@@ -871,6 +941,8 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
         items: cart,
         subtotal,
         discountAmount,
+        shippingAmount: shippingCost,
+        roundoffEnabled,
         total,
         paymentMethod,
         paymentReference: mpesaRef || undefined,
@@ -891,6 +963,7 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
         subtotal,
         taxAmount: tax || taxAmount,
         discountAmount,
+        shippingAmount: shippingCost,
         roundingAmount: returnedRounding ?? roundingAmount,
         total: returnedTotal || total,
         paymentMethod,
@@ -900,8 +973,8 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
         ageVerified: requiresAgeVerification ? verified : false,
         completedAt: new Date(),
         amountReceived: paymentMethod === 'cash' ? parseFloat(amountPaid || '0') : undefined,
-        discountType: discountAmount > 0 ? discountType : undefined,
-        discountValue: discountAmount > 0 ? discount : undefined,
+        discountType: discountAmount > 0 ? (couponAmount > 0 ? 'fixed' : discountType) : undefined,
+        discountValue: discountAmount > 0 ? (couponAmount > 0 ? discountAmount : discount) : undefined,
         customerName: availableCustomers.find((customer) => customer.id === selectedCustomer)?.name || 'Walk-in customer',
         customerEmail: availableCustomers.find((customer) => customer.id === selectedCustomer)?.email,
         etims: {
@@ -995,6 +1068,20 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
   }, [confirmAgeVerification, showAgeVerification])
 
   useEffect(() => {
+    if (!summaryEditor) return
+
+    const handleSummaryEditorKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault()
+        setSummaryEditor(null)
+      }
+    }
+
+    window.addEventListener('keydown', handleSummaryEditorKeyDown)
+    return () => window.removeEventListener('keydown', handleSummaryEditorKeyDown)
+  }, [summaryEditor])
+
+  useEffect(() => {
     autoFinalizeRef.current = () => void processCheckout(ageVerified, true)
   })
 
@@ -1023,7 +1110,7 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
     try {
       const response = await initiateMpesaPayment({
         phone: mpesaPhone, items: cart.map(({ productId, quantity, packageId }) => ({ productId, quantity, packageId })),
-        discountAmount, idempotencyKey: checkoutIdempotencyKeyRef.current, ageVerified, customerId: selectedCustomer || undefined,
+        discountAmount, shippingAmount: shippingCost, roundoffEnabled, idempotencyKey: checkoutIdempotencyKeyRef.current, ageVerified, customerId: selectedCustomer || undefined,
         pharmacy: prescriptionRequired || containsRestrictedMedicine ? { prescriptionReference: prescriptionReference.trim() || undefined, prescriberReference: prescriberReference.trim() || undefined, patientReference: patientReference.trim() || undefined, issuedAt: prescriptionIssuedAt ? new Date(prescriptionIssuedAt) : undefined, expiresAt: prescriptionExpiresAt ? new Date(prescriptionExpiresAt) : undefined, notes: pharmacyNotes.trim() || undefined } : undefined,
       })
       setMpesaRequestId(response.id)
@@ -1052,7 +1139,7 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
     try {
       const response = await initiateMpesaPaybillPayment({
         items: cart.map(({ productId, quantity, packageId }) => ({ productId, quantity, packageId })),
-        discountAmount, idempotencyKey: checkoutIdempotencyKeyRef.current, ageVerified, customerId: selectedCustomer || undefined,
+        discountAmount, shippingAmount: shippingCost, roundoffEnabled, idempotencyKey: checkoutIdempotencyKeyRef.current, ageVerified, customerId: selectedCustomer || undefined,
         pharmacy: prescriptionRequired || containsRestrictedMedicine ? { prescriptionReference: prescriptionReference.trim() || undefined, prescriberReference: prescriberReference.trim() || undefined, patientReference: patientReference.trim() || undefined, issuedAt: prescriptionIssuedAt ? new Date(prescriptionIssuedAt) : undefined, expiresAt: prescriptionExpiresAt ? new Date(prescriptionExpiresAt) : undefined, notes: pharmacyNotes.trim() || undefined } : undefined,
       })
       setMpesaRequestId(response.id)
@@ -1073,6 +1160,10 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
   const handleNewSale = () => {
     setCart([])
     setDiscount(0)
+    setShippingCost(0)
+    setRoundoffEnabled(true)
+    setCouponCode('')
+    setCouponValue(0)
     setMpesaRef('')
     setMpesaPhone('')
     setMpesaFlow('stk')
@@ -1107,6 +1198,10 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
     if (!window.confirm('Void the current order? All items and discounts in this order will be removed.')) return
     setCart([])
     setDiscount(0)
+    setShippingCost(0)
+    setRoundoffEnabled(true)
+    setCouponCode('')
+    setCouponValue(0)
     setAmountPaid('')
     setMpesaRef('')
     setCheckoutOpen(false)
@@ -1249,10 +1344,14 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
     const requestId = createIdempotencyKey()
     setHeldSaleActionId(requestId)
     try {
-      const saved = await holdSaleOnServer({ idempotencyKey: requestId, items: cart, discountValue: discount, discountType, customerId: selectedCustomer || undefined })
+      const saved = await holdSaleOnServer({ idempotencyKey: requestId, items: cart, discountValue: discountAmount, discountType: 'fixed', customerId: selectedCustomer || undefined })
       setHeldSales((previous) => [saved, ...previous.filter((item) => item.id !== saved.id)])
       setCart([])
       setDiscount(0)
+      setShippingCost(0)
+      setRoundoffEnabled(true)
+      setCouponCode('')
+      setCouponValue(0)
       setSelectedCustomer('')
       setAmountPaid('')
       setMpesaRef('')
@@ -1274,6 +1373,10 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
       setCart(result.heldSale.cart)
       setDiscount(result.heldSale.discount)
       setDiscountType(result.heldSale.discountType)
+      setShippingCost(0)
+      setRoundoffEnabled(true)
+      setCouponCode('')
+      setCouponValue(0)
       setSelectedCustomer(result.heldSale.customerId)
       setHeldSales((previous) => previous.filter((sale) => sale.id !== heldSale.id))
       setShowHeldSales(false)
@@ -1373,6 +1476,7 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
       subtotal: receipt.subtotal.toString(),
       taxAmount: receipt.taxAmount.toString(),
       discountAmount: receipt.discountAmount.toString(),
+      shippingAmount: receipt.shippingAmount.toString(),
       roundingAmount: receipt.roundingAmount.toString(),
       total: receipt.total.toString(),
       customerId: selectedCustomer || null,
@@ -1524,7 +1628,7 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
   return (
     <div className={cn(
       'pos-terminal relative grid gap-4 bg-transparent sm:gap-5 lg:grid-cols-[minmax(0,1fr)_460px] lg:items-stretch xl:grid-cols-[minmax(0,1fr)_minmax(500px,30%)]',
-      standalone ? 'h-full min-h-0 lg:h-full lg:min-h-0' : 'min-h-[calc(100vh-10.5rem)] lg:h-[calc(100dvh-10.5rem)] lg:min-h-[520px]',
+      standalone ? 'min-h-0 lg:flex-1' : 'min-h-[calc(100vh-10.5rem)] lg:h-[calc(100dvh-10.5rem)] lg:min-h-[520px]',
       showOfflineStatus && 'lg:grid-rows-[auto_minmax(0,1fr)]',
       checkoutOnly && 'w-full max-w-none bg-transparent lg:h-auto lg:grid-cols-1 lg:gap-6'
     )}>
@@ -1755,7 +1859,7 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
       </section>
 
       {/* Right: Cart + Payment */}
-      <aside className={cn(ui.card, 'flex min-h-[520px] w-full flex-col overflow-hidden lg:max-h-full', !checkoutOpen && 'lg:h-fit lg:min-h-0 lg:self-start', checkoutOpen && !checkoutOnly && 'lg:h-fit lg:min-h-0 lg:self-start lg:max-h-none lg:overflow-visible', checkoutOnly && 'min-h-0 w-full max-w-none gap-6 overflow-visible border-0 bg-transparent shadow-none lg:grid lg:grid-cols-[minmax(0,1.15fr)_minmax(480px,.85fr)] lg:items-start lg:max-h-none')}>
+      <aside className={cn(ui.card, 'flex min-h-[520px] w-full flex-col overflow-hidden lg:max-h-full', !checkoutOpen && 'lg:h-fit lg:min-h-0 lg:self-start', checkoutOpen && !checkoutOnly && 'lg:h-full lg:min-h-0 lg:self-stretch lg:max-h-full lg:overflow-hidden', checkoutOnly && 'min-h-0 w-full max-w-none gap-6 overflow-visible border-0 bg-transparent shadow-none lg:grid lg:grid-cols-[minmax(0,1.15fr)_minmax(480px,.85fr)] lg:items-start lg:max-h-none')}>
         {/* Cart header with quick actions */}
         <div className={cn('border-b border-[#eef0f3] bg-white p-4 dark:border-white/10 dark:bg-[#161616]', checkoutOnly && 'hidden', checkoutOpen && !checkoutOnly && 'hidden')}>
           <div className="flex items-center justify-between">
@@ -1775,7 +1879,11 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
             ) : cart.length > 0 && (
               <button
                 onClick={() => {
-                  if (confirm('Clear all items from cart?')) setCart([])
+                  if (confirm('Clear all items from cart?')) {
+                    setCart([])
+                    setShippingCost(0)
+                    setRoundoffEnabled(true)
+                  }
                 }}
                 className="rounded-md px-2 py-1 text-[11px] font-semibold text-[#98a2b3] transition-colors hover:bg-[#fef3f2] hover:text-[#b42318] dark:hover:bg-red-950/30"
               >
@@ -1942,7 +2050,7 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
         )}
 
         {cart.length > 0 && checkoutOpen && (
-          <div className={cn('min-h-0 flex-none space-y-4 overflow-y-auto border-t border-[#eef0f3] bg-[#fbfbfc] p-4 dark:border-white/10 dark:bg-[#111111] lg:max-h-[calc(100vh-16rem)]', !checkoutOnly && 'max-h-none !overflow-visible lg:max-h-none', checkoutOnly && cn(ui.card, 'self-start p-6 lg:col-start-2 lg:row-start-1 lg:max-h-none'))}>
+          <div className={cn('min-h-0 flex-none space-y-4 overflow-y-auto border-t border-[#eef0f3] bg-[#fbfbfc] p-4 dark:border-white/10 dark:bg-[#111111] lg:max-h-[calc(100vh-16rem)]', !checkoutOnly && 'lg:flex-1 lg:max-h-none lg:overscroll-contain', checkoutOnly && cn(ui.card, 'self-start p-6 lg:col-start-2 lg:row-start-1 lg:max-h-none'))}>
             {checkoutOnly && (
               <div className="border-b border-[#eef0f3] pb-5 dark:border-white/10">
                 <button onClick={() => router.push('/dashboard/pos')} className="text-sm font-semibold text-[#344054] transition-colors hover:text-[#101828] dark:text-[#c4c4c4] dark:hover:text-white">
@@ -1953,107 +2061,80 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
                 <p className="mt-2 text-sm leading-6 text-[#667085] dark:text-[#8b8b8b]">Choose a payment method and complete the sale.</p>
               </div>
             )}
-            {/* Customer */}
+            {/* Customer details are managed in the basket panel to avoid duplicate selectors. */}
             {checkoutStep === 'customer' && !checkoutOnly && <button type="button" onClick={() => setCheckoutOpen(false)} className="inline-flex items-center gap-1 self-start rounded-lg px-1 py-1 text-xs font-semibold text-[#667085] transition-colors hover:text-[#101828] dark:text-[#a3a3a3] dark:hover:text-white">← Back to basket</button>}
-            {checkoutStep === 'customer' && <div className="rounded-xl border border-[#e4e9ef] bg-white p-4 dark:border-white/10 dark:bg-[#171717]">
-              <div className="mb-2 flex items-center justify-between">
-                <label className="flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-[0.1em] text-[#667085] dark:text-[#b5bac5]"><span className="flex h-6 w-6 items-center justify-center rounded-md border border-[#f1d56f] bg-[#fff7d6] text-[#9a6700] dark:border-[#5e461c] dark:bg-[#3a3016] dark:text-[#ffd166]"><ContactRound className="h-3.5 w-3.5" strokeWidth={2.25} /></span> Customer</label>
-                <button type="button" onClick={() => setShowNewCustomer(!showNewCustomer)} disabled={mpesaLocksBasket || !isOnline} title={!isOnline ? 'Reconnect to create a customer' : showNewCustomer ? 'Cancel' : 'Add customer'} aria-label={showNewCustomer ? 'Cancel adding customer' : 'Add customer'} className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[#e4e7ec] bg-white text-[#a47700] transition-colors hover:border-[#f9b21d] hover:bg-[#fff8e6] disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/10 dark:bg-[#1c1c1c] dark:text-[#ffd166] dark:hover:border-[#f9b21d] dark:hover:bg-[#3a3016]">
-                  {showNewCustomer ? <X className="h-4 w-4" /> : <UserRoundPlus className="h-4 w-4" />}
-                </button>
-              </div>
-              {showNewCustomer ? (
-                <div className="space-y-2 rounded-xl bg-[#fffaf0] p-2.5 dark:bg-[rgba(255,214,10,.06)]">
-                  <input type="text" placeholder="Full name" value={newCustomerName} onChange={(e) => setNewCustomerName(e.target.value)} className={cn(inputCls, 'h-10 text-sm')} disabled={creatingCustomer} />
-                  <input type="tel" placeholder="Phone (optional)" value={newCustomerPhone} onChange={(e) => setNewCustomerPhone(e.target.value)} className={cn(inputCls, 'h-10 text-sm')} disabled={creatingCustomer} />
-                  <input type="email" placeholder="Email (optional)" value={newCustomerEmail} onChange={(e) => setNewCustomerEmail(e.target.value)} className={cn(inputCls, 'h-10 text-sm')} disabled={creatingCustomer} />
-                  <button
-                    onClick={handleCreateCustomer}
-                    disabled={creatingCustomer || !newCustomerName.trim()}
-                    style={{ backgroundColor: ui.primary, color: ui.primaryInk }}
-                    className="w-full rounded-lg px-2 py-2 text-xs font-bold transition-opacity hover:opacity-90 disabled:opacity-40"
-                  >
-                    {creatingCustomer ? 'Creating…' : 'Save customer'}
-                  </button>
-                </div>
-              ) : (
-                <div className="flex gap-2">
-                <div className="relative min-w-0 flex-1">
-                  <button type="button" disabled={mpesaLocksBasket} onClick={() => setCustomerMenuOpen((open) => !open)} aria-haspopup="listbox" aria-expanded={customerMenuOpen} className={cn(inputCls, 'flex h-11 items-center justify-between text-left text-[13px] font-semibold focus:border-[#f2b705] focus:ring-[#f2b705]/10 disabled:cursor-not-allowed dark:bg-[#161616]')}>
-                    <span className="truncate">{selectedCustomer ? `${availableCustomers.find((customer) => customer.id === selectedCustomer)?.name ?? 'Customer'}${availableCustomers.find((customer) => customer.id === selectedCustomer)?.phone ? ` (${availableCustomers.find((customer) => customer.id === selectedCustomer)?.phone})` : ''}` : 'Walk-in customer'}</span>
-                    <ChevronDown className={cn('h-4 w-4 shrink-0 text-[#667085] transition-transform dark:text-[#aeb4c0]', customerMenuOpen && 'rotate-180')} />
-                  </button>
-                  {customerMenuOpen && !mpesaLocksBasket && (
-                    <div role="listbox" className="absolute inset-x-0 top-full z-30 mt-1 max-h-56 overflow-y-auto rounded-lg border border-[#e4e7ec] bg-white p-1 shadow-[0_10px_24px_rgba(16,24,40,0.14)] dark:border-white/10 dark:bg-[#1b1b1b]">
-                      <button type="button" role="option" aria-selected={!selectedCustomer} onClick={() => { setSelectedCustomer(''); setCustomerMenuOpen(false) }} className={cn('flex w-full items-center rounded-md px-3 py-2 text-left text-[13px] transition-colors hover:bg-[#fff8df] dark:hover:bg-[#302812]', !selectedCustomer ? 'bg-[#fff8df] font-semibold text-[#7a5b00] dark:bg-[#302812] dark:text-[#ffd166]' : 'text-[#344054] dark:text-[#e4e7ec]')}>Walk-in customer</button>
-                      {availableCustomers.map((customer) => {
-                        const label = `${customer.name}${customer.phone ? ` (${customer.phone})` : ''}`
-                        return <button key={customer.id} type="button" role="option" aria-selected={selectedCustomer === customer.id} onClick={() => { setSelectedCustomer(customer.id); setCustomerMenuOpen(false) }} className={cn('flex w-full items-center rounded-md px-3 py-2 text-left text-[13px] transition-colors hover:bg-[#fff8df] dark:hover:bg-[#302812]', selectedCustomer === customer.id ? 'bg-[#fff8df] font-semibold text-[#7a5b00] dark:bg-[#302812] dark:text-[#ffd166]' : 'text-[#344054] dark:text-[#e4e7ec]')}>{label}</button>
-                      })}
-                    </div>
-                  )}
-                </div>
-                <button type="button" disabled={mpesaLocksBasket || !isOnline} onClick={() => { setScannerPurpose('customer'); setShowWirelessScanner(true) }} title="Scan customer barcode" aria-label="Scan customer barcode" className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-[#e4e7ec] bg-white text-[#0f766e] transition-colors hover:border-[#0f766e] hover:bg-[#ecfdf5] disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/10 dark:bg-[#161616] dark:text-[#5eead4] dark:hover:border-[#14b8a6] dark:hover:bg-[#12302d]">
-                  <ScanBarcode className="h-5 w-5" />
-                </button>
-                </div>
-              )}
 
-            </div>}
+            {/* Payment summary */}
+            {checkoutStep === 'customer' && <section aria-labelledby="pos-payment-summary" className="overflow-hidden rounded-xl border border-[var(--dashboard-border)] bg-[var(--dashboard-surface)] text-[var(--dashboard-text)] shadow-sm dark:shadow-none">
+              <div className="flex items-center justify-between border-b border-[var(--dashboard-border)] px-4 py-3">
+                <div>
+                  <h3 id="pos-payment-summary" className="text-sm font-bold tracking-tight">Payment Summary</h3>
+                  <p className="mt-0.5 text-[10px] font-medium text-[var(--dashboard-muted)]">Calculated from the current basket</p>
+                </div>
+                <span className="rounded-full border border-[var(--dashboard-accent-soft-border)] bg-[var(--dashboard-accent-soft)] px-2.5 py-1 text-[10px] font-bold text-[var(--dashboard-accent)]">
+                  {cart.length} item{cart.length === 1 ? '' : 's'}
+                </span>
+              </div>
 
-            {/* Discount */}
-            {checkoutStep === 'customer' && canDiscount && <div className="rounded-xl border border-[#e4e9ef] bg-white p-4 dark:border-white/10 dark:bg-[#171717]">
-              <label className="mb-2 flex items-center gap-2 text-xs font-extrabold uppercase tracking-[0.1em] text-[#667085] dark:text-[#b5bac5]"><span className="flex h-7 w-7 items-center justify-center rounded-lg border border-[#f1d56f] bg-[#fff7d6] text-[#9a6700] dark:border-[#5e461c] dark:bg-[#3a3016] dark:text-[#ffd166]"><BadgePercent className="h-4 w-4" strokeWidth={2.25} /></span> Discount</label>
-              <div className="flex gap-2">
-                <div className="relative w-32 shrink-0">
-                  <button type="button" disabled={mpesaLocksBasket} onClick={() => setDiscountMenuOpen((open) => !open)} aria-haspopup="listbox" aria-expanded={discountMenuOpen} className={cn(inputCls, 'flex h-11 w-full items-center justify-between text-left text-[13px] font-semibold focus:border-[#f2b705] focus:ring-[#f2b705]/10 disabled:cursor-not-allowed dark:bg-[#161616]')}>
-                    <span>{discountType === 'fixed' ? 'KES amount' : 'Percentage'}</span>
-                    <ChevronDown className={cn('h-4 w-4 text-[#667085] transition-transform dark:text-[#aeb4c0]', discountMenuOpen && 'rotate-180')} />
-                  </button>
-                  {discountMenuOpen && !mpesaLocksBasket && (
-                    <div role="listbox" className="absolute inset-x-0 top-full z-30 mt-1 overflow-hidden rounded-lg border border-[#e4e7ec] bg-white p-1 shadow-[0_10px_24px_rgba(16,24,40,0.14)] dark:border-white/10 dark:bg-[#1b1b1b]">
-                      {(['fixed', 'percentage'] as const).map((type) => (
-                        <button key={type} type="button" role="option" aria-selected={discountType === type} onClick={() => { setDiscountType(type); setDiscount(0); setDiscountMenuOpen(false) }} className={cn('flex w-full items-center rounded-md px-3 py-2 text-left text-[13px] transition-colors hover:bg-[#fff8df] dark:hover:bg-[#302812]', discountType === type ? 'bg-[#fff8df] font-semibold text-[#7a5b00] dark:bg-[#302812] dark:text-[#ffd166]' : 'text-[#344054] dark:text-[#e4e7ec]')}>{type === 'fixed' ? 'KES amount' : 'Percentage'}</button>
-                      ))}
-                    </div>
-                  )}
+              <dl className="divide-y divide-[var(--dashboard-border)] px-4 text-[13px]">
+                <div className="flex min-h-9 items-center justify-between gap-4 py-2">
+                  <dt className="flex items-center gap-2 text-[var(--dashboard-muted)]"><Package className="h-3.5 w-3.5" aria-hidden="true" />Shipping
+                    <button type="button" onClick={() => openSummaryEditor('shipping')} aria-label="Edit shipping" title="Edit shipping" className="inline-flex h-6 w-6 items-center justify-center rounded-md border border-[var(--dashboard-border)] bg-[var(--dashboard-surface-subtle)] text-[var(--dashboard-muted)] transition-colors hover:border-[var(--dashboard-accent-soft-border)] hover:bg-[var(--dashboard-accent-soft)] hover:text-[var(--dashboard-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--dashboard-accent)]/30">
+                      <SummaryEditIcon className="h-3 w-3" />
+                    </button>
+                  </dt>
+                  <dd className="font-semibold tabular-nums">{formatCurrency(shippingCost)}</dd>
                 </div>
-                <input type="number" min="0" max={discountType === 'percentage' ? 100 : subtotal + taxAmount} placeholder={discountType === 'percentage' ? '0–100' : 'Enter amount'} value={discount || ''} disabled={mpesaLocksBasket} onChange={(e) => setDiscount(parseFloat(e.target.value) || 0)} className={cn(inputCls, 'h-11 flex-1 border-[#e4e7ec] bg-[#fbfbfc] text-[13px] focus:border-[#f2b705] focus:ring-[#f2b705]/10 dark:bg-[#161616]')} />
-              </div>
-            </div>}
+                <div className="flex min-h-9 items-center justify-between gap-4 py-2">
+                  <dt className="flex items-center gap-2 text-[var(--dashboard-muted)]">
+                    <Banknote className="h-3.5 w-3.5" aria-hidden="true" />
+                    <span>{settings.taxName || 'Tax'}{settings.taxEnabled ? ` (${settings.taxRate.toFixed(1)}%)` : ''}</span>
+                    <button type="button" onClick={() => openSummaryEditor('tax')} aria-label="Edit tax" title="Edit tax" className="inline-flex h-6 w-6 items-center justify-center rounded-md border border-[var(--dashboard-border)] bg-[var(--dashboard-surface-subtle)] text-[var(--dashboard-muted)] transition-colors hover:border-[var(--dashboard-accent-soft-border)] hover:bg-[var(--dashboard-accent-soft)] hover:text-[var(--dashboard-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--dashboard-accent)]/30">
+                      <SummaryEditIcon className="h-3 w-3" />
+                    </button>
+                  </dt>
+                  <dd className="font-semibold tabular-nums">{formatCurrency(taxAmount)}</dd>
+                </div>
+                <div className="flex min-h-9 items-center justify-between gap-4 py-2">
+                  <dt className={cn('flex items-center gap-2', couponAmount > 0 ? 'text-[var(--dashboard-accent)]' : 'text-[var(--dashboard-muted)]')}>
+                    <BadgePercent className="h-3.5 w-3.5" aria-hidden="true" />
+                    <span>Coupon{couponCode ? ` · ${couponCode}` : ''}</span>
+                    <button type="button" onClick={() => openSummaryEditor('coupon')} aria-label="Edit coupon" title="Edit coupon" className="inline-flex h-6 w-6 items-center justify-center rounded-md border border-[var(--dashboard-border)] bg-[var(--dashboard-surface-subtle)] text-[var(--dashboard-muted)] transition-colors hover:border-[var(--dashboard-accent-soft-border)] hover:bg-[var(--dashboard-accent-soft)] hover:text-[var(--dashboard-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--dashboard-accent)]/30">
+                      <SummaryEditIcon className="h-3 w-3" />
+                    </button>
+                  </dt>
+                  <dd className={cn('font-semibold tabular-nums', couponAmount > 0 && 'text-[var(--dashboard-accent)]')}>{couponAmount > 0 ? '−' : ''}{formatCurrency(couponAmount)}</dd>
+                </div>
+                <div className="flex min-h-9 items-center justify-between gap-4 py-2">
+                  <dt className={cn('flex items-center gap-2', manualDiscountAmount > 0 ? 'text-[#b42318] dark:text-[#f97066]' : 'text-[var(--dashboard-muted)]')}>
+                    <BadgePercent className="h-3.5 w-3.5" aria-hidden="true" />
+                    <span>Discount{discountType === 'percentage' && manualDiscountAmount > 0 ? ` (${discount.toFixed(1)}%)` : ''}</span>
+                    <button type="button" onClick={() => openSummaryEditor('discount')} aria-label="Edit discount" title="Edit discount" className="inline-flex h-6 w-6 items-center justify-center rounded-md border border-[var(--dashboard-border)] bg-[var(--dashboard-surface-subtle)] text-[var(--dashboard-muted)] transition-colors hover:border-[var(--dashboard-accent-soft-border)] hover:bg-[var(--dashboard-accent-soft)] hover:text-[var(--dashboard-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--dashboard-accent)]/30">
+                      <SummaryEditIcon className="h-3 w-3" />
+                    </button>
+                  </dt>
+                  <dd className={cn('font-semibold tabular-nums', manualDiscountAmount > 0 && 'text-[#b42318] dark:text-[#f97066]')}>{manualDiscountAmount > 0 ? '−' : ''}{formatCurrency(manualDiscountAmount)}</dd>
+                </div>
+                <div className="flex min-h-9 items-center justify-between gap-4 py-2">
+                  <dt className="flex items-center gap-2 text-[var(--dashboard-muted)]"><RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />Roundoff</dt>
+                  <dd className="flex items-center gap-2 font-semibold tabular-nums">
+                    <button type="button" role="switch" aria-checked={roundoffEnabled} aria-label="Toggle roundoff" title="Round the payable total to the nearest shilling" onClick={() => setRoundoffEnabled((enabled) => !enabled)} disabled={mpesaLocksBasket} className={cn('relative inline-flex h-4 w-8 shrink-0 items-center rounded-full border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--dashboard-accent)]/30 disabled:cursor-not-allowed disabled:opacity-45', roundoffEnabled ? 'border-[#e85d04] bg-[#e85d04]' : 'border-[var(--dashboard-border)] bg-[var(--dashboard-surface-subtle)]')}>
+                      <span className={cn('h-3 w-3 rounded-full bg-white shadow-sm transition-transform', roundoffEnabled ? 'translate-x-[17px]' : 'translate-x-[2px]')} />
+                    </button>
+                    <span className={cn('min-w-[4.5rem] text-right', roundingAmount < 0 && 'text-[#d92d20]')}>{roundingAmount > 0 ? '+' : roundingAmount < 0 ? '−' : ''}{formatCurrency(Math.abs(roundingAmount))}</span>
+                  </dd>
+                </div>
+                <div className="flex min-h-10 items-center justify-between gap-4 py-2.5">
+                  <dt className="font-medium text-[var(--dashboard-muted)]">Sub Total</dt>
+                  <dd className="font-bold tabular-nums">{formatCurrency(subtotal)}</dd>
+                </div>
+              </dl>
 
-            {/* Order summary */}
-            {checkoutStep === 'customer' && <div className="overflow-hidden rounded-xl border border-[#e4e7ec] bg-white text-[#101828] dark:border-white/10 dark:bg-[#171717] dark:text-white">
-              <div className="flex items-center justify-between border-b border-[#edf0f4] px-3.5 py-2.5 dark:border-white/10"><span className="text-[10px] font-extrabold uppercase tracking-[0.13em] text-[#a47700] dark:text-[#ffd60a]">Order summary</span><span className="rounded-full bg-[#fff3be] px-2 py-0.5 text-[10px] font-extrabold text-[#5f4600] dark:bg-[#f2b705] dark:text-[#241d00]">{cart.length} item{cart.length === 1 ? '' : 's'}</span></div>
-              <div className="space-y-1.5 px-4 pb-4 pt-3.5 text-[13px]">
-              <div className="flex justify-between text-[#667085] dark:text-[#b9c4d6]">
-                <span>Subtotal</span>
-                <span className="tabular-nums font-semibold text-[#101828] dark:text-white">{formatCurrency(subtotal)}</span>
+              <div className="flex items-baseline justify-between gap-4 border-t border-[var(--dashboard-border)] bg-[var(--dashboard-surface-subtle)] px-4 py-3.5">
+                <span className="text-sm font-bold">Total Payable</span>
+                <span className="text-xl font-extrabold tracking-tight tabular-nums">{formatCurrency(total)}</span>
               </div>
-              {settings.taxEnabled && settings.showTaxOnReceipt && (
-                <div className="flex justify-between text-[#667085] dark:text-[#b9c4d6]">
-                  <span>{settings.taxName || 'Tax'} ({settings.taxRate.toFixed(1)}%)</span>
-                  <span className="tabular-nums font-semibold text-[#101828] dark:text-white">{formatCurrency(taxAmount)}</span>
-                </div>
-              )}
-              {discountAmount > 0 && (
-                <div className="flex justify-between text-[#168337] dark:text-[#73e29a]">
-                  <span>Discount {discountType === 'percentage' ? `(${discount.toFixed(1)}%)` : ''}</span>
-                  <span className="tabular-nums font-medium">−{formatCurrency(discountAmount)}</span>
-                </div>
-              )}
-              {roundingAmount !== 0 && (
-                <div className="flex justify-between text-[#667085] dark:text-[#b9c4d6]">
-                  <span>M-Pesa rounding</span>
-                  <span className="tabular-nums font-semibold text-[#101828] dark:text-white">{roundingAmount > 0 ? '+' : '−'}{formatCurrency(Math.abs(roundingAmount))}</span>
-                </div>
-              )}
-              <div className="mt-3 flex items-baseline justify-between border-t border-[#edf0f4] pt-3 dark:border-white/15">
-                <span className="text-sm font-bold text-[#101828] dark:text-white">Total due</span>
-                <span className="text-xl font-extrabold tabular-nums text-[#101828] dark:text-white">{formatCurrency(total)}</span>
-              </div>
-              </div>
-            </div>}
+            </section>}
 
             {checkoutStep === 'customer' && (
               <div className="rounded-xl border border-[#e4e7ec] bg-white p-3.5 dark:border-white/10 dark:bg-[#171717]">
@@ -2084,7 +2165,7 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
               {containsRestrictedMedicine && <p className={cn('mt-2 text-[11px] font-semibold', canApproveRestricted ? 'text-emerald-700 dark:text-emerald-300' : 'text-red-700 dark:text-red-300')}>{canApproveRestricted ? 'Restricted-item approval will be recorded under the current authorized user.' : 'This user cannot approve restricted-item sales. Ask an authorized pharmacist or manager.'}</p>}
             </div>}
             {/* Payment method */}
-            <div className="rounded-2xl border border-[#e4e9ef] bg-white p-3.5 shadow-[0_3px_12px_rgba(16,24,40,0.03)] dark:border-white/10 dark:bg-[#171717]">
+            <div className="rounded-xl border border-[#e4e7ec] bg-white p-3.5 shadow-sm dark:border-white/10 dark:bg-[#171717]">
               <div className="mb-2 flex items-center justify-between">
                 <label className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-[#667085] dark:text-[#9d9d9d]">Payment method</label>
                 <span className="rounded-full bg-[#fff3be] px-2 py-0.5 text-[10px] font-bold text-[#7a5a00] dark:bg-[rgba(255,214,10,.12)] dark:text-[#ffd60a]">F3–F5 to switch</span>
@@ -2106,7 +2187,7 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
                       title={!isOnline && key !== 'cash' ? `${label} requires an internet connection` : `${label} (${shortcut})`}
                       style={key === 'mpesa' ? { backgroundColor: '#11ad2d' } : undefined}
                       className={cn(
-                        'group relative flex h-[88px] items-center justify-center rounded-xl border-2 bg-white px-3 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-[#1c1c1c]',
+                        'group relative flex h-[84px] items-center justify-center rounded-lg border-2 bg-white px-3 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-[#1c1c1c]',
                         (key === 'cash' || key === 'mpesa' || key === 'card') && '!border-transparent !bg-transparent px-0 hover:!border-transparent hover:!bg-transparent dark:!bg-transparent',
                         paymentMethod === key
                           ? key === 'mpesa'
@@ -2128,8 +2209,8 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
             </div>
 
             {paymentMethod === 'cash' && (
-              <div className="overflow-hidden rounded-xl border border-[#f0d66d] bg-white shadow-sm dark:border-[rgba(255,214,10,.28)] dark:bg-[#171717]">
-                <div className="flex items-center justify-between gap-3 border-b border-[#f0d66d] bg-[#fff3be] px-3.5 py-3 dark:border-[rgba(255,214,10,.2)] dark:bg-[rgba(255,214,10,.12)]">
+              <div className="overflow-hidden rounded-xl border border-[#e4e7ec] border-t-2 border-t-[#e0a800] bg-white shadow-sm dark:border-white/10 dark:border-t-[#ffd60a] dark:bg-[#171717]">
+                <div className="flex items-center justify-between gap-3 border-b border-[#eef0f3] bg-[#fffdf5] px-3.5 py-3 dark:border-white/10 dark:bg-[rgba(255,214,10,.06)]">
                     <div className="flex items-center gap-2.5">
                       <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-white text-[#a47700] shadow-sm dark:bg-[#1b1b1b]"><Banknote className="h-4 w-4" /></span>
                       <div>
@@ -2178,10 +2259,7 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
                     <div className="flex items-center gap-1.5 rounded-lg bg-[#f9fafb] px-3 py-2.5 text-[11px] font-medium text-[#667085] dark:bg-white/5 dark:text-[#a3a3a3]"><Zap className="h-3.5 w-3.5 text-[#a47700]" /> Choose the exact tender or enter the amount received.</div>
                   )}
                 </div>
-                <button type="button" disabled={mpesaLocksBasket || !isOnline} onClick={() => { setScannerPurpose('customer'); setShowWirelessScanner(true) }} title="Scan customer barcode" aria-label="Scan customer barcode" className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-[#e4e7ec] bg-white text-[#0f766e] transition-colors hover:border-[#0f766e] hover:bg-[#ecfdf5] disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/10 dark:bg-[#161616] dark:text-[#5eead4] dark:hover:border-[#14b8a6] dark:hover:bg-[#12302d]">
-                  <ScanBarcode className="h-5 w-5" />
-                </button>
-                </div>
+              </div>
             )}
 
             {paymentMethod === 'mpesa' && (
@@ -2354,16 +2432,123 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
       </aside>
 
       {standalone && !checkoutOnly && (
-        <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-[#e6eaed] bg-white p-3 dark:border-white/10 dark:bg-[#111]" aria-label="POS register actions">
-          <div className="pos-action-scroll mx-auto flex items-center justify-center gap-2 overflow-x-auto">
-            <button type="button" onClick={() => void holdSale()} disabled={!canHold || cart.length === 0 || Boolean(heldSaleActionId)} className="inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-md bg-[var(--dashboard-accent)] px-2.5 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-[var(--dashboard-accent-strong)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--dashboard-accent)]/40 disabled:cursor-not-allowed disabled:opacity-40"><PauseCircle className="h-3.5 w-3.5" />Hold</button>
-            <button type="button" onClick={voidCurrentSale} disabled={cart.length === 0} className="inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-md bg-[var(--dashboard-danger)] px-2.5 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-[#8f1d14] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--dashboard-danger)]/40 disabled:cursor-not-allowed disabled:opacity-40"><Trash2 className="h-3.5 w-3.5" />Void</button>
-            <button type="button" onClick={openCheckout} disabled={cart.length === 0 || !hasActiveShift} className="inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-md bg-[var(--dashboard-success)] px-2.5 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-[#166534] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--dashboard-success)]/40 disabled:cursor-not-allowed disabled:opacity-40"><WalletCards className="h-3.5 w-3.5" />Payment</button>
-            <button type="button" onClick={openHeldOrders} className="inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-md bg-[var(--dashboard-accent-strong)] px-2.5 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-[#78350f] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--dashboard-accent)]/40"><ArchiveRestore className="h-3.5 w-3.5" />View Orders</button>
-            <button type="button" onClick={resetRegister} className="inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-md border border-[var(--dashboard-border)] bg-[var(--dashboard-surface-subtle)] px-2.5 text-xs font-semibold text-[var(--dashboard-text)] shadow-sm transition-colors hover:border-[var(--dashboard-accent-soft-border)] hover:bg-[var(--dashboard-accent-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--dashboard-accent)]/40"><RefreshCw className="h-3.5 w-3.5" />Reset</button>
-            <button type="button" onClick={() => setShowSalesHistory(true)} className="inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-md bg-[var(--dashboard-danger)] px-2.5 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-[#8f1d14] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--dashboard-danger)]/40"><History className="h-3.5 w-3.5" />Transaction</button>
+        <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-[#e6eaed] bg-white p-3 dark:border-white/10 dark:bg-[#111] max-lg:relative" aria-label="POS register actions">
+          <div className="pos-action-scroll mx-auto flex flex-wrap items-center justify-center gap-2 max-sm:flex-nowrap max-sm:justify-start max-sm:overflow-x-auto">
+            <button type="button" onClick={() => void holdSale()} disabled={!canHold || cart.length === 0 || Boolean(heldSaleActionId)} className="inline-flex shrink-0 items-center justify-center gap-2 rounded-[5px] border border-[#E04F16] bg-[#E04F16] px-[0.85rem] py-[0.4rem] text-[0.85rem] font-semibold leading-normal text-white shadow-[0_4px_20px_rgba(224,79,22,0.15)] transition-all duration-500 hover:border-[#BF4313] hover:bg-[#BF4313] hover:shadow-[0_3px_10px_rgba(224,79,22,0.5)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E04F16]/40 disabled:cursor-not-allowed disabled:opacity-[0.65]"><PauseCircle className="h-4 w-4" />Hold</button>
+            <button type="button" onClick={voidCurrentSale} disabled={cart.length === 0} className="inline-flex shrink-0 items-center justify-center gap-2 rounded-[5px] border border-[#155EEF] bg-[#155EEF] px-[0.85rem] py-[0.4rem] text-[0.85rem] font-semibold leading-normal text-white shadow-[0_4px_20px_rgba(21,94,239,0.15)] transition-all duration-500 hover:border-[#0E50D2] hover:bg-[#0E50D2] hover:shadow-[0_3px_10px_rgba(21,94,239,0.5)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#155EEF]/40 disabled:cursor-not-allowed disabled:opacity-[0.65]"><Trash2 className="h-4 w-4" />Void</button>
+            <button type="button" onClick={openCheckout} disabled={cart.length === 0 || !hasActiveShift} className="inline-flex shrink-0 items-center justify-center gap-2 rounded-[5px] border border-[#06AED4] bg-[#06AED4] px-[0.85rem] py-[0.4rem] text-[0.85rem] font-semibold leading-normal text-white shadow-[0_4px_20px_rgba(6,174,212,0.15)] transition-all duration-500 hover:border-[#0592B1] hover:bg-[#0592B1] hover:shadow-[0_3px_10px_rgba(6,174,212,0.5)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#06AED4]/40 disabled:cursor-not-allowed disabled:opacity-[0.65]"><WalletCards className="h-4 w-4" />Payment</button>
+            <button type="button" onClick={openHeldOrders} className="inline-flex shrink-0 items-center justify-center gap-2 rounded-[5px] border border-[#092C4C] bg-[#092C4C] px-[0.85rem] py-[0.4rem] text-[0.85rem] font-semibold leading-normal text-white shadow-[0_4px_20px_rgba(9,44,76,0.15)] transition-all duration-500 hover:border-[#05192C] hover:bg-[#05192C] hover:shadow-[0_3px_10px_rgba(9,44,76,0.5)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#092C4C]/40"><ArchiveRestore className="h-4 w-4" />View Orders</button>
+            <button type="button" onClick={resetRegister} className="inline-flex shrink-0 items-center justify-center gap-2 rounded-[5px] border border-[#3538CD] bg-[#3538CD] px-[0.85rem] py-[0.4rem] text-[0.85rem] font-semibold leading-normal text-white shadow-[0_4px_20px_rgba(53,56,205,0.15)] transition-all duration-500 hover:border-[#2C2FB2] hover:bg-[#2C2FB2] hover:shadow-[0_3px_10px_rgba(53,56,205,0.5)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3538CD]/40"><RefreshCw className="h-4 w-4" />Reset</button>
+            <button type="button" onClick={() => setShowSalesHistory(true)} className="inline-flex shrink-0 items-center justify-center gap-2 rounded-[5px] border border-[#FF0000] bg-[#FF0000] px-[0.85rem] py-[0.4rem] text-[0.85rem] font-semibold leading-normal text-white shadow-[0_4px_20px_rgba(255,0,0,0.15)] transition-all duration-500 hover:border-[#DB0000] hover:bg-[#DB0000] hover:shadow-[0_3px_10px_rgba(255,0,0,0.5)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF0000]/40"><History className="h-4 w-4" />Transaction</button>
           </div>
         </nav>
+      )}
+
+      {summaryEditor && (
+        <div
+          className="fixed inset-0 z-[90] flex items-center justify-center bg-[#0c111d]/55 p-4 backdrop-blur-[1px]"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="summary-editor-title"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) setSummaryEditor(null)
+          }}
+        >
+          <div className="w-full max-w-lg overflow-hidden rounded-xl border border-[var(--dashboard-border)] bg-[var(--dashboard-surface)] text-[var(--dashboard-text)] shadow-[0_24px_70px_rgba(16,24,40,.30)]">
+            <div className="flex items-center justify-between border-b border-[var(--dashboard-border)] px-5 py-4">
+              <div className="flex min-w-0 items-center gap-3">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-[var(--dashboard-accent-soft-border)] bg-[var(--dashboard-accent-soft)] text-[var(--dashboard-accent)]">
+                  {summaryEditor === 'tax' ? <Banknote className="h-4 w-4" /> : summaryEditor === 'shipping' ? <Package className="h-4 w-4" /> : <BadgePercent className="h-4 w-4" />}
+                </span>
+                <div className="min-w-0">
+                  <h2 id="summary-editor-title" className="text-base font-bold tracking-tight">
+                    {summaryEditor === 'tax' ? 'Order tax' : summaryEditor === 'shipping' ? 'Shipping cost' : summaryEditor === 'coupon' ? 'Coupon' : 'Discount'}
+                  </h2>
+                  <p className="mt-0.5 text-xs text-[var(--dashboard-muted)]">
+                    {summaryEditor === 'tax' ? 'Review the tax rule used for this sale.' : summaryEditor === 'shipping' ? 'Set the delivery or shipping charge for this sale.' : summaryEditor === 'coupon' ? 'Apply a coupon or approved reference.' : 'Apply an approved order discount.'}
+                  </p>
+                </div>
+              </div>
+              <button type="button" onClick={() => setSummaryEditor(null)} aria-label="Close editor" className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#fee4e2] text-[#d92d20] transition-colors hover:bg-[#fecdca] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d92d20]/30 dark:bg-red-950/50 dark:text-red-300">
+                <X className="h-4 w-4" aria-hidden="true" />
+              </button>
+            </div>
+
+            <div className="space-y-4 px-5 py-5">
+              {summaryEditor === 'tax' ? (
+                <>
+                  <div>
+                    <label className="mb-1.5 block text-sm font-semibold">Order tax</label>
+                    <div className="flex min-h-11 items-center justify-between rounded-lg border border-[var(--dashboard-border)] bg-[var(--dashboard-surface-subtle)] px-3.5 text-sm">
+                      <span className="font-medium">{settings.taxEnabled ? settings.taxName || 'Tax' : 'Tax disabled'}</span>
+                      <span className="font-bold tabular-nums text-[var(--dashboard-accent)]">{settings.taxEnabled ? `${settings.taxRate.toFixed(1)}%` : '0.0%'}</span>
+                    </div>
+                  </div>
+                  <div className="rounded-lg border border-[var(--dashboard-accent-soft-border)] bg-[var(--dashboard-accent-soft)] px-3.5 py-3 text-xs leading-5 text-[var(--dashboard-muted)]">
+                    Tax is controlled by your organization settings and recalculated by the server when the sale is completed. This keeps receipts and reports consistent.
+                  </div>
+                </>
+              ) : summaryEditor === 'coupon' ? (
+                <>
+                  <div>
+                    <label htmlFor="pos-coupon-code" className="mb-1.5 block text-sm font-semibold">Coupon or reference code <span className="text-[#d92d20]">*</span></label>
+                    <input id="pos-coupon-code" autoFocus value={couponDraftCode} onChange={(event) => setCouponDraftCode(event.target.value)} placeholder="Enter coupon code" maxLength={40} className={cn(inputCls, 'h-11 uppercase')} />
+                  </div>
+                  <div>
+                    <label htmlFor="pos-coupon-value" className="mb-1.5 block text-sm font-semibold">Coupon value <span className="text-[#d92d20]">*</span></label>
+                    <div className="relative">
+                      <span className="pointer-events-none absolute inset-y-0 left-3.5 flex items-center text-xs font-bold text-[var(--dashboard-accent)]">KES</span>
+                      <input id="pos-coupon-value" type="number" min="0" max={grossBeforeDiscount} value={summaryDraftValue} onChange={(event) => setSummaryDraftValue(event.target.value)} placeholder="0.00" className={cn(inputCls, 'h-11 pl-12 tabular-nums')} />
+                    </div>
+                  </div>
+                </>
+              ) : summaryEditor === 'shipping' ? (
+                <>
+                  <div>
+                    <label htmlFor="pos-shipping-cost" className="mb-1.5 block text-sm font-semibold">Shipping cost <span className="text-[#d92d20]">*</span></label>
+                    <div className="relative">
+                      <span className="pointer-events-none absolute inset-y-0 left-3.5 flex items-center text-xs font-bold text-[var(--dashboard-accent)]">KES</span>
+                      <input id="pos-shipping-cost" autoFocus type="number" min="0" step="0.01" value={summaryDraftValue} onChange={(event) => setSummaryDraftValue(event.target.value)} placeholder="0.00" className={cn(inputCls, 'h-11 pl-12 tabular-nums')} />
+                    </div>
+                  </div>
+                  <p className="text-xs leading-5 text-[var(--dashboard-muted)]">Leave this blank or set it to zero to remove the shipping charge.</p>
+                </>
+              ) : (
+                <>
+                  <div>
+                    <label htmlFor="pos-discount-type" className="mb-1.5 block text-sm font-semibold">Order discount type <span className="text-[#d92d20]">*</span></label>
+                    <select id="pos-discount-type" value={summaryDraftType} onChange={(event) => setSummaryDraftType(event.target.value as 'fixed' | 'percentage')} className={cn(inputCls, 'h-11')}>
+                      <option value="fixed">KES amount</option>
+                      <option value="percentage">Percentage</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label htmlFor="pos-discount-value" className="mb-1.5 block text-sm font-semibold">Value <span className="text-[#d92d20]">*</span></label>
+                    <div className="relative">
+                      <span className="pointer-events-none absolute inset-y-0 left-3.5 flex items-center text-xs font-bold text-[var(--dashboard-accent)]">{summaryDraftType === 'fixed' ? 'KES' : '%'}</span>
+                      <input id="pos-discount-value" autoFocus type="number" min="0" max={summaryDraftType === 'percentage' ? 100 : grossBeforeDiscount} value={summaryDraftValue} onChange={(event) => setSummaryDraftValue(event.target.value)} placeholder={summaryDraftType === 'percentage' ? '0–100' : '0.00'} className={cn(inputCls, 'h-11 pl-12 tabular-nums')} />
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+
+            <div className="flex flex-col-reverse gap-2 border-t border-[var(--dashboard-border)] bg-[var(--dashboard-surface-subtle)] px-5 py-4 sm:flex-row sm:justify-end">
+              <button type="button" onClick={() => setSummaryEditor(null)} className="min-h-10 rounded-lg border border-[var(--dashboard-border)] bg-[var(--dashboard-surface)] px-4 text-sm font-semibold text-[var(--dashboard-text)] transition-colors hover:bg-[var(--dashboard-surface-subtle)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--dashboard-accent)]/30">
+                Cancel
+              </button>
+              {summaryEditor === 'tax' ? (
+                <button type="button" onClick={() => { setSummaryEditor(null); router.push('/dashboard/settings') }} style={{ backgroundColor: ui.primary, color: ui.primaryInk }} className="min-h-10 rounded-lg px-4 text-sm font-bold transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--dashboard-accent)]/30">
+                  Manage tax settings
+                </button>
+              ) : (
+                <button type="button" onClick={applySummaryAdjustment} style={{ backgroundColor: ui.primary, color: ui.primaryInk }} className="min-h-10 rounded-lg px-4 text-sm font-bold transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--dashboard-accent)]/30">
+                  Apply
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
       )}
 
       {showAgeVerification && (

@@ -13,6 +13,8 @@ import { enqueueEtimsInvoice } from '@/lib/etims/service'
 export type MpesaCheckoutPayload = {
   items: Array<{ productId: string; quantity: number; packageId?: string }>
   discountAmount: number
+  shippingAmount?: number
+  roundoffEnabled?: boolean
   ageVerified: boolean
   pharmacy?: { prescriptionReference?: string; prescriberReference?: string; patientReference?: string; issuedAt?: string | Date; expiresAt?: string | Date; notes?: string }
 }
@@ -76,7 +78,12 @@ export async function finalizeConfirmedMpesaPayment(requestId: string) {
     const tax = rate ? (settings?.pricesIncludeTax ? subtotal - subtotal / (1 + rate) : subtotal * rate) : 0
     const gross = settings?.pricesIncludeTax ? subtotal : subtotal + tax
     if (checkout.discountAmount < 0 || checkout.discountAmount > gross) throw new Error('Invalid checkout discount')
-    const rounded = calculateMpesaAmount(Number((gross - checkout.discountAmount).toFixed(2)))
+    const shippingAmount = Number(checkout.shippingAmount ?? 0)
+    if (!Number.isFinite(shippingAmount) || shippingAmount < 0) throw new Error('Invalid checkout shipping')
+    const unroundedTotal = Number((gross + shippingAmount - checkout.discountAmount).toFixed(2))
+    const rounded = checkout.roundoffEnabled === false
+      ? { amount: unroundedTotal, roundingAmount: 0 }
+      : calculateMpesaAmount(unroundedTotal)
     if (Math.abs(rounded.amount - Number(intent.amount)) > 0.001) throw new Error('Paid amount no longer matches the checkout')
 
     const saleId = generateId()
@@ -97,7 +104,7 @@ export async function finalizeConfirmedMpesaPayment(requestId: string) {
 
     await tx.insert(sale).values({
       id: saleId, receiptNo, customerId: intent.customerId, subtotal: String(subtotal), taxAmount: String(tax),
-      discountAmount: String(checkout.discountAmount), roundingAmount: String(rounded.roundingAmount), total: String(rounded.amount),
+      discountAmount: String(checkout.discountAmount), shippingAmount: String(shippingAmount), roundingAmount: String(rounded.roundingAmount), total: String(rounded.amount),
       paymentMethod: 'mpesa', mpesaRef: intent.receiptNumber, ageVerified: checkout.ageVerified,
       ageVerifiedAt: checkout.ageVerified ? new Date() : null, ageVerifiedBy: checkout.ageVerified ? intent.userId : null,
       status: 'completed', idempotencyKey: intent.idempotencyKey, userId: intent.userId, orgId: intent.organizationId,

@@ -29,7 +29,6 @@ import {
   ReceiptText,
   ShieldCheck,
 } from 'lucide-react';
-import { GoogleMapsMark } from '@/components/ui/contact-marks';
 
 type Reconciliation = {
   expectedCash: number;
@@ -144,7 +143,7 @@ export function CashierShiftStrip({
     <>
       <section className="overflow-hidden rounded-2xl border border-[#ead28a] bg-gradient-to-r from-[#fffdf7] via-[#fff9e5] to-[#fff1b8] shadow-[0_2px_8px_rgba(151,112,0,.08)] dark:border-[rgba(255,214,10,.22)] dark:from-[#15130c] dark:via-[#201b0d] dark:to-[#30270f] dark:shadow-[0_2px_8px_rgba(0,0,0,.18)]">
         <div className="flex flex-col gap-3 px-4 py-3.5 xl:flex-row xl:items-center xl:justify-between">
-          <dl className="grid min-w-0 flex-1 grid-cols-2 gap-x-6 gap-y-3 md:grid-cols-4 xl:max-w-3xl">
+          <dl className="grid min-w-0 flex-1 grid-cols-2 gap-x-6 gap-y-3 md:grid-cols-3 xl:max-w-3xl">
             <Metric
               icon={Banknote}
               label="Shift sales"
@@ -167,11 +166,6 @@ export function CashierShiftStrip({
                   : 'No active shift'
               }
               tone={session ? 'success' : undefined}
-            />
-            <Metric
-              mark={<GoogleMapsMark className="h-4 w-4" />}
-              label="Location"
-              value={workspace.locationName}
             />
           </dl>
           <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">

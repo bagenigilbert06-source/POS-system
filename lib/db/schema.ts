@@ -536,6 +536,9 @@ export const sale = pgTable(
     discountAmount: numeric('discountAmount', { precision: 12, scale: 2 })
       .notNull()
       .default('0'),
+    shippingAmount: numeric('shippingAmount', { precision: 12, scale: 2 })
+      .notNull()
+      .default('0'),
     roundingAmount: numeric('roundingAmount', { precision: 12, scale: 2 })
       .notNull()
       .default('0'),

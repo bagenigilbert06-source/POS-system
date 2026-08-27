@@ -26,6 +26,8 @@ const initiateSchema = z.object({
   phone: z.string().min(9).max(30),
   items: z.array(itemSchema).min(1).max(250),
   discountAmount: z.number().min(0),
+  shippingAmount: z.number().finite().min(0).default(0),
+  roundoffEnabled: z.boolean().default(true),
   idempotencyKey: z.string().min(8).max(100),
   ageVerified: z.boolean().optional(),
   customerId: z.string().min(1).optional(),
@@ -107,8 +109,9 @@ export async function initiateMpesaPayment(input: z.input<typeof initiateSchema>
   const tax = rate ? (settings?.pricesIncludeTax ? subtotal - subtotal / (1 + rate) : subtotal * rate) : 0
   const gross = settings?.pricesIncludeTax ? subtotal : subtotal + tax
   if (data.discountAmount > gross) throw new Error('Discount exceeds the sale total')
-  const { amount: exactTotal } = calculateMpesaAmount(gross - data.discountAmount)
-  if (exactTotal < 1 || exactTotal > 150000) throw new Error('M-Pesa amount must be between KES 1 and KES 150,000')
+  const unroundedTotal = Number((gross + data.shippingAmount - data.discountAmount).toFixed(2))
+  if (unroundedTotal < 1 || unroundedTotal > 150000) throw new Error('M-Pesa amount must be between KES 1 and KES 150,000')
+  const exactTotal = data.roundoffEnabled ? calculateMpesaAmount(unroundedTotal).amount : unroundedTotal
 
   const phone = normalizeKenyanPhone(data.phone)
   const [existing] = await db.select().from(mpesaPaymentRequest).where(and(
@@ -122,7 +125,7 @@ export async function initiateMpesaPayment(input: z.input<typeof initiateSchema>
     if (!lockedShift) throw new Error('This shift is no longer open')
     await tx.insert(mpesaPaymentRequest).values({
       id, organizationId: orgId, userId, branchId, posSessionId: activeShift.id, customerId: data.customerId,
-      checkoutPayload: { items: data.items, discountAmount: data.discountAmount, ageVerified: Boolean(data.ageVerified), pharmacy: data.pharmacy },
+      checkoutPayload: { items: data.items, discountAmount: data.discountAmount, shippingAmount: data.shippingAmount, roundoffEnabled: data.roundoffEnabled, ageVerified: Boolean(data.ageVerified), pharmacy: data.pharmacy },
       idempotencyKey: data.idempotencyKey, phone, amount: String(exactTotal),
       status: 'SENDING_STK', expiresAt: new Date(Date.now() + 3 * 60_000),
     })
@@ -186,8 +189,9 @@ export async function initiateMpesaPaybillPayment(input: z.input<typeof paybillS
   const tax = rate ? (settings?.pricesIncludeTax ? subtotal - subtotal / (1 + rate) : subtotal * rate) : 0
   const gross = settings?.pricesIncludeTax ? subtotal : subtotal + tax
   if (data.discountAmount > gross) throw new Error('Discount exceeds the sale total')
-  const { amount: exactTotal } = calculateMpesaAmount(gross - data.discountAmount)
-  if (exactTotal < 1 || exactTotal > 150000) throw new Error('M-Pesa amount must be between KES 1 and KES 150,000')
+  const unroundedTotal = Number((gross + data.shippingAmount - data.discountAmount).toFixed(2))
+  if (unroundedTotal < 1 || unroundedTotal > 150000) throw new Error('M-Pesa amount must be between KES 1 and KES 150,000')
+  const exactTotal = data.roundoffEnabled ? calculateMpesaAmount(unroundedTotal).amount : unroundedTotal
 
   const [existing] = await db.select().from(mpesaPaymentRequest).where(and(
     eq(mpesaPaymentRequest.organizationId, orgId), eq(mpesaPaymentRequest.idempotencyKey, data.idempotencyKey),
@@ -211,7 +215,7 @@ export async function initiateMpesaPaybillPayment(input: z.input<typeof paybillS
     if (!lockedShift) throw new Error('This shift is no longer open')
     await tx.insert(mpesaPaymentRequest).values({
       id, organizationId: orgId, userId, branchId, posSessionId: activeShift.id, customerId: data.customerId,
-      checkoutPayload: { items: data.items, discountAmount: data.discountAmount, ageVerified: Boolean(data.ageVerified), pharmacy: data.pharmacy },
+      checkoutPayload: { items: data.items, discountAmount: data.discountAmount, shippingAmount: data.shippingAmount, roundoffEnabled: data.roundoffEnabled, ageVerified: Boolean(data.ageVerified), pharmacy: data.pharmacy },
       idempotencyKey: data.idempotencyKey, paymentMode: accountType, accountReference: accountType === 'paybill' ? accountReference : null,
       phone: 'awaiting-c2b', amount: String(exactTotal), status: 'AWAITING_CONFIRMATION', resultDescription: `Waiting for ${accountType === 'till' ? 'Till' : 'PayBill'} payment`,
       expiresAt: new Date(Date.now() + 10 * 60_000),

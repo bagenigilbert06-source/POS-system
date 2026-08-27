@@ -69,6 +69,8 @@ export type CreateSaleInput = {
   items: CartItem[]
   subtotal: number
   discountAmount: number
+  shippingAmount?: number
+  roundoffEnabled?: boolean
   total: number
   paymentMethod: string
   mpesaRef?: string
@@ -295,10 +297,13 @@ export async function createSale(data: CreateSaleInput) {
   }
   
   // Daraja accepts whole-shilling payments. Keep the adjustment explicit and auditable.
-  const unroundedTotal = Number((grossBeforeDiscount - data.discountAmount).toFixed(2))
+  const shippingAmount = Number(data.shippingAmount ?? 0)
+  if (!Number.isFinite(shippingAmount) || shippingAmount < 0) throw new Error('Invalid shipping amount')
+  const unroundedTotal = Number((grossBeforeDiscount + shippingAmount - data.discountAmount).toFixed(2))
   const mpesaAmount = calculateMpesaAmount(unroundedTotal)
-  const calculatedTotal = data.paymentMethod === 'mpesa' ? mpesaAmount.amount : unroundedTotal
-  const roundingAmount = data.paymentMethod === 'mpesa' ? mpesaAmount.roundingAmount : 0
+  const appliesRoundoff = data.roundoffEnabled !== false
+  const calculatedTotal = appliesRoundoff ? mpesaAmount.amount : unroundedTotal
+  const roundingAmount = appliesRoundoff ? mpesaAmount.roundingAmount : 0
 
   if (data.paymentMethod === 'mpesa') {
     throw new Error('M-Pesa sales are completed automatically by the verified Daraja callback')
@@ -350,6 +355,7 @@ export async function createSale(data: CreateSaleInput) {
       subtotal: String(serverSubtotal),
       taxAmount: String(calculatedTax),
       discountAmount: String(data.discountAmount),
+      shippingAmount: String(shippingAmount),
       roundingAmount: String(roundingAmount),
       total: String(calculatedTotal),
       amountReceived: data.paymentMethod === 'cash' ? String(amountReceived) : null,
@@ -514,6 +520,8 @@ const offlineSaleSyncSchema = z.object({
   })).min(1).max(250),
   subtotal: z.number().nonnegative(),
   discountAmount: z.number().nonnegative(),
+  shippingAmount: z.number().nonnegative().default(0),
+  roundoffEnabled: z.boolean().default(true),
   total: z.number().nonnegative(),
   amountReceived: z.number().nonnegative(),
   ageVerified: z.boolean(),
@@ -555,6 +563,8 @@ export async function syncOfflineSale(input: OfflineSaleSyncInput) {
       items: data.items,
       subtotal: data.subtotal,
       discountAmount: data.discountAmount,
+      shippingAmount: data.shippingAmount,
+      roundoffEnabled: data.roundoffEnabled,
       total: data.total,
       paymentMethod: 'cash',
       amountReceived: data.amountReceived,
