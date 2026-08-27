@@ -14,6 +14,7 @@ import { calculateMpesaAmount } from '@/lib/mpesa/amount'
 import { isPharmacyBusiness } from '@/lib/pharmacy/rules'
 import { reserveRewardsForPayment } from '@/lib/services/rewards-service'
 import { finalizeConfirmedMpesaPayment } from '@/lib/mpesa/finalize-payment'
+import { normalizeMpesaPhoneForMode } from '@/lib/mpesa/phone-validation'
 
 const itemSchema = z.object({ productId: z.string().min(1), quantity: z.number().int().positive(), packageId: z.string().min(1).optional() })
 const pharmacyWorkflowSchema = z.object({
@@ -38,7 +39,7 @@ const initiateSchema = z.object({
   pharmacy: pharmacyWorkflowSchema,
 })
 const paybillSchema = initiateSchema.extend({
-  phone: z.string().max(30).optional().default(''),
+  phone: z.string().max(30).nullable().optional().default(''),
   manualMode: z.enum(['till', 'paybill']).optional(),
 })
 let c2bUrlsReady = false
@@ -76,9 +77,9 @@ export async function getManualMpesaOptions() {
   return { accounts, defaultMode: accounts[0]?.accountType ?? 'paybill', merchantName: settings[0]?.receiptBusinessName || settings[0]?.displayName || null }
 }
 
-export async function setManualMpesaPayerPhone(requestId: string, value: string) {
+export async function setManualMpesaPayerPhone(requestId: string, value?: string | null) {
   const authorization = await paymentAuthorization()
-  const phone = value.trim() ? normalizeKenyanPhone(value) : ''
+  const phone = normalizeMpesaPhoneForMode('till', value)
   await db.update(mpesaPaymentRequest).set({ phone, updatedAt: new Date() }).where(and(
     eq(mpesaPaymentRequest.id, requestId), eq(mpesaPaymentRequest.organizationId, authorization.organizationId),
     eq(mpesaPaymentRequest.userId, authorization.userId), inArray(mpesaPaymentRequest.paymentMode, ['till', 'paybill']),
@@ -153,7 +154,7 @@ export async function initiateMpesaPayment(input: z.input<typeof initiateSchema>
   if (unroundedTotal < 1 || unroundedTotal > 150000) throw new Error('M-Pesa amount must be between KES 1 and KES 150,000')
   let exactTotal = data.roundoffEnabled ? calculateMpesaAmount(unroundedTotal).amount : unroundedTotal
 
-  const phone = data.phone.trim() ? normalizeKenyanPhone(data.phone) : ''
+  const phone = normalizeMpesaPhoneForMode('stk', data.phone)
   const [existing] = await db.select().from(mpesaPaymentRequest).where(and(
     eq(mpesaPaymentRequest.organizationId, orgId), eq(mpesaPaymentRequest.idempotencyKey, data.idempotencyKey),
   )).limit(1)
@@ -191,7 +192,8 @@ export async function initiateMpesaPayment(input: z.input<typeof initiateSchema>
 /** Creates a basket-specific PayBill reference and waits for a C2B confirmation. */
 export async function initiateMpesaPaybillPayment(input: z.input<typeof paybillSchema>) {
   const data = paybillSchema.parse(input)
-  const phone = normalizeKenyanPhone(data.phone)
+  const requestedMode = data.manualMode ?? 'paybill'
+  const phone = normalizeMpesaPhoneForMode(requestedMode, data.phone)
   const authorization = await paymentAuthorization()
   const { organizationId: orgId, userId, branchId } = authorization
   const [activeShift] = await db.select({ id: posSession.id }).from(posSession)

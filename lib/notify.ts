@@ -1,8 +1,14 @@
-import type { ReactNode } from 'react'
-import { toast as sonnerToast, type ExternalToast } from 'sonner'
+import { createElement, type ReactNode } from 'react'
+import { toast as hotToast, type ToastOptions } from 'react-hot-toast'
 
 type NoticeKind = 'success' | 'error' | 'warning' | 'info' | 'loading'
-type NoticeOptions = ExternalToast
+type NoticeAction = { label: ReactNode; onClick: () => void }
+type NoticeOptions = Omit<ToastOptions, 'id'> & {
+  id?: string | number
+  description?: ReactNode
+  action?: NoticeAction
+  cancel?: NoticeAction
+}
 type NoticeMessage<T = unknown> = ReactNode | ((value: T) => ReactNode)
 
 const durations: Record<Exclude<NoticeKind, 'loading'>, number> = {
@@ -18,30 +24,76 @@ function noticeId(kind: NoticeKind, title: ReactNode, description: unknown) {
   return `pesaby:${kind}:${title}:${detail}`
 }
 
-function optionsFor(kind: NoticeKind, title: ReactNode, options: NoticeOptions = {}) {
+function content(title: ReactNode, options: NoticeOptions, id?: string) {
+  const actionButton = (action: NoticeAction | undefined, className: string) =>
+    action
+      ? createElement(
+          'button',
+          {
+            type: 'button',
+            className,
+            onClick: () => {
+              action.onClick()
+              if (id) hotToast.dismiss(id)
+            },
+          },
+          action.label
+        )
+      : null
+
+  return createElement(
+    'div',
+    { className: 'pesaby-hot-toast-content' },
+    createElement('div', { className: 'pesaby-hot-toast-title' }, title),
+    options.description
+      ? createElement('div', { className: 'pesaby-hot-toast-description' }, options.description)
+      : null,
+    options.action || options.cancel
+      ? createElement(
+          'div',
+          { className: 'pesaby-hot-toast-actions' },
+          actionButton(options.cancel, 'pesaby-hot-toast-action pesaby-hot-toast-action-secondary'),
+          actionButton(options.action, 'pesaby-hot-toast-action pesaby-hot-toast-action-primary')
+        )
+      : null
+  )
+}
+
+function prepare(kind: NoticeKind, title: ReactNode, options: NoticeOptions = {}) {
+  const { description: _description, action: _action, cancel: _cancel, id: rawId, ...toastOptions } = options
+  const id = String(rawId ?? noticeId(kind, title, options.description) ?? '') || undefined
   return {
-    ...options,
-    id: options.id ?? noticeId(kind, title, options.description),
-    duration: options.duration ?? (kind === 'loading' ? Infinity : durations[kind]),
+    message: content(title, options, id),
+    options: {
+      ...toastOptions,
+      id,
+      duration: toastOptions.duration ?? (kind === 'loading' ? Infinity : durations[kind]),
+      className: `pesaby-hot-toast pesaby-hot-toast-${kind}${toastOptions.className ? ` ${toastOptions.className}` : ''}`,
+    } satisfies ToastOptions,
   }
 }
 
 /** The single notification API for POS and back-office client experiences. */
 export const notify = {
-  success(title: ReactNode, options?: NoticeOptions) {
-    return sonnerToast.success(title, optionsFor('success', title, options))
+  success(title: ReactNode, options: NoticeOptions = {}) {
+    const prepared = prepare('success', title, options)
+    return hotToast.success(prepared.message, prepared.options)
   },
-  error(title: ReactNode, options?: NoticeOptions) {
-    return sonnerToast.error(title, optionsFor('error', title, options))
+  error(title: ReactNode, options: NoticeOptions = {}) {
+    const prepared = prepare('error', title, options)
+    return hotToast.error(prepared.message, prepared.options)
   },
-  warning(title: ReactNode, options?: NoticeOptions) {
-    return sonnerToast.warning(title, optionsFor('warning', title, options))
+  warning(title: ReactNode, options: NoticeOptions = {}) {
+    const prepared = prepare('warning', title, options)
+    return hotToast(prepared.message, { ...prepared.options, icon: '!' })
   },
-  info(title: ReactNode, options?: NoticeOptions) {
-    return sonnerToast.info(title, optionsFor('info', title, options))
+  info(title: ReactNode, options: NoticeOptions = {}) {
+    const prepared = prepare('info', title, options)
+    return hotToast(prepared.message, { ...prepared.options, icon: 'i' })
   },
-  loading(title: ReactNode, options?: NoticeOptions) {
-    return sonnerToast.loading(title, optionsFor('loading', title, options))
+  loading(title: ReactNode, options: NoticeOptions = {}) {
+    const prepared = prepare('loading', title, options)
+    return hotToast.loading(prepared.message, prepared.options)
   },
   async track<T>(
     operation: Promise<T> | (() => Promise<T>),
@@ -52,23 +104,20 @@ export const notify = {
       description?: ReactNode
     }
   ) {
-    const id = sonnerToast.loading(messages.loading, {
-      duration: Infinity,
-      description: messages.description,
-    })
+    const id = notify.loading(messages.loading, { description: messages.description })
     try {
       const result = await (typeof operation === 'function' ? operation() : operation)
       const title = typeof messages.success === 'function' ? messages.success(result) : messages.success
-      sonnerToast.success(title, { id, duration: durations.success })
+      notify.success(title, { id, description: messages.description })
       return result
     } catch (error) {
       const title = typeof messages.error === 'function' ? messages.error(error) : messages.error
-      sonnerToast.error(title, { id, duration: durations.error })
+      notify.error(title, { id, description: messages.description })
       throw error
     }
   },
   dismiss(id?: string | number) {
-    return sonnerToast.dismiss(id)
+    return hotToast.dismiss(id === undefined ? undefined : String(id))
   },
 }
 

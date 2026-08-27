@@ -292,6 +292,7 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
   const [mpesaRequestId, setMpesaRequestId] = useState('')
   const [mpesaStatus, setMpesaStatus] = useState<MpesaStatus>('idle')
   const [mpesaMessage, setMpesaMessage] = useState('')
+  const manualMpesaStartRef = useRef<() => void>(() => undefined)
   const [amountPaid, setAmountPaid] = useState('')
   const [selectedCustomer, setSelectedCustomer] = useState<string>('')
   const [prescriptionReference, setPrescriptionReference] = useState('')
@@ -1167,8 +1168,10 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
     // M-Pesa still waits for a successful payment confirmation before checkout.
     if (paymentMethod !== 'mpesa' || mpesaStatus === 'success') {
       void processCheckoutRef.current(true)
+    } else if (mpesaFlow === 'paybill') {
+      window.setTimeout(() => manualMpesaStartRef.current(), 0)
     }
-  }, [mpesaStatus, paymentMethod])
+  }, [mpesaStatus, paymentMethod, mpesaFlow])
 
   useEffect(() => {
     if (!showAgeVerification) return
@@ -1293,8 +1296,12 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
       if (response.status === 'success' && response.receiptNumber) setMpesaRef(response.receiptNumber)
     } catch (error) {
       setMpesaStatus('failed')
-      setMpesaMessage(error instanceof Error ? error.message : 'Could not prepare PayBill payment')
-      notify.error(error instanceof Error ? error.message : 'Could not prepare PayBill payment')
+      const rawMessage = error instanceof Error ? error.message : ''
+      const message = rawMessage.includes('No active Till or PayBill') ? 'No Till or PayBill is configured for this branch.'
+        : rawMessage.includes('M-Pesa is not enabled') ? 'Manual M-Pesa payments are disabled.'
+        : rawMessage || 'Unable to load M-Pesa payment details.'
+      setMpesaMessage(message)
+      notify.error(message)
     }
   }
 
@@ -1307,9 +1314,16 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
 
   const openManualMpesaFlow = () => {
     if (mpesaLocksBasket) return
+    notify.dismiss('pesaby:error:Enter a valid M-Pesa phone number.:')
+    notify.dismiss('pesaby:error:Enter the customer M-Pesa phone number:')
+    setMpesaMessage('')
     setMpesaFlow('paybill')
     void handlePaybillPayment()
   }
+
+  useEffect(() => {
+    manualMpesaStartRef.current = () => void handlePaybillPayment()
+  })
 
   const copyManualPaymentValue = async (value: string, label: string) => {
     await navigator.clipboard.writeText(value)
@@ -1368,11 +1382,12 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
           window.setTimeout(() => autoFinalizeRef.current(), 500)
         }
       } else if (result.status === 'amount_mismatch') {
-        setMpesaMessage(`Payment amount does not match. Expected ${formatMpesaAmount(result.expected)}; received ${formatMpesaAmount(result.received)}.`)
-        notify.error('Payment amount does not match', { description: `Expected ${formatMpesaAmount(result.expected)} · Received ${formatMpesaAmount(result.received)}` })
+        const overpaid = result.received > result.expected
+        setMpesaMessage(overpaid ? `Customer overpaid by ${formatMpesaAmount(result.received - result.expected)}. Send this payment to M-Pesa reconciliation or refund handling.` : `Payment amount does not match. Expected ${formatMpesaAmount(result.expected)}; received ${formatMpesaAmount(result.received)}.`)
+        notify.error(overpaid ? `Customer overpaid by ${formatMpesaAmount(result.received - result.expected)}` : 'Payment amount does not match', { description: `Expected ${formatMpesaAmount(result.expected)} · Received ${formatMpesaAmount(result.received)}` })
       } else if (result.status === 'ambiguous') {
-        setMpesaMessage('Multiple matching payments found. A manager must resolve them in M-Pesa reconciliation.')
-        notify.error('Multiple matching payments found', { description: 'Open M-Pesa reconciliation to select the correct transaction.' })
+        setMpesaMessage('Multiple possible payments found. A manager must resolve them in M-Pesa reconciliation.')
+        notify.error('Multiple possible payments found', { description: 'Open M-Pesa reconciliation to select the correct transaction.' })
       } else {
         setMpesaMessage('Payment not found yet. We have not received Safaricom confirmation.')
         notify.info('Payment not found yet', { description: 'Check again after the customer receives their M-Pesa message.' })
@@ -2565,7 +2580,7 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
                         <Image src="/payment-logos/mpesa.svg" alt="M-Pesa" width={52} height={22} className="h-4 w-auto" />
                       </span>
                       <div>
-                        <p className="text-sm font-bold tracking-tight text-[#183625] dark:text-emerald-100">{mpesaFlow === 'paybill' && mpesaRequestId ? 'M-Pesa — Pay manually' : 'M-Pesa payment'}</p>
+                        <p className="text-sm font-bold tracking-tight text-[#183625] dark:text-emerald-100">{mpesaFlow === 'paybill' && mpesaRequestId ? `M-Pesa — ${mpesaAccountType === 'till' ? 'Till' : 'PayBill'}` : 'M-Pesa payment'}</p>
                         <p className="mt-0.5 text-[11px] text-[#66806c] dark:text-emerald-300">{mpesaStatus === 'success' ? 'Confirmed by Safaricom' : 'Payment verified before sale completion'}</p>
                       </div>
                   </div>
@@ -2629,12 +2644,12 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
                       <div className="py-3 text-center">
                         {mpesaStatus === 'initiating' ? <Loader2 className="mx-auto h-6 w-6 animate-spin text-[#11ad2d]" /> : <AlertTriangle className="mx-auto h-6 w-6 text-[#b54708]" />}
                         <p className="mt-2 text-sm font-bold text-[#183625] dark:text-emerald-100">{mpesaStatus === 'initiating' ? 'Loading payment details' : 'Payment details unavailable'}</p>
-                        <p className="mt-1 text-[11px] text-[#667085] dark:text-[#b8b8b8]">{mpesaStatus === 'initiating' ? 'Preparing the branch Till or PayBill account.' : mpesaMessage}</p>
+                        <p className="mt-1 text-[11px] text-[#667085] dark:text-[#b8b8b8]">{mpesaStatus === 'initiating' ? 'Preparing the branch Till or PayBill account.' : mpesaMessage || (requiresAgeVerification && !ageVerified ? 'Verify the customer age to load payment details.' : 'Check the branch M-Pesa configuration and try again.')}</p>
                         {mpesaStatus !== 'initiating' && <button type="button" onClick={() => void handlePaybillPayment()} disabled={!isOnline} className="mt-3 h-9 rounded-md border border-[#b9d9c0] bg-white px-4 text-xs font-bold text-[#176b2c] dark:border-emerald-800 dark:bg-transparent dark:text-emerald-300">Try again</button>}
-                        {mpesaStatus === 'initiating' ? 'Preparing payment details…' : 'Continue to payment instructions'}
                       </div>
                     ) : (
                       <div className="grid grid-cols-2 gap-2">
+                        {mpesaStatus === 'success' ? <div className="col-span-2 py-3 text-center"><CheckCircle2 className="mx-auto h-7 w-7 text-[#11ad2d]" /><p className="mt-2 text-sm font-bold text-[#183625] dark:text-emerald-100">Payment received</p><strong className="mt-1 block text-lg tabular-nums text-[#183625] dark:text-white">{formatMpesaAmount(total)}</strong><div className="mx-auto mt-3 max-w-xs space-y-1 text-xs text-[#667085] dark:text-[#b8b8b8]"><p>M-Pesa receipt <strong className="text-[#183625] dark:text-white">{mpesaRef}</strong></p><p>Paid via <strong>{mpesaAccountType === 'till' ? 'Till' : 'PayBill'} {mpesaShortcode}</strong></p>{mpesaAccountType === 'paybill' && <p>Account <strong>{mpesaAccountReference}</strong></p>}{mpesaPhone && <p>Phone <strong>{maskKenyanPhone(mpesaPhone)}</strong></p>}<p className="font-semibold text-[#43784f] dark:text-emerald-300">Confirmed by Safaricom</p><p>Completing sale…</p></div></div> : <>
                         {mpesaManualAccounts.length > 1 && <div className="col-span-2"><p className="mb-1.5 text-xs font-bold text-[#183625] dark:text-emerald-200">Pay using</p><div className="grid grid-cols-2 gap-2">{mpesaManualAccounts.map((account) => <button key={`${account.accountType}-${account.shortcode}`} type="button" onClick={() => void changeManualMpesaMode(account.accountType)} disabled={mpesaStatus === 'initiating'} className={cn('h-10 rounded-md border text-xs font-bold transition-colors disabled:opacity-50', mpesaAccountType === account.accountType ? 'border-[#11ad2d] bg-[#effcf1] text-[#176b2c] dark:bg-emerald-950/30 dark:text-emerald-200' : 'border-[#dfe5e0] bg-white text-[#475467] hover:border-[#85d993] dark:border-white/10 dark:bg-transparent dark:text-[#d0d5dd]')}>{account.accountType === 'till' ? 'Till Number' : 'PayBill'}</button>)}</div></div>}
                         <div className={cn('rounded-lg border border-[#c9e9ce] bg-white p-3 dark:border-emerald-900 dark:bg-[#171717]', mpesaAccountType === 'till' && 'col-span-2')}>
                           <span className="block text-[9px] font-bold uppercase tracking-wider text-[#69816f]">{mpesaAccountType === 'till' ? 'Till number' : 'PayBill number'}</span>
@@ -2658,12 +2673,14 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
                             <li>Confirm and enter M-Pesa PIN</li>
                           </ol>
                         </div>
-                        <div className="col-span-2 flex items-center justify-center gap-2 py-1 text-xs font-semibold text-[#43784f] dark:text-emerald-300"><Loader2 className="h-4 w-4 animate-spin text-[#11ad2d]" />Waiting for Safaricom confirmation…</div>
-                        <div className="col-span-2 grid grid-cols-3 gap-2">
+                        <div className="col-span-2"><p className="mb-1 text-[9px] font-bold uppercase tracking-wider text-[#69816f]">Payment status</p><div className="flex items-center gap-2 py-1 text-xs font-semibold text-[#43784f] dark:text-emerald-300"><Loader2 className="h-4 w-4 animate-spin text-[#11ad2d]" />Waiting for Safaricom confirmation</div></div>
+                        <div className="col-span-2 grid grid-cols-2 gap-2">
                           <button type="button" onClick={() => void checkMpesaStatusNow()} className="h-9 rounded-md border border-[#b9d9c0] bg-white text-xs font-bold text-[#176b2c] dark:border-emerald-800 dark:bg-transparent dark:text-emerald-300">Check for payment</button>
                           <button type="button" onClick={() => void findManualPayment()} className="h-9 rounded-md border border-[#b9d9c0] bg-white text-xs font-bold text-[#176b2c] dark:border-emerald-800 dark:bg-transparent dark:text-emerald-300">Find payment</button>
-                          <button type="button" onClick={() => resetMpesaPrompt(false)} className="h-9 rounded-md border border-[#dfe5e0] bg-white text-xs font-semibold text-[#475467] dark:border-white/10 dark:bg-transparent dark:text-[#d0d5dd]">Change payment details</button>
                         </div>
+                        <div className="col-span-2 border-t border-[#e4ece6] pt-2 dark:border-white/10"><label className="block text-xs font-bold text-[#183625] dark:text-emerald-200">Payer phone <span className="font-normal text-[#667085]">(optional)</span></label><input type="tel" inputMode="tel" autoComplete="tel" placeholder="0712 345 678" value={formatKenyanPhoneInput(mpesaPhone)} onChange={(event) => setMpesaPhone(normalizeKenyanPhoneDraft(event.target.value))} onBlur={() => void saveOptionalManualPhone()} className={cn(inputCls, 'mt-1.5 h-10 w-full border-[#dfe5e0] bg-white focus:border-[#11ad2d] focus:ring-[#11ad2d]/10 dark:bg-[#171717]')} /><p className="mt-1 text-[10px] leading-4 text-[#667085] dark:text-[#b8b8b8]">Optional. Helps identify the payment if needed.</p></div>
+                        <button type="button" onClick={() => { resetMpesaPrompt(false); setMpesaFlow('stk') }} className="col-span-2 h-8 text-left text-xs font-semibold text-[#475467] hover:text-[#176b2c] dark:text-[#d0d5dd]">← Back to M-Pesa options</button>
+                        </>}
                       </div>
                     )}
                   </div>

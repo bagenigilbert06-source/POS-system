@@ -1,59 +1,56 @@
 'use client';
 
-import {
-  Check,
-  CircleAlert,
-  Info,
-  LoaderCircle,
-  TriangleAlert,
-  X,
-} from 'lucide-react';
-import { useTheme } from '@/components/providers/theme-provider';
-import { Toaster as SonnerToaster, type ToasterProps } from 'sonner';
+import { X } from 'lucide-react';
+import { Toaster, ToastBar, toast } from 'react-hot-toast';
 
 export function AppToaster() {
-  const { resolvedTheme } = useTheme();
-
   return (
-    <SonnerToaster
-      theme={(resolvedTheme || 'system') as ToasterProps['theme']}
+    <Toaster
       position="top-right"
-      offset={{ top: 20, right: 20 }}
-      mobileOffset={{ top: 14, right: 14, left: 14 }}
-      gap={10}
-      visibleToasts={5}
-      duration={4000}
-      expand
-      closeButton
-      icons={{
-        success: <Check aria-hidden="true" />,
-        error: <CircleAlert aria-hidden="true" />,
-        warning: <TriangleAlert aria-hidden="true" />,
-        info: <Info aria-hidden="true" />,
-        loading: <LoaderCircle aria-hidden="true" className="animate-spin" />,
-        close: <X aria-hidden="true" />,
-      }}
+      reverseOrder={false}
+      gutter={10}
+      containerClassName="pesaby-hot-toast-stack"
+      containerStyle={{ top: 16, right: 16, bottom: 16, left: 16 }}
       toastOptions={{
-        unstyled: true,
-        closeButtonAriaLabel: 'Dismiss notification',
-        classNames: {
-          toast: 'pesaby-alert',
-          content: 'pesaby-alert-content',
-          title: 'pesaby-alert-title',
-          description: 'pesaby-alert-description',
-          icon: 'pesaby-alert-icon',
-          closeButton: 'pesaby-alert-close',
-          actionButton: 'pesaby-alert-action',
-          cancelButton: 'pesaby-alert-cancel',
-          success: 'pesaby-alert-success',
-          error: 'pesaby-alert-error',
-          warning: 'pesaby-alert-warning',
-          info: 'pesaby-alert-info',
-          loading: 'pesaby-alert-loading',
+        className: 'pesaby-hot-toast',
+        duration: 4000,
+        success: {
+          duration: 3500,
+          className: 'pesaby-hot-toast pesaby-hot-toast-success',
+          iconTheme: { primary: '#16a34a', secondary: '#ffffff' },
+        },
+        error: {
+          duration: 6000,
+          className: 'pesaby-hot-toast pesaby-hot-toast-error',
+          iconTheme: { primary: '#dc2626', secondary: '#ffffff' },
+        },
+        loading: {
+          duration: Infinity,
+          className: 'pesaby-hot-toast pesaby-hot-toast-loading',
+          iconTheme: { primary: '#d99a00', secondary: 'transparent' },
         },
       }}
-      className="pesaby-alert-stack"
-      containerAriaLabel="Pesaby notifications"
-    />
+    >
+      {(currentToast) => (
+        <ToastBar toast={currentToast}>
+          {({ icon, message }) => (
+            <>
+              <span className="pesaby-hot-toast-icon" aria-hidden="true">{icon}</span>
+              <div className="pesaby-hot-toast-message">{message}</div>
+              {currentToast.type !== 'loading' && (
+                <button
+                  type="button"
+                  className="pesaby-hot-toast-close"
+                  aria-label="Dismiss notification"
+                  onClick={() => toast.dismiss(currentToast.id)}
+                >
+                  <X aria-hidden="true" />
+                </button>
+              )}
+            </>
+          )}
+        </ToastBar>
+      )}
+    </Toaster>
   );
 }

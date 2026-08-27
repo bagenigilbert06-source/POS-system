@@ -2472,6 +2472,168 @@ html.dark [data-sonner-toast].pesaby-alert-loading .pesaby-alert-icon {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Global react-hot-toast presentation. Neutral surfaces match the dashboard;
+   state is communicated by the compact icon and a restrained left accent. */
+.pesaby-hot-toast-stack {
+  z-index: 100000 !important;
+  font-family: var(--font-sans);
+}
+
+.pesaby-hot-toast {
+  width: min(380px, calc(100vw - 32px));
+  max-width: 380px !important;
+  min-height: 58px;
+  box-sizing: border-box;
+  gap: 10px !important;
+  border: 1px solid hsl(var(--border)) !important;
+  border-radius: 11px !important;
+  background: hsl(var(--popover) / 0.97) !important;
+  color: hsl(var(--popover-foreground)) !important;
+  padding: 11px 10px 11px 13px !important;
+  box-shadow: inset 3px 0 #d99a00, 0 14px 34px rgba(15, 23, 42, 0.14) !important;
+  backdrop-filter: blur(14px);
+}
+
+.pesaby-hot-toast-success {
+  box-shadow: inset 3px 0 #16a34a, 0 14px 34px rgba(15, 23, 42, 0.14) !important;
+}
+
+.pesaby-hot-toast-error {
+  box-shadow: inset 3px 0 #dc2626, 0 14px 34px rgba(15, 23, 42, 0.14) !important;
+}
+
+.pesaby-hot-toast-info,
+.pesaby-hot-toast-loading {
+  box-shadow: inset 3px 0 #d99a00, 0 14px 34px rgba(15, 23, 42, 0.14) !important;
+}
+
+html.dark .pesaby-hot-toast {
+  box-shadow: inset 3px 0 #eab308, 0 16px 38px rgba(0, 0, 0, 0.38) !important;
+}
+
+html.dark .pesaby-hot-toast-success {
+  box-shadow: inset 3px 0 #22c55e, 0 16px 38px rgba(0, 0, 0, 0.38) !important;
+}
+
+html.dark .pesaby-hot-toast-error {
+  box-shadow: inset 3px 0 #ef4444, 0 16px 38px rgba(0, 0, 0, 0.38) !important;
+}
+
+.pesaby-hot-toast-icon {
+  display: flex;
+  width: 24px;
+  height: 24px;
+  flex: 0 0 24px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  color: #a16207;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.pesaby-hot-toast-icon > div {
+  margin: 0 !important;
+}
+
+.pesaby-hot-toast-message,
+.pesaby-hot-toast-content {
+  min-width: 0;
+  flex: 1;
+}
+
+.pesaby-hot-toast-content {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.pesaby-hot-toast-title {
+  font-size: 0.86rem;
+  font-weight: 650;
+  line-height: 1.35;
+}
+
+.pesaby-hot-toast-description {
+  color: hsl(var(--muted-foreground));
+  font-size: 0.77rem;
+  font-weight: 450;
+  line-height: 1.42;
+}
+
+.pesaby-hot-toast-close {
+  display: flex;
+  width: 28px;
+  height: 28px;
+  flex: 0 0 28px;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: hsl(var(--muted-foreground));
+  cursor: pointer;
+  transition: background-color 150ms ease, color 150ms ease;
+}
+
+.pesaby-hot-toast-close:hover,
+.pesaby-hot-toast-close:focus-visible {
+  background: hsl(var(--muted));
+  color: hsl(var(--foreground));
+  outline: none;
+}
+
+.pesaby-hot-toast-close svg {
+  width: 15px;
+  height: 15px;
+}
+
+.pesaby-hot-toast-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  padding-top: 6px;
+}
+
+.pesaby-hot-toast-action {
+  min-height: 29px;
+  border: 1px solid hsl(var(--border));
+  border-radius: 7px;
+  padding: 0 10px;
+  font-size: 0.73rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.pesaby-hot-toast-action-primary {
+  border-color: #e4ad00;
+  background: #ffd60a;
+  color: #171208;
+}
+
+.pesaby-hot-toast-action-secondary {
+  background: hsl(var(--muted));
+  color: hsl(var(--foreground));
+}
+
+@media (max-width: 640px) {
+  .pesaby-hot-toast-stack {
+    inset: 12px !important;
+  }
+
+  .pesaby-hot-toast {
+    width: calc(100vw - 24px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pesaby-hot-toast,
+  .pesaby-hot-toast * {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
 /* Compact, consistent controls used by the Operations filter bar. */
 .control {
   height: 2.25rem;
