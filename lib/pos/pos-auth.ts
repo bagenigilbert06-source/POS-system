@@ -9,6 +9,9 @@ import { PermissionEnum, ROLE_PERMISSIONS, RoleEnum } from '@/lib/types/permissi
 
 export const POS_TERMINAL_COOKIE = 'pesaby_pos_terminal'
 export const POS_AUTH_COOKIE = 'pesaby_pos_auth'
+// Retains the identity of a deliberately locked POS session so that only the
+// same cashier can unlock it with their PIN. It is httpOnly and short-lived.
+export const POS_LOCKED_SESSION_COOKIE = 'pesaby_pos_locked_session'
 export const tokenHash = (token: string) => createHash('sha256').update(token).digest('hex')
 export const newToken = () => randomBytes(32).toString('base64url')
 export const posCookieOptions = { httpOnly: true, sameSite: 'lax' as const, secure: process.env.NODE_ENV === 'production', path: '/', maxAge: 60 * 60 * 12 }

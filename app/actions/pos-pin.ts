@@ -9,7 +9,7 @@ import { getAuthorizationContext, requirePermission } from '@/lib/auth/authoriza
 import { canManageExistingRole, PermissionEnum, ROLE_PERMISSIONS, RoleEnum } from '@/lib/types/permissions'
 import { generateId } from '@/lib/utils'
 import { POS_PIN_LOCK_MINUTES, POS_PIN_MAX_ATTEMPTS, validatePosPin } from '@/lib/pos/pin-policy'
-import { getTerminal, newToken, POS_AUTH_COOKIE, POS_TERMINAL_COOKIE, posCookieOptions, tokenHash } from '@/lib/pos/pos-auth'
+import { getTerminal, newToken, POS_AUTH_COOKIE, POS_LOCKED_SESSION_COOKIE, POS_TERMINAL_COOKIE, posCookieOptions, tokenHash } from '@/lib/pos/pos-auth'
 
 export async function setOwnPosPin(pin: string) {
   const error = validatePosPin(pin); if (error) throw new Error(error)
@@ -107,6 +107,26 @@ export async function getPosTerminalStaff() {
   }
 }
 
+/** The cashier who locked this browser's current terminal session, if any. */
+export async function getLockedPosStaff() {
+  try {
+    const jar = await cookies()
+    const token = jar.get(POS_LOCKED_SESSION_COOKIE)?.value
+    const terminal = await getTerminal()
+    if (!token || !terminal) return { staff: null }
+    const [locked] = await db.select({ userId: posAuthSession.userId, terminalId: posAuthSession.terminalId, expiresAt: posAuthSession.expiresAt })
+      .from(posAuthSession).where(and(eq(posAuthSession.tokenHash, tokenHash(token)), eq(posAuthSession.status, 'locked'))).limit(1)
+    if (!locked || locked.terminalId !== terminal.id || locked.expiresAt <= new Date()) return { staff: null }
+    const [staff] = await db.select({ name: employee.name, status: employee.status }).from(employee)
+      .where(and(eq(employee.orgId, terminal.organizationId), eq(employee.userId, locked.userId))).limit(1)
+    if (!staff || staff.status !== 'active') return { staff: null, error: 'Staff account inactive' }
+    return { staff: { name: staff.name } }
+  } catch (error) {
+    console.error('Unable to load locked POS session', error)
+    return { staff: null, error: 'Unable to restore the locked POS session' }
+  }
+}
+
 /**
  * PIN login for a terminal-selected staff member. Expected authentication
  * failures are returned to the UI so they never surface as an RSC exception.
@@ -151,10 +171,31 @@ export async function unlockPosWithStaffPin(userId: string, pin: string) {
     const token = newToken()
     await db.insert(posAuthSession).values({ id: generateId(), tokenHash: tokenHash(token), terminalId: terminal.id, userId, organizationId: terminal.organizationId, branchId: terminal.branchId, expiresAt: new Date(Date.now() + 12 * 60 * 60 * 1000) })
     ;(await cookies()).set(POS_AUTH_COOKIE, token, posCookieOptions)
+    ;(await cookies()).delete(POS_LOCKED_SESSION_COOKIE)
     await db.insert(auditEvent).values({ id: generateId(), organizationId: terminal.organizationId, userId, action: 'pos.pin.login_success', metadata: { terminalId: terminal.id, branchId: terminal.branchId } })
     return { success: true }
   } catch (error) {
     console.error('POS PIN unlock failed', error)
+    return { success: false, error: 'Unable to unlock this POS terminal. Please try again.' }
+  }
+}
+
+/** Unlocks only the cashier who created the current locked terminal session. */
+export async function unlockCurrentLockedPos(pin: string) {
+  try {
+    const jar = await cookies()
+    const token = jar.get(POS_LOCKED_SESSION_COOKIE)?.value
+    const terminal = await getTerminal()
+    if (!token || !terminal) return { success: false, error: 'Terminal access not allowed' }
+    const [locked] = await db.select({ userId: posAuthSession.userId, terminalId: posAuthSession.terminalId, expiresAt: posAuthSession.expiresAt })
+      .from(posAuthSession).where(and(eq(posAuthSession.tokenHash, tokenHash(token)), eq(posAuthSession.status, 'locked'))).limit(1)
+    if (!locked || locked.terminalId !== terminal.id || locked.expiresAt <= new Date())
+      return { success: false, error: 'The locked POS session has expired. Use Switch cashier to continue.' }
+    const result = await unlockPosWithStaffPin(locked.userId, pin)
+    if (result.success) jar.delete(POS_LOCKED_SESSION_COOKIE)
+    return result
+  } catch (error) {
+    console.error('Unable to unlock locked POS session', error)
     return { success: false, error: 'Unable to unlock this POS terminal. Please try again.' }
   }
 }
@@ -188,7 +229,10 @@ export async function unlockPosWithPhonePin(phone: string, pin: string) {
 
 export async function lockPos() {
   const jar = await cookies(), token = jar.get(POS_AUTH_COOKIE)?.value, terminal = await getTerminal()
-  if (token) await db.update(posAuthSession).set({ status: 'locked' }).where(eq(posAuthSession.tokenHash, tokenHash(token)))
+  if (token) {
+    await db.update(posAuthSession).set({ status: 'locked' }).where(eq(posAuthSession.tokenHash, tokenHash(token)))
+    jar.set(POS_LOCKED_SESSION_COOKIE, token, posCookieOptions)
+  }
   jar.delete(POS_AUTH_COOKIE)
   if (terminal) { const session = await auth.api.getSession({ headers: await headers() }); if (session?.user) await db.insert(auditEvent).values({ id: generateId(), organizationId: terminal.organizationId, userId: session.user.id, action: 'pos.session.locked', metadata: { terminalId: terminal.id } }) }
   return { success: true }
