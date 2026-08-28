@@ -675,6 +675,10 @@ export function POSTerminal({
   // Kept in a ref because the global keyboard handler is registered before the
   // checkout action itself is declared below.
   const completeCheckoutRef = useRef<() => void>(() => undefined);
+  // `total` is calculated later in this component, while keyboard shortcuts
+  // are registered above it. The ref lets the shortcut always read the latest
+  // total without referencing that block-scoped value too early.
+  const totalRef = useRef(0);
   const ageVerificationConfirmRef = useRef<HTMLButtonElement>(null);
   const [isOnline, setIsOnline] = useState(true);
   const mpesaLocksBasket =
@@ -1290,7 +1294,7 @@ export function POSTerminal({
         if (checkoutStep === 'customer' && !isEditable && !isButton) {
           event.preventDefault();
           if (paymentMethod === 'cash' && !amountPaid)
-            setAmountPaid(String(total));
+            setAmountPaid(String(totalRef.current));
           setCheckoutStep('payment');
           return;
         }
@@ -1302,7 +1306,7 @@ export function POSTerminal({
           checkoutStep === 'payment' &&
           paymentMethod === 'cash' &&
           ((!isEditable && !isButton) || isCashTenderField) &&
-          parseFloat(amountPaid || '0') >= total
+          parseFloat(amountPaid || '0') >= totalRef.current
         ) {
           event.preventDefault();
           completeCheckoutRef.current();
@@ -1339,7 +1343,6 @@ export function POSTerminal({
     paymentDialogOpen,
     mpesaLocksBasket,
     amountPaid,
-    total,
     processing,
     showAgeVerification,
     hasActiveShift,
@@ -1688,6 +1691,7 @@ export function POSTerminal({
   const mpesaAmount = calculateMpesaAmount(unroundedTotal);
   const appliesRoundoff = roundoffEnabled;
   const total = appliesRoundoff ? mpesaAmount.amount : unroundedTotal;
+  totalRef.current = total;
   const roundingAmount = appliesRoundoff ? mpesaAmount.roundingAmount : 0;
   const change =
     paymentMethod === 'cash'
