@@ -188,6 +188,7 @@ export function SalesManagementView({
   const liquorStoreSales = experience.label === 'Liquor store';
   const router = useRouter();
   const [pending, startTransition] = useTransition();
+  const [openingSaleId, setOpeningSaleId] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
   const url = (change: Record<string, string | undefined>) => {
     const p = new URLSearchParams();
@@ -214,7 +215,11 @@ export function SalesManagementView({
   };
   const navigate = (change: Record<string, string | undefined>) =>
     startTransition(() => router.push(url(change)));
-  const openDetail = (saleId: string) => router.push(`/dashboard/sales/${saleId}`);
+  const openDetail = (saleId: string) => {
+    if (openingSaleId) return;
+    setOpeningSaleId(saleId);
+    router.push(`/dashboard/sales/${saleId}`);
+  };
   const exportSales = async (format: ExportFormat) => {
     setExporting(true);
     try {
@@ -441,7 +446,13 @@ export function SalesManagementView({
                 </tr>
               </thead>
               <tbody>
-                {data.rows.map(
+                {openingSaleId ? (
+                  <tr>
+                    <td colSpan={8}>
+                      <DetailLoadingOverlay />
+                    </td>
+                  </tr>
+                ) : data.rows.map(
                   ({ record, customerName, branchName, cashierName }) => (
                     <tr
                       key={record.id}
