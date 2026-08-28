@@ -32,6 +32,7 @@ import {
 import { getBusinessSettings } from '@/app/actions/business';
 import { ReceiptTemplate } from '@/components/receipt/receipt-template';
 import { RefundDialog } from '@/components/pos/refund-dialog';
+import { PageLoader } from '@/components/ui/page-loader';
 import { useWorkspace } from '@/lib/context/workspace-context';
 import { getBusinessExperience } from '@/lib/workspace/business-experience';
 
@@ -449,7 +450,7 @@ export function SalesManagementView({
                 {openingSaleId ? (
                   <tr>
                     <td colSpan={8}>
-                      <DetailLoadingOverlay />
+                      <PageLoader label="Opening transaction details" inline />
                     </td>
                   </tr>
                 ) : data.rows.map(
@@ -945,30 +946,6 @@ function Status({ status }: { status: string }) {
     >
       {label.replaceAll('_', ' ')}
     </span>
-  );
-}
-function DetailLoadingOverlay() {
-  return (
-    <div
-      className="flex h-14 items-center justify-center"
-      role="status"
-      aria-label="Opening transaction details"
-    >
-      <style>{`@keyframes pesaby-detail-loader { 0%, 100% { transform: translateY(0) scale(.72); opacity: .35; } 45% { transform: translateY(-5px) scale(1); opacity: 1; } }`}</style>
-      <div className="flex items-center gap-1.5">
-        {Array.from({ length: 8 }).map((_, index) => (
-          <span
-            key={index}
-            className="h-2 w-2 rounded-full bg-[#f4b41b]"
-            style={{
-              animation: 'pesaby-detail-loader 850ms ease-in-out infinite',
-              animationDelay: `${index * 95}ms`,
-            }}
-          />
-        ))}
-        <span className="sr-only">Opening transaction details</span>
-      </div>
-    </div>
   );
 }
 function Pagination({
