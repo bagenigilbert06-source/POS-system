@@ -2018,8 +2018,77 @@ html:not(.dark) .dashboard-shell .shadow-dark-md {
   animation: fade-up 0.5s ease-out forwards;
 }
 
-/* A receipt should be readable at a glance after checkout, not trapped in a
-   scrollable preview. This is display-only: printing always uses true paper size. */
+/* The full receipt remains available to print and download. On screen, long
+   orders get their own scroll region so the completed-sale workspace stays
+   responsive and the payment controls remain visible. */
+.receipt-preview-scroll {
+  max-height: min(68dvh, 720px);
+  max-width: 100%;
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-color: transparent transparent;
+  scrollbar-width: thin;
+}
+
+.receipt-preview-scroll:hover,
+.receipt-preview-scroll:focus-within {
+  scrollbar-color: rgba(71, 84, 103, 0.45) transparent;
+}
+
+.receipt-preview-scroll::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.receipt-preview-scroll::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background-clip: padding-box;
+}
+
+.receipt-preview-scroll:hover::-webkit-scrollbar-thumb,
+.receipt-preview-scroll:focus-within::-webkit-scrollbar-thumb {
+  background-color: rgba(71, 84, 103, 0.45);
+}
+
+/* html2canvas can place dashed thermal borders on a text baseline in generated
+   PDFs. Keep the screen and exported receipt in sync with solid separators and
+   fixed breathing room around every thermal receipt section. */
+.receipt-thermal .border-dashed,
+.receipt-thermal .border-dotted {
+  border-style: solid;
+  border-color: #202124;
+}
+
+/* A CSS border on a variable-height thermal section is the element that
+   html2canvas misplaces in the exported PDF. Section hierarchy is carried by
+   spacing; only individual item rows retain their safe, light separators. */
+.receipt-thermal .border-dashed {
+  border-width: 0 !important;
+}
+
+.receipt-thermal .border-y.border-dashed,
+.receipt-thermal .border-y.border-dotted {
+  padding-top: 12px;
+  padding-bottom: 12px;
+}
+
+.receipt-thermal .border-b.border-dashed,
+.receipt-thermal .border-b.border-dotted {
+  margin-bottom: 8px;
+  padding-bottom: 8px;
+}
+
+.receipt-thermal .border-t.border-dashed,
+.receipt-thermal .border-t.border-dotted {
+  padding-top: 12px;
+}
+
+.receipt-thermal .border-b.border-dotted {
+  border-color: #a3a3a3;
+}
+
+/* This is display-only: printing always uses true paper size. */
 .receipt-screen-preview {
   zoom: 0.84;
 }
@@ -2031,6 +2100,10 @@ html:not(.dark) .dashboard-shell .shadow-dark-md {
 }
 
 @media (max-width: 640px), (max-height: 760px) {
+  .receipt-preview-scroll {
+    max-height: min(58dvh, 520px);
+  }
+
   .receipt-screen-preview {
     zoom: 0.74;
   }
@@ -2070,6 +2143,11 @@ html:not(.dark) .dashboard-shell .shadow-dark-md {
   }
   .receipt-screen-preview {
     zoom: 1 !important;
+  }
+
+  .receipt-preview-scroll {
+    max-height: none !important;
+    overflow: visible !important;
   }
 }
 

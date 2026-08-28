@@ -59,7 +59,6 @@ import {
   Printer,
   History,
   PauseCircle,
-  ArchiveRestore,
   AlertTriangle,
   ShieldCheck,
   Search,
@@ -141,6 +140,10 @@ const ReceiptReprint = dynamic(
 const SalesHistoryModal = dynamic(
   () =>
     import('./sales-history-modal').then((module) => module.SalesHistoryModal),
+  { ssr: false }
+);
+const OrdersModal = dynamic(
+  () => import('./orders-modal').then((module) => module.OrdersModal),
   { ssr: false }
 );
 const ReceiptTemplate = dynamic(
@@ -480,13 +483,13 @@ function ReceiptMeta({
   value: string;
 }) {
   return (
-    <div className="min-w-0 rounded-lg border border-[#e4e7ec] bg-white px-2.5 py-2.5 dark:border-white/10 dark:bg-[#191919]">
-      <p className="flex items-center gap-1.5 text-[9px] font-bold uppercase leading-none tracking-[0.08em] text-[#667085] dark:text-[#a8a8a8]">
+    <div className="min-w-0 py-0.5">
+      <p className="flex items-center gap-1.5 text-[10px] font-bold uppercase leading-none tracking-[0.08em] text-[#667085] dark:text-[#a8a8a8]">
         {mark}
         {label}
       </p>
       <p
-        className="mt-1.5 truncate text-xs font-semibold leading-none text-[#101828] dark:text-white"
+        className="mt-2 truncate text-[13px] font-semibold leading-none text-[#101828] dark:text-white"
         title={value}
         aria-label={value}
       >
@@ -615,6 +618,10 @@ export function POSTerminal({
   const [showRefundDialog, setShowRefundDialog] = useState(false);
   const [showReceiptReprint, setShowReceiptReprint] = useState(false);
   const [showSalesHistory, setShowSalesHistory] = useState(false);
+  const [showHoldDialog, setShowHoldDialog] = useState(false);
+  const [holdReference, setHoldReference] = useState('');
+  const [showVoidDialog, setShowVoidDialog] = useState(false);
+  const [showResetDialog, setShowResetDialog] = useState(false);
   const [showHeldSales, setShowHeldSales] = useState(false);
   const [heldSales, setHeldSales] = useState<HeldSale[]>([]);
   const [heldSalesLoading, setHeldSalesLoading] = useState(false);
@@ -2792,14 +2799,13 @@ export function POSTerminal({
     window.localStorage.removeItem(mpesaStorageKey);
   };
 
+  const openVoidDialog = () => {
+    if (cart.length === 0) return;
+    setShowVoidDialog(true);
+  };
+
   const voidCurrentSale = () => {
     if (cart.length === 0) return;
-    if (
-      !window.confirm(
-        'Void the current order? All items and discounts in this order will be removed.'
-      )
-    )
-      return;
     setCart([]);
     setDiscount(0);
     setShippingCost(0);
@@ -2813,17 +2819,22 @@ export function POSTerminal({
     checkoutIdempotencyKeyRef.current = '';
     window.localStorage.removeItem(cartStorageKey);
     window.localStorage.removeItem(checkoutStorageKey);
+    setShowVoidDialog(false);
     notify.success('Current order voided');
   };
 
   const resetRegister = () => {
-    if (
-      cart.length > 0 &&
-      !window.confirm('Reset the register? The current order will be cleared.')
-    )
-      return;
     handleNewSale();
+    setShowResetDialog(false);
     notify.success('Register reset');
+  };
+
+  const openResetDialog = () => {
+    if (cart.length === 0 && !checkoutOpen) {
+      resetRegister();
+      return;
+    }
+    setShowResetDialog(true);
   };
 
   const openHeldOrders = () => {
@@ -2886,25 +2897,57 @@ export function POSTerminal({
       );
       if (!paper) return notify.error('Receipt preview is unavailable');
 
-      // Keep the exported paper width identical to the receipt preview.
-      const originalWidth = paper.style.width;
-      const originalMaxWidth = paper.style.maxWidth;
-      paper.style.width = `${receiptPaperWidth}mm`;
-      paper.style.maxWidth = `${receiptPaperWidth}mm`;
-      if (document.fonts?.ready) await document.fonts.ready;
+      // Render the exact receipt component in an isolated, unscaled host. This
+      // keeps Download independent from screen-only preview scaling while using
+      // the same live receipt DOM (including its logo and generated QR image).
+      const exportHost = document.createElement('div');
+      const exportPaper = paper.cloneNode(true) as HTMLElement;
+      exportHost.setAttribute('aria-hidden', 'true');
+      exportHost.style.cssText =
+        'position:fixed;left:-10000px;top:0;z-index:-1;background:#fff;zoom:1;transform:none;';
+      exportPaper.style.width = `${receiptPaperWidth}mm`;
+      exportPaper.style.maxWidth = `${receiptPaperWidth}mm`;
+      exportPaper.style.margin = '0';
+      exportPaper.style.zoom = '1';
+      exportPaper.style.transform = 'none';
+      exportHost.appendChild(exportPaper);
+      document.body.appendChild(exportHost);
 
-      // Capture the rendered thermal paper itself so the download matches the
-      // exact receipt design on screen. The sale is never re-created or mutated.
+      if (document.fonts?.ready) await document.fonts.ready;
+      await Promise.all(
+        Array.from(exportPaper.querySelectorAll('img')).map((image) =>
+          image.complete
+            ? Promise.resolve()
+            : new Promise<void>((resolve) => {
+                image.addEventListener('load', () => resolve(), { once: true });
+                image.addEventListener('error', () => resolve(), { once: true });
+              })
+        )
+      );
+
+      // Capture the same thermal receipt component used by preview and print.
+      // The sale is never re-created or mutated during export.
       try {
         const [{ jsPDF }, html2canvasModule] = await Promise.all([
           import('jspdf'),
           import('html2canvas'),
         ]);
-        const canvas = await html2canvasModule.default(paper, {
+        const exportHeight = exportPaper.scrollHeight;
+        // Keep large receipts sharp without allowing very long sales to create
+        // an oversized canvas that locks up the browser.
+        const renderScale = Math.max(
+          1,
+          Math.min(2, 12000 / Math.max(exportHeight, 1))
+        );
+        const canvas = await html2canvasModule.default(exportPaper, {
           backgroundColor: '#ffffff',
-          scale: 2,
+          scale: renderScale,
           useCORS: true,
           logging: false,
+          width: exportPaper.offsetWidth,
+          height: exportHeight,
+          windowWidth: exportPaper.offsetWidth,
+          windowHeight: exportHeight,
         });
         const paperWidthMm = receiptPaperWidth;
         const paperHeightMm = (canvas.height / canvas.width) * paperWidthMm;
@@ -2927,8 +2970,7 @@ export function POSTerminal({
         pdf.save(`${receipt.receiptNo}.pdf`);
         notify.success('Receipt PDF downloaded');
       } finally {
-        paper.style.width = originalWidth;
-        paper.style.maxWidth = originalMaxWidth;
+        exportHost.remove();
       }
     } catch {
       notify.error('Could not download receipt');
@@ -2955,8 +2997,19 @@ export function POSTerminal({
     }
   }, [receipt]);
 
+  const openHoldDialog = () => {
+    if (!canHold || cart.length === 0 || heldSaleActionId) return;
+    setHoldReference(
+      `HLD-${Date.now().toString(36).toUpperCase()}-${crypto.randomUUID().slice(0, 4).toUpperCase()}`
+    );
+    setShowHoldDialog(true);
+  };
+
   const holdSale = async () => {
     if (!canHold || cart.length === 0) return;
+    const reference =
+      holdReference.trim() ||
+      `HLD-${Date.now().toString(36).toUpperCase()}`;
     if (!isOnline)
       return notify.error(
         'Reconnect to hold this sale on the shared register queue'
@@ -2970,6 +3023,7 @@ export function POSTerminal({
         discountValue: discountAmount,
         discountType: 'fixed',
         customerId: selectedCustomer || undefined,
+        note: reference,
       });
       setHeldSales((previous) => [
         saved,
@@ -2985,6 +3039,8 @@ export function POSTerminal({
       setAmountPaid('');
       setMpesaRef('');
       setCheckoutOpen(false);
+      setShowHoldDialog(false);
+      setHoldReference('');
       checkoutIdempotencyKeyRef.current = '';
       window.localStorage.removeItem(cartStorageKey);
       window.localStorage.removeItem(checkoutStorageKey);
@@ -3295,8 +3351,8 @@ export function POSTerminal({
         aria-label="Completed sale receipt"
         className="pos-sale-complete flex min-h-[calc(100vh-8rem)] w-full items-center justify-center bg-[#f5f6f8] px-3 py-6 dark:bg-[var(--dashboard-bg)] sm:px-6 sm:py-8"
       >
-        <div className="w-full max-w-[920px]">
-          <div className="mb-4 flex items-start justify-between gap-4 rounded-[10px] border border-[#e2e6ea] bg-white px-4 py-3.5 shadow-[0_2px_7px_rgba(16,24,40,.05)] dark:border-white/10 dark:bg-[var(--dashboard-surface)] sm:px-5">
+        <div className="w-full max-w-[1020px]">
+          <div className="mb-4 flex flex-col gap-4 rounded-[10px] border border-[#b7ebc6] bg-white px-4 py-3.5 shadow-[0_3px_12px_rgba(16,24,40,.07)] dark:border-[#1d6b3b] dark:bg-[var(--dashboard-surface)] sm:px-5 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex min-w-0 items-start gap-3">
               <span
                 className={cn(
@@ -3345,7 +3401,7 @@ export function POSTerminal({
                 )}
               </div>
             </div>
-            <div className="shrink-0 text-right">
+            <div className="shrink-0 border-t border-[#e4e7ec] pt-3 text-left dark:border-white/10 sm:text-right lg:border-l lg:border-t-0 lg:pl-5 lg:pt-0">
               <p className="text-xl font-extrabold tracking-tight text-[#101828] dark:text-white">
                 {formatCurrency(receipt.total)}
               </p>
@@ -3355,9 +3411,10 @@ export function POSTerminal({
             </div>
           </div>
 
-          <div className="grid overflow-hidden rounded-[10px] border border-[#dfe3ea] bg-white shadow-[0_4px_16px_rgba(16,24,40,.06)] dark:border-white/10 dark:bg-[var(--dashboard-surface)] lg:grid-cols-[minmax(0,1fr)_300px]">
+          <div className="grid overflow-hidden rounded-[10px] border border-[#dfe3ea] bg-white shadow-[0_4px_16px_rgba(16,24,40,.06)] dark:border-white/10 dark:bg-[var(--dashboard-surface)] lg:grid-cols-[minmax(0,1fr)_360px]">
             <div className="flex min-h-[500px] items-center justify-center bg-[#f7f8fa] p-5 dark:bg-[var(--dashboard-surface-subtle)] sm:p-8">
-              <div className="receipt-screen-preview w-fit max-w-full">
+              <div className="receipt-preview-scroll max-w-full">
+                <div className="receipt-screen-preview w-fit max-w-full">
                 <div
                   className="receipt-preview-origin mx-auto w-full max-w-[80mm] overflow-hidden rounded-[4px] bg-white shadow-[0_8px_24px_rgba(16,24,40,.12)] ring-1 ring-black/5"
                   style={{ width: `${receiptPaperWidth}mm` }}
@@ -3383,26 +3440,27 @@ export function POSTerminal({
                     showItemSku={settings.receiptShowItemSku}
                   />
                 </div>
+                </div>
               </div>
             </div>
 
-            <aside className="flex flex-col border-t border-[#e4e7ec] bg-white p-5 dark:border-white/10 dark:bg-[var(--dashboard-surface)] lg:border-l lg:border-t-0">
-              <div className="space-y-4">
+            <aside className="flex flex-col border-t border-[#e4e7ec] bg-white p-5 dark:border-white/10 dark:bg-[var(--dashboard-surface)] sm:p-6 lg:border-l lg:border-t-0">
+              <div className="space-y-5">
                 <div>
                   <p className={ui.label}>Payment</p>
-                  <div className="rounded-lg border border-[#e4e7ec] bg-[#fbfbfc] p-3 dark:border-white/10 dark:bg-white/5">
+                  <div className="mt-3 border-b border-[#e4e7ec] pb-5 dark:border-white/10">
                     <div className="flex items-center justify-between gap-3">
-                      <span className="flex items-center gap-2 text-sm font-semibold text-[#101828] dark:text-white">
-                        <WalletCards className="h-4 w-4 text-[#b77900]" />
+                      <span className="flex items-center gap-2.5 text-[15px] font-semibold text-[#101828] dark:text-white">
+                        <WalletCards className="h-[18px] w-[18px] text-[#e94e1b]" />
                         {paymentLabel}
                       </span>
-                      <span className="text-sm font-bold text-[#101828] dark:text-white">
+                      <span className="text-[15px] font-bold text-[#101828] dark:text-white">
                         {formatCurrency(receipt.total)}
                       </span>
                     </div>
                     {receipt.paymentMethod === 'cash' &&
                       receipt.amountReceived != null && (
-                        <div className="mt-3 grid grid-cols-2 gap-2 border-t border-[#e4e7ec] pt-3 text-xs dark:border-white/10">
+                        <div className="mt-4 grid grid-cols-2 gap-x-3 gap-y-2.5 border-t border-[#e4e7ec] pt-4 text-[13px] dark:border-white/10">
                           <span className="text-[#667085] dark:text-[#a8a8a8]">
                             Cash received
                           </span>
@@ -3424,7 +3482,7 @@ export function POSTerminal({
                               'text-right font-semibold tabular-nums',
                               receipt.change > 0
                                 ? 'rounded-md bg-[#ecfdf3] px-2 py-1 text-base font-bold text-[#067647] dark:bg-emerald-950/45 dark:text-[#8de1aa]'
-                                : 'text-xs text-[#667085] dark:text-[#a8a8a8]'
+                                : 'text-[13px] text-[#667085] dark:text-[#a8a8a8]'
                             )}
                           >
                             {formatCurrency(receipt.change)}
@@ -3526,7 +3584,7 @@ export function POSTerminal({
                     )}
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-1 gap-x-6 gap-y-5 border-b border-[#e4e7ec] pb-5 dark:border-white/10 min-[380px]:grid-cols-2">
                   <ReceiptMeta
                     mark={
                       <UserRound className="h-3.5 w-3.5 text-[#667085] dark:text-[#a8a8a8]" />
@@ -3563,7 +3621,7 @@ export function POSTerminal({
                   )}
                 </div>
               </div>
-              <div className="mt-5 space-y-2 border-t border-[#e4e7ec] pt-4 dark:border-white/10">
+              <div className="mt-5 space-y-2.5">
                 {receipt.offline?.status === 'PENDING' && (
                   <div className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2.5 text-xs text-amber-950 dark:border-amber-800 dark:bg-amber-950/25 dark:text-amber-100">
                     <p className="font-bold">
@@ -3592,8 +3650,7 @@ export function POSTerminal({
                 )}
                 <button
                   onClick={handleNewSale}
-                  style={{ backgroundColor: ui.primary, color: ui.primaryInk }}
-                  className="flex h-11 w-full items-center justify-center gap-2 rounded-[6px] text-sm font-bold shadow-sm transition-all hover:-translate-y-px hover:shadow-md"
+                  className="flex h-12 w-full items-center justify-center gap-2.5 rounded-[6px] border border-[#e94e1b] bg-[#e94e1b] text-[15px] font-bold text-white shadow-[0_4px_14px_rgba(233,78,27,.18)] transition-all duration-300 hover:-translate-y-px hover:border-[#cf4215] hover:bg-[#cf4215] hover:shadow-[0_5px_16px_rgba(233,78,27,.28)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e94e1b]/40"
                 >
                   <Plus className="h-4 w-4" />
                   Start next sale
@@ -3602,20 +3659,14 @@ export function POSTerminal({
                   <button
                     onClick={() => void handlePrintReceipt()}
                     disabled={receiptPrinting}
-                    className={cn(
-                      ui.subtleBtn,
-                      'flex h-10 items-center justify-center gap-2 rounded-[6px]'
-                    )}
+                    className="flex h-11 items-center justify-center gap-2 rounded-[6px] border border-[#092c4c] bg-[#092c4c] px-3 text-sm font-semibold text-white shadow-[0_3px_10px_rgba(9,44,76,.14)] transition-all duration-300 hover:border-[#061f36] hover:bg-[#061f36] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#092c4c]/35 disabled:cursor-not-allowed disabled:opacity-55"
                   >
                     {receiptPrinting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Printer className="h-4 w-4" />}
                     {receiptPrinting ? 'Printing…' : receiptPrinted ? 'Reprint receipt' : 'Print receipt'}
                   </button>
                   <button
                     onClick={handleDownloadReceipt}
-                    className={cn(
-                      ui.subtleBtn,
-                      'flex h-10 items-center justify-center gap-2 rounded-[6px]'
-                    )}
+                    className="flex h-11 items-center justify-center gap-2 rounded-[6px] border border-[#155eef] bg-[#155eef] px-3 text-sm font-semibold text-white shadow-[0_3px_10px_rgba(21,94,239,.14)] transition-all duration-300 hover:border-[#0e50d2] hover:bg-[#0e50d2] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#155eef]/35"
                   >
                     <Download className="h-4 w-4" />
                     Download
@@ -3626,7 +3677,7 @@ export function POSTerminal({
                     onClick={() => void handleShareReceipt()}
                     className={cn(
                       ui.subtleBtn,
-                      'flex h-10 items-center justify-center gap-2 rounded-[6px]'
+                      'flex h-11 items-center justify-center gap-2 rounded-[6px] text-sm font-semibold'
                     )}
                   >
                     <Share2 className="h-4 w-4" />
@@ -3637,9 +3688,9 @@ export function POSTerminal({
                       aria-label="Receipt options"
                       aria-expanded={receiptOptionsOpen}
                       onClick={() => setReceiptOptionsOpen((open) => !open)}
-                      className={cn(
-                        ui.subtleBtn,
-                        'flex h-10 w-10 items-center justify-center px-0'
+                    className={cn(
+                      ui.subtleBtn,
+                      'flex h-11 w-11 items-center justify-center rounded-[6px] px-0'
                       )}
                     >
                       <MoreHorizontal className="h-4 w-4" />
@@ -3673,7 +3724,7 @@ export function POSTerminal({
                 </div>
                 <button
                   onClick={handleNewSale}
-                  className="mt-1 flex w-full items-center justify-center gap-2 py-1 text-xs font-semibold text-[#667085] transition-colors hover:text-[#101828] dark:text-[#a8a8a8] dark:hover:text-white"
+                  className="mt-1 flex h-9 w-full items-center justify-center gap-2 rounded-[6px] text-xs font-semibold text-[#667085] transition-colors hover:bg-[#f7f8fa] hover:text-[#101828] dark:text-[#a8a8a8] dark:hover:bg-white/5 dark:hover:text-white"
                 >
                   <ArrowLeft className="h-3.5 w-3.5" />
                   Back to POS
@@ -3847,17 +3898,17 @@ export function POSTerminal({
             <div className="pos-action-scroll mt-2 flex gap-1.5 overflow-x-auto border-t border-[#e4e7ec] pt-2 dark:border-white/10">
               <button
                 type="button"
-                onClick={() => void holdSale()}
+                onClick={openHoldDialog}
                 disabled={!canHold || cart.length === 0 || Boolean(heldSaleActionId)}
-                className="h-8 shrink-0 rounded-md border border-[#d0d5dd] bg-white px-3 text-xs font-semibold text-[#344054] disabled:opacity-45 dark:border-white/10 dark:bg-[#1c1c1c] dark:text-white"
+                className="h-8 shrink-0 rounded-md border border-[#E04F16] bg-[#E04F16] px-3 text-xs font-semibold text-white transition-colors hover:border-[#BF4313] hover:bg-[#BF4313] disabled:opacity-45"
               >
                 Hold
               </button>
               <button
                 type="button"
-                onClick={voidCurrentSale}
+                onClick={openVoidDialog}
                 disabled={cart.length === 0}
-                className="h-8 shrink-0 rounded-md border border-[#d0d5dd] bg-white px-3 text-xs font-semibold text-[#344054] disabled:opacity-45 dark:border-white/10 dark:bg-[#1c1c1c] dark:text-white"
+                className="h-8 shrink-0 rounded-md border border-[#155EEF] bg-[#155EEF] px-3 text-xs font-semibold text-white transition-colors hover:border-[#0E50D2] hover:bg-[#0E50D2] disabled:opacity-45"
               >
                 Void
               </button>
@@ -3865,21 +3916,21 @@ export function POSTerminal({
                 type="button"
                 onClick={openHeldOrders}
                 disabled={!canHold}
-                className="h-8 shrink-0 rounded-md border border-[#d0d5dd] bg-white px-3 text-xs font-semibold text-[#344054] disabled:opacity-45 dark:border-white/10 dark:bg-[#1c1c1c] dark:text-white"
+                className="h-8 shrink-0 rounded-md border border-[#092C4C] bg-[#092C4C] px-3 text-xs font-semibold text-white transition-colors hover:border-[#05192C] hover:bg-[#05192C] disabled:opacity-45"
               >
-                Held{heldSales.length ? ` (${heldSales.length})` : ''}
+                View Orders{heldSales.length ? ` (${heldSales.length})` : ''}
               </button>
               <button
                 type="button"
                 onClick={() => setShowSalesHistory(true)}
-                className="h-8 shrink-0 rounded-md border border-[#d0d5dd] bg-white px-3 text-xs font-semibold text-[#344054] dark:border-white/10 dark:bg-[#1c1c1c] dark:text-white"
+                className="h-8 shrink-0 rounded-md border border-[#FF0000] bg-[#FF0000] px-3 text-xs font-semibold text-white transition-colors hover:border-[#DB0000] hover:bg-[#DB0000]"
               >
                 Transactions
               </button>
               <button
                 type="button"
-                onClick={resetRegister}
-                className="h-8 shrink-0 rounded-md border border-[#d0d5dd] bg-white px-3 text-xs font-semibold text-[#344054] dark:border-white/10 dark:bg-[#1c1c1c] dark:text-white"
+                onClick={openResetDialog}
+                className="h-8 shrink-0 rounded-md border border-[#3538CD] bg-[#3538CD] px-3 text-xs font-semibold text-white transition-colors hover:border-[#2C2FB2] hover:bg-[#2C2FB2]"
               >
                 Reset
               </button>
@@ -4011,6 +4062,12 @@ export function POSTerminal({
               {filteredProducts.map((product, productIndex) => {
                 const inCartQuantity = cartQuantityByProductId.get(product.id);
                 const outOfStock = product.stock === 0;
+                const remainingStock = Math.max(
+                  0,
+                  product.stock - (inCartQuantity ?? 0)
+                );
+                const lowStock =
+                  product.stock <= product.minStock && product.stock > 0;
                 return (
                   <article
                     key={product.id}
@@ -4043,9 +4100,9 @@ export function POSTerminal({
                     )}
                   >
                     {/* Stock badge */}
-                    {product.stock <= product.minStock && product.stock > 0 && (
+                    {lowStock && (
                       <div className="absolute left-2 top-2 z-10 rounded-full bg-[#fffaeb] px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-[#b54708] ring-1 ring-inset ring-[#fedf89]">
-                        Low
+                        Low stock
                       </div>
                     )}
                     {outOfStock && (
@@ -4189,16 +4246,34 @@ export function POSTerminal({
                             </button>
                           </div>
                         ) : (
-                          <p
+                          <div
                             className={cn(
-                              'text-[10px] font-medium',
+                              'flex min-w-0 items-center gap-1.5 text-[10px] font-medium',
                               outOfStock
                                 ? 'text-[#d92d20]'
-                                : 'text-[#667085] dark:text-[#8b8b8b]'
+                                : lowStock
+                                  ? 'text-[#b54708] dark:text-[#fdb022]'
+                                  : 'text-[#667085] dark:text-[#a8a8a8]'
                             )}
+                            title={`${remainingStock} ${product.unit} available`}
                           >
-                            {product.stock} {product.unit}
-                          </p>
+                            <span
+                              aria-hidden="true"
+                              className={cn(
+                                'h-1.5 w-1.5 shrink-0 rounded-full',
+                                outOfStock
+                                  ? 'bg-[#d92d20]'
+                                  : lowStock
+                                    ? 'bg-[#f79009]'
+                                    : 'bg-[#12b76a]'
+                              )}
+                            />
+                            <span className="truncate tabular-nums">
+                              {outOfStock
+                                ? 'Sold out'
+                                : `${remainingStock} ${product.unit} available`}
+                            </span>
+                          </div>
                         )}
                       </div>
                     </div>
@@ -4264,13 +4339,7 @@ export function POSTerminal({
             ) : (
               cart.length > 0 && (
                 <button
-                  onClick={() => {
-                    if (confirm('Clear all items from cart?')) {
-                      setCart([]);
-                      setShippingCost(0);
-                      setRoundoffEnabled(true);
-                    }
-                  }}
+                  onClick={openVoidDialog}
                   className="rounded-md px-2 py-1 text-[11px] font-semibold text-[#98a2b3] transition-colors hover:bg-[#fef3f2] hover:text-[#b42318] dark:hover:bg-red-950/30"
                 >
                   Clear sale
@@ -6385,7 +6454,7 @@ export function POSTerminal({
           <div className="pos-action-scroll mx-auto flex flex-wrap items-center justify-center gap-2 max-sm:flex-nowrap max-sm:justify-start max-sm:overflow-x-auto">
             <button
               type="button"
-              onClick={() => void holdSale()}
+              onClick={openHoldDialog}
               disabled={
                 !canHold || cart.length === 0 || Boolean(heldSaleActionId)
               }
@@ -6396,9 +6465,9 @@ export function POSTerminal({
             </button>
             <button
               type="button"
-              onClick={voidCurrentSale}
+              onClick={openVoidDialog}
               disabled={cart.length === 0}
-              className="inline-flex shrink-0 items-center justify-center gap-2 rounded-[5px] border border-[#155EEF] bg-[#155EEF] px-[0.85rem] py-[0.4rem] text-[0.85rem] font-semibold leading-normal text-white shadow-[0_4px_20px_rgba(21,94,239,0.15)] transition-all duration-500 hover:border-[#0E50D2] hover:bg-[#0E50D2] hover:shadow-[0_3px_10px_rgba(21,94,239,0.5)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#155EEF]/40 disabled:cursor-not-allowed disabled:opacity-[0.65]"
+              className="inline-flex shrink-0 items-center justify-center gap-2 rounded-[5px] border border-[#155EEF] bg-[#155EEF] px-[0.85rem] py-[0.4rem] text-[0.85rem] font-semibold leading-normal text-white shadow-[0_4px_20px_rgba(21,94,239,0.15)] transition-all duration-300 hover:border-[#0E50D2] hover:bg-[#0E50D2] hover:shadow-[0_3px_10px_rgba(21,94,239,0.45)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#155EEF]/40 disabled:cursor-not-allowed disabled:opacity-[0.65]"
             >
               <Trash2 className="h-4 w-4" />
               Void
@@ -6419,8 +6488,8 @@ export function POSTerminal({
               title="Open and resume held sales"
               className="relative inline-flex shrink-0 items-center justify-center gap-2 rounded-[5px] border border-[#092C4C] bg-[#092C4C] px-[0.85rem] py-[0.4rem] text-[0.85rem] font-semibold leading-normal text-white shadow-[0_4px_20px_rgba(9,44,76,0.15)] transition-all duration-500 hover:border-[#05192C] hover:bg-[#05192C] hover:shadow-[0_3px_10px_rgba(9,44,76,0.5)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#092C4C]/40 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              <ArchiveRestore className="h-4 w-4" />
-              Held
+              <ShoppingCart className="h-4 w-4" />
+              View Orders
               {heldSales.length > 0 && (
                 <span className="inline-flex min-w-5 items-center justify-center rounded-full bg-white px-1.5 text-[10px] font-extrabold text-[#092C4C]">
                   {heldSales.length}
@@ -6429,8 +6498,8 @@ export function POSTerminal({
             </button>
             <button
               type="button"
-              onClick={resetRegister}
-              className="inline-flex shrink-0 items-center justify-center gap-2 rounded-[5px] border border-[#3538CD] bg-[#3538CD] px-[0.85rem] py-[0.4rem] text-[0.85rem] font-semibold leading-normal text-white shadow-[0_4px_20px_rgba(53,56,205,0.15)] transition-all duration-500 hover:border-[#2C2FB2] hover:bg-[#2C2FB2] hover:shadow-[0_3px_10px_rgba(53,56,205,0.5)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3538CD]/40"
+              onClick={openResetDialog}
+              className="inline-flex shrink-0 items-center justify-center gap-2 rounded-[5px] border border-[#3538CD] bg-[#3538CD] px-[0.85rem] py-[0.4rem] text-[0.85rem] font-semibold leading-normal text-white shadow-[0_4px_20px_rgba(53,56,205,0.15)] transition-all duration-300 hover:border-[#2C2FB2] hover:bg-[#2C2FB2] hover:shadow-[0_3px_10px_rgba(53,56,205,0.45)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3538CD]/40"
             >
               <RefreshCw className="h-4 w-4" />
               Reset
@@ -6703,56 +6772,286 @@ export function POSTerminal({
         </div>
       )}
 
-      {showHeldSales && (
+      {showResetDialog && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-[#0c111d]/50 p-4"
+          className="fixed inset-0 z-[70] flex items-center justify-center bg-[#101828]/55 p-4 backdrop-blur-[1px]"
+          role="alertdialog"
+          aria-modal="true"
+          aria-labelledby="reset-register-title"
+          aria-describedby="reset-register-description"
+          onKeyDown={(event) => {
+            if (event.key === 'Escape') setShowResetDialog(false);
+          }}
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) setShowResetDialog(false);
+          }}
+        >
+          <div className="w-full max-w-[510px] overflow-hidden rounded-xl border border-[#e4e7ec] bg-white text-[#273142] shadow-[0_24px_70px_rgba(16,24,40,.3)] dark:border-white/10 dark:bg-[#1c1c1e] dark:text-white">
+            <div className="flex items-center justify-between border-b border-[#e4e7ec] px-5 py-4 dark:border-white/10">
+              <h2 id="reset-register-title" className="text-lg font-bold">
+                Reset register
+              </h2>
+              <button
+                type="button"
+                onClick={() => setShowResetDialog(false)}
+                className="flex h-6 w-6 items-center justify-center rounded-full bg-[#ef1b24] text-white transition-colors hover:bg-[#d9151d] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ef1b24]/40"
+                aria-label="Close reset register"
+              >
+                <X className="h-3.5 w-3.5" strokeWidth={3} />
+              </button>
+            </div>
+
+            <div className="space-y-4 px-5 py-5">
+              <div className="flex min-h-24 items-center justify-center gap-4 rounded-xl bg-[#f7f8fa] px-4 dark:bg-white/[.045]">
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#e94e1b] text-white">
+                  <RefreshCw className="h-5 w-5" />
+                </span>
+                <div>
+                  <p className="text-2xl font-bold tabular-nums text-[#273142] dark:text-white">
+                    {formatCurrency(total)}
+                  </p>
+                  <p className="mt-0.5 text-xs text-[#667085] dark:text-[#a8a8a8]">
+                    {cart.length} item{cart.length === 1 ? '' : 's'} in the current order
+                  </p>
+                </div>
+              </div>
+              <p
+                id="reset-register-description"
+                className="text-sm leading-6 text-[#667085] dark:text-[#a8a8a8]"
+              >
+                Resetting returns the POS to a fresh sale and clears the
+                current basket, customer, discounts and payment progress.
+              </p>
+            </div>
+
+            <div className="flex justify-end gap-2 border-t border-[#e4e7ec] px-5 py-3.5 dark:border-white/10">
+              <button
+                type="button"
+                autoFocus
+                onClick={() => setShowResetDialog(false)}
+                className="h-9 rounded-md bg-[#092c4c] px-4 text-sm font-semibold text-white transition-colors hover:bg-[#061f36]"
+              >
+                Keep order
+              </button>
+              <button
+                type="button"
+                onClick={resetRegister}
+                className="h-9 rounded-md bg-[#e94e1b] px-4 text-sm font-semibold text-white transition-colors hover:bg-[#c94015]"
+              >
+                Reset register
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showVoidDialog && (
+        <div
+          className="fixed inset-0 z-[70] flex items-center justify-center bg-[#101828]/55 p-4 backdrop-blur-[1px]"
+          role="alertdialog"
+          aria-modal="true"
+          aria-labelledby="void-order-title"
+          aria-describedby="void-order-description"
+          onKeyDown={(event) => {
+            if (event.key === 'Escape') setShowVoidDialog(false);
+          }}
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) setShowVoidDialog(false);
+          }}
+        >
+          <div className="w-full max-w-[510px] overflow-hidden rounded-xl border border-[#e4e7ec] bg-white text-[#273142] shadow-[0_24px_70px_rgba(16,24,40,.3)] dark:border-white/10 dark:bg-[#1c1c1e] dark:text-white">
+            <div className="flex items-center justify-between border-b border-[#e4e7ec] px-5 py-4 dark:border-white/10">
+              <h2 id="void-order-title" className="text-lg font-bold">
+                Void current order
+              </h2>
+              <button
+                type="button"
+                onClick={() => setShowVoidDialog(false)}
+                className="flex h-6 w-6 items-center justify-center rounded-full bg-[#ef1b24] text-white transition-colors hover:bg-[#d9151d] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ef1b24]/40"
+                aria-label="Close void order"
+              >
+                <X className="h-3.5 w-3.5" strokeWidth={3} />
+              </button>
+            </div>
+
+            <div className="space-y-4 px-5 py-5">
+              <div className="flex min-h-24 items-center justify-center gap-4 rounded-xl bg-[#f7f8fa] px-4 dark:bg-white/[.045]">
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#e94e1b] text-white">
+                  <AlertTriangle className="h-5 w-5" />
+                </span>
+                <div>
+                  <p className="text-2xl font-bold tabular-nums text-[#273142] dark:text-white">
+                    {formatCurrency(total)}
+                  </p>
+                  <p className="mt-0.5 text-xs text-[#667085] dark:text-[#a8a8a8]">
+                    {cart.length} item{cart.length === 1 ? '' : 's'} in this order
+                  </p>
+                </div>
+              </div>
+              <p
+                id="void-order-description"
+                className="text-sm leading-6 text-[#667085] dark:text-[#a8a8a8]"
+              >
+                All items, discounts, coupon details and payment progress will
+                be removed. This action cannot be undone.
+              </p>
+            </div>
+
+            <div className="flex justify-end gap-2 border-t border-[#e4e7ec] px-5 py-3.5 dark:border-white/10">
+              <button
+                type="button"
+                autoFocus
+                onClick={() => setShowVoidDialog(false)}
+                className="h-9 rounded-md bg-[#092c4c] px-4 text-sm font-semibold text-white transition-colors hover:bg-[#061f36]"
+              >
+                Keep order
+              </button>
+              <button
+                type="button"
+                onClick={voidCurrentSale}
+                className="h-9 rounded-md bg-[#e94e1b] px-4 text-sm font-semibold text-white transition-colors hover:bg-[#c94015]"
+              >
+                Void order
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showHoldDialog && (
+        <div
+          className="fixed inset-0 z-[70] flex items-center justify-center bg-[#101828]/55 p-4 backdrop-blur-[1px]"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="hold-order-title"
+          onKeyDown={(event) => {
+            if (event.key === 'Escape' && !heldSaleActionId)
+              setShowHoldDialog(false);
+          }}
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget && !heldSaleActionId)
+              setShowHoldDialog(false);
+          }}
+        >
+          <form
+            className="w-full max-w-[510px] overflow-hidden rounded-xl border border-[#e4e7ec] bg-white text-[#273142] shadow-[0_24px_70px_rgba(16,24,40,.3)] dark:border-white/10 dark:bg-[#1c1c1e] dark:text-white"
+            onSubmit={(event) => {
+              event.preventDefault();
+              void holdSale();
+            }}
+          >
+            <div className="flex items-center justify-between border-b border-[#e4e7ec] px-5 py-4 dark:border-white/10">
+              <h2 id="hold-order-title" className="text-lg font-bold">
+                Hold order
+              </h2>
+              <button
+                type="button"
+                disabled={Boolean(heldSaleActionId)}
+                onClick={() => setShowHoldDialog(false)}
+                className="flex h-6 w-6 items-center justify-center rounded-full bg-[#ef1b24] text-white transition-colors hover:bg-[#d9151d] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ef1b24]/40 disabled:opacity-50"
+                aria-label="Close hold order"
+              >
+                <X className="h-3.5 w-3.5" strokeWidth={3} />
+              </button>
+            </div>
+
+            <div className="space-y-4 px-5 py-5">
+              <div className="flex min-h-24 items-center justify-center rounded-xl bg-[#f7f8fa] px-4 dark:bg-white/[.045]">
+                <p className="text-4xl font-bold tabular-nums tracking-tight text-[#273142] dark:text-white">
+                  {formatCurrency(total)}
+                </p>
+              </div>
+              <p className="text-sm leading-6 text-[#667085] dark:text-[#a8a8a8]">
+                This sale will move to the held queue and can be resumed from
+                any authorized register at this branch. A reference is created
+                automatically for quick retrieval.
+              </p>
+            </div>
+
+            <div className="flex justify-end gap-2 border-t border-[#e4e7ec] px-5 py-3.5 dark:border-white/10">
+              <button
+                type="button"
+                disabled={Boolean(heldSaleActionId)}
+                onClick={() => setShowHoldDialog(false)}
+                className="h-9 rounded-md bg-[#092c4c] px-4 text-sm font-semibold text-white transition-colors hover:bg-[#061f36] disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={Boolean(heldSaleActionId)}
+                className="inline-flex h-9 min-w-24 items-center justify-center gap-2 rounded-md bg-[#e94e1b] px-4 text-sm font-semibold text-white transition-colors hover:bg-[#cf4215] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {heldSaleActionId ? (
+                  <>
+                    <Loader2 className="h-4 w-4" /> Holding
+                  </>
+                ) : (
+                  'Confirm'
+                )}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {false && showHeldSales && (
+        <div
+          className="fixed inset-0 z-[70] flex items-center justify-center bg-[#101828]/55 p-4 backdrop-blur-[1px]"
           role="dialog"
           aria-modal="true"
           aria-labelledby="held-sales-title"
+          onKeyDown={(event) => {
+            if (event.key === 'Escape' && !heldSaleActionId)
+              setShowHeldSales(false);
+          }}
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget && !heldSaleActionId)
+              setShowHeldSales(false);
+          }}
         >
-          <div className="w-full max-w-md overflow-hidden rounded-2xl border border-[#e4e7ec] bg-white shadow-[0_20px_60px_rgba(16,24,40,.28)]">
-            <div className="flex items-center justify-between border-b border-[#e4e7ec] px-5 py-4">
+          <div className="w-full max-w-[510px] overflow-hidden rounded-xl border border-[#e4e7ec] bg-white text-[#273142] shadow-[0_24px_70px_rgba(16,24,40,.3)] dark:border-white/10 dark:bg-[#1c1c1e] dark:text-white">
+            <div className="flex items-center justify-between border-b border-[#e4e7ec] px-5 py-4 dark:border-white/10">
               <div>
                 <h2
                   id="held-sales-title"
-                  className="text-sm font-bold text-[#101828]"
+                  className="text-lg font-bold text-[#273142] dark:text-white"
                 >
                   Held sales
                 </h2>
-                <p className="mt-0.5 text-xs text-[#98a2b3]">
-                  Shared securely with authorized registers at this branch
+                <p className="mt-0.5 text-xs text-[#667085] dark:text-[#a8a8a8]">
+                  Resume or remove orders waiting at this branch
                 </p>
               </div>
               <button
                 type="button"
+                disabled={Boolean(heldSaleActionId)}
                 onClick={() => setShowHeldSales(false)}
-                className="rounded-lg p-1.5 text-[#667085] hover:bg-[#f2f4f7]"
+                className="flex h-6 w-6 items-center justify-center rounded-full bg-[#ef1b24] text-white transition-colors hover:bg-[#d9151d] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ef1b24]/40 disabled:opacity-50"
                 aria-label="Close held sales"
               >
-                <X className="h-4 w-4" />
+                <X className="h-3.5 w-3.5" strokeWidth={3} />
               </button>
             </div>
-            <div className="max-h-[55vh] overflow-y-auto p-3">
+            <div className="max-h-[60vh] overflow-y-auto p-4">
               {heldSalesLoading ? (
-                <p className="flex items-center justify-center gap-2 py-8 text-sm text-[#98a2b3]">
+                <p className="flex items-center justify-center gap-2 rounded-xl bg-[#f7f8fa] py-12 text-sm text-[#667085] dark:bg-white/[.045] dark:text-[#a8a8a8]">
                   <Loader2 className="h-4 w-4 animate-spin" />
                   Loading held sales…
                 </p>
               ) : heldSales.length === 0 ? (
-                <p className="py-8 text-center text-sm text-[#98a2b3]">
+                <p className="rounded-xl bg-[#f7f8fa] py-12 text-center text-sm text-[#667085] dark:bg-white/[.045] dark:text-[#a8a8a8]">
                   No held sales
                 </p>
               ) : (
-                <div className="space-y-2">
+                <div className="space-y-3">
                   {heldSales.map((heldSale) => (
                     <div
                       key={heldSale.id}
-                      className="flex items-center justify-between gap-3 rounded-xl border border-[#e4e7ec] p-3"
+                      className="flex flex-col gap-3 rounded-xl border border-[#e4e7ec] bg-white p-4 shadow-[0_1px_2px_rgba(16,24,40,.04)] dark:border-white/10 dark:bg-white/[.035] sm:flex-row sm:items-center sm:justify-between"
                     >
-                      <div>
-                        <p className="text-sm font-semibold text-[#101828]">
-                          {heldSale.cart.length} item
-                          {heldSale.cart.length === 1 ? '' : 's'} ·{' '}
+                      <div className="min-w-0">
+                        <p className="text-base font-bold tabular-nums text-[#273142] dark:text-white">
                           {formatCurrency(
                             heldSale.cart.reduce(
                               (sum, item) => sum + item.totalPrice,
@@ -6760,7 +7059,16 @@ export function POSTerminal({
                             )
                           )}
                         </p>
-                        <p className="mt-1 text-xs text-[#98a2b3]">
+                        <p className="mt-1 text-sm text-[#667085] dark:text-[#a8a8a8]">
+                          {heldSale.cart.length} item
+                          {heldSale.cart.length === 1 ? '' : 's'}
+                        </p>
+                        {heldSale.note && (
+                          <p className="mt-2 inline-flex max-w-full rounded-md bg-[#f7f8fa] px-2 py-1 text-[11px] font-bold text-[#344054] dark:bg-white/[.07] dark:text-[#e4e7ec]">
+                            <span className="truncate">{heldSale.note}</span>
+                          </p>
+                        )}
+                        <p className="mt-2 text-xs text-[#98a2b3] dark:text-[#888]">
                           Held by {heldSale.cashierName} ·{' '}
                           {new Date(heldSale.createdAt).toLocaleTimeString([], {
                             hour: '2-digit',
@@ -6768,12 +7076,12 @@ export function POSTerminal({
                           })}
                         </p>
                       </div>
-                      <div className="flex gap-2">
+                      <div className="flex shrink-0 gap-2">
                         <button
                           type="button"
                           disabled={heldSaleActionId === heldSale.id}
                           onClick={() => void deleteHeldSale(heldSale)}
-                          className="rounded-lg border border-[#d0d5dd] px-2.5 py-2 text-xs font-semibold text-[#667085] transition-colors hover:bg-[#f9fafb] disabled:opacity-50"
+                          className="h-9 rounded-md bg-[#092c4c] px-3 text-xs font-semibold text-white transition-colors hover:bg-[#061f36] disabled:opacity-50"
                         >
                           Discard
                         </button>
@@ -6781,11 +7089,7 @@ export function POSTerminal({
                           type="button"
                           disabled={heldSaleActionId === heldSale.id}
                           onClick={() => void resumeHeldSale(heldSale)}
-                          style={{
-                            backgroundColor: ui.primary,
-                            color: ui.primaryInk,
-                          }}
-                          className="rounded-lg px-3 py-2 text-xs font-bold transition-opacity hover:opacity-90 disabled:opacity-50"
+                          className="h-9 rounded-md bg-[#e94e1b] px-4 text-xs font-semibold text-white transition-colors hover:bg-[#cf4215] disabled:opacity-50"
                         >
                           Resume
                         </button>
@@ -6797,6 +7101,17 @@ export function POSTerminal({
             </div>
           </div>
         </div>
+      )}
+
+      {showHeldSales && (
+        <OrdersModal
+          heldSales={heldSales}
+          heldSalesLoading={heldSalesLoading}
+          actionId={heldSaleActionId}
+          onClose={() => setShowHeldSales(false)}
+          onResume={(heldSale) => void resumeHeldSale(heldSale)}
+          onDiscard={(heldSale) => void deleteHeldSale(heldSale)}
+        />
       )}
 
       {/* Sales History Modal */}

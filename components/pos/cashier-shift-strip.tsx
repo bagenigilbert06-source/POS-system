@@ -27,6 +27,7 @@ import {
   ArrowDownToLine,
   Banknote,
   CircleDot,
+  Clock3,
   ReceiptText,
   ShieldCheck,
 } from 'lucide-react';
@@ -84,6 +85,13 @@ export function CashierShiftStrip({
     [result, setResult] = useState<Reconciliation | null>(null);
   const session = workspace.session;
   const isClosing = session?.status === 'closing';
+  const shiftStartedAt = session
+    ? new Intl.DateTimeFormat('en-KE', {
+        hour: '2-digit',
+        minute: '2-digit',
+        timeZone: 'Africa/Nairobi',
+      }).format(new Date(session.openedAt))
+    : null;
   useEffect(() => {
     if (!isClosing) {
       setCloseStep('count');
@@ -169,16 +177,16 @@ export function CashierShiftStrip({
             />
             <div className="hidden sm:block">
               <Metric
-              icon={CircleDot}
-              label="Register"
-              value={
-                session
-                  ? isClosing
-                    ? 'Reconciling'
-                    : `Open · ${workspace.registerName ?? session.sessionNo}`
-                  : 'No active shift'
-              }
-              tone={session ? 'success' : undefined}
+                icon={CircleDot}
+                label="Register"
+                value={
+                  session
+                    ? isClosing
+                      ? 'Reconciling'
+                      : `Open · ${workspace.registerName ?? session.sessionNo}`
+                    : 'No active shift'
+                }
+                tone={session ? 'success' : undefined}
               />
             </div>
           </dl>
@@ -244,6 +252,12 @@ export function CashierShiftStrip({
         {session && (
           <div className="hidden flex-wrap items-center gap-x-5 gap-y-1 px-4 pb-3 text-[11px] text-[var(--dashboard-muted)] sm:flex">
             <span>Opening float {money(Number(session.openingCash))}</span>
+            {shiftStartedAt && (
+              <span className="inline-flex items-center gap-1">
+                <Clock3 className="h-3.5 w-3.5" />
+                Shift started {shiftStartedAt}
+              </span>
+            )}
             <span>
               {workspace.cashMovementCount} cash movement
               {workspace.cashMovementCount === 1 ? '' : 's'}

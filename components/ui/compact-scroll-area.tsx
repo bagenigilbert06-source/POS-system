@@ -5,11 +5,25 @@ import { cn } from '@/lib/utils'
 
 const TRACK_INSET = 8
 const MIN_THUMB_HEIGHT = 56
+const SCROLLBAR_HIDE_DELAY = 900
 
-export function CompactScrollArea({ className, children, ...props }: HTMLAttributes<HTMLDivElement>) {
+export function CompactScrollArea({ className, children, onScroll, ...props }: HTMLAttributes<HTMLDivElement>) {
   const viewportRef = useRef<HTMLDivElement>(null)
   const dragRef = useRef<{ pointerY: number; scrollTop: number } | null>(null)
+  const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [thumb, setThumb] = useState({ visible: false, top: 0, height: MIN_THUMB_HEIGHT })
+  const [scrollbarActive, setScrollbarActive] = useState(false)
+
+  const revealScrollbar = useCallback((keepVisible = false) => {
+    if (hideTimerRef.current) clearTimeout(hideTimerRef.current)
+    setScrollbarActive(true)
+    if (!keepVisible) {
+      hideTimerRef.current = setTimeout(
+        () => setScrollbarActive(false),
+        SCROLLBAR_HIDE_DELAY
+      )
+    }
+  }, [])
 
   const updateThumb = useCallback(() => {
     const viewport = viewportRef.current
@@ -35,7 +49,10 @@ export function CompactScrollArea({ className, children, ...props }: HTMLAttribu
     observer.observe(viewport)
     if (viewport.firstElementChild) observer.observe(viewport.firstElementChild)
     updateThumb()
-    return () => observer.disconnect()
+    return () => {
+      observer.disconnect()
+      if (hideTimerRef.current) clearTimeout(hideTimerRef.current)
+    }
   }, [children, updateThumb])
 
   const moveThumb = (event: PointerEvent<HTMLDivElement>) => {
@@ -49,13 +66,25 @@ export function CompactScrollArea({ className, children, ...props }: HTMLAttribu
 
   return (
     <div className="group/compact-scroll relative min-h-0 flex-1">
-      <div ref={viewportRef} onScroll={updateThumb} className={cn('compact-scroll-viewport h-full overflow-y-auto', className)} {...props}>
+      <div
+        ref={viewportRef}
+        onScroll={(event) => {
+          updateThumb()
+          revealScrollbar()
+          onScroll?.(event)
+        }}
+        className={cn('compact-scroll-viewport h-full overflow-y-auto', className)}
+        {...props}
+      >
         {children}
       </div>
       {thumb.visible && (
         <div
           aria-hidden="true"
-          className="absolute inset-y-2 right-1 z-20 hidden w-2 cursor-pointer rounded-full bg-slate-200/35 lg:block dark:bg-white/[.04]"
+          className={cn(
+            'absolute inset-y-2 right-1 z-20 hidden w-2 cursor-pointer rounded-full bg-slate-200/35 opacity-0 transition-opacity duration-200 lg:block dark:bg-white/[.04]',
+            scrollbarActive ? 'pointer-events-auto opacity-100' : 'pointer-events-none'
+          )}
           onPointerDown={(event) => {
             if (event.target !== event.currentTarget) return
             const viewport = viewportRef.current
@@ -72,6 +101,7 @@ export function CompactScrollArea({ className, children, ...props }: HTMLAttribu
             onPointerDown={(event) => {
               const viewport = viewportRef.current
               if (!viewport) return
+              revealScrollbar(true)
               event.currentTarget.setPointerCapture(event.pointerId)
               dragRef.current = { pointerY: event.clientY, scrollTop: viewport.scrollTop }
             }}
@@ -79,8 +109,12 @@ export function CompactScrollArea({ className, children, ...props }: HTMLAttribu
             onPointerUp={(event) => {
               dragRef.current = null
               event.currentTarget.releasePointerCapture(event.pointerId)
+              revealScrollbar()
             }}
-            onPointerCancel={() => { dragRef.current = null }}
+            onPointerCancel={() => {
+              dragRef.current = null
+              revealScrollbar()
+            }}
           />
         </div>
       )}

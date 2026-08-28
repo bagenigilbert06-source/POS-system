@@ -199,51 +199,51 @@ export function SalesHistoryModal({
 
   return (
     <div
-      className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/55 p-3 backdrop-blur-[1px] sm:p-6"
+      className="fixed inset-0 z-[70] flex items-center justify-center bg-[#101828]/55 p-3 backdrop-blur-[1px] sm:p-6"
       role="dialog"
       aria-modal="true"
       aria-labelledby="recent-transactions-title"
       onMouseDown={(event) => event.target === event.currentTarget && onClose()}
     >
-      <div className="flex max-h-[90vh] w-full max-w-[815px] flex-col overflow-hidden rounded-lg border border-border bg-background text-foreground shadow-2xl">
-        <header className="flex min-h-14 items-center justify-between border-b border-border px-5 sm:px-6">
+      <div className="flex max-h-[calc(100dvh-24px)] w-full max-w-[815px] flex-col overflow-hidden rounded-[9px] border border-[#dfe3e8] bg-white text-[#273142] shadow-[0_24px_70px_rgba(16,24,40,.30)] dark:border-white/10 dark:bg-[#1c1c1e] dark:text-white sm:max-h-[90vh]">
+        <header className="flex min-h-[58px] items-center justify-between border-b border-[#e4e7ec] px-5 dark:border-white/10">
           <h2
             id="recent-transactions-title"
-            className="text-lg font-semibold tracking-tight"
+            className="text-[18px] font-bold tracking-[-.01em]"
           >
             Recent Transactions
           </h2>
           <button
             type="button"
             onClick={onClose}
-            className="grid h-6 w-6 place-items-center rounded-full bg-red-600 text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
+            className="grid h-5 w-5 place-items-center rounded-full bg-[#ef1b24] text-white transition-colors hover:bg-[#d9151d] focus:outline-none focus:ring-2 focus:ring-[#ef1b24]/40 focus:ring-offset-2"
             aria-label="Close recent transactions"
           >
-            <X className="h-3.5 w-3.5" strokeWidth={3} />
+            <X className="h-3 w-3" strokeWidth={3} />
           </button>
         </header>
-        <div className="flex min-h-0 flex-1 flex-col p-5 sm:p-6">
-          <nav className="mb-4 flex gap-2" aria-label="Transaction type">
+        <div className="flex min-h-0 flex-1 flex-col px-5 pb-5 pt-5">
+          <nav className="mb-[15px] flex gap-2" aria-label="Transaction type">
             {tabs.map((item) => (
               <button
                 key={item.id}
                 type="button"
                 onClick={() => setTab(item.id)}
-                className={`rounded px-3.5 py-2 text-xs font-medium transition-colors ${tab === item.id ? 'bg-orange-500 text-white shadow-sm hover:bg-orange-600' : 'bg-muted text-muted-foreground hover:text-foreground'}`}
+                className={`h-[33px] rounded-[4px] px-3.5 text-xs font-medium transition-colors ${tab === item.id ? 'bg-[#ff9f43] text-white shadow-sm hover:bg-[#f58b27]' : 'bg-[#f6f7f9] text-[#344054] hover:bg-[#eef0f3] dark:bg-white/[.06] dark:text-[#d0d5dd] dark:hover:bg-white/10'}`}
               >
                 {item.label}
               </button>
             ))}
           </nav>
-          <section className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-border">
-            <div className="flex flex-col gap-3 border-b border-border p-4 sm:flex-row sm:items-center sm:justify-between">
+          <section className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[8px] border border-[#dfe3e8] dark:border-white/10">
+            <div className="flex min-h-[72px] flex-col gap-3 border-b border-[#e4e7ec] px-5 py-4 dark:border-white/10 sm:flex-row sm:items-center sm:justify-between">
               <label className="relative block w-full sm:max-w-[215px]">
                 <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <input
                   value={query}
                   onChange={(event) => setQuery(event.target.value)}
                   placeholder="Search"
-                  className="h-10 w-full rounded-md border border-input bg-background pl-9 pr-3 text-sm outline-none placeholder:text-muted-foreground focus:ring-2 focus:ring-orange-500/30"
+                  className="h-[38px] w-full rounded-[6px] border border-[#dfe3e8] bg-white pl-9 pr-3 text-sm outline-none placeholder:text-[#98a2b3] focus:border-[#ff9f43] focus:ring-2 focus:ring-[#ff9f43]/15 dark:border-white/10 dark:bg-[#151516]"
                 />
               </label>
               <div className="flex gap-2">
@@ -269,7 +269,7 @@ export function SalesHistoryModal({
                 </ToolButton>
               </div>
             </div>
-            <div className="min-h-0 flex-1 overflow-auto p-4 pt-5">
+            <div className="min-h-0 flex-1 overflow-auto px-5 py-5">
               {loading ? (
                 <div className="grid min-h-64 place-items-center">
                   <div className="flex flex-col items-center gap-5 text-sm text-muted-foreground">
@@ -288,9 +288,9 @@ export function SalesHistoryModal({
                   </div>
                 </div>
               ) : (
-                <table className="w-full min-w-[660px] border-collapse text-sm">
+                <table className="w-full min-w-[660px] border-collapse text-[14px]">
                   <thead>
-                    <tr className="border border-border bg-muted/60 text-left text-xs font-medium">
+                    <tr className="border border-[#dfe3e8] bg-[#f7f8fa] text-left text-[13px] font-semibold text-[#101828] dark:border-white/10 dark:bg-white/[.045] dark:text-white">
                       <th className="w-12 px-4 py-3">
                         <input
                           type="checkbox"
@@ -332,13 +332,13 @@ export function SalesHistoryModal({
                 </table>
               )}
             </div>
-            <footer className="flex flex-col gap-3 border-t border-border px-4 py-3 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
+            <footer className="flex flex-col gap-3 border-t border-[#e4e7ec] px-4 py-3 text-sm text-[#667085] dark:border-white/10 dark:text-[#a8a8a8] sm:flex-row sm:items-center sm:justify-between">
               <div className="flex items-center gap-2">
                 <span>Rows Per Page</span>
                 <select
                   value={pageSize}
                   onChange={(event) => setPageSize(Number(event.target.value))}
-                  className="h-9 rounded-md border border-input bg-background px-2 text-foreground"
+                  className="h-8 rounded-md border border-[#dfe3e8] bg-white px-2 text-[#344054] dark:border-white/10 dark:bg-[#151516] dark:text-white"
                 >
                   <option value={5}>5</option>
                   <option value={10}>10</option>
@@ -361,7 +361,7 @@ export function SalesHistoryModal({
                 >
                   <ChevronLeft className="h-4 w-4" />
                 </button>
-                <span className="grid h-7 min-w-7 place-items-center rounded-full bg-orange-500 px-2 text-xs font-semibold text-white">
+                <span className="grid h-7 min-w-7 place-items-center rounded-full bg-[#e94e1b] px-2 text-xs font-semibold text-white">
                   {page}
                 </span>
                 <button
@@ -405,7 +405,7 @@ function TransactionRow({
 }) {
   return (
     <>
-      <tr className="border-x border-b border-border hover:bg-muted/35">
+      <tr className="border-x border-b border-[#dfe3e8] text-[#475467] transition-colors hover:bg-[#fffaf5] dark:border-white/10 dark:text-[#c4c4c4] dark:hover:bg-white/[.035]">
         <td className="px-4 py-2.5">
           <input
             type="checkbox"
@@ -417,11 +417,11 @@ function TransactionRow({
         </td>
         <td className="px-2 py-2.5">
           <div className="flex items-center gap-2.5">
-            <span className="grid h-8 w-8 shrink-0 place-items-center rounded bg-orange-100 text-[10px] font-bold text-orange-800 dark:bg-orange-950 dark:text-orange-200">
+            <span className="grid h-8 w-8 shrink-0 place-items-center rounded-[4px] bg-[#fff0e6] text-[10px] font-bold text-[#e94e1b] dark:bg-[#e94e1b]/15 dark:text-[#ffab83]">
               {sale.customerId ? 'RC' : 'WC'}
             </span>
             <div>
-              <p className="whitespace-nowrap font-medium">
+              <p className="whitespace-nowrap font-medium text-[#273142] dark:text-white">
                 {customerName(sale)}
               </p>
               {tab === 'payment' && (
@@ -443,7 +443,7 @@ function TransactionRow({
         <td className="whitespace-nowrap px-2 py-2.5 text-muted-foreground">
           {formatDate(sale.createdAt)}
         </td>
-        <td className="whitespace-nowrap px-2 py-2.5 font-medium">
+        <td className="whitespace-nowrap px-2 py-2.5 font-medium text-[#475467] dark:text-[#e4e7ec]">
           {formatCurrency(Number(sale.total))}
         </td>
         <td className="px-2 py-2.5">
@@ -463,7 +463,7 @@ function TransactionRow({
         </td>
       </tr>
       {expanded && (
-        <tr className="border-x border-b border-border bg-muted/30">
+        <tr className="border-x border-b border-[#dfe3e8] bg-[#f9fafb] dark:border-white/10 dark:bg-white/[.025]">
           <td colSpan={6} className="px-14 py-3">
             <div className="flex flex-wrap items-center justify-between gap-3 text-xs">
               <div className="flex flex-wrap gap-x-5 gap-y-1 text-muted-foreground">
@@ -506,7 +506,7 @@ function ToolButton({
       onClick={onClick}
       title={label}
       aria-label={label}
-      className={`grid h-9 w-9 place-items-center rounded-md border border-border bg-background text-muted-foreground transition-colors hover:border-orange-400 hover:bg-orange-50 hover:text-orange-600 dark:hover:bg-orange-950/40 [&_svg]:h-4 [&_svg]:w-4 ${className}`}
+      className={`grid h-[37px] w-[37px] place-items-center rounded-[5px] border border-[#dfe3e8] bg-white text-[#475467] transition-colors hover:border-[#ff9f43] hover:bg-[#fff7ed] hover:text-[#e94e1b] dark:border-white/10 dark:bg-[#151516] dark:text-[#d0d5dd] dark:hover:border-[#ff9f43] dark:hover:bg-[#ff9f43]/10 [&_svg]:h-4 [&_svg]:w-4 ${className}`}
     >
       {children}
     </button>
