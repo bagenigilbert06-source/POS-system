@@ -80,6 +80,85 @@ export async function unlockPosWithPin(userId: string, pin: string) {
   return { success: true }
 }
 
+/** Staff eligible to unlock the registered terminal. No contact data is exposed. */
+export async function getPosTerminalStaff() {
+  try {
+    const terminal = await getTerminal()
+    if (!terminal) return { staff: [], error: 'Terminal access not allowed' }
+
+    const members = await db.select({
+      userId: employee.userId,
+      name: employee.name,
+      role: organizationMembership.role,
+      pinSet: sql<boolean>`${posPinCredential.userId} is not null`,
+    }).from(employee)
+      .innerJoin(branchMembership, eq(branchMembership.userId, employee.userId))
+      .innerJoin(organizationMembership, and(eq(organizationMembership.userId, employee.userId), eq(organizationMembership.organizationId, terminal.organizationId)))
+      .leftJoin(posPinCredential, and(eq(posPinCredential.userId, employee.userId), eq(posPinCredential.enabled, true)))
+      .where(and(eq(employee.orgId, terminal.organizationId), eq(employee.status, 'active'), eq(branchMembership.branchId, terminal.branchId)))
+
+    const staff = members
+      .filter((member) => member.userId && ROLE_PERMISSIONS[member.role as keyof typeof ROLE_PERMISSIONS]?.includes(PermissionEnum.POS_PIN_USE))
+      .map((member) => ({ id: member.userId!, name: member.name, role: member.role, pinSet: member.pinSet }))
+    return { staff }
+  } catch (error) {
+    console.error('Unable to load POS terminal staff', error)
+    return { staff: [], error: 'Unable to load staff for this terminal' }
+  }
+}
+
+/**
+ * PIN login for a terminal-selected staff member. Expected authentication
+ * failures are returned to the UI so they never surface as an RSC exception.
+ */
+export async function unlockPosWithStaffPin(userId: string, pin: string) {
+  const pinError = validatePosPin(pin)
+  if (pinError) return { success: false, error: pinError }
+
+  try {
+    const terminal = await getTerminal()
+    if (!terminal) return { success: false, error: 'Terminal access not allowed' }
+
+    const [[staff], [membership], [account], [credential]] = await Promise.all([
+      db.select().from(employee).where(and(eq(employee.orgId, terminal.organizationId), eq(employee.userId, userId))).limit(1),
+      db.select().from(branchMembership).where(and(eq(branchMembership.branchId, terminal.branchId), eq(branchMembership.userId, userId))).limit(1),
+      db.select({ status: user.status }).from(user).where(eq(user.id, userId)).limit(1),
+      db.select().from(posPinCredential).where(and(eq(posPinCredential.userId, userId), eq(posPinCredential.enabled, true))).limit(1),
+    ])
+    if (!staff || staff.status !== 'active' || account?.status !== 'active')
+      return { success: false, error: 'Staff account inactive' }
+    if (!membership) return { success: false, error: 'Terminal access not allowed' }
+    if (!credential) return { success: false, error: 'POS PIN is not set for this staff account' }
+    if (credential.lockedUntil && credential.lockedUntil > new Date())
+      return { success: false, error: 'PIN is temporarily locked. Try again later.' }
+
+    const permitted = await db.select({ role: organizationMembership.role }).from(organizationMembership)
+      .where(and(eq(organizationMembership.organizationId, terminal.organizationId), eq(organizationMembership.userId, userId))).limit(1)
+    const role = permitted[0]?.role as keyof typeof ROLE_PERMISSIONS | undefined
+    if (!role || !ROLE_PERMISSIONS[role]?.includes(PermissionEnum.POS_PIN_USE))
+      return { success: false, error: 'Terminal access not allowed' }
+
+    if (!(await verifyPassword({ hash: credential.pinHash, password: pin }))) {
+      const attempts = credential.failedAttempts + 1
+      const locked = attempts >= POS_PIN_MAX_ATTEMPTS
+      await db.update(posPinCredential).set({ failedAttempts: attempts, lockedUntil: locked ? new Date(Date.now() + POS_PIN_LOCK_MINUTES * 60000) : null, updatedAt: new Date() }).where(eq(posPinCredential.userId, userId))
+      await db.insert(auditEvent).values({ id: generateId(), organizationId: terminal.organizationId, userId, action: locked ? 'pos.pin.locked' : 'pos.pin.login_failed', metadata: { terminalId: terminal.id, attempts } })
+      return { success: false, error: locked ? 'PIN is temporarily locked. Try again later.' : 'Incorrect PIN' }
+    }
+
+    await db.update(posPinCredential).set({ failedAttempts: 0, lockedUntil: null, updatedAt: new Date() }).where(eq(posPinCredential.userId, userId))
+    await db.update(posAuthSession).set({ status: 'switched' }).where(and(eq(posAuthSession.terminalId, terminal.id), eq(posAuthSession.status, 'active')))
+    const token = newToken()
+    await db.insert(posAuthSession).values({ id: generateId(), tokenHash: tokenHash(token), terminalId: terminal.id, userId, organizationId: terminal.organizationId, branchId: terminal.branchId, expiresAt: new Date(Date.now() + 12 * 60 * 60 * 1000) })
+    ;(await cookies()).set(POS_AUTH_COOKIE, token, posCookieOptions)
+    await db.insert(auditEvent).values({ id: generateId(), organizationId: terminal.organizationId, userId, action: 'pos.pin.login_success', metadata: { terminalId: terminal.id, branchId: terminal.branchId } })
+    return { success: true }
+  } catch (error) {
+    console.error('POS PIN unlock failed', error)
+    return { success: false, error: 'Unable to unlock this POS terminal. Please try again.' }
+  }
+}
+
 /** Unlock a registered terminal by a staff phone number without exposing its staff list. */
 export async function unlockPosWithPhonePin(phone: string, pin: string) {
   const terminal = await getTerminal()
