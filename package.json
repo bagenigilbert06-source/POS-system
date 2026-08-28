@@ -10,6 +10,7 @@
     "dev:network": "next dev -H 0.0.0.0",
     "dev:webpack": "next dev --webpack",
     "build": "next build --webpack",
+    "db:migrate": "drizzle-kit migrate",
     "start": "next start",
     "lint": "eslint .",
     "test:auth": "node tests/auth.test.mjs",

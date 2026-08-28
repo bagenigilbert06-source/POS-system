@@ -2735,6 +2735,13 @@ html.dark .pesaby-hot-toast-error {
   justify-content: center;
   background: #ffffff;
   opacity: 1;
+  transition: opacity 400ms ease, visibility 400ms ease;
+}
+
+.pesaby-global-loader--dismissed {
+  visibility: hidden;
+  pointer-events: none;
+  opacity: 0;
 }
 
 .pesaby-loader {

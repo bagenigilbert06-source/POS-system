@@ -120,6 +120,13 @@
       "when": 1787904000000,
       "tag": "0036_receipt_printing_settings",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1788000000000,
+      "tag": "0037_promotion_rules",
+      "breakpoints": true
     }
   ]
 }

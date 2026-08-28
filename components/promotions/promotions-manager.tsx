@@ -3,13 +3,17 @@
 import { useMemo, useState } from 'react';
 import {
   Check,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   Download,
   FileText,
+  FileSpreadsheet,
   Pencil,
   PlusCircle,
+  RefreshCw,
   Search,
+  Trash2,
   X,
 } from 'lucide-react';
 import {
@@ -75,23 +79,29 @@ export function PromotionsManager({
   const [rows, setRows] = useState(initialPromotions);
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState('all');
+  const [valueType, setValueType] = useState('all');
+  const [sort, setSort] = useState('recent');
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [editing, setEditing] = useState<PromotionRecord | 'new' | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const text = copy[kind];
-  const filtered = useMemo(
-    () =>
-      rows.filter(
+  const filtered = useMemo(() => {
+    const matching = rows.filter(
         (row) =>
           (status === 'all' ||
             (status === 'active') === effectiveActive(row)) &&
+          (valueType === 'all' || row.valueType === valueType) &&
           [row.name, row.code ?? '', row.description ?? ''].some((value) =>
             value.toLowerCase().includes(query.toLowerCase())
           )
-      ),
-    [rows, query, status]
-  );
+      );
+    return matching.sort((a, b) => {
+      const difference = new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      return sort === 'oldest' ? -difference : difference;
+    });
+  }, [rows, query, status, valueType, sort]);
   const pages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const visible = filtered.slice((page - 1) * pageSize, page * pageSize);
 
@@ -157,81 +167,75 @@ export function PromotionsManager({
   };
 
   return (
-    <div className="mx-auto max-w-[1480px] space-y-5 pb-8">
-      <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+    <div className="mx-auto max-w-[1615px] space-y-5 pb-6 text-[#092454] dark:text-foreground">
+      <header className="flex flex-col gap-4 border-b border-[#e1e7ef] pb-5 sm:flex-row sm:items-center sm:justify-between dark:border-border">
         <div className="flex items-center gap-3">
-          <span className="grid h-11 w-11 place-items-center rounded-xl bg-orange-500/10 text-orange-600 dark:text-orange-400">
-            <FileText className="h-5 w-5" />
-          </span>
+          <button type="button" className="grid h-7 w-7 place-items-center rounded-full bg-[#f05a1a] text-white" aria-label="Back"><ChevronLeft className="h-4 w-4" /></button>
           <div>
-            <h1 className="text-2xl font-semibold tracking-tight">
+            <h1 className="text-[19px] font-semibold tracking-tight">
               {text.title}
             </h1>
-            <p className="mt-0.5 text-sm text-muted-foreground">
-              {text.description}
+            <p className="mt-1 text-sm text-[#667792] dark:text-muted-foreground">
+              Manage Your {text.title}
             </p>
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap justify-end gap-2">
+          <button type="button" className="grid h-9 w-9 place-items-center rounded-md border border-[#dce4ed] bg-white text-red-600 shadow-sm dark:border-border dark:bg-background" title="Export PDF"><FileText className="h-4 w-4 fill-current" /></button>
           <button
             type="button"
             onClick={exportCsv}
-            className="grid h-10 w-10 place-items-center rounded-md border border-border bg-background text-emerald-700 hover:bg-muted"
-            title="Export CSV"
+            className="grid h-9 w-9 place-items-center rounded-md border border-[#dce4ed] bg-white text-emerald-700 shadow-sm hover:bg-slate-50 dark:border-border dark:bg-background"
+            title="Export Excel"
           >
-            <Download className="h-4 w-4" />
+            <FileSpreadsheet className="h-4 w-4" />
           </button>
+          <button type="button" onClick={() => setRows([...rows])} className="grid h-9 w-9 place-items-center rounded-md border border-[#dce4ed] bg-white text-[#526176] shadow-sm hover:bg-slate-50 dark:border-border dark:bg-background" title="Refresh"><RefreshCw className="h-4 w-4" /></button>
+          <button type="button" className="grid h-9 w-9 place-items-center rounded-md border border-[#dce4ed] bg-white text-[#526176] shadow-sm hover:bg-slate-50 dark:border-border dark:bg-background" title="Collapse"><ChevronDown className="h-4 w-4" /></button>
           <button
             type="button"
             onClick={() => setEditing('new')}
-            className="inline-flex h-10 items-center gap-2 rounded-md bg-orange-600 px-4 text-sm font-semibold text-white shadow-sm hover:bg-orange-700"
+            className="inline-flex h-9 items-center gap-1.5 rounded-md bg-[#f45113] px-4 text-sm font-semibold text-white shadow-sm hover:bg-[#d9410b]"
           >
             <PlusCircle className="h-4 w-4" />
             Add {text.singular}
           </button>
         </div>
       </header>
-      <section className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
-        <div className="flex flex-col gap-3 border-b border-border p-4 sm:flex-row sm:items-center sm:justify-between">
-          <label className="relative w-full sm:max-w-[260px]">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+      <section className="overflow-hidden rounded-[10px] border border-[#dfe6ee] bg-white shadow-[0_1px_2px_rgba(16,24,40,0.03)] dark:border-border dark:bg-card">
+        <div className="flex flex-col gap-3 border-b border-[#e3e8ef] px-5 py-[18px] sm:flex-row sm:items-center sm:justify-between dark:border-border">
+          <label className="relative w-full sm:max-w-[213px]">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#a1adbd]" />
             <input
               value={query}
               onChange={(event) => {
                 setQuery(event.target.value);
                 setPage(1);
               }}
-              placeholder={`Search ${text.title.toLowerCase()}`}
-              className="h-10 w-full rounded-md border border-input bg-background pl-9 pr-3 text-sm outline-none focus:ring-2 focus:ring-orange-500/25"
+              placeholder="Search"
+              className="h-[38px] w-full rounded-md border border-[#dfe5ec] bg-white pl-9 pr-3 text-sm text-[#42526b] outline-none placeholder:text-[#9aa7b8] focus:ring-2 focus:ring-orange-500/25 dark:border-input dark:bg-background"
             />
           </label>
-          <select
-            value={status}
-            onChange={(event) => {
-              setStatus(event.target.value);
-              setPage(1);
-            }}
-            className="h-10 rounded-md border border-input bg-background px-3 text-sm"
-          >
-            <option value="all">All statuses</option>
-            <option value="active">Active</option>
-            <option value="inactive">Inactive</option>
-          </select>
+          <div className="flex flex-wrap gap-2">
+            <select value={valueType} onChange={(event) => { setValueType(event.target.value); setPage(1); }} className="h-[37px] rounded-md border border-[#dfe5ec] bg-white px-3 text-sm text-[#243b63] dark:border-input dark:bg-background"><option value="all">Type</option><option value="percentage">Percentage</option><option value="fixed">Fixed Amount</option></select>
+            <select value={status} onChange={(event) => { setStatus(event.target.value); setPage(1); }} className="h-[37px] rounded-md border border-[#dfe5ec] bg-white px-3 text-sm text-[#243b63] dark:border-input dark:bg-background"><option value="all">Status</option><option value="active">Active</option><option value="inactive">Inactive</option></select>
+            <select value={sort} onChange={(event) => setSort(event.target.value)} className="h-[37px] rounded-md border border-[#dfe5ec] bg-white px-3 text-sm text-[#243b63] dark:border-input dark:bg-background"><option value="recent">Sort By : Last 7 Days</option><option value="oldest">Sort By : Oldest</option></select>
+          </div>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[980px] text-sm">
+          <table className="w-full min-w-[1120px] text-sm">
             <thead>
-              <tr className="border-b border-border bg-muted/50 text-left text-xs font-semibold">
-                <th className="px-5 py-3">Name</th>
+              <tr className="border-b border-[#e3e8ef] bg-[#fbfcfd] text-left text-sm font-medium text-[#092454] dark:border-border dark:bg-muted/50 dark:text-foreground">
+                <th className="w-12 px-5 py-3"><input aria-label="Select all" type="checkbox" checked={visible.length > 0 && visible.every((row) => selectedIds.includes(row.id))} onChange={(event) => setSelectedIds(event.target.checked ? visible.map((row) => row.id) : [])} className="h-[18px] w-[18px] rounded border-[#dce4ed]" /></th>
+                <th className="px-4 py-3">Name</th>
                 {kind === 'coupon' && <th className="px-4 py-3">Code</th>}
                 <th className="px-4 py-3">Description</th>
                 <th className="px-4 py-3">Type</th>
-                <th className="px-4 py-3">Value</th>
-                <th className="px-4 py-3">Minimum</th>
-                <th className="px-4 py-3">Usage</th>
+                <th className="px-4 py-3">Discount</th>
+                <th className="px-4 py-3">Limit</th>
                 <th className="px-4 py-3">Valid</th>
                 <th className="px-4 py-3">Status</th>
-                <th className="px-5 py-3 text-right">Action</th>
+                <th className="w-24 px-4 py-3" />
               </tr>
             </thead>
             <tbody>
@@ -239,58 +243,59 @@ export function PromotionsManager({
                 visible.map((row) => (
                   <tr
                     key={row.id}
-                    className="border-b border-border last:border-0 hover:bg-muted/30"
+                    className="border-b border-[#e3e8ef] text-[#253a5c] last:border-0 hover:bg-[#fffaf7] dark:border-border dark:hover:bg-muted/30"
                   >
-                    <td className="px-5 py-3.5 font-medium">{row.name}</td>
+                    <td className="px-5 py-3"><input aria-label={`Select ${row.name}`} type="checkbox" checked={selectedIds.includes(row.id)} onChange={(event) => setSelectedIds((current) => event.target.checked ? [...current, row.id] : current.filter((id) => id !== row.id))} className="h-[18px] w-[18px] rounded border-[#dce4ed]" /></td>
+                    <td className="px-4 py-3 font-medium">{row.name}</td>
                     {kind === 'coupon' && (
-                      <td className="px-4 py-3.5">
-                        <span className="rounded bg-violet-500/10 px-2 py-1 text-xs font-semibold text-violet-700 dark:text-violet-300">
+                      <td className="px-4 py-3">
+                        <span className="rounded bg-[#f0e9ff] px-2 py-1 text-xs font-medium text-[#7048e8] dark:bg-violet-500/10 dark:text-violet-300">
                           {row.code}
                         </span>
                       </td>
                     )}
-                    <td className="max-w-[260px] truncate px-4 py-3.5 text-muted-foreground">
+                    <td className="max-w-[260px] truncate px-4 py-3 text-[#64748b] dark:text-muted-foreground">
                       {row.description || '—'}
                     </td>
-                    <td className="px-4 py-3.5 capitalize text-muted-foreground">
-                      {row.valueType}
+                    <td className="px-4 py-3 text-[#64748b]">
+                      {row.valueType === 'percentage' ? 'Percentage' : 'Fixed Amount'}
                     </td>
-                    <td className="px-4 py-3.5 font-medium">
+                    <td className="px-4 py-3 text-[#64748b]">
                       {row.valueType === 'percentage'
                         ? `${Number(row.value)}%`
                         : formatCurrency(Number(row.value))}
                     </td>
-                    <td className="px-4 py-3.5 text-muted-foreground">
-                      {formatCurrency(Number(row.minimumSpend))}
+                    <td className="px-4 py-3 text-[#64748b]">
+                      {String(row.usageLimit ?? '∞').padStart(2, '0')}
                     </td>
-                    <td className="px-4 py-3.5 text-muted-foreground">
-                      {row.usedCount}/{row.usageLimit ?? '∞'}
+                    <td className="px-4 py-3 whitespace-nowrap text-[#64748b]">
+                      {dateLabel(row.endsAt)}
                     </td>
-                    <td className="px-4 py-3.5 whitespace-nowrap text-muted-foreground">
-                      {dateLabel(row.startsAt)} – {dateLabel(row.endsAt)}
-                    </td>
-                    <td className="px-4 py-3.5">
+                    <td className="px-4 py-3">
                       <button
                         type="button"
                         disabled={busyId === row.id}
                         onClick={() => void toggleActive(row)}
-                        className={`inline-flex items-center gap-1.5 rounded px-2.5 py-1 text-xs font-semibold ${effectiveActive(row) ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400' : 'bg-red-500/10 text-red-700 dark:text-red-400'}`}
+                        className={`inline-flex items-center gap-1 rounded px-2 py-1 text-[11px] font-semibold text-white ${effectiveActive(row) ? 'bg-[#43ba85]' : 'bg-red-500'}`}
                       >
                         <span
-                          className={`h-1.5 w-1.5 rounded-full ${effectiveActive(row) ? 'bg-emerald-500' : 'bg-red-500'}`}
+                          className="h-1.5 w-1.5 rounded-full bg-white"
                         />
                         {effectiveActive(row) ? 'Active' : 'Inactive'}
                       </button>
                     </td>
-                    <td className="px-5 py-3.5 text-right">
+                    <td className="px-4 py-2.5">
+                      <div className="flex justify-end gap-2">
                       <button
                         type="button"
                         onClick={() => setEditing(row)}
-                        className="grid h-9 w-9 place-items-center rounded-md border border-border bg-background hover:border-orange-400 hover:text-orange-600"
+                        className="grid h-[34px] w-[34px] place-items-center rounded-md border border-[#dfe5ec] bg-white text-[#27384f] hover:border-orange-400 hover:text-orange-600 dark:border-border dark:bg-background"
                         title={`Edit ${row.name}`}
                       >
                         <Pencil className="h-4 w-4" />
                       </button>
+                      <button type="button" disabled={busyId === row.id} onClick={() => void toggleActive(row)} className="grid h-[34px] w-[34px] place-items-center rounded-md border border-[#dfe5ec] bg-white text-[#27384f] hover:border-red-300 hover:text-red-600 disabled:opacity-50 dark:border-border dark:bg-background" title={effectiveActive(row) ? `Deactivate ${row.name}` : `Activate ${row.name}`}><Trash2 className="h-4 w-4" /></button>
+                      </div>
                     </td>
                   </tr>
                 ))

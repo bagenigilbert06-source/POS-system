@@ -1,4 +1,6 @@
-import type { HTMLAttributes } from 'react'
+'use client'
+
+import { useEffect, useState, type HTMLAttributes } from 'react'
 
 type LoadingSpinnerProps = HTMLAttributes<HTMLSpanElement> & {
   label?: string
@@ -30,9 +32,18 @@ export function PageLoader({
   initial?: boolean
   inline?: boolean
 }) {
+  const [isDismissed, setIsDismissed] = useState(false)
+
+  useEffect(() => {
+    if (!initial) return
+
+    const timeout = window.setTimeout(() => setIsDismissed(true), 600)
+    return () => window.clearTimeout(timeout)
+  }, [initial])
+
   return (
     <div
-      className={`pesaby-global-loader${inline ? ' pesaby-inline-loader' : ''}`}
+      className={`pesaby-global-loader${inline ? ' pesaby-inline-loader' : ''}${isDismissed ? ' pesaby-global-loader--dismissed' : ''}`}
       data-pesaby-initial-loader={initial ? '' : undefined}
       role="status"
       aria-live="polite"
