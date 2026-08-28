@@ -448,12 +448,28 @@ export function SalesManagementView({
               </thead>
               <tbody>
                 {data.rows.map(
-                  ({ record, customerName, branchName, cashierName }) => (
+                  ({ record, customerName, branchName, cashierName }) =>
+                    openingSaleId === record.id ? (
+                      <tr
+                        key={record.id}
+                        aria-busy="true"
+                        className="border-t border-[#f3d77a] bg-[#fff9e6] dark:border-amber-900/70 dark:bg-amber-950/25"
+                      >
+                        <td colSpan={8} className="p-0">
+                          <div className="flex min-h-[62px] items-center justify-center gap-3 px-4 text-sm font-semibold text-[#7a5700] dark:text-amber-200">
+                            <LoadingSpinner
+                              className="h-8 w-8 text-[#b77900]"
+                              label="Opening transaction"
+                            />
+                            <span>Opening transaction details…</span>
+                          </div>
+                        </td>
+                      </tr>
+                    ) : (
                     <tr
                       key={record.id}
                       onClick={() => openDetail(record.id)}
-                      aria-busy={openingSaleId === record.id}
-                      className={`cursor-pointer border-t border-slate-200 transition-colors hover:bg-muted/40 dark:border-slate-800 dark:hover:bg-slate-900/70 ${openingSaleId === record.id ? 'bg-[#fff9e6] dark:bg-amber-950/25' : ''}`}
+                      className="cursor-pointer border-t border-slate-200 transition-colors hover:bg-muted/40 dark:border-slate-800 dark:hover:bg-slate-900/70"
                     >
                       <td className="px-4 py-3 font-mono text-xs font-semibold">
                         {record.receiptNo}
@@ -485,26 +501,14 @@ export function SalesManagementView({
                             event.stopPropagation();
                             openDetail(record.id);
                           }}
-                          disabled={Boolean(openingSaleId)}
                           className="rounded-md p-2 text-muted-foreground hover:bg-muted hover:text-foreground"
-                          aria-label={
-                            openingSaleId === record.id
-                              ? `Opening ${record.receiptNo}`
-                              : `View ${record.receiptNo}`
-                          }
+                          aria-label={`View ${record.receiptNo}`}
                         >
-                          {openingSaleId === record.id ? (
-                            <LoadingSpinner
-                              className="h-4 w-4 text-[#b77900]"
-                              label="Opening transaction"
-                            />
-                          ) : (
-                            <ChevronRight className="h-4 w-4 text-slate-400" />
-                          )}
+                          <ChevronRight className="h-4 w-4 text-slate-400" />
                         </button>
                       </td>
                     </tr>
-                  )
+                    )
                 )}
               </tbody>
             </table>
