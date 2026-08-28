@@ -662,6 +662,8 @@ export function POSTerminal({
     return () => document.body.classList.remove('pos-receipt-active');
   }, [receipt]);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const continueToPaymentRef = useRef<HTMLButtonElement>(null);
+  const cashReceivedInputRef = useRef<HTMLInputElement>(null);
   const barcodeBufferRef = useRef<string>('');
   const barcodeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const lastScanRef = useRef<{ barcode: string; at: number } | null>(null);
@@ -684,6 +686,19 @@ export function POSTerminal({
   const mpesaLocksBasket =
     paymentMethod === 'mpesa' &&
     ['initiating', 'pending', 'success'].includes(mpesaStatus);
+
+  // After a cashier advances with the mouse, put focus on the next action so
+  // the Enter key continues the same checkout flow without an extra click.
+  useEffect(() => {
+    if (!checkoutOpen || receipt) return;
+
+    const frame = window.requestAnimationFrame(() => {
+      if (checkoutStep === 'customer') continueToPaymentRef.current?.focus();
+      if (checkoutStep === 'payment' && paymentMethod === 'cash')
+        cashReceivedInputRef.current?.focus();
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [checkoutOpen, checkoutStep, paymentMethod, receipt]);
 
   useEffect(() => {
     try {
@@ -4535,6 +4550,7 @@ export function POSTerminal({
                   )}
                 </div>
                 <button
+                  ref={continueToPaymentRef}
                   type="button"
                   disabled={mpesaLocksBasket || !isOnline}
                   onClick={() => setShowNewCustomer(true)}
@@ -5342,6 +5358,7 @@ export function POSTerminal({
                                         KSh
                                       </span>
                                       <input
+                                        ref={cashReceivedInputRef}
                                         id="cash-received"
                                         type="number"
                                         min={total}
