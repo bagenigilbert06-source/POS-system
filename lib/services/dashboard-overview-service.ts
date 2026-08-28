@@ -77,6 +77,7 @@ export interface DashboardOverview {
   topProducts: Array<{ name: string; quantity: number; revenue: number }>
   topCustomers: Array<{ id: string; name: string; location: string; orders: number; total: number }>
   topCategories: Array<{ id: string; name: string; sales: number }>
+  topCategoriesLast7Days: Array<{ id: string; name: string; sales: number }>
   categoryCount: number
   liquorCompliance: {
     verifiedToday: number
@@ -145,6 +146,7 @@ export async function getDashboardOverview(organizationId: string, timeZone = 'A
   const currentDate = localDateParts(now, safeTimeZone)
   const tomorrowDate = moveCalendarDate(currentDate.year, currentDate.month, currentDate.day, 1)
   const seriesStartDate = moveCalendarDate(currentDate.year, currentDate.month, currentDate.day, -29)
+  const last7DaysStartDate = moveCalendarDate(currentDate.year, currentDate.month, currentDate.day, -6)
   const yesterdayDate = moveCalendarDate(currentDate.year, currentDate.month, currentDate.day, -1)
   const performanceStartDate = moveCalendarDate(currentDate.year, currentDate.month, currentDate.day, -61)
   const today = zonedMidnight(currentDate.year, currentDate.month, currentDate.day, safeTimeZone)
@@ -152,10 +154,13 @@ export async function getDashboardOverview(organizationId: string, timeZone = 'A
   const tomorrow = zonedMidnight(tomorrowDate.year, tomorrowDate.month, tomorrowDate.day, safeTimeZone)
   const monthStart = zonedMidnight(currentDate.year, currentDate.month, 1, safeTimeZone)
   const seriesStart = zonedMidnight(seriesStartDate.year, seriesStartDate.month, seriesStartDate.day, safeTimeZone)
+  const last7DaysStart = zonedMidnight(last7DaysStartDate.year, last7DaysStartDate.month, last7DaysStartDate.day, safeTimeZone)
   const performanceStart = zonedMidnight(performanceStartDate.year, performanceStartDate.month, performanceStartDate.day, safeTimeZone)
-  const saleLocalDate = sql`((${sale.createdAt} at time zone 'UTC') at time zone ${safeTimeZone})::date`
-  const saleLocalTimestamp = sql`((${sale.createdAt} at time zone 'UTC') at time zone ${safeTimeZone})`
-  const expenseLocalDate = sql`((${expense.createdAt} at time zone 'UTC') at time zone ${safeTimeZone})::date`
+  // PostgreSQL has both text and interval overloads for `AT TIME ZONE`.
+  // Cast the bound zone explicitly so prepared statements resolve reliably.
+  const saleLocalDate = sql`((${sale.createdAt} at time zone 'UTC') at time zone ${safeTimeZone}::text)::date`
+  const saleLocalTimestamp = sql`((${sale.createdAt} at time zone 'UTC') at time zone ${safeTimeZone}::text)`
+  const expenseLocalDate = sql`((${expense.createdAt} at time zone 'UTC') at time zone ${safeTimeZone}::text)::date`
 
   const saleBranchScope = branchIds === undefined
     ? undefined
@@ -386,7 +391,7 @@ export async function getDashboardOverview(organizationId: string, timeZone = 'A
       .from(sale)
       .where(and(completedSale, gte(sale.createdAt, yearStart), lt(sale.createdAt, tomorrow)))
       .groupBy(sql.raw('1')),
-    db.select({ month: sql<number>`extract(month from ((${expense.createdAt} at time zone 'UTC') at time zone ${safeTimeZone}))::int`, amount: sql<string>`coalesce(sum(${expense.amount}), 0)` })
+    db.select({ month: sql<number>`extract(month from ((${expense.createdAt} at time zone 'UTC') at time zone ${safeTimeZone}::text))::int`, amount: sql<string>`coalesce(sum(${expense.amount}), 0)` })
       .from(expense)
       .where(and(eq(expense.orgId, organizationId), expenseBranchScope, gte(expense.createdAt, yearStart), lt(expense.createdAt, tomorrow)))
       .groupBy(sql.raw('1')),
@@ -394,7 +399,7 @@ export async function getDashboardOverview(organizationId: string, timeZone = 'A
   const revenueByMonth = new Map(monthlyRevenueRows.map((row) => [number(row.month), number(row.amount)]))
   const expenseByMonth = new Map(monthlyExpenseRows.map((row) => [number(row.month), number(row.amount)]))
   const purchaseBranchScope = branchIds === undefined ? undefined : branchIds.length ? inArray(purchase.branchId, [...branchIds]) : sql`false`
-  const [recentPurchaseRows, recentExpenseRows, recentInvoiceRows, topCustomerRows, topCategoryRows, categoryCountRows] = await Promise.all([
+  const [recentPurchaseRows, recentExpenseRows, recentInvoiceRows, topCustomerRows, topCategoryRows, topCategoryRowsLast7Days, categoryCountRows] = await Promise.all([
     db.select({ id: purchase.id, name: purchase.supplierName, reference: purchase.purchaseNo, date: purchase.createdAt, status: purchase.paymentStatus, amount: purchase.total })
       .from(purchase).where(and(eq(purchase.orgId, organizationId), purchaseBranchScope)).orderBy(desc(purchase.createdAt)).limit(5),
     db.select({ id: expense.id, name: expense.title, reference: expense.reference, date: expense.expenseDate, status: expense.paymentMethod, amount: expense.amount })
@@ -405,6 +410,8 @@ export async function getDashboardOverview(organizationId: string, timeZone = 'A
       .from(sale).innerJoin(customer, and(eq(customer.id, sale.customerId), eq(customer.orgId, organizationId))).where(paidSale).groupBy(customer.id, customer.name, customer.address).orderBy(desc(sql`sum(${sale.total})`)).limit(5),
     db.select({ id: category.id, name: category.name, sales: sql<number>`coalesce(sum(${saleItem.quantity}), 0)` })
       .from(saleItem).innerJoin(sale, and(eq(sale.id, saleItem.saleId), paidSale)).innerJoin(product, and(eq(product.id, saleItem.productId), eq(product.orgId, organizationId))).innerJoin(category, and(eq(category.id, product.categoryId), eq(category.orgId, organizationId))).where(and(eq(saleItem.orgId, organizationId), gte(sale.createdAt, seriesStart))).groupBy(category.id, category.name).orderBy(desc(sql`sum(${saleItem.quantity})`)).limit(3),
+    db.select({ id: category.id, name: category.name, sales: sql<number>`coalesce(sum(${saleItem.quantity}), 0)` })
+      .from(saleItem).innerJoin(sale, and(eq(sale.id, saleItem.saleId), paidSale)).innerJoin(product, and(eq(product.id, saleItem.productId), eq(product.orgId, organizationId))).innerJoin(category, and(eq(category.id, product.categoryId), eq(category.orgId, organizationId))).where(and(eq(saleItem.orgId, organizationId), gte(sale.createdAt, last7DaysStart))).groupBy(category.id, category.name).orderBy(desc(sql`sum(${saleItem.quantity})`)).limit(3),
     db.select({ count: sql<number>`count(*)` }).from(category).where(and(eq(category.orgId, organizationId), eq(category.isActive, true))),
   ])
 
@@ -528,6 +535,7 @@ export async function getDashboardOverview(organizationId: string, timeZone = 'A
     recentInvoices: recentInvoiceRows.map((row) => ({ id: row.id, name: row.name ?? 'Walk-in customer', reference: row.reference, date: row.date ?? row.createdAt, status: row.status, amount: number(row.amount) })),
     topCustomers: topCustomerRows.map((row) => ({ id: row.id, name: row.name, location: row.location ?? 'Local customer', orders: number(row.orders), total: number(row.total) })),
     topCategories: topCategoryRows.map((row) => ({ id: row.id, name: row.name, sales: number(row.sales) })),
+    topCategoriesLast7Days: topCategoryRowsLast7Days.map((row) => ({ id: row.id, name: row.name, sales: number(row.sales) })),
     categoryCount: number(categoryCountRows[0]?.count),
     lowStockProducts: scopedLowStock ? scopedLowStock.slice(0, 6).map((row) => ({ id: row.id, name: row.name, sku: row.sku, imageUrl: row.imageUrl, stock: row.stock, minStock: row.minStock })) : lowStockRows,
     topProducts: topProductRows.map((row) => ({ name: row.name, quantity: number(row.quantity), revenue: number(row.revenue) })),

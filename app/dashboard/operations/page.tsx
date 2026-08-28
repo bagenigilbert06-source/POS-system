@@ -11,6 +11,7 @@ import {
   CreditCard,
   ReceiptText,
   Search,
+  ShieldCheck,
   ShoppingBag,
 } from 'lucide-react';
 import { getOperationsData } from '@/app/actions/operations';
@@ -58,7 +59,8 @@ export default async function OperationsPage({
     ].includes(authorization.role)
   )
     redirect(getDefaultWorkspaceRoute(authorization));
-  const { organization } = await requireWorkspaceModule('pos');
+  const { organization, config } = await requireWorkspaceModule('pos');
+  const isLiquorStore = config.businessCategory === 'liquor_shop';
   const timeZone = organization.timezone || 'Africa/Nairobi';
   const params = await searchParams;
   const preset = first(params, 'period') || 'today';
@@ -338,6 +340,12 @@ export default async function OperationsPage({
         losses={filteredLosses}
         currency={currency}
       />
+      {isLiquorStore && (
+        <LiquorComplianceSummary
+          verified={data.complianceToday.verified}
+          needsReview={data.complianceToday.unverified}
+        />
+      )}
       <ActiveShifts shifts={activeShifts} currency={currency} />
       <OperationsControl
         products={data.products}
@@ -349,6 +357,52 @@ export default async function OperationsPage({
         <ShiftHistory shifts={filteredShifts} currency={currency} />
       </div>
       <OperationalActivity items={activity} />
+    </div>
+  );
+}
+
+function LiquorComplianceSummary({
+  verified,
+  needsReview,
+}: {
+  verified: number;
+  needsReview: number;
+}) {
+  const total = verified + needsReview;
+  const rate = total ? (verified / total) * 100 : null;
+  const clear = total > 0 && needsReview === 0;
+
+  return (
+    <section className="overflow-hidden rounded-2xl border bg-card shadow-sm" aria-labelledby="compliance-title">
+      <div className="flex flex-col gap-4 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-3">
+          <span className={`flex h-10 w-10 items-center justify-center rounded-lg ${needsReview ? 'bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-300' : 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-300'}`}>
+            <ShieldCheck className="h-5 w-5" />
+          </span>
+          <div>
+            <h2 id="compliance-title" className="text-base font-bold">Age-verification checks</h2>
+            <p className="mt-0.5 text-xs text-muted-foreground">Today&apos;s completed liquor-sale checks.</p>
+          </div>
+        </div>
+        <div className="grid grid-cols-3 divide-x rounded-lg border bg-muted/20 text-center sm:min-w-[360px]">
+          <ComplianceMetric label="Verified" value={rate == null ? '—' : `${rate.toFixed(0)}%`} />
+          <ComplianceMetric label="Checks" value={formatNumber(total)} />
+          <ComplianceMetric label="To review" value={formatNumber(needsReview)} warning={needsReview > 0} />
+        </div>
+      </div>
+      <div className={`flex items-center gap-2 border-t px-5 py-3 text-xs font-semibold ${clear ? 'text-emerald-700 dark:text-emerald-300' : needsReview ? 'text-amber-700 dark:text-amber-300' : 'text-muted-foreground'}`}>
+        {clear ? <CircleCheck className="h-4 w-4" /> : <AlertTriangle className="h-4 w-4" />}
+        {clear ? 'All age-verification checks are complete.' : needsReview ? `${formatNumber(needsReview)} completed sale${needsReview === 1 ? '' : 's'} need review.` : 'No eligible liquor sales have been completed today.'}
+      </div>
+    </section>
+  );
+}
+
+function ComplianceMetric({ label, value, warning = false }: { label: string; value: string; warning?: boolean }) {
+  return (
+    <div className="px-3 py-2.5">
+      <p className={`text-base font-bold tabular-nums ${warning ? 'text-amber-700 dark:text-amber-300' : ''}`}>{value}</p>
+      <p className="mt-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
     </div>
   );
 }

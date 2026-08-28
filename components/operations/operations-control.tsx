@@ -360,7 +360,7 @@ function ActionButton({
   danger?: boolean;
 }) {
   return (
-    <button className="flex items-center gap-4 rounded-xl border bg-card p-4 text-left shadow-sm transition-colors hover:bg-muted/40">
+    <button className="flex items-center gap-4 rounded-xl border bg-card p-4 text-left shadow-sm hover:bg-muted/40">
       <span
         className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${danger ? 'bg-red-50 text-red-700 dark:bg-red-950/30 dark:text-red-300' : 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300'}`}
       >

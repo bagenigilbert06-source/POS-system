@@ -78,7 +78,7 @@ export function OperationalActivity({
           <button
             key={item}
             onClick={() => setFilter(item)}
-            className={`rounded-md px-3 py-1.5 text-xs font-semibold capitalize transition-colors ${filter === item ? 'bg-foreground text-background' : 'text-muted-foreground hover:bg-muted'}`}
+            className={`rounded-md px-3 py-1.5 text-xs font-semibold capitalize ${filter === item ? 'bg-foreground text-background' : 'text-muted-foreground hover:bg-muted'}`}
           >
             {item}
           </button>

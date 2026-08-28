@@ -99,7 +99,7 @@ export function ShiftHistory({
                 return (
                   <tr
                     key={shift.id}
-                    className={`cursor-pointer transition-colors hover:bg-muted/30 ${open ? 'bg-muted/20' : ''}`}
+                    className={`cursor-pointer hover:bg-muted/30 ${open ? 'bg-muted/20' : ''}`}
                     onClick={() => setSelected(open ? null : shift.id)}
                   >
                     <td className="px-5 py-3.5">

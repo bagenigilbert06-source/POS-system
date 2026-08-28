@@ -170,7 +170,7 @@ export function SalesPerformanceCard({
 
   return (
     <article className="flex min-h-[354px] flex-col overflow-hidden rounded-xl border border-[var(--dashboard-border)] bg-[var(--dashboard-surface)] shadow-dark-sm">
-      <div className="flex h-16 items-center justify-between gap-3 border-b border-[var(--dashboard-border)] px-5">
+      <div className="flex h-16 items-center justify-between gap-3 px-5">
         <div className="min-w-0">
           <h2 className="text-sm font-semibold tracking-[-0.015em] text-[var(--dashboard-text)]">
             Revenue trend

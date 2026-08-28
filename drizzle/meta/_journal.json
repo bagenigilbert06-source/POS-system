@@ -134,6 +134,13 @@
       "when": 1788003600000,
       "tag": "0038_terminal_attribution",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1788007200000,
+      "tag": "0039_inventory_loss_terminal_attribution",
+      "breakpoints": true
     }
   ]
 }

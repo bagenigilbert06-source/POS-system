@@ -3,6 +3,7 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import {
+  ArrowUpRight,
   CalendarDays,
   Package,
   ReceiptText,
@@ -208,9 +209,10 @@ export function RetailActivityCards({
           </div>
           <Link
             href="/dashboard/inventory"
-            className="shrink-0 text-xs font-medium text-[var(--dashboard-text)] underline underline-offset-2 hover:text-[var(--dashboard-accent)]"
+            className="group inline-flex h-8 shrink-0 items-center gap-1 rounded-md px-2 text-xs font-semibold text-[var(--dashboard-muted)] transition-colors hover:bg-[var(--dashboard-accent-soft)] hover:text-[var(--dashboard-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--dashboard-accent)]"
           >
-            View All
+            View all{' '}
+            <ArrowUpRight className="h-3.5 w-3.5 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
           </Link>
         </header>
         {lowStockProducts.length ? (
@@ -265,9 +267,10 @@ export function RetailActivityCards({
           </div>
           <Link
             href="/dashboard/sales"
-            className="shrink-0 text-xs font-medium text-[var(--dashboard-text)] underline underline-offset-2 hover:text-[var(--dashboard-accent)]"
+            className="group inline-flex h-8 shrink-0 items-center gap-1 rounded-md px-2 text-xs font-semibold text-[var(--dashboard-muted)] transition-colors hover:bg-[var(--dashboard-accent-soft)] hover:text-[var(--dashboard-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--dashboard-accent)]"
           >
-            View All
+            View all{' '}
+            <ArrowUpRight className="h-3.5 w-3.5 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
           </Link>
         </header>
         {recentSales.length ? (

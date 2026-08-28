@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { CalendarDays, Flag, TriangleAlert } from 'lucide-react';
+import { ArrowUpRight, CalendarDays, Flag, TriangleAlert } from 'lucide-react';
 import { useState } from 'react';
 import {
   Bar,
@@ -260,9 +260,10 @@ export function SalesStaticsTransactions({
           </div>
           <Link
             href={viewHref}
-            className="text-xs font-medium text-[var(--dashboard-text)] underline underline-offset-2"
+            className="group inline-flex h-8 items-center gap-1 rounded-md px-2 text-xs font-semibold text-[var(--dashboard-muted)] transition-colors hover:bg-[var(--dashboard-accent-soft)] hover:text-[var(--dashboard-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--dashboard-accent)]"
           >
-            View All
+            View all{' '}
+            <ArrowUpRight className="h-3.5 w-3.5 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
           </Link>
         </header>
         <nav

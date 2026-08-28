@@ -172,6 +172,7 @@ export async function getOperationsData(timeZone = 'Africa/Nairobi') {
     [refundsToday],
     [lossesToday],
     [varianceToday],
+    [complianceToday],
     [settings],
     pendingPayments,
     recentCashMovements,
@@ -290,6 +291,21 @@ export async function getOperationsData(timeZone = 'Africa/Nairobi') {
           eq(posSession.status, 'closed'),
           gte(posSession.closedAt, today),
           lt(posSession.closedAt, tomorrow)
+        )
+      ),
+    db
+      .select({
+        verified: sql<number>`count(*) filter (where ${sale.ageVerified} = true)`,
+        unverified: sql<number>`count(*) filter (where ${sale.ageVerified} = false)`,
+      })
+      .from(sale)
+      .where(
+        and(
+          eq(sale.orgId, orgId),
+          saleBranchScope,
+          eq(sale.status, 'completed'),
+          gte(sale.createdAt, today),
+          lt(sale.createdAt, tomorrow)
         )
       ),
     db
@@ -522,6 +538,10 @@ export async function getOperationsData(timeZone = 'Africa/Nairobi') {
     terminals,
     cashVarianceTolerance: Number(settings?.cashVarianceTolerance ?? 0),
     summary: { salesToday, refundsToday, lossesToday, varianceToday },
+    complianceToday: {
+      verified: Number(complianceToday?.verified ?? 0),
+      unverified: Number(complianceToday?.unverified ?? 0),
+    },
   };
 }
 

@@ -1,7 +1,14 @@
 'use client';
 
 import Link from 'next/link';
-import { Boxes, MapPin, Package, UsersRound } from 'lucide-react';
+import {
+  ArrowUpRight,
+  Boxes,
+  CalendarDays,
+  MapPin,
+  Package,
+  UsersRound,
+} from 'lucide-react';
 import {
   Cell,
   Pie,
@@ -16,14 +23,17 @@ import {
 } from 'recharts';
 import type { DashboardOverview } from '@/lib/services/dashboard-overview-service';
 import { formatCurrency, formatNumber } from '@/lib/utils/format';
+import { useMemo, useState } from 'react';
 
 interface Props {
   currency: string;
   customers: DashboardOverview['topCustomers'];
   categories: DashboardOverview['topCategories'];
+  categoriesLast7Days: DashboardOverview['topCategoriesLast7Days'];
   categoryCount: number;
   productCount: number;
   hourlySales: DashboardOverview['hourlySales'];
+  reportDate: string;
 }
 
 const card =
@@ -132,12 +142,21 @@ export function CustomerCategoryOrderCards({
   currency,
   customers,
   categories,
+  categoriesLast7Days,
   categoryCount,
   productCount,
   hourlySales,
+  reportDate,
 }: Props) {
+  const [period, setPeriod] = useState<7 | 30>(30);
+  const periodStart = useMemo(() => {
+    const start = new Date(`${reportDate}T00:00:00Z`);
+    start.setUTCDate(start.getUTCDate() - period + 1);
+    return start.toISOString().slice(0, 10);
+  }, [period, reportDate]);
+  const selectedCategories = period === 7 ? categoriesLast7Days : categories;
   const heat = new Map<string, number>();
-  for (const sale of hourlySales) {
+  for (const sale of hourlySales.filter((entry) => entry.date >= periodStart)) {
     const day = new Date(`${sale.date}T12:00:00`).getDay();
     const slot = Math.floor(sale.hour / 2);
     const key = `${day}:${slot}`;
@@ -176,9 +195,10 @@ export function CustomerCategoryOrderCards({
           </div>
           <Link
             href="/dashboard/customers"
-            className="text-xs font-medium text-[var(--dashboard-text)] underline underline-offset-2"
+            className="group inline-flex h-8 items-center gap-1 rounded-md px-2 text-xs font-semibold text-[var(--dashboard-muted)] transition-colors hover:bg-[var(--dashboard-accent-soft)] hover:text-[var(--dashboard-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--dashboard-accent)]"
           >
-            View All
+            View all
+            <ArrowUpRight className="h-3.5 w-3.5 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
           </Link>
         </header>
         {customers.length ? (
@@ -223,7 +243,11 @@ export function CustomerCategoryOrderCards({
               Top Categories
             </h2>
           </div>
-          <span className="rounded-md border border-[var(--dashboard-border)] px-2.5 py-1.5 text-[0.68rem] font-semibold text-[var(--dashboard-text)]">
+          <span
+            className="inline-flex h-8 items-center gap-1.5 rounded-md bg-[var(--dashboard-accent-soft)] px-2.5 text-[0.68rem] font-semibold text-[var(--dashboard-accent)]"
+            title="Reporting window: last 30 days"
+          >
+            <CalendarDays className="h-3.5 w-3.5" />
             30 days
           </span>
         </header>
@@ -309,7 +333,11 @@ export function CustomerCategoryOrderCards({
               Order Statistics
             </h2>
           </div>
-          <span className="rounded-md border border-[var(--dashboard-border)] px-2.5 py-1.5 text-[0.68rem] font-semibold text-[var(--dashboard-text)]">
+          <span
+            className="inline-flex h-8 items-center gap-1.5 rounded-md bg-[var(--dashboard-accent-soft)] px-2.5 text-[0.68rem] font-semibold text-[var(--dashboard-accent)]"
+            title="Reporting window: last 30 days"
+          >
+            <CalendarDays className="h-3.5 w-3.5" />
             30 days
           </span>
         </header>

@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import {
-  ArrowRight,
+  ArrowUpRight,
   CircleAlert,
   CircleCheck,
   PackageOpen,
@@ -90,7 +90,7 @@ export function StockHealthCard({ stock }: StockHealthCardProps) {
 
   return (
     <Card className="flex min-h-[354px] flex-col overflow-hidden rounded-xl border border-[var(--dashboard-border)] bg-[var(--dashboard-surface)] text-[var(--dashboard-text)] shadow-dark-sm">
-      <div className="flex h-16 items-center justify-between gap-4 border-b border-[var(--dashboard-border)] px-5">
+      <div className="flex h-16 items-center justify-between gap-4 px-5">
         <div className="min-w-0">
           <h2 className="text-sm font-semibold tracking-[-0.015em] text-[var(--dashboard-text)]">
             Inventory status
@@ -101,9 +101,10 @@ export function StockHealthCard({ stock }: StockHealthCardProps) {
         </div>
         <Link
           href="/dashboard/inventory"
-          className="inline-flex shrink-0 items-center gap-1 pt-0.5 text-xs font-semibold text-[var(--dashboard-muted)] transition-colors hover:text-[var(--dashboard-accent)] focus-visible:rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--dashboard-accent-soft-border)]"
+          className="group inline-flex h-8 shrink-0 items-center gap-1 rounded-md px-2 text-xs font-semibold text-[var(--dashboard-muted)] transition-colors hover:bg-[var(--dashboard-accent-soft)] hover:text-[var(--dashboard-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--dashboard-accent)]"
         >
-          View all <ArrowRight className="h-3.5 w-3.5" />
+          View all{' '}
+          <ArrowUpRight className="h-3.5 w-3.5 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
         </Link>
       </div>
 

@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react';
 import Link from 'next/link';
-import { ArrowRight, CreditCard, WalletCards, Wifi } from 'lucide-react';
+import { ArrowUpRight, CreditCard, WalletCards, Wifi } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils/format';
 
 type Payment = { method: string; amount: number; transactions: number };
@@ -102,10 +102,13 @@ export function PaymentMixCard({ currency, payments }: PaymentMixCardProps) {
 
   return (
     <article
-      className="relative flex min-h-[354px] flex-col overflow-hidden rounded-xl border border-[var(--dashboard-border)] bg-[var(--dashboard-surface)] shadow-dark-sm"
+      className="relative flex min-h-[354px] flex-col overflow-hidden rounded-2xl border border-[#d6a02e]/45 bg-[linear-gradient(145deg,#fffdf7_0%,#fff9e9_55%,#f8eed0_100%)] bg-[length:100%_354px] p-6 shadow-[0_8px_24px_rgba(106,76,0,.09)] dark:border-[#d6a02e]/35 dark:bg-[linear-gradient(145deg,#17150e_0%,#11100d_48%,#0e0e0d_100%)] dark:shadow-[0_18px_42px_rgba(0,0,0,.22)]"
       aria-label={`Payment summary showing ${formatCurrency(total, currency)} across ${transactionTotal} completed sales`}
     >
-      <div className="relative flex h-16 items-center justify-between gap-4 border-b border-[var(--dashboard-border)] px-5">
+      <span className="pointer-events-none absolute -right-20 -top-28 h-72 w-72 rounded-full border border-[#d6a02e]/20 dark:border-[#d6a02e]/15" />
+      <span className="pointer-events-none absolute -bottom-32 -left-20 h-72 w-72 rounded-full bg-[#d6a02e]/[.08] dark:bg-[#d6a02e]/[.06]" />
+
+      <div className="relative flex items-start justify-between gap-4">
         <div className="min-w-0">
           <h2 className="text-sm font-semibold tracking-[-0.015em] text-[var(--dashboard-text)] dark:text-white">
             Payment summary
@@ -116,54 +119,53 @@ export function PaymentMixCard({ currency, payments }: PaymentMixCardProps) {
         </div>
         <Link
           href="/dashboard/reports"
-          className="inline-flex shrink-0 items-center gap-1 pt-0.5 text-xs font-semibold text-[var(--dashboard-muted)] transition-colors hover:text-[#a47700] focus-visible:rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d6a02e]/40 dark:text-white/55 dark:hover:text-[#f0c94c]"
+          className="group inline-flex h-8 shrink-0 items-center gap-1 rounded-md px-2 text-xs font-semibold text-[var(--dashboard-muted)] transition-colors hover:bg-[var(--dashboard-accent-soft)] hover:text-[var(--dashboard-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--dashboard-accent)] dark:text-white/55"
         >
-          View all <ArrowRight className="h-3.5 w-3.5" />
+          View all{' '}
+          <ArrowUpRight className="h-3.5 w-3.5 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
         </Link>
       </div>
 
-      <div className="relative flex flex-1 flex-col p-6">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <p className="text-[0.68rem] font-bold uppercase tracking-[0.18em] text-[#a47700] dark:text-[#f0c94c]">
-              This month
-            </p>
-            <p className="mt-1 text-[0.58rem] font-semibold uppercase tracking-[0.13em] text-[var(--dashboard-muted)] dark:text-white/40">
-              Sales collected
-            </p>
-          </div>
-          <span className="text-xl font-black italic tracking-tight text-[#8a6500] dark:text-white">
-            PESA
-          </span>
-        </div>
-
-        <div className="mt-6 flex items-center gap-3">
-          <span className="flex h-10 w-14 items-center justify-center rounded-lg bg-[linear-gradient(135deg,#f3d36b,#a97a12)] shadow-inner">
-            <CreditCard className="h-5 w-5 text-[#392b07]" />
-          </span>
-          <Wifi className="h-5 w-5 rotate-90 text-[#8a6500]/70 dark:text-white/60" />
-        </div>
-
-        <div className="mt-auto">
-          <p className="text-[0.6rem] font-semibold uppercase tracking-[0.14em] text-[var(--dashboard-muted)] dark:text-white/45">
+      <div className="relative mt-8 flex items-start justify-between gap-4">
+        <div>
+          <p className="text-[0.68rem] font-bold uppercase tracking-[0.18em] text-[#a47700] dark:text-[#f0c94c]">
+            This month
+          </p>
+          <p className="mt-1 text-[0.58rem] font-semibold uppercase tracking-[0.13em] text-[var(--dashboard-muted)] dark:text-white/40">
             Sales collected
           </p>
-          <p className="mt-1 truncate text-[1.4rem] font-semibold leading-[1.15] tracking-[-0.025em] tabular-nums text-[var(--dashboard-text)] dark:text-white">
-            {formatCurrency(total, currency)}
-          </p>
-          <div className="mt-4 flex items-end justify-between gap-4">
-            <div>
-              <p className="text-[0.52rem] font-semibold uppercase tracking-[0.13em] text-[var(--dashboard-muted)] dark:text-white/40">
-                Completed sales
-              </p>
-              <p className="mt-0.5 text-sm font-bold tabular-nums text-[var(--dashboard-text)] dark:text-white/90">
-                {transactionTotal}
-              </p>
-            </div>
-            <p className="text-[0.65rem] font-semibold uppercase tracking-[0.12em] text-[#8a6500]/75 dark:text-white/55">
-              Pesaby
+        </div>
+        <span className="text-xl font-black italic tracking-tight text-[#8a6500] dark:text-white">
+          PESA
+        </span>
+      </div>
+
+      <div className="relative mt-6 flex items-center gap-3">
+        <span className="flex h-10 w-14 items-center justify-center rounded-lg bg-[linear-gradient(135deg,#f3d36b,#a97a12)] shadow-inner">
+          <CreditCard className="h-5 w-5 text-[#392b07]" />
+        </span>
+        <Wifi className="h-5 w-5 rotate-90 text-[#8a6500]/70 dark:text-white/60" />
+      </div>
+
+      <div className="relative mt-auto">
+        <p className="text-[0.6rem] font-semibold uppercase tracking-[0.14em] text-[var(--dashboard-muted)] dark:text-white/45">
+          Sales collected
+        </p>
+        <p className="mt-1 truncate text-[1.4rem] font-semibold leading-[1.15] tracking-[-0.025em] tabular-nums text-[var(--dashboard-text)] dark:text-white">
+          {formatCurrency(total, currency)}
+        </p>
+        <div className="mt-4 flex items-end justify-between gap-4">
+          <div>
+            <p className="text-[0.52rem] font-semibold uppercase tracking-[0.13em] text-[var(--dashboard-muted)] dark:text-white/40">
+              Completed sales
+            </p>
+            <p className="mt-0.5 text-sm font-bold tabular-nums text-[var(--dashboard-text)] dark:text-white/90">
+              {transactionTotal}
             </p>
           </div>
+          <p className="text-[0.65rem] font-semibold uppercase tracking-[0.12em] text-[#8a6500]/75 dark:text-white/55">
+            Pesaby
+          </p>
         </div>
       </div>
     </article>

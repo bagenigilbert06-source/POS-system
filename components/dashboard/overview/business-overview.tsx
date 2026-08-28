@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import {
   ArrowRight,
+  ArrowUpRight,
   BadgeDollarSign,
   Boxes,
   Building2,
@@ -28,7 +29,6 @@ import { BusiestHoursCard } from './busiest-hours-card';
 import { RetailActivityCards } from './retail-activity-cards';
 import { SalesStaticsTransactions } from './sales-statics-transactions';
 import { CustomerCategoryOrderCards } from './customer-category-order-cards';
-import { ComplianceStatusCard } from './compliance-status-card';
 import { MetricCard, type MetricTrend } from './metric-card';
 import { TimeGreeting } from '../time-greeting';
 import { PermissionEnum, RoleEnum } from '@/lib/types/permissions';
@@ -362,18 +362,6 @@ export function BusinessOverview({
         productLabel={productTerms.pluralLower}
       />
 
-      {/* ---------------------------------------------------------------- */}
-      {/* Liquor compliance                                                */}
-      {/* ---------------------------------------------------------------- */}
-      {workspaceConfig.businessCategory === 'liquor_shop' && (
-        <section aria-label="Liquor-store controls">
-          <ComplianceStatusCard
-            verified={overview.liquorCompliance.verifiedToday}
-            needsReview={overview.liquorCompliance.unverifiedToday}
-          />
-        </section>
-      )}
-
       {isPharmacyBusiness(
         workspaceConfig.businessType,
         workspaceConfig.businessCategory
@@ -469,9 +457,11 @@ export function BusinessOverview({
         currency={currency}
         customers={overview.topCustomers}
         categories={overview.topCategories}
+        categoriesLast7Days={overview.topCategoriesLast7Days}
         categoryCount={overview.categoryCount}
         productCount={overview.records.products}
         hourlySales={overview.hourlySales}
+        reportDate={overview.reportDate}
       />
     </div>
   );
@@ -702,9 +692,10 @@ function SectionHeader({
       {href && (
         <Link
           href={href}
-          className="inline-flex shrink-0 items-center gap-1.5 text-xs font-semibold text-[var(--dashboard-accent)] transition-colors hover:opacity-80"
+          className="group inline-flex h-8 shrink-0 items-center gap-1 rounded-md px-2 text-xs font-semibold text-[var(--dashboard-muted)] transition-colors hover:bg-[var(--dashboard-accent-soft)] hover:text-[var(--dashboard-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--dashboard-accent)]"
         >
-          View all <ArrowRight className="h-3.5 w-3.5" />
+          View all{' '}
+          <ArrowUpRight className="h-3.5 w-3.5 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
         </Link>
       )}
     </div>

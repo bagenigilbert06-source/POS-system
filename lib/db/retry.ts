@@ -43,7 +43,7 @@ function isTransientDatabaseError(error: unknown) {
 }
 
 /** Retries short-lived database and DNS failures without masking permanent errors. */
-export async function withDatabaseRetry<T>(operation: () => Promise<T>, attempts = 3): Promise<T> {
+export async function withDatabaseRetry<T>(operation: () => Promise<T>, attempts = 4): Promise<T> {
   let lastError: unknown
 
   for (let attempt = 0; attempt < attempts; attempt += 1) {
@@ -53,7 +53,10 @@ export async function withDatabaseRetry<T>(operation: () => Promise<T>, attempts
       lastError = error
       if (!isTransientDatabaseError(error) || attempt === attempts - 1) throw error
 
-      await new Promise((resolve) => setTimeout(resolve, 250 * (attempt + 1)))
+      // Poolers can briefly reject a burst of new connections. Exponential
+      // backoff plus jitter avoids retrying every dashboard request in lockstep.
+      const delay = Math.min(2_000, 250 * 2 ** attempt) + Math.floor(Math.random() * 150)
+      await new Promise((resolve) => setTimeout(resolve, delay))
     }
   }
 
