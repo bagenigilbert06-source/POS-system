@@ -127,6 +127,13 @@
       "when": 1788000000000,
       "tag": "0037_promotion_rules",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1788003600000,
+      "tag": "0038_terminal_attribution",
+      "breakpoints": true
     }
   ]
 }

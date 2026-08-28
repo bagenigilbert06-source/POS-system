@@ -14,3 +14,4 @@ FROM "pos_session" ps WHERE m."sessionId" = ps."id" AND m."terminalId" IS NULL A
 CREATE INDEX IF NOT EXISTS "sale_org_terminal_created_idx" ON "sale" ("orgId", "terminalId", "createdAt");
 CREATE INDEX IF NOT EXISTS "sales_return_org_terminal_created_idx" ON "sales_return" ("orgId", "terminalId", "createdAt");
 CREATE INDEX IF NOT EXISTS "cash_movement_org_terminal_created_idx" ON "cash_movement" ("orgId", "terminalId", "createdAt");
+

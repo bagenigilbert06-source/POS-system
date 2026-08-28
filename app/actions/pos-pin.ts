@@ -98,8 +98,12 @@ export async function getPosTerminalStaff() {
       .where(and(eq(employee.orgId, terminal.organizationId), eq(employee.status, 'active'), eq(branchMembership.branchId, terminal.branchId)))
 
     const staff = members
-      .filter((member) => member.userId && ROLE_PERMISSIONS[member.role as keyof typeof ROLE_PERMISSIONS]?.includes(PermissionEnum.POS_PIN_USE))
-      .map((member) => ({ id: member.userId!, name: member.name, role: member.role, pinSet: member.pinSet }))
+      .filter((member) =>
+        member.userId &&
+        member.pinSet &&
+        ROLE_PERMISSIONS[member.role as keyof typeof ROLE_PERMISSIONS]?.includes(PermissionEnum.POS_PIN_USE)
+      )
+      .map((member) => ({ id: member.userId!, name: member.name, pinSet: true as const }))
     return { staff }
   } catch (error) {
     console.error('Unable to load POS terminal staff', error)
@@ -114,9 +118,9 @@ export async function getLockedPosStaff() {
     const token = jar.get(POS_LOCKED_SESSION_COOKIE)?.value
     const terminal = await getTerminal()
     if (!token || !terminal) return { staff: null }
-    const [locked] = await db.select({ userId: posAuthSession.userId, terminalId: posAuthSession.terminalId, expiresAt: posAuthSession.expiresAt })
+    const [locked] = await db.select({ userId: posAuthSession.userId, terminalId: posAuthSession.terminalId, organizationId: posAuthSession.organizationId, branchId: posAuthSession.branchId, expiresAt: posAuthSession.expiresAt })
       .from(posAuthSession).where(and(eq(posAuthSession.tokenHash, tokenHash(token)), eq(posAuthSession.status, 'locked'))).limit(1)
-    if (!locked || locked.terminalId !== terminal.id || locked.expiresAt <= new Date()) return { staff: null }
+    if (!locked || locked.terminalId !== terminal.id || locked.organizationId !== terminal.organizationId || locked.branchId !== terminal.branchId || locked.expiresAt <= new Date()) return { staff: null }
     const [staff] = await db.select({ name: employee.name, status: employee.status }).from(employee)
       .where(and(eq(employee.orgId, terminal.organizationId), eq(employee.userId, locked.userId))).limit(1)
     if (!staff || staff.status !== 'active') return { staff: null, error: 'Staff account inactive' }
@@ -182,18 +186,53 @@ export async function unlockPosWithStaffPin(userId: string, pin: string) {
 
 /** Unlocks only the cashier who created the current locked terminal session. */
 export async function unlockCurrentLockedPos(pin: string) {
+  const pinError = validatePosPin(pin)
+  if (pinError) return { success: false, error: pinError }
+
   try {
     const jar = await cookies()
     const token = jar.get(POS_LOCKED_SESSION_COOKIE)?.value
     const terminal = await getTerminal()
     if (!token || !terminal) return { success: false, error: 'Terminal access not allowed' }
-    const [locked] = await db.select({ userId: posAuthSession.userId, terminalId: posAuthSession.terminalId, expiresAt: posAuthSession.expiresAt })
+    const [locked] = await db.select().from(posAuthSession)
       .from(posAuthSession).where(and(eq(posAuthSession.tokenHash, tokenHash(token)), eq(posAuthSession.status, 'locked'))).limit(1)
-    if (!locked || locked.terminalId !== terminal.id || locked.expiresAt <= new Date())
+    if (!locked || locked.terminalId !== terminal.id || locked.organizationId !== terminal.organizationId || locked.branchId !== terminal.branchId || locked.expiresAt <= new Date())
       return { success: false, error: 'The locked POS session has expired. Use Switch cashier to continue.' }
-    const result = await unlockPosWithStaffPin(locked.userId, pin)
-    if (result.success) jar.delete(POS_LOCKED_SESSION_COOKIE)
-    return result
+
+    const [[staff], [membership], [account], [credential]] = await Promise.all([
+      db.select({ status: employee.status }).from(employee).where(and(eq(employee.orgId, locked.organizationId), eq(employee.userId, locked.userId))).limit(1),
+      db.select({ role: organizationMembership.role }).from(organizationMembership).where(and(eq(organizationMembership.organizationId, locked.organizationId), eq(organizationMembership.userId, locked.userId))).limit(1),
+      db.select({ status: user.status }).from(user).where(eq(user.id, locked.userId)).limit(1),
+      db.select().from(posPinCredential).where(and(eq(posPinCredential.userId, locked.userId), eq(posPinCredential.enabled, true))).limit(1),
+    ])
+    const [branchAccess] = await db.select({ userId: branchMembership.userId }).from(branchMembership)
+      .where(and(eq(branchMembership.branchId, locked.branchId), eq(branchMembership.userId, locked.userId))).limit(1)
+
+    if (staff?.status !== 'active' || account?.status !== 'active')
+      return { success: false, error: 'Staff account inactive' }
+    const role = membership?.role as keyof typeof ROLE_PERMISSIONS | undefined
+    if (!branchAccess || !role || !ROLE_PERMISSIONS[role]?.includes(PermissionEnum.POS_PIN_USE))
+      return { success: false, error: 'Terminal access not allowed' }
+    if (!credential) return { success: false, error: 'POS PIN is not set for this staff account' }
+    if (credential.lockedUntil && credential.lockedUntil > new Date())
+      return { success: false, error: 'PIN is temporarily locked. Try again later.' }
+
+    if (!(await verifyPassword({ hash: credential.pinHash, password: pin }))) {
+      const attempts = credential.failedAttempts + 1
+      const pinLocked = attempts >= POS_PIN_MAX_ATTEMPTS
+      await db.update(posPinCredential).set({ failedAttempts: attempts, lockedUntil: pinLocked ? new Date(Date.now() + POS_PIN_LOCK_MINUTES * 60000) : null, updatedAt: new Date() }).where(eq(posPinCredential.userId, locked.userId))
+      await db.insert(auditEvent).values({ id: generateId(), organizationId: locked.organizationId, userId: locked.userId, action: pinLocked ? 'pos.pin.locked' : 'pos.pin.login_failed', metadata: { terminalId: locked.terminalId, attempts, unlockExistingSession: true } })
+      return { success: false, error: pinLocked ? 'PIN is temporarily locked. Try again later.' : 'Incorrect PIN' }
+    }
+
+    await db.transaction(async (tx) => {
+      await tx.update(posPinCredential).set({ failedAttempts: 0, lockedUntil: null, updatedAt: new Date() }).where(eq(posPinCredential.userId, locked.userId))
+      await tx.update(posAuthSession).set({ status: 'active', lastSeenAt: new Date() }).where(and(eq(posAuthSession.id, locked.id), eq(posAuthSession.status, 'locked')))
+      await tx.insert(auditEvent).values({ id: generateId(), organizationId: locked.organizationId, userId: locked.userId, action: 'pos.pin.unlock_success', metadata: { terminalId: locked.terminalId, branchId: locked.branchId, restoredSessionId: locked.id } })
+    })
+    jar.set(POS_AUTH_COOKIE, token, posCookieOptions)
+    jar.delete(POS_LOCKED_SESSION_COOKIE)
+    return { success: true }
   } catch (error) {
     console.error('Unable to unlock locked POS session', error)
     return { success: false, error: 'Unable to unlock this POS terminal. Please try again.' }

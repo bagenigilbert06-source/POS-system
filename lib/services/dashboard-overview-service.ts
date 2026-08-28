@@ -1,6 +1,6 @@
 import { and, asc, desc, eq, gte, inArray, lt, lte, sql } from 'drizzle-orm'
 import { db } from '@/lib/db'
-import { branch, customer, expense, inventoryBalance, inventoryLot, organizationMembership, product, sale, saleItem, salesReturn, salesReturnItem } from '@/lib/db/schema'
+import { branch, category, customer, expense, inventoryBalance, inventoryLot, invoice, organizationMembership, product, purchase, sale, saleItem, salesReturn, salesReturnItem } from '@/lib/db/schema'
 
 export interface DashboardOverview {
   today: {
@@ -38,6 +38,7 @@ export interface DashboardOverview {
     inventoryCost: number
   }
   revenueSeries: Array<{ date: string; revenue: number; expenses: number }>
+  monthlySalesSeries: Array<{ month: string; revenue: number; expenses: number }>
   salesPerformanceSeries: Array<{ date: string; revenue: number; transactions: number }>
   paymentMix: Array<{ method: string; amount: number; transactions: number }>
   reportDate: string
@@ -53,19 +54,30 @@ export interface DashboardOverview {
   recentSales: Array<{
     id: string
     receiptNo: string
+    customerName: string | null
+    productName: string | null
+    imageUrl: string | null
+    categoryName: string | null
     total: number
     paymentMethod: string
     status: string
     createdAt: Date
   }>
+  recentPurchases: Array<{ id: string; name: string; reference: string; date: Date; status: string; amount: number }>
+  recentExpenses: Array<{ id: string; name: string; reference: string; date: Date; status: string; amount: number }>
+  recentInvoices: Array<{ id: string; name: string; reference: string; date: Date; status: string; amount: number }>
   lowStockProducts: Array<{
     id: string
     name: string
     sku: string | null
+    imageUrl: string | null
     stock: number
     minStock: number
   }>
   topProducts: Array<{ name: string; quantity: number; revenue: number }>
+  topCustomers: Array<{ id: string; name: string; location: string; orders: number; total: number }>
+  topCategories: Array<{ id: string; name: string; sales: number }>
+  categoryCount: number
   liquorCompliance: {
     verifiedToday: number
     unverifiedToday: number
@@ -315,17 +327,19 @@ export async function getDashboardOverview(organizationId: string, timeZone = 'A
       .select({
         id: sale.id,
         receiptNo: sale.receiptNo,
+        customerName: customer.name,
         total: sale.total,
         paymentMethod: sale.paymentMethod,
         status: sale.status,
         createdAt: sale.createdAt,
       })
       .from(sale)
+      .leftJoin(customer, and(eq(customer.id, sale.customerId), eq(customer.orgId, organizationId)))
       .where(and(eq(sale.orgId, organizationId), saleBranchScope))
       .orderBy(desc(sale.createdAt))
       .limit(6),
     db
-      .select({ id: product.id, name: product.name, sku: product.sku, stock: product.stock, minStock: product.minStock })
+      .select({ id: product.id, name: product.name, sku: product.sku, imageUrl: product.imageUrl, stock: product.stock, minStock: product.minStock })
       .from(product)
       .where(and(eq(product.orgId, organizationId), eq(product.isActive, true), sql`${product.stock} <= ${product.minStock}`))
       .orderBy(asc(product.stock))
@@ -351,6 +365,49 @@ export async function getDashboardOverview(organizationId: string, timeZone = 'A
       .where(and(completedSale, gte(sale.createdAt, today), lt(sale.createdAt, tomorrow))),
   ])
 
+  const recentSaleItems = recentRows.length ? await db
+    .select({
+      saleId: saleItem.saleId,
+      productName: saleItem.productName,
+      imageUrl: product.imageUrl,
+      categoryName: category.name,
+    })
+    .from(saleItem)
+    .leftJoin(product, and(eq(product.id, saleItem.productId), eq(product.orgId, organizationId)))
+    .leftJoin(category, and(eq(category.id, product.categoryId), eq(category.orgId, organizationId)))
+    .where(and(eq(saleItem.orgId, organizationId), inArray(saleItem.saleId, recentRows.map((row) => row.id))))
+    .orderBy(asc(saleItem.id)) : []
+  const recentProductBySale = new Map<string, (typeof recentSaleItems)[number]>()
+  for (const item of recentSaleItems) if (!recentProductBySale.has(item.saleId)) recentProductBySale.set(item.saleId, item)
+
+  const yearStart = zonedMidnight(currentDate.year, 1, 1, safeTimeZone)
+  const [monthlyRevenueRows, monthlyExpenseRows] = await Promise.all([
+    db.select({ month: sql<number>`extract(month from ${saleLocalTimestamp})::int`, amount: sql<string>`coalesce(sum(${sale.total}), 0)` })
+      .from(sale)
+      .where(and(completedSale, gte(sale.createdAt, yearStart), lt(sale.createdAt, tomorrow)))
+      .groupBy(sql.raw('1')),
+    db.select({ month: sql<number>`extract(month from ((${expense.createdAt} at time zone 'UTC') at time zone ${safeTimeZone}))::int`, amount: sql<string>`coalesce(sum(${expense.amount}), 0)` })
+      .from(expense)
+      .where(and(eq(expense.orgId, organizationId), expenseBranchScope, gte(expense.createdAt, yearStart), lt(expense.createdAt, tomorrow)))
+      .groupBy(sql.raw('1')),
+  ])
+  const revenueByMonth = new Map(monthlyRevenueRows.map((row) => [number(row.month), number(row.amount)]))
+  const expenseByMonth = new Map(monthlyExpenseRows.map((row) => [number(row.month), number(row.amount)]))
+  const purchaseBranchScope = branchIds === undefined ? undefined : branchIds.length ? inArray(purchase.branchId, [...branchIds]) : sql`false`
+  const [recentPurchaseRows, recentExpenseRows, recentInvoiceRows, topCustomerRows, topCategoryRows, categoryCountRows] = await Promise.all([
+    db.select({ id: purchase.id, name: purchase.supplierName, reference: purchase.purchaseNo, date: purchase.createdAt, status: purchase.paymentStatus, amount: purchase.total })
+      .from(purchase).where(and(eq(purchase.orgId, organizationId), purchaseBranchScope)).orderBy(desc(purchase.createdAt)).limit(5),
+    db.select({ id: expense.id, name: expense.title, reference: expense.reference, date: expense.expenseDate, status: expense.paymentMethod, amount: expense.amount })
+      .from(expense).where(and(eq(expense.orgId, organizationId), expenseBranchScope)).orderBy(desc(expense.expenseDate)).limit(5),
+    db.select({ id: invoice.id, name: customer.name, reference: invoice.invoiceNo, date: invoice.dueDate, createdAt: invoice.createdAt, status: invoice.status, amount: invoice.total })
+      .from(invoice).leftJoin(customer, and(eq(customer.id, invoice.customerId), eq(customer.orgId, organizationId))).where(eq(invoice.orgId, organizationId)).orderBy(desc(invoice.createdAt)).limit(5),
+    db.select({ id: customer.id, name: customer.name, location: customer.address, orders: sql<number>`count(${sale.id})`, total: sql<string>`coalesce(sum(${sale.total}), 0)` })
+      .from(sale).innerJoin(customer, and(eq(customer.id, sale.customerId), eq(customer.orgId, organizationId))).where(paidSale).groupBy(customer.id, customer.name, customer.address).orderBy(desc(sql`sum(${sale.total})`)).limit(5),
+    db.select({ id: category.id, name: category.name, sales: sql<number>`coalesce(sum(${saleItem.quantity}), 0)` })
+      .from(saleItem).innerJoin(sale, and(eq(sale.id, saleItem.saleId), paidSale)).innerJoin(product, and(eq(product.id, saleItem.productId), eq(product.orgId, organizationId))).innerJoin(category, and(eq(category.id, product.categoryId), eq(category.orgId, organizationId))).where(and(eq(saleItem.orgId, organizationId), gte(sale.createdAt, seriesStart))).groupBy(category.id, category.name).orderBy(desc(sql`sum(${saleItem.quantity})`)).limit(3),
+    db.select({ count: sql<number>`count(*)` }).from(category).where(and(eq(category.orgId, organizationId), eq(category.isActive, true))),
+  ])
+
   const todayRevenue = number(todaySalesRows[0]?.revenue)
   const todayExpenses = number(todayExpenseRows[0]?.amount)
   const monthRevenue = number(monthSalesRows[0]?.revenue)
@@ -370,6 +427,7 @@ export async function getDashboardOverview(organizationId: string, timeZone = 'A
       id: product.id,
       name: product.name,
       sku: product.sku,
+      imageUrl: product.imageUrl,
       stock: sql<string>`coalesce(sum(${inventoryBalance.onHand} - ${inventoryBalance.reserved} - ${inventoryBalance.unavailable}), 0)`,
       minStock: sql<string>`coalesce(sum(coalesce(${inventoryBalance.reorderPoint}, ${product.minStock})), 0)`,
       buyingPrice: product.buyingPrice,
@@ -377,9 +435,9 @@ export async function getDashboardOverview(organizationId: string, timeZone = 'A
     .from(inventoryBalance)
     .innerJoin(product, and(eq(product.id, inventoryBalance.productId), eq(product.orgId, organizationId), eq(product.isActive, true)))
     .where(and(eq(inventoryBalance.orgId, organizationId), inArray(inventoryBalance.branchId, [...branchIds])))
-    .groupBy(product.id, product.name, product.sku, product.buyingPrice)
+    .groupBy(product.id, product.name, product.sku, product.imageUrl, product.buyingPrice)
   const scopedInventory = branchIds === undefined ? null : branchInventoryRows.map((row) => ({
-    id: row.id, name: row.name, sku: row.sku, stock: number(row.stock), minStock: number(row.minStock), buyingPrice: number(row.buyingPrice),
+    id: row.id, name: row.name, sku: row.sku, imageUrl: row.imageUrl, stock: number(row.stock), minStock: number(row.minStock), buyingPrice: number(row.buyingPrice),
   }))
   const scopedLowStock = scopedInventory?.filter((row) => row.stock <= row.minStock).sort((a, b) => a.stock - b.stock) ?? null
 
@@ -438,6 +496,11 @@ export async function getDashboardOverview(organizationId: string, timeZone = 'A
       inventoryCost: scopedInventory ? scopedInventory.reduce((sum, row) => sum + row.stock * row.buyingPrice, 0) : number(inventoryCost[0]?.value),
     },
     revenueSeries,
+    monthlySalesSeries: Array.from({ length: 12 }, (_, index) => ({
+      month: new Intl.DateTimeFormat('en', { month: 'short' }).format(new Date(Date.UTC(2020, index, 1))),
+      revenue: revenueByMonth.get(index + 1) ?? 0,
+      expenses: expenseByMonth.get(index + 1) ?? 0,
+    })),
     salesPerformanceSeries,
     paymentMix: paymentRows.map((row) => ({ method: row.method, amount: number(row.amount), transactions: number(row.transactions) })),
     reportDate: calendarKey(currentDate),
@@ -456,8 +519,17 @@ export async function getDashboardOverview(organizationId: string, timeZone = 'A
         revenue: Math.max(0, number(row.revenue) - (refund?.revenue ?? 0)),
       }
     }),
-    recentSales: recentRows.map((row) => ({ ...row, total: number(row.total) })),
-    lowStockProducts: scopedLowStock ? scopedLowStock.slice(0, 6).map((row) => ({ id: row.id, name: row.name, sku: row.sku, stock: row.stock, minStock: row.minStock })) : lowStockRows,
+    recentSales: recentRows.map((row) => {
+      const item = recentProductBySale.get(row.id)
+      return { ...row, productName: item?.productName ?? null, imageUrl: item?.imageUrl ?? null, categoryName: item?.categoryName ?? null, total: number(row.total) }
+    }),
+    recentPurchases: recentPurchaseRows.map((row) => ({ ...row, amount: number(row.amount) })),
+    recentExpenses: recentExpenseRows.map((row) => ({ ...row, reference: row.reference ?? row.id.slice(0, 8).toUpperCase(), amount: number(row.amount) })),
+    recentInvoices: recentInvoiceRows.map((row) => ({ id: row.id, name: row.name ?? 'Walk-in customer', reference: row.reference, date: row.date ?? row.createdAt, status: row.status, amount: number(row.amount) })),
+    topCustomers: topCustomerRows.map((row) => ({ id: row.id, name: row.name, location: row.location ?? 'Local customer', orders: number(row.orders), total: number(row.total) })),
+    topCategories: topCategoryRows.map((row) => ({ id: row.id, name: row.name, sales: number(row.sales) })),
+    categoryCount: number(categoryCountRows[0]?.count),
+    lowStockProducts: scopedLowStock ? scopedLowStock.slice(0, 6).map((row) => ({ id: row.id, name: row.name, sku: row.sku, imageUrl: row.imageUrl, stock: row.stock, minStock: row.minStock })) : lowStockRows,
     topProducts: topProductRows.map((row) => ({ name: row.name, quantity: number(row.quantity), revenue: number(row.revenue) })),
     liquorCompliance: {
       verifiedToday: number(complianceRows[0]?.verified),
