@@ -32,7 +32,7 @@ import {
 import { getBusinessSettings } from '@/app/actions/business';
 import { ReceiptTemplate } from '@/components/receipt/receipt-template';
 import { RefundDialog } from '@/components/pos/refund-dialog';
-import { PageLoader } from '@/components/ui/page-loader';
+import { LoadingSpinner } from '@/components/ui/page-loader';
 import { useWorkspace } from '@/lib/context/workspace-context';
 import { getBusinessExperience } from '@/lib/workspace/business-experience';
 
@@ -447,18 +447,13 @@ export function SalesManagementView({
                 </tr>
               </thead>
               <tbody>
-                {openingSaleId ? (
-                  <tr>
-                    <td colSpan={8}>
-                      <PageLoader label="Opening transaction details" inline />
-                    </td>
-                  </tr>
-                ) : data.rows.map(
+                {data.rows.map(
                   ({ record, customerName, branchName, cashierName }) => (
                     <tr
                       key={record.id}
                       onClick={() => openDetail(record.id)}
-                      className="cursor-pointer border-t border-slate-200 hover:bg-muted/40 dark:border-slate-800 dark:hover:bg-slate-900/70"
+                      aria-busy={openingSaleId === record.id}
+                      className={`cursor-pointer border-t border-slate-200 transition-colors hover:bg-muted/40 dark:border-slate-800 dark:hover:bg-slate-900/70 ${openingSaleId === record.id ? 'bg-[#fff9e6] dark:bg-amber-950/25' : ''}`}
                     >
                       <td className="px-4 py-3 font-mono text-xs font-semibold">
                         {record.receiptNo}
@@ -490,10 +485,22 @@ export function SalesManagementView({
                             event.stopPropagation();
                             openDetail(record.id);
                           }}
+                          disabled={Boolean(openingSaleId)}
                           className="rounded-md p-2 text-muted-foreground hover:bg-muted hover:text-foreground"
-                          aria-label={`View ${record.receiptNo}`}
+                          aria-label={
+                            openingSaleId === record.id
+                              ? `Opening ${record.receiptNo}`
+                              : `View ${record.receiptNo}`
+                          }
                         >
-                          <ChevronRight className="h-4 w-4 text-slate-400" />
+                          {openingSaleId === record.id ? (
+                            <LoadingSpinner
+                              className="h-4 w-4 text-[#b77900]"
+                              label="Opening transaction"
+                            />
+                          ) : (
+                            <ChevronRight className="h-4 w-4 text-slate-400" />
+                          )}
                         </button>
                       </td>
                     </tr>
