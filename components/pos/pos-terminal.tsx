@@ -672,6 +672,9 @@ export function POSTerminal({
   const processCheckoutRef = useRef<
     (verified?: boolean, serverAlreadyConfirmed?: boolean) => Promise<unknown>
   >(async () => undefined);
+  // Kept in a ref because the global keyboard handler is registered before the
+  // checkout action itself is declared below.
+  const completeCheckoutRef = useRef<() => void>(() => undefined);
   const ageVerificationConfirmRef = useRef<HTMLButtonElement>(null);
   const [isOnline, setIsOnline] = useState(true);
   const mpesaLocksBasket =
@@ -1236,6 +1239,76 @@ export function POSTerminal({
         event.preventDefault();
         searchInputRef.current?.focus();
       }
+      if (
+        event.key === 'Enter' &&
+        !event.repeat &&
+        !event.defaultPrevented &&
+        !event.ctrlKey &&
+        !event.metaKey &&
+        !event.altKey &&
+        !event.isComposing &&
+        !checkoutOpen &&
+        cart.length > 0 &&
+        hasActiveShift &&
+        !receipt &&
+        !barcodeBufferRef.current
+      ) {
+        const target = event.target as HTMLElement | null;
+        const isEditable =
+          target?.isContentEditable ||
+          ['INPUT', 'TEXTAREA', 'SELECT'].includes(target?.tagName ?? '');
+
+        // A focused button already receives its native Enter click. This
+        // shortcut covers the rest of the basket without stealing search or
+        // barcode-scanner input.
+        if (!isEditable && target?.tagName !== 'BUTTON') {
+          event.preventDefault();
+          openCheckout();
+          return;
+        }
+      }
+      if (
+        event.key === 'Enter' &&
+        !event.repeat &&
+        !event.defaultPrevented &&
+        !event.ctrlKey &&
+        !event.metaKey &&
+        !event.altKey &&
+        !event.isComposing &&
+        checkoutOpen &&
+        !receipt &&
+        !processing &&
+        !paymentDialogOpen &&
+        !showAgeVerification
+      ) {
+        const target = event.target as HTMLElement | null;
+        const isEditable =
+          target?.isContentEditable ||
+          ['INPUT', 'TEXTAREA', 'SELECT'].includes(target?.tagName ?? '');
+        const isButton = target?.tagName === 'BUTTON';
+
+        if (checkoutStep === 'customer' && !isEditable && !isButton) {
+          event.preventDefault();
+          if (paymentMethod === 'cash' && !amountPaid)
+            setAmountPaid(String(total));
+          setCheckoutStep('payment');
+          return;
+        }
+
+        // Enter completes a cash sale from the payment screen, including when
+        // the cashier is typing in the dedicated tendered-amount field.
+        const isCashTenderField = target?.id === 'cash-received';
+        if (
+          checkoutStep === 'payment' &&
+          paymentMethod === 'cash' &&
+          ((!isEditable && !isButton) || isCashTenderField) &&
+          parseFloat(amountPaid || '0') >= total
+        ) {
+          event.preventDefault();
+          completeCheckoutRef.current();
+          return;
+        }
+      }
       if (checkoutOpen && checkoutStep === 'payment' && !receipt) {
         const paymentShortcut = (
           { F3: 'cash', F4: 'mpesa', F5: 'card', F6: 'airtel_money' } as const
@@ -1265,6 +1338,11 @@ export function POSTerminal({
     isOnline,
     paymentDialogOpen,
     mpesaLocksBasket,
+    amountPaid,
+    total,
+    processing,
+    showAgeVerification,
+    hasActiveShift,
   ]);
 
   const addToCart = useCallback(
@@ -2224,6 +2302,7 @@ export function POSTerminal({
     }
     void processCheckout();
   };
+  completeCheckoutRef.current = handleCheckout;
 
   const handleMpesaPrompt = async () => {
     if (requiresAgeVerification && !ageVerified) {
@@ -5259,6 +5338,7 @@ export function POSTerminal({
                                         KSh
                                       </span>
                                       <input
+                                        id="cash-received"
                                         type="number"
                                         min={total}
                                         step="0.01"
