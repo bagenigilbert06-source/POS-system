@@ -425,6 +425,7 @@ export async function createSale(data: CreateSaleInput) {
       orgId,
       branchId: saleBranchId,
       posSessionId: activeShift.id,
+      terminalId: activeShift.terminalId,
       createdAt: offline?.createdAt,
     })
 

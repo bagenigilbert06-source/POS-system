@@ -11,6 +11,7 @@ import {
   saleItemLotAllocation,
   salesReturn,
   salesReturnItem,
+  posSession,
 } from '@/lib/db/schema'
 import { eq, and, sql } from 'drizzle-orm'
 import { generateId } from '@/lib/utils'
@@ -92,6 +93,33 @@ export async function processRefund(data: {
   const returnNo = `RET-${Date.now().toString().slice(-6)}`
 
   await db.transaction(async (tx) => {
+    // POS refunds belong to the drawer currently in use, not to the original
+    // sale's shift. Resolve that session from the trusted terminal credential.
+    let refundSessionId: string | null = null
+    let refundTerminalId: string | null = null
+    if (posAuthorization) {
+      if (originalSale.branchId !== posAuthorization.branchId)
+        throw new Error('This refund belongs to a different terminal branch')
+      const [activeShift] = await tx.select({ id: posSession.id, terminalId: posSession.terminalId }).from(posSession).where(and(
+        eq(posSession.orgId, orgId),
+        eq(posSession.branchId, posAuthorization.branchId),
+        eq(posSession.terminalId, posAuthorization.terminalId),
+        eq(posSession.openedBy, userId),
+        eq(posSession.status, 'open'),
+      )).limit(1).for('update')
+      if (!activeShift) throw new Error('Open this terminal shift before processing a refund')
+      refundSessionId = activeShift.id
+      refundTerminalId = posAuthorization.terminalId
+    } else if (data.refundMethod === 'cash') {
+      // Dashboard cash refunds still need an accountable open drawer.
+      const [activeShift] = await tx.select({ id: posSession.id, terminalId: posSession.terminalId }).from(posSession).where(and(
+        eq(posSession.orgId, orgId), eq(posSession.branchId, originalSale.branchId!),
+        eq(posSession.openedBy, userId), eq(posSession.status, 'open'),
+      )).limit(1).for('update')
+      if (!activeShift) throw new Error('Open a shift before issuing a cash refund')
+      refundSessionId = activeShift.id
+      refundTerminalId = activeShift.terminalId
+    }
     // Serialize refunds for this sale so two terminals cannot return the same units.
     await tx.execute(sql`select ${sale.id} from ${sale} where ${sale.id} = ${data.saleId} and ${sale.orgId} = ${orgId} for update`)
     const previousReturns = await tx.select({
@@ -137,6 +165,8 @@ export async function processRefund(data: {
       status: 'completed',
       userId,
       orgId,
+      posSessionId: refundSessionId,
+      terminalId: refundTerminalId,
     })
 
     // Process each returned item

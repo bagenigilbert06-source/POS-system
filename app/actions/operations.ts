@@ -888,6 +888,8 @@ export async function openPosSession(openingCash: number) {
     .parse(openingCash);
   const authorization = await posOperator(PermissionEnum.SHIFT_OPEN);
   const { userId, orgId, terminalId } = authorization;
+  if (!terminalId)
+    throw new Error('Register this device to a POS terminal before opening a shift');
   let branchId = authorization.branchIds[0];
   if (!branchId && authorization.isOrganizationWide) {
     const [mainBranch] = await db
@@ -906,9 +908,7 @@ export async function openPosSession(openingCash: number) {
       and(
         eq(posSession.orgId, orgId),
         inArray(posSession.status, ['open', 'closing']),
-        terminalId
-          ? eq(posSession.terminalId, terminalId)
-          : eq(posSession.openedBy, userId)
+        eq(posSession.terminalId, terminalId)
       )
     )
     .limit(1);
@@ -1047,6 +1047,7 @@ async function findClosableSession(
   canManage: boolean,
   branchIds: string[],
   isOrganizationWide: boolean,
+  terminalId: string | null,
   sessionId?: string,
   status: 'open' | 'closing' = 'open'
 ) {
@@ -1057,6 +1058,7 @@ async function findClosableSession(
       and(
         eq(posSession.orgId, orgId),
         eq(posSession.status, status),
+        terminalId ? eq(posSession.terminalId, terminalId) : undefined,
         isOrganizationWide
           ? undefined
           : branchIds.length
@@ -1089,6 +1091,7 @@ export async function beginPosSessionClose(sessionId?: string) {
     canManage,
     authorization.branchIds,
     authorization.isOrganizationWide,
+    authorization.terminalId,
     selectedSessionId
   );
   if (!current) throw new Error('No open register');
@@ -1173,6 +1176,7 @@ export async function cancelPosSessionClose(sessionId?: string) {
     canManage,
     authorization.branchIds,
     authorization.isOrganizationWide,
+    authorization.terminalId,
     sessionId,
     'closing'
   );
@@ -1226,6 +1230,7 @@ export async function submitPosSessionCount(input: {
     canManage,
     authorization.branchIds,
     authorization.isOrganizationWide,
+    authorization.terminalId,
     data.sessionId,
     'closing'
   );
@@ -1281,6 +1286,7 @@ export async function getPosSessionReconciliation(sessionId: string) {
     canManage,
     authorization.branchIds,
     authorization.isOrganizationWide,
+    authorization.terminalId,
     selectedSessionId,
     'closing'
   );
@@ -1324,6 +1330,7 @@ export async function completePosSessionClose(input: {
     canManage,
     authorization.branchIds,
     authorization.isOrganizationWide,
+    authorization.terminalId,
     data.sessionId,
     'closing'
   );
@@ -1493,6 +1500,7 @@ export async function recordCashMovement(input: {
       userId,
       orgId,
       branchId: current.branchId,
+      terminalId: current.terminalId,
       idempotencyKey: data.idempotencyKey || null,
     });
     await tx.insert(auditEvent).values({

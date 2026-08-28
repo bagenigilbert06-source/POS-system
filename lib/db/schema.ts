@@ -979,6 +979,7 @@ export const sale = pgTable(
     orgId: text('orgId').notNull(),
     branchId: text('branchId'),
     posSessionId: text('posSessionId'),
+    terminalId: text('terminalId').references(() => posTerminal.id, { onDelete: 'restrict' }),
     createdAt: timestamp('createdAt').notNull().defaultNow(),
   },
   (table) => ({
@@ -1720,6 +1721,7 @@ export const salesReturn = pgTable(
     posSessionId: text('posSessionId').references(() => posSession.id, {
       onDelete: 'restrict',
     }),
+    terminalId: text('terminalId').references(() => posTerminal.id, { onDelete: 'restrict' }),
     pointsEarnedReversed: integer('pointsEarnedReversed').notNull().default(0),
     pointsRedeemedRestored: integer('pointsRedeemedRestored')
       .notNull()
@@ -1888,6 +1890,7 @@ export const inventoryLoss = pgTable(
     branchId: text('branchId').references(() => branch.id, {
       onDelete: 'restrict',
     }),
+    terminalId: text('terminalId').references(() => posTerminal.id, { onDelete: 'restrict' }),
     createdAt: timestamp('createdAt').notNull().defaultNow(),
   },
   (table) => ({
@@ -2148,6 +2151,7 @@ export const cashMovement = pgTable(
     branchId: text('branchId').references(() => branch.id, {
       onDelete: 'restrict',
     }),
+    terminalId: text('terminalId').references(() => posTerminal.id, { onDelete: 'restrict' }),
     idempotencyKey: text('idempotencyKey'),
     createdAt: timestamp('createdAt').notNull().defaultNow(),
   },

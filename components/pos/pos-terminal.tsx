@@ -3331,6 +3331,7 @@ export function POSTerminal({
       ageVerifiedBy: null,
       branchId: null,
       posSessionId: null,
+      terminalId: null,
       origin: receipt.offline ? 'offline' : 'online',
       provisionalReceiptNo: receipt.offline?.provisionalReceiptNo ?? null,
       offlineCreatedAt: receipt.offline ? receipt.completedAt : null,
