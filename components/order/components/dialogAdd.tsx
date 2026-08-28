@@ -8,7 +8,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import eventBus from '@/lib/even';
-import { ReloadIcon } from '@radix-ui/react-icons';
+import { LoadingSpinner as ReloadIcon } from '@/components/ui/page-loader';
 import * as DialogR from '@radix-ui/react-dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';

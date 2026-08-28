@@ -161,6 +161,9 @@ importers:
       qrcode:
         specifier: ^1.5.4
         version: 1.5.4
+      qz-tray:
+        specifier: 2.2.6
+        version: 2.2.6
       react:
         specifier: ^19.2.7
         version: 19.2.7
@@ -4413,6 +4416,9 @@ packages:
   quick-lru@5.1.1:
     resolution: {integrity: sha512-WuyALRjWPDGtt/wzJiadO5AXY+8hZ80hVpe6MyivgraREW751X3SbhRvG3eLKOYN+8VEvqLcf3wdnt44Z4S4SA==}
     engines: {node: '>=10'}
+
+  qz-tray@2.2.6:
+    resolution: {integrity: sha512-b9w0vcjHSdKiOq1jL/KXfb3IvgaIc/BeQv9JuJ3nTEoqSUZfIGKLAyKTS+akHSXrR64R0UwEDmw20GvD2di/Pg==}
 
   raf@3.4.1:
     resolution: {integrity: sha512-Sq4CW4QhwOHE8ucn6J34MqtZCeWFP2aQSmrlroYgqAV1PjStIhJXxYuTgUIfkEk7zTLjmIjLmU5q+fbD1NnOJA==}
@@ -9192,6 +9198,8 @@ snapshots:
   queue-microtask@1.2.3: {}
 
   quick-lru@5.1.1: {}
+
+  qz-tray@2.2.6: {}
 
   raf@3.4.1:
     dependencies:

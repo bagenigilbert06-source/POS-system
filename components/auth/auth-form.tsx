@@ -3,7 +3,8 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { AlertCircle, Check, Eye, EyeOff, Loader2, ShieldCheck } from 'lucide-react'
+import { AlertCircle, Check, Eye, EyeOff, ShieldCheck } from 'lucide-react'
+import { LoadingSpinner as Loader2 } from '@/components/ui/page-loader'
 import { authClient } from '@/lib/auth-client'
 import { cn } from '@/lib/utils'
 

@@ -2,7 +2,8 @@
 
 import Image from 'next/image';
 import { useRef, useState } from 'react';
-import { Camera, Loader2, Trash2, UserRound } from 'lucide-react';
+import { Camera, Trash2, UserRound } from 'lucide-react';
+import { LoadingSpinner as Loader2 } from '@/components/ui/page-loader';
 import { notify } from '@/lib/notify';
 import { Button } from '@/components/ui/button';
 

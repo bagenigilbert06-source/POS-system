@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { AlertTriangle, Boxes, Loader2, ReceiptText } from 'lucide-react';
+import { AlertTriangle, Boxes, ReceiptText } from 'lucide-react';
+import { LoadingSpinner as Loader2 } from '@/components/ui/page-loader';
 import { notify } from '@/lib/notify';
 import { recordInventoryLoss, refundSale } from '@/app/actions/operations';
 import { Button } from '@/components/ui/button';

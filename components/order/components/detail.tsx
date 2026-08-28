@@ -19,7 +19,7 @@ import { z } from 'zod';
 import { useState } from 'react';
 import { notify } from '@/lib/notify';
 import eventBus from '@/lib/even';
-import { ReloadIcon } from '@radix-ui/react-icons';
+import { LoadingSpinner as ReloadIcon } from '@/components/ui/page-loader';
 
 interface DetailProps {
   data: TransactionData[];

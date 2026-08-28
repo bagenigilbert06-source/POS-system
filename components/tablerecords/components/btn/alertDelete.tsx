@@ -13,7 +13,7 @@ import {
 import axios from 'axios';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ReloadIcon } from '@radix-ui/react-icons';
+import { LoadingSpinner as ReloadIcon } from '@/components/ui/page-loader';
 type Data = {
   id: string;
 };

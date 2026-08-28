@@ -14,7 +14,6 @@ import {
   Clock3,
   CreditCard,
   Landmark,
-  Loader2,
   ShieldCheck,
   Smartphone,
   Users,
@@ -36,6 +35,7 @@ import {
   type OnboardingStepId,
 } from '@/lib/onboarding/config';
 import { ReceiptTemplate } from '@/components/receipt/receipt-template';
+import { LoadingSpinner as Loader2 } from '@/components/ui/page-loader';
 
 type FieldErrors = Record<string, string[] | undefined>;
 
@@ -1816,7 +1816,7 @@ export function OnboardingContainer({
           aria-busy={saving}
           className="relative inline-flex min-h-12 min-w-[190px] items-center justify-center gap-2 overflow-hidden rounded-lg bg-[#e42527] px-6 text-sm font-extrabold text-white shadow-[0_7px_18px_rgba(228,37,39,0.18)] outline-none transition hover:bg-[#cf1f22] hover:shadow-[0_9px_22px_rgba(228,37,39,0.24)] active:translate-y-px focus-visible:ring-2 focus-visible:ring-[#e42527] focus-visible:ring-offset-2 disabled:cursor-wait disabled:bg-[#d92326] disabled:shadow-[0_7px_18px_rgba(228,37,39,0.16)]"
         >
-          {saving && <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2.5} aria-hidden="true" />}
+          {saving && <Loader2 className="h-4 w-4" />}
           <span aria-live="polite">{submitLabel}</span>
           {!saving && <ArrowRight className="h-4 w-4" />}
           {saving && (

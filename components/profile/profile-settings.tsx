@@ -8,7 +8,6 @@ import {
   Camera,
   CheckCircle2,
   KeyRound,
-  Loader2,
   Mail,
   MapPin,
   Phone,
@@ -27,6 +26,7 @@ import { authClient } from '@/lib/auth-client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { LoadingSpinner as Loader2 } from '@/components/ui/page-loader';
 
 type ProfileData = Awaited<ReturnType<typeof getOwnProfile>>;
 

@@ -2,7 +2,8 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { AlertTriangle, Loader2, RotateCcw } from 'lucide-react'
+import { AlertTriangle, RotateCcw } from 'lucide-react'
+import { LoadingSpinner as Loader2 } from '@/components/ui/page-loader'
 import { PesabyLogoMark } from '@/components/brand/pesaby-logo'
 
 export function WorkspaceRecovery({ organizationName }: { organizationName: string }) {

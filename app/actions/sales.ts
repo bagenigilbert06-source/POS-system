@@ -2,7 +2,7 @@
 
 import { auth } from '@/lib/auth'
 import { db } from '@/lib/db'
-import { branch, sale, saleItem, saleItemLotAllocation, salePayment, product, productPackage, pharmacyConfiguration, pharmacyPrescriptionItem, pharmacyProduct, pharmacySaleRecord, restrictedItemAudit, businessSettings, auditEvent, posSession, customer, salesReturn, salesReturnItem, expense, user, category, etimsConfiguration, etimsSubmission, offlineSaleSync } from '@/lib/db/schema'
+import { branch, cardPaymentAttempt, cardTerminal, sale, saleItem, saleItemLotAllocation, salePayment, product, productPackage, pharmacyConfiguration, pharmacyPrescriptionItem, pharmacyProduct, pharmacySaleRecord, restrictedItemAudit, businessSettings, auditEvent, posSession, customer, salesReturn, salesReturnItem, expense, user, category, etimsConfiguration, etimsSubmission, offlineSaleSync } from '@/lib/db/schema'
 import { and, asc, desc, eq, gte, ilike, inArray, lt, lte, or, sql } from 'drizzle-orm'
 import { headers } from 'next/headers'
 import { revalidatePath } from 'next/cache'
@@ -77,6 +77,7 @@ export type CreateSaleInput = {
   paymentMethod: string
   mpesaRef?: string
   paymentReference?: string
+  cardPaymentAttemptId?: string
   mpesaPaymentRequestId?: string
   amountReceived?: number
   pointsToRedeem?: number
@@ -288,7 +289,7 @@ export async function createSale(data: CreateSaleInput) {
     throw new Error('Payment method not enabled for this workspace')
   }
   let paymentReference = (data.paymentReference ?? data.mpesaRef ?? '').trim().slice(0, 120)
-  if (data.paymentMethod === 'card' && !paymentReference) throw new Error('Enter the card approval or terminal reference')
+  if (data.paymentMethod === 'card' && !data.cardPaymentAttemptId) throw new Error('Record the approved physical terminal payment first')
   if (data.paymentMethod === 'bank_transfer' && !paymentReference) throw new Error('Enter the bank transfer reference')
   if (data.paymentMethod === 'airtel_money' && !paymentReference) throw new Error('Enter the Airtel Money transaction reference')
   
@@ -359,6 +360,25 @@ export async function createSale(data: CreateSaleInput) {
     if (data.paymentMethod === 'cash') {
       if (amountReceived < calculatedTotal) throw new Error('Insufficient payment received')
       changeAmount = amountReceived - calculatedTotal
+    }
+    let approvedCardAttempt: typeof cardPaymentAttempt.$inferSelect | null = null
+    if (data.paymentMethod === 'card') {
+      const [attempt] = await tx.select().from(cardPaymentAttempt).where(and(
+        eq(cardPaymentAttempt.id, data.cardPaymentAttemptId!),
+        eq(cardPaymentAttempt.organizationId, orgId),
+        eq(cardPaymentAttempt.branchId, saleBranchId),
+        eq(cardPaymentAttempt.posSessionId, activeShift.id),
+        eq(cardPaymentAttempt.cashierId, userId),
+        eq(cardPaymentAttempt.idempotencyKey, idempotencyKey),
+      )).limit(1).for('update')
+      if (!attempt) throw new Error('The approved card payment does not belong to this checkout')
+      if (attempt.status === 'completed' && attempt.saleId) throw new Error('This card approval has already been used')
+      if (attempt.status !== 'approved_pending_sale') throw new Error('This card approval requires reconciliation and cannot be reused')
+      const [terminal] = await tx.select({ id: cardTerminal.id }).from(cardTerminal).where(and(eq(cardTerminal.id, attempt.cardTerminalId), eq(cardTerminal.organizationId, orgId), eq(cardTerminal.branchId, saleBranchId), eq(cardTerminal.isActive, true))).limit(1)
+      if (!terminal) throw new Error('The selected physical card terminal is no longer active')
+      if (Math.abs(Number(attempt.amount) - calculatedTotal) > 0.009) throw new Error(`Terminal approval amount does not match the sale total of ${calculatedTotal.toFixed(2)}`)
+      approvedCardAttempt = attempt
+      paymentReference = attempt.reference || attempt.authorizationCode
     }
     // Verify and deduct branch stock atomically through the inventory ledger.
     const costByProduct = new Map<string, { unitCost: number; totalCost: number }>()
@@ -473,7 +493,14 @@ export async function createSale(data: CreateSaleInput) {
     await tx.insert(salePayment).values({
       id: generateId(), saleId, method: data.paymentMethod, amount: String(calculatedTotal),
       reference: paymentReference || null, status: 'completed', userId, orgId,
+      cardTerminalId: approvedCardAttempt?.cardTerminalId ?? null,
+      authorizationCode: approvedCardAttempt?.authorizationCode ?? null,
+      cardBrand: approvedCardAttempt?.cardBrand ?? null,
+      cardLast4: approvedCardAttempt?.last4 ?? null,
+      cardEntryMode: approvedCardAttempt?.entryMode ?? null,
     })
+
+    if (approvedCardAttempt) await tx.update(cardPaymentAttempt).set({ status: 'completed', saleId, recoveredAt: new Date(), updatedAt: new Date() }).where(eq(cardPaymentAttempt.id, approvedCardAttempt.id))
     
     // Create audit event
     await tx.insert(auditEvent).values({
@@ -495,6 +522,10 @@ export async function createSale(data: CreateSaleInput) {
         bonusRedeemed: rewards?.bonusRedeemed ?? 0,
         items: normalizedItems.length,
         paymentMethod: data.paymentMethod,
+        cardPaymentAttemptId: approvedCardAttempt?.id ?? null,
+        cardTerminalId: approvedCardAttempt?.cardTerminalId ?? null,
+        cardBrand: approvedCardAttempt?.cardBrand ?? null,
+        cardLast4: approvedCardAttempt?.last4 ?? null,
         amountReceived: data.paymentMethod === 'cash' ? amountReceived : null,
         change: data.paymentMethod === 'cash' ? changeAmount : null,
         paymentReceiver: data.paymentReceiver?.trim().slice(0, 120) || null,

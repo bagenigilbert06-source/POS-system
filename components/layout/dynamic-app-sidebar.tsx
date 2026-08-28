@@ -270,6 +270,9 @@ export function DynamicAppSidebar({
     'staff-performance': PermissionEnum.STAFF_VIEW,
     admin: PermissionEnum.ADMIN_ACCESS,
     etims: PermissionEnum.ETIMS_VIEW,
+    coupons: PermissionEnum.REWARDS_VIEW,
+    discounts: PermissionEnum.REWARDS_VIEW,
+    bonuses: PermissionEnum.REWARDS_VIEW,
   };
   // Unknown workspace items are hidden until they have an explicit permission mapping.
   const canView = (id: string) =>
@@ -277,7 +280,8 @@ export function DynamicAppSidebar({
       permissionForNavItem[id] && permissions.includes(permissionForNavItem[id])
     );
   const workspaceLabel = (id: string, fallback: string) =>
-    config.sidebarConfig.primaryNav.find((item) => item.id === id)?.label ?? fallback;
+    config.sidebarConfig.primaryNav.find((item) => item.id === id)?.label ??
+    fallback;
   const posNav = {
     id: 'pos',
     label: workspaceLabel('pos', 'Point of sale'),
@@ -314,6 +318,26 @@ export function DynamicAppSidebar({
     icon: 'ReceiptText',
     route: '/dashboard/etims',
   };
+  const promotionNav = [
+    {
+      id: 'coupons',
+      label: 'Coupons',
+      icon: 'Tags',
+      route: '/dashboard/promotions/coupons',
+    },
+    {
+      id: 'discounts',
+      label: 'Discounts',
+      icon: 'ReceiptText',
+      route: '/dashboard/promotions/discounts',
+    },
+    {
+      id: 'bonuses',
+      label: 'Bonuses',
+      icon: 'Sparkles',
+      route: '/dashboard/promotions/bonuses',
+    },
+  ];
   // Keep the navigation aligned with the way a shop is run: understand the
   // business first, sell second, then manage the catalogue and operations.
   // The workspace template still decides which entries exist; this only gives
@@ -336,6 +360,7 @@ export function DynamicAppSidebar({
       ? [myReceiptsNav]
       : []),
     ...workspaceNav,
+    ...(permissions.includes(PermissionEnum.REWARDS_VIEW) ? promotionNav : []),
     ...(permissions.includes(PermissionEnum.ETIMS_VIEW) ? [etimsNav] : []),
     ...(permissions.includes(PermissionEnum.STAFF_MANAGE) ? [staffNav] : []),
     ...(permissions.includes(PermissionEnum.STAFF_VIEW)
@@ -358,9 +383,7 @@ export function DynamicAppSidebar({
   const cashierPrimaryNav = [
     ...(canView('pos') ? [posNav] : []),
     ...(permissions.includes(PermissionEnum.SALES_VIEW_OWN)
-      ? [
-          myReceiptsNav,
-        ]
+      ? [myReceiptsNav]
       : []),
     ...(config.enabledModules.includes('customers') &&
     permissions.includes(PermissionEnum.CUSTOMER_VIEW)

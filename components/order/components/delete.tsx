@@ -15,7 +15,7 @@ import { TransactionData } from '@/types/transaction';
 import { Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import axios from 'axios';
-import { ReloadIcon } from '@radix-ui/react-icons';
+import { LoadingSpinner as ReloadIcon } from '@/components/ui/page-loader';
 import eventBus from '@/lib/even';
 import { notify } from '@/lib/notify';
 interface DialogDeleteProps {

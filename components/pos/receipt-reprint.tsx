@@ -1,12 +1,14 @@
 'use client'
 
 import { useState, useRef } from 'react'
-import { Search, Printer, X, Loader2, RefreshCw } from 'lucide-react'
+import { Search, Printer, X, RefreshCw } from 'lucide-react'
+import { LoadingSpinner as Loader2 } from '@/components/ui/page-loader'
 import { notify } from '@/lib/notify'
 import { formatCurrency } from '@/lib/utils'
 import { ReceiptTemplate } from '@/components/receipt/receipt-template'
 import { getSalesByReceiptNo, getSalesByDateRange } from '@/app/actions/pos-queries'
 import type { Sale, SaleItem } from '@/lib/db/schema'
+import { browserPrintReceipt, captureReceiptHtml, directPrintReceipt, type ReceiptPrinterSettings } from '@/lib/printing/receipt-print-service'
 
 type ReprintSale = Awaited<ReturnType<typeof getSalesByReceiptNo>>[number]
 
@@ -28,6 +30,13 @@ interface ReceiptReprintProps {
     receiptShowPayment?: boolean
     receiptShowQrCode?: boolean
     receiptShowItemSku?: boolean
+    receiptPrintingMode: 'direct' | 'browser'
+    receiptPrinterName: string
+    receiptPaperWidth: 58 | 80
+    receiptAutoPrint: boolean
+    receiptPrintCustomerCopy: boolean
+    receiptPrintCopies: number
+    receiptCashDrawerPulse: boolean
   }
   onRefund?: (sale: Sale & { items: SaleItem[] }) => void
 }
@@ -38,6 +47,7 @@ export function ReceiptReprint({ onClose, settings, onRefund }: ReceiptReprintPr
   const [sales, setSales] = useState<ReprintSale[]>([])
   const [selectedSale, setSelectedSale] = useState<ReprintSale | null>(null)
   const [searching, setSearching] = useState(false)
+  const [printing, setPrinting] = useState(false)
   const printRef = useRef<HTMLDivElement>(null)
 
   const handleSearch = async () => {
@@ -86,10 +96,20 @@ export function ReceiptReprint({ onClose, settings, onRefund }: ReceiptReprintPr
     }
   }
 
-  const handlePrint = () => {
-    if (printRef.current) {
-      window.print()
-    }
+  const printerSettings: ReceiptPrinterSettings = { mode: settings.receiptPrintingMode, printerName: settings.receiptPrinterName, paperWidth: settings.receiptPaperWidth, autoPrint: false, customerCopy: settings.receiptPrintCustomerCopy, copies: settings.receiptPrintCopies, cashDrawerPulse: false }
+  const receiptMarkup = () => { const paper = printRef.current?.querySelector<HTMLElement>('.receipt-paper'); return paper ? captureReceiptHtml(paper) : null }
+  const handleBrowserPrint = () => {
+    const html = receiptMarkup(); if (!html) return notify.error('Receipt preview is unavailable')
+    try { browserPrintReceipt(html, settings.receiptPaperWidth); notify.info('Print dialog opened') } catch { notify.error('Could not open the print dialog') }
+  }
+  const handlePrint = async () => {
+    const html = receiptMarkup(); if (!html) return notify.error('Receipt preview is unavailable')
+    if (settings.receiptPrintingMode === 'browser') return handleBrowserPrint()
+    setPrinting(true)
+    const toastId = notify.loading('Printing receipt…')
+    try { await directPrintReceipt(html, printerSettings); notify.success('Receipt printed', { id: toastId, description: `Submitted to ${settings.receiptPrinterName}.` }) }
+    catch (error) { notify.error('Receipt could not be printed', { id: toastId, description: error instanceof Error ? error.message : 'Printer unavailable', action: { label: 'Try again', onClick: () => void handlePrint() }, cancel: { label: 'Browser print', onClick: handleBrowserPrint } }) }
+    finally { setPrinting(false) }
   }
 
   if (selectedSale) {
@@ -143,12 +163,14 @@ export function ReceiptReprint({ onClose, settings, onRefund }: ReceiptReprintPr
               </button>
             )}
             <button
-              onClick={handlePrint}
+              onClick={() => void handlePrint()}
+              disabled={printing}
               className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-[#e42527] px-4 py-2 font-medium text-white hover:bg-[#c91f22]"
             >
-              <Printer className="h-4 w-4" />
-              Print
+              {printing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Printer className="h-4 w-4" />}
+              {printing ? 'Printing…' : 'Print'}
             </button>
+            {settings.receiptPrintingMode === 'direct' && <button onClick={handleBrowserPrint} className="rounded-lg border px-3 py-2 text-sm font-medium">Browser print</button>}
           </div>
         </div>
       </div>

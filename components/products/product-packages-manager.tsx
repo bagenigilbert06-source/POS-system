@@ -4,7 +4,8 @@ import { useState } from 'react'
 import { archiveProductPackage, saveProductPackage } from '@/app/actions/products'
 import type { ProductPackage } from '@/lib/db/schema'
 import { formatCurrency } from '@/lib/utils'
-import { Loader2, PackagePlus, Trash2 } from 'lucide-react'
+import { PackagePlus, Trash2 } from 'lucide-react'
+import { LoadingSpinner as Loader2 } from '@/components/ui/page-loader'
 import { notify } from '@/lib/notify'
 
 export function ProductPackagesManager({ productId, initialPackages, pharmacyMode = false, baseUnitLabel = 'bottle' }: { productId: string; initialPackages: ProductPackage[]; pharmacyMode?: boolean; baseUnitLabel?: string }) {

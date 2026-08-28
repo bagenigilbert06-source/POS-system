@@ -10,7 +10,6 @@ import {
   ChevronUp,
   CircleAlert,
   KeyRound,
-  Loader2,
   MapPin,
   RefreshCw,
   UserRound,
@@ -18,6 +17,7 @@ import {
 import { notify } from '@/lib/notify'
 import { createEmployee } from '@/app/actions/staff-actions'
 import { StaffPhotoField } from './staff-photo-field'
+import { LoadingSpinner as Loader2 } from '@/components/ui/page-loader'
 import { STAFF_DEPARTMENTS, STAFF_DEPARTMENT_LABELS, type StaffDepartment } from '@/lib/types/staff'
 import { STAFF_ROLE_LABELS, type StaffManagedRole } from '@/lib/types/permissions'
 

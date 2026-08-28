@@ -46,7 +46,7 @@ export default async function POSPage() {
     throw new Error('No authorized POS branch is available');
 
   return (
-    <div className="pos-workspace flex h-full min-h-0 flex-col gap-3 bg-[#f4f6f8] p-3 pb-[62px] dark:bg-[#090909] sm:p-4 sm:pb-[64px]">
+    <div className="pos-workspace flex h-full min-h-0 flex-col gap-3 bg-[#f4f6f8] p-3 pb-[62px] dark:bg-[var(--dashboard-canvas)] sm:p-4 sm:pb-[64px]">
       <CashierShiftStrip
         workspace={data.cashierWorkspace}
         canManageCash={operator.permissions.includes(

@@ -1,21 +1,58 @@
-'use client'
+'use client';
 
-import { useState, useCallback, useRef, useEffect, useMemo, useDeferredValue, type ReactNode } from 'react'
-import { useRouter } from 'next/navigation'
-import Image from 'next/image'
-import dynamic from 'next/dynamic'
-import { createSale, syncOfflineSale, type CartItem } from '@/app/actions/sales'
-import { findManualMpesaPayment, getFinalizedMpesaSale, getManualMpesaOptions, getMpesaPaymentStatus, initiateMpesaPaybillPayment, initiateMpesaPayment, setManualMpesaPayerPhone } from '@/app/actions/mpesa'
-import { createCustomer } from '@/app/actions/customers'
-import { discardHeldSale, holdSaleOnServer, listHeldSales, resumeHeldSaleFromServer, type HeldSaleRecord } from '@/app/actions/held-sales'
-import { formatCurrency, formatDateTime, normalizeBarcode } from '@/lib/utils'
-import { cn } from '@/lib/utils'
+import {
+  useState,
+  useCallback,
+  useRef,
+  useEffect,
+  useMemo,
+  useDeferredValue,
+  type ReactNode,
+} from 'react';
+import { useRouter } from 'next/navigation';
+import Image from 'next/image';
+import dynamic from 'next/dynamic';
+import {
+  createSale,
+  syncOfflineSale,
+  type CartItem,
+} from '@/app/actions/sales';
+import {
+  cancelMpesaPayment,
+  findManualMpesaPayment,
+  getFinalizedMpesaSale,
+  getManualMpesaOptions,
+  getMpesaPaymentStatus,
+  initiateMpesaPaybillPayment,
+  initiateMpesaPayment,
+  setManualMpesaPayerPhone,
+} from '@/app/actions/mpesa';
+import { createCustomer } from '@/app/actions/customers';
+import { validateCoupon } from '@/app/actions/promotions';
+import {
+  getAirtelMoneyPaymentStatus,
+  initiateAirtelMoneyPayment,
+} from '@/app/actions/airtel-money';
+import {
+  listActiveCardTerminals,
+  markCardAttemptForReconciliation,
+  prepareCardPaymentAttempt,
+  type ActiveCardTerminal,
+} from '@/app/actions/card-payments';
+import {
+  discardHeldSale,
+  holdSaleOnServer,
+  listHeldSales,
+  resumeHeldSaleFromServer,
+  type HeldSaleRecord,
+} from '@/app/actions/held-sales';
+import { formatCurrency, formatDateTime, normalizeBarcode } from '@/lib/utils';
+import { cn } from '@/lib/utils';
 import {
   Plus,
   Minus,
   Trash2,
   ShoppingCart,
-  Loader2,
   CheckCircle2,
   X,
   Package,
@@ -48,158 +85,251 @@ import {
   CloudOff,
   RefreshCw,
   Info,
-} from 'lucide-react'
-import type { Product, ProductPackage, PharmacyProduct, Customer, Sale, SaleItem } from '@/lib/db/schema'
-import { notify } from '@/lib/notify'
-import { CompactScrollArea } from '@/components/ui/compact-scroll-area'
-import { calculateMpesaAmount } from '@/lib/mpesa/amount'
-import { adoptLegacyOfflineSales, cacheOfflineCatalogue, listOfflineSales, readOfflineCatalogue, saveOfflineSale, updateOfflineSale, type OfflineSaleRecord } from '@/lib/pos/offline-store'
-import { bindPosConnectivityEvents, checkoutAlreadyQueued, createProvisionalReceiptNo, isConnectivityFailure, offlineWorkspaceStorageKey, shouldSynchronizeOfflineSale, summarizeOfflineQueue } from '@/lib/pos/offline-policy'
-import { useWorkspace } from '@/lib/context/workspace-context'
-import { getProductTerminology } from '@/lib/products/terminology'
+} from 'lucide-react';
+import type {
+  Product,
+  ProductPackage,
+  PharmacyProduct,
+  Customer,
+  Sale,
+  SaleItem,
+} from '@/lib/db/schema';
+import { notify } from '@/lib/notify';
+import { CompactScrollArea } from '@/components/ui/compact-scroll-area';
+import { LoadingSpinner as Loader2 } from '@/components/ui/page-loader';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { calculateMpesaAmount } from '@/lib/mpesa/amount';
+import {
+  adoptLegacyOfflineSales,
+  cacheOfflineCatalogue,
+  listOfflineSales,
+  readOfflineCatalogue,
+  saveOfflineSale,
+  updateOfflineSale,
+  type OfflineSaleRecord,
+} from '@/lib/pos/offline-store';
+import {
+  bindPosConnectivityEvents,
+  checkoutAlreadyQueued,
+  createProvisionalReceiptNo,
+  isConnectivityFailure,
+  offlineWorkspaceStorageKey,
+  shouldSynchronizeOfflineSale,
+  summarizeOfflineQueue,
+} from '@/lib/pos/offline-policy';
+import { useWorkspace } from '@/lib/context/workspace-context';
+import { getProductTerminology } from '@/lib/products/terminology';
+import { browserPrintReceipt, captureReceiptHtml, directPrintReceipt, type ReceiptPrinterSettings } from '@/lib/printing/receipt-print-service';
 
-const RefundDialog = dynamic(() => import('./refund-dialog').then((module) => module.RefundDialog), { ssr: false })
-const ReceiptReprint = dynamic(() => import('./receipt-reprint').then((module) => module.ReceiptReprint), { ssr: false })
-const SalesHistoryModal = dynamic(() => import('./sales-history-modal').then((module) => module.SalesHistoryModal), { ssr: false })
-const ReceiptTemplate = dynamic(() => import('@/components/receipt/receipt-template').then((module) => module.ReceiptTemplate), { ssr: false })
-const WirelessScannerPairing = dynamic(() => import('@/components/barcode/wireless-scanner-pairing').then((module) => module.WirelessScannerPairing), { ssr: false })
+const RefundDialog = dynamic(
+  () => import('./refund-dialog').then((module) => module.RefundDialog),
+  { ssr: false }
+);
+const ReceiptReprint = dynamic(
+  () => import('./receipt-reprint').then((module) => module.ReceiptReprint),
+  { ssr: false }
+);
+const SalesHistoryModal = dynamic(
+  () =>
+    import('./sales-history-modal').then((module) => module.SalesHistoryModal),
+  { ssr: false }
+);
+const ReceiptTemplate = dynamic(
+  () =>
+    import('@/components/receipt/receipt-template').then(
+      (module) => module.ReceiptTemplate
+    ),
+  { ssr: false }
+);
+const WirelessScannerPairing = dynamic(
+  () =>
+    import('@/components/barcode/wireless-scanner-pairing').then(
+      (module) => module.WirelessScannerPairing
+    ),
+  { ssr: false }
+);
 
-type PosProduct = Product & { packages: ProductPackage[]; pharmacy?: PharmacyProduct | null }
+type PosProduct = Product & {
+  packages: ProductPackage[];
+  pharmacy?: PharmacyProduct | null;
+};
 
 interface POSTerminalProps {
-  standalone?: boolean
-  organizationId: string
-  products: PosProduct[]
-  categories: Array<{ id: string; name: string }>
-  requiresAgeVerification?: boolean
-  pharmacyMode?: boolean
-  customers: Customer[]
+  standalone?: boolean;
+  organizationId: string;
+  products: PosProduct[];
+  categories: Array<{ id: string; name: string }>;
+  requiresAgeVerification?: boolean;
+  pharmacyMode?: boolean;
+  customers: Customer[];
   settings: {
-    displayName: string
-    receiptBusinessName: string
-    receiptPhone: string
-    receiptAddress: string
-    receiptFooter: string
-    receiptLayout: 'detailed' | 'thermal'
-    receiptTemplate: 'classic' | 'logo' | 'cafe'
-    receiptLogoUrl: string
-    taxEnabled: boolean
-    taxRate: number
-    taxName: string
-    pricesIncludeTax: boolean
-    paymentMethods: string[]
-    showTaxOnReceipt: boolean
-    receiptShowPhone: boolean
-    receiptShowAddress: boolean
-    receiptShowCashier: boolean
-    receiptShowCustomer: boolean
-    receiptShowPayment: boolean
-    receiptShowQrCode: boolean
-    receiptShowItemSku: boolean
-  }
-  startCheckout?: boolean
-  checkoutOnly?: boolean
-  hasActiveShift?: boolean
-  canDiscount?: boolean
-  canRefund?: boolean
-  canHold?: boolean
-  canApproveRestricted?: boolean
+    displayName: string;
+    receiptBusinessName: string;
+    receiptPhone: string;
+    receiptAddress: string;
+    receiptFooter: string;
+    receiptLayout: 'detailed' | 'thermal';
+    receiptTemplate: 'classic' | 'logo' | 'cafe';
+    receiptLogoUrl: string;
+    taxEnabled: boolean;
+    taxRate: number;
+    taxName: string;
+    pricesIncludeTax: boolean;
+    paymentMethods: string[];
+    showTaxOnReceipt: boolean;
+    receiptShowPhone: boolean;
+    receiptShowAddress: boolean;
+    receiptShowCashier: boolean;
+    receiptShowCustomer: boolean;
+    receiptShowPayment: boolean;
+    receiptShowQrCode: boolean;
+    receiptShowItemSku: boolean;
+    receiptPrintingMode: 'direct' | 'browser';
+    receiptPrinterName: string;
+    receiptPaperWidth: 58 | 80;
+    receiptAutoPrint: boolean;
+    receiptPrintCustomerCopy: boolean;
+    receiptPrintCopies: number;
+    receiptCashDrawerPulse: boolean;
+  };
+  startCheckout?: boolean;
+  checkoutOnly?: boolean;
+  hasActiveShift?: boolean;
+  canDiscount?: boolean;
+  canRefund?: boolean;
+  canHold?: boolean;
+  canApproveRestricted?: boolean;
   receiptContext?: {
-    cashierName?: string
-    registerName?: string | null
-    locationName?: string | null
-  }
+    cashierName?: string;
+    registerName?: string | null;
+    locationName?: string | null;
+  };
   offlineContext?: {
-    sessionId: string | null
-    branchId: string
-    terminalId: string | null
-  }
+    sessionId: string | null;
+    branchId: string;
+    terminalId: string | null;
+  };
 }
 
 interface ReceiptData {
-  saleId: string
-  receiptNo: string
-  items: Array<CartItem & { saleItemId: string }>
-  subtotal: number
-  taxAmount: number
-  shippingAmount: number
-  discountAmount: number
-  roundingAmount: number
-  total: number
-  paymentMethod: string
-  mpesaRef?: string
-  mpesaMode?: 'stk' | 'till' | 'paybill'
-  mpesaPhone?: string
-  mpesaMerchant?: string
-  mpesaAccountReference?: string | null
-  change: number
-  idempotencyKey: string
-  ageVerified: boolean
-  completedAt: Date
-  amountReceived?: number
-  discountType?: 'fixed' | 'percentage'
-  discountValue?: number
-  customerName: string
-  customerEmail?: string | null
+  saleId: string;
+  receiptNo: string;
+  items: Array<CartItem & { saleItemId: string }>;
+  subtotal: number;
+  taxAmount: number;
+  shippingAmount: number;
+  discountAmount: number;
+  roundingAmount: number;
+  total: number;
+  paymentMethod: string;
+  mpesaRef?: string;
+  mpesaMode?: 'stk' | 'till' | 'paybill';
+  mpesaPhone?: string;
+  mpesaMerchant?: string;
+  mpesaAccountReference?: string | null;
+  change: number;
+  idempotencyKey: string;
+  ageVerified: boolean;
+  completedAt: Date;
+  amountReceived?: number;
+  discountType?: 'fixed' | 'percentage';
+  discountValue?: number;
+  customerName: string;
+  customerEmail?: string | null;
   etims?: {
-    status: string
-    message?: string
-    environment?: string
-    invoiceNumber?: string | null
-    controlNumber?: string | null
-    receiptNumber?: string | null
-    internalReference?: string | null
-    qrData?: string | null
-    verificationData?: string | null
-    showOnReceipt?: boolean
-  }
+    status: string;
+    message?: string;
+    environment?: string;
+    invoiceNumber?: string | null;
+    controlNumber?: string | null;
+    receiptNumber?: string | null;
+    internalReference?: string | null;
+    qrData?: string | null;
+    verificationData?: string | null;
+    showOnReceipt?: boolean;
+  };
   offline?: {
-    status: 'PENDING' | 'SYNCED'
-    provisionalReceiptNo: string
-  }
+    status: 'PENDING' | 'SYNCED';
+    provisionalReceiptNo: string;
+  };
 }
 
-type HeldSale = HeldSaleRecord
+type HeldSale = HeldSaleRecord;
 
-type MpesaStatus = 'idle' | 'initiating' | 'pending' | 'success' | 'cancelled' | 'failed' | 'timeout'
-type SummaryEditor = 'tax' | 'coupon' | 'discount' | 'shipping' | null
+type MpesaStatus =
+  | 'idle'
+  | 'initiating'
+  | 'pending'
+  | 'success'
+  | 'cancelled'
+  | 'failed'
+  | 'timeout';
+type SummaryEditor = 'tax' | 'coupon' | 'discount' | 'shipping' | null;
 
 function createIdempotencyKey() {
-  return crypto.randomUUID()
+  return crypto.randomUUID();
 }
 
 function formatMpesaAmount(value: number, decimals = true) {
-  return `KES ${value.toLocaleString('en-KE', { minimumFractionDigits: decimals ? 2 : 0, maximumFractionDigits: decimals ? 2 : 0 })}`
+  return `KES ${value.toLocaleString('en-KE', { minimumFractionDigits: decimals ? 2 : 0, maximumFractionDigits: decimals ? 2 : 0 })}`;
 }
 
 function maskKenyanPhone(value: string) {
-  const digits = value.replace(/\D/g, '')
-  const normalized = digits.startsWith('254') ? digits : digits.startsWith('0') ? `254${digits.slice(1)}` : `254${digits}`
-  return normalized.length >= 12 ? `+254 ${normalized.slice(3, 6)} *** ${normalized.slice(-3)}` : value
+  const digits = value.replace(/\D/g, '');
+  const normalized = digits.startsWith('254')
+    ? digits
+    : digits.startsWith('0')
+      ? `254${digits.slice(1)}`
+      : `254${digits}`;
+  return normalized.length >= 12
+    ? `+254 ${normalized.slice(3, 6)} *** ${normalized.slice(-3)}`
+    : value;
 }
 
 function normalizeKenyanPhoneDraft(value: string) {
-  const digits = value.replace(/\D/g, '')
-  if (!digits) return ''
-  if (digits.startsWith('254')) return digits.slice(0, 12)
-  if (digits.startsWith('0')) return `254${digits.slice(1)}`.slice(0, 12)
-  return `254${digits}`.slice(0, 12)
+  const digits = value.replace(/\D/g, '');
+  if (!digits) return '';
+  if (digits.startsWith('254')) return digits.slice(0, 12);
+  if (digits.startsWith('0')) return `254${digits.slice(1)}`.slice(0, 12);
+  return `254${digits}`.slice(0, 12);
 }
 
 function formatKenyanPhoneInput(value: string) {
-  const digits = value.replace(/\D/g, '')
-  if (!digits) return ''
-  if (!digits.startsWith('254')) return value
-  const national = digits.slice(3, 12)
-  return ['+254', national.slice(0, 3), national.slice(3, 6), national.slice(6, 9)].filter(Boolean).join(' ')
+  const digits = value.replace(/\D/g, '');
+  if (!digits) return '';
+  if (!digits.startsWith('254')) return value;
+  const national = digits.slice(3, 12);
+  return [
+    '+254',
+    national.slice(0, 3),
+    national.slice(3, 6),
+    national.slice(6, 9),
+  ]
+    .filter(Boolean)
+    .join(' ');
 }
 
 function SummaryEditIcon({ className }: { className?: string }) {
   return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960" fill="currentColor" aria-hidden="true" className={className}>
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 -960 960 960"
+      fill="currentColor"
+      aria-hidden="true"
+      className={className}
+    >
       <path d="M200-120q-33 0-56.5-23.5T120-200v-560q0-33 23.5-56.5T200-840h357l-80 80H200v560h560v-278l80-80v358q0 33-23.5 56.5T760-120H200Zm280-360ZM360-360v-170l367-367q12-12 27-18t30-6q16 0 30.5 6t26.5 18l56 57q11 12 17 26.5t6 29.5q0 15-5.5 29.5T897-728L530-360H360Zm481-424-56-56 56 56ZM440-440h56l232-232-28-28-29-28-231 231v57Zm260-260-29-28 29 28 28 28-28-28Z" />
     </svg>
-  )
+  );
 }
 
 /**
@@ -209,283 +339,567 @@ function SummaryEditIcon({ className }: { className?: string }) {
  */
 const ui = {
   card: 'rounded-xl border border-[#e4e7ec] bg-white dark:border-white/10 dark:bg-[#161616]',
-  panel: 'rounded-xl border border-[#e4e7ec] bg-[#fbfbfc] dark:border-white/10 dark:bg-[#131313]',
+  panel:
+    'rounded-xl border border-[#e4e7ec] bg-[#fbfbfc] dark:border-white/10 dark:bg-[#131313]',
   subtleBtn:
     'rounded-lg border border-[#d8dce3] bg-white px-3 py-2 text-xs font-medium text-[#344054] transition-colors hover:bg-[#f9fafb] disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/10 dark:bg-transparent dark:text-[#d0d5dd] dark:hover:bg-white/5',
   input:
     'w-full rounded-lg border border-[#d0d5dd] bg-white px-3 py-2 text-sm text-[#101828] outline-none transition-shadow placeholder:text-[#98a2b3] focus:border-[#101828] focus:ring-4 focus:ring-[#101828]/[0.06] disabled:bg-[#f9fafb] disabled:text-[#98a2b3] dark:border-white/10 dark:bg-[#1c1c1c] dark:text-[#f2f2f2]',
-  label: 'mb-1.5 block text-[11px] font-semibold uppercase tracking-wide text-[#667085] dark:text-[#8b8b8b]',
+  label:
+    'mb-1.5 block text-[11px] font-semibold uppercase tracking-wide text-[#667085] dark:text-[#8b8b8b]',
   divider: 'border-[#e4e7ec] dark:border-white/10',
   primary: '#F2B705',
   primaryHover: '#E0A800',
   primaryInk: '#241D00',
-}
+};
 
-type PosPaymentMethod = 'cash' | 'mpesa' | 'airtel_money' | 'card' | 'bank_transfer'
+type PosPaymentMethod =
+  | 'cash'
+  | 'mpesa'
+  | 'airtel_money'
+  | 'card'
+  | 'bank_transfer';
 
-function PaymentBrand({ method, compact = false }: { method: PosPaymentMethod; compact?: boolean }) {
-  if (method === 'cash') return (
-    <span className={cn('flex items-center justify-center overflow-hidden bg-[#f5b800] text-[#241d00]', compact ? 'h-11 w-16 rounded-md' : 'h-full w-full rounded-[7px]')}>
-      <span className={cn('flex items-center font-extrabold tracking-tight', compact ? 'gap-1 text-[11px]' : 'gap-2 text-base')}><Banknote className={compact ? 'h-4 w-4' : 'h-6 w-6'} aria-hidden="true" /><span>Cash</span></span>
-    </span>
-  )
-  if (method === 'mpesa') return (
-    <span className={cn('flex items-center justify-center px-5', compact ? 'h-11 w-16 rounded-md bg-white' : 'h-full w-full rounded-[7px] bg-[#08ad35]')}>
-      <Image src="/payment-logos/mpesa.svg" alt="M-Pesa" width={150} height={80} className={cn('w-auto object-contain', compact ? 'h-8' : 'h-8 brightness-0 invert')} />
-    </span>
-  )
-  if (method === 'airtel_money') return <span className={cn('flex items-center justify-center bg-[#e40000] px-5', compact ? 'h-11 w-16 rounded-md' : 'h-full w-full rounded-[7px]')}><Image src="/payment-logos/airtel-money.svg" alt="Airtel Money" width={150} height={55} className={cn('w-auto object-contain', compact ? 'h-8' : 'h-9')} /></span>
-  if (method === 'bank_transfer') return <span className={cn('flex items-center justify-center bg-[#092c4c] text-white', compact ? 'h-11 w-16 rounded-md' : 'h-full w-full rounded-[10px]')}><Building2 className={compact ? 'h-6 w-6' : 'h-10 w-10'} /></span>
+function PaymentBrand({
+  method,
+  compact = false,
+}: {
+  method: PosPaymentMethod;
+  compact?: boolean;
+}) {
+  if (method === 'cash')
+    return (
+      <span
+        className={cn(
+          'flex items-center justify-center overflow-hidden bg-[#f5b800] text-[#241d00]',
+          compact ? 'h-11 w-16 rounded-md' : 'h-full w-full rounded-[7px]'
+        )}
+      >
+        <span
+          className={cn(
+            'flex items-center font-extrabold tracking-tight',
+            compact ? 'gap-1 text-[11px]' : 'gap-2 text-base'
+          )}
+        >
+          <Banknote
+            className={compact ? 'h-4 w-4' : 'h-6 w-6'}
+            aria-hidden="true"
+          />
+          <span>Cash</span>
+        </span>
+      </span>
+    );
+  if (method === 'mpesa')
+    return (
+      <span
+        className={cn(
+          'flex items-center justify-center px-5',
+          compact
+            ? 'h-11 w-16 rounded-md bg-white'
+            : 'h-full w-full rounded-[7px] bg-[#08ad35]'
+        )}
+      >
+        <Image
+          src="/payment-logos/mpesa.svg"
+          alt="M-Pesa"
+          width={150}
+          height={80}
+          className={cn(
+            'w-auto object-contain',
+            compact ? 'h-8' : 'h-8 brightness-0 invert'
+          )}
+        />
+      </span>
+    );
+  if (method === 'airtel_money')
+    return (
+      <span
+        className={cn(
+          'flex items-center justify-center bg-[#e40000] px-5',
+          compact ? 'h-11 w-16 rounded-md' : 'h-full w-full rounded-[7px]'
+        )}
+      >
+        <Image
+          src="/payment-logos/airtel-money.svg"
+          alt="Airtel Money"
+          width={150}
+          height={55}
+          className={cn('w-auto object-contain', compact ? 'h-8' : 'h-9')}
+        />
+      </span>
+    );
+  if (method === 'bank_transfer')
+    return (
+      <span
+        className={cn(
+          'flex items-center justify-center bg-[#092c4c] text-white',
+          compact ? 'h-11 w-16 rounded-md' : 'h-full w-full rounded-[10px]'
+        )}
+      >
+        <Building2 className={compact ? 'h-6 w-6' : 'h-10 w-10'} />
+      </span>
+    );
   return (
-    <span className={cn('flex items-center justify-center gap-2.5 px-5', compact ? 'h-11 w-16 rounded-md bg-white' : 'h-full w-full rounded-[7px] bg-[#2056a0]')}>
-      <Image src="/payment-logos/visa.svg" alt="Visa" width={70} height={40} className={cn('w-auto object-contain', compact ? 'h-4' : 'h-5 brightness-0 invert')} />
-      <Image src="/payment-logos/mastercard-color.svg" alt="Mastercard" width={48} height={30} style={{ width: 'auto' }} className={cn('object-contain', compact ? 'h-4' : 'h-5')} />
+    <span
+      className={cn(
+        'flex items-center justify-center gap-2.5 px-5',
+        compact
+          ? 'h-11 w-16 rounded-md bg-white'
+          : 'h-full w-full rounded-[7px] bg-[#2056a0]'
+      )}
+    >
+      <Image
+        src="/payment-logos/visa.svg"
+        alt="Visa"
+        width={70}
+        height={40}
+        className={cn(
+          'w-auto object-contain',
+          compact ? 'h-4' : 'h-5 brightness-0 invert'
+        )}
+      />
+      <Image
+        src="/payment-logos/mastercard-color.svg"
+        alt="Mastercard"
+        width={48}
+        height={30}
+        style={{ width: 'auto' }}
+        className={cn('object-contain', compact ? 'h-4' : 'h-5')}
+      />
     </span>
-  )
+  );
 }
 
-function ReceiptMeta({ mark, label, value }: { mark: ReactNode; label: string; value: string }) {
+function ReceiptMeta({
+  mark,
+  label,
+  value,
+}: {
+  mark: ReactNode;
+  label: string;
+  value: string;
+}) {
   return (
     <div className="min-w-0 rounded-lg border border-[#e4e7ec] bg-white px-2.5 py-2.5 dark:border-white/10 dark:bg-[#191919]">
-      <p className="flex items-center gap-1.5 text-[9px] font-bold uppercase leading-none tracking-[0.08em] text-[#667085] dark:text-[#a8a8a8]">{mark}{label}</p>
-      <p className="mt-1.5 truncate text-xs font-semibold leading-none text-[#101828] dark:text-white" title={value} aria-label={value}>{value}</p>
+      <p className="flex items-center gap-1.5 text-[9px] font-bold uppercase leading-none tracking-[0.08em] text-[#667085] dark:text-[#a8a8a8]">
+        {mark}
+        {label}
+      </p>
+      <p
+        className="mt-1.5 truncate text-xs font-semibold leading-none text-[#101828] dark:text-white"
+        title={value}
+        aria-label={value}
+      >
+        {value}
+      </p>
     </div>
-  )
+  );
 }
 
-export function POSTerminal({ standalone = false, organizationId, products, categories, customers, settings, requiresAgeVerification = false, pharmacyMode = false, startCheckout = false, checkoutOnly = false, hasActiveShift = false, canDiscount = false, canRefund = false, canHold = false, canApproveRestricted = false, receiptContext, offlineContext }: POSTerminalProps) {
-  const { config } = useWorkspace()
-  const productTerms = getProductTerminology(config?.businessType, config?.businessCategory)
-  const router = useRouter()
-  const cartStorageKey = offlineWorkspaceStorageKey(organizationId, 'cart')
-  const checkoutStorageKey = offlineWorkspaceStorageKey(organizationId, 'checkout-id')
-  const mpesaStorageKey = offlineWorkspaceStorageKey(organizationId, 'mpesa')
-  const [catalogProducts, setCatalogProducts] = useState(products)
-  const [search, setSearch] = useState('')
-  const [selectedCategory, setSelectedCategory] = useState<string>('')
-  const [cart, setCart] = useState<CartItem[]>([])
-  const [cartHydrated, setCartHydrated] = useState(false)
-  const [discount, setDiscount] = useState(0)
-  const [discountType, setDiscountType] = useState<'fixed' | 'percentage'>('fixed')
-  const [couponCode, setCouponCode] = useState('')
-  const [couponValue, setCouponValue] = useState(0)
-  const [shippingCost, setShippingCost] = useState(0)
-  const [roundoffEnabled, setRoundoffEnabled] = useState(true)
-  const [summaryEditor, setSummaryEditor] = useState<SummaryEditor>(null)
-  const [summaryDraftType, setSummaryDraftType] = useState<'fixed' | 'percentage'>('fixed')
-  const [summaryDraftValue, setSummaryDraftValue] = useState('')
-  const [couponDraftCode, setCouponDraftCode] = useState('')
-  const [paymentMethod, setPaymentMethod] = useState<PosPaymentMethod>('cash')
-  const [paymentReceiver, setPaymentReceiver] = useState('')
-  const [cardApproved, setCardApproved] = useState(false)
-  const [paymentNote, setPaymentNote] = useState('')
-  const [saleNote, setSaleNote] = useState('')
-  const [staffNote, setStaffNote] = useState('')
-  const [mpesaRef, setMpesaRef] = useState('')
-  const [mpesaPhone, setMpesaPhone] = useState('')
-  const [mpesaFlow, setMpesaFlow] = useState<'stk' | 'paybill'>('stk')
-  const [mpesaAccountReference, setMpesaAccountReference] = useState('')
-  const [mpesaShortcode, setMpesaShortcode] = useState('')
-  const [mpesaAccountType, setMpesaAccountType] = useState<'paybill' | 'till'>('paybill')
-  const [mpesaManualAccounts, setMpesaManualAccounts] = useState<Array<{ shortcode: string; accountType: 'paybill' | 'till' }>>([])
-  const [mpesaMerchantName, setMpesaMerchantName] = useState<string | null>(null)
-  const [mpesaRequestId, setMpesaRequestId] = useState('')
-  const [mpesaStatus, setMpesaStatus] = useState<MpesaStatus>('idle')
-  const [mpesaMessage, setMpesaMessage] = useState('')
-  const manualMpesaStartRef = useRef<() => void>(() => undefined)
-  const [amountPaid, setAmountPaid] = useState('')
-  const [selectedCustomer, setSelectedCustomer] = useState<string>('')
-  const [prescriptionReference, setPrescriptionReference] = useState('')
-  const [prescriberReference, setPrescriberReference] = useState('')
-  const [patientReference, setPatientReference] = useState('')
-  const [prescriptionIssuedAt, setPrescriptionIssuedAt] = useState('')
-  const [prescriptionExpiresAt, setPrescriptionExpiresAt] = useState('')
-  const [pharmacyNotes, setPharmacyNotes] = useState('')
-  const [customerMenuOpen, setCustomerMenuOpen] = useState(false)
-  const [processing, setProcessing] = useState(false)
-  const [receipt, setReceipt] = useState<ReceiptData | null>(null)
-  const [showNewCustomer, setShowNewCustomer] = useState(false)
-  const [newCustomerName, setNewCustomerName] = useState('')
-  const [newCustomerPhone, setNewCustomerPhone] = useState('')
-  const [newCustomerEmail, setNewCustomerEmail] = useState('')
-  const [newCustomerAddress, setNewCustomerAddress] = useState('')
-  const [newCustomerCity, setNewCustomerCity] = useState('')
-  const [newCustomerCountry, setNewCustomerCountry] = useState('Kenya')
-  const [creatingCustomer, setCreatingCustomer] = useState(false)
-  const [availableCustomers, setAvailableCustomers] = useState(customers || [])
-  const [showRefundDialog, setShowRefundDialog] = useState(false)
-  const [showReceiptReprint, setShowReceiptReprint] = useState(false)
-  const [showSalesHistory, setShowSalesHistory] = useState(false)
-  const [showHeldSales, setShowHeldSales] = useState(false)
-  const [heldSales, setHeldSales] = useState<HeldSale[]>([])
-  const [heldSalesLoading, setHeldSalesLoading] = useState(false)
-  const [heldSaleActionId, setHeldSaleActionId] = useState<string | null>(null)
-  const [refundSale, setRefundSale] = useState<(Sale & { items: SaleItem[] }) | null>(null)
-  const [ageVerified, setAgeVerified] = useState(false)
-  const [showAgeVerification, setShowAgeVerification] = useState(false)
-  const [checkoutOpen, setCheckoutOpen] = useState(startCheckout)
-  const [checkoutStep, setCheckoutStep] = useState<'customer' | 'payment'>(startCheckout ? 'payment' : 'customer')
-  const [paymentDialogOpen, setPaymentDialogOpen] = useState(false)
-  const [scanMessage, setScanMessage] = useState('')
-  const [showWirelessScanner, setShowWirelessScanner] = useState(false)
-  const [scannerPurpose, setScannerPurpose] = useState<'product' | 'customer'>('product')
-  const [receiptPaperWidth, setReceiptPaperWidth] = useState<58 | 80>(80)
-  const [receiptOptionsOpen, setReceiptOptionsOpen] = useState(false)
-  const [receiptPrinted, setReceiptPrinted] = useState(false)
-  const [offlineSales, setOfflineSales] = useState<OfflineSaleRecord[]>([])
-  const [offlineQueueHydrated, setOfflineQueueHydrated] = useState(false)
-  const [offlineSyncing, setOfflineSyncing] = useState(false)
-  const offlineSyncRunningRef = useRef(false)
+export function POSTerminal({
+  standalone = false,
+  organizationId,
+  products,
+  categories,
+  customers,
+  settings,
+  requiresAgeVerification = false,
+  pharmacyMode = false,
+  startCheckout = false,
+  checkoutOnly = false,
+  hasActiveShift = false,
+  canDiscount = false,
+  canRefund = false,
+  canHold = false,
+  canApproveRestricted = false,
+  receiptContext,
+  offlineContext,
+}: POSTerminalProps) {
+  const { config } = useWorkspace();
+  const productTerms = getProductTerminology(
+    config?.businessType,
+    config?.businessCategory
+  );
+  const router = useRouter();
+  const cartStorageKey = offlineWorkspaceStorageKey(organizationId, 'cart');
+  const checkoutStorageKey = offlineWorkspaceStorageKey(
+    organizationId,
+    'checkout-id'
+  );
+  const mpesaStorageKey = offlineWorkspaceStorageKey(organizationId, 'mpesa');
+  const [catalogProducts, setCatalogProducts] = useState(products);
+  const [search, setSearch] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState<string>('');
+  const [cart, setCart] = useState<CartItem[]>([]);
+  const [cartHydrated, setCartHydrated] = useState(false);
+  const [discount, setDiscount] = useState(0);
+  const [discountType, setDiscountType] = useState<'fixed' | 'percentage'>(
+    'fixed'
+  );
+  const [couponCode, setCouponCode] = useState('');
+  const [couponValue, setCouponValue] = useState(0);
+  const [shippingCost, setShippingCost] = useState(0);
+  const [roundoffEnabled, setRoundoffEnabled] = useState(true);
+  const [summaryEditor, setSummaryEditor] = useState<SummaryEditor>(null);
+  const [summaryDraftType, setSummaryDraftType] = useState<
+    'fixed' | 'percentage'
+  >('fixed');
+  const [summaryDraftValue, setSummaryDraftValue] = useState('');
+  const [couponDraftCode, setCouponDraftCode] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState<PosPaymentMethod>('cash');
+  const [paymentReceiver, setPaymentReceiver] = useState('');
+  const [cardTerminals, setCardTerminals] = useState<ActiveCardTerminal[]>([]);
+  const [cardTerminalsLoading, setCardTerminalsLoading] = useState(false);
+  const [selectedCardTerminalId, setSelectedCardTerminalId] = useState('');
+  const [cardResult, setCardResult] = useState<'idle' | 'approved' | 'declined'>('idle');
+  const [cardApproved, setCardApproved] = useState(false);
+  const [cardBrand, setCardBrand] = useState<'visa' | 'mastercard' | 'amex' | 'other' | ''>('');
+  const [cardLast4, setCardLast4] = useState('');
+  const [cardEntryMode, setCardEntryMode] = useState<'chip' | 'contactless' | 'swipe' | 'manual' | ''>('');
+  const [cardAttemptId, setCardAttemptId] = useState('');
+  const [cardRecovery, setCardRecovery] = useState(false);
+  const [paymentNote, setPaymentNote] = useState('');
+  const [saleNote, setSaleNote] = useState('');
+  const [staffNote, setStaffNote] = useState('');
+  const [mpesaRef, setMpesaRef] = useState('');
+  const [mpesaPhone, setMpesaPhone] = useState('');
+  const [airtelPhone, setAirtelPhone] = useState('');
+  const [airtelRequestId, setAirtelRequestId] = useState('');
+  const [airtelStatus, setAirtelStatus] = useState<
+    'idle' | 'initiating' | 'pending' | 'success' | 'failed'
+  >('idle');
+  const [airtelMessage, setAirtelMessage] = useState('');
+  const [mpesaFlow, setMpesaFlow] = useState<'stk' | 'paybill'>('stk');
+  const [mpesaAccountReference, setMpesaAccountReference] = useState('');
+  const [mpesaShortcode, setMpesaShortcode] = useState('');
+  const [mpesaAccountType, setMpesaAccountType] = useState<'paybill' | 'till'>(
+    'paybill'
+  );
+  const [mpesaManualAccounts, setMpesaManualAccounts] = useState<
+    Array<{ shortcode: string; accountType: 'paybill' | 'till' }>
+  >([]);
+  const [mpesaMerchantName, setMpesaMerchantName] = useState<string | null>(
+    null
+  );
+  const [mpesaRequestId, setMpesaRequestId] = useState('');
+  const [mpesaStatus, setMpesaStatus] = useState<MpesaStatus>('idle');
+  const [mpesaMessage, setMpesaMessage] = useState('');
+  const manualMpesaStartRef = useRef<() => void>(() => undefined);
+  const cancelMpesaIntentRef = useRef<() => Promise<boolean>>(async () => true);
+  const switchPaymentMethodRef = useRef<
+    (method: PosPaymentMethod) => Promise<void>
+  >(async () => undefined);
+  const confirmedMpesaExitRef = useRef<() => Promise<void>>(
+    async () => undefined
+  );
+  const [amountPaid, setAmountPaid] = useState('');
+  const [selectedCustomer, setSelectedCustomer] = useState<string>('');
+  const [prescriptionReference, setPrescriptionReference] = useState('');
+  const [prescriberReference, setPrescriberReference] = useState('');
+  const [patientReference, setPatientReference] = useState('');
+  const [prescriptionIssuedAt, setPrescriptionIssuedAt] = useState('');
+  const [prescriptionExpiresAt, setPrescriptionExpiresAt] = useState('');
+  const [pharmacyNotes, setPharmacyNotes] = useState('');
+  const [customerMenuOpen, setCustomerMenuOpen] = useState(false);
+  const [processing, setProcessing] = useState(false);
+  const [receipt, setReceipt] = useState<ReceiptData | null>(null);
+  const [showNewCustomer, setShowNewCustomer] = useState(false);
+  const [newCustomerName, setNewCustomerName] = useState('');
+  const [newCustomerPhone, setNewCustomerPhone] = useState('');
+  const [newCustomerEmail, setNewCustomerEmail] = useState('');
+  const [newCustomerAddress, setNewCustomerAddress] = useState('');
+  const [newCustomerCity, setNewCustomerCity] = useState('');
+  const [newCustomerCountry, setNewCustomerCountry] = useState('Kenya');
+  const [creatingCustomer, setCreatingCustomer] = useState(false);
+  const [availableCustomers, setAvailableCustomers] = useState(customers || []);
+  const [showRefundDialog, setShowRefundDialog] = useState(false);
+  const [showReceiptReprint, setShowReceiptReprint] = useState(false);
+  const [showSalesHistory, setShowSalesHistory] = useState(false);
+  const [showHeldSales, setShowHeldSales] = useState(false);
+  const [heldSales, setHeldSales] = useState<HeldSale[]>([]);
+  const [heldSalesLoading, setHeldSalesLoading] = useState(false);
+  const [heldSaleActionId, setHeldSaleActionId] = useState<string | null>(null);
+  const [refundSale, setRefundSale] = useState<
+    (Sale & { items: SaleItem[] }) | null
+  >(null);
+  const [ageVerified, setAgeVerified] = useState(false);
+  const [showAgeVerification, setShowAgeVerification] = useState(false);
+  const [checkoutOpen, setCheckoutOpen] = useState(startCheckout);
+  const [checkoutStep, setCheckoutStep] = useState<'customer' | 'payment'>(
+    startCheckout ? 'payment' : 'customer'
+  );
+  const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
+  const [mpesaExitConfirmation, setMpesaExitConfirmation] = useState<{
+    open: boolean;
+    destination: string;
+    busy: boolean;
+  }>({ open: false, destination: '', busy: false });
+  const [scanMessage, setScanMessage] = useState('');
+  const [showWirelessScanner, setShowWirelessScanner] = useState(false);
+  const [scannerPurpose, setScannerPurpose] = useState<'product' | 'customer'>(
+    'product'
+  );
+  const [receiptPaperWidth, setReceiptPaperWidth] = useState<58 | 80>(settings.receiptPaperWidth);
+  const [receiptOptionsOpen, setReceiptOptionsOpen] = useState(false);
+  const [receiptPrinted, setReceiptPrinted] = useState(false);
+  const [receiptPrinting, setReceiptPrinting] = useState(false);
+  const autoPrintedReceiptRef = useRef('');
+  const retryReceiptPrintRef = useRef<() => void>(() => undefined);
+  const [offlineSales, setOfflineSales] = useState<OfflineSaleRecord[]>([]);
+  const [offlineQueueHydrated, setOfflineQueueHydrated] = useState(false);
+  const [offlineSyncing, setOfflineSyncing] = useState(false);
+  const offlineSyncRunningRef = useRef(false);
 
   useEffect(() => {
-    document.body.classList.toggle('pos-receipt-active', Boolean(receipt))
-    return () => document.body.classList.remove('pos-receipt-active')
-  }, [receipt])
-  const searchInputRef = useRef<HTMLInputElement>(null)
-  const barcodeBufferRef = useRef<string>('')
-  const barcodeTimeoutRef = useRef<NodeJS.Timeout | null>(null)
-  const lastScanRef = useRef<{ barcode: string; at: number } | null>(null)
-  const checkoutIdempotencyKeyRef = useRef<string>('')
-  const mpesaToastIdRef = useRef<string | number | null>(null)
-  const autoFinalizeRef = useRef<() => void>(() => undefined)
-  const autoFinalizingRef = useRef(false)
-  const processCheckoutRef = useRef<(verified?: boolean, serverAlreadyConfirmed?: boolean) => Promise<unknown>>(async () => undefined)
-  const ageVerificationConfirmRef = useRef<HTMLButtonElement>(null)
-  const [isOnline, setIsOnline] = useState(true)
-  const mpesaLocksBasket = paymentMethod === 'mpesa' && ['initiating', 'pending', 'success'].includes(mpesaStatus)
+    document.body.classList.toggle('pos-receipt-active', Boolean(receipt));
+    return () => document.body.classList.remove('pos-receipt-active');
+  }, [receipt]);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const barcodeBufferRef = useRef<string>('');
+  const barcodeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const lastScanRef = useRef<{ barcode: string; at: number } | null>(null);
+  const checkoutIdempotencyKeyRef = useRef<string>('');
+  const mpesaToastIdRef = useRef<string | number | null>(null);
+  const autoFinalizeRef = useRef<() => void>(() => undefined);
+  const autoFinalizingRef = useRef(false);
+  const processCheckoutRef = useRef<
+    (verified?: boolean, serverAlreadyConfirmed?: boolean) => Promise<unknown>
+  >(async () => undefined);
+  const ageVerificationConfirmRef = useRef<HTMLButtonElement>(null);
+  const [isOnline, setIsOnline] = useState(true);
+  const mpesaLocksBasket =
+    paymentMethod === 'mpesa' &&
+    ['initiating', 'pending', 'success'].includes(mpesaStatus);
 
   useEffect(() => {
     try {
-      let saved = window.localStorage.getItem(cartStorageKey)
+      let saved = window.localStorage.getItem(cartStorageKey);
       if (!saved) {
-        const legacyCart = window.localStorage.getItem('pos-active-cart')
+        const legacyCart = window.localStorage.getItem('pos-active-cart');
         if (legacyCart) {
-          const parsed = JSON.parse(legacyCart) as CartItem[]
-          const allowedProductIds = new Set(products.map((item) => item.id))
-          if (parsed.length > 0 && parsed.every((item) => allowedProductIds.has(item.productId))) {
-            saved = legacyCart
-            window.localStorage.setItem(cartStorageKey, legacyCart)
-            const legacyCheckout = window.localStorage.getItem('pos-active-checkout-id')
-            const legacyMpesa = window.localStorage.getItem('pos-active-mpesa')
-            if (legacyCheckout) window.localStorage.setItem(checkoutStorageKey, legacyCheckout)
-            if (legacyMpesa) window.localStorage.setItem(mpesaStorageKey, legacyMpesa)
-            window.localStorage.removeItem('pos-active-cart')
-            window.localStorage.removeItem('pos-active-checkout-id')
-            window.localStorage.removeItem('pos-active-mpesa')
+          const parsed = JSON.parse(legacyCart) as CartItem[];
+          const allowedProductIds = new Set(products.map((item) => item.id));
+          if (
+            parsed.length > 0 &&
+            parsed.every((item) => allowedProductIds.has(item.productId))
+          ) {
+            saved = legacyCart;
+            window.localStorage.setItem(cartStorageKey, legacyCart);
+            const legacyCheckout = window.localStorage.getItem(
+              'pos-active-checkout-id'
+            );
+            const legacyMpesa = window.localStorage.getItem('pos-active-mpesa');
+            if (legacyCheckout)
+              window.localStorage.setItem(checkoutStorageKey, legacyCheckout);
+            if (legacyMpesa)
+              window.localStorage.setItem(mpesaStorageKey, legacyMpesa);
+            window.localStorage.removeItem('pos-active-cart');
+            window.localStorage.removeItem('pos-active-checkout-id');
+            window.localStorage.removeItem('pos-active-mpesa');
           }
         }
       }
-      if (saved) setCart(JSON.parse(saved) as CartItem[])
-      checkoutIdempotencyKeyRef.current = window.localStorage.getItem(checkoutStorageKey) || ''
-    } catch { /* ignore malformed local state */ }
-    setCartHydrated(true)
-  }, [cartStorageKey, checkoutStorageKey, mpesaStorageKey, products])
+      if (saved) setCart(JSON.parse(saved) as CartItem[]);
+      checkoutIdempotencyKeyRef.current =
+        window.localStorage.getItem(checkoutStorageKey) || '';
+    } catch {
+      /* ignore malformed local state */
+    }
+    setCartHydrated(true);
+  }, [cartStorageKey, checkoutStorageKey, mpesaStorageKey, products]);
 
   useEffect(() => {
-    if (!cartHydrated) return
-    window.localStorage.setItem(cartStorageKey, JSON.stringify(cart))
-  }, [cart, cartHydrated, cartStorageKey])
+    if (!cartHydrated) return;
+    window.localStorage.setItem(cartStorageKey, JSON.stringify(cart));
+  }, [cart, cartHydrated, cartStorageKey]);
 
   const refreshHeldSales = useCallback(async () => {
-    if (!canHold || !hasActiveShift || typeof navigator === 'undefined' || !navigator.onLine) return
-    setHeldSalesLoading(true)
-    try { setHeldSales(await listHeldSales()) }
-    catch (error) { notify.error(error instanceof Error ? error.message : 'Could not load held sales') }
-    finally { setHeldSalesLoading(false) }
-  }, [canHold, hasActiveShift])
-
-  useEffect(() => { void refreshHeldSales() }, [refreshHeldSales])
-
-  useEffect(() => {
-    setIsOnline(navigator.onLine)
-  }, [])
-
-  useEffect(() => {
-    if (!cartHydrated) return
+    if (
+      !canHold ||
+      !hasActiveShift ||
+      typeof navigator === 'undefined' ||
+      !navigator.onLine
+    )
+      return;
+    setHeldSalesLoading(true);
     try {
-      const saved = JSON.parse(window.localStorage.getItem(mpesaStorageKey) || 'null') as { requestId?: string; idempotencyKey?: string; flow?: 'stk' | 'paybill'; accountReference?: string; shortcode?: string; accountType?: 'paybill' | 'till' } | null
+      setHeldSales(await listHeldSales());
+    } catch (error) {
+      notify.error(
+        error instanceof Error ? error.message : 'Could not load held sales'
+      );
+    } finally {
+      setHeldSalesLoading(false);
+    }
+  }, [canHold, hasActiveShift]);
+
+  useEffect(() => {
+    void refreshHeldSales();
+  }, [refreshHeldSales]);
+
+  useEffect(() => {
+    setIsOnline(navigator.onLine);
+  }, []);
+
+  useEffect(() => {
+    if (!cartHydrated) return;
+    try {
+      const saved = JSON.parse(
+        window.localStorage.getItem(mpesaStorageKey) || 'null'
+      ) as {
+        requestId?: string;
+        idempotencyKey?: string;
+        flow?: 'stk' | 'paybill';
+        accountReference?: string;
+        shortcode?: string;
+        accountType?: 'paybill' | 'till';
+      } | null;
       if (saved?.requestId && cart.length) {
-        checkoutIdempotencyKeyRef.current = saved.idempotencyKey || ''
-        setMpesaRequestId(saved.requestId)
-        setMpesaFlow(saved.flow || 'stk')
-        setMpesaAccountReference(saved.accountReference || '')
-        setMpesaShortcode(saved.shortcode || '')
-        setMpesaAccountType(saved.accountType || 'paybill')
-        setPaymentMethod('mpesa')
-        setMpesaStatus('pending')
-        setMpesaMessage('Reconnecting to the active M-Pesa checkout…')
-        setCheckoutOpen(true)
+        checkoutIdempotencyKeyRef.current = saved.idempotencyKey || '';
+        setMpesaRequestId(saved.requestId);
+        setMpesaFlow(saved.flow || 'stk');
+        setMpesaAccountReference(saved.accountReference || '');
+        setMpesaShortcode(saved.shortcode || '');
+        setMpesaAccountType(saved.accountType || 'paybill');
+        setPaymentMethod('mpesa');
+        setMpesaStatus('pending');
+        setMpesaMessage('Reconnecting to the active M-Pesa checkout…');
+        setCheckoutOpen(true);
       }
-    } catch { window.localStorage.removeItem(mpesaStorageKey) }
+    } catch {
+      window.localStorage.removeItem(mpesaStorageKey);
+    }
     // Restore once; subsequent basket updates must not restart an old request.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cartHydrated, mpesaStorageKey])
+  }, [cartHydrated, mpesaStorageKey]);
 
   const refreshOfflineSales = useCallback(async () => {
-    const records = await listOfflineSales(organizationId)
-    setOfflineSales(records)
-    return records
-  }, [organizationId])
+    const records = await listOfflineSales(organizationId);
+    setOfflineSales(records);
+    return records;
+  }, [organizationId]);
 
   useEffect(() => {
-    let cancelled = false
+    let cancelled = false;
     void (async () => {
       try {
-        await adoptLegacyOfflineSales(organizationId, products.map((item) => item.id))
+        await adoptLegacyOfflineSales(
+          organizationId,
+          products.map((item) => item.id)
+        );
         // Reading before replacing the snapshot verifies that the browser cache
         // remains usable across a reload. Fresh server data wins whenever it is
         // available; the durable queue is then reserved from visible stock.
         const [cached, records] = await Promise.all([
-          readOfflineCatalogue<PosProduct, POSTerminalProps['categories'][number], Customer, POSTerminalProps['settings']>(organizationId),
+          readOfflineCatalogue<
+            PosProduct,
+            POSTerminalProps['categories'][number],
+            Customer,
+            POSTerminalProps['settings']
+          >(organizationId),
           listOfflineSales(organizationId),
-        ])
-        if (cancelled) return
-        const activeCheckoutId = window.localStorage.getItem(checkoutStorageKey)
-        if (checkoutAlreadyQueued(activeCheckoutId, records.map((record) => record.id))) {
+        ]);
+        if (cancelled) return;
+        const activeCheckoutId =
+          window.localStorage.getItem(checkoutStorageKey);
+        if (
+          checkoutAlreadyQueued(
+            activeCheckoutId,
+            records.map((record) => record.id)
+          )
+        ) {
           // This basket is already represented by a durable queued sale.
-          window.localStorage.removeItem(cartStorageKey)
-          window.localStorage.removeItem(checkoutStorageKey)
-          checkoutIdempotencyKeyRef.current = ''
-          setCart([])
+          window.localStorage.removeItem(cartStorageKey);
+          window.localStorage.removeItem(checkoutStorageKey);
+          checkoutIdempotencyKeyRef.current = '';
+          setCart([]);
         }
-        const baseProducts = products.length ? products : cached?.products ?? []
-        const reserved = new Map<string, number>()
+        const baseProducts = products.length
+          ? products
+          : (cached?.products ?? []);
+        const reserved = new Map<string, number>();
         for (const record of records) {
-          if (record.status === 'SYNCED') continue
-          for (const item of record.payload.items) reserved.set(item.productId, (reserved.get(item.productId) ?? 0) + item.quantity * (item.baseUnitQuantity ?? 1))
+          if (record.status === 'SYNCED') continue;
+          for (const item of record.payload.items)
+            reserved.set(
+              item.productId,
+              (reserved.get(item.productId) ?? 0) +
+                item.quantity * (item.baseUnitQuantity ?? 1)
+            );
         }
-        setCatalogProducts(baseProducts.map((item) => ({ ...item, stock: Math.max(0, item.stock - (reserved.get(item.id) ?? 0)) })))
-        if (!customers.length && cached?.customers?.length) setAvailableCustomers(cached.customers)
-        setOfflineSales(records)
-        await cacheOfflineCatalogue(organizationId, { products: baseProducts, categories: categories.length ? categories : cached?.categories ?? [], customers: customers.length ? customers : cached?.customers ?? [], settings })
+        setCatalogProducts(
+          baseProducts.map((item) => ({
+            ...item,
+            stock: Math.max(0, item.stock - (reserved.get(item.id) ?? 0)),
+          }))
+        );
+        if (!customers.length && cached?.customers?.length)
+          setAvailableCustomers(cached.customers);
+        setOfflineSales(records);
+        await cacheOfflineCatalogue(organizationId, {
+          products: baseProducts,
+          categories: categories.length
+            ? categories
+            : (cached?.categories ?? []),
+          customers: customers.length ? customers : (cached?.customers ?? []),
+          settings,
+        });
       } catch {
         // Checkout still refuses an offline sale if durable storage itself fails.
       } finally {
-        if (!cancelled) setOfflineQueueHydrated(true)
+        if (!cancelled) setOfflineQueueHydrated(true);
       }
-    })()
-    return () => { cancelled = true }
-  }, [cartStorageKey, categories, checkoutStorageKey, customers, organizationId, products, settings])
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    cartStorageKey,
+    categories,
+    checkoutStorageKey,
+    customers,
+    organizationId,
+    products,
+    settings,
+  ]);
 
   const synchronizeOfflineQueue = useCallback(async () => {
-    if (offlineSyncRunningRef.current || typeof navigator === 'undefined' || !navigator.onLine) return
-    offlineSyncRunningRef.current = true
-    setOfflineSyncing(true)
-    let accepted = 0
-    let failed = 0
+    if (
+      offlineSyncRunningRef.current ||
+      typeof navigator === 'undefined' ||
+      !navigator.onLine
+    )
+      return;
+    offlineSyncRunningRef.current = true;
+    setOfflineSyncing(true);
+    let accepted = 0;
+    let failed = 0;
     try {
-      const records = await listOfflineSales(organizationId)
+      const records = await listOfflineSales(organizationId);
       for (const record of records) {
-        if (!shouldSynchronizeOfflineSale(record.status) || !navigator.onLine) continue
-        await updateOfflineSale(record.id, organizationId, { status: 'SYNCING', attemptCount: record.attemptCount + 1, lastError: undefined })
+        if (!shouldSynchronizeOfflineSale(record.status) || !navigator.onLine)
+          continue;
+        await updateOfflineSale(record.id, organizationId, {
+          status: 'SYNCING',
+          attemptCount: record.attemptCount + 1,
+          lastError: undefined,
+        });
         try {
-          const result = await syncOfflineSale(record.payload)
-          await updateOfflineSale(record.id, organizationId, { status: 'SYNCED', official: {
-            saleId: result.saleId, receiptNo: result.receiptNo, tax: result.tax, rounding: result.rounding,
-            total: result.total, items: result.items,
-          } })
+          const result = await syncOfflineSale(record.payload);
+          await updateOfflineSale(record.id, organizationId, {
+            status: 'SYNCED',
+            official: {
+              saleId: result.saleId,
+              receiptNo: result.receiptNo,
+              tax: result.tax,
+              rounding: result.rounding,
+              total: result.total,
+              items: result.items,
+            },
+          });
           setReceipt((current) => {
-            if (!current || current.idempotencyKey !== record.id) return current
+            if (!current || current.idempotencyKey !== record.id)
+              return current;
             return {
               ...current,
               saleId: result.saleId,
@@ -493,444 +907,817 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
               taxAmount: result.tax,
               roundingAmount: result.rounding,
               total: result.total,
-              items: current.items.map((item) => ({ ...item, saleItemId: result.items.find((saved) => saved.productId === item.productId)?.saleItemId ?? item.saleItemId })),
-              offline: { status: 'SYNCED', provisionalReceiptNo: record.provisionalReceiptNo },
+              items: current.items.map((item) => ({
+                ...item,
+                saleItemId:
+                  result.items.find(
+                    (saved) => saved.productId === item.productId
+                  )?.saleItemId ?? item.saleItemId,
+              })),
+              offline: {
+                status: 'SYNCED',
+                provisionalReceiptNo: record.provisionalReceiptNo,
+              },
               etims: {
                 status: result.etims.status,
-                message: 'message' in result.etims ? result.etims.message : undefined,
-                showOnReceipt: 'receiptDetailsEnabled' in result.etims ? result.etims.receiptDetailsEnabled : false,
-                ...('submission' in result.etims && result.etims.submission ? {
-                  environment: result.etims.submission.environment,
-                  invoiceNumber: result.etims.submission.invoiceNumber,
-                  controlNumber: result.etims.submission.controlNumber,
-                  receiptNumber: result.etims.submission.receiptNumber,
-                  internalReference: result.etims.submission.internalReference,
-                  qrData: result.etims.submission.qrData,
-                  verificationData: result.etims.submission.verificationData,
-                } : {}),
+                message:
+                  'message' in result.etims ? result.etims.message : undefined,
+                showOnReceipt:
+                  'receiptDetailsEnabled' in result.etims
+                    ? result.etims.receiptDetailsEnabled
+                    : false,
+                ...('submission' in result.etims && result.etims.submission
+                  ? {
+                      environment: result.etims.submission.environment,
+                      invoiceNumber: result.etims.submission.invoiceNumber,
+                      controlNumber: result.etims.submission.controlNumber,
+                      receiptNumber: result.etims.submission.receiptNumber,
+                      internalReference:
+                        result.etims.submission.internalReference,
+                      qrData: result.etims.submission.qrData,
+                      verificationData:
+                        result.etims.submission.verificationData,
+                    }
+                  : {}),
               },
-            }
-          })
-          accepted += 1
+            };
+          });
+          accepted += 1;
         } catch (error) {
-          await updateOfflineSale(record.id, organizationId, { status: 'FAILED', lastError: error instanceof Error ? error.message : 'Synchronization failed' })
-          failed += 1
+          await updateOfflineSale(record.id, organizationId, {
+            status: 'FAILED',
+            lastError:
+              error instanceof Error ? error.message : 'Synchronization failed',
+          });
+          failed += 1;
         }
       }
-      await refreshOfflineSales()
-      if (accepted) notify.success(`${accepted} offline sale${accepted === 1 ? '' : 's'} synchronized`)
-      if (failed) notify.error(`${failed} offline sale${failed === 1 ? '' : 's'} need${failed === 1 ? 's' : ''} review`)
+      await refreshOfflineSales();
+      if (accepted)
+        notify.success(
+          `${accepted} offline sale${accepted === 1 ? '' : 's'} synchronized`
+        );
+      if (failed)
+        notify.error(
+          `${failed} offline sale${failed === 1 ? '' : 's'} need${failed === 1 ? 's' : ''} review`
+        );
     } finally {
-      offlineSyncRunningRef.current = false
-      setOfflineSyncing(false)
+      offlineSyncRunningRef.current = false;
+      setOfflineSyncing(false);
     }
-  }, [organizationId, refreshOfflineSales])
+  }, [organizationId, refreshOfflineSales]);
 
   useEffect(() => {
     // The queue starts directly from the connectivity event. The synchronization
     // lock keeps this and the state-driven fallback from submitting twice.
-    return bindPosConnectivityEvents(window, setIsOnline, synchronizeOfflineQueue)
-  }, [synchronizeOfflineQueue])
+    return bindPosConnectivityEvents(
+      window,
+      setIsOnline,
+      synchronizeOfflineQueue
+    );
+  }, [synchronizeOfflineQueue]);
 
   useEffect(() => {
-    if (!offlineQueueHydrated || !isOnline) return
-    void synchronizeOfflineQueue()
-  }, [isOnline, offlineQueueHydrated, synchronizeOfflineQueue])
+    if (!offlineQueueHydrated || !isOnline) return;
+    void synchronizeOfflineQueue();
+  }, [isOnline, offlineQueueHydrated, synchronizeOfflineQueue]);
 
   useEffect(() => {
-    if (isOnline || paymentMethod === 'cash') return
-    setPaymentMethod('cash')
-    setMpesaStatus('idle')
-    setMpesaMessage('')
-    setMpesaRef('')
-  }, [isOnline, paymentMethod])
+    if (isOnline || paymentMethod === 'cash') return;
+    setPaymentMethod('cash');
+    setMpesaStatus('idle');
+    setMpesaMessage('');
+    setMpesaRef('');
+  }, [isOnline, paymentMethod]);
 
   useEffect(() => {
-    if (paymentMethod !== 'mpesa' || mpesaPhone.trim()) return
-    const savedPhone = availableCustomers.find((entry) => entry.id === selectedCustomer)?.phone?.trim()
-    if (savedPhone) setMpesaPhone(savedPhone)
-  }, [availableCustomers, selectedCustomer, paymentMethod, mpesaPhone])
+    if (paymentMethod !== 'card') return;
+    let active = true;
+    setCardTerminalsLoading(true);
+    void listActiveCardTerminals()
+      .then((terminals) => {
+        if (!active) return;
+        setCardTerminals(terminals);
+        setSelectedCardTerminalId((current) =>
+          terminals.some((terminal) => terminal.id === current)
+            ? current
+            : terminals[0]?.id ?? ''
+        );
+      })
+      .catch((error) => {
+        if (active) notify.error(error instanceof Error ? error.message : 'Could not load card terminals');
+      })
+      .finally(() => active && setCardTerminalsLoading(false));
+    return () => { active = false; };
+  }, [paymentMethod]);
 
   useEffect(() => {
-    if (paymentMethod !== 'mpesa' || mpesaFlow !== 'paybill' || mpesaRequestId) return
-    let active = true
-    void getManualMpesaOptions().then((result) => {
-      if (!active) return
-      setMpesaManualAccounts(result.accounts)
-      setMpesaAccountType(result.defaultMode)
-      setMpesaMerchantName(result.merchantName)
-    }).catch((error) => notify.error('Could not load branch M-Pesa accounts', { description: error instanceof Error ? error.message : 'Check the branch payment configuration.' }))
-    return () => { active = false }
-  }, [paymentMethod, mpesaFlow, mpesaRequestId])
+    if (paymentMethod !== 'mpesa' || mpesaPhone.trim()) return;
+    const savedPhone = availableCustomers
+      .find((entry) => entry.id === selectedCustomer)
+      ?.phone?.trim();
+    if (savedPhone) setMpesaPhone(savedPhone);
+  }, [availableCustomers, selectedCustomer, paymentMethod, mpesaPhone]);
 
   useEffect(() => {
-    if (!mpesaRequestId || mpesaStatus !== 'pending' || !isOnline) return
-    let cancelled = false
-    const applyResult = (result: { status: string; amount?: number | string; message?: string | null; receiptNumber?: string | null; saleId?: string | null }) => {
-        if (cancelled) return
-        const nextStatus: MpesaStatus = result.status === 'CONFIRMED' && result.saleId ? 'success'
-          : ['SENDING_STK'].includes(result.status) ? 'initiating'
-          : ['AWAITING_CUSTOMER', 'AWAITING_CONFIRMATION', 'CONFIRMED'].includes(result.status) ? 'pending'
-          : result.status === 'EXPIRED' ? 'timeout'
-          : result.status === 'CANCELLED' ? 'cancelled'
-          : result.status === 'FAILED' ? 'failed'
-          : result.status as MpesaStatus
-        setMpesaStatus(nextStatus)
-        setMpesaMessage(result.message || '')
-        if (nextStatus === 'failed' || nextStatus === 'timeout' || nextStatus === 'cancelled') {
-          window.localStorage.removeItem(mpesaStorageKey)
-          notify.error(nextStatus === 'timeout' ? 'M-Pesa payment not confirmed' : nextStatus === 'cancelled' ? 'M-Pesa payment cancelled' : 'M-Pesa payment failed', {
+    if (paymentMethod !== 'mpesa' || mpesaFlow !== 'paybill' || mpesaRequestId)
+      return;
+    let active = true;
+    void getManualMpesaOptions()
+      .then((result) => {
+        if (!active) return;
+        setMpesaManualAccounts(result.accounts);
+        setMpesaAccountType(result.defaultMode);
+        setMpesaMerchantName(result.merchantName);
+      })
+      .catch((error) =>
+        notify.error('Could not load branch M-Pesa accounts', {
+          description:
+            error instanceof Error
+              ? error.message
+              : 'Check the branch payment configuration.',
+        })
+      );
+    return () => {
+      active = false;
+    };
+  }, [paymentMethod, mpesaFlow, mpesaRequestId]);
+
+  useEffect(() => {
+    if (!mpesaRequestId || mpesaStatus !== 'pending' || !isOnline) return;
+    let cancelled = false;
+    const applyResult = (result: {
+      status: string;
+      amount?: number | string;
+      message?: string | null;
+      receiptNumber?: string | null;
+      saleId?: string | null;
+    }) => {
+      if (cancelled) return;
+      const nextStatus: MpesaStatus =
+        result.status === 'CONFIRMED' && result.saleId
+          ? 'success'
+          : ['SENDING_STK'].includes(result.status)
+            ? 'initiating'
+            : [
+                  'AWAITING_CUSTOMER',
+                  'AWAITING_CONFIRMATION',
+                  'CONFIRMED',
+                ].includes(result.status)
+              ? 'pending'
+              : result.status === 'EXPIRED'
+                ? 'timeout'
+                : result.status === 'CANCELLED'
+                  ? 'cancelled'
+                  : result.status === 'FAILED'
+                    ? 'failed'
+                    : (result.status as MpesaStatus);
+      setMpesaStatus(nextStatus);
+      setMpesaMessage(result.message || '');
+      if (
+        nextStatus === 'failed' ||
+        nextStatus === 'timeout' ||
+        nextStatus === 'cancelled'
+      ) {
+        window.localStorage.removeItem(mpesaStorageKey);
+        notify.error(
+          nextStatus === 'timeout'
+            ? 'M-Pesa payment not confirmed'
+            : nextStatus === 'cancelled'
+              ? 'M-Pesa payment cancelled'
+              : 'M-Pesa payment failed',
+          {
             id: mpesaToastIdRef.current ?? undefined,
-            description: result.message || 'No payment confirmation was received.',
-          })
-          mpesaToastIdRef.current = null
-        }
-        if (nextStatus === 'success' && result.receiptNumber) {
-          setMpesaRef(result.receiptNumber)
-          notify.success('M-Pesa payment received', { id: mpesaToastIdRef.current ?? undefined, description: result.amount ? `${formatMpesaAmount(Number(result.amount))} confirmed.` : 'Payment confirmed by Safaricom.' })
-          mpesaToastIdRef.current = null
-          if (!autoFinalizingRef.current) {
-            autoFinalizingRef.current = true
-            window.setTimeout(() => autoFinalizeRef.current(), 500)
+            description:
+              result.message || 'No payment confirmation was received.',
           }
+        );
+        mpesaToastIdRef.current = null;
+      }
+      if (nextStatus === 'success' && result.receiptNumber) {
+        setMpesaRef(result.receiptNumber);
+        notify.success('M-Pesa payment received', {
+          id: mpesaToastIdRef.current ?? undefined,
+          description: result.amount
+            ? `${formatMpesaAmount(Number(result.amount))} confirmed.`
+            : 'Payment confirmed by Safaricom.',
+        });
+        mpesaToastIdRef.current = null;
+        if (!autoFinalizingRef.current) {
+          autoFinalizingRef.current = true;
+          window.setTimeout(() => autoFinalizeRef.current(), 500);
         }
-    }
+      }
+    };
     const poll = async () => {
       try {
-        applyResult(await getMpesaPaymentStatus(mpesaRequestId))
+        applyResult(await getMpesaPaymentStatus(mpesaRequestId));
       } catch (error) {
-        if (!cancelled) setMpesaMessage(error instanceof Error ? error.message : 'Could not check M-Pesa status')
+        if (!cancelled)
+          setMpesaMessage(
+            error instanceof Error
+              ? error.message
+              : 'Could not check M-Pesa status'
+          );
       }
-    }
-    void poll()
-    const events = new EventSource(`/api/mpesa/status/${encodeURIComponent(mpesaRequestId)}`)
+    };
+    void poll();
+    const events = new EventSource(
+      `/api/mpesa/status/${encodeURIComponent(mpesaRequestId)}`
+    );
     events.onmessage = (event) => {
-      try { applyResult(JSON.parse(event.data) as { status: string; amount?: number | string; message?: string | null; receiptNumber?: string | null; saleId?: string | null }) } catch { /* polling remains available */ }
-    }
-    const timer = window.setInterval(() => { if (navigator.onLine) void poll() }, 8_000)
-    return () => { cancelled = true; events.close(); window.clearInterval(timer) }
-  }, [mpesaRequestId, mpesaStatus, isOnline, mpesaStorageKey])
+      try {
+        applyResult(
+          JSON.parse(event.data) as {
+            status: string;
+            amount?: number | string;
+            message?: string | null;
+            receiptNumber?: string | null;
+            saleId?: string | null;
+          }
+        );
+      } catch {
+        /* polling remains available */
+      }
+    };
+    const timer = window.setInterval(() => {
+      if (navigator.onLine) void poll();
+    }, 8_000);
+    return () => {
+      cancelled = true;
+      events.close();
+      window.clearInterval(timer);
+    };
+  }, [mpesaRequestId, mpesaStatus, isOnline, mpesaStorageKey]);
 
   // Checkout is already mounted in this terminal. Measure the local transition in
   // development without making a network request part of the cashier's Pay action.
   const openCheckout = useCallback(() => {
     if (!hasActiveShift) {
-      notify.error('Start your shift before taking payment')
-      return
+      notify.error('Start your shift before taking payment');
+      return;
     }
-    performance.mark('pos-pay-click')
-    setCheckoutOpen(true)
-    setCheckoutStep('customer')
+    performance.mark('pos-pay-click');
+    setCheckoutOpen(true);
+    setCheckoutStep('customer');
     requestAnimationFrame(() => {
-      performance.mark('pos-checkout-visible')
-      performance.measure('pos-pay-to-checkout-visible', 'pos-pay-click', 'pos-checkout-visible')
-    })
-  }, [hasActiveShift])
+      performance.mark('pos-checkout-visible');
+      performance.measure(
+        'pos-pay-to-checkout-visible',
+        'pos-pay-click',
+        'pos-checkout-visible'
+      );
+    });
+  }, [hasActiveShift]);
 
   useEffect(() => {
     const handleShortcut = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && paymentDialogOpen && !mpesaLocksBasket) {
-        event.preventDefault()
-        setPaymentDialogOpen(false)
-        return
+      if (event.key === 'Escape' && paymentDialogOpen) {
+        event.preventDefault();
+        if (
+          paymentMethod === 'mpesa' &&
+          mpesaRequestId &&
+          ['initiating', 'pending'].includes(mpesaStatus)
+        ) {
+          confirmedMpesaExitRef.current = async () => {
+            if (await cancelMpesaIntentRef.current())
+              setPaymentDialogOpen(false);
+          };
+          setMpesaExitConfirmation({
+            open: true,
+            destination: 'payment details',
+            busy: false,
+          });
+        } else if (paymentMethod === 'mpesa')
+          void cancelMpesaIntentRef.current().then((cancelled) => {
+            if (cancelled) setPaymentDialogOpen(false);
+          });
+        else setPaymentDialogOpen(false);
+        return;
       }
       if (event.key === 'Escape' && checkoutOpen) {
-        setCheckoutOpen(false)
-        return
+        if (
+          paymentMethod === 'mpesa' &&
+          mpesaRequestId &&
+          ['initiating', 'pending'].includes(mpesaStatus)
+        ) {
+          confirmedMpesaExitRef.current = async () => {
+            if (await cancelMpesaIntentRef.current()) setCheckoutOpen(false);
+          };
+          setMpesaExitConfirmation({
+            open: true,
+            destination: 'the basket',
+            busy: false,
+          });
+        } else if (paymentMethod === 'mpesa')
+          void cancelMpesaIntentRef.current().then((cancelled) => {
+            if (cancelled) setCheckoutOpen(false);
+          });
+        else setCheckoutOpen(false);
+        return;
       }
-      if ((event.ctrlKey || event.metaKey) && event.key === 'Enter' && cart.length > 0 && !receipt) {
-        event.preventDefault()
-        openCheckout()
+      if (
+        (event.ctrlKey || event.metaKey) &&
+        event.key === 'Enter' &&
+        cart.length > 0 &&
+        !receipt
+      ) {
+        event.preventDefault();
+        openCheckout();
       }
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
-        event.preventDefault()
-        searchInputRef.current?.focus()
+        event.preventDefault();
+        searchInputRef.current?.focus();
       }
       if (checkoutOpen && checkoutStep === 'payment' && !receipt) {
-        const paymentShortcut = ({ F3: 'cash', F4: 'mpesa', F5: 'card', F6: 'airtel_money' } as const)[event.key as 'F3' | 'F4' | 'F5' | 'F6']
-        const lockedToMpesa = paymentMethod === 'mpesa' && ['initiating', 'pending', 'success'].includes(mpesaStatus)
-        if (paymentShortcut && settings.paymentMethods.includes(paymentShortcut) && (isOnline || paymentShortcut === 'cash') && (!lockedToMpesa || paymentShortcut === 'mpesa')) {
-          event.preventDefault()
-          setPaymentMethod(paymentShortcut)
-          setPaymentDialogOpen(true)
+        const paymentShortcut = (
+          { F3: 'cash', F4: 'mpesa', F5: 'card', F6: 'airtel_money' } as const
+        )[event.key as 'F3' | 'F4' | 'F5' | 'F6'];
+        if (
+          paymentShortcut &&
+          settings.paymentMethods.includes(paymentShortcut) &&
+          (isOnline || paymentShortcut === 'cash')
+        ) {
+          event.preventDefault();
+          void switchPaymentMethodRef.current(paymentShortcut);
         }
       }
-    }
-    window.addEventListener('keydown', handleShortcut)
-    return () => window.removeEventListener('keydown', handleShortcut)
-  }, [cart.length, checkoutOpen, checkoutStep, receipt, settings.paymentMethods, openCheckout, paymentMethod, mpesaStatus, isOnline, paymentDialogOpen, mpesaLocksBasket])
+    };
+    window.addEventListener('keydown', handleShortcut);
+    return () => window.removeEventListener('keydown', handleShortcut);
+  }, [
+    cart.length,
+    checkoutOpen,
+    checkoutStep,
+    receipt,
+    settings.paymentMethods,
+    openCheckout,
+    paymentMethod,
+    mpesaStatus,
+    mpesaRequestId,
+    isOnline,
+    paymentDialogOpen,
+    mpesaLocksBasket,
+  ]);
 
-  const addToCart = useCallback((product: PosProduct, selectedPackage?: ProductPackage) => {
-    if (paymentMethod === 'mpesa' && ['initiating', 'pending', 'success'].includes(mpesaStatus)) {
-      notify.error('Finish the current M-Pesa payment before changing the basket')
-      return
-    }
-    const unitsPerSale = selectedPackage?.baseUnitQuantity ?? 1
-    const availablePackages = Math.floor(product.stock / unitsPerSale)
-    if (availablePackages <= 0) {
-      notify.error(`${product.name} is out of stock`)
-      return
-    }
-    setCart((previousCart) => {
-      const existing = previousCart.find((item) => item.productId === product.id)
-      const price = Number(selectedPackage?.sellingPrice ?? product.sellingPrice)
-      const packageName = selectedPackage?.name
-      if (existing) {
-        if ((existing.packageId ?? null) !== (selectedPackage?.id ?? null)) {
-          notify.error(`Remove ${product.name} from the basket before changing its package`)
-          return previousCart
-        }
-        if (existing.quantity >= availablePackages) {
-          notify.error(`Only ${availablePackages} ${packageName ?? product.unit} in stock`)
-          return previousCart
-        }
-        return previousCart.map((item) => item.productId === product.id
-          ? { ...item, quantity: item.quantity + 1, totalPrice: (item.quantity + 1) * price }
-          : item)
+  const addToCart = useCallback(
+    (product: PosProduct, selectedPackage?: ProductPackage) => {
+      if (
+        paymentMethod === 'mpesa' &&
+        ['initiating', 'pending', 'success'].includes(mpesaStatus)
+      ) {
+        notify.error(
+          'Finish the current M-Pesa payment before changing the basket'
+        );
+        return;
       }
-      return [...previousCart, { productId: product.id, productName: packageName ? `${product.name} (${packageName})` : product.name, quantity: 1, unitPrice: price, totalPrice: price, packageId: selectedPackage?.id, packageName, baseUnitQuantity: unitsPerSale }]
-    })
-  }, [paymentMethod, mpesaStatus])
+      const unitsPerSale = selectedPackage?.baseUnitQuantity ?? 1;
+      const availablePackages = Math.floor(product.stock / unitsPerSale);
+      if (availablePackages <= 0) {
+        notify.error(`${product.name} is out of stock`);
+        return;
+      }
+      setCart((previousCart) => {
+        const existing = previousCart.find(
+          (item) => item.productId === product.id
+        );
+        const price = Number(
+          selectedPackage?.sellingPrice ?? product.sellingPrice
+        );
+        const packageName = selectedPackage?.name;
+        if (existing) {
+          if ((existing.packageId ?? null) !== (selectedPackage?.id ?? null)) {
+            notify.error(
+              `Remove ${product.name} from the basket before changing its package`
+            );
+            return previousCart;
+          }
+          if (existing.quantity >= availablePackages) {
+            notify.error(
+              `Only ${availablePackages} ${packageName ?? product.unit} in stock`
+            );
+            return previousCart;
+          }
+          return previousCart.map((item) =>
+            item.productId === product.id
+              ? {
+                  ...item,
+                  quantity: item.quantity + 1,
+                  totalPrice: (item.quantity + 1) * price,
+                }
+              : item
+          );
+        }
+        return [
+          ...previousCart,
+          {
+            productId: product.id,
+            productName: packageName
+              ? `${product.name} (${packageName})`
+              : product.name,
+            quantity: 1,
+            unitPrice: price,
+            totalPrice: price,
+            packageId: selectedPackage?.id,
+            packageName,
+            baseUnitQuantity: unitsPerSale,
+          },
+        ];
+      });
+    },
+    [paymentMethod, mpesaStatus]
+  );
 
-  const handleBarcodeScan = useCallback((rawBarcode: string) => {
-    const barcode = normalizeBarcode(rawBarcode)
-    if (!barcode) return false
-    const matches = catalogProducts.flatMap((product) => {
-      const candidates: Array<{ product: PosProduct; selectedPackage?: ProductPackage }> = []
-      if (normalizeBarcode(product.barcode ?? '') === barcode && product.isActive) candidates.push({ product })
-      for (const selectedPackage of product.packages) if (normalizeBarcode(selectedPackage.barcode ?? '') === barcode && selectedPackage.isActive) candidates.push({ product, selectedPackage })
-      return candidates
-    })
-    if (matches.length === 0) {
-      setScanMessage(`No ${productTerms.singularLower} found for barcode ${barcode}. Add the barcode to the ${productTerms.singularLower} first.`)
-      notify.error(`No ${productTerms.singularLower} found for barcode ${barcode}`, {
-        description: 'Register the item once, then future scans will add it to the basket.',
-        action: { label: `Register ${productTerms.singularLower}`, onClick: () => router.push(`/dashboard/products/new?barcode=${encodeURIComponent(barcode)}`) },
-      })
-      return false
-    }
-    if (matches.length > 1) {
-      setScanMessage(`Barcode ${barcode} is assigned to more than one ${productTerms.singularLower}. Correct the ${productTerms.singularLower} records before selling.`)
-      notify.error(`Duplicate barcode detected. Ask a manager to correct the ${productTerms.pluralLower}.`)
-      return false
-    }
-    const { product, selectedPackage } = matches[0]
-    if (product.stock < (selectedPackage?.baseUnitQuantity ?? 1)) {
-      setScanMessage(`${product.name} is out of stock.`)
-      notify.error(`${product.name} is out of stock`)
-      return false
-    }
-    addToCart(product, selectedPackage)
-    setSearch('')
-    setSelectedCategory('')
-    setScanMessage(`${product.name}${selectedPackage ? ` (${selectedPackage.name})` : ''} added to basket.`)
-    return true
-  }, [addToCart, catalogProducts, productTerms, router])
+  const handleBarcodeScan = useCallback(
+    (rawBarcode: string) => {
+      const barcode = normalizeBarcode(rawBarcode);
+      if (!barcode) return false;
+      const matches = catalogProducts.flatMap((product) => {
+        const candidates: Array<{
+          product: PosProduct;
+          selectedPackage?: ProductPackage;
+        }> = [];
+        if (
+          normalizeBarcode(product.barcode ?? '') === barcode &&
+          product.isActive
+        )
+          candidates.push({ product });
+        for (const selectedPackage of product.packages)
+          if (
+            normalizeBarcode(selectedPackage.barcode ?? '') === barcode &&
+            selectedPackage.isActive
+          )
+            candidates.push({ product, selectedPackage });
+        return candidates;
+      });
+      if (matches.length === 0) {
+        setScanMessage(
+          `No ${productTerms.singularLower} found for barcode ${barcode}. Add the barcode to the ${productTerms.singularLower} first.`
+        );
+        notify.error(
+          `No ${productTerms.singularLower} found for barcode ${barcode}`,
+          {
+            description:
+              'Register the item once, then future scans will add it to the basket.',
+            action: {
+              label: `Register ${productTerms.singularLower}`,
+              onClick: () =>
+                router.push(
+                  `/dashboard/products/new?barcode=${encodeURIComponent(barcode)}`
+                ),
+            },
+          }
+        );
+        return false;
+      }
+      if (matches.length > 1) {
+        setScanMessage(
+          `Barcode ${barcode} is assigned to more than one ${productTerms.singularLower}. Correct the ${productTerms.singularLower} records before selling.`
+        );
+        notify.error(
+          `Duplicate barcode detected. Ask a manager to correct the ${productTerms.pluralLower}.`
+        );
+        return false;
+      }
+      const { product, selectedPackage } = matches[0];
+      if (product.stock < (selectedPackage?.baseUnitQuantity ?? 1)) {
+        setScanMessage(`${product.name} is out of stock.`);
+        notify.error(`${product.name} is out of stock`);
+        return false;
+      }
+      addToCart(product, selectedPackage);
+      setSearch('');
+      setSelectedCategory('');
+      setScanMessage(
+        `${product.name}${selectedPackage ? ` (${selectedPackage.name})` : ''} added to basket.`
+      );
+      return true;
+    },
+    [addToCart, catalogProducts, productTerms, router]
+  );
 
-  const SCANNER_INACTIVITY_MS = 450
+  const SCANNER_INACTIVITY_MS = 450;
 
   const availableCategories = useMemo(() => {
-    const categoryIds = new Set(catalogProducts.map((product) => product.categoryId).filter(Boolean))
-    return categories.filter((category) => category.name.trim() && categoryIds.has(category.id))
-  }, [catalogProducts, categories])
+    const categoryIds = new Set(
+      catalogProducts.map((product) => product.categoryId).filter(Boolean)
+    );
+    return categories.filter(
+      (category) => category.name.trim() && categoryIds.has(category.id)
+    );
+  }, [catalogProducts, categories]);
 
   const categoryImages = useMemo(() => {
-    const images = new Map<string, string>()
+    const images = new Map<string, string>();
     for (const product of catalogProducts) {
-      if (product.categoryId && product.imageUrl && !images.has(product.categoryId)) {
-        images.set(product.categoryId, product.imageUrl)
+      if (
+        product.categoryId &&
+        product.imageUrl &&
+        !images.has(product.categoryId)
+      ) {
+        images.set(product.categoryId, product.imageUrl);
       }
     }
-    return images
-  }, [catalogProducts])
+    return images;
+  }, [catalogProducts]);
 
   const categoryProductCounts = useMemo(() => {
-    const counts = new Map<string, number>()
+    const counts = new Map<string, number>();
     for (const product of catalogProducts) {
-      if (product.categoryId) counts.set(product.categoryId, (counts.get(product.categoryId) ?? 0) + 1)
+      if (product.categoryId)
+        counts.set(
+          product.categoryId,
+          (counts.get(product.categoryId) ?? 0) + 1
+        );
     }
-    return counts
-  }, [catalogProducts])
+    return counts;
+  }, [catalogProducts]);
 
   const allCategoryImage = useMemo(
     () => catalogProducts.find((product) => product.imageUrl)?.imageUrl ?? null,
     [catalogProducts]
-  )
+  );
 
   // USB scanners type rapidly like a keyboard and normally finish with Enter.
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      const target = e.target as HTMLElement | null
-      const editable = target?.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target?.tagName ?? '')
-      if (receipt || processing || checkoutOpen || editable) return
+      const target = e.target as HTMLElement | null;
+      const editable =
+        target?.isContentEditable ||
+        ['INPUT', 'TEXTAREA', 'SELECT'].includes(target?.tagName ?? '');
+      if (receipt || processing || checkoutOpen || editable) return;
 
       if (e.key === 'Enter' && barcodeBufferRef.current) {
-        e.preventDefault()
-        const barcode = normalizeBarcode(barcodeBufferRef.current)
-        barcodeBufferRef.current = ''
-        if (!barcode) return
-        const now = Date.now()
-        if (lastScanRef.current && lastScanRef.current.barcode === barcode && now - lastScanRef.current.at < 350) return
-        lastScanRef.current = { barcode, at: now }
+        e.preventDefault();
+        const barcode = normalizeBarcode(barcodeBufferRef.current);
+        barcodeBufferRef.current = '';
+        if (!barcode) return;
+        const now = Date.now();
+        if (
+          lastScanRef.current &&
+          lastScanRef.current.barcode === barcode &&
+          now - lastScanRef.current.at < 350
+        )
+          return;
+        lastScanRef.current = { barcode, at: now };
 
-        handleBarcodeScan(barcode)
-        return
+        handleBarcodeScan(barcode);
+        return;
       }
 
       // Collect barcode characters (numbers, usually 5-20 chars)
-      if (e.key.length === 1 && /[0-9a-zA-Z]/.test(e.key) && !e.ctrlKey && !e.metaKey && !e.altKey) {
-        barcodeBufferRef.current += e.key
+      if (
+        e.key.length === 1 &&
+        /[0-9a-zA-Z]/.test(e.key) &&
+        !e.ctrlKey &&
+        !e.metaKey &&
+        !e.altKey
+      ) {
+        barcodeBufferRef.current += e.key;
 
         // Clear buffer after 2 seconds without input
-        if (barcodeTimeoutRef.current) clearTimeout(barcodeTimeoutRef.current)
+        if (barcodeTimeoutRef.current) clearTimeout(barcodeTimeoutRef.current);
         barcodeTimeoutRef.current = setTimeout(() => {
-          barcodeBufferRef.current = ''
-        }, SCANNER_INACTIVITY_MS)
+          barcodeBufferRef.current = '';
+        }, SCANNER_INACTIVITY_MS);
       }
-    }
+    };
 
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [receipt, processing, checkoutOpen, handleBarcodeScan])
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [receipt, processing, checkoutOpen, handleBarcodeScan]);
 
-  const productsById = useMemo(() => new Map(catalogProducts.map((product) => [product.id, product])), [catalogProducts])
-  const cartQuantityByProductId = useMemo(() => new Map(cart.map((item) => [item.productId, item.quantity])), [cart])
-  const containsAgeRestrictedItem = requiresAgeVerification && cart.length > 0
-  const prescriptionRequired = cart.some((item) => productsById.get(item.productId)?.pharmacy?.prescriptionRequired)
-  const containsRestrictedMedicine = cart.some((item) => productsById.get(item.productId)?.pharmacy?.restrictedItem)
-  const deferredSearch = useDeferredValue(search.trim().toLocaleLowerCase())
+  const productsById = useMemo(
+    () => new Map(catalogProducts.map((product) => [product.id, product])),
+    [catalogProducts]
+  );
+  const cartQuantityByProductId = useMemo(
+    () => new Map(cart.map((item) => [item.productId, item.quantity])),
+    [cart]
+  );
+  const containsAgeRestrictedItem = requiresAgeVerification && cart.length > 0;
+  const prescriptionRequired = cart.some(
+    (item) => productsById.get(item.productId)?.pharmacy?.prescriptionRequired
+  );
+  const containsRestrictedMedicine = cart.some(
+    (item) => productsById.get(item.productId)?.pharmacy?.restrictedItem
+  );
+  const deferredSearch = useDeferredValue(search.trim().toLocaleLowerCase());
 
-  const filteredProducts = useMemo(() => catalogProducts.filter(
-    (p) =>
-      p.isActive &&
-      p.stock > 0 &&
-      (!selectedCategory || p.categoryId === selectedCategory) &&
-      (!deferredSearch ||
-        p.name.toLocaleLowerCase().includes(deferredSearch) ||
-        (p.brand ?? '').toLocaleLowerCase().includes(deferredSearch) ||
-        (p.pharmacy?.genericName ?? '').toLocaleLowerCase().includes(deferredSearch) ||
-        (p.pharmacy?.manufacturer ?? '').toLocaleLowerCase().includes(deferredSearch) ||
-        (p.pharmacy?.internalCode ?? '').toLocaleLowerCase().includes(deferredSearch) ||
-        (p.sku ?? '').toLocaleLowerCase().includes(deferredSearch) ||
-        (p.barcode ?? '').toLocaleLowerCase().includes(deferredSearch))
-  ), [catalogProducts, deferredSearch, selectedCategory])
+  const filteredProducts = useMemo(
+    () =>
+      catalogProducts.filter(
+        (p) =>
+          p.isActive &&
+          p.stock > 0 &&
+          (!selectedCategory || p.categoryId === selectedCategory) &&
+          (!deferredSearch ||
+            p.name.toLocaleLowerCase().includes(deferredSearch) ||
+            (p.brand ?? '').toLocaleLowerCase().includes(deferredSearch) ||
+            (p.pharmacy?.genericName ?? '')
+              .toLocaleLowerCase()
+              .includes(deferredSearch) ||
+            (p.pharmacy?.manufacturer ?? '')
+              .toLocaleLowerCase()
+              .includes(deferredSearch) ||
+            (p.pharmacy?.internalCode ?? '')
+              .toLocaleLowerCase()
+              .includes(deferredSearch) ||
+            (p.sku ?? '').toLocaleLowerCase().includes(deferredSearch) ||
+            (p.barcode ?? '').toLocaleLowerCase().includes(deferredSearch))
+      ),
+    [catalogProducts, deferredSearch, selectedCategory]
+  );
 
   const updateQty = (productId: string, delta: number) => {
-    if (mpesaLocksBasket) return notify.error('The basket is locked while M-Pesa payment is in progress')
-    setCart((prev) =>
-      prev
-        .map((i) => {
-          if (i.productId !== productId) return i
-          const newQty = i.quantity + delta
-          if (newQty <= 0) return null
-          const product = productsById.get(productId)
-          const unitsPerSale = i.baseUnitQuantity ?? 1
-          if (product && newQty * unitsPerSale > product.stock) {
-            notify.error(`Only ${Math.floor(product.stock / unitsPerSale)} ${i.packageName ?? product.unit} in stock`)
-            return i
-          }
-          return { ...i, quantity: newQty, totalPrice: newQty * i.unitPrice }
-        })
-        .filter(Boolean) as CartItem[]
-    )
-  }
+    if (mpesaLocksBasket)
+      return notify.error(
+        'The basket is locked while M-Pesa payment is in progress'
+      );
+    setCart(
+      (prev) =>
+        prev
+          .map((i) => {
+            if (i.productId !== productId) return i;
+            const newQty = i.quantity + delta;
+            if (newQty <= 0) return null;
+            const product = productsById.get(productId);
+            const unitsPerSale = i.baseUnitQuantity ?? 1;
+            if (product && newQty * unitsPerSale > product.stock) {
+              notify.error(
+                `Only ${Math.floor(product.stock / unitsPerSale)} ${i.packageName ?? product.unit} in stock`
+              );
+              return i;
+            }
+            return { ...i, quantity: newQty, totalPrice: newQty * i.unitPrice };
+          })
+          .filter(Boolean) as CartItem[]
+    );
+  };
 
   const removeFromCart = (productId: string) => {
-    if (mpesaLocksBasket) return notify.error('The basket is locked while M-Pesa payment is in progress')
-    setCart((prev) => prev.filter((i) => i.productId !== productId))
-  }
+    if (mpesaLocksBasket)
+      return notify.error(
+        'The basket is locked while M-Pesa payment is in progress'
+      );
+    setCart((prev) => prev.filter((i) => i.productId !== productId));
+  };
 
-  const subtotal = cart.reduce((sum, i) => sum + i.totalPrice, 0)
-  const TAX_RATE = settings.taxEnabled ? settings.taxRate / 100 : 0
+  const subtotal = cart.reduce((sum, i) => sum + i.totalPrice, 0);
+  const TAX_RATE = settings.taxEnabled ? settings.taxRate / 100 : 0;
   const taxAmount = settings.taxEnabled
-    ? settings.pricesIncludeTax ? subtotal - (subtotal / (1 + TAX_RATE)) : subtotal * TAX_RATE
-    : 0
-  const grossBeforeDiscount = settings.pricesIncludeTax ? subtotal : subtotal + taxAmount
+    ? settings.pricesIncludeTax
+      ? subtotal - subtotal / (1 + TAX_RATE)
+      : subtotal * TAX_RATE
+    : 0;
+  const grossBeforeDiscount = settings.pricesIncludeTax
+    ? subtotal
+    : subtotal + taxAmount;
 
   // Tax remains server-authoritative. Manual discounts and coupon reductions are
   // combined into the single audited discount amount accepted by checkout.
-  let manualDiscountAmount = 0
+  let manualDiscountAmount = 0;
   if (discountType === 'percentage') {
-    manualDiscountAmount = canDiscount ? Math.min((discount / 100) * grossBeforeDiscount, grossBeforeDiscount) : 0
+    manualDiscountAmount = canDiscount
+      ? Math.min((discount / 100) * grossBeforeDiscount, grossBeforeDiscount)
+      : 0;
   } else {
-    manualDiscountAmount = canDiscount ? Math.min(discount, grossBeforeDiscount) : 0
+    manualDiscountAmount = canDiscount
+      ? Math.min(discount, grossBeforeDiscount)
+      : 0;
   }
   const couponAmount = canDiscount
-    ? Math.min(Math.max(0, couponValue), Math.max(0, grossBeforeDiscount - manualDiscountAmount))
-    : 0
-  const discountAmount = Math.min(manualDiscountAmount + couponAmount, grossBeforeDiscount)
+    ? Math.min(
+        Math.max(0, couponValue),
+        Math.max(0, grossBeforeDiscount - manualDiscountAmount)
+      )
+    : 0;
+  const discountAmount = Math.min(
+    manualDiscountAmount + couponAmount,
+    grossBeforeDiscount
+  );
 
-  const unroundedTotal = Number((grossBeforeDiscount + shippingCost - discountAmount).toFixed(2))
-  const mpesaAmount = calculateMpesaAmount(unroundedTotal)
-  const appliesRoundoff = roundoffEnabled
-  const total = appliesRoundoff ? mpesaAmount.amount : unroundedTotal
-  const roundingAmount = appliesRoundoff ? mpesaAmount.roundingAmount : 0
-  const change = paymentMethod === 'cash' ? Math.max(0, parseFloat(amountPaid || '0') - total) : 0
-  const offlineQueueSummary = summarizeOfflineQueue(offlineSales.map((item) => item.status))
-  const showOfflineStatus = !isOnline || offlineQueueSummary.pending > 0 || offlineQueueSummary.failed > 0 || offlineSyncing
+  const unroundedTotal = Number(
+    (grossBeforeDiscount + shippingCost - discountAmount).toFixed(2)
+  );
+  const mpesaAmount = calculateMpesaAmount(unroundedTotal);
+  const appliesRoundoff = roundoffEnabled;
+  const total = appliesRoundoff ? mpesaAmount.amount : unroundedTotal;
+  const roundingAmount = appliesRoundoff ? mpesaAmount.roundingAmount : 0;
+  const change =
+    paymentMethod === 'cash'
+      ? Math.max(0, parseFloat(amountPaid || '0') - total)
+      : 0;
+  const offlineQueueSummary = summarizeOfflineQueue(
+    offlineSales.map((item) => item.status)
+  );
+  const showOfflineStatus =
+    !isOnline ||
+    offlineQueueSummary.pending > 0 ||
+    offlineQueueSummary.failed > 0 ||
+    offlineSyncing;
 
   const openSummaryEditor = (editor: Exclude<SummaryEditor, null>) => {
-    if (mpesaLocksBasket) return notify.error('The order is locked while M-Pesa payment is in progress')
+    if (mpesaLocksBasket)
+      return notify.error(
+        'The order is locked while M-Pesa payment is in progress'
+      );
     if ((editor === 'coupon' || editor === 'discount') && !canDiscount) {
-      return notify.error('Your role does not have permission to apply discounts')
+      return notify.error(
+        'Your role does not have permission to apply discounts'
+      );
     }
     if (editor === 'discount') {
-      setSummaryDraftType(discountType)
-      setSummaryDraftValue(discount > 0 ? String(discount) : '')
+      setSummaryDraftType(discountType);
+      setSummaryDraftValue(discount > 0 ? String(discount) : '');
     } else if (editor === 'coupon') {
-      setSummaryDraftType('fixed')
-      setSummaryDraftValue(couponValue > 0 ? String(couponValue) : '')
-      setCouponDraftCode(couponCode)
+      setSummaryDraftType('fixed');
+      setSummaryDraftValue(couponValue > 0 ? String(couponValue) : '');
+      setCouponDraftCode(couponCode);
     } else if (editor === 'shipping') {
-      setSummaryDraftValue(shippingCost > 0 ? String(shippingCost) : '')
+      setSummaryDraftValue(shippingCost > 0 ? String(shippingCost) : '');
     }
-    setSummaryEditor(editor)
-  }
+    setSummaryEditor(editor);
+  };
 
-  const applySummaryAdjustment = () => {
+  const applySummaryAdjustment = async () => {
     if (summaryEditor === 'shipping') {
-      const value = summaryDraftValue.trim() === '' ? 0 : Number(summaryDraftValue)
-      if (!Number.isFinite(value) || value < 0) return notify.error('Enter a valid shipping cost')
-      setShippingCost(value)
-      setSummaryEditor(null)
-      notify.success(value > 0 ? 'Shipping cost applied' : 'Shipping cost removed')
-      return
+      const value =
+        summaryDraftValue.trim() === '' ? 0 : Number(summaryDraftValue);
+      if (!Number.isFinite(value) || value < 0)
+        return notify.error('Enter a valid shipping cost');
+      setShippingCost(value);
+      setSummaryEditor(null);
+      notify.success(
+        value > 0 ? 'Shipping cost applied' : 'Shipping cost removed'
+      );
+      return;
     }
-    const value = Number(summaryDraftValue)
-    if (!Number.isFinite(value) || value < 0) return notify.error('Enter a valid value')
     if (summaryEditor === 'discount') {
-      if (summaryDraftType === 'percentage' && value > 100) return notify.error('Percentage discount cannot exceed 100%')
-      setDiscountType(summaryDraftType)
-      setDiscount(value)
-      setSummaryEditor(null)
-      notify.success(value > 0 ? 'Discount applied' : 'Discount removed')
+      const value = Number(summaryDraftValue);
+      if (!Number.isFinite(value) || value < 0)
+        return notify.error('Enter a valid value');
+      if (summaryDraftType === 'percentage' && value > 100)
+        return notify.error('Percentage discount cannot exceed 100%');
+      setDiscountType(summaryDraftType);
+      setDiscount(value);
+      setSummaryEditor(null);
+      notify.success(value > 0 ? 'Discount applied' : 'Discount removed');
     } else if (summaryEditor === 'coupon') {
-      if (value > 0 && !couponDraftCode.trim()) return notify.error('Enter the coupon or reference code')
-      setCouponCode(value > 0 ? couponDraftCode.trim().toUpperCase() : '')
-      setCouponValue(value)
-      setSummaryEditor(null)
-      notify.success(value > 0 ? 'Coupon applied' : 'Coupon removed')
+      if (!couponDraftCode.trim()) return notify.error('Enter a coupon code');
+      try {
+        const coupon = await validateCoupon(
+          couponDraftCode,
+          Math.max(0, grossBeforeDiscount - manualDiscountAmount)
+        );
+        setCouponCode(coupon.code);
+        setCouponValue(coupon.amount);
+        setSummaryEditor(null);
+        notify.success(
+          `${coupon.name} applied — you save ${formatCurrency(coupon.amount)}`
+        );
+      } catch (error) {
+        notify.error(
+          error instanceof Error ? error.message : 'Coupon could not be applied'
+        );
+      }
     }
-  }
+  };
 
   const removeAppliedPromotion = (kind: 'discount' | 'coupon') => {
-    if (mpesaLocksBasket) return notify.error('The order is locked while M-Pesa payment is in progress')
+    if (mpesaLocksBasket)
+      return notify.error(
+        'The order is locked while M-Pesa payment is in progress'
+      );
     if (kind === 'discount') {
-      setDiscount(0)
-      notify.success('Discount removed')
-      return
+      setDiscount(0);
+      notify.success('Discount removed');
+      return;
     }
-    setCouponCode('')
-    setCouponValue(0)
-    notify.success('Coupon removed')
-  }
+    setCouponCode('');
+    setCouponValue(0);
+    notify.success('Coupon removed');
+  };
 
-  const saveCashCheckoutOffline = async (verified: boolean, queueId: string) => {
-    if (paymentMethod !== 'cash') throw new Error('Offline checkout supports cash only')
-    if (!offlineContext?.sessionId) throw new Error('This register has no cached open shift for offline selling')
-    if (prescriptionRequired || containsRestrictedMedicine) throw new Error('Prescription and restricted medicines require an online approval workflow')
-    const offlineCreatedAt = new Date()
-    const provisionalReceiptNo = createProvisionalReceiptNo(offlineCreatedAt, queueId)
+  const saveCashCheckoutOffline = async (
+    verified: boolean,
+    queueId: string
+  ) => {
+    if (paymentMethod !== 'cash')
+      throw new Error('Offline checkout supports cash only');
+    if (!offlineContext?.sessionId)
+      throw new Error(
+        'This register has no cached open shift for offline selling'
+      );
+    if (prescriptionRequired || containsRestrictedMedicine)
+      throw new Error(
+        'Prescription and restricted medicines require an online approval workflow'
+      );
+    const offlineCreatedAt = new Date();
+    const provisionalReceiptNo = createProvisionalReceiptNo(
+      offlineCreatedAt,
+      queueId
+    );
     const record: OfflineSaleRecord = {
       id: queueId,
       organizationId,
@@ -954,13 +1741,16 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
         amountReceived: parseFloat(amountPaid || '0'),
         ageVerified: requiresAgeVerification ? verified : false,
       },
-    }
-    await saveOfflineSale(record)
-    await refreshOfflineSales()
+    };
+    await saveOfflineSale(record);
+    await refreshOfflineSales();
     setReceipt({
       saleId: `offline-${queueId}`,
       receiptNo: provisionalReceiptNo,
-      items: cart.map((item) => ({ ...item, saleItemId: `offline-${queueId}-${item.productId}` })),
+      items: cart.map((item) => ({
+        ...item,
+        saleItemId: `offline-${queueId}-${item.productId}`,
+      })),
       subtotal,
       taxAmount,
       discountAmount,
@@ -973,101 +1763,232 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
       ageVerified: requiresAgeVerification ? verified : false,
       completedAt: offlineCreatedAt,
       amountReceived: parseFloat(amountPaid || '0'),
-      discountType: discountAmount > 0 ? (couponAmount > 0 ? 'fixed' : discountType) : undefined,
-      discountValue: discountAmount > 0 ? (couponAmount > 0 ? discountAmount : discount) : undefined,
-      customerName: availableCustomers.find((customer) => customer.id === selectedCustomer)?.name || 'Walk-in customer',
-      customerEmail: availableCustomers.find((customer) => customer.id === selectedCustomer)?.email,
+      discountType:
+        discountAmount > 0
+          ? couponAmount > 0
+            ? 'fixed'
+            : discountType
+          : undefined,
+      discountValue:
+        discountAmount > 0
+          ? couponAmount > 0
+            ? discountAmount
+            : discount
+          : undefined,
+      customerName:
+        availableCustomers.find((customer) => customer.id === selectedCustomer)
+          ?.name || 'Walk-in customer',
+      customerEmail: availableCustomers.find(
+        (customer) => customer.id === selectedCustomer
+      )?.email,
       offline: { status: 'PENDING', provisionalReceiptNo },
-      etims: { status: 'PENDING', message: 'Fiscal submission will begin after this sale synchronizes.', showOnReceipt: false },
-    })
-    setCatalogProducts((current) => current.map((product) => {
-      const sold = cart.find((item) => item.productId === product.id)
-      return sold ? { ...product, stock: Math.max(0, product.stock - sold.quantity * (sold.baseUnitQuantity ?? 1)) } : product
-    }))
-    setCart([])
-    window.localStorage.removeItem(cartStorageKey)
-    window.localStorage.removeItem(checkoutStorageKey)
-    notify.success('Offline cash sale saved on this register', { description: `${provisionalReceiptNo} · synchronization pending` })
-  }
+      etims: {
+        status: 'PENDING',
+        message: 'Fiscal submission will begin after this sale synchronizes.',
+        showOnReceipt: false,
+      },
+    });
+    setCatalogProducts((current) =>
+      current.map((product) => {
+        const sold = cart.find((item) => item.productId === product.id);
+        return sold
+          ? {
+              ...product,
+              stock: Math.max(
+                0,
+                product.stock - sold.quantity * (sold.baseUnitQuantity ?? 1)
+              ),
+            }
+          : product;
+      })
+    );
+    setCart([]);
+    window.localStorage.removeItem(cartStorageKey);
+    window.localStorage.removeItem(checkoutStorageKey);
+    notify.success('Offline cash sale saved on this register', {
+      description: `${provisionalReceiptNo} · synchronization pending`,
+    });
+  };
 
-  const processCheckout = async (verified = ageVerified, serverAlreadyConfirmed = false) => {
-    if (!hasActiveShift) return notify.error('Start your shift before completing a sale')
-    if (cart.length === 0) return notify.error('Cart is empty')
-    if (prescriptionRequired && !prescriptionReference.trim()) return notify.error('Enter the prescription reference')
-    if (containsRestrictedMedicine && !canApproveRestricted) return notify.error('An authorized pharmacist or manager must complete this sale')
-    if (paymentMethod === 'mpesa' && ((!serverAlreadyConfirmed && mpesaStatus !== 'success') || !mpesaRequestId || !mpesaRef)) return notify.error('Wait for M-Pesa payment confirmation')
-    if (paymentMethod === 'card' && !mpesaRef.trim()) return notify.error('Authorization code required', { description: 'Enter the approval code shown by the physical terminal.' })
-    if (paymentMethod === 'card' && !cardApproved) return notify.error('Confirm the card terminal shows APPROVED')
-    if (paymentMethod === 'airtel_money' && !mpesaRef) return notify.error('Enter the Airtel Money transaction reference')
-    if (paymentMethod === 'bank_transfer' && !mpesaRef) return notify.error('Enter the confirmed bank transfer reference')
+  const processCheckout = async (
+    verified = ageVerified,
+    serverAlreadyConfirmed = false
+  ) => {
+    if (!hasActiveShift)
+      return notify.error('Start your shift before completing a sale');
+    if (cart.length === 0) return notify.error('Cart is empty');
+    if (prescriptionRequired && !prescriptionReference.trim())
+      return notify.error('Enter the prescription reference');
+    if (containsRestrictedMedicine && !canApproveRestricted)
+      return notify.error(
+        'An authorized pharmacist or manager must complete this sale'
+      );
+    if (
+      paymentMethod === 'mpesa' &&
+      ((!serverAlreadyConfirmed && mpesaStatus !== 'success') ||
+        !mpesaRequestId ||
+        !mpesaRef)
+    )
+      return notify.error('Wait for M-Pesa payment confirmation');
+    if (paymentMethod === 'card' && cardResult !== 'approved')
+      return notify.error('Confirm the physical terminal result first');
+    if (paymentMethod === 'card' && !selectedCardTerminalId)
+      return notify.error('Choose an active card terminal');
+    if (paymentMethod === 'card' && !mpesaRef.trim())
+      return notify.error('Authorization code required', {
+        description: 'Enter the approval code shown by the physical terminal.',
+      });
+    if (paymentMethod === 'card' && !cardApproved)
+      return notify.error('Confirm the card terminal shows APPROVED');
+    if (paymentMethod === 'airtel_money' && !mpesaRef)
+      return notify.error('Enter the Airtel Money transaction reference');
+    if (paymentMethod === 'bank_transfer' && !mpesaRef)
+      return notify.error('Enter the confirmed bank transfer reference');
     if (paymentMethod === 'cash' && parseFloat(amountPaid || '0') < total) {
-      return notify.error('Amount received is too low', { description: `${formatCurrency(total)} is required to complete this sale.` })
+      return notify.error('Amount received is too low', {
+        description: `${formatCurrency(total)} is required to complete this sale.`,
+      });
     }
 
     // Check for low stock items
-    const lowStockItems = cart.filter(item => {
-      const product = catalogProducts.find(p => p.id === item.productId)
-      return product && (product.stock - item.quantity * (item.baseUnitQuantity ?? 1)) < product.minStock
-    })
+    const lowStockItems = cart.filter((item) => {
+      const product = catalogProducts.find((p) => p.id === item.productId);
+      return (
+        product &&
+        product.stock - item.quantity * (item.baseUnitQuantity ?? 1) <
+          product.minStock
+      );
+    });
 
     if (lowStockItems.length > 0) {
-      notify.warning(`${lowStockItems.length} item(s) will go below minimum stock level after this sale`)
+      notify.warning(
+        `${lowStockItems.length} item(s) will go below minimum stock level after this sale`
+      );
     }
 
-    setProcessing(true)
+    setProcessing(true);
 
     // Generate idempotency key on first attempt
     if (!checkoutIdempotencyKeyRef.current) {
-      checkoutIdempotencyKeyRef.current = createIdempotencyKey()
-      window.localStorage.setItem(checkoutStorageKey, checkoutIdempotencyKeyRef.current)
+      checkoutIdempotencyKeyRef.current = createIdempotencyKey();
+      window.localStorage.setItem(
+        checkoutStorageKey,
+        checkoutIdempotencyKeyRef.current
+      );
     }
 
     if (!isOnline) {
       try {
-        await saveCashCheckoutOffline(verified, checkoutIdempotencyKeyRef.current)
+        await saveCashCheckoutOffline(
+          verified,
+          checkoutIdempotencyKeyRef.current
+        );
       } catch (error) {
-        notify.error(error instanceof Error ? error.message : 'Could not save this offline sale')
+        notify.error(
+          error instanceof Error
+            ? error.message
+            : 'Could not save this offline sale'
+        );
       } finally {
-        setProcessing(false)
+        setProcessing(false);
       }
-      return
+      return;
     }
 
-    const saleToastId = notify.loading('Completing saleâ€¦', {
-      description: paymentMethod === 'mpesa' ? 'Confirming payment and saving the receipt.' : 'Saving payment and updating inventory.',
-    })
+    const saleToastId = notify.loading('Completing sale…', {
+      description:
+        paymentMethod === 'mpesa'
+          ? 'Confirming payment and saving the receipt.'
+          : 'Saving payment and updating inventory.',
+    });
+    let persistedCardAttemptId = cardAttemptId;
     try {
-      const completed = paymentMethod === 'mpesa' && serverAlreadyConfirmed
-        ? await getFinalizedMpesaSale(mpesaRequestId)
-        : await createSale({
-        customerId: selectedCustomer || undefined,
-        items: cart,
-        subtotal,
-        discountAmount,
-        shippingAmount: shippingCost,
-        roundoffEnabled,
-        total,
-        paymentMethod,
-        paymentReference: mpesaRef || undefined,
-        mpesaPaymentRequestId: paymentMethod === 'mpesa' ? mpesaRequestId : undefined,
-        amountReceived: paymentMethod === 'cash' ? parseFloat(amountPaid || '0') : undefined,
-        paymentReceiver: paymentReceiver || undefined,
-        paymentNote: paymentNote || undefined,
-        saleNote: saleNote || undefined,
-        staffNote: staffNote || undefined,
-        idempotencyKey: checkoutIdempotencyKeyRef.current,
-        ageVerified: requiresAgeVerification ? verified : undefined,
-        pharmacy: prescriptionRequired || containsRestrictedMedicine ? { prescriptionReference: prescriptionReference.trim() || undefined, prescriberReference: prescriberReference.trim() || undefined, patientReference: patientReference.trim() || undefined, issuedAt: prescriptionIssuedAt ? new Date(prescriptionIssuedAt) : undefined, expiresAt: prescriptionExpiresAt ? new Date(prescriptionExpiresAt) : undefined, notes: pharmacyNotes.trim() || undefined } : undefined,
-        })
-      const { saleId, receiptNo, tax, rounding: returnedRounding, total: returnedTotal, items: savedItems, etims } = completed
-      const completedMpesaDetails = 'mpesaDetails' in completed ? completed.mpesaDetails : undefined
+      let approvedCardAttemptId = persistedCardAttemptId;
+      if (paymentMethod === 'card' && !approvedCardAttemptId) {
+        const attempt = await prepareCardPaymentAttempt({
+          terminalId: selectedCardTerminalId,
+          amount: total,
+          authorizationCode: mpesaRef,
+          reference: paymentReceiver || undefined,
+          cardBrand: cardBrand || undefined,
+          last4: cardLast4 || undefined,
+          entryMode: cardEntryMode || undefined,
+          approvedConfirmation: true,
+          idempotencyKey: checkoutIdempotencyKeyRef.current,
+        });
+        approvedCardAttemptId = attempt.id;
+        persistedCardAttemptId = attempt.id;
+        setCardAttemptId(attempt.id);
+      }
+      const completed =
+        paymentMethod === 'mpesa' && serverAlreadyConfirmed
+          ? await getFinalizedMpesaSale(mpesaRequestId)
+          : await createSale({
+              customerId: selectedCustomer || undefined,
+              items: cart,
+              subtotal,
+              discountAmount,
+              shippingAmount: shippingCost,
+              roundoffEnabled,
+              total,
+              paymentMethod,
+              paymentReference:
+                paymentMethod === 'card' ? undefined : mpesaRef || undefined,
+              cardPaymentAttemptId:
+                paymentMethod === 'card' ? approvedCardAttemptId : undefined,
+              mpesaPaymentRequestId:
+                paymentMethod === 'mpesa' ? mpesaRequestId : undefined,
+              amountReceived:
+                paymentMethod === 'cash'
+                  ? parseFloat(amountPaid || '0')
+                  : undefined,
+              paymentReceiver: paymentReceiver || undefined,
+              paymentNote: paymentNote || undefined,
+              saleNote: saleNote || undefined,
+              staffNote: staffNote || undefined,
+              idempotencyKey: checkoutIdempotencyKeyRef.current,
+              ageVerified: requiresAgeVerification ? verified : undefined,
+              pharmacy:
+                prescriptionRequired || containsRestrictedMedicine
+                  ? {
+                      prescriptionReference:
+                        prescriptionReference.trim() || undefined,
+                      prescriberReference:
+                        prescriberReference.trim() || undefined,
+                      patientReference: patientReference.trim() || undefined,
+                      issuedAt: prescriptionIssuedAt
+                        ? new Date(prescriptionIssuedAt)
+                        : undefined,
+                      expiresAt: prescriptionExpiresAt
+                        ? new Date(prescriptionExpiresAt)
+                        : undefined,
+                      notes: pharmacyNotes.trim() || undefined,
+                    }
+                  : undefined,
+            });
+      const {
+        saleId,
+        receiptNo,
+        tax,
+        rounding: returnedRounding,
+        total: returnedTotal,
+        items: savedItems,
+        etims,
+      } = completed;
+      const completedMpesaDetails =
+        'mpesaDetails' in completed ? completed.mpesaDetails : undefined;
       setReceipt({
         saleId,
         receiptNo,
         items: cart.map((item) => {
-          const savedItem = savedItems.find((candidate) => candidate.productId === item.productId)
-          if (!savedItem) throw new Error(`Receipt item was not saved for ${item.productName}`)
-          return { ...item, saleItemId: savedItem.saleItemId }
+          const savedItem = savedItems.find(
+            (candidate) => candidate.productId === item.productId
+          );
+          if (!savedItem)
+            throw new Error(
+              `Receipt item was not saved for ${item.productName}`
+            );
+          return { ...item, saleItemId: savedItem.saleItemId };
         }),
         subtotal,
         taxAmount: tax || taxAmount,
@@ -1076,470 +1997,901 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
         roundingAmount: returnedRounding ?? roundingAmount,
         total: returnedTotal || total,
         paymentMethod,
-        mpesaMode: paymentMethod === 'mpesa' ? (completedMpesaDetails?.mode as 'stk' | 'till' | 'paybill' | undefined) : undefined,
-        mpesaPhone: paymentMethod === 'mpesa' ? completedMpesaDetails?.phone : undefined,
+        mpesaMode:
+          paymentMethod === 'mpesa'
+            ? (completedMpesaDetails?.mode as
+                | 'stk'
+                | 'till'
+                | 'paybill'
+                | undefined)
+            : undefined,
+        mpesaPhone:
+          paymentMethod === 'mpesa' ? completedMpesaDetails?.phone : undefined,
         mpesaMerchant: paymentMethod === 'mpesa' ? mpesaShortcode : undefined,
-        mpesaAccountReference: paymentMethod === 'mpesa' ? completedMpesaDetails?.accountReference : undefined,
+        mpesaAccountReference:
+          paymentMethod === 'mpesa'
+            ? completedMpesaDetails?.accountReference
+            : undefined,
         mpesaRef: mpesaRef || undefined,
-        change: paymentMethod === 'cash' ? (parseFloat(amountPaid || '0') - (returnedTotal || total)) : 0,
+        change:
+          paymentMethod === 'cash'
+            ? parseFloat(amountPaid || '0') - (returnedTotal || total)
+            : 0,
         idempotencyKey: checkoutIdempotencyKeyRef.current,
         ageVerified: requiresAgeVerification ? verified : false,
         completedAt: new Date(),
-        amountReceived: paymentMethod === 'cash' ? parseFloat(amountPaid || '0') : undefined,
-        discountType: discountAmount > 0 ? (couponAmount > 0 ? 'fixed' : discountType) : undefined,
-        discountValue: discountAmount > 0 ? (couponAmount > 0 ? discountAmount : discount) : undefined,
-        customerName: availableCustomers.find((customer) => customer.id === selectedCustomer)?.name || 'Walk-in customer',
-        customerEmail: availableCustomers.find((customer) => customer.id === selectedCustomer)?.email,
+        amountReceived:
+          paymentMethod === 'cash' ? parseFloat(amountPaid || '0') : undefined,
+        discountType:
+          discountAmount > 0
+            ? couponAmount > 0
+              ? 'fixed'
+              : discountType
+            : undefined,
+        discountValue:
+          discountAmount > 0
+            ? couponAmount > 0
+              ? discountAmount
+              : discount
+            : undefined,
+        customerName:
+          availableCustomers.find(
+            (customer) => customer.id === selectedCustomer
+          )?.name || 'Walk-in customer',
+        customerEmail: availableCustomers.find(
+          (customer) => customer.id === selectedCustomer
+        )?.email,
         etims: {
           status: etims.status,
           message: 'message' in etims ? etims.message : undefined,
-          showOnReceipt: 'receiptDetailsEnabled' in etims ? etims.receiptDetailsEnabled : false,
-          ...('submission' in etims && etims.submission ? {
-            environment: etims.submission.environment,
-            invoiceNumber: etims.submission.invoiceNumber,
-            controlNumber: etims.submission.controlNumber,
-            receiptNumber: etims.submission.receiptNumber,
-            internalReference: etims.submission.internalReference,
-            qrData: etims.submission.qrData,
-            verificationData: etims.submission.verificationData,
-          } : {}),
+          showOnReceipt:
+            'receiptDetailsEnabled' in etims
+              ? etims.receiptDetailsEnabled
+              : false,
+          ...('submission' in etims && etims.submission
+            ? {
+                environment: etims.submission.environment,
+                invoiceNumber: etims.submission.invoiceNumber,
+                controlNumber: etims.submission.controlNumber,
+                receiptNumber: etims.submission.receiptNumber,
+                internalReference: etims.submission.internalReference,
+                qrData: etims.submission.qrData,
+                verificationData: etims.submission.verificationData,
+              }
+            : {}),
         },
-      })
+      });
       if (paymentMethod === 'mpesa') {
-        window.localStorage.removeItem(mpesaStorageKey)
-        window.localStorage.removeItem(cartStorageKey)
+        window.localStorage.removeItem(mpesaStorageKey);
+        window.localStorage.removeItem(cartStorageKey);
       }
-      setCatalogProducts((current) => current.map((product) => {
-        const sold = cart.find((item) => item.productId === product.id)
-        return sold ? { ...product, stock: Math.max(0, product.stock - sold.quantity * (sold.baseUnitQuantity ?? 1)) } : product
-      }))
-      setCart([])
-      window.localStorage.removeItem(cartStorageKey)
-      window.localStorage.removeItem(checkoutStorageKey)
+      setCatalogProducts((current) =>
+        current.map((product) => {
+          const sold = cart.find((item) => item.productId === product.id);
+          return sold
+            ? {
+                ...product,
+                stock: Math.max(
+                  0,
+                  product.stock - sold.quantity * (sold.baseUnitQuantity ?? 1)
+                ),
+              }
+            : product;
+        })
+      );
+      setCart([]);
+      window.localStorage.removeItem(cartStorageKey);
+      window.localStorage.removeItem(checkoutStorageKey);
 
-      const paymentSuccessTitle = paymentMethod === 'cash'
-        ? 'Cash payment completed'
-        : paymentMethod === 'mpesa'
-          ? 'M-Pesa payment received'
-          : paymentMethod === 'card'
-            ? 'Card payment recorded'
-            : paymentMethod === 'airtel_money'
-              ? 'Airtel Money payment recorded'
-              : 'Payment recorded'
-      const paymentSuccessDescription = paymentMethod === 'cash'
-        ? `${formatCurrency(parseFloat(amountPaid || '0'))} received · Receipt #${receiptNo}`
-        : `${formatCurrency(total)} confirmed · Receipt #${receiptNo}`
+      const paymentSuccessTitle =
+        paymentMethod === 'cash'
+          ? 'Cash payment completed'
+          : paymentMethod === 'mpesa'
+            ? 'M-Pesa payment received'
+            : paymentMethod === 'card'
+              ? 'Card payment recorded'
+              : paymentMethod === 'airtel_money'
+                ? 'Airtel Money payment recorded'
+                : 'Payment recorded';
+      const paymentSuccessDescription =
+        paymentMethod === 'cash'
+          ? `${formatCurrency(parseFloat(amountPaid || '0'))} received · Receipt #${receiptNo}`
+          : `${formatCurrency(total)} confirmed · Receipt #${receiptNo}`;
       notify.success(paymentSuccessTitle, {
         id: saleToastId,
-        description: etims.status === 'ACCEPTED'
-          ? `${paymentSuccessDescription} · eTIMS accepted`
-          : paymentSuccessDescription,
-      })
+        description:
+          etims.status === 'ACCEPTED'
+            ? `${paymentSuccessDescription} · eTIMS accepted`
+            : paymentSuccessDescription,
+      });
     } catch (err) {
-      autoFinalizingRef.current = false
+      autoFinalizingRef.current = false;
+      if (paymentMethod === 'card' && persistedCardAttemptId) {
+        setCardRecovery(true);
+        notify.error('Card may already be charged', {
+          id: saleToastId,
+          description: 'The terminal approval is saved. Retry saving this sale or send it to reconciliation—do not charge the card again.',
+        });
+        return;
+      }
       if (paymentMethod === 'cash' && isConnectivityFailure(err)) {
-        notify.dismiss(saleToastId)
+        notify.dismiss(saleToastId);
         try {
-          await saveCashCheckoutOffline(verified, checkoutIdempotencyKeyRef.current)
-          return
+          await saveCashCheckoutOffline(
+            verified,
+            checkoutIdempotencyKeyRef.current
+          );
+          return;
         } catch (offlineError) {
-          notify.error(offlineError instanceof Error ? offlineError.message : 'Could not save this offline sale')
-          return
+          notify.error(
+            offlineError instanceof Error
+              ? offlineError.message
+              : 'Could not save this offline sale'
+          );
+          return;
         }
       }
       notify.error('Sale failed', {
         id: saleToastId,
-        description: err instanceof Error ? err.message : 'The sale could not be processed.',
-      })
+        description:
+          err instanceof Error
+            ? err.message
+            : 'The sale could not be processed.',
+      });
     } finally {
-      setProcessing(false)
+      setProcessing(false);
     }
-  }
+  };
 
   useEffect(() => {
-    processCheckoutRef.current = processCheckout
-  })
+    processCheckoutRef.current = processCheckout;
+  });
 
   const confirmAgeVerification = useCallback(() => {
-    setAgeVerified(true)
-    setShowAgeVerification(false)
+    setAgeVerified(true);
+    setShowAgeVerification(false);
 
     // Confirmation deliberately continues the sale the cashier just initiated.
     // M-Pesa still waits for a successful payment confirmation before checkout.
     if (paymentMethod !== 'mpesa' || mpesaStatus === 'success') {
-      void processCheckoutRef.current(true)
+      void processCheckoutRef.current(true);
     } else if (mpesaFlow === 'paybill') {
-      window.setTimeout(() => manualMpesaStartRef.current(), 0)
+      window.setTimeout(() => manualMpesaStartRef.current(), 0);
     }
-  }, [mpesaStatus, paymentMethod, mpesaFlow])
+  }, [mpesaStatus, paymentMethod, mpesaFlow]);
 
   useEffect(() => {
-    if (!showAgeVerification) return
+    if (!showAgeVerification) return;
 
     const handleAgeVerificationKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
-        event.preventDefault()
-        setShowAgeVerification(false)
-        return
+        event.preventDefault();
+        setShowAgeVerification(false);
+        return;
       }
 
       if (event.key === 'Enter') {
-        event.preventDefault()
-        confirmAgeVerification()
+        event.preventDefault();
+        confirmAgeVerification();
       }
-    }
+    };
 
-    window.addEventListener('keydown', handleAgeVerificationKeyDown)
-    const frame = window.requestAnimationFrame(() => ageVerificationConfirmRef.current?.focus())
+    window.addEventListener('keydown', handleAgeVerificationKeyDown);
+    const frame = window.requestAnimationFrame(() =>
+      ageVerificationConfirmRef.current?.focus()
+    );
 
     return () => {
-      window.cancelAnimationFrame(frame)
-      window.removeEventListener('keydown', handleAgeVerificationKeyDown)
-    }
-  }, [confirmAgeVerification, showAgeVerification])
+      window.cancelAnimationFrame(frame);
+      window.removeEventListener('keydown', handleAgeVerificationKeyDown);
+    };
+  }, [confirmAgeVerification, showAgeVerification]);
 
   useEffect(() => {
-    if (!summaryEditor) return
+    if (!summaryEditor) return;
 
     const handleSummaryEditorKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
-        event.preventDefault()
-        setSummaryEditor(null)
+        event.preventDefault();
+        setSummaryEditor(null);
       }
-    }
+    };
 
-    window.addEventListener('keydown', handleSummaryEditorKeyDown)
-    return () => window.removeEventListener('keydown', handleSummaryEditorKeyDown)
-  }, [summaryEditor])
+    window.addEventListener('keydown', handleSummaryEditorKeyDown);
+    return () =>
+      window.removeEventListener('keydown', handleSummaryEditorKeyDown);
+  }, [summaryEditor]);
 
   useEffect(() => {
-    autoFinalizeRef.current = () => void processCheckout(ageVerified, true)
-  })
+    autoFinalizeRef.current = () => void processCheckout(ageVerified, true);
+  });
 
   const handleCheckout = () => {
-    if (!hasActiveShift) return notify.error('Start your shift before completing a sale')
-    if (paymentMethod === 'mpesa' && mpesaStatus !== 'success') return notify.error('Send the M-Pesa prompt and wait for confirmation')
+    if (!hasActiveShift)
+      return notify.error('Start your shift before completing a sale');
+    if (paymentMethod === 'mpesa' && mpesaStatus !== 'success')
+      return notify.error('Send the M-Pesa prompt and wait for confirmation');
     if (requiresAgeVerification && !ageVerified) {
-      setShowAgeVerification(true)
-      return
+      setShowAgeVerification(true);
+      return;
     }
-    void processCheckout()
-  }
+    void processCheckout();
+  };
 
   const handleMpesaPrompt = async () => {
     if (requiresAgeVerification && !ageVerified) {
-      setShowAgeVerification(true)
-      return
+      setShowAgeVerification(true);
+      return;
     }
-    if (!mpesaPhone.trim()) return notify.error('Enter the customer M-Pesa phone number')
-    if (prescriptionRequired && !prescriptionReference.trim()) return notify.error('Enter the prescription reference')
-    if (containsRestrictedMedicine && !canApproveRestricted) return notify.error('An authorized pharmacist or manager must complete this sale')
-    if (!checkoutIdempotencyKeyRef.current || mpesaStatus === 'failed' || mpesaStatus === 'timeout' || mpesaStatus === 'cancelled') checkoutIdempotencyKeyRef.current = createIdempotencyKey()
-    setMpesaStatus('initiating')
-    setMpesaMessage('Sending the payment prompt…')
-    setMpesaRef('')
+    if (!mpesaPhone.trim())
+      return notify.error('Enter the customer M-Pesa phone number');
+    if (prescriptionRequired && !prescriptionReference.trim())
+      return notify.error('Enter the prescription reference');
+    if (containsRestrictedMedicine && !canApproveRestricted)
+      return notify.error(
+        'An authorized pharmacist or manager must complete this sale'
+      );
+    if (
+      !checkoutIdempotencyKeyRef.current ||
+      mpesaStatus === 'failed' ||
+      mpesaStatus === 'timeout' ||
+      mpesaStatus === 'cancelled'
+    )
+      checkoutIdempotencyKeyRef.current = createIdempotencyKey();
+    setMpesaStatus('initiating');
+    setMpesaMessage('Sending the payment prompt…');
+    setMpesaRef('');
     mpesaToastIdRef.current = notify.loading('Sending M-Pesa prompt...', {
       description: 'Waiting for Safaricom to accept the request.',
-    })
+    });
     try {
       const response = await initiateMpesaPayment({
-        phone: mpesaPhone, items: cart.map(({ productId, quantity, packageId }) => ({ productId, quantity, packageId })),
-        discountAmount, shippingAmount: shippingCost, roundoffEnabled, idempotencyKey: checkoutIdempotencyKeyRef.current, ageVerified, customerId: selectedCustomer || undefined,
-        pharmacy: prescriptionRequired || containsRestrictedMedicine ? { prescriptionReference: prescriptionReference.trim() || undefined, prescriberReference: prescriberReference.trim() || undefined, patientReference: patientReference.trim() || undefined, issuedAt: prescriptionIssuedAt ? new Date(prescriptionIssuedAt) : undefined, expiresAt: prescriptionExpiresAt ? new Date(prescriptionExpiresAt) : undefined, notes: pharmacyNotes.trim() || undefined } : undefined,
-      })
-      setMpesaRequestId(response.id)
-      window.localStorage.setItem(mpesaStorageKey, JSON.stringify({ requestId: response.id, idempotencyKey: checkoutIdempotencyKeyRef.current, flow: 'stk' }))
-      setMpesaStatus(response.status === 'CONFIRMED' ? 'success' : response.status === 'FAILED' ? 'failed' : 'pending')
-      setMpesaMessage(response.message || 'Check the customer phone and enter the M-Pesa PIN.')
+        phone: mpesaPhone,
+        items: cart.map(({ productId, quantity, packageId }) => ({
+          productId,
+          quantity,
+          packageId,
+        })),
+        discountAmount,
+        shippingAmount: shippingCost,
+        roundoffEnabled,
+        idempotencyKey: checkoutIdempotencyKeyRef.current,
+        ageVerified,
+        customerId: selectedCustomer || undefined,
+        pharmacy:
+          prescriptionRequired || containsRestrictedMedicine
+            ? {
+                prescriptionReference:
+                  prescriptionReference.trim() || undefined,
+                prescriberReference: prescriberReference.trim() || undefined,
+                patientReference: patientReference.trim() || undefined,
+                issuedAt: prescriptionIssuedAt
+                  ? new Date(prescriptionIssuedAt)
+                  : undefined,
+                expiresAt: prescriptionExpiresAt
+                  ? new Date(prescriptionExpiresAt)
+                  : undefined,
+                notes: pharmacyNotes.trim() || undefined,
+              }
+            : undefined,
+      });
+      setMpesaRequestId(response.id);
+      window.localStorage.setItem(
+        mpesaStorageKey,
+        JSON.stringify({
+          requestId: response.id,
+          idempotencyKey: checkoutIdempotencyKeyRef.current,
+          flow: 'stk',
+        })
+      );
+      setMpesaStatus(
+        response.status === 'CONFIRMED'
+          ? 'success'
+          : response.status === 'FAILED'
+            ? 'failed'
+            : 'pending'
+      );
+      setMpesaMessage(
+        response.message || 'Check the customer phone and enter the M-Pesa PIN.'
+      );
       notify.loading('Waiting for M-Pesa confirmation...', {
         id: mpesaToastIdRef.current ?? undefined,
         description: 'Ask the customer to enter their M-Pesa PIN.',
-      })
-      if (response.status === 'success' && response.receiptNumber) setMpesaRef(response.receiptNumber)
+      });
+      if (response.status === 'success' && response.receiptNumber)
+        setMpesaRef(response.receiptNumber);
     } catch (error) {
-      setMpesaStatus('failed')
-      setMpesaMessage(error instanceof Error ? error.message : 'Could not send the M-Pesa prompt')
+      setMpesaStatus('failed');
+      setMpesaMessage(
+        error instanceof Error
+          ? error.message
+          : 'Could not send the M-Pesa prompt'
+      );
       notify.error('Could not send M-Pesa prompt', {
         id: mpesaToastIdRef.current ?? undefined,
-        description: error instanceof Error ? error.message : 'Please retry the payment request.',
-      })
-      mpesaToastIdRef.current = null
+        description:
+          error instanceof Error
+            ? error.message
+            : 'Please retry the payment request.',
+      });
+      mpesaToastIdRef.current = null;
     }
-  }
+  };
 
-  const handlePaybillPayment = async (manualMode: 'till' | 'paybill' = mpesaAccountType) => {
+  const handlePaybillPayment = async (
+    manualMode: 'till' | 'paybill' = mpesaAccountType
+  ) => {
     if (requiresAgeVerification && !ageVerified) {
-      setShowAgeVerification(true)
-      return
+      setShowAgeVerification(true);
+      return;
     }
-    if (prescriptionRequired && !prescriptionReference.trim()) return notify.error('Enter the prescription reference')
-    if (containsRestrictedMedicine && !canApproveRestricted) return notify.error('An authorized pharmacist or manager must complete this sale')
-    if (!checkoutIdempotencyKeyRef.current || mpesaStatus === 'failed' || mpesaStatus === 'timeout' || mpesaStatus === 'cancelled') checkoutIdempotencyKeyRef.current = createIdempotencyKey()
-    setMpesaStatus('initiating')
-    setMpesaMessage('Preparing Till / PayBill payment details…')
-    setMpesaRef('')
+    if (prescriptionRequired && !prescriptionReference.trim())
+      return notify.error('Enter the prescription reference');
+    if (containsRestrictedMedicine && !canApproveRestricted)
+      return notify.error(
+        'An authorized pharmacist or manager must complete this sale'
+      );
+    if (
+      !checkoutIdempotencyKeyRef.current ||
+      mpesaStatus === 'failed' ||
+      mpesaStatus === 'timeout' ||
+      mpesaStatus === 'cancelled'
+    )
+      checkoutIdempotencyKeyRef.current = createIdempotencyKey();
+    setMpesaStatus('initiating');
+    setMpesaMessage('Preparing Till / PayBill payment details…');
+    setMpesaRef('');
     try {
       const response = await initiateMpesaPaybillPayment({
         phone: mpesaPhone,
         manualMode,
-        items: cart.map(({ productId, quantity, packageId }) => ({ productId, quantity, packageId })),
-        discountAmount, shippingAmount: shippingCost, roundoffEnabled, idempotencyKey: checkoutIdempotencyKeyRef.current, ageVerified, customerId: selectedCustomer || undefined,
-        pharmacy: prescriptionRequired || containsRestrictedMedicine ? { prescriptionReference: prescriptionReference.trim() || undefined, prescriberReference: prescriberReference.trim() || undefined, patientReference: patientReference.trim() || undefined, issuedAt: prescriptionIssuedAt ? new Date(prescriptionIssuedAt) : undefined, expiresAt: prescriptionExpiresAt ? new Date(prescriptionExpiresAt) : undefined, notes: pharmacyNotes.trim() || undefined } : undefined,
-      })
-      setMpesaRequestId(response.id)
-      window.localStorage.setItem(mpesaStorageKey, JSON.stringify({ requestId: response.id, idempotencyKey: checkoutIdempotencyKeyRef.current, flow: 'paybill', accountReference: response.accountReference, shortcode: response.shortcode, accountType: response.accountType }))
-      setMpesaStatus(response.status === 'CONFIRMED' ? 'success' : response.status === 'FAILED' ? 'failed' : 'pending')
-      setMpesaMessage(response.message || 'Waiting for PayBill payment')
-      setMpesaAccountReference(response.accountReference || '')
-      setMpesaShortcode(response.shortcode)
-      setMpesaAccountType(response.accountType)
-      if (response.status === 'success' && response.receiptNumber) setMpesaRef(response.receiptNumber)
+        items: cart.map(({ productId, quantity, packageId }) => ({
+          productId,
+          quantity,
+          packageId,
+        })),
+        discountAmount,
+        shippingAmount: shippingCost,
+        roundoffEnabled,
+        idempotencyKey: checkoutIdempotencyKeyRef.current,
+        ageVerified,
+        customerId: selectedCustomer || undefined,
+        pharmacy:
+          prescriptionRequired || containsRestrictedMedicine
+            ? {
+                prescriptionReference:
+                  prescriptionReference.trim() || undefined,
+                prescriberReference: prescriberReference.trim() || undefined,
+                patientReference: patientReference.trim() || undefined,
+                issuedAt: prescriptionIssuedAt
+                  ? new Date(prescriptionIssuedAt)
+                  : undefined,
+                expiresAt: prescriptionExpiresAt
+                  ? new Date(prescriptionExpiresAt)
+                  : undefined,
+                notes: pharmacyNotes.trim() || undefined,
+              }
+            : undefined,
+      });
+      setMpesaRequestId(response.id);
+      window.localStorage.setItem(
+        mpesaStorageKey,
+        JSON.stringify({
+          requestId: response.id,
+          idempotencyKey: checkoutIdempotencyKeyRef.current,
+          flow: 'paybill',
+          accountReference: response.accountReference,
+          shortcode: response.shortcode,
+          accountType: response.accountType,
+        })
+      );
+      setMpesaStatus(
+        response.status === 'CONFIRMED'
+          ? 'success'
+          : response.status === 'FAILED'
+            ? 'failed'
+            : 'pending'
+      );
+      setMpesaMessage(response.message || 'Awaiting payment confirmation');
+      setMpesaAccountReference(response.accountReference || '');
+      setMpesaShortcode(response.shortcode);
+      setMpesaAccountType(response.accountType);
+      if (response.status === 'success' && response.receiptNumber)
+        setMpesaRef(response.receiptNumber);
     } catch (error) {
-      setMpesaStatus('failed')
-      const rawMessage = error instanceof Error ? error.message : ''
-      const message = rawMessage.includes('No active Till or PayBill') ? 'No Till or PayBill is configured for this branch.'
-        : rawMessage.includes('M-Pesa is not enabled') ? 'Manual M-Pesa payments are disabled.'
-        : rawMessage || 'Unable to load M-Pesa payment details.'
-      setMpesaMessage(message)
-      notify.error(message)
+      setMpesaStatus('failed');
+      const rawMessage = error instanceof Error ? error.message : '';
+      const message = rawMessage.includes('No active Till or PayBill')
+        ? 'No Till or PayBill is configured for this branch.'
+        : rawMessage.includes('M-Pesa is not enabled')
+          ? 'Manual M-Pesa payments are disabled.'
+          : rawMessage || 'Unable to load M-Pesa payment details.';
+      setMpesaMessage(message);
+      notify.error(message);
     }
-  }
+  };
 
   const changeManualMpesaMode = async (manualMode: 'till' | 'paybill') => {
-    if (manualMode === mpesaAccountType) return
-    resetMpesaPrompt(false)
-    setMpesaAccountType(manualMode)
-    await handlePaybillPayment(manualMode)
-  }
+    if (manualMode === mpesaAccountType) return;
+    if (!(await cancelActiveMpesaIntent())) return;
+    setMpesaAccountType(manualMode);
+    await handlePaybillPayment(manualMode);
+  };
 
-  const openManualMpesaFlow = () => {
-    if (mpesaLocksBasket) return
-    notify.dismiss('pesaby:error:Enter a valid M-Pesa phone number.:')
-    notify.dismiss('pesaby:error:Enter the customer M-Pesa phone number:')
-    setMpesaMessage('')
-    setMpesaFlow('paybill')
-    void handlePaybillPayment()
-  }
+  const openManualMpesaFlow = async () => {
+    notify.dismiss('pesaby:error:Enter a valid M-Pesa phone number.:');
+    notify.dismiss('pesaby:error:Enter the customer M-Pesa phone number:');
+    setMpesaMessage('');
+    await switchMpesaFlow('paybill');
+  };
 
   useEffect(() => {
-    manualMpesaStartRef.current = () => void handlePaybillPayment()
-  })
+    manualMpesaStartRef.current = () => void handlePaybillPayment();
+  });
 
   const copyManualPaymentValue = async (value: string, label: string) => {
-    await navigator.clipboard.writeText(value)
-    notify.success(`${label} copied`)
-  }
+    await navigator.clipboard.writeText(value);
+    notify.success(`${label} copied`);
+  };
 
   const saveOptionalManualPhone = async () => {
-    if (!mpesaRequestId) return
+    if (!mpesaRequestId) return;
     try {
-      await setManualMpesaPayerPhone(mpesaRequestId, mpesaPhone)
+      await setManualMpesaPayerPhone(mpesaRequestId, mpesaPhone);
     } catch (error) {
-      notify.error('Could not save payer phone', { description: error instanceof Error ? error.message : 'Try again.' })
+      notify.error('Could not save payer phone', {
+        description: error instanceof Error ? error.message : 'Try again.',
+      });
     }
-  }
+  };
 
   const checkMpesaStatusNow = async () => {
-    if (!mpesaRequestId) return
+    if (!mpesaRequestId) return;
     try {
-      const result = await getMpesaPaymentStatus(mpesaRequestId)
-      if (result.status === 'CONFIRMED' && result.saleId) setMpesaStatus('success')
-      else if (['SENDING_STK', 'AWAITING_CUSTOMER', 'AWAITING_CONFIRMATION', 'FINALIZING'].includes(result.status)) setMpesaStatus('pending')
-      else if (result.status === 'EXPIRED') setMpesaStatus('timeout')
-      else if (result.status === 'CANCELLED') setMpesaStatus('cancelled')
-      else if (result.status === 'FAILED') setMpesaStatus('failed')
-      setMpesaMessage(result.message || '')
-      if (result.receiptNumber) setMpesaRef(result.receiptNumber)
-      if (result.status === 'CONFIRMED' && result.saleId && result.receiptNumber && !autoFinalizingRef.current) {
-        autoFinalizingRef.current = true
-        notify.success('M-Pesa payment received', { description: `${formatMpesaAmount(Number(result.amount))} confirmed.` })
-        window.setTimeout(() => autoFinalizeRef.current(), 500)
+      const result = await getMpesaPaymentStatus(mpesaRequestId);
+      if (result.status === 'CONFIRMED' && result.saleId)
+        setMpesaStatus('success');
+      else if (
+        [
+          'SENDING_STK',
+          'AWAITING_CUSTOMER',
+          'AWAITING_CONFIRMATION',
+          'FINALIZING',
+        ].includes(result.status)
+      )
+        setMpesaStatus('pending');
+      else if (result.status === 'EXPIRED') setMpesaStatus('timeout');
+      else if (result.status === 'CANCELLED') setMpesaStatus('cancelled');
+      else if (result.status === 'FAILED') setMpesaStatus('failed');
+      setMpesaMessage(result.message || '');
+      if (result.receiptNumber) setMpesaRef(result.receiptNumber);
+      if (
+        result.status === 'CONFIRMED' &&
+        result.saleId &&
+        result.receiptNumber &&
+        !autoFinalizingRef.current
+      ) {
+        autoFinalizingRef.current = true;
+        notify.success('M-Pesa payment received', {
+          description: `${formatMpesaAmount(Number(result.amount))} confirmed.`,
+        });
+        window.setTimeout(() => autoFinalizeRef.current(), 500);
       }
     } catch (error) {
-      notify.error('Could not check M-Pesa status', { description: error instanceof Error ? error.message : 'Try again shortly.' })
+      notify.error('Could not check M-Pesa status', {
+        description:
+          error instanceof Error ? error.message : 'Try again shortly.',
+      });
     }
-  }
+  };
 
   const prepareNewMpesaPrompt = async () => {
     if (mpesaStatus === 'timeout' && mpesaRequestId) {
-      await checkMpesaStatusNow()
-      const latest = await getMpesaPaymentStatus(mpesaRequestId)
-      if (latest.status === 'CONFIRMED' || latest.status === 'FINALIZING') return
+      await checkMpesaStatusNow();
+      const latest = await getMpesaPaymentStatus(mpesaRequestId);
+      if (latest.status === 'CONFIRMED' || latest.status === 'FINALIZING')
+        return;
     }
-    resetMpesaPrompt(false)
-  }
+    resetMpesaPrompt(false);
+  };
 
   const findManualPayment = async () => {
-    if (!mpesaRequestId) return
+    if (!mpesaRequestId) return;
     try {
-      const result = await findManualMpesaPayment(mpesaRequestId)
+      const result = await findManualMpesaPayment(mpesaRequestId);
       if (result.status === 'confirmed') {
-        setMpesaRef(result.receiptNumber || '')
-        setMpesaStatus('success')
-        notify.success('M-Pesa payment received', { description: `${formatMpesaAmount(result.amount)} confirmed.` })
+        setMpesaRef(result.receiptNumber || '');
+        setMpesaStatus('success');
+        notify.success('M-Pesa payment received', {
+          description: `${formatMpesaAmount(result.amount)} confirmed.`,
+        });
         if (!autoFinalizingRef.current) {
-          autoFinalizingRef.current = true
-          window.setTimeout(() => autoFinalizeRef.current(), 500)
+          autoFinalizingRef.current = true;
+          window.setTimeout(() => autoFinalizeRef.current(), 500);
         }
       } else if (result.status === 'amount_mismatch') {
-        const overpaid = result.received > result.expected
-        setMpesaMessage(overpaid ? `Customer overpaid by ${formatMpesaAmount(result.received - result.expected)}. Send this payment to M-Pesa reconciliation or refund handling.` : `Payment amount does not match. Expected ${formatMpesaAmount(result.expected)}; received ${formatMpesaAmount(result.received)}.`)
-        notify.error(overpaid ? `Customer overpaid by ${formatMpesaAmount(result.received - result.expected)}` : 'Payment amount does not match', { description: `Expected ${formatMpesaAmount(result.expected)} · Received ${formatMpesaAmount(result.received)}` })
+        const overpaid = result.received > result.expected;
+        setMpesaMessage(
+          overpaid
+            ? `Customer overpaid by ${formatMpesaAmount(result.received - result.expected)}. Send this payment to M-Pesa reconciliation or refund handling.`
+            : `Payment amount does not match. Expected ${formatMpesaAmount(result.expected)}; received ${formatMpesaAmount(result.received)}.`
+        );
+        notify.error(
+          overpaid
+            ? `Customer overpaid by ${formatMpesaAmount(result.received - result.expected)}`
+            : 'Payment amount does not match',
+          {
+            description: `Expected ${formatMpesaAmount(result.expected)} · Received ${formatMpesaAmount(result.received)}`,
+          }
+        );
       } else if (result.status === 'ambiguous') {
-        setMpesaMessage('Multiple possible payments found. A manager must resolve them in M-Pesa reconciliation.')
-        notify.error('Multiple possible payments found', { description: 'Open M-Pesa reconciliation to select the correct transaction.' })
+        setMpesaMessage(
+          'Multiple possible payments found. A manager must resolve them in M-Pesa reconciliation.'
+        );
+        notify.error('Multiple possible payments found', {
+          description:
+            'Open M-Pesa reconciliation to select the correct transaction.',
+        });
       } else {
-        setMpesaMessage('Payment not found yet. We have not received Safaricom confirmation.')
-        notify.info('Payment not found yet', { description: 'Check again after the customer receives their M-Pesa message.' })
+        setMpesaMessage(
+          'Payment not found yet. We have not received Safaricom confirmation.'
+        );
+        notify.info('Payment not found yet', {
+          description:
+            'Check again after the customer receives their M-Pesa message.',
+        });
       }
     } catch (error) {
-      notify.error('Could not find M-Pesa payment', { description: error instanceof Error ? error.message : 'Try again shortly.' })
+      notify.error('Could not find M-Pesa payment', {
+        description:
+          error instanceof Error ? error.message : 'Try again shortly.',
+      });
     }
-  }
+  };
+
+  const sendAirtelPrompt = async () => {
+    if (!airtelPhone.trim())
+      return notify.error('Enter the customer Airtel Money phone number');
+    setAirtelStatus('initiating');
+    setAirtelMessage('Sending payment request…');
+    setMpesaRef('');
+    try {
+      const result = await initiateAirtelMoneyPayment({
+        phone: airtelPhone,
+        amount: total,
+      });
+      setAirtelRequestId(result.requestId);
+      setAirtelStatus(result.status);
+      setAirtelMessage(result.message);
+      if (result.reference) setMpesaRef(result.reference);
+      notify.success(
+        result.status === 'success'
+          ? 'Airtel Money payment received'
+          : 'Airtel Money prompt sent'
+      );
+    } catch (error) {
+      setAirtelStatus('failed');
+      const message =
+        error instanceof Error
+          ? error.message
+          : 'Could not send Airtel Money prompt';
+      setAirtelMessage(message);
+      notify.error(message);
+    }
+  };
+
+  const checkAirtelStatus = async () => {
+    if (!airtelRequestId) return;
+    try {
+      const result = await getAirtelMoneyPaymentStatus(airtelRequestId);
+      setAirtelStatus(result.status);
+      setAirtelMessage(result.message);
+      if (result.reference) setMpesaRef(result.reference);
+      if (result.status === 'success')
+        notify.success('Airtel Money payment confirmed');
+      else if (result.status === 'pending')
+        notify.info('Payment is still awaiting customer approval');
+      else notify.error(result.message || 'Airtel Money payment failed');
+    } catch (error) {
+      notify.error(
+        error instanceof Error
+          ? error.message
+          : 'Could not check Airtel Money payment'
+      );
+    }
+  };
 
   const resetMpesaPrompt = (changePhone = false) => {
-    setMpesaRequestId('')
-    setMpesaStatus('idle')
-    setMpesaMessage('')
-    setMpesaRef('')
-    checkoutIdempotencyKeyRef.current = ''
-    window.localStorage.removeItem(mpesaStorageKey)
-    if (changePhone) setMpesaPhone('')
-  }
+    setMpesaRequestId('');
+    setMpesaStatus('idle');
+    setMpesaMessage('');
+    setMpesaRef('');
+    checkoutIdempotencyKeyRef.current = '';
+    window.localStorage.removeItem(mpesaStorageKey);
+    if (changePhone) setMpesaPhone('');
+  };
+
+  const cancelActiveMpesaIntent = async () => {
+    if (!mpesaRequestId) {
+      resetMpesaPrompt(false);
+      return true;
+    }
+    if (mpesaStatus === 'success') {
+      notify.error('This M-Pesa payment is already confirmed', {
+        description: 'Wait while Pesaby completes the sale.',
+      });
+      return false;
+    }
+    try {
+      await cancelMpesaPayment(mpesaRequestId);
+      resetMpesaPrompt(false);
+      mpesaToastIdRef.current = null;
+      return true;
+    } catch (error) {
+      notify.error('Could not switch payment method', {
+        description:
+          error instanceof Error
+            ? error.message
+            : 'Check the M-Pesa payment status and try again.',
+      });
+      await checkMpesaStatusNow();
+      return false;
+    }
+  };
+
+  const requestMpesaExitConfirmation = (
+    destination: string,
+    action: () => Promise<void>
+  ) => {
+    confirmedMpesaExitRef.current = action;
+    setMpesaExitConfirmation({ open: true, destination, busy: false });
+  };
+
+  const switchPaymentMethod = async (
+    nextMethod: PosPaymentMethod,
+    confirmed = false
+  ) => {
+    if (nextMethod === paymentMethod) return;
+    if (
+      !confirmed &&
+      paymentMethod === 'mpesa' &&
+      mpesaRequestId &&
+      ['initiating', 'pending'].includes(mpesaStatus)
+    ) {
+      const label =
+        nextMethod === 'cash'
+          ? 'Cash'
+          : nextMethod === 'card'
+            ? 'Card'
+            : nextMethod === 'airtel_money'
+              ? 'Airtel Money'
+              : nextMethod === 'bank_transfer'
+                ? 'Bank transfer'
+                : 'another payment method';
+      requestMpesaExitConfirmation(label, () =>
+        switchPaymentMethod(nextMethod, true)
+      );
+      return;
+    }
+    if (paymentMethod === 'mpesa' && !(await cancelActiveMpesaIntent())) return;
+    setMpesaRef('');
+    setCardApproved(false);
+    setCardResult('idle');
+    setCardAttemptId('');
+    setCardRecovery(false);
+    if (nextMethod === 'cash' && !amountPaid) setAmountPaid(String(total));
+    setPaymentMethod(nextMethod);
+    setPaymentDialogOpen(true);
+  };
+
+  const switchMpesaFlow = async (
+    nextFlow: 'stk' | 'paybill',
+    confirmed = false
+  ) => {
+    if (nextFlow === mpesaFlow) return;
+    if (
+      !confirmed &&
+      mpesaRequestId &&
+      ['initiating', 'pending'].includes(mpesaStatus)
+    ) {
+      requestMpesaExitConfirmation(
+        nextFlow === 'stk' ? 'Safaricom Prompt' : 'Till / PayBill',
+        () => switchMpesaFlow(nextFlow, true)
+      );
+      return;
+    }
+    if (!(await cancelActiveMpesaIntent())) return;
+    setMpesaFlow(nextFlow);
+    if (nextFlow === 'paybill') await handlePaybillPayment();
+  };
+
+  const returnToCustomerStep = async (confirmed = false) => {
+    if (
+      !confirmed &&
+      paymentMethod === 'mpesa' &&
+      mpesaRequestId &&
+      ['initiating', 'pending'].includes(mpesaStatus)
+    ) {
+      requestMpesaExitConfirmation('customer details', () =>
+        returnToCustomerStep(true)
+      );
+      return;
+    }
+    if (paymentMethod === 'mpesa' && !(await cancelActiveMpesaIntent())) return;
+    setCheckoutStep('customer');
+  };
+
+  const changeMpesaPhone = async (confirmed = false) => {
+    if (
+      !confirmed &&
+      mpesaRequestId &&
+      ['initiating', 'pending'].includes(mpesaStatus)
+    ) {
+      requestMpesaExitConfirmation('a different phone number', () =>
+        changeMpesaPhone(true)
+      );
+      return;
+    }
+    if (!(await cancelActiveMpesaIntent())) return;
+    setMpesaPhone('');
+    setAirtelPhone('');
+    setAirtelRequestId('');
+    setAirtelStatus('idle');
+    setAirtelMessage('');
+  };
+
+  useEffect(() => {
+    cancelMpesaIntentRef.current = cancelActiveMpesaIntent;
+    switchPaymentMethodRef.current = switchPaymentMethod;
+  });
+
+  const confirmMpesaExit = async () => {
+    setMpesaExitConfirmation((current) => ({ ...current, busy: true }));
+    await confirmedMpesaExitRef.current();
+    setMpesaExitConfirmation({ open: false, destination: '', busy: false });
+  };
 
   const handleNewSale = () => {
-    setCart([])
-    setDiscount(0)
-    setShippingCost(0)
-    setRoundoffEnabled(true)
-    setCouponCode('')
-    setCouponValue(0)
-    setMpesaRef('')
-    setMpesaPhone('')
-    setMpesaFlow('stk')
-    setMpesaAccountReference('')
-    setMpesaShortcode('')
-    setMpesaAccountType('paybill')
-    setMpesaRequestId('')
-    setMpesaStatus('idle')
-    setMpesaMessage('')
-    setAmountPaid('')
-    setPaymentReceiver('')
-    setPaymentNote('')
-    setSaleNote('')
-    setStaffNote('')
-    setPaymentDialogOpen(false)
-    setSelectedCustomer('')
-    setPrescriptionReference('')
-    setPrescriberReference('')
-    setPharmacyNotes('')
-    setPaymentMethod('cash')
-    setAgeVerified(false)
-    setReceipt(null)
-    setReceiptPrinted(false)
-    setReceiptOptionsOpen(false)
-    setSearch('')
-    setCheckoutOpen(false)
-    setCheckoutStep('customer')
-    checkoutIdempotencyKeyRef.current = '' // Reset for new sale
-    autoFinalizingRef.current = false
-    window.localStorage.removeItem(cartStorageKey)
-    window.localStorage.removeItem(checkoutStorageKey)
-    window.localStorage.removeItem(mpesaStorageKey)
-  }
+    setCart([]);
+    setDiscount(0);
+    setShippingCost(0);
+    setRoundoffEnabled(true);
+    setCouponCode('');
+    setCouponValue(0);
+    setMpesaRef('');
+    setMpesaPhone('');
+    setMpesaFlow('stk');
+    setMpesaAccountReference('');
+    setMpesaShortcode('');
+    setMpesaAccountType('paybill');
+    setMpesaRequestId('');
+    setMpesaStatus('idle');
+    setMpesaMessage('');
+    setAmountPaid('');
+    setPaymentReceiver('');
+    setPaymentNote('');
+    setSaleNote('');
+    setStaffNote('');
+    setPaymentDialogOpen(false);
+    setSelectedCustomer('');
+    setPrescriptionReference('');
+    setPrescriberReference('');
+    setPharmacyNotes('');
+    setPaymentMethod('cash');
+    setAgeVerified(false);
+    setReceipt(null);
+    setReceiptPrinted(false);
+    setReceiptOptionsOpen(false);
+    setSearch('');
+    setCheckoutOpen(false);
+    setCheckoutStep('customer');
+    checkoutIdempotencyKeyRef.current = ''; // Reset for new sale
+    autoFinalizingRef.current = false;
+    window.localStorage.removeItem(cartStorageKey);
+    window.localStorage.removeItem(checkoutStorageKey);
+    window.localStorage.removeItem(mpesaStorageKey);
+  };
 
   const voidCurrentSale = () => {
-    if (cart.length === 0) return
-    if (!window.confirm('Void the current order? All items and discounts in this order will be removed.')) return
-    setCart([])
-    setDiscount(0)
-    setShippingCost(0)
-    setRoundoffEnabled(true)
-    setCouponCode('')
-    setCouponValue(0)
-    setAmountPaid('')
-    setMpesaRef('')
-    setCheckoutOpen(false)
-    setCheckoutStep('customer')
-    checkoutIdempotencyKeyRef.current = ''
-    window.localStorage.removeItem(cartStorageKey)
-    window.localStorage.removeItem(checkoutStorageKey)
-    notify.success('Current order voided')
-  }
+    if (cart.length === 0) return;
+    if (
+      !window.confirm(
+        'Void the current order? All items and discounts in this order will be removed.'
+      )
+    )
+      return;
+    setCart([]);
+    setDiscount(0);
+    setShippingCost(0);
+    setRoundoffEnabled(true);
+    setCouponCode('');
+    setCouponValue(0);
+    setAmountPaid('');
+    setMpesaRef('');
+    setCheckoutOpen(false);
+    setCheckoutStep('customer');
+    checkoutIdempotencyKeyRef.current = '';
+    window.localStorage.removeItem(cartStorageKey);
+    window.localStorage.removeItem(checkoutStorageKey);
+    notify.success('Current order voided');
+  };
 
   const resetRegister = () => {
-    if (cart.length > 0 && !window.confirm('Reset the register? The current order will be cleared.')) return
-    handleNewSale()
-    notify.success('Register reset')
-  }
+    if (
+      cart.length > 0 &&
+      !window.confirm('Reset the register? The current order will be cleared.')
+    )
+      return;
+    handleNewSale();
+    notify.success('Register reset');
+  };
 
   const openHeldOrders = () => {
     if (!canHold) {
-      setShowSalesHistory(true)
-      return
+      setShowSalesHistory(true);
+      return;
     }
-    setShowHeldSales(true)
-    void refreshHeldSales()
-  }
+    setShowHeldSales(true);
+    void refreshHeldSales();
+  };
 
-  const handlePrintReceipt = useCallback(() => {
-    const paper = document.querySelector<HTMLElement>('.receipt-preview-origin .receipt-paper')
-    if (!paper) {
-      try {
-        window.addEventListener('afterprint', () => {
-          setReceiptPrinted(true)
-          notify.success('Print request completed')
-        }, { once: true })
-        window.print()
-      } catch {
-        notify.error('Could not open the print dialog')
-      }
-      return
-    }
+  const printerSettings = useMemo<ReceiptPrinterSettings>(() => ({
+    mode: settings.receiptPrintingMode,
+    printerName: settings.receiptPrinterName,
+    paperWidth: receiptPaperWidth,
+    autoPrint: settings.receiptAutoPrint,
+    customerCopy: settings.receiptPrintCustomerCopy,
+    copies: settings.receiptPrintCustomerCopy ? settings.receiptPrintCopies : 1,
+    cashDrawerPulse: settings.receiptCashDrawerPulse,
+  }), [receiptPaperWidth, settings.receiptAutoPrint, settings.receiptCashDrawerPulse, settings.receiptPrintCopies, settings.receiptPrintCustomerCopy, settings.receiptPrinterName, settings.receiptPrintingMode]);
 
-    // Print preview otherwise uses the browser's A4/PDF default. Measure the
-    // receipt at the chosen roll width so the page matches its real length.
-    const originalWidth = paper.style.width
-    const originalMaxWidth = paper.style.maxWidth
-    paper.style.width = `${receiptPaperWidth}mm`
-    paper.style.maxWidth = `${receiptPaperWidth}mm`
-    const receiptHeightMm = Math.max(70, Math.ceil((paper.scrollHeight / 96) * 25.4) + 8)
-    const printableWidthMm = receiptPaperWidth - 6
-    const pageStyle = document.createElement('style')
-    pageStyle.dataset.receiptPrintSize = 'true'
-    pageStyle.textContent = `@media print { @page { size: ${receiptPaperWidth}mm ${receiptHeightMm}mm; margin: 0; } body:has(.receipt-preview-origin) .receipt-preview-origin { width: ${printableWidthMm}mm !important; } }`
-    document.head.appendChild(pageStyle)
+  const handleBrowserPrintReceipt = useCallback(() => {
+    const paper = document.querySelector<HTMLElement>(
+      '.receipt-preview-origin .receipt-paper'
+    );
+    if (!paper) return notify.error('Receipt preview is unavailable');
+    try { browserPrintReceipt(captureReceiptHtml(paper), receiptPaperWidth); notify.info('Print dialog opened', { description: 'Choose a printer in the browser dialog to continue.' }); }
+    catch { notify.error('Could not open the print dialog'); }
+  }, [receiptPaperWidth]);
 
-    const cleanup = () => {
-      pageStyle.remove()
-      paper.style.width = originalWidth
-      paper.style.maxWidth = originalMaxWidth
-    }
-    window.addEventListener('afterprint', () => {
-      cleanup()
-      setReceiptPrinted(true)
-      notify.success('Print request completed')
-    }, { once: true })
+  const handlePrintReceipt = useCallback(async () => {
+    const paper = document.querySelector<HTMLElement>('.receipt-preview-origin .receipt-paper');
+    if (!paper) return notify.error('Receipt preview is unavailable');
+    if (printerSettings.mode === 'browser') return handleBrowserPrintReceipt();
+    setReceiptPrinting(true);
+    const toastId = notify.loading('Printing receipt…', { description: printerSettings.printerName || 'Connecting to the configured thermal printer.' });
     try {
-      window.print()
-    } catch {
-      cleanup()
-      notify.error('Could not open the print dialog')
-    }
-  }, [receiptPaperWidth])
+      await directPrintReceipt(captureReceiptHtml(paper), printerSettings);
+      setReceiptPrinted(true);
+      notify.success('Receipt printed', { id: toastId, description: `Submitted to ${printerSettings.printerName}.` });
+    } catch (error) {
+      notify.error('Receipt could not be printed', { id: toastId, description: error instanceof Error ? error.message : 'The thermal printer is unavailable.', action: { label: 'Try again', onClick: () => retryReceiptPrintRef.current() }, cancel: { label: 'Browser print', onClick: handleBrowserPrintReceipt } });
+    } finally { setReceiptPrinting(false); }
+  }, [handleBrowserPrintReceipt, printerSettings]);
+
+  useEffect(() => { retryReceiptPrintRef.current = () => void handlePrintReceipt(); }, [handlePrintReceipt]);
+
+  useEffect(() => {
+    if (!receipt || !settings.receiptAutoPrint || settings.receiptPrintingMode !== 'direct' || autoPrintedReceiptRef.current === receipt.saleId) return;
+    autoPrintedReceiptRef.current = receipt.saleId;
+    const timer = window.setTimeout(() => void handlePrintReceipt(), 250);
+    return () => window.clearTimeout(timer);
+  }, [handlePrintReceipt, receipt, settings.receiptAutoPrint, settings.receiptPrintingMode]);
 
   const handleDownloadReceipt = useCallback(async () => {
-    if (!receipt) return
+    if (!receipt) return;
     try {
-      const paper = document.querySelector<HTMLElement>('.receipt-preview-origin .receipt-paper')
-      if (!paper) return notify.error('Receipt preview is unavailable')
+      const paper = document.querySelector<HTMLElement>(
+        '.receipt-preview-origin .receipt-paper'
+      );
+      if (!paper) return notify.error('Receipt preview is unavailable');
 
       // Keep the exported paper width identical to the receipt preview.
-      const originalWidth = paper.style.width
-      const originalMaxWidth = paper.style.maxWidth
-      paper.style.width = `${receiptPaperWidth}mm`
-      paper.style.maxWidth = `${receiptPaperWidth}mm`
-      if (document.fonts?.ready) await document.fonts.ready
+      const originalWidth = paper.style.width;
+      const originalMaxWidth = paper.style.maxWidth;
+      paper.style.width = `${receiptPaperWidth}mm`;
+      paper.style.maxWidth = `${receiptPaperWidth}mm`;
+      if (document.fonts?.ready) await document.fonts.ready;
 
       // Capture the rendered thermal paper itself so the download matches the
       // exact receipt design on screen. The sale is never re-created or mutated.
@@ -1547,135 +2899,191 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
         const [{ jsPDF }, html2canvasModule] = await Promise.all([
           import('jspdf'),
           import('html2canvas'),
-        ])
+        ]);
         const canvas = await html2canvasModule.default(paper, {
           backgroundColor: '#ffffff',
           scale: 2,
           useCORS: true,
           logging: false,
-        })
-        const paperWidthMm = receiptPaperWidth
-        const paperHeightMm = (canvas.height / canvas.width) * paperWidthMm
+        });
+        const paperWidthMm = receiptPaperWidth;
+        const paperHeightMm = (canvas.height / canvas.width) * paperWidthMm;
         const pdf = new jsPDF({
           orientation: 'portrait',
           unit: 'mm',
           format: [paperWidthMm, paperHeightMm],
           compress: true,
-        })
-        pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, paperWidthMm, paperHeightMm, undefined, 'FAST')
-        pdf.save(`${receipt.receiptNo}.pdf`)
-        notify.success('Receipt PDF downloaded')
+        });
+        pdf.addImage(
+          canvas.toDataURL('image/png'),
+          'PNG',
+          0,
+          0,
+          paperWidthMm,
+          paperHeightMm,
+          undefined,
+          'FAST'
+        );
+        pdf.save(`${receipt.receiptNo}.pdf`);
+        notify.success('Receipt PDF downloaded');
       } finally {
-        paper.style.width = originalWidth
-        paper.style.maxWidth = originalMaxWidth
+        paper.style.width = originalWidth;
+        paper.style.maxWidth = originalMaxWidth;
       }
     } catch {
-      notify.error('Could not download receipt')
+      notify.error('Could not download receipt');
     }
-  }, [receipt, receiptPaperWidth])
+  }, [receipt, receiptPaperWidth]);
 
   const handleShareReceipt = useCallback(async () => {
-    if (!receipt) return
-    const provisional = receipt.offline?.status === 'PENDING'
-      ? 'PROVISIONAL OFFLINE RECEIPT · synchronization pending · not an official or fiscal receipt · '
-      : ''
-    const text = `${provisional}Receipt ${receipt.receiptNo} · ${formatCurrency(receipt.total)} · ${receipt.paymentMethod}`
+    if (!receipt) return;
+    const provisional =
+      receipt.offline?.status === 'PENDING'
+        ? 'PROVISIONAL OFFLINE RECEIPT · synchronization pending · not an official or fiscal receipt · '
+        : '';
+    const text = `${provisional}Receipt ${receipt.receiptNo} · ${formatCurrency(receipt.total)} · ${receipt.paymentMethod}`;
     try {
       if (navigator.share) {
-        await navigator.share({ title: `Receipt ${receipt.receiptNo}`, text })
-        return
+        await navigator.share({ title: `Receipt ${receipt.receiptNo}`, text });
+        return;
       }
-      await navigator.clipboard.writeText(text)
-      notify.success('Receipt details copied')
+      await navigator.clipboard.writeText(text);
+      notify.success('Receipt details copied');
     } catch (error) {
-      if (error instanceof DOMException && error.name === 'AbortError') return
-      notify.error('Could not share receipt details')
+      if (error instanceof DOMException && error.name === 'AbortError') return;
+      notify.error('Could not share receipt details');
     }
-  }, [receipt])
+  }, [receipt]);
 
   const holdSale = async () => {
-    if (!canHold || cart.length === 0) return
-    if (!isOnline) return notify.error('Reconnect to hold this sale on the shared register queue')
-    const requestId = createIdempotencyKey()
-    setHeldSaleActionId(requestId)
+    if (!canHold || cart.length === 0) return;
+    if (!isOnline)
+      return notify.error(
+        'Reconnect to hold this sale on the shared register queue'
+      );
+    const requestId = createIdempotencyKey();
+    setHeldSaleActionId(requestId);
     try {
-      const saved = await holdSaleOnServer({ idempotencyKey: requestId, items: cart, discountValue: discountAmount, discountType: 'fixed', customerId: selectedCustomer || undefined })
-      setHeldSales((previous) => [saved, ...previous.filter((item) => item.id !== saved.id)])
-      setCart([])
-      setDiscount(0)
-      setShippingCost(0)
-      setRoundoffEnabled(true)
-      setCouponCode('')
-      setCouponValue(0)
-      setSelectedCustomer('')
-      setAmountPaid('')
-      setMpesaRef('')
-      setCheckoutOpen(false)
-      checkoutIdempotencyKeyRef.current = ''
-      window.localStorage.removeItem(cartStorageKey)
-      window.localStorage.removeItem(checkoutStorageKey)
-      notify.success('Sale held for this branch', { description: 'It can be resumed from another authorized register.' })
+      const saved = await holdSaleOnServer({
+        idempotencyKey: requestId,
+        items: cart,
+        discountValue: discountAmount,
+        discountType: 'fixed',
+        customerId: selectedCustomer || undefined,
+      });
+      setHeldSales((previous) => [
+        saved,
+        ...previous.filter((item) => item.id !== saved.id),
+      ]);
+      setCart([]);
+      setDiscount(0);
+      setShippingCost(0);
+      setRoundoffEnabled(true);
+      setCouponCode('');
+      setCouponValue(0);
+      setSelectedCustomer('');
+      setAmountPaid('');
+      setMpesaRef('');
+      setCheckoutOpen(false);
+      checkoutIdempotencyKeyRef.current = '';
+      window.localStorage.removeItem(cartStorageKey);
+      window.localStorage.removeItem(checkoutStorageKey);
+      notify.success('Sale held for this branch', {
+        description: 'It can be resumed from another authorized register.',
+      });
     } catch (error) {
-      notify.error(error instanceof Error ? error.message : 'Could not hold this sale')
-    } finally { setHeldSaleActionId(null) }
-  }
+      notify.error(
+        error instanceof Error ? error.message : 'Could not hold this sale'
+      );
+    } finally {
+      setHeldSaleActionId(null);
+    }
+  };
 
   const resumeHeldSale = async (heldSale: HeldSale) => {
-    if (!isOnline) return notify.error('Reconnect before resuming a shared held sale')
-    setHeldSaleActionId(heldSale.id)
+    if (!isOnline)
+      return notify.error('Reconnect before resuming a shared held sale');
+    setHeldSaleActionId(heldSale.id);
     try {
-      const result = await resumeHeldSaleFromServer(heldSale.id)
-      setCart(result.heldSale.cart)
-      setDiscount(result.heldSale.discount)
-      setDiscountType(result.heldSale.discountType)
-      setShippingCost(0)
-      setRoundoffEnabled(true)
-      setCouponCode('')
-      setCouponValue(0)
-      setSelectedCustomer(result.heldSale.customerId)
-      setHeldSales((previous) => previous.filter((sale) => sale.id !== heldSale.id))
-      setShowHeldSales(false)
-      setCheckoutOpen(false)
-      checkoutIdempotencyKeyRef.current = ''
-      window.localStorage.removeItem(checkoutStorageKey)
-      notify.success(result.priceChanged ? 'Held sale restored with current prices' : 'Held sale restored')
+      const result = await resumeHeldSaleFromServer(heldSale.id);
+      setCart(result.heldSale.cart);
+      setDiscount(result.heldSale.discount);
+      setDiscountType(result.heldSale.discountType);
+      setShippingCost(0);
+      setRoundoffEnabled(true);
+      setCouponCode('');
+      setCouponValue(0);
+      setSelectedCustomer(result.heldSale.customerId);
+      setHeldSales((previous) =>
+        previous.filter((sale) => sale.id !== heldSale.id)
+      );
+      setShowHeldSales(false);
+      setCheckoutOpen(false);
+      checkoutIdempotencyKeyRef.current = '';
+      window.localStorage.removeItem(checkoutStorageKey);
+      notify.success(
+        result.priceChanged
+          ? 'Held sale restored with current prices'
+          : 'Held sale restored'
+      );
     } catch (error) {
-      notify.error(error instanceof Error ? error.message : 'Could not resume this held sale')
-      await refreshHeldSales()
-    } finally { setHeldSaleActionId(null) }
-  }
+      notify.error(
+        error instanceof Error
+          ? error.message
+          : 'Could not resume this held sale'
+      );
+      await refreshHeldSales();
+    } finally {
+      setHeldSaleActionId(null);
+    }
+  };
 
   const deleteHeldSale = async (heldSale: HeldSale) => {
-    if (!isOnline) return notify.error('Reconnect before discarding a shared held sale')
-    setHeldSaleActionId(heldSale.id)
+    if (!isOnline)
+      return notify.error('Reconnect before discarding a shared held sale');
+    setHeldSaleActionId(heldSale.id);
     try {
-      await discardHeldSale(heldSale.id)
-      setHeldSales((previous) => previous.filter((sale) => sale.id !== heldSale.id))
-      notify.success('Held sale discarded')
+      await discardHeldSale(heldSale.id);
+      setHeldSales((previous) =>
+        previous.filter((sale) => sale.id !== heldSale.id)
+      );
+      notify.success('Held sale discarded');
     } catch (error) {
-      notify.error(error instanceof Error ? error.message : 'Could not discard this held sale')
-    } finally { setHeldSaleActionId(null) }
-  }
+      notify.error(
+        error instanceof Error
+          ? error.message
+          : 'Could not discard this held sale'
+      );
+    } finally {
+      setHeldSaleActionId(null);
+    }
+  };
 
   const handleCreateCustomer = async () => {
     if (!newCustomerName.trim()) {
-      notify.error('Customer name is required')
-      return
+      notify.error('Customer name is required');
+      return;
     }
     if (!newCustomerPhone.trim()) {
-      notify.error('Customer phone is required')
-      return
+      notify.error('Customer phone is required');
+      return;
     }
 
-    setCreatingCustomer(true)
+    setCreatingCustomer(true);
     try {
-      const customerAddress = [newCustomerAddress.trim(), newCustomerCity.trim(), newCustomerCountry.trim()].filter(Boolean).join(', ')
+      const customerAddress = [
+        newCustomerAddress.trim(),
+        newCustomerCity.trim(),
+        newCustomerCountry.trim(),
+      ]
+        .filter(Boolean)
+        .join(', ');
       const { id } = await createCustomer({
         name: newCustomerName,
         phone: newCustomerPhone,
         email: newCustomerEmail || undefined,
         address: customerAddress || undefined,
-      })
+      });
 
       // Add new customer to list
       const newCust = {
@@ -1692,45 +3100,51 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
         orgId: '',
         createdAt: new Date(),
         updatedAt: new Date(),
-      }
-      setAvailableCustomers([...availableCustomers, newCust])
-      setSelectedCustomer(id)
+      };
+      setAvailableCustomers([...availableCustomers, newCust]);
+      setSelectedCustomer(id);
 
       // Reset form
-      setNewCustomerName('')
-      setNewCustomerPhone('')
-      setNewCustomerEmail('')
-      setNewCustomerAddress('')
-      setNewCustomerCity('')
-      setNewCustomerCountry('Kenya')
-      setShowNewCustomer(false)
+      setNewCustomerName('');
+      setNewCustomerPhone('');
+      setNewCustomerEmail('');
+      setNewCustomerAddress('');
+      setNewCustomerCity('');
+      setNewCustomerCountry('Kenya');
+      setShowNewCustomer(false);
 
-      notify.success('Customer created successfully')
+      notify.success('Customer created successfully');
     } catch (err) {
-      notify.error(err instanceof Error ? err.message : 'Failed to create customer')
+      notify.error(
+        err instanceof Error ? err.message : 'Failed to create customer'
+      );
     } finally {
-      setCreatingCustomer(false)
+      setCreatingCustomer(false);
     }
-  }
+  };
 
   const handleCustomerBarcode = (rawBarcode: string) => {
-    const code = normalizeBarcode(rawBarcode)
-    if (!code) return
+    const code = normalizeBarcode(rawBarcode);
+    if (!code) return;
     const customer = availableCustomers.find((item) =>
-      [item.id, item.phone, item.email, item.kraPin, item.name].some((value) => normalizeBarcode(value ?? '') === code)
-    )
+      [item.id, item.phone, item.email, item.kraPin, item.name].some(
+        (value) => normalizeBarcode(value ?? '') === code
+      )
+    );
     if (!customer) {
-      notify.error('No customer found for that code')
-      return
+      notify.error('No customer found for that code');
+      return;
     }
-    setSelectedCustomer(customer.id)
-    setCustomerMenuOpen(false)
-    setShowWirelessScanner(false)
-    notify.success(customer.name + ' selected')
-  }
+    setSelectedCustomer(customer.id);
+    setCustomerMenuOpen(false);
+    setShowWirelessScanner(false);
+    notify.success(customer.name + ' selected');
+  };
 
-  const inputCls = ui.input
-  const activeCustomer = availableCustomers.find((customer) => customer.id === selectedCustomer)
+  const inputCls = ui.input;
+  const activeCustomer = availableCustomers.find(
+    (customer) => customer.id === selectedCustomer
+  );
 
   // Show refund dialog if refund sale is set
   if (showRefundDialog && receipt && receipt.offline?.status !== 'PENDING') {
@@ -1751,7 +3165,10 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
       rewardEarningRateSnapshot: null,
       rewardPointValueSnapshot: null,
       customerId: selectedCustomer || null,
-      amountReceived: receipt.paymentMethod === 'cash' ? String(parseFloat(amountPaid || '0')) : null,
+      amountReceived:
+        receipt.paymentMethod === 'cash'
+          ? String(parseFloat(amountPaid || '0'))
+          : null,
       change: receipt.change.toString(),
       mpesaRef: receipt.mpesaRef || null,
       idempotencyKey: receipt.idempotencyKey,
@@ -1768,7 +3185,7 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
       userId: '',
       orgId: '',
       createdAt: receipt.completedAt,
-      items: receipt.items.map(item => ({
+      items: receipt.items.map((item) => ({
         id: item.saleItemId,
         saleId: receipt.saleId,
         productId: item.productId,
@@ -1785,23 +3202,29 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
         userId: '',
         orgId: '',
       })),
-    }
+    };
 
     return (
       <RefundDialog
         sale={saleWithItems}
         onClose={() => setShowRefundDialog(false)}
         onSuccess={(returnedItems) => {
-          setCatalogProducts((current) => current.map((product) => {
-            const returned = returnedItems.find((item) => item.productId === product.id)
-            return returned ? { ...product, stock: product.stock + returned.quantity } : product
-          }))
-          setShowRefundDialog(false)
-          handleNewSale()
-          notify.success('Refund processed successfully')
+          setCatalogProducts((current) =>
+            current.map((product) => {
+              const returned = returnedItems.find(
+                (item) => item.productId === product.id
+              );
+              return returned
+                ? { ...product, stock: product.stock + returned.quantity }
+                : product;
+            })
+          );
+          setShowRefundDialog(false);
+          handleNewSale();
+          notify.success('Refund processed successfully');
         }}
       />
-    )
+    );
   }
 
   // A completed sale stays in the register workspace. Cashiers should not have
@@ -1827,94 +3250,550 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
       })),
       etims: receipt.etims?.showOnReceipt ? receipt.etims : null,
       offline: receipt.offline ?? null,
-      mpesaDetails: receipt.paymentMethod === 'mpesa' ? { mode: receipt.mpesaMode, phone: receipt.mpesaPhone ? maskKenyanPhone(receipt.mpesaPhone) : undefined, merchant: receipt.mpesaMerchant, accountReference: receipt.mpesaAccountReference } : null,
-    }
+      mpesaDetails:
+        receipt.paymentMethod === 'mpesa'
+          ? {
+              mode: receipt.mpesaMode,
+              phone: receipt.mpesaPhone
+                ? maskKenyanPhone(receipt.mpesaPhone)
+                : undefined,
+              merchant: receipt.mpesaMerchant,
+              accountReference: receipt.mpesaAccountReference,
+            }
+          : null,
+    };
 
-    const paymentLabel = receipt.paymentMethod === 'mpesa' ? 'M-Pesa' : receipt.paymentMethod === 'airtel_money' ? 'Airtel Money' : receipt.paymentMethod === 'card' ? 'Card' : receipt.paymentMethod === 'bank_transfer' ? 'Bank transfer' : 'Cash'
-    const taxLabel = settings.taxEnabled && settings.taxRate > 0 ? `${settings.taxName} (${settings.taxRate}%)` : settings.taxName
-    const discountDetail = receipt.discountType === 'percentage' && receipt.discountValue != null
-      ? `${receipt.discountValue}% discount`
-      : receipt.discountAmount > 0 ? 'Fixed amount discount' : null
-    const discountValue = receipt.discountType === 'percentage' && receipt.discountValue != null
-      ? `${receipt.discountValue}%`
-      : receipt.discountValue != null ? formatCurrency(receipt.discountValue) : formatCurrency(receipt.discountAmount)
+    const paymentLabel =
+      receipt.paymentMethod === 'mpesa'
+        ? 'M-Pesa'
+        : receipt.paymentMethod === 'airtel_money'
+          ? 'Airtel Money'
+          : receipt.paymentMethod === 'card'
+            ? 'Card'
+            : receipt.paymentMethod === 'bank_transfer'
+              ? 'Bank transfer'
+              : 'Cash';
+    const taxLabel =
+      settings.taxEnabled && settings.taxRate > 0
+        ? `${settings.taxName} (${settings.taxRate}%)`
+        : settings.taxName;
+    const discountDetail =
+      receipt.discountType === 'percentage' && receipt.discountValue != null
+        ? `${receipt.discountValue}% discount`
+        : receipt.discountAmount > 0
+          ? 'Fixed amount discount'
+          : null;
+    const discountValue =
+      receipt.discountType === 'percentage' && receipt.discountValue != null
+        ? `${receipt.discountValue}%`
+        : receipt.discountValue != null
+          ? formatCurrency(receipt.discountValue)
+          : formatCurrency(receipt.discountAmount);
 
     return (
-      <section aria-label="Completed sale receipt" className="pos-sale-complete flex min-h-[calc(100vh-8rem)] w-full items-center justify-center bg-[#f7f8fa] px-3 py-6 dark:bg-[#0e0f11] sm:px-6 sm:py-8">
-        <div className="w-full max-w-5xl">
-          <div className="mb-4 flex items-start justify-between gap-4 rounded-2xl border border-[#ead28a] bg-gradient-to-r from-[#fffdf7] via-[#fff9e5] to-[#fff1b8] px-4 py-3.5 shadow-[0_2px_8px_rgba(151,112,0,.08)] dark:border-[rgba(255,214,10,.22)] dark:from-[#15130c] dark:via-[#201b0d] dark:to-[#30270f] dark:shadow-[0_2px_8px_rgba(0,0,0,.18)] sm:px-5">
+      <section
+        aria-label="Completed sale receipt"
+        className="pos-sale-complete flex min-h-[calc(100vh-8rem)] w-full items-center justify-center bg-[#f5f6f8] px-3 py-6 dark:bg-[var(--dashboard-bg)] sm:px-6 sm:py-8"
+      >
+        <div className="w-full max-w-[920px]">
+          <div className="mb-4 flex items-start justify-between gap-4 rounded-[10px] border border-[#e2e6ea] bg-white px-4 py-3.5 shadow-[0_2px_7px_rgba(16,24,40,.05)] dark:border-white/10 dark:bg-[var(--dashboard-surface)] sm:px-5">
             <div className="flex min-w-0 items-start gap-3">
-              <span className={cn('flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border', receipt.offline?.status === 'PENDING' ? 'border-amber-300 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/30' : 'border-[#b7ebc6] bg-[#ecfdf3] dark:border-[#1d6b3b] dark:bg-[#102417]')}>{receipt.offline?.status === 'PENDING' ? <CloudOff className="h-4 w-4 text-amber-700 dark:text-amber-300" aria-hidden="true" /> : <CheckCircle2 className="h-4 w-4 text-[#12b76a] dark:text-[#86efac]" aria-hidden="true" />}</span>
+              <span
+                className={cn(
+                  'flex h-9 w-9 shrink-0 items-center justify-center rounded-full border',
+                  receipt.offline?.status === 'PENDING'
+                    ? 'border-amber-300 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/30'
+                    : 'border-[#b7ebc6] bg-[#ecfdf3] dark:border-[#1d6b3b] dark:bg-[#102417]'
+                )}
+              >
+                {receipt.offline?.status === 'PENDING' ? (
+                  <CloudOff
+                    className="h-4 w-4 text-amber-700 dark:text-amber-300"
+                    aria-hidden="true"
+                  />
+                ) : (
+                  <CheckCircle2
+                    className="h-5 w-5 text-[#12b76a] dark:text-[#86efac]"
+                    aria-hidden="true"
+                  />
+                )}
+              </span>
               <div>
-                <p className="text-sm font-bold text-[#101828] dark:text-white">{receipt.offline?.status === 'PENDING' ? 'Offline cash sale saved' : receipt.offline?.status === 'SYNCED' ? 'Offline sale synchronized' : 'Sale completed'}</p>
-                <p className="mt-0.5 text-xs text-[#667085] dark:text-[#c7b978]">{receipt.offline?.status === 'PENDING' ? `Provisional receipt ${receipt.receiptNo} · sync pending` : `Paid successfully · Receipt #${receipt.receiptNo}`}</p>
-                {receipt.etims && receipt.etims.status !== 'NOT_REQUIRED' && <p className={`mt-1 text-xs font-semibold ${receipt.etims.status === 'ACCEPTED' ? 'text-emerald-700 dark:text-emerald-300' : receipt.etims.status === 'FAILED' ? 'text-rose-700 dark:text-rose-300' : 'text-amber-700 dark:text-amber-300'}`}>eTIMS: {receipt.etims.status === 'ACCEPTED' ? 'Accepted' : receipt.etims.status === 'FAILED' ? 'Action required' : 'Pending submission'}</p>}
+                <p className="text-[15px] font-bold text-[#101828] dark:text-white">
+                  {receipt.offline?.status === 'PENDING'
+                    ? 'Offline cash sale saved'
+                    : receipt.offline?.status === 'SYNCED'
+                      ? 'Offline sale synchronized'
+                      : 'Sale completed'}
+                </p>
+                <p className="mt-0.5 text-xs text-[#667085] dark:text-[#c7b978]">
+                  {receipt.offline?.status === 'PENDING'
+                    ? `Provisional receipt ${receipt.receiptNo} · sync pending`
+                    : `Paid successfully · Receipt #${receipt.receiptNo}`}
+                </p>
+                {receipt.etims && receipt.etims.status !== 'NOT_REQUIRED' && (
+                  <p
+                    className={`mt-1 text-xs font-semibold ${receipt.etims.status === 'ACCEPTED' ? 'text-emerald-700 dark:text-emerald-300' : receipt.etims.status === 'FAILED' ? 'text-rose-700 dark:text-rose-300' : 'text-amber-700 dark:text-amber-300'}`}
+                  >
+                    eTIMS:{' '}
+                    {receipt.etims.status === 'ACCEPTED'
+                      ? 'Accepted'
+                      : receipt.etims.status === 'FAILED'
+                        ? 'Action required'
+                        : 'Pending submission'}
+                  </p>
+                )}
               </div>
             </div>
             <div className="shrink-0 text-right">
-              <p className="text-lg font-bold tracking-tight text-[#101828] dark:text-white">{formatCurrency(receipt.total)}</p>
-              <p className="text-xs text-[#667085] dark:text-[#c7b978]">{formatDateTime(receipt.completedAt)}</p>
+              <p className="text-xl font-extrabold tracking-tight text-[#101828] dark:text-white">
+                {formatCurrency(receipt.total)}
+              </p>
+              <p className="text-xs text-[#667085] dark:text-[#c7b978]">
+                {formatDateTime(receipt.completedAt)}
+              </p>
             </div>
           </div>
 
-          <div className="grid overflow-hidden rounded-xl border border-[#dfe3ea] bg-white shadow-sm dark:border-white/10 dark:bg-[#171717] lg:grid-cols-[minmax(0,1fr)_320px]">
-            <div className="flex min-h-[500px] items-center justify-center bg-[#f2f4f7] p-5 dark:bg-[#151619] sm:p-8">
+          <div className="grid overflow-hidden rounded-[10px] border border-[#dfe3ea] bg-white shadow-[0_4px_16px_rgba(16,24,40,.06)] dark:border-white/10 dark:bg-[var(--dashboard-surface)] lg:grid-cols-[minmax(0,1fr)_300px]">
+            <div className="flex min-h-[500px] items-center justify-center bg-[#f7f8fa] p-5 dark:bg-[var(--dashboard-surface-subtle)] sm:p-8">
               <div className="receipt-screen-preview w-fit max-w-full">
-                <div className="receipt-preview-origin mx-auto w-full max-w-[80mm] overflow-hidden rounded-lg bg-white shadow-[0_8px_20px_rgba(16,24,40,.10)]" style={{ width: `${receiptPaperWidth}mm` }}>
-                  <ReceiptTemplate sale={printableSale} businessName={settings.receiptBusinessName} businessPhone={settings.receiptPhone} businessAddress={settings.receiptAddress} receiptFooter={settings.receiptFooter} cashierName={receiptContext?.cashierName} customerName={receipt.customerName} layout="thermal" template={settings.receiptTemplate} logoUrl={settings.receiptLogoUrl} taxName={taxLabel} showPhone={settings.receiptShowPhone} showAddress={settings.receiptShowAddress} showCashier={settings.receiptShowCashier} showCustomer={settings.receiptShowCustomer} showPayment={settings.receiptShowPayment} showQrCode={settings.receiptShowQrCode} showItemSku={settings.receiptShowItemSku} />
+                <div
+                  className="receipt-preview-origin mx-auto w-full max-w-[80mm] overflow-hidden rounded-[4px] bg-white shadow-[0_8px_24px_rgba(16,24,40,.12)] ring-1 ring-black/5"
+                  style={{ width: `${receiptPaperWidth}mm` }}
+                >
+                  <ReceiptTemplate
+                    sale={printableSale}
+                    businessName={settings.receiptBusinessName}
+                    businessPhone={settings.receiptPhone}
+                    businessAddress={settings.receiptAddress}
+                    receiptFooter={settings.receiptFooter}
+                    cashierName={receiptContext?.cashierName}
+                    customerName={receipt.customerName}
+                    layout="thermal"
+                    template={settings.receiptTemplate}
+                    logoUrl={settings.receiptLogoUrl}
+                    taxName={taxLabel}
+                    showPhone={settings.receiptShowPhone}
+                    showAddress={settings.receiptShowAddress}
+                    showCashier={settings.receiptShowCashier}
+                    showCustomer={settings.receiptShowCustomer}
+                    showPayment={settings.receiptShowPayment}
+                    showQrCode={settings.receiptShowQrCode}
+                    showItemSku={settings.receiptShowItemSku}
+                  />
                 </div>
               </div>
             </div>
 
-            <aside className="flex flex-col border-t border-[#e4e7ec] bg-white p-4 dark:border-white/10 dark:bg-[#171717] lg:border-l lg:border-t-0 sm:p-5">
+            <aside className="flex flex-col border-t border-[#e4e7ec] bg-white p-5 dark:border-white/10 dark:bg-[var(--dashboard-surface)] lg:border-l lg:border-t-0">
               <div className="space-y-4">
                 <div>
                   <p className={ui.label}>Payment</p>
                   <div className="rounded-lg border border-[#e4e7ec] bg-[#fbfbfc] p-3 dark:border-white/10 dark:bg-white/5">
-                    <div className="flex items-center justify-between gap-3"><span className="flex items-center gap-2 text-sm font-semibold text-[#101828] dark:text-white"><WalletCards className="h-4 w-4 text-[#b77900]" />{paymentLabel}</span><span className="text-sm font-bold text-[#101828] dark:text-white">{formatCurrency(receipt.total)}</span></div>
-                    {receipt.paymentMethod === 'cash' && receipt.amountReceived != null && <div className="mt-3 grid grid-cols-2 gap-2 border-t border-[#e4e7ec] pt-3 text-xs dark:border-white/10"><span className="text-[#667085] dark:text-[#a8a8a8]">Cash received</span><span className="text-right font-semibold text-[#101828] dark:text-white">{formatCurrency(receipt.amountReceived)}</span><span className={cn('font-semibold', receipt.change > 0 ? 'text-[#067647] dark:text-[#8de1aa]' : 'text-[#667085] dark:text-[#a8a8a8]')}>{receipt.change > 0 ? 'Change due' : 'Change'}</span><span className={cn('text-right font-semibold tabular-nums', receipt.change > 0 ? 'rounded-md bg-[#ecfdf3] px-2 py-1 text-base font-bold text-[#067647] dark:bg-emerald-950/45 dark:text-[#8de1aa]' : 'text-xs text-[#667085] dark:text-[#a8a8a8]')}>{formatCurrency(receipt.change)}</span></div>}
-                    {receipt.mpesaRef && <div className="mt-3 space-y-1.5 border-t border-[#e4e7ec] pt-3 text-xs dark:border-white/10"><div className="flex justify-between gap-3"><span className="text-[#667085] dark:text-[#a8a8a8]">M-Pesa receipt</span><span className="font-semibold text-[#101828] dark:text-white">{receipt.mpesaRef}</span></div>{receipt.mpesaMode && <div className="flex justify-between gap-3"><span className="text-[#667085] dark:text-[#a8a8a8]">Mode</span><span className="font-semibold text-[#101828] dark:text-white">{receipt.mpesaMode === 'stk' ? 'STK Push' : receipt.mpesaMode === 'till' ? 'Till' : 'PayBill'}</span></div>}{receipt.mpesaMerchant && receipt.mpesaMode !== 'stk' && <div className="flex justify-between gap-3"><span className="text-[#667085] dark:text-[#a8a8a8]">{receipt.mpesaMode === 'till' ? 'Till' : 'PayBill'}</span><span className="font-semibold text-[#101828] dark:text-white">{receipt.mpesaMerchant}</span></div>}{receipt.mpesaAccountReference && <div className="flex justify-between gap-3"><span className="text-[#667085] dark:text-[#a8a8a8]">Account</span><span className="font-semibold text-[#101828] dark:text-white">{receipt.mpesaAccountReference}</span></div>}{receipt.mpesaPhone && <div className="flex justify-between gap-3"><span className="text-[#667085] dark:text-[#a8a8a8]">Phone</span><span className="font-semibold text-[#101828] dark:text-white">{maskKenyanPhone(receipt.mpesaPhone)}</span></div>}</div>}
-                    {(receipt.taxAmount > 0 || receipt.discountAmount > 0) && <div className="mt-3 space-y-1.5 border-t border-[#e4e7ec] pt-3 text-xs dark:border-white/10">{receipt.taxAmount > 0 && <div className="flex justify-between gap-3"><span className="text-[#667085] dark:text-[#a8a8a8]">{taxLabel}</span><span className="font-semibold text-[#101828] dark:text-white">{formatCurrency(receipt.taxAmount)}</span></div>}{receipt.discountAmount > 0 && <><div className="flex justify-between gap-3"><span className="text-[#667085] dark:text-[#a8a8a8]">{discountDetail}</span><span className="font-semibold text-[#101828] dark:text-white">{discountValue}</span></div><div className="flex justify-between gap-3"><span className="text-[#067647] dark:text-[#8de1aa]">Amount saved</span><span className="font-semibold text-[#067647] dark:text-[#8de1aa]">−{formatCurrency(receipt.discountAmount)}</span></div></>}</div>}
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="flex items-center gap-2 text-sm font-semibold text-[#101828] dark:text-white">
+                        <WalletCards className="h-4 w-4 text-[#b77900]" />
+                        {paymentLabel}
+                      </span>
+                      <span className="text-sm font-bold text-[#101828] dark:text-white">
+                        {formatCurrency(receipt.total)}
+                      </span>
+                    </div>
+                    {receipt.paymentMethod === 'cash' &&
+                      receipt.amountReceived != null && (
+                        <div className="mt-3 grid grid-cols-2 gap-2 border-t border-[#e4e7ec] pt-3 text-xs dark:border-white/10">
+                          <span className="text-[#667085] dark:text-[#a8a8a8]">
+                            Cash received
+                          </span>
+                          <span className="text-right font-semibold text-[#101828] dark:text-white">
+                            {formatCurrency(receipt.amountReceived)}
+                          </span>
+                          <span
+                            className={cn(
+                              'font-semibold',
+                              receipt.change > 0
+                                ? 'text-[#067647] dark:text-[#8de1aa]'
+                                : 'text-[#667085] dark:text-[#a8a8a8]'
+                            )}
+                          >
+                            {receipt.change > 0 ? 'Change due' : 'Change'}
+                          </span>
+                          <span
+                            className={cn(
+                              'text-right font-semibold tabular-nums',
+                              receipt.change > 0
+                                ? 'rounded-md bg-[#ecfdf3] px-2 py-1 text-base font-bold text-[#067647] dark:bg-emerald-950/45 dark:text-[#8de1aa]'
+                                : 'text-xs text-[#667085] dark:text-[#a8a8a8]'
+                            )}
+                          >
+                            {formatCurrency(receipt.change)}
+                          </span>
+                        </div>
+                      )}
+                    {receipt.mpesaRef && (
+                      <div className="mt-3 space-y-1.5 border-t border-[#e4e7ec] pt-3 text-xs dark:border-white/10">
+                        <div className="flex justify-between gap-3">
+                          <span className="text-[#667085] dark:text-[#a8a8a8]">
+                            M-Pesa receipt
+                          </span>
+                          <span className="font-semibold text-[#101828] dark:text-white">
+                            {receipt.mpesaRef}
+                          </span>
+                        </div>
+                        {receipt.mpesaMode && (
+                          <div className="flex justify-between gap-3">
+                            <span className="text-[#667085] dark:text-[#a8a8a8]">
+                              Mode
+                            </span>
+                            <span className="font-semibold text-[#101828] dark:text-white">
+                              {receipt.mpesaMode === 'stk'
+                                ? 'STK Push'
+                                : receipt.mpesaMode === 'till'
+                                  ? 'Till'
+                                  : 'PayBill'}
+                            </span>
+                          </div>
+                        )}
+                        {receipt.mpesaMerchant &&
+                          receipt.mpesaMode !== 'stk' && (
+                            <div className="flex justify-between gap-3">
+                              <span className="text-[#667085] dark:text-[#a8a8a8]">
+                                {receipt.mpesaMode === 'till'
+                                  ? 'Till'
+                                  : 'PayBill'}
+                              </span>
+                              <span className="font-semibold text-[#101828] dark:text-white">
+                                {receipt.mpesaMerchant}
+                              </span>
+                            </div>
+                          )}
+                        {receipt.mpesaAccountReference && (
+                          <div className="flex justify-between gap-3">
+                            <span className="text-[#667085] dark:text-[#a8a8a8]">
+                              Account
+                            </span>
+                            <span className="font-semibold text-[#101828] dark:text-white">
+                              {receipt.mpesaAccountReference}
+                            </span>
+                          </div>
+                        )}
+                        {receipt.mpesaPhone && (
+                          <div className="flex justify-between gap-3">
+                            <span className="text-[#667085] dark:text-[#a8a8a8]">
+                              Phone
+                            </span>
+                            <span className="font-semibold text-[#101828] dark:text-white">
+                              {maskKenyanPhone(receipt.mpesaPhone)}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    {(receipt.taxAmount > 0 || receipt.discountAmount > 0) && (
+                      <div className="mt-3 space-y-1.5 border-t border-[#e4e7ec] pt-3 text-xs dark:border-white/10">
+                        {receipt.taxAmount > 0 && (
+                          <div className="flex justify-between gap-3">
+                            <span className="text-[#667085] dark:text-[#a8a8a8]">
+                              {taxLabel}
+                            </span>
+                            <span className="font-semibold text-[#101828] dark:text-white">
+                              {formatCurrency(receipt.taxAmount)}
+                            </span>
+                          </div>
+                        )}
+                        {receipt.discountAmount > 0 && (
+                          <>
+                            <div className="flex justify-between gap-3">
+                              <span className="text-[#667085] dark:text-[#a8a8a8]">
+                                {discountDetail}
+                              </span>
+                              <span className="font-semibold text-[#101828] dark:text-white">
+                                {discountValue}
+                              </span>
+                            </div>
+                            <div className="flex justify-between gap-3">
+                              <span className="text-[#067647] dark:text-[#8de1aa]">
+                                Amount saved
+                              </span>
+                              <span className="font-semibold text-[#067647] dark:text-[#8de1aa]">
+                                −{formatCurrency(receipt.discountAmount)}
+                              </span>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-2">
-                  <ReceiptMeta mark={<UserRound className="h-3.5 w-3.5 text-[#667085] dark:text-[#a8a8a8]" />} label="Customer" value={receipt.customerName} />
-                  {receiptContext?.cashierName && <ReceiptMeta mark={<BadgeCheck className="h-3.5 w-3.5 text-[#667085] dark:text-[#a8a8a8]" />} label="Cashier" value={receiptContext.cashierName} />}
-                  {receiptContext?.registerName && <ReceiptMeta mark={<Monitor className="h-3.5 w-3.5 text-[#667085] dark:text-[#a8a8a8]" />} label="Register" value={receiptContext.registerName} />}
-                  {receiptContext?.locationName && <ReceiptMeta mark={<MapPin className="h-3.5 w-3.5 text-[#667085] dark:text-[#a8a8a8]" />} label="Location" value={receiptContext.locationName} />}
+                  <ReceiptMeta
+                    mark={
+                      <UserRound className="h-3.5 w-3.5 text-[#667085] dark:text-[#a8a8a8]" />
+                    }
+                    label="Customer"
+                    value={receipt.customerName}
+                  />
+                  {receiptContext?.cashierName && (
+                    <ReceiptMeta
+                      mark={
+                        <BadgeCheck className="h-3.5 w-3.5 text-[#667085] dark:text-[#a8a8a8]" />
+                      }
+                      label="Cashier"
+                      value={receiptContext.cashierName}
+                    />
+                  )}
+                  {receiptContext?.registerName && (
+                    <ReceiptMeta
+                      mark={
+                        <Monitor className="h-3.5 w-3.5 text-[#667085] dark:text-[#a8a8a8]" />
+                      }
+                      label="Register"
+                      value={receiptContext.registerName}
+                    />
+                  )}
+                  {receiptContext?.locationName && (
+                    <ReceiptMeta
+                      mark={
+                        <MapPin className="h-3.5 w-3.5 text-[#667085] dark:text-[#a8a8a8]" />
+                      }
+                      label="Location"
+                      value={receiptContext.locationName}
+                    />
+                  )}
                 </div>
               </div>
               <div className="mt-5 space-y-2 border-t border-[#e4e7ec] pt-4 dark:border-white/10">
-                {receipt.offline?.status === 'PENDING' && <div className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2.5 text-xs text-amber-950 dark:border-amber-800 dark:bg-amber-950/25 dark:text-amber-100"><p className="font-bold">Official receipt and eTIMS pending</p><p className="mt-1 leading-4 opacity-80">Keep this provisional receipt. Pesaby will synchronize it when the register reconnects.</p>{isOnline && <button type="button" disabled={offlineSyncing} onClick={() => void synchronizeOfflineQueue()} className="mt-2 inline-flex items-center gap-1.5 font-bold underline underline-offset-2">{offlineSyncing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}Synchronize now</button>}</div>}
-                <button onClick={handleNewSale} style={{ backgroundColor: ui.primary, color: ui.primaryInk }} className="flex h-11 w-full items-center justify-center gap-2 rounded-lg text-sm font-bold transition-opacity hover:opacity-90"><Plus className="h-4 w-4" />Start next sale</button>
-                <div className="grid grid-cols-2 gap-2"><button onClick={handlePrintReceipt} className={cn(ui.subtleBtn, 'flex h-10 items-center justify-center gap-2')}><Printer className="h-4 w-4" />{receiptPrinted ? 'Reprint receipt' : 'Print receipt'}</button><button onClick={handleDownloadReceipt} className={cn(ui.subtleBtn, 'flex h-10 items-center justify-center gap-2')}><Download className="h-4 w-4" />Download</button></div>
-                <div className="grid grid-cols-[1fr_auto] gap-2"><button onClick={() => void handleShareReceipt()} className={cn(ui.subtleBtn, 'flex h-10 items-center justify-center gap-2')}><Share2 className="h-4 w-4" />Share</button><div className="relative"><button aria-label="Receipt options" aria-expanded={receiptOptionsOpen} onClick={() => setReceiptOptionsOpen((open) => !open)} className={cn(ui.subtleBtn, 'flex h-10 w-10 items-center justify-center px-0')}><MoreHorizontal className="h-4 w-4" /></button>{receiptOptionsOpen && <div className="absolute bottom-12 right-0 z-10 w-40 rounded-lg border border-[#dfe3ea] bg-white p-1.5 shadow-lg dark:border-white/10 dark:bg-[#1c1c1c]"><p className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-[#667085] dark:text-[#a8a8a8]">Paper width</p>{([80, 58] as const).map((width) => <button key={width} onClick={() => { setReceiptPaperWidth(width); setReceiptOptionsOpen(false) }} className={cn('flex w-full rounded-md px-2 py-1.5 text-left text-xs font-medium hover:bg-[#f9fafb] dark:hover:bg-white/5', receiptPaperWidth === width && 'bg-[#fff5cf] text-[#7a5200] dark:bg-[#3a2d0d] dark:text-[#ffd86a]')}>{width} mm</button>)}</div>}</div></div>
-                <button onClick={handleNewSale} className="mt-1 flex w-full items-center justify-center gap-2 py-1 text-xs font-semibold text-[#667085] transition-colors hover:text-[#101828] dark:text-[#a8a8a8] dark:hover:text-white"><ArrowLeft className="h-3.5 w-3.5" />Back to POS</button>
+                {receipt.offline?.status === 'PENDING' && (
+                  <div className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2.5 text-xs text-amber-950 dark:border-amber-800 dark:bg-amber-950/25 dark:text-amber-100">
+                    <p className="font-bold">
+                      Official receipt and eTIMS pending
+                    </p>
+                    <p className="mt-1 leading-4 opacity-80">
+                      Keep this provisional receipt. Pesaby will synchronize it
+                      when the register reconnects.
+                    </p>
+                    {isOnline && (
+                      <button
+                        type="button"
+                        disabled={offlineSyncing}
+                        onClick={() => void synchronizeOfflineQueue()}
+                        className="mt-2 inline-flex items-center gap-1.5 font-bold underline underline-offset-2"
+                      >
+                        {offlineSyncing ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <RefreshCw className="h-3.5 w-3.5" />
+                        )}
+                        Synchronize now
+                      </button>
+                    )}
+                  </div>
+                )}
+                <button
+                  onClick={handleNewSale}
+                  style={{ backgroundColor: ui.primary, color: ui.primaryInk }}
+                  className="flex h-11 w-full items-center justify-center gap-2 rounded-[6px] text-sm font-bold shadow-sm transition-all hover:-translate-y-px hover:shadow-md"
+                >
+                  <Plus className="h-4 w-4" />
+                  Start next sale
+                </button>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={() => void handlePrintReceipt()}
+                    disabled={receiptPrinting}
+                    className={cn(
+                      ui.subtleBtn,
+                      'flex h-10 items-center justify-center gap-2 rounded-[6px]'
+                    )}
+                  >
+                    {receiptPrinting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Printer className="h-4 w-4" />}
+                    {receiptPrinting ? 'Printing…' : receiptPrinted ? 'Reprint receipt' : 'Print receipt'}
+                  </button>
+                  <button
+                    onClick={handleDownloadReceipt}
+                    className={cn(
+                      ui.subtleBtn,
+                      'flex h-10 items-center justify-center gap-2 rounded-[6px]'
+                    )}
+                  >
+                    <Download className="h-4 w-4" />
+                    Download
+                  </button>
+                </div>
+                <div className="grid grid-cols-[1fr_auto] gap-2">
+                  <button
+                    onClick={() => void handleShareReceipt()}
+                    className={cn(
+                      ui.subtleBtn,
+                      'flex h-10 items-center justify-center gap-2 rounded-[6px]'
+                    )}
+                  >
+                    <Share2 className="h-4 w-4" />
+                    Share
+                  </button>
+                  <div className="relative">
+                    <button
+                      aria-label="Receipt options"
+                      aria-expanded={receiptOptionsOpen}
+                      onClick={() => setReceiptOptionsOpen((open) => !open)}
+                      className={cn(
+                        ui.subtleBtn,
+                        'flex h-10 w-10 items-center justify-center px-0'
+                      )}
+                    >
+                      <MoreHorizontal className="h-4 w-4" />
+                    </button>
+                    {receiptOptionsOpen && (
+                      <div className="absolute bottom-12 right-0 z-10 w-40 rounded-lg border border-[#dfe3ea] bg-white p-1.5 shadow-lg dark:border-white/10 dark:bg-[#1c1c1c]">
+                        <p className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-[#667085] dark:text-[#a8a8a8]">
+                          Print options
+                        </p>
+                        <button onClick={() => { setReceiptOptionsOpen(false); handleBrowserPrintReceipt(); }} className="flex w-full rounded-md px-2 py-1.5 text-left text-xs font-medium hover:bg-[#f9fafb] dark:hover:bg-white/5">Browser print</button>
+                        <p className="px-2 pt-2 text-[10px] font-semibold uppercase tracking-wide text-[#667085] dark:text-[#a8a8a8]">Paper width</p>
+                        {([80, 58] as const).map((width) => (
+                          <button
+                            key={width}
+                            onClick={() => {
+                              setReceiptPaperWidth(width);
+                              setReceiptOptionsOpen(false);
+                            }}
+                            className={cn(
+                              'flex w-full rounded-md px-2 py-1.5 text-left text-xs font-medium hover:bg-[#f9fafb] dark:hover:bg-white/5',
+                              receiptPaperWidth === width &&
+                                'bg-[#fff5cf] text-[#7a5200] dark:bg-[#3a2d0d] dark:text-[#ffd86a]'
+                            )}
+                          >
+                            {width} mm
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <button
+                  onClick={handleNewSale}
+                  className="mt-1 flex w-full items-center justify-center gap-2 py-1 text-xs font-semibold text-[#667085] transition-colors hover:text-[#101828] dark:text-[#a8a8a8] dark:hover:text-white"
+                >
+                  <ArrowLeft className="h-3.5 w-3.5" />
+                  Back to POS
+                </button>
               </div>
             </aside>
           </div>
         </div>
       </section>
-    )
+    );
   }
 
   return (
-    <div className={cn(
-      'pos-terminal relative grid gap-4 bg-transparent sm:gap-5 lg:grid-cols-[minmax(0,1fr)_460px] lg:items-stretch xl:grid-cols-[minmax(0,1fr)_minmax(500px,30%)]',
-      standalone ? 'min-h-0 lg:flex-1' : 'min-h-[calc(100vh-10.5rem)] lg:h-[calc(100dvh-10.5rem)] lg:min-h-[520px]',
-      showOfflineStatus && 'lg:grid-rows-[auto_minmax(0,1fr)]',
-      checkoutOnly && 'w-full max-w-none bg-transparent lg:h-auto lg:grid-cols-1 lg:gap-6'
-    )}>
-      {showOfflineStatus && <div className={cn('flex flex-wrap items-center justify-between gap-3 rounded-xl border px-4 py-3 text-xs lg:col-span-2', !isOnline ? 'border-amber-300 bg-amber-50 text-amber-950 dark:border-amber-800 dark:bg-amber-950/25 dark:text-amber-100' : offlineQueueSummary.failed ? 'border-rose-300 bg-rose-50 text-rose-950 dark:border-rose-900 dark:bg-rose-950/25 dark:text-rose-100' : 'border-sky-200 bg-sky-50 text-sky-950 dark:border-sky-900 dark:bg-sky-950/25 dark:text-sky-100')} role="status" aria-live="polite"><div className="flex items-start gap-2.5">{!isOnline ? <CloudOff className="mt-0.5 h-4 w-4 shrink-0" /> : offlineSyncing ? <Loader2 className="mt-0.5 h-4 w-4 shrink-0 animate-spin" /> : <RefreshCw className="mt-0.5 h-4 w-4 shrink-0" />}<div><p className="font-bold">{!isOnline ? 'Offline cash mode' : offlineQueueSummary.failed ? 'Offline sales need attention' : offlineSyncing ? 'Synchronizing offline sales' : 'Offline sales waiting to synchronize'}</p><p className="mt-0.5 opacity-80">{!isOnline ? 'Cash sales are saved on this register. M-Pesa, card and eTIMS remain unavailable until reconnection.' : `${offlineQueueSummary.pending} pending · ${offlineQueueSummary.failed} failed · ${offlineQueueSummary.synced} synchronized on this register`}</p>{offlineQueueSummary.failed > 0 && <details className="mt-1.5"><summary className="cursor-pointer font-semibold underline underline-offset-2">View sync errors</summary><ul className="mt-1 space-y-1">{offlineSales.filter((item) => item.status === 'FAILED').map((item) => <li key={item.id}><b>{item.provisionalReceiptNo}:</b> {item.lastError || 'Synchronization failed'}</li>)}</ul></details>}</div></div>{isOnline && <button type="button" disabled={offlineSyncing} onClick={() => void synchronizeOfflineQueue()} className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-current/20 bg-background/70 px-3 font-bold disabled:opacity-50">{offlineSyncing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}Retry synchronization</button>}</div>}
+    <div
+      className={cn(
+        'pos-terminal relative grid gap-4 bg-transparent sm:gap-5 lg:grid-cols-[minmax(0,1fr)_460px] lg:items-stretch xl:grid-cols-[minmax(0,1fr)_minmax(500px,30%)]',
+        standalone
+          ? 'min-h-0 lg:flex-1'
+          : 'min-h-[calc(100vh-10.5rem)] lg:h-[calc(100dvh-10.5rem)] lg:min-h-[520px]',
+        showOfflineStatus && 'lg:grid-rows-[auto_minmax(0,1fr)]',
+        checkoutOnly &&
+          'w-full max-w-none bg-transparent lg:h-auto lg:grid-cols-1 lg:gap-6'
+      )}
+    >
+      {showOfflineStatus && (
+        <div
+          className={cn(
+            'flex flex-wrap items-center justify-between gap-3 rounded-xl border px-4 py-3 text-xs lg:col-span-2',
+            !isOnline
+              ? 'border-amber-300 bg-amber-50 text-amber-950 dark:border-amber-800 dark:bg-amber-950/25 dark:text-amber-100'
+              : offlineQueueSummary.failed
+                ? 'border-rose-300 bg-rose-50 text-rose-950 dark:border-rose-900 dark:bg-rose-950/25 dark:text-rose-100'
+                : 'border-sky-200 bg-sky-50 text-sky-950 dark:border-sky-900 dark:bg-sky-950/25 dark:text-sky-100'
+          )}
+          role="status"
+          aria-live="polite"
+        >
+          <div className="flex items-start gap-2.5">
+            {!isOnline ? (
+              <CloudOff className="mt-0.5 h-4 w-4 shrink-0" />
+            ) : offlineSyncing ? (
+              <Loader2 className="mt-0.5 h-4 w-4 shrink-0 animate-spin" />
+            ) : (
+              <RefreshCw className="mt-0.5 h-4 w-4 shrink-0" />
+            )}
+            <div>
+              <p className="font-bold">
+                {!isOnline
+                  ? 'Offline cash mode'
+                  : offlineQueueSummary.failed
+                    ? 'Offline sales need attention'
+                    : offlineSyncing
+                      ? 'Synchronizing offline sales'
+                      : 'Offline sales waiting to synchronize'}
+              </p>
+              <p className="mt-0.5 opacity-80">
+                {!isOnline
+                  ? 'Cash sales are saved on this register. M-Pesa, card and eTIMS remain unavailable until reconnection.'
+                  : `${offlineQueueSummary.pending} pending · ${offlineQueueSummary.failed} failed · ${offlineQueueSummary.synced} synchronized on this register`}
+              </p>
+              {offlineQueueSummary.failed > 0 && (
+                <details className="mt-1.5">
+                  <summary className="cursor-pointer font-semibold underline underline-offset-2">
+                    View sync errors
+                  </summary>
+                  <ul className="mt-1 space-y-1">
+                    {offlineSales
+                      .filter((item) => item.status === 'FAILED')
+                      .map((item) => (
+                        <li key={item.id}>
+                          <b>{item.provisionalReceiptNo}:</b>{' '}
+                          {item.lastError || 'Synchronization failed'}
+                        </li>
+                      ))}
+                  </ul>
+                </details>
+              )}
+            </div>
+          </div>
+          {isOnline && (
+            <button
+              type="button"
+              disabled={offlineSyncing}
+              onClick={() => void synchronizeOfflineQueue()}
+              className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-current/20 bg-background/70 px-3 font-bold disabled:opacity-50"
+            >
+              {offlineSyncing ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <RefreshCw className="h-3.5 w-3.5" />
+              )}
+              Retry synchronization
+            </button>
+          )}
+        </div>
+      )}
       {/* Left: Product catalog */}
-      <section className={cn(ui.card, 'flex min-h-[520px] min-w-0 flex-col overflow-hidden lg:min-h-0', checkoutOnly && 'hidden')}>
-        <div className="border-b border-[#eef0f3] px-5 py-3 dark:border-white/10 sm:px-6">
+      <section
+        className={cn(
+          ui.card,
+          'flex min-h-0 min-w-0 flex-col overflow-hidden lg:min-h-0',
+          checkoutOnly && 'hidden'
+        )}
+      >
+        <div className="border-b border-[#eef0f3] px-3.5 py-3 dark:border-white/10 sm:px-6">
           <div className="mb-2.5 flex items-center justify-between gap-3">
             <div className="flex items-center gap-2.5">
-              <h2 className="text-base font-semibold tracking-tight text-[#101828] dark:text-white">{productTerms.title}</h2>
-              <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-[#067647] dark:text-[#8de1aa]"><span className="h-1.5 w-1.5 rounded-full bg-[#12b76a]" />{filteredProducts.length} available</span>
+              <h2 className="text-base font-semibold tracking-tight text-[#101828] dark:text-white">
+                {productTerms.title}
+              </h2>
+              <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-[#067647] dark:text-[#8de1aa]">
+                <span className="h-1.5 w-1.5 rounded-full bg-[#12b76a]" />
+                {filteredProducts.length} available
+              </span>
             </div>
-            <p className="hidden items-center gap-1.5 text-[11px] font-medium text-[#667085] dark:text-[#8b8b8b] sm:flex" role="status" aria-live="polite">
+            <p
+              className="hidden items-center gap-1.5 text-[11px] font-medium text-[#667085] dark:text-[#8b8b8b] sm:flex"
+              role="status"
+              aria-live="polite"
+            >
               <span className="h-1.5 w-1.5 rounded-full bg-[#12b76a]" />
               {scanMessage || 'Scanner ready'}
             </p>
@@ -1924,29 +3803,102 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
             <input
               ref={searchInputRef}
               type="text"
-              placeholder={pharmacyMode ? 'Search medicine, generic name or barcode…' : 'Search by name, SKU or barcode…'}
+              placeholder={
+                pharmacyMode
+                  ? 'Search medicine, generic name or barcode…'
+                  : 'Search by name, SKU or barcode…'
+              }
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key !== 'Enter') return
-                const barcode = normalizeBarcode(search)
-                if (barcode) { e.preventDefault(); handleBarcodeScan(barcode) }
+                if (e.key !== 'Enter') return;
+                const barcode = normalizeBarcode(search);
+                if (barcode) {
+                  e.preventDefault();
+                  handleBarcodeScan(barcode);
+                }
               }}
               className={cn(inputCls, 'h-10 rounded-lg pl-9 pr-3')}
               autoFocus
             />
           </div>
+          <div className="mt-3 rounded-xl border border-[#e4e7ec] bg-[#f9fafb] p-2.5 dark:border-white/10 dark:bg-[#151515] lg:hidden">
+            <div className="flex items-center gap-2.5">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#fff3c4] text-[#8a6500] dark:bg-[#3a3016] dark:text-[#ffd166]">
+                <ShoppingCart className="h-4.5 w-4.5" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-semibold text-[#667085] dark:text-[#a8a8a8]">
+                  Basket · {cart.length} item{cart.length === 1 ? '' : 's'}
+                </p>
+                <p className="truncate text-base font-bold tabular-nums text-[#101828] dark:text-white">
+                  {formatCurrency(subtotal)}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={openCheckout}
+                disabled={cart.length === 0 || !hasActiveShift}
+                className="inline-flex h-10 shrink-0 items-center justify-center rounded-lg bg-[var(--dashboard-accent-cta)] px-4 text-sm font-bold text-[var(--dashboard-accent-cta-ink)] transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-45"
+              >
+                Pay now
+              </button>
+            </div>
+            <div className="pos-action-scroll mt-2 flex gap-1.5 overflow-x-auto border-t border-[#e4e7ec] pt-2 dark:border-white/10">
+              <button
+                type="button"
+                onClick={() => void holdSale()}
+                disabled={!canHold || cart.length === 0 || Boolean(heldSaleActionId)}
+                className="h-8 shrink-0 rounded-md border border-[#d0d5dd] bg-white px-3 text-xs font-semibold text-[#344054] disabled:opacity-45 dark:border-white/10 dark:bg-[#1c1c1c] dark:text-white"
+              >
+                Hold
+              </button>
+              <button
+                type="button"
+                onClick={voidCurrentSale}
+                disabled={cart.length === 0}
+                className="h-8 shrink-0 rounded-md border border-[#d0d5dd] bg-white px-3 text-xs font-semibold text-[#344054] disabled:opacity-45 dark:border-white/10 dark:bg-[#1c1c1c] dark:text-white"
+              >
+                Void
+              </button>
+              <button
+                type="button"
+                onClick={openHeldOrders}
+                disabled={!canHold}
+                className="h-8 shrink-0 rounded-md border border-[#d0d5dd] bg-white px-3 text-xs font-semibold text-[#344054] disabled:opacity-45 dark:border-white/10 dark:bg-[#1c1c1c] dark:text-white"
+              >
+                Held{heldSales.length ? ` (${heldSales.length})` : ''}
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowSalesHistory(true)}
+                className="h-8 shrink-0 rounded-md border border-[#d0d5dd] bg-white px-3 text-xs font-semibold text-[#344054] dark:border-white/10 dark:bg-[#1c1c1c] dark:text-white"
+              >
+                Transactions
+              </button>
+              <button
+                type="button"
+                onClick={resetRegister}
+                className="h-8 shrink-0 rounded-md border border-[#d0d5dd] bg-white px-3 text-xs font-semibold text-[#344054] dark:border-white/10 dark:bg-[#1c1c1c] dark:text-white"
+              >
+                Reset
+              </button>
+            </div>
+          </div>
         </div>
 
         {/* Category selector */}
         {availableCategories.length > 0 && (
-          <nav className="pos-mobile-category-scroll flex gap-2.5 overflow-x-auto border-b border-[#eef0f3] bg-[#f8f9fb] px-4 py-3 dark:border-white/10 dark:bg-[#111] sm:px-5" aria-label="Product categories">
+          <nav
+            className="pos-mobile-category-scroll flex gap-2.5 overflow-x-auto border-b border-[#eef0f3] bg-[#f8f9fb] px-4 py-3 dark:border-white/10 dark:bg-[#111] sm:px-5"
+            aria-label="Product categories"
+          >
             <button
               type="button"
               onClick={() => setSelectedCategory('')}
               aria-pressed={!selectedCategory}
               className={cn(
-                'flex h-14 min-w-[142px] shrink-0 items-center gap-2.5 rounded-xl border px-2.5 text-left transition-[border-color,background-color,box-shadow] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#f9b21d]/45',
+                'flex h-14 min-w-[124px] shrink-0 items-center gap-2 rounded-xl border px-2.5 text-left transition-[border-color,background-color,box-shadow] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#f9b21d]/45 sm:min-w-[142px] sm:gap-2.5',
                 !selectedCategory
                   ? 'border-[#f9b21d] bg-[#fff8e6] shadow-[0_2px_7px_rgba(174,119,0,.10)] dark:border-[#f9b21d] dark:bg-[#2a2111]'
                   : 'border-[#e1e5ea] bg-white hover:border-[#cfd4dc] dark:border-white/10 dark:bg-[#181818] dark:hover:border-white/20'
@@ -1954,19 +3906,33 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
             >
               {allCategoryImage ? (
                 <span className="relative h-9 w-9 shrink-0 overflow-hidden rounded-lg bg-[#eef1f4] dark:bg-white/10">
-                  <Image src={allCategoryImage} alt="" fill unoptimized={allCategoryImage.startsWith('http')} sizes="36px" quality={45} className="object-cover" />
+                  <Image
+                    src={allCategoryImage}
+                    alt=""
+                    fill
+                    unoptimized={allCategoryImage.startsWith('http')}
+                    sizes="36px"
+                    quality={45}
+                    className="object-cover"
+                  />
                 </span>
               ) : (
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#fff0bd] text-[#8a6500] dark:bg-[#3a3016] dark:text-[#ffd166]"><Package className="h-4 w-4" /></span>
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#fff0bd] text-[#8a6500] dark:bg-[#3a3016] dark:text-[#ffd166]">
+                  <Package className="h-4 w-4" />
+                </span>
               )}
               <span className="min-w-0">
-                <span className="block truncate text-xs font-bold text-[#101828] dark:text-white">All {productTerms.pluralLower}</span>
-                <span className="mt-0.5 block text-[10px] font-medium text-[#667085] dark:text-[#9ca3af]">{catalogProducts.length} available</span>
+                <span className="block truncate text-xs font-bold text-[#101828] dark:text-white">
+                  All {productTerms.pluralLower}
+                </span>
+                <span className="mt-0.5 block text-[10px] font-medium text-[#667085] dark:text-[#9ca3af]">
+                  {catalogProducts.length} available
+                </span>
               </span>
             </button>
             {availableCategories.map((category) => {
-              const imageUrl = categoryImages.get(category.id)
-              const active = selectedCategory === category.id
+              const imageUrl = categoryImages.get(category.id);
+              const active = selectedCategory === category.id;
               return (
                 <button
                   key={category.id}
@@ -1974,7 +3940,7 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
                   onClick={() => setSelectedCategory(category.id)}
                   aria-pressed={active}
                   className={cn(
-                    'flex h-14 min-w-[142px] shrink-0 items-center gap-2.5 rounded-xl border px-2.5 text-left transition-[border-color,background-color,box-shadow] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#f9b21d]/45',
+                    'flex h-14 min-w-[124px] shrink-0 items-center gap-2 rounded-xl border px-2.5 text-left transition-[border-color,background-color,box-shadow] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#f9b21d]/45 sm:min-w-[142px] sm:gap-2.5',
                     active
                       ? 'border-[#f9b21d] bg-[#fff8e6] shadow-[0_2px_7px_rgba(174,119,0,.10)] dark:border-[#f9b21d] dark:bg-[#2a2111]'
                       : 'border-[#e1e5ea] bg-white hover:border-[#cfd4dc] dark:border-white/10 dark:bg-[#181818] dark:hover:border-white/20'
@@ -1982,49 +3948,81 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
                 >
                   {imageUrl ? (
                     <span className="relative h-9 w-9 shrink-0 overflow-hidden rounded-lg bg-[#eef1f4] dark:bg-white/10">
-                      <Image src={imageUrl} alt="" fill unoptimized={imageUrl.startsWith('http')} sizes="36px" quality={45} className="object-cover" />
+                      <Image
+                        src={imageUrl}
+                        alt=""
+                        fill
+                        unoptimized={imageUrl.startsWith('http')}
+                        sizes="36px"
+                        quality={45}
+                        className="object-cover"
+                      />
                     </span>
                   ) : (
-                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#eef1f4] text-[#667085] dark:bg-white/10 dark:text-[#c4c4c4]"><Package className="h-4 w-4" /></span>
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#eef1f4] text-[#667085] dark:bg-white/10 dark:text-[#c4c4c4]">
+                      <Package className="h-4 w-4" />
+                    </span>
                   )}
                   <span className="min-w-0">
-                    <span className="block truncate text-xs font-bold text-[#101828] dark:text-white">{category.name}</span>
-                    <span className="mt-0.5 block text-[10px] font-medium text-[#667085] dark:text-[#9ca3af]">{categoryProductCounts.get(category.id) ?? 0} {productTerms.pluralLower}</span>
+                    <span className="block truncate text-xs font-bold text-[#101828] dark:text-white">
+                      {category.name}
+                    </span>
+                    <span className="mt-0.5 block text-[10px] font-medium text-[#667085] dark:text-[#9ca3af]">
+                      {categoryProductCounts.get(category.id) ?? 0}{' '}
+                      {productTerms.pluralLower}
+                    </span>
                   </span>
                 </button>
-              )
+              );
             })}
           </nav>
         )}
 
         {/* Product grid */}
-        <CompactScrollArea className="pos-scroll-region bg-[#fbfbfc] p-3.5 dark:bg-[#0f0f0f] sm:p-4">
+        <CompactScrollArea className="pos-scroll-region bg-[#fbfbfc] p-2.5 dark:bg-[#0f0f0f] sm:p-4">
           {filteredProducts.length === 0 ? (
             <div className="flex h-48 flex-col items-center justify-center text-center">
-              <Package className="mb-3 h-9 w-9 text-[#d0d5dd]" strokeWidth={1.5} />
+              <Package
+                className="mb-3 h-9 w-9 text-[#d0d5dd]"
+                strokeWidth={1.5}
+              />
               <p className="text-sm font-medium text-[#344054]">
-                {search ? `No ${productTerms.pluralLower} match your search` : `No active ${productTerms.pluralLower} with stock`}
+                {search
+                  ? `No ${productTerms.pluralLower} match your search`
+                  : `No active ${productTerms.pluralLower} with stock`}
               </p>
               <p className="mt-1 text-xs text-[#98a2b3]">
-                {search ? 'Try a different search term' : pharmacyMode ? 'Create medicines, then receive stock with batch and expiry details' : `Add ${productTerms.pluralLower} to begin selling`}
+                {search
+                  ? 'Try a different search term'
+                  : pharmacyMode
+                    ? 'Create medicines, then receive stock with batch and expiry details'
+                    : `Add ${productTerms.pluralLower} to begin selling`}
               </p>
             </div>
           ) : (
-            <div className={cn(
-              'grid grid-cols-2 sm:grid-cols-3',
-              standalone ? 'gap-3 lg:grid-cols-[repeat(auto-fill,minmax(220px,1fr))]' : 'gap-3.5 xl:grid-cols-4'
-            )}>
+            <div
+              className={cn(
+                'grid grid-cols-1 min-[480px]:grid-cols-2 sm:grid-cols-3',
+                standalone
+                  ? 'gap-3 lg:grid-cols-[repeat(auto-fill,minmax(220px,1fr))]'
+                  : 'gap-3.5 xl:grid-cols-4'
+              )}
+            >
               {filteredProducts.map((product, productIndex) => {
-                const inCartQuantity = cartQuantityByProductId.get(product.id)
-                const outOfStock = product.stock === 0
+                const inCartQuantity = cartQuantityByProductId.get(product.id);
+                const outOfStock = product.stock === 0;
                 return (
                   <article
                     key={product.id}
                     onClick={() => addToCart(product)}
                     onKeyDown={(event) => {
-                      if (event.target !== event.currentTarget || (event.key !== 'Enter' && event.key !== ' ')) return
-                      event.preventDefault()
-                      addToCart(product)
+                      if (
+                        event.target !== event.currentTarget ||
+                        (event.key !== 'Enter' && event.key !== ' ')
+                      )
+                        return;
+                      event.preventDefault();
+                      addToCart(product);
                     }}
                     role="button"
                     tabIndex={outOfStock ? -1 : 0}
@@ -2033,6 +4031,7 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
                     className={cn(
                       'pos-product-card relative flex flex-col overflow-hidden rounded-lg border bg-white text-left shadow-[0_1px_2px_rgba(16,24,40,.03)] transition-[border-color,box-shadow] duration-150 motion-reduce:transition-none',
                       standalone ? 'min-h-[232px]' : 'min-h-[224px]',
+                      'max-[479px]:grid max-[479px]:min-h-[132px] max-[479px]:grid-cols-[112px_minmax(0,1fr)] max-[479px]:flex-none',
                       'disabled:cursor-not-allowed disabled:opacity-50',
                       outOfStock
                         ? 'cursor-not-allowed opacity-65'
@@ -2045,43 +4044,111 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
                   >
                     {/* Stock badge */}
                     {product.stock <= product.minStock && product.stock > 0 && (
-                      <div className="absolute left-2 top-2 z-10 rounded-full bg-[#fffaeb] px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-[#b54708] ring-1 ring-inset ring-[#fedf89]">Low</div>
+                      <div className="absolute left-2 top-2 z-10 rounded-full bg-[#fffaeb] px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-[#b54708] ring-1 ring-inset ring-[#fedf89]">
+                        Low
+                      </div>
                     )}
                     {outOfStock && (
-                      <div className="absolute left-2 top-2 z-10 rounded-full bg-[#fef3f2] px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-[#b42318] ring-1 ring-inset ring-[#fecdca]">Sold out</div>
+                      <div className="absolute left-2 top-2 z-10 rounded-full bg-[#fef3f2] px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-[#b42318] ring-1 ring-inset ring-[#fecdca]">
+                        Sold out
+                      </div>
                     )}
 
                     {/* Product image or icon */}
                     {product.imageUrl ? (
-                      <span className={cn('relative block w-full shrink-0 overflow-hidden bg-[#f5f6f8] dark:bg-[#1f1f1f]', standalone ? 'h-[120px]' : 'h-[112px]')}>
+                      <span
+                        className={cn(
+                          'relative block w-full shrink-0 overflow-hidden bg-[#f5f6f8] dark:bg-[#1f1f1f]',
+                          standalone ? 'h-[120px]' : 'h-[112px]',
+                          'max-[479px]:h-full max-[479px]:min-h-[132px]'
+                        )}
+                      >
                         <Image
                           src={product.imageUrl}
                           alt={product.name}
                           fill
                           unoptimized={product.imageUrl.startsWith('http')}
-                          sizes="(min-width: 1280px) 240px, (min-width: 640px) 30vw, 50vw"
+                          sizes="(min-width: 1280px) 240px, (min-width: 640px) 30vw, (min-width: 480px) 50vw, 112px"
                           quality={60}
-                          loading={productIndex === 0 ? 'eager' : 'lazy'}
+                          loading={productIndex < 8 ? 'eager' : 'lazy'}
                           className="object-cover"
                         />
                       </span>
                     ) : (
-                      <div className={cn('flex w-full shrink-0 items-center justify-center bg-[#f5f6f8] text-[#98a2b3] dark:bg-[#1f1f1f]', standalone ? 'h-[120px]' : 'h-[112px]')}>
+                      <div
+                        className={cn(
+                          'flex w-full shrink-0 items-center justify-center bg-[#f5f6f8] text-[#98a2b3] dark:bg-[#1f1f1f]',
+                          standalone ? 'h-[120px]' : 'h-[112px]',
+                          'max-[479px]:h-full max-[479px]:min-h-[132px]'
+                        )}
+                      >
                         <Package className="h-7 w-7" strokeWidth={1.5} />
                       </div>
                     )}
-                    <div className="flex flex-1 flex-col px-3.5 pb-3.5 pt-3">
-                      <p className="mb-0.5 line-clamp-2 text-sm font-semibold leading-snug text-[#101828] dark:text-white">{product.name}</p>
-                      {product.pharmacy && <p className="line-clamp-1 text-[10px] text-[#667085] dark:text-[#a8a8a8]">{[product.pharmacy.genericName, product.pharmacy.strength, product.pharmacy.dosageForm, product.pharmacy.packSize].filter(Boolean).join(' · ')}</p>}
-                      {product.pharmacy && (product.pharmacy.prescriptionRequired || product.pharmacy.restrictedItem) && <div className="mt-1 flex flex-wrap gap-1">{product.pharmacy.prescriptionRequired && <span className="rounded border px-1 py-0.5 text-[8px] font-bold uppercase tracking-wide">Prescription</span>}{product.pharmacy.restrictedItem && <span className="rounded border border-amber-300 bg-amber-50 px-1 py-0.5 text-[8px] font-bold uppercase tracking-wide text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200">Restricted</span>}</div>}
-                      {(product.volume || product.unit) && (
-                        <p className="text-[11px] text-[#667085] dark:text-[#8b8b8b]">
-                          {product.volume ? `${product.volume} ${product.volumeUnit || ''}` : ''}{product.volume && product.unit ? ' · ' : ''}{product.unit}
+                    <div className="flex min-w-0 flex-1 flex-col px-3 pb-3 pt-2.5 sm:px-3.5 sm:pb-3.5 sm:pt-3">
+                      <p className="mb-0.5 line-clamp-2 text-sm font-semibold leading-snug text-[#101828] dark:text-white">
+                        {product.name}
+                      </p>
+                      {product.pharmacy && (
+                        <p className="line-clamp-1 text-[10px] text-[#667085] dark:text-[#a8a8a8]">
+                          {[
+                            product.pharmacy.genericName,
+                            product.pharmacy.strength,
+                            product.pharmacy.dosageForm,
+                            product.pharmacy.packSize,
+                          ]
+                            .filter(Boolean)
+                            .join(' · ')}
                         </p>
                       )}
-                      {product.packages.length > 0 && <div className="mt-2 flex flex-wrap gap-1" onClick={(event) => event.stopPropagation()}>{product.packages.map((item) => <button key={item.id} type="button" disabled={product.stock < item.baseUnitQuantity} onClick={() => addToCart(product, item)} className="rounded-md border border-[#dfe3ea] bg-[#f9fafb] px-1.5 py-1 text-[9px] font-bold text-[#344054] hover:border-[#f9b21d] disabled:cursor-not-allowed disabled:opacity-40 dark:border-white/10 dark:bg-white/5 dark:text-[#e4e7ec]" title={`${item.baseUnitQuantity} base units · ${formatCurrency(item.sellingPrice)}`}>{item.name}</button>)}</div>}
+                      {product.pharmacy &&
+                        (product.pharmacy.prescriptionRequired ||
+                          product.pharmacy.restrictedItem) && (
+                          <div className="mt-1 flex flex-wrap gap-1">
+                            {product.pharmacy.prescriptionRequired && (
+                              <span className="rounded border px-1 py-0.5 text-[8px] font-bold uppercase tracking-wide">
+                                Prescription
+                              </span>
+                            )}
+                            {product.pharmacy.restrictedItem && (
+                              <span className="rounded border border-amber-300 bg-amber-50 px-1 py-0.5 text-[8px] font-bold uppercase tracking-wide text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200">
+                                Restricted
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      {(product.volume || product.unit) && (
+                        <p className="text-[11px] text-[#667085] dark:text-[#8b8b8b]">
+                          {product.volume
+                            ? `${product.volume} ${product.volumeUnit || ''}`
+                            : ''}
+                          {product.volume && product.unit ? ' · ' : ''}
+                          {product.unit}
+                        </p>
+                      )}
+                      {product.packages.length > 0 && (
+                        <div
+                          className="mt-2 flex flex-wrap gap-1"
+                          onClick={(event) => event.stopPropagation()}
+                        >
+                          {product.packages.map((item) => (
+                            <button
+                              key={item.id}
+                              type="button"
+                              disabled={product.stock < item.baseUnitQuantity}
+                              onClick={() => addToCart(product, item)}
+                              className="rounded-md border border-[#dfe3ea] bg-[#f9fafb] px-1.5 py-1 text-[9px] font-bold text-[#344054] hover:border-[#f9b21d] disabled:cursor-not-allowed disabled:opacity-40 dark:border-white/10 dark:bg-white/5 dark:text-[#e4e7ec]"
+                              title={`${item.baseUnitQuantity} base units · ${formatCurrency(item.sellingPrice)}`}
+                            >
+                              {item.name}
+                            </button>
+                          ))}
+                        </div>
+                      )}
                       <div className="mt-auto flex items-end justify-between gap-2 pt-2">
-                        <p className="text-sm font-bold tabular-nums text-[#101828] dark:text-white">{formatCurrency(product.sellingPrice)}</p>
+                        <p className="text-sm font-bold tabular-nums text-[#101828] dark:text-white">
+                          {formatCurrency(product.sellingPrice)}
+                        </p>
                         {inCartQuantity ? (
                           <div
                             className="relative z-20 flex h-8 shrink-0 items-center overflow-hidden rounded-lg border border-[#101828] bg-white dark:border-white/20 dark:bg-[#1c1c1c]"
@@ -2095,9 +4162,15 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
                               aria-label={`Reduce ${product.name} quantity`}
                               title="Reduce quantity"
                             >
-                              <Minus className="h-3.5 w-3.5" strokeWidth={2.5} />
+                              <Minus
+                                className="h-3.5 w-3.5"
+                                strokeWidth={2.5}
+                              />
                             </button>
-                            <span className="min-w-6 border-x border-[#101828]/15 px-1 text-center text-xs font-bold tabular-nums text-[#101828] dark:border-[#f2b705] dark:bg-[#f2b705] dark:text-[#241d00]" aria-live="polite">
+                            <span
+                              className="min-w-6 border-x border-[#101828]/15 px-1 text-center text-xs font-bold tabular-nums text-[#101828] dark:border-[#f2b705] dark:bg-[#f2b705] dark:text-[#241d00]"
+                              aria-live="polite"
+                            >
                               {inCartQuantity}
                             </span>
                             <button
@@ -2106,13 +4179,26 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
                               disabled={inCartQuantity >= product.stock}
                               className="flex h-full w-7 items-center justify-center text-[#101828] transition-colors hover:bg-[#f2f4f7] focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-35 dark:text-[#f1f1f1] dark:hover:bg-[#302d28]"
                               aria-label={`Increase ${product.name} quantity`}
-                              title={inCartQuantity >= product.stock ? 'Maximum available stock reached' : 'Increase quantity'}
+                              title={
+                                inCartQuantity >= product.stock
+                                  ? 'Maximum available stock reached'
+                                  : 'Increase quantity'
+                              }
                             >
                               <Plus className="h-3.5 w-3.5" strokeWidth={2.5} />
                             </button>
                           </div>
                         ) : (
-                          <p className={cn('text-[10px] font-medium', outOfStock ? 'text-[#d92d20]' : 'text-[#667085] dark:text-[#8b8b8b]')}>{product.stock} {product.unit}</p>
+                          <p
+                            className={cn(
+                              'text-[10px] font-medium',
+                              outOfStock
+                                ? 'text-[#d92d20]'
+                                : 'text-[#667085] dark:text-[#8b8b8b]'
+                            )}
+                          >
+                            {product.stock} {product.unit}
+                          </p>
                         )}
                       </div>
                     </div>
@@ -2124,7 +4210,7 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
                       </div>
                     )}
                   </article>
-                )
+                );
               })}
             </div>
           )}
@@ -2132,86 +4218,217 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
       </section>
 
       {/* Right: Cart + Payment */}
-      <aside className={cn(ui.card, 'flex min-h-[520px] w-full flex-col overflow-hidden lg:max-h-full', !checkoutOpen && 'lg:h-fit lg:min-h-0 lg:self-start', checkoutOpen && !checkoutOnly && 'lg:h-full lg:min-h-0 lg:self-stretch lg:max-h-full lg:overflow-hidden', checkoutOnly && 'min-h-0 w-full max-w-none gap-6 overflow-visible border-0 bg-transparent shadow-none lg:grid lg:grid-cols-[minmax(0,1.15fr)_minmax(480px,.85fr)] lg:items-start lg:max-h-none')}>
+      <aside
+        className={cn(
+          ui.card,
+          'flex min-h-[520px] w-full flex-col overflow-hidden lg:max-h-full',
+          !checkoutOpen && 'max-lg:hidden lg:h-fit lg:min-h-0 lg:self-start',
+          checkoutOpen &&
+            !checkoutOnly &&
+            'max-lg:fixed max-lg:inset-0 max-lg:z-[70] max-lg:h-[100dvh] max-lg:min-h-0 max-lg:rounded-none max-lg:border-0 lg:h-full lg:min-h-0 lg:self-stretch lg:max-h-full lg:overflow-hidden',
+          checkoutOnly &&
+            'min-h-0 w-full max-w-none gap-6 overflow-visible border-0 bg-transparent shadow-none lg:grid lg:grid-cols-[minmax(0,1.15fr)_minmax(480px,.85fr)] lg:items-start lg:max-h-none'
+        )}
+      >
         {/* Cart header with quick actions */}
-        <div className={cn('border-b border-[#eef0f3] bg-white p-4 dark:border-white/10 dark:bg-[#161616]', checkoutOnly && 'hidden', checkoutOpen && !checkoutOnly && 'hidden')}>
+        <div
+          className={cn(
+            'border-b border-[#eef0f3] bg-white p-4 dark:border-white/10 dark:bg-[#161616]',
+            checkoutOnly && 'hidden',
+            checkoutOpen && !checkoutOnly && 'hidden'
+          )}
+        >
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2.5">
-                <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#fff5d6] text-[#a47700] dark:bg-[#3a3016] dark:text-[#ffd166]">
+              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#fff5d6] text-[#a47700] dark:bg-[#3a3016] dark:text-[#ffd166]">
                 <ShoppingCart className="h-4 w-4" />
               </span>
               <div>
-                <span className="block text-[17px] font-semibold tracking-tight text-[#7a5b00] dark:text-[#ffd166]">Basket</span>
-                <span className="block text-[13px] font-medium text-[#475467] dark:text-[#b5bac5]">{cart.length ? `${cart.length} item${cart.length === 1 ? '' : 's'} · Ready to checkout` : 'Add items to start a sale'}</span>
+                <span className="block text-[17px] font-semibold tracking-tight text-[#7a5b00] dark:text-[#ffd166]">
+                  Basket
+                </span>
+                <span className="block text-[13px] font-medium text-[#475467] dark:text-[#b5bac5]">
+                  {cart.length
+                    ? `${cart.length} item${cart.length === 1 ? '' : 's'} · Ready to checkout`
+                    : 'Add items to start a sale'}
+                </span>
               </div>
             </div>
             {checkoutOpen ? (
-              <button onClick={() => setCheckoutOpen(false)} className="rounded-lg px-2.5 py-1.5 text-xs font-semibold text-[#344054] transition-colors hover:bg-[#f2f4f7] dark:text-[#c4c4c4] dark:hover:bg-white/10">
+              <button
+                onClick={() => setCheckoutOpen(false)}
+                className="rounded-lg px-2.5 py-1.5 text-xs font-semibold text-[#344054] transition-colors hover:bg-[#f2f4f7] dark:text-[#c4c4c4] dark:hover:bg-white/10"
+              >
                 ← Edit basket
               </button>
-            ) : cart.length > 0 && (
-              <button
-                onClick={() => {
-                  if (confirm('Clear all items from cart?')) {
-                    setCart([])
-                    setShippingCost(0)
-                    setRoundoffEnabled(true)
-                  }
-                }}
-                className="rounded-md px-2 py-1 text-[11px] font-semibold text-[#98a2b3] transition-colors hover:bg-[#fef3f2] hover:text-[#b42318] dark:hover:bg-red-950/30"
-              >
-                Clear sale
-              </button>
+            ) : (
+              cart.length > 0 && (
+                <button
+                  onClick={() => {
+                    if (confirm('Clear all items from cart?')) {
+                      setCart([]);
+                      setShippingCost(0);
+                      setRoundoffEnabled(true);
+                    }
+                  }}
+                  className="rounded-md px-2 py-1 text-[11px] font-semibold text-[#98a2b3] transition-colors hover:bg-[#fef3f2] hover:text-[#b42318] dark:hover:bg-red-950/30"
+                >
+                  Clear sale
+                </button>
+              )
             )}
           </div>
 
           {!checkoutOpen && (
             <div className="mt-3 grid grid-cols-2 gap-2 rounded-md border border-[#e7e9ed] bg-[#fafbfc] p-2 dark:border-white/10 dark:bg-[#141414]">
-                <button onClick={() => setShowSalesHistory(true)} className="flex h-9 items-center justify-center gap-2 rounded-[5px] bg-[var(--dashboard-accent)] px-2.5 text-sm font-semibold text-white transition-colors hover:bg-[var(--dashboard-accent-strong)]">
-                  <History className="h-3.5 w-3.5" />
-                  History
-                </button>
-                <button onClick={() => setShowReceiptReprint(true)} className="flex h-9 items-center justify-center gap-2 rounded-[5px] bg-[var(--dashboard-accent-cta)] px-2.5 text-sm font-semibold text-[var(--dashboard-accent-cta-ink)] transition-colors hover:bg-[var(--dashboard-accent-cta-hover)]">
-                  <Printer className="h-3.5 w-3.5" />
-                  Reprint
-                </button>
+              <button
+                onClick={() => setShowSalesHistory(true)}
+                className="flex h-9 items-center justify-center gap-2 rounded-[5px] bg-[var(--dashboard-accent-cta)] px-2.5 text-sm font-semibold text-[var(--dashboard-accent-cta-ink)] transition-colors hover:bg-[var(--dashboard-accent-cta-hover)]"
+              >
+                <History className="h-3.5 w-3.5" />
+                History
+              </button>
+              <button
+                onClick={() => setShowReceiptReprint(true)}
+                className="flex h-9 items-center justify-center gap-2 rounded-[5px] bg-[var(--dashboard-accent-cta)] px-2.5 text-sm font-semibold text-[var(--dashboard-accent-cta-ink)] transition-colors hover:bg-[var(--dashboard-accent-cta-hover)]"
+              >
+                <Printer className="h-3.5 w-3.5" />
+                Reprint
+              </button>
             </div>
           )}
           {!checkoutOpen && (
             <div className="mt-4 border-t border-solid border-[#e7e9ed] pt-4 dark:border-white/10">
-    <div className="mb-2 flex items-center justify-between">
-      <span className="text-base font-semibold leading-5 text-[#111827] dark:text-white">Customer Information</span>
-                {activeCustomer && <button type="button" onClick={() => setSelectedCustomer('')} className="text-[11px] font-semibold text-[#b54708] hover:underline dark:text-[#fdb022]">Clear customer</button>}
+              <div className="mb-2 flex items-center justify-between">
+                <span className="text-base font-semibold leading-5 text-[#111827] dark:text-white">
+                  Customer Information
+                </span>
+                {activeCustomer && (
+                  <button
+                    type="button"
+                    onClick={() => setSelectedCustomer('')}
+                    className="text-[11px] font-semibold text-[#b54708] hover:underline dark:text-[#fdb022]"
+                  >
+                    Clear customer
+                  </button>
+                )}
               </div>
               <div className="flex items-center gap-2">
                 <div className="relative min-w-0 flex-1">
-                  <button type="button" disabled={mpesaLocksBasket} onClick={() => setCustomerMenuOpen((open) => !open)} aria-haspopup="listbox" aria-expanded={customerMenuOpen} className="flex h-10 w-full items-center justify-between rounded-[5px] border border-[#d9dde3] bg-white px-3.5 text-left text-sm font-normal text-[#344054] outline-none transition-colors hover:border-[#bfc5ce] focus:border-[#86a5c9] focus:ring-1 focus:ring-[#155eef]/15 disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/15 dark:bg-[#161616] dark:text-[#e4e7ec]">
-          <span className="truncate">{activeCustomer?.name ?? 'Walk in Customer'}{activeCustomer?.phone ? ' (' + activeCustomer.phone + ')' : ''}</span>
-                    <ChevronDown className={cn('h-3.5 w-3.5 shrink-0 text-[#273142] transition-transform dark:text-[#aeb4c0]', customerMenuOpen && 'rotate-180')} />
+                  <button
+                    type="button"
+                    disabled={mpesaLocksBasket}
+                    onClick={() => setCustomerMenuOpen((open) => !open)}
+                    aria-haspopup="listbox"
+                    aria-expanded={customerMenuOpen}
+                    className="flex h-10 w-full items-center justify-between rounded-[5px] border border-[#d9dde3] bg-white px-3.5 text-left text-sm font-normal text-[#344054] outline-none transition-colors hover:border-[#bfc5ce] focus:border-[#86a5c9] focus:ring-1 focus:ring-[#155eef]/15 disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/15 dark:bg-[#161616] dark:text-[#e4e7ec]"
+                  >
+                    <span className="truncate">
+                      {activeCustomer?.name ?? 'Walk in Customer'}
+                      {activeCustomer?.phone
+                        ? ' (' + activeCustomer.phone + ')'
+                        : ''}
+                    </span>
+                    <ChevronDown
+                      className={cn(
+                        'h-3.5 w-3.5 shrink-0 text-[#273142] transition-transform dark:text-[#aeb4c0]',
+                        customerMenuOpen && 'rotate-180'
+                      )}
+                    />
                   </button>
                   {customerMenuOpen && !mpesaLocksBasket && (
-                    <div role="listbox" className="absolute inset-x-0 top-full z-30 mt-1 max-h-56 overflow-y-auto rounded-md border border-[#e1e4e8] bg-white p-1 shadow-[0_4px_12px_rgba(16,24,40,0.08)] dark:border-white/10 dark:bg-[#1b1b1b]">
-            <button type="button" role="option" aria-selected={!selectedCustomer} onClick={() => { setSelectedCustomer(''); setCustomerMenuOpen(false) }} className={cn('flex w-full items-center rounded-md px-3 py-2 text-left text-[13px] transition-colors hover:bg-[#fff8df] dark:hover:bg-[#302812]', !selectedCustomer ? 'bg-[#fff8df] font-semibold text-[#7a5b00] dark:bg-[#302812] dark:text-[#ffd166]' : 'text-[#344054] dark:text-[#e4e7ec]')}>Walk in Customer</button>
-                      {availableCustomers.map((customer) => <button key={customer.id} type="button" role="option" aria-selected={selectedCustomer === customer.id} onClick={() => { setSelectedCustomer(customer.id); setCustomerMenuOpen(false) }} className={cn('flex w-full items-center rounded-md px-3 py-2 text-left text-[13px] transition-colors hover:bg-[#fff8df] dark:hover:bg-[#302812]', selectedCustomer === customer.id ? 'bg-[#fff8df] font-semibold text-[#7a5b00] dark:bg-[#302812] dark:text-[#ffd166]' : 'text-[#344054] dark:text-[#e4e7ec]')}>{customer.name}{customer.phone ? ' (' + customer.phone + ')' : ''}</button>)}
+                    <div
+                      role="listbox"
+                      className="absolute inset-x-0 top-full z-30 mt-1 max-h-56 overflow-y-auto rounded-md border border-[#e1e4e8] bg-white p-1 shadow-[0_4px_12px_rgba(16,24,40,0.08)] dark:border-white/10 dark:bg-[#1b1b1b]"
+                    >
+                      <button
+                        type="button"
+                        role="option"
+                        aria-selected={!selectedCustomer}
+                        onClick={() => {
+                          setSelectedCustomer('');
+                          setCustomerMenuOpen(false);
+                        }}
+                        className={cn(
+                          'flex w-full items-center rounded-md px-3 py-2 text-left text-[13px] transition-colors hover:bg-[#fff8df] dark:hover:bg-[#302812]',
+                          !selectedCustomer
+                            ? 'bg-[#fff8df] font-semibold text-[#7a5b00] dark:bg-[#302812] dark:text-[#ffd166]'
+                            : 'text-[#344054] dark:text-[#e4e7ec]'
+                        )}
+                      >
+                        Walk in Customer
+                      </button>
+                      {availableCustomers.map((customer) => (
+                        <button
+                          key={customer.id}
+                          type="button"
+                          role="option"
+                          aria-selected={selectedCustomer === customer.id}
+                          onClick={() => {
+                            setSelectedCustomer(customer.id);
+                            setCustomerMenuOpen(false);
+                          }}
+                          className={cn(
+                            'flex w-full items-center rounded-md px-3 py-2 text-left text-[13px] transition-colors hover:bg-[#fff8df] dark:hover:bg-[#302812]',
+                            selectedCustomer === customer.id
+                              ? 'bg-[#fff8df] font-semibold text-[#7a5b00] dark:bg-[#302812] dark:text-[#ffd166]'
+                              : 'text-[#344054] dark:text-[#e4e7ec]'
+                          )}
+                        >
+                          {customer.name}
+                          {customer.phone ? ' (' + customer.phone + ')' : ''}
+                        </button>
+                      ))}
                     </div>
                   )}
                 </div>
-      <button type="button" disabled={mpesaLocksBasket || !isOnline} onClick={() => setShowNewCustomer(true)} title="Add customer" aria-label="Add customer" className="inline-flex h-10 w-[38px] shrink-0 items-center justify-center rounded-[5px] bg-[#009688] text-white shadow-none transition-colors hover:bg-[#007f73] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#009688]/30 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">
-                  <UserRoundPlus className="h-[17px] w-[17px]" strokeWidth={2} />
+                <button
+                  type="button"
+                  disabled={mpesaLocksBasket || !isOnline}
+                  onClick={() => setShowNewCustomer(true)}
+                  title="Add customer"
+                  aria-label="Add customer"
+                  className="inline-flex h-10 w-[38px] shrink-0 items-center justify-center rounded-[5px] bg-[#009688] text-white shadow-none transition-colors hover:bg-[#007f73] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#009688]/30 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <UserRoundPlus
+                    className="h-[17px] w-[17px]"
+                    strokeWidth={2}
+                  />
                 </button>
-      <button type="button" disabled={mpesaLocksBasket || !isOnline} onClick={() => { setScannerPurpose('customer'); setShowWirelessScanner(true) }} title="Scan customer barcode" aria-label="Scan customer barcode" className="inline-flex h-10 w-[38px] shrink-0 items-center justify-center rounded-[5px] bg-[#155eef] text-white shadow-none transition-colors hover:bg-[#004eeb] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#155eef]/30 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">
+                <button
+                  type="button"
+                  disabled={mpesaLocksBasket || !isOnline}
+                  onClick={() => {
+                    setScannerPurpose('customer');
+                    setShowWirelessScanner(true);
+                  }}
+                  title="Scan customer barcode"
+                  aria-label="Scan customer barcode"
+                  className="inline-flex h-10 w-[38px] shrink-0 items-center justify-center rounded-[5px] bg-[#155eef] text-white shadow-none transition-colors hover:bg-[#004eeb] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#155eef]/30 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                >
                   <ScanBarcode className="h-[17px] w-[17px]" strokeWidth={2} />
                 </button>
               </div>
               {activeCustomer && (
-      <div className="relative mt-3 rounded-[5px] border border-[#e1e5ea] border-l-[3px] border-l-[#009688] bg-[#f8fafb] px-3 py-2.5 text-[#101828] dark:border-white/10 dark:border-l-[#34b8aa] dark:bg-white/[0.04] dark:text-white">
-                  <button type="button" onClick={() => setSelectedCustomer('')} aria-label="Remove customer" className="absolute right-2 top-2 flex h-5 w-5 items-center justify-center rounded text-[#667085] transition-colors hover:bg-[#e9edf1] hover:text-[#344054] dark:text-[#aeb4c0] dark:hover:bg-white/10 dark:hover:text-white"><X className="h-3 w-3" /></button>
-        <p className="text-sm font-semibold">{activeCustomer.name}</p>
-        <p className="mt-1 text-xs text-[#667085] dark:text-[#aeb4c0]">
-          Bonus: <span className="font-semibold text-[#0f8b83]">0</span>
-          <span className="mx-1.5">|</span>
-          Loyalty: <span className="font-semibold text-[#0f8b83]">{activeCustomer.loyaltyPoints ?? 0}</span>
-        </p>
+                <div className="relative mt-3 rounded-[5px] border border-[#e1e5ea] border-l-[3px] border-l-[#009688] bg-[#f8fafb] px-3 py-2.5 text-[#101828] dark:border-white/10 dark:border-l-[#34b8aa] dark:bg-white/[0.04] dark:text-white">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedCustomer('')}
+                    aria-label="Remove customer"
+                    className="absolute right-2 top-2 flex h-5 w-5 items-center justify-center rounded text-[#667085] transition-colors hover:bg-[#e9edf1] hover:text-[#344054] dark:text-[#aeb4c0] dark:hover:bg-white/10 dark:hover:text-white"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                  <p className="text-sm font-semibold">{activeCustomer.name}</p>
+                  <p className="mt-1 text-xs text-[#667085] dark:text-[#aeb4c0]">
+                    Bonus:{' '}
+                    <span className="font-semibold text-[#0f8b83]">0</span>
+                    <span className="mx-1.5">|</span>
+                    Loyalty:{' '}
+                    <span className="font-semibold text-[#0f8b83]">
+                      {activeCustomer.loyaltyPoints ?? 0}
+                    </span>
+                  </p>
                 </div>
               )}
             </div>
@@ -2219,30 +4436,70 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
         </div>
 
         {/* Cart items */}
-        <div className={cn('min-h-[180px] flex-1 overflow-y-auto', checkoutOpen && !checkoutOnly && 'hidden', checkoutOnly && cn(ui.card, 'flex min-h-0 flex-col self-start overflow-hidden lg:col-start-1 lg:row-start-1'))}>
+        <div
+          className={cn(
+            'min-h-[180px] flex-1 overflow-y-auto',
+            checkoutOpen && !checkoutOnly && 'hidden',
+            checkoutOnly &&
+              cn(
+                ui.card,
+                'flex min-h-0 flex-col self-start overflow-hidden lg:col-start-1 lg:row-start-1'
+              )
+          )}
+        >
           {checkoutOnly && (
             <div className="flex items-center justify-between border-b border-[#eef0f3] px-6 py-5 dark:border-white/10">
               <div>
-                <h2 className="text-base font-semibold tracking-tight text-[#101828] dark:text-white">Order summary</h2>
-                <p className="mt-0.5 text-xs text-[#667085] dark:text-[#8b8b8b]">{cart.length} item{cart.length === 1 ? '' : 's'} ready for payment</p>
+                <h2 className="text-base font-semibold tracking-tight text-[#101828] dark:text-white">
+                  Order summary
+                </h2>
+                <p className="mt-0.5 text-xs text-[#667085] dark:text-[#8b8b8b]">
+                  {cart.length} item{cart.length === 1 ? '' : 's'} ready for
+                  payment
+                </p>
               </div>
-              <button type="button" onClick={() => router.push('/dashboard/pos')} className="rounded-lg px-3 py-2 text-sm font-semibold text-[#344054] transition-colors hover:bg-[#f2f4f7] dark:text-[#c4c4c4] dark:hover:bg-white/10">
+              <button
+                type="button"
+                onClick={() => router.push('/dashboard/pos')}
+                className="rounded-lg px-3 py-2 text-sm font-semibold text-[#344054] transition-colors hover:bg-[#f2f4f7] dark:text-[#c4c4c4] dark:hover:bg-white/10"
+              >
                 Edit basket
               </button>
             </div>
           )}
           {cart.length === 0 ? (
             <div className="flex h-full flex-col items-center justify-center px-4 py-12 text-center">
-              <ShoppingCart className="mb-3 h-10 w-10 text-[#d0d5dd]" strokeWidth={1.5} />
-              <p className="text-sm font-semibold text-[#101828] dark:text-white">Basket is empty</p>
-              <p className="mt-1 max-w-[220px] text-xs leading-5 text-[#98a2b3]">Select {productTerms.pluralLower} from the catalogue to build this sale.</p>
+              <ShoppingCart
+                className="mb-3 h-10 w-10 text-[#d0d5dd]"
+                strokeWidth={1.5}
+              />
+              <p className="text-sm font-semibold text-[#101828] dark:text-white">
+                Basket is empty
+              </p>
+              <p className="mt-1 max-w-[220px] text-xs leading-5 text-[#98a2b3]">
+                Select {productTerms.pluralLower} from the catalogue to build
+                this sale.
+              </p>
             </div>
           ) : (
             <ul className="divide-y divide-[#eef0f3] dark:divide-white/10">
               {cart.map((item) => (
-                <li key={item.productId} className="group grid min-h-[64px] grid-cols-[36px_minmax(0,1fr)_minmax(190px,auto)] items-center gap-3 px-4 py-2 transition-colors duration-75 hover:bg-[#fbfbfc] dark:bg-[#161616] dark:hover:bg-[#202020]">
+                <li
+                  key={item.productId}
+                  className="group grid min-h-[64px] grid-cols-[36px_minmax(0,1fr)] items-center gap-3 px-3 py-2.5 transition-colors duration-75 hover:bg-[#fbfbfc] dark:bg-[#161616] dark:hover:bg-[#202020] sm:grid-cols-[36px_minmax(0,1fr)_minmax(190px,auto)] sm:px-4 sm:py-2"
+                >
                   {productsById.get(item.productId)?.imageUrl ? (
-                    <Image src={productsById.get(item.productId)?.imageUrl ?? ''} alt="" width={36} height={36} quality={50} unoptimized={(productsById.get(item.productId)?.imageUrl ?? '').startsWith('http')} className="h-9 w-9 shrink-0 rounded-lg object-cover" />
+                    <Image
+                      src={productsById.get(item.productId)?.imageUrl ?? ''}
+                      alt=""
+                      width={36}
+                      height={36}
+                      quality={50}
+                      unoptimized={(
+                        productsById.get(item.productId)?.imageUrl ?? ''
+                      ).startsWith('http')}
+                      className="h-9 w-9 shrink-0 rounded-lg object-cover"
+                    />
                   ) : (
                     <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#f2f4f7] text-[#667085] dark:bg-white/10 dark:text-[#c4c4c4]">
                       <Package className="h-4 w-4" />
@@ -2250,12 +4507,17 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
                   )}
                   {/* Item info */}
                   <div className="min-w-0 flex-1">
-                    <p className="mb-0.5 truncate text-[13px] font-semibold leading-snug text-[#101828] dark:text-white">{item.productName}</p>
-                    <p className="text-xs font-medium text-[#667085] dark:text-[#aeb4c0]">{formatCurrency(item.unitPrice)} · {productsById.get(item.productId)?.unit || 'unit'}</p>
+                    <p className="mb-0.5 truncate text-[13px] font-semibold leading-snug text-[#101828] dark:text-white">
+                      {item.productName}
+                    </p>
+                    <p className="text-xs font-medium text-[#667085] dark:text-[#aeb4c0]">
+                      {formatCurrency(item.unitPrice)} ·{' '}
+                      {productsById.get(item.productId)?.unit || 'unit'}
+                    </p>
                   </div>
 
                   {/* Quantity, total & remove */}
-                  <div className="flex items-center justify-end gap-2">
+                  <div className="col-span-2 flex items-center justify-end gap-2 sm:col-span-1">
                     <div className="flex h-7 shrink-0 items-center overflow-hidden rounded-lg border border-[#e4e7ec] bg-white dark:border-white/15 dark:bg-[#1d1d1d]">
                       <button
                         onClick={() => updateQty(item.productId, -1)}
@@ -2265,20 +4527,35 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
                       >
                         <Minus className="h-3.5 w-3.5" strokeWidth={2.5} />
                       </button>
-                      <span className="flex h-full min-w-7 items-center justify-center border-x border-[#e4e7ec] px-1 text-center text-xs font-bold tabular-nums text-[#101828] dark:border-white/10 dark:text-white" aria-live="polite">
+                      <span
+                        className="flex h-full min-w-7 items-center justify-center border-x border-[#e4e7ec] px-1 text-center text-xs font-bold tabular-nums text-[#101828] dark:border-white/10 dark:text-white"
+                        aria-live="polite"
+                      >
                         {item.quantity}
                       </span>
                       <button
                         onClick={() => updateQty(item.productId, 1)}
-                        disabled={item.quantity >= (productsById.get(item.productId)?.stock ?? item.quantity)}
+                        disabled={
+                          item.quantity >=
+                          (productsById.get(item.productId)?.stock ??
+                            item.quantity)
+                        }
                         className="flex h-full w-7 items-center justify-center text-[#667085] transition-colors duration-75 hover:bg-[#f2f4f7] hover:text-[#101828] focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-35 dark:text-[#c4c4c4] dark:hover:bg-white/10"
-                        title={item.quantity >= (productsById.get(item.productId)?.stock ?? item.quantity) ? 'Maximum available stock reached' : 'Increase quantity'}
+                        title={
+                          item.quantity >=
+                          (productsById.get(item.productId)?.stock ??
+                            item.quantity)
+                            ? 'Maximum available stock reached'
+                            : 'Increase quantity'
+                        }
                         aria-label={`Increase ${item.productName} quantity`}
                       >
                         <Plus className="h-3.5 w-3.5" strokeWidth={2.5} />
                       </button>
                     </div>
-                    <span className="min-w-[88px] text-right text-sm font-bold tabular-nums text-[#101828] dark:text-[#f4f4f5]">{formatCurrency(item.totalPrice)}</span>
+                    <span className="min-w-[88px] text-right text-sm font-bold tabular-nums text-[#101828] dark:text-[#f4f4f5]">
+                      {formatCurrency(item.totalPrice)}
+                    </span>
                     <button
                       onClick={() => removeFromCart(item.productId)}
                       className="inline-flex h-7 w-7 items-center justify-center rounded-md text-[#d92d20] transition-colors hover:bg-[#fef3f2] hover:text-[#b42318] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#f9b21d]/50 dark:text-[#f97066] dark:hover:bg-red-950/30 dark:hover:text-[#ff8a80]"
@@ -2295,495 +4572,1877 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
           {checkoutOnly && cart.length > 0 && (
             <div className="border-t border-[#eef0f3] bg-[#fbfbfc] px-6 py-5 dark:border-white/10 dark:bg-[#111111]">
               <div className="flex items-center justify-between">
-                <span className="text-sm font-medium text-[#667085] dark:text-[#8b8b8b]">Items subtotal</span>
-                <span className="text-xl font-bold tracking-tight tabular-nums text-[#101828] dark:text-white">{formatCurrency(subtotal)}</span>
+                <span className="text-sm font-medium text-[#667085] dark:text-[#8b8b8b]">
+                  Items subtotal
+                </span>
+                <span className="text-xl font-bold tracking-tight tabular-nums text-[#101828] dark:text-white">
+                  {formatCurrency(subtotal)}
+                </span>
               </div>
-              <p className="mt-2 text-sm text-[#667085] dark:text-[#8b8b8b]">You can adjust quantities before completing payment.</p>
+              <p className="mt-2 text-sm text-[#667085] dark:text-[#8b8b8b]">
+                You can adjust quantities before completing payment.
+              </p>
             </div>
           )}
         </div>
 
         {/* Payment panel */}
         {cart.length > 0 && !checkoutOpen && (
-          <div className={cn('border-t border-[#eef0f3] bg-white p-3.5 dark:border-white/10 dark:bg-[#151515]', checkoutOnly && 'md:col-start-2 md:row-start-2 md:border-l')}>
+          <div
+            className={cn(
+              'border-t border-[#eef0f3] bg-white p-3.5 dark:border-white/10 dark:bg-[#151515]',
+              checkoutOnly && 'md:col-start-2 md:row-start-2 md:border-l'
+            )}
+          >
             <div className="mb-3 flex items-center justify-between text-sm">
-              <span className="text-sm font-medium text-[#667085] dark:text-[#8b8b8b]">Basket total</span>
-              <span className="text-xl font-bold tracking-tight tabular-nums text-[#101828] dark:text-[#f8f8f8]">{formatCurrency(subtotal)}</span>
+              <span className="text-sm font-medium text-[#667085] dark:text-[#8b8b8b]">
+                Basket total
+              </span>
+              <span className="text-xl font-bold tracking-tight tabular-nums text-[#101828] dark:text-[#f8f8f8]">
+                {formatCurrency(subtotal)}
+              </span>
             </div>
             <button
               onClick={openCheckout}
               disabled={!hasActiveShift}
-              title={!hasActiveShift ? 'Start a shift before taking payment' : undefined}
-              style={hasActiveShift ? { backgroundColor: ui.primary, color: ui.primaryInk } : undefined}
+              title={
+                !hasActiveShift
+                  ? 'Start a shift before taking payment'
+                  : undefined
+              }
+              style={
+                hasActiveShift
+                  ? { backgroundColor: ui.primary, color: ui.primaryInk }
+                  : undefined
+              }
               className={cn(
                 'flex w-full items-center justify-center gap-2 rounded-lg px-4 py-3.5 text-sm font-bold transition-opacity',
-                hasActiveShift ? 'hover:opacity-90' : 'cursor-not-allowed bg-[#f2f4f7] text-[#98a2b3] dark:bg-white/5 dark:text-[#666]'
+                hasActiveShift
+                  ? 'hover:opacity-90'
+                  : 'cursor-not-allowed bg-[#f2f4f7] text-[#98a2b3] dark:bg-white/5 dark:text-[#666]'
               )}
             >
-              {hasActiveShift ? 'Continue to checkout' : 'Start shift to take payment'}
+              {hasActiveShift
+                ? 'Continue to checkout'
+                : 'Start shift to take payment'}
             </button>
-            <p className="mt-2 text-center text-[10px] text-[#98a2b3]">Review customer details and order total next.</p>
+            <p className="mt-2 text-center text-[10px] text-[#98a2b3]">
+              Review customer details and order total next.
+            </p>
           </div>
         )}
 
         {cart.length > 0 && checkoutOpen && (
-          <div className={cn('min-h-0 flex-none space-y-4 overflow-y-auto border-t border-[#eef0f3] bg-[#fbfbfc] p-4 dark:border-white/10 dark:bg-[#111111] lg:max-h-[calc(100vh-16rem)]', !checkoutOnly && 'lg:flex-1 lg:max-h-none lg:overscroll-contain', checkoutOnly && cn(ui.card, 'self-start p-6 lg:col-start-2 lg:row-start-1 lg:max-h-none'))}>
+          <div
+            className={cn(
+              'min-h-0 flex-1 space-y-4 overflow-y-auto border-t border-[#eef0f3] bg-[#fbfbfc] p-3 dark:border-white/10 dark:bg-[#111111] sm:p-4 lg:max-h-[calc(100vh-16rem)]',
+              !checkoutOnly && 'lg:flex-1 lg:max-h-none lg:overscroll-contain',
+              checkoutOnly &&
+                cn(
+                  ui.card,
+                  'self-start p-6 lg:col-start-2 lg:row-start-1 lg:max-h-none'
+                )
+            )}
+          >
             {checkoutOnly && (
               <div className="border-b border-[#eef0f3] pb-5 dark:border-white/10">
-                <button onClick={() => router.push('/dashboard/pos')} className="text-sm font-semibold text-[#344054] transition-colors hover:text-[#101828] dark:text-[#c4c4c4] dark:hover:text-white">
+                <button
+                  onClick={() => router.push('/dashboard/pos')}
+                  className="text-sm font-semibold text-[#344054] transition-colors hover:text-[#101828] dark:text-[#c4c4c4] dark:hover:text-white"
+                >
                   ← Back to POS
                 </button>
-                <p className="mt-5 text-[11px] font-bold uppercase tracking-[0.14em]" style={{ color: ui.primaryHover }}>Payment</p>
-                <h2 className="mt-1.5 text-2xl font-bold tracking-tight text-[#101828] dark:text-white">Complete this sale</h2>
-                <p className="mt-2 text-sm leading-6 text-[#667085] dark:text-[#8b8b8b]">Choose a payment method and complete the sale.</p>
+                <p
+                  className="mt-5 text-[11px] font-bold uppercase tracking-[0.14em]"
+                  style={{ color: ui.primaryHover }}
+                >
+                  Payment
+                </p>
+                <h2 className="mt-1.5 text-2xl font-bold tracking-tight text-[#101828] dark:text-white">
+                  Complete this sale
+                </h2>
+                <p className="mt-2 text-sm leading-6 text-[#667085] dark:text-[#8b8b8b]">
+                  Choose a payment method and complete the sale.
+                </p>
               </div>
             )}
             {/* Customer details are managed in the basket panel to avoid duplicate selectors. */}
-            {checkoutStep === 'customer' && !checkoutOnly && <button type="button" onClick={() => setCheckoutOpen(false)} className="inline-flex items-center gap-1 self-start rounded-lg px-1 py-1 text-xs font-semibold text-[#667085] transition-colors hover:text-[#101828] dark:text-[#a3a3a3] dark:hover:text-white">← Back to basket</button>}
-
-            {checkoutStep === 'customer' && (manualDiscountAmount > 0 || couponAmount > 0) && (
-              <section aria-label="Applied promotions" className="space-y-2">
-                {manualDiscountAmount > 0 && (
-                  <div className="flex items-center gap-3 rounded-[7px] border border-[#6f42f5] bg-[#f7f3ff] px-3 py-3 text-[#382080] dark:bg-[#241a3d] dark:text-[#ddd1ff]">
-                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[5px] bg-[#6f42f5] text-white"><BadgePercent className="h-4 w-4" /></span>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-bold">{discountType === 'percentage' ? `Discount ${discount.toFixed(discount % 1 === 0 ? 0 : 1)}%` : 'Order discount'}</p>
-                      <p className="mt-0.5 text-xs text-[#667085] dark:text-[#bdb5d1]">You save {formatCurrency(manualDiscountAmount)} on this order</p>
-                    </div>
-                    <button type="button" onClick={() => removeAppliedPromotion('discount')} disabled={mpesaLocksBasket} aria-label="Remove discount" title="Remove discount" className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-[#475467] transition-colors hover:bg-[#ede5ff] hover:text-[#101828] disabled:opacity-40 dark:text-[#d0c8df] dark:hover:bg-white/10"><Trash2 className="h-4 w-4" /></button>
-                  </div>
-                )}
-                {couponAmount > 0 && (
-                  <div className="flex items-center gap-3 rounded-[7px] border border-[#6f42f5] bg-[#f7f3ff] px-3 py-3 text-[#382080] dark:bg-[#241a3d] dark:text-[#ddd1ff]">
-                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[5px] bg-[#6f42f5] text-white"><BadgePercent className="h-4 w-4" /></span>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-bold">Coupon {couponCode}</p>
-                      <p className="mt-0.5 text-xs text-[#667085] dark:text-[#bdb5d1]">You save {formatCurrency(couponAmount)} on this order</p>
-                    </div>
-                    <button type="button" onClick={() => removeAppliedPromotion('coupon')} disabled={mpesaLocksBasket} aria-label="Remove coupon" title="Remove coupon" className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-[#475467] transition-colors hover:bg-[#ede5ff] hover:text-[#101828] disabled:opacity-40 dark:text-[#d0c8df] dark:hover:bg-white/10"><Trash2 className="h-4 w-4" /></button>
-                  </div>
-                )}
-              </section>
+            {checkoutStep === 'customer' && !checkoutOnly && (
+              <button
+                type="button"
+                onClick={() => setCheckoutOpen(false)}
+                className="inline-flex items-center gap-1 self-start rounded-lg px-1 py-1 text-xs font-semibold text-[#667085] transition-colors hover:text-[#101828] dark:text-[#a3a3a3] dark:hover:text-white"
+              >
+                ← Back to basket
+              </button>
             )}
 
+            {checkoutStep === 'customer' &&
+              (manualDiscountAmount > 0 || couponAmount > 0) && (
+                <section aria-label="Applied promotions" className="space-y-2">
+                  {manualDiscountAmount > 0 && (
+                    <div className="flex items-center gap-3 rounded-[7px] border border-[#6f42f5] bg-[#f7f3ff] px-3 py-3 text-[#382080] dark:bg-[#241a3d] dark:text-[#ddd1ff]">
+                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[5px] bg-[#6f42f5] text-white">
+                        <BadgePercent className="h-4 w-4" />
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-bold">
+                          {discountType === 'percentage'
+                            ? `Discount ${discount.toFixed(discount % 1 === 0 ? 0 : 1)}%`
+                            : 'Order discount'}
+                        </p>
+                        <p className="mt-0.5 text-xs text-[#667085] dark:text-[#bdb5d1]">
+                          You save {formatCurrency(manualDiscountAmount)} on
+                          this order
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => removeAppliedPromotion('discount')}
+                        disabled={mpesaLocksBasket}
+                        aria-label="Remove discount"
+                        title="Remove discount"
+                        className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-[#475467] transition-colors hover:bg-[#ede5ff] hover:text-[#101828] disabled:opacity-40 dark:text-[#d0c8df] dark:hover:bg-white/10"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  )}
+                  {couponAmount > 0 && (
+                    <div className="flex items-center gap-3 rounded-[7px] border border-[#6f42f5] bg-[#f7f3ff] px-3 py-3 text-[#382080] dark:bg-[#241a3d] dark:text-[#ddd1ff]">
+                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[5px] bg-[#6f42f5] text-white">
+                        <BadgePercent className="h-4 w-4" />
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-bold">
+                          Coupon {couponCode}
+                        </p>
+                        <p className="mt-0.5 text-xs text-[#667085] dark:text-[#bdb5d1]">
+                          You save {formatCurrency(couponAmount)} on this order
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => removeAppliedPromotion('coupon')}
+                        disabled={mpesaLocksBasket}
+                        aria-label="Remove coupon"
+                        title="Remove coupon"
+                        className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-[#475467] transition-colors hover:bg-[#ede5ff] hover:text-[#101828] disabled:opacity-40 dark:text-[#d0c8df] dark:hover:bg-white/10"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  )}
+                </section>
+              )}
+
             {/* Payment summary */}
-            {checkoutStep === 'customer' && <section aria-labelledby="pos-payment-summary" className="overflow-hidden rounded-xl border border-[var(--dashboard-border)] bg-[var(--dashboard-surface)] text-[var(--dashboard-text)] shadow-sm dark:shadow-none">
-              <div className="flex items-center justify-between border-b border-[var(--dashboard-border)] px-4 py-3">
-                <div>
-                  <h3 id="pos-payment-summary" className="text-sm font-bold tracking-tight">Payment Summary</h3>
-                  <p className="mt-0.5 text-[10px] font-medium text-[var(--dashboard-muted)]">Calculated from the current basket</p>
+            {checkoutStep === 'customer' && (
+              <section
+                aria-labelledby="pos-payment-summary"
+                className="overflow-hidden rounded-xl border border-[var(--dashboard-border)] bg-[var(--dashboard-surface)] text-[var(--dashboard-text)] shadow-sm dark:shadow-none"
+              >
+                <div className="flex items-center justify-between border-b border-[var(--dashboard-border)] px-4 py-3">
+                  <div>
+                    <h3
+                      id="pos-payment-summary"
+                      className="text-sm font-bold tracking-tight"
+                    >
+                      Payment Summary
+                    </h3>
+                    <p className="mt-0.5 text-[10px] font-medium text-[var(--dashboard-muted)]">
+                      Calculated from the current basket
+                    </p>
+                  </div>
+                  <span className="rounded-full border border-[var(--dashboard-accent-soft-border)] bg-[var(--dashboard-accent-soft)] px-2.5 py-1 text-[10px] font-bold text-[var(--dashboard-accent)]">
+                    {cart.length} item{cart.length === 1 ? '' : 's'}
+                  </span>
                 </div>
-                <span className="rounded-full border border-[var(--dashboard-accent-soft-border)] bg-[var(--dashboard-accent-soft)] px-2.5 py-1 text-[10px] font-bold text-[var(--dashboard-accent)]">
-                  {cart.length} item{cart.length === 1 ? '' : 's'}
-                </span>
-              </div>
 
-              <dl className="divide-y divide-[var(--dashboard-border)] px-4 text-[13px]">
-                <div className="flex min-h-9 items-center justify-between gap-4 py-2">
-                  <dt className="flex items-center gap-2 text-[var(--dashboard-muted)]"><Package className="h-3.5 w-3.5" aria-hidden="true" />Shipping
-                    <button type="button" onClick={() => openSummaryEditor('shipping')} aria-label="Edit shipping" title="Edit shipping" className="inline-flex h-6 w-6 items-center justify-center rounded-md border border-[var(--dashboard-border)] bg-[var(--dashboard-surface-subtle)] text-[var(--dashboard-muted)] transition-colors hover:border-[var(--dashboard-accent-soft-border)] hover:bg-[var(--dashboard-accent-soft)] hover:text-[var(--dashboard-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--dashboard-accent)]/30">
-                      <SummaryEditIcon className="h-3 w-3" />
-                    </button>
-                  </dt>
-                  <dd className="font-semibold tabular-nums">{formatCurrency(shippingCost)}</dd>
-                </div>
-                <div className="flex min-h-9 items-center justify-between gap-4 py-2">
-                  <dt className="flex items-center gap-2 text-[var(--dashboard-muted)]">
-                    <Banknote className="h-3.5 w-3.5" aria-hidden="true" />
-                    <span>{settings.taxName || 'Tax'}{settings.taxEnabled ? ` (${settings.taxRate.toFixed(1)}%)` : ''}</span>
-                    <button type="button" onClick={() => openSummaryEditor('tax')} aria-label="Edit tax" title="Edit tax" className="inline-flex h-6 w-6 items-center justify-center rounded-md border border-[var(--dashboard-border)] bg-[var(--dashboard-surface-subtle)] text-[var(--dashboard-muted)] transition-colors hover:border-[var(--dashboard-accent-soft-border)] hover:bg-[var(--dashboard-accent-soft)] hover:text-[var(--dashboard-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--dashboard-accent)]/30">
-                      <SummaryEditIcon className="h-3 w-3" />
-                    </button>
-                  </dt>
-                  <dd className="font-semibold tabular-nums">{formatCurrency(taxAmount)}</dd>
-                </div>
-                <div className="flex min-h-9 items-center justify-between gap-4 py-2">
-                  <dt className={cn('flex items-center gap-2', couponAmount > 0 ? 'text-[var(--dashboard-accent)]' : 'text-[var(--dashboard-muted)]')}>
-                    <BadgePercent className="h-3.5 w-3.5" aria-hidden="true" />
-                    <span>Coupon{couponCode ? ` · ${couponCode}` : ''}</span>
-                    <button type="button" onClick={() => openSummaryEditor('coupon')} aria-label="Edit coupon" title="Edit coupon" className="inline-flex h-6 w-6 items-center justify-center rounded-md border border-[var(--dashboard-border)] bg-[var(--dashboard-surface-subtle)] text-[var(--dashboard-muted)] transition-colors hover:border-[var(--dashboard-accent-soft-border)] hover:bg-[var(--dashboard-accent-soft)] hover:text-[var(--dashboard-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--dashboard-accent)]/30">
-                      <SummaryEditIcon className="h-3 w-3" />
-                    </button>
-                  </dt>
-                  <dd className={cn('font-semibold tabular-nums', couponAmount > 0 && 'text-[var(--dashboard-accent)]')}>{couponAmount > 0 ? '−' : ''}{formatCurrency(couponAmount)}</dd>
-                </div>
-                <div className="flex min-h-9 items-center justify-between gap-4 py-2">
-                  <dt className={cn('flex items-center gap-2', manualDiscountAmount > 0 ? 'text-[#b42318] dark:text-[#f97066]' : 'text-[var(--dashboard-muted)]')}>
-                    <BadgePercent className="h-3.5 w-3.5" aria-hidden="true" />
-                    <span>Discount{discountType === 'percentage' && manualDiscountAmount > 0 ? ` (${discount.toFixed(1)}%)` : ''}</span>
-                    <button type="button" onClick={() => openSummaryEditor('discount')} aria-label="Edit discount" title="Edit discount" className="inline-flex h-6 w-6 items-center justify-center rounded-md border border-[var(--dashboard-border)] bg-[var(--dashboard-surface-subtle)] text-[var(--dashboard-muted)] transition-colors hover:border-[var(--dashboard-accent-soft-border)] hover:bg-[var(--dashboard-accent-soft)] hover:text-[var(--dashboard-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--dashboard-accent)]/30">
-                      <SummaryEditIcon className="h-3 w-3" />
-                    </button>
-                  </dt>
-                  <dd className={cn('font-semibold tabular-nums', manualDiscountAmount > 0 && 'text-[#b42318] dark:text-[#f97066]')}>{manualDiscountAmount > 0 ? '−' : ''}{formatCurrency(manualDiscountAmount)}</dd>
-                </div>
-                <div className="flex min-h-9 items-center justify-between gap-4 py-2">
-                  <dt className="flex items-center gap-2 text-[var(--dashboard-muted)]"><RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />Roundoff</dt>
-                  <dd className="flex items-center gap-2 font-semibold tabular-nums">
-                    <button type="button" role="switch" aria-checked={roundoffEnabled} aria-label="Toggle roundoff" title="Round the payable total to the nearest shilling" onClick={() => setRoundoffEnabled((enabled) => !enabled)} disabled={mpesaLocksBasket} className={cn('relative inline-flex h-4 w-8 shrink-0 items-center rounded-full border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--dashboard-accent)]/30 disabled:cursor-not-allowed disabled:opacity-45', roundoffEnabled ? 'border-[#e85d04] bg-[#e85d04]' : 'border-[var(--dashboard-border)] bg-[var(--dashboard-surface-subtle)]')}>
-                      <span className={cn('h-3 w-3 rounded-full bg-white shadow-sm transition-transform', roundoffEnabled ? 'translate-x-[17px]' : 'translate-x-[2px]')} />
-                    </button>
-                    <span className={cn('min-w-[4.5rem] text-right', roundingAmount < 0 && 'text-[#d92d20]')}>{roundingAmount > 0 ? '+' : roundingAmount < 0 ? '−' : ''}{formatCurrency(Math.abs(roundingAmount))}</span>
-                  </dd>
-                </div>
-                <div className="flex min-h-10 items-center justify-between gap-4 py-2.5">
-                  <dt className="font-medium text-[var(--dashboard-muted)]">Sub Total</dt>
-                  <dd className="font-bold tabular-nums">{formatCurrency(subtotal)}</dd>
-                </div>
-              </dl>
+                <dl className="divide-y divide-[var(--dashboard-border)] px-4 text-[13px]">
+                  <div className="flex min-h-9 items-center justify-between gap-4 py-2">
+                    <dt className="flex items-center gap-2 text-[var(--dashboard-muted)]">
+                      <Package className="h-3.5 w-3.5" aria-hidden="true" />
+                      Shipping
+                      <button
+                        type="button"
+                        onClick={() => openSummaryEditor('shipping')}
+                        aria-label="Edit shipping"
+                        title="Edit shipping"
+                        className="inline-flex h-6 w-6 items-center justify-center rounded-md border border-[var(--dashboard-border)] bg-[var(--dashboard-surface-subtle)] text-[var(--dashboard-muted)] transition-colors hover:border-[var(--dashboard-accent-soft-border)] hover:bg-[var(--dashboard-accent-soft)] hover:text-[var(--dashboard-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--dashboard-accent)]/30"
+                      >
+                        <SummaryEditIcon className="h-3 w-3" />
+                      </button>
+                    </dt>
+                    <dd className="font-semibold tabular-nums">
+                      {formatCurrency(shippingCost)}
+                    </dd>
+                  </div>
+                  <div className="flex min-h-9 items-center justify-between gap-4 py-2">
+                    <dt className="flex items-center gap-2 text-[var(--dashboard-muted)]">
+                      <Banknote className="h-3.5 w-3.5" aria-hidden="true" />
+                      <span>
+                        {settings.taxName || 'Tax'}
+                        {settings.taxEnabled
+                          ? ` (${settings.taxRate.toFixed(1)}%)`
+                          : ''}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => openSummaryEditor('tax')}
+                        aria-label="Edit tax"
+                        title="Edit tax"
+                        className="inline-flex h-6 w-6 items-center justify-center rounded-md border border-[var(--dashboard-border)] bg-[var(--dashboard-surface-subtle)] text-[var(--dashboard-muted)] transition-colors hover:border-[var(--dashboard-accent-soft-border)] hover:bg-[var(--dashboard-accent-soft)] hover:text-[var(--dashboard-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--dashboard-accent)]/30"
+                      >
+                        <SummaryEditIcon className="h-3 w-3" />
+                      </button>
+                    </dt>
+                    <dd className="font-semibold tabular-nums">
+                      {formatCurrency(taxAmount)}
+                    </dd>
+                  </div>
+                  <div className="flex min-h-9 items-center justify-between gap-4 py-2">
+                    <dt
+                      className={cn(
+                        'flex items-center gap-2',
+                        couponAmount > 0
+                          ? 'text-[var(--dashboard-accent)]'
+                          : 'text-[var(--dashboard-muted)]'
+                      )}
+                    >
+                      <BadgePercent
+                        className="h-3.5 w-3.5"
+                        aria-hidden="true"
+                      />
+                      <span>Coupon{couponCode ? ` · ${couponCode}` : ''}</span>
+                      <button
+                        type="button"
+                        onClick={() => openSummaryEditor('coupon')}
+                        aria-label="Edit coupon"
+                        title="Edit coupon"
+                        className="inline-flex h-6 w-6 items-center justify-center rounded-md border border-[var(--dashboard-border)] bg-[var(--dashboard-surface-subtle)] text-[var(--dashboard-muted)] transition-colors hover:border-[var(--dashboard-accent-soft-border)] hover:bg-[var(--dashboard-accent-soft)] hover:text-[var(--dashboard-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--dashboard-accent)]/30"
+                      >
+                        <SummaryEditIcon className="h-3 w-3" />
+                      </button>
+                    </dt>
+                    <dd
+                      className={cn(
+                        'font-semibold tabular-nums',
+                        couponAmount > 0 && 'text-[var(--dashboard-accent)]'
+                      )}
+                    >
+                      {couponAmount > 0 ? '−' : ''}
+                      {formatCurrency(couponAmount)}
+                    </dd>
+                  </div>
+                  <div className="flex min-h-9 items-center justify-between gap-4 py-2">
+                    <dt
+                      className={cn(
+                        'flex items-center gap-2',
+                        manualDiscountAmount > 0
+                          ? 'text-[#b42318] dark:text-[#f97066]'
+                          : 'text-[var(--dashboard-muted)]'
+                      )}
+                    >
+                      <BadgePercent
+                        className="h-3.5 w-3.5"
+                        aria-hidden="true"
+                      />
+                      <span>
+                        Discount
+                        {discountType === 'percentage' &&
+                        manualDiscountAmount > 0
+                          ? ` (${discount.toFixed(1)}%)`
+                          : ''}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => openSummaryEditor('discount')}
+                        aria-label="Edit discount"
+                        title="Edit discount"
+                        className="inline-flex h-6 w-6 items-center justify-center rounded-md border border-[var(--dashboard-border)] bg-[var(--dashboard-surface-subtle)] text-[var(--dashboard-muted)] transition-colors hover:border-[var(--dashboard-accent-soft-border)] hover:bg-[var(--dashboard-accent-soft)] hover:text-[var(--dashboard-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--dashboard-accent)]/30"
+                      >
+                        <SummaryEditIcon className="h-3 w-3" />
+                      </button>
+                    </dt>
+                    <dd
+                      className={cn(
+                        'font-semibold tabular-nums',
+                        manualDiscountAmount > 0 &&
+                          'text-[#b42318] dark:text-[#f97066]'
+                      )}
+                    >
+                      {manualDiscountAmount > 0 ? '−' : ''}
+                      {formatCurrency(manualDiscountAmount)}
+                    </dd>
+                  </div>
+                  <div className="flex min-h-9 items-center justify-between gap-4 py-2">
+                    <dt className="flex items-center gap-2 text-[var(--dashboard-muted)]">
+                      <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
+                      Roundoff
+                    </dt>
+                    <dd className="flex items-center gap-2 font-semibold tabular-nums">
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={roundoffEnabled}
+                        aria-label="Toggle roundoff"
+                        title="Round the payable total to the nearest shilling"
+                        onClick={() =>
+                          setRoundoffEnabled((enabled) => !enabled)
+                        }
+                        disabled={mpesaLocksBasket}
+                        className={cn(
+                          'relative inline-flex h-4 w-8 shrink-0 items-center rounded-full border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--dashboard-accent)]/30 disabled:cursor-not-allowed disabled:opacity-45',
+                          roundoffEnabled
+                            ? 'border-[#e85d04] bg-[#e85d04]'
+                            : 'border-[var(--dashboard-border)] bg-[var(--dashboard-surface-subtle)]'
+                        )}
+                      >
+                        <span
+                          className={cn(
+                            'h-3 w-3 rounded-full bg-white shadow-sm transition-transform',
+                            roundoffEnabled
+                              ? 'translate-x-[17px]'
+                              : 'translate-x-[2px]'
+                          )}
+                        />
+                      </button>
+                      <span
+                        className={cn(
+                          'min-w-[4.5rem] text-right',
+                          roundingAmount < 0 && 'text-[#d92d20]'
+                        )}
+                      >
+                        {roundingAmount > 0
+                          ? '+'
+                          : roundingAmount < 0
+                            ? '−'
+                            : ''}
+                        {formatCurrency(Math.abs(roundingAmount))}
+                      </span>
+                    </dd>
+                  </div>
+                  <div className="flex min-h-10 items-center justify-between gap-4 py-2.5">
+                    <dt className="font-medium text-[var(--dashboard-muted)]">
+                      Sub Total
+                    </dt>
+                    <dd className="font-bold tabular-nums">
+                      {formatCurrency(subtotal)}
+                    </dd>
+                  </div>
+                </dl>
 
-              <div className="flex items-baseline justify-between gap-4 border-t border-[var(--dashboard-border)] bg-[var(--dashboard-surface-subtle)] px-4 py-3.5">
-                <span className="text-sm font-bold">Total Payable</span>
-                <span className="text-xl font-extrabold tracking-tight tabular-nums">{formatCurrency(total)}</span>
-              </div>
-            </section>}
+                <div className="flex items-baseline justify-between gap-4 border-t border-[var(--dashboard-border)] bg-[var(--dashboard-surface-subtle)] px-4 py-3.5">
+                  <span className="text-sm font-bold">Total Payable</span>
+                  <span className="text-xl font-extrabold tracking-tight tabular-nums">
+                    {formatCurrency(total)}
+                  </span>
+                </div>
+              </section>
+            )}
 
             {checkoutStep === 'customer' && (
               <div className="rounded-xl border border-[#e4e7ec] bg-white p-3.5 dark:border-white/10 dark:bg-[#171717]">
                 <button
                   type="button"
                   onClick={() => {
-                    if (paymentMethod === 'cash' && !amountPaid) setAmountPaid(String(total))
-                    setCheckoutStep('payment')
+                    if (paymentMethod === 'cash' && !amountPaid)
+                      setAmountPaid(String(total));
+                    setCheckoutStep('payment');
                   }}
                   style={{ backgroundColor: ui.primary, color: ui.primaryInk }}
                   className="flex w-full items-center justify-center gap-2 rounded-lg px-4 py-3.5 text-base font-bold transition-opacity hover:opacity-90"
                 >
                   Continue to payment <span aria-hidden="true">→</span>
                 </button>
-                <p className="mt-2 text-center text-xs text-[#667085] dark:text-[#aeb4c0]">Review the order, then choose how the customer will pay.</p>
+                <p className="mt-2 text-center text-xs text-[#667085] dark:text-[#aeb4c0]">
+                  Review the order, then choose how the customer will pay.
+                </p>
               </div>
             )}
 
-            {checkoutStep === 'payment' && <>
-            {(prescriptionRequired || containsRestrictedMedicine) && <div className="rounded-xl border border-amber-300 bg-amber-50/60 p-3.5 dark:border-amber-900 dark:bg-amber-950/20">
-              <div className="flex items-start gap-2"><ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-amber-700 dark:text-amber-300" /><div><p className="text-xs font-bold text-amber-950 dark:text-amber-100">Pharmacy sale record</p><p className="mt-0.5 text-[11px] text-amber-800 dark:text-amber-300">Record the supplied reference only. Pesaby does not provide clinical advice.</p></div></div>
-              <div className="mt-3 grid gap-2 sm:grid-cols-2"><div><label className={ui.label}>Prescription reference {prescriptionRequired && <span className="text-red-600">*</span>}</label><input value={prescriptionReference} onChange={(event) => setPrescriptionReference(event.target.value)} maxLength={120} placeholder="Prescription or dispensing reference" className={cn(inputCls, 'h-10')} /></div><div><label className={ui.label}>Prescriber/reference details</label><input value={prescriberReference} onChange={(event) => setPrescriberReference(event.target.value)} maxLength={160} placeholder="Prescriber name or registration reference" className={cn(inputCls, 'h-10')} /></div><div><label className={ui.label}>Patient/reference</label><input value={patientReference} onChange={(event) => setPatientReference(event.target.value)} maxLength={160} placeholder="Patient or file reference" className={cn(inputCls, 'h-10')} /></div><div className="grid grid-cols-2 gap-2"><div><label className={ui.label}>Issued</label><input type="date" value={prescriptionIssuedAt} onChange={(event) => setPrescriptionIssuedAt(event.target.value)} className={cn(inputCls, 'h-10')} /></div><div><label className={ui.label}>Expires</label><input type="date" value={prescriptionExpiresAt} min={new Date().toISOString().slice(0, 10)} onChange={(event) => setPrescriptionExpiresAt(event.target.value)} className={cn(inputCls, 'h-10')} /></div></div></div>
-              <div className="mt-2"><label className={ui.label}>Workflow note</label><input value={pharmacyNotes} onChange={(event) => setPharmacyNotes(event.target.value)} maxLength={500} placeholder="Optional audit note" className={cn(inputCls, 'h-10')} /></div>
-              {containsRestrictedMedicine && <p className={cn('mt-2 text-[11px] font-semibold', canApproveRestricted ? 'text-emerald-700 dark:text-emerald-300' : 'text-red-700 dark:text-red-300')}>{canApproveRestricted ? 'Restricted-item approval will be recorded under the current authorized user.' : 'This user cannot approve restricted-item sales. Ask an authorized pharmacist or manager.'}</p>}
-            </div>}
-            {/* Payment method */}
-            <div className="overflow-hidden bg-transparent font-sans">
-              <div className="flex items-center justify-between px-4 pb-3 pt-4">
-                <p className="text-xs font-bold uppercase tracking-[0.1em] text-[#667085] dark:text-[#a3a3a3]">Payment method</p>
-                <span className="rounded-full bg-[#fff9e6] px-2.5 py-1 text-[11px] font-bold text-[#806000] dark:bg-[rgba(255,214,10,.1)] dark:text-[#ffd60a]">F3–F6 to switch</span>
-              </div>
-              <div className="grid grid-cols-2 gap-2.5 px-4 pb-4" role="group" aria-label="Payment method">
-                {([
-                  { key: 'cash', label: 'Cash', detail: 'Enter cash received', shortcut: 'F3' },
-                  { key: 'mpesa', label: 'M-Pesa', detail: 'STK Push · Till / PayBill', shortcut: 'F4' },
-                  { key: 'airtel_money', label: 'Airtel Money', detail: 'Confirm transaction code', shortcut: 'F6' },
-                  { key: 'card', label: 'Card', detail: 'Visa · Mastercard', shortcut: 'F5' },
-                  { key: 'bank_transfer', label: 'Bank transfer', detail: 'Confirm bank reference', shortcut: '' },
-                ] as const)
-                  .filter(({ key }) => key === 'airtel_money' || settings.paymentMethods.includes(key))
-                  .map(({ key, label, detail, shortcut }) => (
-                    <button
-                      key={key}
-                      onClick={() => { if (key !== paymentMethod) setMpesaRef(''); if (key === 'cash' && !amountPaid) setAmountPaid(String(total)); setPaymentMethod(key); setPaymentDialogOpen(true) }}
-                      disabled={(!isOnline && key !== 'cash') || (mpesaLocksBasket && paymentMethod !== key)}
-                      aria-pressed={paymentMethod === key}
-                      aria-label={`${label} payment (${shortcut})`}
-                      title={!isOnline && key !== 'cash' ? `${label} requires an internet connection` : `${label} (${shortcut})`}
-                      className={cn(
-                        'group relative h-[68px] overflow-hidden rounded-lg border bg-white p-0 transition-colors duration-150 hover:border-[#98a2b3] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e94e1b]/25 disabled:cursor-not-allowed disabled:opacity-45 dark:bg-[#1c1c1c]',
-                        paymentMethod === key ? 'border-[#344054] ring-2 ring-[#344054]/15' : 'border-[#e4e7ec] dark:border-white/10'
-                      )}
-                    >
-                      <PaymentBrand method={key} />
-                      <span className="sr-only">{label} · {detail}</span>{paymentMethod === key && <span className="absolute right-1.5 top-1.5 inline-flex h-5 w-5 items-center justify-center rounded-full border border-[#344054] bg-white text-[#344054]"><CheckCircle2 className="h-3.5 w-3.5" /></span>}
-                    </button>
-                  ))}
-              </div>
-
-            {(paymentDialogOpen || checkoutStep === 'payment') && (
-            <div className="border-t border-[#e4e7ec]" role="region" aria-labelledby="payment-dialog-title">
-              <div className="w-full">
-                <h2 id="payment-dialog-title" className="sr-only">Payment details</h2>
-                <div>
-            {paymentMethod === 'cash' && (
-              <div>
-                <div className="hidden space-y-[18px]">
-                  <div className="grid grid-cols-3 gap-6">
-                    <label className="text-sm font-medium text-[#343a46]">Received Amount <span className="text-[#ff0000]">*</span><div className="relative mt-2"><span className="absolute inset-y-0 left-3 flex items-center text-xs text-[#344054]">KSh</span><input type="number" min={total} step="0.01" value={amountPaid} onChange={(event) => setAmountPaid(event.target.value)} className="h-10 w-full rounded-[5px] border border-[#d8dde5] bg-white pl-12 pr-3 text-sm outline-none focus:border-[#e94e1b]" /></div></label>
-                    <label className="text-sm font-medium text-[#343a46]">Paying Amount <span className="text-[#ff0000]">*</span><div className="relative mt-2"><span className="absolute inset-y-0 left-3 flex items-center text-xs text-[#344054]">KSh</span><input readOnly value={total.toFixed(2)} className="h-10 w-full rounded-[5px] border border-[#d8dde5] bg-white pl-12 pr-3 text-sm text-[#344054]" /></div></label>
-                    <label className="text-sm font-medium text-[#343a46]">Change<div className="relative mt-2"><span className="absolute inset-y-0 left-3 flex items-center text-xs text-[#344054]">KSh</span><input readOnly value={change.toFixed(2)} className="h-10 w-full rounded-[5px] border border-[#d8dde5] bg-white pl-12 pr-3 text-sm text-[#344054]" /></div></label>
-                  </div>
-                  <label className="block text-sm font-medium text-[#343a46]">Payment Type <span className="text-[#ff0000]">*</span><select value={paymentMethod} onChange={(event) => { setPaymentMethod(event.target.value as PosPaymentMethod); setMpesaRef('') }} className="mt-2 h-10 w-full rounded-[5px] border border-[#d8dde5] bg-white px-3 text-sm outline-none focus:border-[#e94e1b]">{settings.paymentMethods.filter((method): method is PosPaymentMethod => ['cash', 'mpesa', 'airtel_money', 'card', 'bank_transfer'].includes(method)).map((method) => <option key={method} value={method}>{method === 'mpesa' ? 'M-Pesa' : method === 'airtel_money' ? 'Airtel Money' : method === 'bank_transfer' ? 'Bank Transfer' : method[0].toUpperCase() + method.slice(1)}</option>)}</select></label>
-                  <label className="block text-sm font-medium text-[#343a46]">Payment Receiver<input value={paymentReceiver} onChange={(event) => setPaymentReceiver(event.target.value)} className="mt-2 h-10 w-full rounded-[5px] border border-[#d8dde5] bg-white px-3 text-sm outline-none focus:border-[#e94e1b]" /></label>
-                  <label className="block text-sm font-medium text-[#343a46]">Payment Note<textarea value={paymentNote} onChange={(event) => setPaymentNote(event.target.value)} placeholder="Type your message" className="mt-2 h-[85px] w-full resize-none rounded-[5px] border border-[#d8dde5] bg-white px-3 py-2 text-sm outline-none placeholder:text-[#a7adb7] focus:border-[#e94e1b]" /></label>
-                  <label className="block text-sm font-medium text-[#343a46]">Sale Note<textarea value={saleNote} onChange={(event) => setSaleNote(event.target.value)} placeholder="Type your message" className="mt-2 h-[85px] w-full resize-none rounded-[5px] border border-[#d8dde5] bg-white px-3 py-2 text-sm outline-none placeholder:text-[#a7adb7] focus:border-[#e94e1b]" /></label>
-                  <label className="block text-sm font-medium text-[#343a46]">Staff Note<textarea value={staffNote} onChange={(event) => setStaffNote(event.target.value)} placeholder="Type your message" className="mt-2 h-[85px] w-full resize-none rounded-[5px] border border-[#d8dde5] bg-white px-3 py-2 text-sm outline-none placeholder:text-[#a7adb7] focus:border-[#e94e1b]" /></label>
-                </div>
-              <div className="overflow-hidden bg-white dark:bg-[#171717]">
-                  <div className="flex items-center justify-between gap-3 border-b border-[#eef0f3] bg-[#fafbfc] px-3.5 py-3 dark:border-white/10 dark:bg-white/[.03]">
-                    <div className="flex items-center gap-2.5">
-                      <span className="flex h-8 w-8 items-center justify-center rounded-lg border border-[#f3d77a] bg-[#fff9e6] text-[#a56b00] dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-300"><Banknote className="h-4 w-4" /></span>
+            {checkoutStep === 'payment' && (
+              <>
+                {(prescriptionRequired || containsRestrictedMedicine) && (
+                  <div className="rounded-xl border border-amber-300 bg-amber-50/60 p-3.5 dark:border-amber-900 dark:bg-amber-950/20">
+                    <div className="flex items-start gap-2">
+                      <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-amber-700 dark:text-amber-300" />
                       <div>
-                        <p className="text-[15px] font-bold tracking-tight text-[#101828] dark:text-white">Cash payment</p>
-                        <p className="mt-0.5 text-xs font-medium text-[#667085] dark:text-[#a3a3a3]">Enter the tendered amount</p>
+                        <p className="text-xs font-bold text-amber-950 dark:text-amber-100">
+                          Pharmacy sale record
+                        </p>
+                        <p className="mt-0.5 text-[11px] text-amber-800 dark:text-amber-300">
+                          Record the supplied reference only. Pesaby does not
+                          provide clinical advice.
+                        </p>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <span className="block text-[10px] font-bold uppercase tracking-[0.1em] text-[#6f5600] dark:text-[#d9c05a]">Total due</span>
-                      <strong className="mt-0.5 block text-xl font-extrabold tabular-nums text-[#241d00] dark:text-white">{formatCurrency(total)}</strong>
+                    <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                      <div>
+                        <label className={ui.label}>
+                          Prescription reference{' '}
+                          {prescriptionRequired && (
+                            <span className="text-red-600">*</span>
+                          )}
+                        </label>
+                        <input
+                          value={prescriptionReference}
+                          onChange={(event) =>
+                            setPrescriptionReference(event.target.value)
+                          }
+                          maxLength={120}
+                          placeholder="Prescription or dispensing reference"
+                          className={cn(inputCls, 'h-10')}
+                        />
+                      </div>
+                      <div>
+                        <label className={ui.label}>
+                          Prescriber/reference details
+                        </label>
+                        <input
+                          value={prescriberReference}
+                          onChange={(event) =>
+                            setPrescriberReference(event.target.value)
+                          }
+                          maxLength={160}
+                          placeholder="Prescriber name or registration reference"
+                          className={cn(inputCls, 'h-10')}
+                        />
+                      </div>
+                      <div>
+                        <label className={ui.label}>Patient/reference</label>
+                        <input
+                          value={patientReference}
+                          onChange={(event) =>
+                            setPatientReference(event.target.value)
+                          }
+                          maxLength={160}
+                          placeholder="Patient or file reference"
+                          className={cn(inputCls, 'h-10')}
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className={ui.label}>Issued</label>
+                          <input
+                            type="date"
+                            value={prescriptionIssuedAt}
+                            onChange={(event) =>
+                              setPrescriptionIssuedAt(event.target.value)
+                            }
+                            className={cn(inputCls, 'h-10')}
+                          />
+                        </div>
+                        <div>
+                          <label className={ui.label}>Expires</label>
+                          <input
+                            type="date"
+                            value={prescriptionExpiresAt}
+                            min={new Date().toISOString().slice(0, 10)}
+                            onChange={(event) =>
+                              setPrescriptionExpiresAt(event.target.value)
+                            }
+                            className={cn(inputCls, 'h-10')}
+                          />
+                        </div>
+                      </div>
                     </div>
-                  </div>
-
-                <div className="space-y-3.5 p-3.5">
-                  <div>
-                    <div className="mb-1.5 flex items-center justify-between"><label className="text-sm font-bold text-[#344054] dark:text-white">Cash received</label><span className="text-xs font-medium text-[#667085] dark:text-[#a3a3a3]">Amount tendered</span></div>
-                    <div className="relative">
-                      <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-xs font-bold text-[#a56b00]">KSh</span>
+                    <div className="mt-2">
+                      <label className={ui.label}>Workflow note</label>
                       <input
-                        type="number"
-                        min={total}
-                        step="0.01"
-                        placeholder={formatCurrency(total).replace('KES', '').trim()}
-                        value={amountPaid}
-                        onChange={(e) => setAmountPaid(e.target.value)}
-                        className={cn(inputCls, 'h-12 appearance-none rounded-md border-[#d0d5dd] bg-white pl-14 text-base font-semibold tabular-nums shadow-none transition-colors focus:border-[#98a2b3] focus:ring-1 focus:ring-[#98a2b3]/20 dark:bg-[#111113] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none')}
+                        value={pharmacyNotes}
+                        onChange={(event) =>
+                          setPharmacyNotes(event.target.value)
+                        }
+                        maxLength={500}
+                        placeholder="Optional audit note"
+                        className={cn(inputCls, 'h-10')}
                       />
                     </div>
+                    {containsRestrictedMedicine && (
+                      <p
+                        className={cn(
+                          'mt-2 text-[11px] font-semibold',
+                          canApproveRestricted
+                            ? 'text-emerald-700 dark:text-emerald-300'
+                            : 'text-red-700 dark:text-red-300'
+                        )}
+                      >
+                        {canApproveRestricted
+                          ? 'Restricted-item approval will be recorded under the current authorized user.'
+                          : 'This user cannot approve restricted-item sales. Ask an authorized pharmacist or manager.'}
+                      </p>
+                    )}
                   </div>
-                  <div>
-                    <div className="mb-2 flex items-center gap-1.5">
-                      <p className="text-[11px] font-bold uppercase tracking-[0.1em] text-[#667085] dark:text-[#a3a3a3]">Quick tender</p>
-                      <span className="group/help relative inline-flex">
-                        <button type="button" aria-label="Quick tender help" aria-describedby="quick-tender-help" className="inline-flex h-5 w-5 items-center justify-center rounded-full text-[#b77900] outline-none transition-colors hover:text-[#7a5700] focus-visible:ring-2 focus-visible:ring-[#f5b800]/40 dark:text-[#ffd75a] dark:hover:text-[#ffe58a]"><Info className="h-4 w-4" /></button>
-                        <span id="quick-tender-help" role="tooltip" className="pointer-events-none absolute bottom-full left-1/2 z-20 mb-2 w-52 -translate-x-1/2 rounded-md border border-[#d7a400] bg-[#f5b800] px-2.5 py-2 text-center text-[11px] font-semibold normal-case leading-4 tracking-normal text-[#241d00] opacity-0 shadow-sm transition-opacity group-hover/help:opacity-100 group-focus-within/help:opacity-100 dark:border-[#f5b800] dark:bg-[#f5b800] dark:text-[#241d00]">Choose the exact tender or enter the amount received.</span>
-                      </span>
-                    </div>
-                    <div className="grid grid-cols-3 gap-2">
-                      {[total, ...[1000, 2000, 5000, 10000, 20000, 50000].filter((amount) => amount >= total)].filter((amount, index, values) => values.indexOf(amount) === index).slice(0, 5).map((amount) => (
-                        <button key={amount} type="button" onClick={() => setAmountPaid(String(amount))} className={cn('h-12 w-full whitespace-nowrap rounded-md border px-1.5 text-xs font-semibold shadow-none transition-colors', amount === total ? 'border-[#d7a400] bg-[#fff9df] text-[#5f4800] hover:bg-[#fff3c0] dark:bg-amber-950/25 dark:text-amber-200' : 'border-[#dfe3e8] bg-white text-[#475467] hover:border-[#b8bec8] hover:bg-[#f9fafb] dark:border-white/10 dark:bg-transparent dark:text-[#d0d5dd]')}>
-                          {amount === total ? `Exact · ${formatCurrency(total)}` : formatCurrency(amount)}
+                )}
+                {/* Payment method */}
+                <div className="overflow-hidden bg-transparent font-sans">
+                  <div className="flex items-center justify-between px-4 pb-3 pt-4">
+                    <p className="text-xs font-bold uppercase tracking-[0.1em] text-[#667085] dark:text-[#a3a3a3]">
+                      Payment method
+                    </p>
+                    <span className="rounded-full bg-[#fff9e6] px-2.5 py-1 text-[11px] font-bold text-[#806000] dark:bg-[rgba(255,214,10,.1)] dark:text-[#ffd60a]">
+                      F3–F6 to switch
+                    </span>
+                  </div>
+                  <div
+                    className="grid grid-cols-2 gap-2 px-3 pb-3 sm:gap-2.5 sm:px-4 sm:pb-4"
+                    role="group"
+                    aria-label="Payment method"
+                  >
+                    {(
+                      [
+                        {
+                          key: 'cash',
+                          label: 'Cash',
+                          detail: 'Enter cash received',
+                          shortcut: 'F3',
+                        },
+                        {
+                          key: 'mpesa',
+                          label: 'M-Pesa',
+                          detail: 'STK Push · Till / PayBill',
+                          shortcut: 'F4',
+                        },
+                        {
+                          key: 'airtel_money',
+                          label: 'Airtel Money',
+                          detail: 'Confirm transaction code',
+                          shortcut: 'F6',
+                        },
+                        {
+                          key: 'card',
+                          label: 'Card',
+                          detail: 'Visa · Mastercard',
+                          shortcut: 'F5',
+                        },
+                        {
+                          key: 'bank_transfer',
+                          label: 'Bank transfer',
+                          detail: 'Confirm bank reference',
+                          shortcut: '',
+                        },
+                      ] as const
+                    )
+                      .filter(
+                        ({ key }) =>
+                          key === 'airtel_money' ||
+                          settings.paymentMethods.includes(key)
+                      )
+                      .map(({ key, label, detail, shortcut }) => (
+                        <button
+                          key={key}
+                          onClick={() => void switchPaymentMethod(key)}
+                          disabled={
+                            (!isOnline && key !== 'cash') ||
+                            (paymentMethod === 'mpesa' &&
+                              mpesaStatus === 'success' &&
+                              paymentMethod !== key)
+                          }
+                          aria-pressed={paymentMethod === key}
+                          aria-label={`${label} payment (${shortcut})`}
+                          title={
+                            !isOnline && key !== 'cash'
+                              ? `${label} requires an internet connection`
+                              : `${label} (${shortcut})`
+                          }
+                          className={cn(
+                            'group relative h-[68px] overflow-hidden rounded-lg border bg-white p-0 transition-colors duration-150 hover:border-[#98a2b3] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e94e1b]/25 disabled:cursor-not-allowed disabled:opacity-45 dark:bg-[#1c1c1c]',
+                            paymentMethod === key
+                              ? 'border-[#344054] ring-2 ring-[#344054]/15'
+                              : 'border-[#e4e7ec] dark:border-white/10'
+                          )}
+                        >
+                          <PaymentBrand method={key} />
+                          <span className="sr-only">
+                            {label} · {detail}
+                          </span>
+                          {paymentMethod === key && (
+                            <span className="absolute right-1.5 top-1.5 inline-flex h-5 w-5 items-center justify-center rounded-full border border-[#344054] bg-white text-[#344054]">
+                              <CheckCircle2 className="h-3.5 w-3.5" />
+                            </span>
+                          )}
                         </button>
                       ))}
+                  </div>
+
+                  {(paymentDialogOpen || checkoutStep === 'payment') && (
+                    <div
+                      className="border-t border-[#e4e7ec]"
+                      role="region"
+                      aria-labelledby="payment-dialog-title"
+                    >
+                      <div className="w-full">
+                        <h2 id="payment-dialog-title" className="sr-only">
+                          Payment details
+                        </h2>
+                        <div>
+                          {paymentMethod === 'cash' && (
+                            <div>
+                              <div className="hidden space-y-[18px]">
+                                <div className="grid grid-cols-3 gap-6">
+                                  <label className="text-sm font-medium text-[#343a46]">
+                                    Received Amount{' '}
+                                    <span className="text-[#ff0000]">*</span>
+                                    <div className="relative mt-2">
+                                      <span className="absolute inset-y-0 left-3 flex items-center text-xs text-[#344054]">
+                                        KSh
+                                      </span>
+                                      <input
+                                        type="number"
+                                        min={total}
+                                        step="0.01"
+                                        value={amountPaid}
+                                        onChange={(event) =>
+                                          setAmountPaid(event.target.value)
+                                        }
+                                        className="h-10 w-full rounded-[5px] border border-[#d8dde5] bg-white pl-12 pr-3 text-sm outline-none focus:border-[#e94e1b]"
+                                      />
+                                    </div>
+                                  </label>
+                                  <label className="text-sm font-medium text-[#343a46]">
+                                    Paying Amount{' '}
+                                    <span className="text-[#ff0000]">*</span>
+                                    <div className="relative mt-2">
+                                      <span className="absolute inset-y-0 left-3 flex items-center text-xs text-[#344054]">
+                                        KSh
+                                      </span>
+                                      <input
+                                        readOnly
+                                        value={total.toFixed(2)}
+                                        className="h-10 w-full rounded-[5px] border border-[#d8dde5] bg-white pl-12 pr-3 text-sm text-[#344054]"
+                                      />
+                                    </div>
+                                  </label>
+                                  <label className="text-sm font-medium text-[#343a46]">
+                                    Change
+                                    <div className="relative mt-2">
+                                      <span className="absolute inset-y-0 left-3 flex items-center text-xs text-[#344054]">
+                                        KSh
+                                      </span>
+                                      <input
+                                        readOnly
+                                        value={change.toFixed(2)}
+                                        className="h-10 w-full rounded-[5px] border border-[#d8dde5] bg-white pl-12 pr-3 text-sm text-[#344054]"
+                                      />
+                                    </div>
+                                  </label>
+                                </div>
+                                <label className="block text-sm font-medium text-[#343a46]">
+                                  Payment Type{' '}
+                                  <span className="text-[#ff0000]">*</span>
+                                  <select
+                                    value={paymentMethod}
+                                    onChange={(event) => {
+                                      setPaymentMethod(
+                                        event.target.value as PosPaymentMethod
+                                      );
+                                      setMpesaRef('');
+                                    }}
+                                    className="mt-2 h-10 w-full rounded-[5px] border border-[#d8dde5] bg-white px-3 text-sm outline-none focus:border-[#e94e1b]"
+                                  >
+                                    {settings.paymentMethods
+                                      .filter(
+                                        (method): method is PosPaymentMethod =>
+                                          [
+                                            'cash',
+                                            'mpesa',
+                                            'airtel_money',
+                                            'card',
+                                            'bank_transfer',
+                                          ].includes(method)
+                                      )
+                                      .map((method) => (
+                                        <option key={method} value={method}>
+                                          {method === 'mpesa'
+                                            ? 'M-Pesa'
+                                            : method === 'airtel_money'
+                                              ? 'Airtel Money'
+                                              : method === 'bank_transfer'
+                                                ? 'Bank Transfer'
+                                                : method[0].toUpperCase() +
+                                                  method.slice(1)}
+                                        </option>
+                                      ))}
+                                  </select>
+                                </label>
+                                <label className="block text-sm font-medium text-[#343a46]">
+                                  Payment Receiver
+                                  <input
+                                    value={paymentReceiver}
+                                    onChange={(event) =>
+                                      setPaymentReceiver(event.target.value)
+                                    }
+                                    className="mt-2 h-10 w-full rounded-[5px] border border-[#d8dde5] bg-white px-3 text-sm outline-none focus:border-[#e94e1b]"
+                                  />
+                                </label>
+                                <label className="block text-sm font-medium text-[#343a46]">
+                                  Payment Note
+                                  <textarea
+                                    value={paymentNote}
+                                    onChange={(event) =>
+                                      setPaymentNote(event.target.value)
+                                    }
+                                    placeholder="Type your message"
+                                    className="mt-2 h-[85px] w-full resize-none rounded-[5px] border border-[#d8dde5] bg-white px-3 py-2 text-sm outline-none placeholder:text-[#a7adb7] focus:border-[#e94e1b]"
+                                  />
+                                </label>
+                                <label className="block text-sm font-medium text-[#343a46]">
+                                  Sale Note
+                                  <textarea
+                                    value={saleNote}
+                                    onChange={(event) =>
+                                      setSaleNote(event.target.value)
+                                    }
+                                    placeholder="Type your message"
+                                    className="mt-2 h-[85px] w-full resize-none rounded-[5px] border border-[#d8dde5] bg-white px-3 py-2 text-sm outline-none placeholder:text-[#a7adb7] focus:border-[#e94e1b]"
+                                  />
+                                </label>
+                                <label className="block text-sm font-medium text-[#343a46]">
+                                  Staff Note
+                                  <textarea
+                                    value={staffNote}
+                                    onChange={(event) =>
+                                      setStaffNote(event.target.value)
+                                    }
+                                    placeholder="Type your message"
+                                    className="mt-2 h-[85px] w-full resize-none rounded-[5px] border border-[#d8dde5] bg-white px-3 py-2 text-sm outline-none placeholder:text-[#a7adb7] focus:border-[#e94e1b]"
+                                  />
+                                </label>
+                              </div>
+                              <div className="overflow-hidden bg-white dark:bg-[#171717]">
+                                <div className="flex items-center justify-between gap-3 border-b border-[#eef0f3] bg-[#fafbfc] px-3.5 py-3 dark:border-white/10 dark:bg-white/[.03]">
+                                  <div className="flex items-center gap-2.5">
+                                    <span className="flex h-8 w-8 items-center justify-center rounded-lg border border-[#f3d77a] bg-[#fff9e6] text-[#a56b00] dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-300">
+                                      <Banknote className="h-4 w-4" />
+                                    </span>
+                                    <div>
+                                      <p className="text-[15px] font-bold tracking-tight text-[#101828] dark:text-white">
+                                        Cash payment
+                                      </p>
+                                      <p className="mt-0.5 text-xs font-medium text-[#667085] dark:text-[#a3a3a3]">
+                                        Enter the tendered amount
+                                      </p>
+                                    </div>
+                                  </div>
+                                  <div className="text-right">
+                                    <span className="block text-[10px] font-bold uppercase tracking-[0.1em] text-[#6f5600] dark:text-[#d9c05a]">
+                                      Total due
+                                    </span>
+                                    <strong className="mt-0.5 block text-xl font-extrabold tabular-nums text-[#241d00] dark:text-white">
+                                      {formatCurrency(total)}
+                                    </strong>
+                                  </div>
+                                </div>
+
+                                <div className="space-y-3.5 p-3.5">
+                                  <div>
+                                    <div className="mb-1.5 flex items-center justify-between">
+                                      <label className="text-sm font-bold text-[#344054] dark:text-white">
+                                        Cash received
+                                      </label>
+                                      <span className="text-xs font-medium text-[#667085] dark:text-[#a3a3a3]">
+                                        Amount tendered
+                                      </span>
+                                    </div>
+                                    <div className="relative">
+                                      <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-xs font-bold text-[#a56b00]">
+                                        KSh
+                                      </span>
+                                      <input
+                                        type="number"
+                                        min={total}
+                                        step="0.01"
+                                        placeholder={formatCurrency(total)
+                                          .replace('KES', '')
+                                          .trim()}
+                                        value={amountPaid}
+                                        onChange={(e) =>
+                                          setAmountPaid(e.target.value)
+                                        }
+                                        className={cn(
+                                          inputCls,
+                                          'h-12 appearance-none rounded-md border-[#d0d5dd] bg-white pl-14 text-base font-semibold tabular-nums shadow-none transition-colors focus:border-[#98a2b3] focus:ring-1 focus:ring-[#98a2b3]/20 dark:bg-[#111113] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none'
+                                        )}
+                                      />
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <div className="mb-2 flex items-center gap-1.5">
+                                      <p className="text-[11px] font-bold uppercase tracking-[0.1em] text-[#667085] dark:text-[#a3a3a3]">
+                                        Quick tender
+                                      </p>
+                                      <span className="group/help relative inline-flex">
+                                        <button
+                                          type="button"
+                                          aria-label="Quick tender help"
+                                          aria-describedby="quick-tender-help"
+                                          className="inline-flex h-5 w-5 items-center justify-center rounded-full text-[#b77900] outline-none transition-colors hover:text-[#7a5700] focus-visible:ring-2 focus-visible:ring-[#f5b800]/40 dark:text-[#ffd75a] dark:hover:text-[#ffe58a]"
+                                        >
+                                          <Info className="h-4 w-4" />
+                                        </button>
+                                        <span
+                                          id="quick-tender-help"
+                                          role="tooltip"
+                                          className="pointer-events-none absolute bottom-full left-1/2 z-20 mb-2 w-52 -translate-x-1/2 rounded-md border border-[#d7a400] bg-[#f5b800] px-2.5 py-2 text-center text-[11px] font-semibold normal-case leading-4 tracking-normal text-[#241d00] opacity-0 shadow-sm transition-opacity group-hover/help:opacity-100 group-focus-within/help:opacity-100 dark:border-[#f5b800] dark:bg-[#f5b800] dark:text-[#241d00]"
+                                        >
+                                          Choose the exact tender or enter the
+                                          amount received.
+                                        </span>
+                                      </span>
+                                    </div>
+                                    <div className="grid grid-cols-3 gap-2">
+                                      {[
+                                        total,
+                                        ...[
+                                          1000, 2000, 5000, 10000, 20000, 50000,
+                                        ].filter((amount) => amount >= total),
+                                      ]
+                                        .filter(
+                                          (amount, index, values) =>
+                                            values.indexOf(amount) === index
+                                        )
+                                        .slice(0, 5)
+                                        .map((amount) => (
+                                          <button
+                                            key={amount}
+                                            type="button"
+                                            onClick={() =>
+                                              setAmountPaid(String(amount))
+                                            }
+                                            className={cn(
+                                              'h-12 w-full whitespace-nowrap rounded-md border px-1.5 text-xs font-semibold shadow-none transition-colors',
+                                              amount === total
+                                                ? 'border-[#d7a400] bg-[#fff9df] text-[#5f4800] hover:bg-[#fff3c0] dark:bg-amber-950/25 dark:text-amber-200'
+                                                : 'border-[#dfe3e8] bg-white text-[#475467] hover:border-[#b8bec8] hover:bg-[#f9fafb] dark:border-white/10 dark:bg-transparent dark:text-[#d0d5dd]'
+                                            )}
+                                          >
+                                            {amount === total
+                                              ? `Exact · ${formatCurrency(total)}`
+                                              : formatCurrency(amount)}
+                                          </button>
+                                        ))}
+                                    </div>
+                                  </div>
+                                  {parseFloat(amountPaid || '0') >= total ? (
+                                    <div className="flex items-center justify-between border-t border-[#e4e7ec] px-1 py-2.5 text-[#344054] dark:border-white/10 dark:text-white">
+                                      <span className="flex items-center gap-1.5 text-xs font-bold">
+                                        <CheckCircle2 className="h-4 w-4 text-[#6f5600]" />{' '}
+                                        Change due
+                                      </span>
+                                      <strong className="text-base tabular-nums">
+                                        {formatCurrency(change)}
+                                      </strong>
+                                    </div>
+                                  ) : null}
+                                </div>
+                              </div>
+                            </div>
+                          )}
+
+                          {paymentMethod === 'mpesa' && (
+                            <div className="overflow-hidden border-t border-[#e4e7ec] bg-white dark:border-[#2c2c2e] dark:bg-[#1c1c1e]">
+                              <div className="flex items-center justify-between gap-4 border-b border-[#e4e7ec] bg-white px-4 py-4 dark:border-[#2c2c2e] dark:bg-[#1c1c1e]">
+                                <div className="flex min-w-0 items-center gap-2.5">
+                                  <span className="flex h-10 w-14 shrink-0 items-center justify-center rounded-[7px] border border-[#e4e7ec] bg-white px-1.5 shadow-sm dark:border-[#3a3a3c] dark:bg-white">
+                                    <Image
+                                      src="/payment-logos/mpesa.svg"
+                                      alt="M-Pesa"
+                                      width={60}
+                                      height={26}
+                                      className="h-5 w-auto"
+                                    />
+                                  </span>
+                                  <div>
+                                    <p className="text-sm font-bold tracking-tight text-[#273142] dark:text-white">
+                                      {mpesaFlow === 'paybill' && mpesaRequestId
+                                        ? `M-Pesa — ${mpesaAccountType === 'till' ? 'Till' : 'PayBill'}`
+                                        : 'M-Pesa payment'}
+                                    </p>
+                                    <p className="mt-0.5 text-[11px] text-[#667085] dark:text-[#b3b3b8]">
+                                      {mpesaStatus === 'success'
+                                        ? 'Confirmed by Safaricom'
+                                        : 'Payment verified before sale completion'}
+                                    </p>
+                                  </div>
+                                </div>
+                                <div className="shrink-0 text-right">
+                                  <span className="block text-[9px] font-bold uppercase tracking-[0.12em] text-[#667085] dark:text-[#a1a1a6]">
+                                    Amount due
+                                  </span>
+                                  <strong className="mt-0.5 block text-base font-extrabold tabular-nums text-[#273142] dark:text-white">
+                                    {formatMpesaAmount(total)}
+                                  </strong>
+                                </div>
+                              </div>
+
+                              <div className="space-y-4 bg-white p-4 dark:bg-[#1c1c1e]">
+                                <div>
+                                  <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.12em] text-[#667085] dark:text-[#a1a1a6]">
+                                    Payment option
+                                  </p>
+                                  <div className="grid grid-cols-2 gap-2.5">
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        void switchMpesaFlow('stk')
+                                      }
+                                      disabled={
+                                        mpesaStatus === 'success' &&
+                                        mpesaFlow !== 'stk'
+                                      }
+                                      className={cn(
+                                        'flex min-h-[60px] items-center gap-2.5 rounded-[7px] border px-3 text-left shadow-sm transition-colors disabled:cursor-not-allowed disabled:opacity-50',
+                                        mpesaFlow === 'stk'
+                                          ? 'border-[#11ad2d] bg-[#f3fbf5] dark:border-[#11ad2d] dark:bg-[#12351c]'
+                                          : 'border-[#e4e7ec] bg-white hover:border-[#8bd49a] hover:bg-[#f9fafb] dark:border-[#3a3a3c] dark:bg-[#242426] dark:hover:bg-[#2c2c2e]'
+                                      )}
+                                    >
+                                      <span
+                                        className={cn(
+                                          'flex h-7 w-7 shrink-0 items-center justify-center rounded-md',
+                                          mpesaFlow === 'stk'
+                                            ? 'bg-[#11ad2d] text-white'
+                                            : 'bg-[#eff7f0] text-[#168337] dark:bg-emerald-950/40'
+                                        )}
+                                      >
+                                        <Smartphone className="h-3.5 w-3.5" />
+                                      </span>
+                                      <span>
+                                        <span className="block text-xs font-semibold text-[#273142] dark:text-white">
+                                          Safaricom Prompt
+                                        </span>
+                                        <span className="mt-0.5 block text-[10px] text-[#667085] dark:text-[#b3b3b8]">
+                                          Send STK Push
+                                        </span>
+                                      </span>
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => void openManualMpesaFlow()}
+                                      disabled={
+                                        mpesaStatus === 'success' &&
+                                        mpesaFlow !== 'paybill'
+                                      }
+                                      className={cn(
+                                        'flex min-h-[60px] items-center gap-2.5 rounded-[7px] border px-3 text-left shadow-sm transition-colors disabled:cursor-not-allowed disabled:opacity-50',
+                                        mpesaFlow === 'paybill'
+                                          ? 'border-[#11ad2d] bg-[#f3fbf5] dark:border-[#11ad2d] dark:bg-[#12351c]'
+                                          : 'border-[#e4e7ec] bg-white hover:border-[#8bd49a] hover:bg-[#f9fafb] dark:border-[#3a3a3c] dark:bg-[#242426] dark:hover:bg-[#2c2c2e]'
+                                      )}
+                                    >
+                                      <span
+                                        className={cn(
+                                          'flex h-7 w-7 shrink-0 items-center justify-center rounded-md',
+                                          mpesaFlow === 'paybill'
+                                            ? 'bg-[#11ad2d] text-white'
+                                            : 'bg-[#eff7f0] text-[#168337] dark:bg-emerald-950/40'
+                                        )}
+                                      >
+                                        <Building2 className="h-3.5 w-3.5" />
+                                      </span>
+                                      <span>
+                                        <span className="block text-xs font-semibold text-[#273142] dark:text-white">
+                                          Till / PayBill
+                                        </span>
+                                        <span className="mt-0.5 block text-[10px] text-[#667085] dark:text-[#b3b3b8]">
+                                          Pay manually
+                                        </span>
+                                      </span>
+                                    </button>
+                                  </div>
+                                </div>
+                                {mpesaFlow === 'stk' ? (
+                                  <div className="rounded-lg border border-[#e5efe7] bg-[#fafdfb] p-3 dark:border-emerald-900/60 dark:bg-emerald-950/20">
+                                    {mpesaStatus === 'initiating' ||
+                                    mpesaStatus === 'pending' ? (
+                                      <div className="py-2 text-center">
+                                        <Loader2 className="mx-auto h-7 w-7 animate-spin text-[#11ad2d]" />
+                                        <p className="mt-2 text-sm font-bold text-[#273142] dark:text-white">
+                                          {mpesaStatus === 'initiating'
+                                            ? 'Sending STK Push'
+                                            : 'Waiting for payment'}
+                                        </p>
+                                        <p className="mt-1 text-xs text-[#667085] dark:text-[#b3b3b8]">
+                                          STK Push sent to{' '}
+                                          <strong>
+                                            {maskKenyanPhone(mpesaPhone)}
+                                          </strong>
+                                        </p>
+                                        <p className="mx-auto mt-2 max-w-xs text-[11px] leading-4 text-[#667085] dark:text-[#b3b3b8]">
+                                          Ask the customer to check their phone
+                                          and enter their M-Pesa PIN.
+                                        </p>
+                                        <div className="mt-3 flex justify-center gap-2">
+                                          <button
+                                            type="button"
+                                            onClick={() =>
+                                              void checkMpesaStatusNow()
+                                            }
+                                            className="h-9 rounded-md border border-[#b9d9c0] bg-white px-3 text-xs font-bold text-[#176b2c] shadow-none hover:bg-[#f4fbf5] dark:border-emerald-800 dark:bg-transparent dark:text-emerald-300"
+                                          >
+                                            Check status
+                                          </button>
+                                          <button
+                                            type="button"
+                                            onClick={() =>
+                                              void changeMpesaPhone()
+                                            }
+                                            className="h-9 rounded-md px-3 text-xs font-semibold text-[#475467] hover:bg-white dark:text-[#d0d5dd] dark:hover:bg-white/5"
+                                          >
+                                            Change phone
+                                          </button>
+                                        </div>
+                                      </div>
+                                    ) : mpesaStatus === 'success' ? (
+                                      <div className="py-2 text-center">
+                                        <CheckCircle2 className="mx-auto h-7 w-7 text-[#11ad2d]" />
+                                        <p className="mt-2 text-sm font-bold text-[#273142] dark:text-white">
+                                          M-Pesa payment received
+                                        </p>
+                                        <p className="mt-1 text-base font-extrabold text-[#273142] dark:text-white">
+                                          {formatMpesaAmount(total)}
+                                        </p>
+                                        <p className="mt-1 text-xs text-[#667085] dark:text-[#b3b3b8]">
+                                          Receipt <strong>{mpesaRef}</strong> ·
+                                          Completing sale…
+                                        </p>
+                                      </div>
+                                    ) : mpesaStatus === 'failed' ||
+                                      mpesaStatus === 'timeout' ||
+                                      mpesaStatus === 'cancelled' ? (
+                                      <div className="py-1">
+                                        <p className="text-sm font-bold text-[#7a271a] dark:text-red-300">
+                                          {mpesaStatus === 'cancelled'
+                                            ? 'Payment cancelled'
+                                            : mpesaStatus === 'timeout'
+                                              ? 'Payment not confirmed'
+                                              : 'M-Pesa payment failed'}
+                                        </p>
+                                        <p className="mt-1 text-xs leading-4 text-[#667085] dark:text-[#b8b8b8]">
+                                          {mpesaMessage ||
+                                            (mpesaStatus === 'cancelled'
+                                              ? 'The customer cancelled the M-Pesa request.'
+                                              : 'No payment confirmation was received.')}
+                                        </p>
+                                        <p className="mt-1 text-xs font-semibold text-[#344054] dark:text-white">
+                                          {formatMpesaAmount(total)} was not
+                                          confirmed.
+                                        </p>
+                                        <div className="mt-3 flex flex-wrap gap-2">
+                                          {mpesaStatus === 'timeout' && (
+                                            <button
+                                              type="button"
+                                              onClick={() =>
+                                                void checkMpesaStatusNow()
+                                              }
+                                              className="h-9 rounded-md border border-[#d0d5dd] bg-white px-3 text-xs font-bold text-[#344054]"
+                                            >
+                                              Check status
+                                            </button>
+                                          )}
+                                          <button
+                                            type="button"
+                                            onClick={() =>
+                                              void prepareNewMpesaPrompt()
+                                            }
+                                            className="h-9 rounded-md bg-[#11ad2d] px-3 text-xs font-bold text-white"
+                                          >
+                                            Send new request
+                                          </button>
+                                          <button
+                                            type="button"
+                                            onClick={() =>
+                                              void changeMpesaPhone()
+                                            }
+                                            className="h-9 rounded-md px-3 text-xs font-semibold text-[#475467] dark:text-[#d0d5dd]"
+                                          >
+                                            Change number
+                                          </button>
+                                        </div>
+                                      </div>
+                                    ) : (
+                                      <>
+                                        <label className="mb-1.5 block text-xs font-semibold text-[#344054] dark:text-[#e4e7ec]">
+                                          Customer phone number
+                                        </label>
+                                        <input
+                                          type="tel"
+                                          inputMode="tel"
+                                          autoComplete="tel"
+                                          placeholder="0712 345 678"
+                                          value={mpesaPhone}
+                                          onChange={(event) =>
+                                            setMpesaPhone(event.target.value)
+                                          }
+                                          className={cn(
+                                            inputCls,
+                                            'h-11 w-full border-[#c9e9ce] bg-white focus:border-[#11ad2d] focus:ring-[#11ad2d]/10 dark:bg-[#171717]'
+                                          )}
+                                        />
+                                        <p className="mt-2 text-[11px] text-[#667085] dark:text-[#b3b3b8]">
+                                          An M-Pesa prompt will be sent to this
+                                          phone.
+                                        </p>
+                                        <button
+                                          type="button"
+                                          onClick={handleMpesaPrompt}
+                                          disabled={!isOnline}
+                                          className="mt-3 inline-flex h-11 w-full items-center justify-center rounded-lg bg-[#11ad2d] px-3 text-xs font-bold text-white transition-colors hover:bg-[#079c35] disabled:cursor-not-allowed disabled:opacity-50"
+                                        >
+                                          Send STK Push ·{' '}
+                                          {formatMpesaAmount(total, false)}
+                                        </button>
+                                      </>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <div className="space-y-2 rounded-[7px] border border-[#e4e7ec] bg-[#f9fafb] p-3 dark:border-[#3a3a3c] dark:bg-[#242426]">
+                                    {!mpesaRequestId ||
+                                    mpesaStatus === 'failed' ||
+                                    mpesaStatus === 'timeout' ? (
+                                      <div className="py-3 text-center">
+                                        {mpesaStatus === 'initiating' ? (
+                                          <Loader2 className="mx-auto h-6 w-6 animate-spin text-[#11ad2d]" />
+                                        ) : (
+                                          <AlertTriangle className="mx-auto h-6 w-6 text-[#b54708]" />
+                                        )}
+                                        <p className="mt-2 text-sm font-bold text-[#273142] dark:text-white">
+                                          {mpesaStatus === 'initiating'
+                                            ? 'Loading payment details'
+                                            : 'Payment details unavailable'}
+                                        </p>
+                                        <p className="mt-1 text-[11px] text-[#667085] dark:text-[#b8b8b8]">
+                                          {mpesaStatus === 'initiating'
+                                            ? 'Preparing the branch Till or PayBill account.'
+                                            : mpesaMessage ||
+                                              (requiresAgeVerification &&
+                                              !ageVerified
+                                                ? 'Verify the customer age to load payment details.'
+                                                : 'Check the branch M-Pesa configuration and try again.')}
+                                        </p>
+                                        {mpesaStatus !== 'initiating' && (
+                                          <button
+                                            type="button"
+                                            onClick={() =>
+                                              void handlePaybillPayment()
+                                            }
+                                            disabled={!isOnline}
+                                            className="mt-3 h-9 rounded-md border border-[#b9d9c0] bg-white px-4 text-xs font-bold text-[#176b2c] dark:border-emerald-800 dark:bg-transparent dark:text-emerald-300"
+                                          >
+                                            Try again
+                                          </button>
+                                        )}
+                                      </div>
+                                    ) : (
+                                      <div className="grid grid-cols-2 gap-2">
+                                        {mpesaStatus === 'success' ? (
+                                          <div className="col-span-2 py-3 text-center">
+                                            <CheckCircle2 className="mx-auto h-7 w-7 text-[#11ad2d]" />
+                                            <p className="mt-2 text-sm font-bold text-[#273142] dark:text-white">
+                                              Payment received
+                                            </p>
+                                            <strong className="mt-1 block text-lg tabular-nums text-[#273142] dark:text-white">
+                                              {formatMpesaAmount(total)}
+                                            </strong>
+                                            <div className="mx-auto mt-3 max-w-xs space-y-1 text-xs text-[#667085] dark:text-[#b8b8b8]">
+                                              <p>
+                                                M-Pesa receipt{' '}
+                                                <strong className="text-[#273142] dark:text-white">
+                                                  {mpesaRef}
+                                                </strong>
+                                              </p>
+                                              <p>
+                                                Paid via{' '}
+                                                <strong>
+                                                  {mpesaAccountType === 'till'
+                                                    ? 'Till'
+                                                    : 'PayBill'}{' '}
+                                                  {mpesaShortcode}
+                                                </strong>
+                                              </p>
+                                              {mpesaAccountType ===
+                                                'paybill' && (
+                                                <p>
+                                                  Account{' '}
+                                                  <strong>
+                                                    {mpesaAccountReference}
+                                                  </strong>
+                                                </p>
+                                              )}
+                                              {mpesaPhone && (
+                                                <p>
+                                                  Phone{' '}
+                                                  <strong>
+                                                    {maskKenyanPhone(
+                                                      mpesaPhone
+                                                    )}
+                                                  </strong>
+                                                </p>
+                                              )}
+                                              <p className="font-semibold text-[#43784f] dark:text-emerald-300">
+                                                Confirmed by Safaricom
+                                              </p>
+                                              <p>Completing sale…</p>
+                                            </div>
+                                          </div>
+                                        ) : (
+                                          <>
+                                            {mpesaManualAccounts.length > 1 && (
+                                              <div className="col-span-2">
+                                                <p className="mb-1.5 text-xs font-semibold text-[#344054] dark:text-[#e4e7ec]">
+                                                  Pay using
+                                                </p>
+                                                <div className="grid grid-cols-2 gap-2">
+                                                  {mpesaManualAccounts.map(
+                                                    (account) => (
+                                                      <button
+                                                        key={`${account.accountType}-${account.shortcode}`}
+                                                        type="button"
+                                                        onClick={() =>
+                                                          void changeManualMpesaMode(
+                                                            account.accountType
+                                                          )
+                                                        }
+                                                        disabled={
+                                                          mpesaStatus ===
+                                                          'initiating'
+                                                        }
+                                                        className={cn(
+                                                          'h-10 rounded-md border text-xs font-bold transition-colors disabled:opacity-50',
+                                                          mpesaAccountType ===
+                                                            account.accountType
+                                                            ? 'border-[#11ad2d] bg-[#effcf1] text-[#176b2c] dark:bg-emerald-950/30 dark:text-emerald-200'
+                                                            : 'border-[#dfe5e0] bg-white text-[#475467] hover:border-[#85d993] dark:border-white/10 dark:bg-transparent dark:text-[#d0d5dd]'
+                                                        )}
+                                                      >
+                                                        {account.accountType ===
+                                                        'till'
+                                                          ? 'Till Number'
+                                                          : 'PayBill'}
+                                                      </button>
+                                                    )
+                                                  )}
+                                                </div>
+                                              </div>
+                                            )}
+                                            <div
+                                              className={cn(
+                                                'rounded-[7px] border border-[#e4e7ec] bg-white p-3 shadow-sm dark:border-[#3a3a3c] dark:bg-[#1c1c1e]',
+                                                mpesaAccountType === 'till' &&
+                                                  'col-span-2'
+                                              )}
+                                            >
+                                              <span className="block text-[9px] font-bold uppercase tracking-wider text-[#667085] dark:text-[#a1a1a6]">
+                                                {mpesaAccountType === 'till'
+                                                  ? 'Till number'
+                                                  : 'PayBill number'}
+                                              </span>
+                                              <span className="mt-1 flex items-center justify-between gap-3">
+                                                <strong className="text-xl tabular-nums text-[#273142] dark:text-white">
+                                                  {mpesaShortcode}
+                                                </strong>
+                                                <button
+                                                  type="button"
+                                                  onClick={() =>
+                                                    void copyManualPaymentValue(
+                                                      mpesaShortcode,
+                                                      mpesaAccountType ===
+                                                        'till'
+                                                        ? 'Till number'
+                                                        : 'PayBill number'
+                                                    )
+                                                  }
+                                                  className="inline-flex h-7 items-center gap-1 rounded px-2 text-[10px] font-semibold text-[#43784f] hover:bg-[#effcf1] dark:text-emerald-300"
+                                                >
+                                                  <Copy className="h-3 w-3" />
+                                                  Copy
+                                                </button>
+                                              </span>
+                                              {mpesaMerchantName && (
+                                                <span className="mt-1 block text-[10px] text-[#667085] dark:text-[#b8b8b8]">
+                                                  Pay to {mpesaMerchantName}
+                                                </span>
+                                              )}
+                                            </div>
+                                            {mpesaAccountType === 'paybill' && (
+                                              <div className="rounded-[7px] border border-[#e4e7ec] bg-white p-3 shadow-sm dark:border-[#3a3a3c] dark:bg-[#1c1c1e]">
+                                                <span className="block text-[9px] font-bold uppercase tracking-wider text-[#667085] dark:text-[#a1a1a6]">
+                                                  Account reference
+                                                </span>
+                                                <span className="mt-1 flex items-center justify-between gap-3">
+                                                  <strong className="text-lg tracking-wide text-[#273142] dark:text-white">
+                                                    {mpesaAccountReference}
+                                                  </strong>
+                                                  <button
+                                                    type="button"
+                                                    onClick={() =>
+                                                      void copyManualPaymentValue(
+                                                        mpesaAccountReference,
+                                                        'Account number'
+                                                      )
+                                                    }
+                                                    className="inline-flex h-7 items-center gap-1 rounded px-2 text-[10px] font-semibold text-[#43784f] hover:bg-[#effcf1] dark:text-emerald-300"
+                                                  >
+                                                    <Copy className="h-3 w-3" />
+                                                    Copy
+                                                  </button>
+                                                </span>
+                                              </div>
+                                            )}
+                                            <div className="col-span-2 rounded-[7px] border border-[#e4e7ec] bg-white px-3 py-2.5 shadow-sm dark:border-[#3a3a3c] dark:bg-[#1c1c1e]">
+                                              <span className="block text-[9px] font-bold uppercase tracking-wider text-[#667085] dark:text-[#a1a1a6]">
+                                                Amount
+                                              </span>
+                                              <strong className="mt-1 block text-lg tabular-nums text-[#273142] dark:text-white">
+                                                {formatMpesaAmount(total)}
+                                              </strong>
+                                            </div>
+                                            <details className="group col-span-2 rounded-[7px] border border-[#e4e7ec] bg-white px-3 py-2.5 text-[11px] leading-5 text-[#475467] shadow-sm dark:border-[#3a3a3c] dark:bg-[#1c1c1e] dark:text-[#d0d5dd]">
+                                              <summary className="flex cursor-pointer list-none items-center justify-between font-bold text-[#273142] dark:text-white">
+                                                How to pay{' '}
+                                                <ChevronDown className="h-4 w-4 text-[#667085] transition-transform group-open:rotate-180" />
+                                              </summary>
+                                              <ol className="mt-2 list-inside list-decimal border-t border-[#e4e7ec] pt-2 dark:border-[#3a3a3c]">
+                                                <li>Open M-Pesa</li>
+                                                <li>Select Lipa na M-Pesa</li>
+                                                <li>
+                                                  Select{' '}
+                                                  {mpesaAccountType === 'till'
+                                                    ? 'Buy Goods and Services'
+                                                    : 'PayBill'}
+                                                </li>
+                                                <li>
+                                                  Enter{' '}
+                                                  {mpesaAccountType === 'till'
+                                                    ? 'Till'
+                                                    : 'PayBill'}{' '}
+                                                  {mpesaShortcode}
+                                                </li>
+                                                {mpesaAccountType ===
+                                                  'paybill' && (
+                                                  <li>
+                                                    Enter account{' '}
+                                                    {mpesaAccountReference}
+                                                  </li>
+                                                )}
+                                                <li>
+                                                  Enter{' '}
+                                                  {formatMpesaAmount(
+                                                    total,
+                                                    false
+                                                  )}
+                                                </li>
+                                                <li>
+                                                  Confirm and enter M-Pesa PIN
+                                                </li>
+                                              </ol>
+                                            </details>
+                                            <div className="col-span-2 grid grid-cols-2 gap-2">
+                                              <button
+                                                type="button"
+                                                onClick={() =>
+                                                  void checkMpesaStatusNow()
+                                                }
+                                                className="h-9 rounded-md border border-[#b9d9c0] bg-white text-xs font-bold text-[#176b2c] dark:border-emerald-800 dark:bg-transparent dark:text-emerald-300"
+                                              >
+                                                Check for payment
+                                              </button>
+                                              <button
+                                                type="button"
+                                                onClick={() =>
+                                                  void findManualPayment()
+                                                }
+                                                className="h-9 rounded-md border border-[#b9d9c0] bg-white text-xs font-bold text-[#176b2c] dark:border-emerald-800 dark:bg-transparent dark:text-emerald-300"
+                                              >
+                                                Find payment
+                                              </button>
+                                            </div>
+                                            <div className="col-span-2 border-t border-[#e4ece6] pt-2 dark:border-white/10">
+                                              <label className="block text-xs font-semibold text-[#344054] dark:text-[#e4e7ec]">
+                                                Payer phone{' '}
+                                                <span className="font-normal text-[#667085]">
+                                                  (optional)
+                                                </span>
+                                              </label>
+                                              <input
+                                                type="tel"
+                                                inputMode="tel"
+                                                autoComplete="tel"
+                                                placeholder="0712 345 678"
+                                                value={formatKenyanPhoneInput(
+                                                  mpesaPhone
+                                                )}
+                                                onChange={(event) =>
+                                                  setMpesaPhone(
+                                                    normalizeKenyanPhoneDraft(
+                                                      event.target.value
+                                                    )
+                                                  )
+                                                }
+                                                onBlur={() =>
+                                                  void saveOptionalManualPhone()
+                                                }
+                                                className={cn(
+                                                  inputCls,
+                                                  'mt-1.5 h-10 w-full border-[#dfe5e0] bg-white focus:border-[#11ad2d] focus:ring-[#11ad2d]/10 dark:bg-[#171717]'
+                                                )}
+                                              />
+                                              <p className="mt-1 text-[10px] leading-4 text-[#667085] dark:text-[#b8b8b8]">
+                                                Optional. Helps identify the
+                                                payment if needed.
+                                              </p>
+                                            </div>
+                                            <button
+                                              type="button"
+                                              onClick={() =>
+                                                void switchMpesaFlow('stk')
+                                              }
+                                              className="col-span-2 h-9 rounded-md border border-[#dfe5e0] bg-white px-3 text-left text-xs font-semibold text-[#344054] hover:border-[#85d993] hover:text-[#176b2c] dark:border-white/10 dark:bg-transparent dark:text-[#d0d5dd]"
+                                            >
+                                              ← Back to Safaricom Prompt
+                                            </button>
+                                          </>
+                                        )}
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+                                {!isOnline && (
+                                  <p className="flex items-center gap-1.5 rounded-lg border border-[#fedf89] bg-[#fffaeb] px-3 py-2.5 text-[11px] font-medium text-[#93370d]">
+                                    <AlertTriangle className="h-3.5 w-3.5 shrink-0" />{' '}
+                                    M-Pesa confirmation unavailable. Reconnect,
+                                    retry, or choose another payment method.
+                                  </p>
+                                )}
+                                {mpesaFlow === 'paybill' &&
+                                  mpesaStatus !== 'idle' && (
+                                    <div
+                                      className={cn(
+                                        'flex min-h-11 items-center gap-2.5 rounded-[7px] px-3 py-2.5 text-xs font-semibold',
+                                        mpesaStatus === 'success'
+                                          ? 'bg-[#effcf1] text-[#0c4a26] dark:bg-emerald-950/30 dark:text-emerald-300'
+                                          : mpesaStatus === 'failed' ||
+                                              mpesaStatus === 'timeout' ||
+                                              mpesaStatus === 'cancelled'
+                                            ? 'bg-[#fef3f2] text-[#b42318] dark:bg-red-950/30 dark:text-red-300'
+                                            : 'bg-[#f3fbf5] text-[#246e36] dark:bg-[#12351c] dark:text-emerald-300'
+                                      )}
+                                      role="status"
+                                      aria-live="polite"
+                                    >
+                                      {mpesaStatus === 'success' ? (
+                                        <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                                      ) : mpesaStatus === 'failed' ||
+                                        mpesaStatus === 'timeout' ||
+                                        mpesaStatus === 'cancelled' ? (
+                                        <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                                      ) : (
+                                        <Loader2 className="h-4 shrink-0 [--color-1:#00a651]" />
+                                      )}
+                                      <span>
+                                        {mpesaStatus === 'success'
+                                          ? `Payment received · ${mpesaRef}`
+                                          : mpesaStatus === 'failed' ||
+                                              mpesaStatus === 'timeout' ||
+                                              mpesaStatus === 'cancelled'
+                                            ? mpesaMessage
+                                            : 'Awaiting payment confirmation'}
+                                      </span>
+                                    </div>
+                                  )}
+                              </div>
+                            </div>
+                          )}
+
+                          {paymentMethod === 'card' && (
+                            <div className="overflow-hidden bg-white dark:bg-[var(--dashboard-surface)]">
+                              <div className="flex items-center justify-between border-b border-[#e4e7ec] bg-white px-4 py-4 dark:border-white/10 dark:bg-[var(--dashboard-surface)]">
+                                <div className="flex items-center gap-2.5">
+                                  <PaymentBrand method="card" compact />
+                                  <div>
+                                    <p className="text-sm font-bold">Card payment</p>
+                                    <p className="text-[11px] text-[#667085] dark:text-[#a1a1a6]">Use the physical terminal, then record its result</p>
+                                  </div>
+                                </div>
+                                <div className="text-right">
+                                  <span className="block text-[9px] font-bold uppercase tracking-wider text-[#667085]">Amount to charge</span>
+                                  <strong className="text-base tabular-nums">{formatCurrency(total)}</strong>
+                                </div>
+                              </div>
+                              <div className="space-y-3 p-4">
+                                <div>
+                                  <label className={ui.label}>Terminal</label>
+                                  <select
+                                    className={cn(inputCls, 'h-10')}
+                                    value={selectedCardTerminalId}
+                                    disabled={cardTerminalsLoading || cardResult === 'approved' || cardRecovery}
+                                    onChange={(event) => setSelectedCardTerminalId(event.target.value)}
+                                  >
+                                    <option value="">{cardTerminalsLoading ? 'Loading terminals…' : 'Select terminal'}</option>
+                                    {cardTerminals.map((terminal) => <option key={terminal.id} value={terminal.id}>{terminal.name} · {terminal.terminalCode}</option>)}
+                                  </select>
+                                </div>
+                                {!cardTerminalsLoading && cardTerminals.length === 0 && <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-200"><strong>No active terminal</strong><p className="mt-1">Ask a manager to configure a physical card terminal for this branch.</p></div>}
+                                {cardResult === 'idle' && cardTerminals.length > 0 && <div className="grid grid-cols-2 gap-2"><button type="button" disabled={!selectedCardTerminalId} onClick={() => setCardResult('declined')} className="h-11 rounded-lg border border-red-200 bg-white text-sm font-bold text-red-600 hover:bg-red-50 disabled:opacity-50 dark:border-red-500/30 dark:bg-white/5">Declined</button><button type="button" disabled={!selectedCardTerminalId} onClick={() => setCardResult('approved')} className="h-11 rounded-lg bg-emerald-600 text-sm font-bold text-white hover:bg-emerald-700 disabled:opacity-50">Approved</button></div>}
+                                {cardResult === 'declined' && <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-center dark:border-red-500/20 dark:bg-red-500/10"><AlertTriangle className="mx-auto h-7 w-7 text-red-600"/><p className="mt-2 text-sm font-bold">Payment declined</p><p className="mt-1 text-xs text-[#667085] dark:text-[#a1a1a6]">No payment was recorded. Try the terminal again or choose another method.</p><div className="mt-3 flex justify-center gap-2"><button type="button" onClick={() => setCardResult('idle')} className="h-9 rounded-lg border bg-white px-3 text-xs font-bold dark:bg-white/5">Try again</button><button type="button" onClick={() => void switchPaymentMethod('cash')} className="h-9 rounded-lg bg-[#f5b800] px-3 text-xs font-bold text-[#241d00]">Choose another method</button></div></div>}
+                                {cardResult === 'approved' && <>
+                                  <div><label className={ui.label}>Authorization code <span className="text-[#d92d20]">*</span></label><input type="text" maxLength={40} placeholder="Approval code from terminal" value={mpesaRef} disabled={Boolean(cardAttemptId)} onChange={(event) => setMpesaRef(event.target.value.toUpperCase().replace(/[^A-Z0-9-]/g, ''))} className={cn(inputCls, 'h-10')} /></div>
+                                  <div><label className={ui.label}>Reference / RRN {cardTerminals.find((item) => item.id === selectedCardTerminalId)?.referenceRequired ? <span className="text-[#d92d20]">*</span> : <span className="font-normal text-[#98a2b3]">(optional)</span>}</label><input type="text" maxLength={120} placeholder="Retrieval reference" value={paymentReceiver} disabled={Boolean(cardAttemptId)} onChange={(event) => setPaymentReceiver(event.target.value.toUpperCase())} className={cn(inputCls, 'h-10')} /></div>
+                                  <div className="grid grid-cols-3 gap-2"><select aria-label="Card brand" value={cardBrand} disabled={Boolean(cardAttemptId)} onChange={(event) => setCardBrand(event.target.value as typeof cardBrand)} className={cn(inputCls, 'h-10 px-2 text-xs')}><option value="">Brand</option><option value="visa">Visa</option><option value="mastercard">Mastercard</option><option value="amex">Amex</option><option value="other">Other</option></select><input aria-label="Last four digits" inputMode="numeric" maxLength={4} placeholder="Last 4" value={cardLast4} disabled={Boolean(cardAttemptId)} onChange={(event) => setCardLast4(event.target.value.replace(/\D/g, '').slice(0, 4))} className={cn(inputCls, 'h-10 px-2 text-xs')} /><select aria-label="Entry mode" value={cardEntryMode} disabled={Boolean(cardAttemptId)} onChange={(event) => setCardEntryMode(event.target.value as typeof cardEntryMode)} className={cn(inputCls, 'h-10 px-2 text-xs')}><option value="">Entry</option><option value="chip">Chip</option><option value="contactless">Tap</option><option value="swipe">Swipe</option><option value="manual">Manual</option></select></div>
+                                  <label className="flex cursor-pointer items-start gap-2.5 rounded-lg border border-[#e4e7ec] bg-[#f9fafb] p-3 text-xs font-semibold text-[#344054] dark:border-white/10 dark:bg-white/5 dark:text-white"><input type="checkbox" checked={cardApproved} disabled={Boolean(cardAttemptId)} onChange={(event) => setCardApproved(event.target.checked)} className="mt-0.5 h-4 w-4 accent-emerald-600"/><span>I confirm the terminal shows APPROVED<span className="mt-0.5 block text-[10px] font-normal text-[#667085]">Never enter or store a full card number, CVV, or PIN.</span></span></label>
+                                </>}
+                                {cardRecovery && <div className="rounded-xl border border-amber-300 bg-amber-50 p-3 dark:border-amber-500/30 dark:bg-amber-500/10"><p className="text-xs font-bold text-amber-900 dark:text-amber-200">Card may already be charged</p><p className="mt-1 text-[11px] text-amber-800 dark:text-amber-300">Retry saving this sale. Do not charge the customer again.</p><button type="button" onClick={async () => { if (!cardAttemptId) return; await markCardAttemptForReconciliation(cardAttemptId); setCardRecovery(false); notify.success('Sent to card reconciliation'); }} className="mt-2 text-xs font-bold underline">Send to reconciliation</button></div>}
+                              </div>
+                            </div>
+                          )}
+
+                          {paymentMethod === 'bank_transfer' && (
+                            <div className="overflow-hidden bg-white dark:bg-[#171717]">
+                              <div className="flex items-center justify-between border-b bg-[#fff7f7] px-3.5 py-3 dark:border-white/10 dark:bg-red-950/15">
+                                <div className="flex items-center gap-2.5">
+                                  <PaymentBrand
+                                    method="bank_transfer"
+                                    compact
+                                  />
+                                  <div>
+                                    <p className="text-sm font-bold">
+                                      Bank transfer
+                                    </p>
+                                    <p className="text-[11px] text-[#667085]">
+                                      Record the confirmed transfer
+                                    </p>
+                                  </div>
+                                </div>
+                                <strong className="text-base tabular-nums">
+                                  {formatCurrency(total)}
+                                </strong>
+                              </div>
+                              <div className="space-y-3 p-3.5">
+                                <div>
+                                  <label className={ui.label}>
+                                    Bank transaction reference{' '}
+                                    <span className="text-[#d92d20]">*</span>
+                                  </label>
+                                  <input
+                                    type="text"
+                                    placeholder="Enter confirmed bank reference"
+                                    value={mpesaRef}
+                                    onChange={(event) =>
+                                      setMpesaRef(
+                                        event.target.value.toUpperCase()
+                                      )
+                                    }
+                                    className={cn(inputCls, 'h-10')}
+                                  />
+                                </div>
+                                <p className="flex items-center gap-2 rounded-lg bg-[#f9fafb] px-3 py-2.5 text-[11px] text-[#667085] dark:bg-white/5">
+                                  <ShieldCheck className="h-3.5 w-3.5 text-[#e42527]" />
+                                  Verify the funds before completing the sale.
+                                </p>
+                              </div>
+                            </div>
+                          )}
+
+                          {paymentMethod === 'airtel_money' && (
+                            <div className="overflow-hidden border-t border-[#e4e7ec] bg-white dark:border-[#2c2c2e] dark:bg-[#1c1c1e]">
+                              <div className="flex items-center justify-between gap-4 border-b border-[#e4e7ec] bg-white px-4 py-4 dark:border-[#2c2c2e] dark:bg-[#1c1c1e]">
+                                <div className="flex min-w-0 items-center gap-2.5">
+                                  <span className="flex h-10 w-14 shrink-0 items-center justify-center rounded-[7px] bg-[#ed1c24] px-1.5 shadow-sm">
+                                    <Image
+                                      src="/payment-logos/airtel-money.svg"
+                                      alt="Airtel Money"
+                                      width={60}
+                                      height={26}
+                                      className="h-5 w-auto"
+                                    />
+                                  </span>
+                                  <div>
+                                    <p className="text-sm font-bold tracking-tight text-[#273142] dark:text-white">
+                                      Airtel Money
+                                    </p>
+                                    <p className="mt-0.5 text-[11px] text-[#667085] dark:text-[#b3b3b8]">
+                                      Record a confirmed merchant payment
+                                    </p>
+                                  </div>
+                                </div>
+                                <div className="shrink-0 text-right">
+                                  <span className="block text-[9px] font-bold uppercase tracking-[0.12em] text-[#667085] dark:text-[#a1a1a6]">
+                                    Amount due
+                                  </span>
+                                  <strong className="mt-0.5 block text-base font-extrabold tabular-nums text-[#273142] dark:text-white">
+                                    {formatCurrency(total)}
+                                  </strong>
+                                </div>
+                              </div>
+                              <div className="space-y-3 bg-white p-4 dark:bg-[#1c1c1e]">
+                                <div className="grid gap-3 sm:grid-cols-2">
+                                  <label className="block text-xs font-semibold text-[#344054] dark:text-[#e4e7ec]">
+                                    Airtel Money phone{' '}
+                                    <span className="text-[#ed1c24]">*</span>
+                                    <input
+                                      type="tel"
+                                      inputMode="tel"
+                                      autoComplete="tel"
+                                      value={formatKenyanPhoneInput(
+                                        airtelPhone
+                                      )}
+                                      onChange={(event) =>
+                                        setAirtelPhone(
+                                          normalizeKenyanPhoneDraft(
+                                            event.target.value
+                                          )
+                                        )
+                                      }
+                                      placeholder="0733 123 456"
+                                      className="mt-2 h-10 w-full rounded-[5px] border border-[#d8dde5] bg-white px-3 text-sm text-[#273142] outline-none focus:border-[#ed1c24] focus:ring-2 focus:ring-[#ed1c24]/10 dark:border-[#3a3a3c] dark:bg-[#242426] dark:text-white"
+                                    />
+                                  </label>
+                                  <label className="block text-xs font-semibold text-[#344054] dark:text-[#e4e7ec]">
+                                    Transaction reference
+                                    <input
+                                      value={mpesaRef}
+                                      readOnly
+                                      placeholder="Available after confirmation"
+                                      maxLength={40}
+                                      className="mt-2 h-10 w-full rounded-[5px] border border-[#d8dde5] bg-white px-3 text-sm uppercase text-[#273142] outline-none focus:border-[#ed1c24] focus:ring-2 focus:ring-[#ed1c24]/10 dark:border-[#3a3a3c] dark:bg-[#242426] dark:text-white"
+                                    />
+                                  </label>
+                                </div>
+                                <div className="flex items-center gap-2.5 rounded-[7px] bg-[#fff5f5] px-3 py-2.5 text-[11px] leading-5 text-[#7a271a] dark:bg-[#351719] dark:text-[#fda29b]">
+                                  {airtelStatus === 'success' ? (
+                                    <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
+                                  ) : airtelStatus === 'initiating' ||
+                                    airtelStatus === 'pending' ? (
+                                    <Loader2 className="h-4 w-4 shrink-0 animate-spin text-[#ed1c24]" />
+                                  ) : (
+                                    <ShieldCheck className="h-4 w-4 shrink-0 text-[#ed1c24]" />
+                                  )}
+                                  <span>
+                                    {airtelStatus === 'success'
+                                      ? `Payment confirmed · ${mpesaRef}`
+                                      : airtelStatus === 'pending' ||
+                                          airtelStatus === 'initiating'
+                                        ? airtelMessage ||
+                                          'Waiting for customer approval'
+                                        : airtelStatus === 'failed'
+                                          ? airtelMessage
+                                          : 'The customer will receive an Airtel Money approval prompt.'}
+                                  </span>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    airtelStatus === 'pending'
+                                      ? void checkAirtelStatus()
+                                      : void sendAirtelPrompt()
+                                  }
+                                  disabled={
+                                    !isOnline ||
+                                    airtelStatus === 'initiating' ||
+                                    airtelStatus === 'success' ||
+                                    !airtelPhone.trim()
+                                  }
+                                  className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-[7px] bg-[#ed1c24] px-4 text-sm font-bold text-white transition-colors hover:bg-[#cf171e] disabled:cursor-not-allowed disabled:bg-[#e4e7ec] disabled:text-[#98a2b3] dark:disabled:bg-[#3a3a3c]"
+                                >
+                                  {airtelStatus === 'initiating' && (
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                  )}
+                                  {airtelStatus === 'pending'
+                                    ? 'Check payment status'
+                                    : airtelStatus === 'success'
+                                      ? 'Payment confirmed'
+                                      : airtelStatus === 'failed'
+                                        ? 'Try Airtel prompt again'
+                                        : `Send Airtel Money prompt · ${formatCurrency(total)}`}
+                                </button>
+                                <details className="group rounded-[7px] border border-[#e4e7ec] bg-white px-3 py-2.5 text-[11px] leading-5 text-[#475467] shadow-sm dark:border-[#3a3a3c] dark:bg-[#242426] dark:text-[#d0d5dd]">
+                                  <summary className="flex cursor-pointer list-none items-center justify-between font-bold text-[#273142] dark:text-white">
+                                    Payment check{' '}
+                                    <ChevronDown className="h-4 w-4 text-[#667085] transition-transform group-open:rotate-180" />
+                                  </summary>
+                                  <div className="mt-2 border-t border-[#e4e7ec] pt-2 dark:border-[#3a3a3c]">
+                                    The customer approves{' '}
+                                    <strong>{formatCurrency(total)}</strong> on
+                                    their phone. Complete the sale only after
+                                    Airtel confirms a transaction reference.
+                                  </div>
+                                </details>
+                              </div>
+                            </div>
+                          )}
+
+                          {paymentMethod !== 'mpesa' && (
+                            <div className="sticky bottom-0 z-20 flex gap-2 border-t border-[#e4e7ec] bg-white p-3 pb-[max(.75rem,env(safe-area-inset-bottom))] shadow-[0_-4px_12px_rgba(16,24,40,.06)] dark:border-white/10 dark:bg-[#171717] sm:p-4 sm:shadow-none">
+                              <button
+                                type="button"
+                                onClick={() => setCheckoutStep('customer')}
+                                className="h-[50px] rounded-lg border border-[#d0d5dd] bg-white px-5 text-sm font-semibold text-[#344054] shadow-none transition-colors hover:bg-[#f9fafb]"
+                              >
+                                Back
+                              </button>
+                              {(paymentMethod !== 'card' || cardResult === 'approved') && <button
+                                type="button"
+                                onClick={() => handleCheckout()}
+                                disabled={
+                                  processing ||
+                                  cart.length === 0 ||
+                                  !hasActiveShift ||
+                                  (paymentMethod === 'cash' &&
+                                    parseFloat(amountPaid || '0') < total) ||
+                                  (paymentMethod === 'card' &&
+                                    (!mpesaRef.trim() || !cardApproved || !selectedCardTerminalId || (cardLast4.length > 0 && cardLast4.length !== 4) || (cardTerminals.find((item) => item.id === selectedCardTerminalId)?.referenceRequired && !paymentReceiver.trim()))) ||
+                                  (paymentMethod === 'airtel_money' &&
+                                    !mpesaRef.trim()) ||
+                                  (paymentMethod === 'bank_transfer' &&
+                                    !mpesaRef.trim())
+                                }
+                                className={cn(
+                                  'flex min-h-[50px] flex-1 touch-manipulation items-center justify-center gap-2 rounded-lg px-3 text-center text-sm font-bold leading-tight shadow-none transition-colors sm:px-4',
+                                  processing ||
+                                    cart.length === 0 ||
+                                    !hasActiveShift ||
+                                    (paymentMethod === 'cash' &&
+                                      parseFloat(amountPaid || '0') < total) ||
+                                    (paymentMethod === 'card' &&
+                                      (!mpesaRef.trim() || !cardApproved || !selectedCardTerminalId || (cardLast4.length > 0 && cardLast4.length !== 4) || (cardTerminals.find((item) => item.id === selectedCardTerminalId)?.referenceRequired && !paymentReceiver.trim()))) ||
+                                    (paymentMethod === 'airtel_money' &&
+                                      !mpesaRef.trim()) ||
+                                    (paymentMethod === 'bank_transfer' &&
+                                      !mpesaRef.trim())
+                                    ? 'cursor-not-allowed !bg-[#e4e7ec] !text-[#667085] shadow-none dark:!bg-white/10 dark:!text-[#8b8b8b]'
+                                    : 'hover:bg-[#e2a900]'
+                                )}
+                                style={
+                                  processing ||
+                                  cart.length === 0 ||
+                                  !hasActiveShift
+                                    ? undefined
+                                    : {
+                                        backgroundColor: '#f5b800',
+                                        color: '#241d00',
+                                      }
+                                }
+                              >
+                                {processing ? (
+                                  <>
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                    {paymentMethod === 'cash'
+                                      ? 'Processing cash sale…'
+                                      : paymentMethod === 'card'
+                                        ? 'Recording card payment…'
+                                        : 'Processing payment…'}
+                                  </>
+                                ) : (
+                                  <>
+                                    <CheckCircle2 className="hidden h-4 w-4" />
+                                    {!hasActiveShift
+                                      ? 'Start shift to take payment'
+                                      : paymentMethod === 'cash'
+                                        ? `Complete cash sale · ${formatCurrency(total)}`
+                                        : paymentMethod === 'card'
+                                          ? `Complete card sale · ${formatCurrency(total)}`
+                                          : paymentMethod === 'airtel_money'
+                                            ? `Record Airtel payment · ${formatCurrency(total)}`
+                                            : `Complete sale · ${formatCurrency(total)}`}
+                                  </>
+                                )}
+                              </button>}
+                            </div>
+                          )}
+                          {paymentMethod === 'mpesa' && (
+                            <div className="flex border-t border-[#e4e7ec] p-4 dark:border-white/10">
+                              <button
+                                type="button"
+                                onClick={() => void returnToCustomerStep()}
+                                disabled={mpesaStatus === 'success'}
+                                className="h-[50px] rounded-lg border border-[#d0d5dd] bg-white px-5 text-sm font-semibold text-[#344054] shadow-none transition-colors hover:bg-[#f9fafb] disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/10 dark:bg-[var(--dashboard-surface-subtle)] dark:text-white"
+                              >
+                                Back
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                  {parseFloat(amountPaid || '0') >= total ? (
-                    <div className="flex items-center justify-between border-t border-[#e4e7ec] px-1 py-2.5 text-[#344054] dark:border-white/10 dark:text-white">
-                      <span className="flex items-center gap-1.5 text-xs font-bold"><CheckCircle2 className="h-4 w-4 text-[#6f5600]" /> Change due</span>
-                      <strong className="text-base tabular-nums">{formatCurrency(change)}</strong>
-                    </div>
-                  ) : null}
+                  )}
                 </div>
-              </div></div>
+              </>
             )}
-
-            {paymentMethod === 'mpesa' && (
-              <div className="overflow-hidden bg-white dark:bg-[#171717]">
-                <div className="flex items-center justify-between gap-4 border-b border-[#e5efe7] px-3.5 py-3 dark:border-emerald-900/60">
-                  <div className="flex min-w-0 items-center gap-2.5">
-                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-[#d6ecda] bg-[#f5fcf6] dark:border-emerald-900 dark:bg-emerald-950/30">
-                        <Image src="/payment-logos/mpesa.svg" alt="M-Pesa" width={52} height={22} className="h-4 w-auto" />
-                      </span>
-                      <div>
-                        <p className="text-sm font-bold tracking-tight text-[#183625] dark:text-emerald-100">{mpesaFlow === 'paybill' && mpesaRequestId ? `M-Pesa — ${mpesaAccountType === 'till' ? 'Till' : 'PayBill'}` : 'M-Pesa payment'}</p>
-                        <p className="mt-0.5 text-[11px] text-[#66806c] dark:text-emerald-300">{mpesaStatus === 'success' ? 'Confirmed by Safaricom' : 'Payment verified before sale completion'}</p>
-                      </div>
-                  </div>
-                  <div className="shrink-0 text-right">
-                    <span className="block text-[9px] font-bold uppercase tracking-[0.12em] text-[#69816f] dark:text-emerald-400">Amount due</span>
-                    <strong className="mt-0.5 block text-base font-extrabold tabular-nums text-[#183625] dark:text-white">{formatMpesaAmount(total)}</strong>
-                  </div>
-                </div>
-
-                <div className="space-y-3 p-3.5">
-                  <div>
-                    <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.12em] text-[#66806c] dark:text-emerald-300">Payment option</p>
-                    <div className="grid grid-cols-2 gap-2">
-                      <button type="button" onClick={() => { if (!mpesaLocksBasket) setMpesaFlow('stk') }} disabled={mpesaLocksBasket && mpesaFlow !== 'stk'} className={cn('flex min-h-[62px] items-center gap-2.5 rounded-lg border px-3 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-50', mpesaFlow === 'stk' ? 'border-[#11ad2d] bg-[#effcf1] dark:bg-emerald-950/30' : 'border-[#e4ece6] bg-white hover:border-[#85d993] hover:bg-[#f8fdf8] dark:border-white/10 dark:bg-transparent')}><span className={cn('flex h-7 w-7 shrink-0 items-center justify-center rounded-md', mpesaFlow === 'stk' ? 'bg-[#11ad2d] text-white' : 'bg-[#eff7f0] text-[#168337] dark:bg-emerald-950/40')}><Smartphone className="h-3.5 w-3.5" /></span><span><span className="block text-xs font-bold text-[#183625] dark:text-emerald-100">Safaricom Prompt</span><span className="mt-0.5 block text-[10px] text-[#6b7c71]">Send STK Push</span></span></button>
-                      <button type="button" onClick={openManualMpesaFlow} disabled={mpesaLocksBasket && mpesaFlow !== 'paybill'} className={cn('flex min-h-[62px] items-center gap-2.5 rounded-lg border px-3 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-50', mpesaFlow === 'paybill' ? 'border-[#11ad2d] bg-[#effcf1] dark:bg-emerald-950/30' : 'border-[#e4ece6] bg-white hover:border-[#85d993] hover:bg-[#f8fdf8] dark:border-white/10 dark:bg-transparent')}><span className={cn('flex h-7 w-7 shrink-0 items-center justify-center rounded-md', mpesaFlow === 'paybill' ? 'bg-[#11ad2d] text-white' : 'bg-[#eff7f0] text-[#168337] dark:bg-emerald-950/40')}><Building2 className="h-3.5 w-3.5" /></span><span><span className="block text-xs font-bold text-[#183625] dark:text-emerald-100">Till / PayBill</span><span className="mt-0.5 block text-[10px] text-[#6b7c71]">Pay manually</span></span></button>
-                    </div>
-                  </div>
-                {mpesaFlow === 'stk' ? (
-                  <div className="rounded-lg border border-[#e5efe7] bg-[#fafdfb] p-3 dark:border-emerald-900/60 dark:bg-emerald-950/20">
-                    {mpesaStatus === 'initiating' || mpesaStatus === 'pending' ? (
-                      <div className="py-2 text-center">
-                        <Loader2 className="mx-auto h-7 w-7 animate-spin text-[#11ad2d]" />
-                        <p className="mt-2 text-sm font-bold text-[#183625] dark:text-emerald-100">{mpesaStatus === 'initiating' ? 'Sending STK Push' : 'Waiting for payment'}</p>
-                        <p className="mt-1 text-xs text-[#66806c] dark:text-emerald-300">STK Push sent to <strong>{maskKenyanPhone(mpesaPhone)}</strong></p>
-                        <p className="mx-auto mt-2 max-w-xs text-[11px] leading-4 text-[#66806c] dark:text-emerald-300">Ask the customer to check their phone and enter their M-Pesa PIN.</p>
-                        <div className="mt-3 flex justify-center gap-2">
-                          <button type="button" onClick={() => void checkMpesaStatusNow()} className="h-9 rounded-md border border-[#b9d9c0] bg-white px-3 text-xs font-bold text-[#176b2c] shadow-none hover:bg-[#f4fbf5] dark:border-emerald-800 dark:bg-transparent dark:text-emerald-300">Check status</button>
-                          <button type="button" onClick={() => resetMpesaPrompt(true)} className="h-9 rounded-md px-3 text-xs font-semibold text-[#475467] hover:bg-white dark:text-[#d0d5dd] dark:hover:bg-white/5">Change phone</button>
-                        </div>
-                      </div>
-                    ) : mpesaStatus === 'success' ? (
-                      <div className="py-2 text-center">
-                        <CheckCircle2 className="mx-auto h-7 w-7 text-[#11ad2d]" />
-                        <p className="mt-2 text-sm font-bold text-[#183625] dark:text-emerald-100">M-Pesa payment received</p>
-                        <p className="mt-1 text-base font-extrabold text-[#183625] dark:text-white">{formatMpesaAmount(total)}</p>
-                        <p className="mt-1 text-xs text-[#66806c]">Receipt <strong>{mpesaRef}</strong> · Completing sale…</p>
-                      </div>
-                    ) : mpesaStatus === 'failed' || mpesaStatus === 'timeout' || mpesaStatus === 'cancelled' ? (
-                      <div className="py-1">
-                        <p className="text-sm font-bold text-[#7a271a] dark:text-red-300">{mpesaStatus === 'cancelled' ? 'Payment cancelled' : mpesaStatus === 'timeout' ? 'Payment not confirmed' : 'M-Pesa payment failed'}</p>
-                        <p className="mt-1 text-xs leading-4 text-[#667085] dark:text-[#b8b8b8]">{mpesaMessage || (mpesaStatus === 'cancelled' ? 'The customer cancelled the M-Pesa request.' : 'No payment confirmation was received.')}</p>
-                        <p className="mt-1 text-xs font-semibold text-[#344054] dark:text-white">{formatMpesaAmount(total)} was not confirmed.</p>
-                        <div className="mt-3 flex flex-wrap gap-2">
-                          {mpesaStatus === 'timeout' && <button type="button" onClick={() => void checkMpesaStatusNow()} className="h-9 rounded-md border border-[#d0d5dd] bg-white px-3 text-xs font-bold text-[#344054]">Check status</button>}
-                          <button type="button" onClick={() => void prepareNewMpesaPrompt()} className="h-9 rounded-md bg-[#11ad2d] px-3 text-xs font-bold text-white">Send new request</button>
-                          <button type="button" onClick={() => resetMpesaPrompt(true)} className="h-9 rounded-md px-3 text-xs font-semibold text-[#475467] dark:text-[#d0d5dd]">Change number</button>
-                        </div>
-                      </div>
-                    ) : (
-                      <>
-                        <label className="mb-1.5 block text-xs font-bold text-[#183625] dark:text-emerald-200">Customer phone number</label>
-                        <input type="tel" inputMode="tel" autoComplete="tel" placeholder="0712 345 678" value={mpesaPhone} onChange={(event) => setMpesaPhone(event.target.value)} className={cn(inputCls, 'h-11 w-full border-[#c9e9ce] bg-white focus:border-[#11ad2d] focus:ring-[#11ad2d]/10 dark:bg-[#171717]')} />
-                        <p className="mt-2 text-[11px] text-[#66806c] dark:text-emerald-300">An M-Pesa prompt will be sent to this phone.</p>
-                        <button type="button" onClick={handleMpesaPrompt} disabled={!isOnline} className="mt-3 inline-flex h-11 w-full items-center justify-center rounded-lg bg-[#11ad2d] px-3 text-xs font-bold text-white transition-colors hover:bg-[#079c35] disabled:cursor-not-allowed disabled:opacity-50">Send STK Push · {formatMpesaAmount(total, false)}</button>
-                      </>
-                    )}
-                  </div>
-                ) : (
-                  <div className="space-y-2 rounded-lg border border-[#e5efe7] bg-[#fafdfb] p-3 dark:border-emerald-900/60 dark:bg-emerald-950/20">
-                    {!mpesaRequestId || mpesaStatus === 'failed' || mpesaStatus === 'timeout' ? (
-                      <div className="py-3 text-center">
-                        {mpesaStatus === 'initiating' ? <Loader2 className="mx-auto h-6 w-6 animate-spin text-[#11ad2d]" /> : <AlertTriangle className="mx-auto h-6 w-6 text-[#b54708]" />}
-                        <p className="mt-2 text-sm font-bold text-[#183625] dark:text-emerald-100">{mpesaStatus === 'initiating' ? 'Loading payment details' : 'Payment details unavailable'}</p>
-                        <p className="mt-1 text-[11px] text-[#667085] dark:text-[#b8b8b8]">{mpesaStatus === 'initiating' ? 'Preparing the branch Till or PayBill account.' : mpesaMessage || (requiresAgeVerification && !ageVerified ? 'Verify the customer age to load payment details.' : 'Check the branch M-Pesa configuration and try again.')}</p>
-                        {mpesaStatus !== 'initiating' && <button type="button" onClick={() => void handlePaybillPayment()} disabled={!isOnline} className="mt-3 h-9 rounded-md border border-[#b9d9c0] bg-white px-4 text-xs font-bold text-[#176b2c] dark:border-emerald-800 dark:bg-transparent dark:text-emerald-300">Try again</button>}
-                      </div>
-                    ) : (
-                      <div className="grid grid-cols-2 gap-2">
-                        {mpesaStatus === 'success' ? <div className="col-span-2 py-3 text-center"><CheckCircle2 className="mx-auto h-7 w-7 text-[#11ad2d]" /><p className="mt-2 text-sm font-bold text-[#183625] dark:text-emerald-100">Payment received</p><strong className="mt-1 block text-lg tabular-nums text-[#183625] dark:text-white">{formatMpesaAmount(total)}</strong><div className="mx-auto mt-3 max-w-xs space-y-1 text-xs text-[#667085] dark:text-[#b8b8b8]"><p>M-Pesa receipt <strong className="text-[#183625] dark:text-white">{mpesaRef}</strong></p><p>Paid via <strong>{mpesaAccountType === 'till' ? 'Till' : 'PayBill'} {mpesaShortcode}</strong></p>{mpesaAccountType === 'paybill' && <p>Account <strong>{mpesaAccountReference}</strong></p>}{mpesaPhone && <p>Phone <strong>{maskKenyanPhone(mpesaPhone)}</strong></p>}<p className="font-semibold text-[#43784f] dark:text-emerald-300">Confirmed by Safaricom</p><p>Completing sale…</p></div></div> : <>
-                        {mpesaManualAccounts.length > 1 && <div className="col-span-2"><p className="mb-1.5 text-xs font-bold text-[#183625] dark:text-emerald-200">Pay using</p><div className="grid grid-cols-2 gap-2">{mpesaManualAccounts.map((account) => <button key={`${account.accountType}-${account.shortcode}`} type="button" onClick={() => void changeManualMpesaMode(account.accountType)} disabled={mpesaStatus === 'initiating'} className={cn('h-10 rounded-md border text-xs font-bold transition-colors disabled:opacity-50', mpesaAccountType === account.accountType ? 'border-[#11ad2d] bg-[#effcf1] text-[#176b2c] dark:bg-emerald-950/30 dark:text-emerald-200' : 'border-[#dfe5e0] bg-white text-[#475467] hover:border-[#85d993] dark:border-white/10 dark:bg-transparent dark:text-[#d0d5dd]')}>{account.accountType === 'till' ? 'Till Number' : 'PayBill'}</button>)}</div></div>}
-                        <div className={cn('rounded-lg border border-[#c9e9ce] bg-white p-3 dark:border-emerald-900 dark:bg-[#171717]', mpesaAccountType === 'till' && 'col-span-2')}>
-                          <span className="block text-[9px] font-bold uppercase tracking-wider text-[#69816f]">{mpesaAccountType === 'till' ? 'Till number' : 'PayBill number'}</span>
-                          <span className="mt-1 flex items-center justify-between gap-3"><strong className="text-xl tabular-nums text-[#183625] dark:text-white">{mpesaShortcode}</strong><button type="button" onClick={() => void copyManualPaymentValue(mpesaShortcode, mpesaAccountType === 'till' ? 'Till number' : 'PayBill number')} className="inline-flex h-7 items-center gap-1 rounded px-2 text-[10px] font-semibold text-[#43784f] hover:bg-[#effcf1] dark:text-emerald-300"><Copy className="h-3 w-3" />Copy</button></span>
-                          {mpesaMerchantName && <span className="mt-1 block text-[10px] text-[#667085] dark:text-[#b8b8b8]">Pay to {mpesaMerchantName}</span>}
-                        </div>
-                        {mpesaAccountType === 'paybill' && <div className="rounded-lg border border-[#c9e9ce] bg-white p-3 dark:border-emerald-900 dark:bg-[#171717]">
-                          <span className="block text-[9px] font-bold uppercase tracking-wider text-[#69816f]">Account reference</span>
-                          <span className="mt-1 flex items-center justify-between gap-3"><strong className="text-lg tracking-wide text-[#183625] dark:text-white">{mpesaAccountReference}</strong><button type="button" onClick={() => void copyManualPaymentValue(mpesaAccountReference, 'Account number')} className="inline-flex h-7 items-center gap-1 rounded px-2 text-[10px] font-semibold text-[#43784f] hover:bg-[#effcf1] dark:text-emerald-300"><Copy className="h-3 w-3" />Copy</button></span>
-                        </div>}
-                        <div className="col-span-2 rounded-md border border-[#e4ece6] bg-white px-3 py-2.5 dark:border-white/10 dark:bg-transparent"><span className="block text-[9px] font-bold uppercase tracking-wider text-[#69816f]">Amount</span><strong className="mt-1 block text-lg tabular-nums text-[#183625] dark:text-white">{formatMpesaAmount(total)}</strong></div>
-                        <div className="col-span-2 rounded-md border border-[#e4ece6] bg-white px-3 py-2.5 text-[11px] leading-5 text-[#475467] dark:border-white/10 dark:bg-transparent dark:text-[#d0d5dd]">
-                          <p className="mb-1 font-bold text-[#183625] dark:text-emerald-200">How to pay</p>
-                          <ol className="list-inside list-decimal">
-                            <li>Open M-Pesa</li>
-                            <li>Select Lipa na M-Pesa</li>
-                            <li>Select {mpesaAccountType === 'till' ? 'Buy Goods and Services' : 'PayBill'}</li>
-                            <li>Enter {mpesaAccountType === 'till' ? 'Till' : 'PayBill'} {mpesaShortcode}</li>
-                            {mpesaAccountType === 'paybill' && <li>Enter account {mpesaAccountReference}</li>}
-                            <li>Enter {formatMpesaAmount(total, false)}</li>
-                            <li>Confirm and enter M-Pesa PIN</li>
-                          </ol>
-                        </div>
-                        <div className="col-span-2"><p className="mb-1 text-[9px] font-bold uppercase tracking-wider text-[#69816f]">Payment status</p><div className="flex items-center gap-2 py-1 text-xs font-semibold text-[#43784f] dark:text-emerald-300"><Loader2 className="h-4 w-4 animate-spin text-[#11ad2d]" />Waiting for Safaricom confirmation</div></div>
-                        <div className="col-span-2 grid grid-cols-2 gap-2">
-                          <button type="button" onClick={() => void checkMpesaStatusNow()} className="h-9 rounded-md border border-[#b9d9c0] bg-white text-xs font-bold text-[#176b2c] dark:border-emerald-800 dark:bg-transparent dark:text-emerald-300">Check for payment</button>
-                          <button type="button" onClick={() => void findManualPayment()} className="h-9 rounded-md border border-[#b9d9c0] bg-white text-xs font-bold text-[#176b2c] dark:border-emerald-800 dark:bg-transparent dark:text-emerald-300">Find payment</button>
-                        </div>
-                        <div className="col-span-2 border-t border-[#e4ece6] pt-2 dark:border-white/10"><label className="block text-xs font-bold text-[#183625] dark:text-emerald-200">Payer phone <span className="font-normal text-[#667085]">(optional)</span></label><input type="tel" inputMode="tel" autoComplete="tel" placeholder="0712 345 678" value={formatKenyanPhoneInput(mpesaPhone)} onChange={(event) => setMpesaPhone(normalizeKenyanPhoneDraft(event.target.value))} onBlur={() => void saveOptionalManualPhone()} className={cn(inputCls, 'mt-1.5 h-10 w-full border-[#dfe5e0] bg-white focus:border-[#11ad2d] focus:ring-[#11ad2d]/10 dark:bg-[#171717]')} /><p className="mt-1 text-[10px] leading-4 text-[#667085] dark:text-[#b8b8b8]">Optional. Helps identify the payment if needed.</p></div>
-                        <button type="button" onClick={() => { resetMpesaPrompt(false); setMpesaFlow('stk') }} className="col-span-2 h-8 text-left text-xs font-semibold text-[#475467] hover:text-[#176b2c] dark:text-[#d0d5dd]">← Back to M-Pesa options</button>
-                        </>}
-                      </div>
-                    )}
-                  </div>
-                )}
-                {!isOnline && (
-                  <p className="flex items-center gap-1.5 rounded-lg border border-[#fedf89] bg-[#fffaeb] px-3 py-2.5 text-[11px] font-medium text-[#93370d]">
-                    <AlertTriangle className="h-3.5 w-3.5 shrink-0" /> M-Pesa confirmation unavailable. Reconnect, retry, or choose another payment method.
-                  </p>
-                )}
-                {mpesaFlow === 'paybill' && mpesaStatus !== 'idle' && (
-                  <div
-                    className={cn(
-                      'flex items-start gap-2 rounded-lg border px-3 py-2.5 text-[11px] font-medium',
-                      mpesaStatus === 'success' ? 'border-[#bbf0d0] bg-[#effcf1] text-[#0c4a26] dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-300' :
-                      mpesaStatus === 'failed' || mpesaStatus === 'timeout' || mpesaStatus === 'cancelled' ? 'border-[#fecdca] bg-[#fef3f2] text-[#b42318] dark:border-red-900 dark:bg-red-950/30 dark:text-red-300' :
-                      'border-[#bdebc6] bg-[#f2fcf4] text-[#246e36] dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-300'
-                    )}
-                    role="status"
-                    aria-live="polite"
-                  >
-                    {mpesaStatus === 'success' ? <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0" /> : mpesaStatus === 'failed' || mpesaStatus === 'timeout' || mpesaStatus === 'cancelled' ? <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" /> : <Loader2 className="mt-0.5 h-3.5 w-3.5 shrink-0 animate-spin" />}
-                    <span>{mpesaStatus === 'success' ? `Payment received · ${mpesaRef}` : mpesaMessage}</span>
-                  </div>
-                )}
-              </div>
-              </div>
-            )}
-
-            {paymentMethod === 'card' && (
-              <div className="overflow-hidden bg-white dark:bg-[#171717]">
-                <div className="flex items-center justify-between border-b bg-[#fff7f7] px-3.5 py-3 dark:border-white/10 dark:bg-red-950/15"><div className="flex items-center gap-2.5"><PaymentBrand method="card" compact /><div><p className="text-sm font-bold">Card payment</p><p className="text-[11px] text-[#667085]">Charge this exact amount on the physical terminal</p></div></div><div className="text-right"><span className="block text-[9px] font-bold uppercase tracking-wider text-[#667085]">Amount to charge</span><strong className="text-base tabular-nums">{formatCurrency(total)}</strong></div></div>
-                <div className="space-y-3 p-3.5">
-                  <div><label className={ui.label}>Terminal</label><select className={cn(inputCls, 'h-10')} defaultValue="counter-01"><option value="counter-01">Counter Terminal 01</option></select></div>
-                  <div>
-                  <label className={ui.label}>Authorization code <span className="text-[#d92d20]">*</span></label>
-                  <input
-                    type="text"
-                    placeholder="Enter approval code"
-                    value={mpesaRef}
-                    onChange={(event) => setMpesaRef(event.target.value.toUpperCase())}
-                    className={cn(inputCls, 'h-10')}
-                  />
-                </div>
-                  <div><label className={ui.label}>Reference / RRN <span className="font-normal text-[#98a2b3]">(optional)</span></label><input type="text" placeholder="Enter retrieval reference" value={paymentReceiver} onChange={(event) => setPaymentReceiver(event.target.value.toUpperCase())} className={cn(inputCls, 'h-10')} /></div>
-                  <label className="flex cursor-pointer items-start gap-2.5 rounded-lg border border-[#e4e7ec] bg-[#f9fafb] p-3 text-xs font-semibold text-[#344054] dark:border-white/10 dark:bg-white/5 dark:text-white"><input type="checkbox" checked={cardApproved} onChange={(event) => setCardApproved(event.target.checked)} className="mt-0.5 h-4 w-4 accent-[#e42527]" /><span><span className="block">I confirm the terminal shows APPROVED</span><span className="mt-0.5 block text-[10px] font-normal text-[#667085]">Never record the card number, CVV, or PIN.</span></span></label>
-                </div>
-              </div>
-            )}
-
-            {paymentMethod === 'bank_transfer' && (
-              <div className="overflow-hidden bg-white dark:bg-[#171717]">
-                <div className="flex items-center justify-between border-b bg-[#fff7f7] px-3.5 py-3 dark:border-white/10 dark:bg-red-950/15"><div className="flex items-center gap-2.5"><PaymentBrand method="bank_transfer" compact /><div><p className="text-sm font-bold">Bank transfer</p><p className="text-[11px] text-[#667085]">Record the confirmed transfer</p></div></div><strong className="text-base tabular-nums">{formatCurrency(total)}</strong></div>
-                <div className="space-y-3 p-3.5"><div><label className={ui.label}>Bank transaction reference <span className="text-[#d92d20]">*</span></label><input type="text" placeholder="Enter confirmed bank reference" value={mpesaRef} onChange={(event) => setMpesaRef(event.target.value.toUpperCase())} className={cn(inputCls, 'h-10')} /></div><p className="flex items-center gap-2 rounded-lg bg-[#f9fafb] px-3 py-2.5 text-[11px] text-[#667085] dark:bg-white/5"><ShieldCheck className="h-3.5 w-3.5 text-[#e42527]" />Verify the funds before completing the sale.</p></div>
-              </div>
-            )}
-
-            {paymentMethod === 'airtel_money' && (
-              <div className="overflow-hidden bg-white dark:bg-[#171717]">
-                <div className="flex items-center justify-between border-b bg-[#fff6f6] px-4 py-3"><div className="flex items-center gap-3"><span className="flex h-11 w-16 items-center justify-center rounded-md bg-[#ed1c24] px-2"><Image src="/payment-logos/airtel-money.svg" alt="Airtel Money" width={64} height={28} /></span><div><p className="text-sm font-bold text-[#252b36]">Airtel Money</p><p className="text-[11px] text-[#667085]">Confirm the customer transaction</p></div></div><strong className="text-base tabular-nums">{formatCurrency(total)}</strong></div>
-                <div className="p-4"><label className="block text-sm font-medium text-[#343a46]">Transaction Reference <span className="text-[#ff0000]">*</span><input value={mpesaRef} onChange={(event) => setMpesaRef(event.target.value.toUpperCase())} placeholder="Enter Airtel Money reference" className="mt-2 h-10 w-full rounded-[5px] border border-[#d8dde5] bg-white px-3 text-sm outline-none focus:border-[#e94e1b]" /></label></div>
-              </div>
-            )}
-
-            {paymentMethod !== 'mpesa' && <div className="flex gap-2 border-t border-[#e4e7ec] p-4 dark:border-white/10"><button type="button" onClick={() => setCheckoutStep('customer')} className="h-[50px] rounded-lg border border-[#d0d5dd] bg-white px-5 text-sm font-semibold text-[#344054] shadow-none transition-colors hover:bg-[#f9fafb]">Back</button><button
-              onClick={handleCheckout}
-              disabled={processing || cart.length === 0 || !hasActiveShift || (paymentMethod === 'cash' && parseFloat(amountPaid || '0') < total) || (paymentMethod === 'card' && (!mpesaRef.trim() || !cardApproved)) || (paymentMethod === 'airtel_money' && !mpesaRef.trim()) || (paymentMethod === 'bank_transfer' && !mpesaRef.trim())}
-              className={cn(
-                'flex h-[50px] flex-1 items-center justify-center gap-2 rounded-lg px-4 text-sm font-bold shadow-none transition-colors',
-                processing || cart.length === 0 || !hasActiveShift || (paymentMethod === 'cash' && parseFloat(amountPaid || '0') < total) || (paymentMethod === 'card' && (!mpesaRef.trim() || !cardApproved)) || (paymentMethod === 'airtel_money' && !mpesaRef.trim()) || (paymentMethod === 'bank_transfer' && !mpesaRef.trim())
-                  ? 'cursor-not-allowed !bg-[#e4e7ec] !text-[#667085] shadow-none dark:!bg-white/10 dark:!text-[#8b8b8b]'
-                  : 'hover:bg-[#e2a900]'
-              )}
-              style={processing || cart.length === 0 || !hasActiveShift ? undefined : { backgroundColor: '#f5b800', color: '#241d00' }}
-            >
-              {processing ? (
-                <><Loader2 className="h-4 w-4 animate-spin" />{paymentMethod === 'cash' ? 'Processing cash sale…' : paymentMethod === 'card' ? 'Recording card payment…' : 'Processing payment…'}</>
-              ) : (
-                <>
-                  <CheckCircle2 className="hidden h-4 w-4" />
-                  {!hasActiveShift ? 'Start shift to take payment' : paymentMethod === 'cash' ? `Complete cash sale · ${formatCurrency(total)}` : paymentMethod === 'card' ? `Complete card sale · ${formatCurrency(total)}` : paymentMethod === 'airtel_money' ? `Record Airtel payment · ${formatCurrency(total)}` : `Complete sale · ${formatCurrency(total)}`}
-                </>
-              )}
-            </button></div>}
-            {paymentMethod === 'mpesa' && <div className="flex border-t border-[#e4e7ec] p-4 dark:border-white/10"><button type="button" onClick={() => setCheckoutStep('customer')} disabled={mpesaLocksBasket} className="h-[50px] rounded-lg border border-[#d0d5dd] bg-white px-5 text-sm font-semibold text-[#344054] shadow-none transition-colors hover:bg-[#f9fafb] disabled:cursor-not-allowed disabled:opacity-50">Back</button></div>}
-                </div>
-              </div>
-            </div>
-            )}
-            </div>
-            </>}
           </div>
         )}
       </aside>
 
       {standalone && !checkoutOnly && (
-        <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-[#e6eaed] bg-white p-3 dark:border-white/10 dark:bg-[#111] max-lg:relative" aria-label="POS register actions">
+        <nav
+          className={cn(
+            'fixed inset-x-0 bottom-0 z-40 hidden border-t border-[#e6eaed] bg-white p-2 shadow-[0_-4px_18px_rgba(16,24,40,.08)] dark:border-[var(--dashboard-border)] dark:bg-[var(--dashboard-surface)] dark:shadow-none sm:p-3 lg:block',
+            checkoutOpen && 'max-lg:hidden'
+          )}
+          aria-label="POS register actions"
+        >
           <div className="pos-action-scroll mx-auto flex flex-wrap items-center justify-center gap-2 max-sm:flex-nowrap max-sm:justify-start max-sm:overflow-x-auto">
-            <button type="button" onClick={() => void holdSale()} disabled={!canHold || cart.length === 0 || Boolean(heldSaleActionId)} className="inline-flex shrink-0 items-center justify-center gap-2 rounded-[5px] border border-[#E04F16] bg-[#E04F16] px-[0.85rem] py-[0.4rem] text-[0.85rem] font-semibold leading-normal text-white shadow-[0_4px_20px_rgba(224,79,22,0.15)] transition-all duration-500 hover:border-[#BF4313] hover:bg-[#BF4313] hover:shadow-[0_3px_10px_rgba(224,79,22,0.5)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E04F16]/40 disabled:cursor-not-allowed disabled:opacity-[0.65]"><PauseCircle className="h-4 w-4" />Hold</button>
-            <button type="button" onClick={voidCurrentSale} disabled={cart.length === 0} className="inline-flex shrink-0 items-center justify-center gap-2 rounded-[5px] border border-[#155EEF] bg-[#155EEF] px-[0.85rem] py-[0.4rem] text-[0.85rem] font-semibold leading-normal text-white shadow-[0_4px_20px_rgba(21,94,239,0.15)] transition-all duration-500 hover:border-[#0E50D2] hover:bg-[#0E50D2] hover:shadow-[0_3px_10px_rgba(21,94,239,0.5)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#155EEF]/40 disabled:cursor-not-allowed disabled:opacity-[0.65]"><Trash2 className="h-4 w-4" />Void</button>
-            <button type="button" onClick={openCheckout} disabled={cart.length === 0 || !hasActiveShift} className="inline-flex shrink-0 items-center justify-center gap-2 rounded-[5px] border border-[#06AED4] bg-[#06AED4] px-[0.85rem] py-[0.4rem] text-[0.85rem] font-semibold leading-normal text-white shadow-[0_4px_20px_rgba(6,174,212,0.15)] transition-all duration-500 hover:border-[#0592B1] hover:bg-[#0592B1] hover:shadow-[0_3px_10px_rgba(6,174,212,0.5)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#06AED4]/40 disabled:cursor-not-allowed disabled:opacity-[0.65]"><WalletCards className="h-4 w-4" />Payment</button>
-            <button type="button" onClick={openHeldOrders} disabled={!canHold} title="Open and resume held sales" className="relative inline-flex shrink-0 items-center justify-center gap-2 rounded-[5px] border border-[#092C4C] bg-[#092C4C] px-[0.85rem] py-[0.4rem] text-[0.85rem] font-semibold leading-normal text-white shadow-[0_4px_20px_rgba(9,44,76,0.15)] transition-all duration-500 hover:border-[#05192C] hover:bg-[#05192C] hover:shadow-[0_3px_10px_rgba(9,44,76,0.5)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#092C4C]/40 disabled:cursor-not-allowed disabled:opacity-50"><ArchiveRestore className="h-4 w-4" />Held{heldSales.length > 0 && <span className="inline-flex min-w-5 items-center justify-center rounded-full bg-white px-1.5 text-[10px] font-extrabold text-[#092C4C]">{heldSales.length}</span>}</button>
-            <button type="button" onClick={resetRegister} className="inline-flex shrink-0 items-center justify-center gap-2 rounded-[5px] border border-[#3538CD] bg-[#3538CD] px-[0.85rem] py-[0.4rem] text-[0.85rem] font-semibold leading-normal text-white shadow-[0_4px_20px_rgba(53,56,205,0.15)] transition-all duration-500 hover:border-[#2C2FB2] hover:bg-[#2C2FB2] hover:shadow-[0_3px_10px_rgba(53,56,205,0.5)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3538CD]/40"><RefreshCw className="h-4 w-4" />Reset</button>
-            <button type="button" onClick={() => setShowSalesHistory(true)} className="inline-flex shrink-0 items-center justify-center gap-2 rounded-[5px] border border-[#FF0000] bg-[#FF0000] px-[0.85rem] py-[0.4rem] text-[0.85rem] font-semibold leading-normal text-white shadow-[0_4px_20px_rgba(255,0,0,0.15)] transition-all duration-500 hover:border-[#DB0000] hover:bg-[#DB0000] hover:shadow-[0_3px_10px_rgba(255,0,0,0.5)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF0000]/40"><History className="h-4 w-4" />Transaction</button>
+            <button
+              type="button"
+              onClick={() => void holdSale()}
+              disabled={
+                !canHold || cart.length === 0 || Boolean(heldSaleActionId)
+              }
+              className="inline-flex shrink-0 items-center justify-center gap-2 rounded-[5px] border border-[#E04F16] bg-[#E04F16] px-[0.85rem] py-[0.4rem] text-[0.85rem] font-semibold leading-normal text-white shadow-[0_4px_20px_rgba(224,79,22,0.15)] transition-all duration-500 hover:border-[#BF4313] hover:bg-[#BF4313] hover:shadow-[0_3px_10px_rgba(224,79,22,0.5)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E04F16]/40 disabled:cursor-not-allowed disabled:opacity-[0.65]"
+            >
+              <PauseCircle className="h-4 w-4" />
+              Hold
+            </button>
+            <button
+              type="button"
+              onClick={voidCurrentSale}
+              disabled={cart.length === 0}
+              className="inline-flex shrink-0 items-center justify-center gap-2 rounded-[5px] border border-[#155EEF] bg-[#155EEF] px-[0.85rem] py-[0.4rem] text-[0.85rem] font-semibold leading-normal text-white shadow-[0_4px_20px_rgba(21,94,239,0.15)] transition-all duration-500 hover:border-[#0E50D2] hover:bg-[#0E50D2] hover:shadow-[0_3px_10px_rgba(21,94,239,0.5)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#155EEF]/40 disabled:cursor-not-allowed disabled:opacity-[0.65]"
+            >
+              <Trash2 className="h-4 w-4" />
+              Void
+            </button>
+            <button
+              type="button"
+              onClick={openCheckout}
+              disabled={cart.length === 0 || !hasActiveShift}
+              className="inline-flex shrink-0 items-center justify-center gap-2 rounded-[5px] border border-[#06AED4] bg-[#06AED4] px-[0.85rem] py-[0.4rem] text-[0.85rem] font-semibold leading-normal text-white shadow-[0_4px_20px_rgba(6,174,212,0.15)] transition-all duration-500 hover:border-[#0592B1] hover:bg-[#0592B1] hover:shadow-[0_3px_10px_rgba(6,174,212,0.5)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#06AED4]/40 disabled:cursor-not-allowed disabled:opacity-[0.65]"
+            >
+              <WalletCards className="h-4 w-4" />
+              Payment
+            </button>
+            <button
+              type="button"
+              onClick={openHeldOrders}
+              disabled={!canHold}
+              title="Open and resume held sales"
+              className="relative inline-flex shrink-0 items-center justify-center gap-2 rounded-[5px] border border-[#092C4C] bg-[#092C4C] px-[0.85rem] py-[0.4rem] text-[0.85rem] font-semibold leading-normal text-white shadow-[0_4px_20px_rgba(9,44,76,0.15)] transition-all duration-500 hover:border-[#05192C] hover:bg-[#05192C] hover:shadow-[0_3px_10px_rgba(9,44,76,0.5)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#092C4C]/40 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <ArchiveRestore className="h-4 w-4" />
+              Held
+              {heldSales.length > 0 && (
+                <span className="inline-flex min-w-5 items-center justify-center rounded-full bg-white px-1.5 text-[10px] font-extrabold text-[#092C4C]">
+                  {heldSales.length}
+                </span>
+              )}
+            </button>
+            <button
+              type="button"
+              onClick={resetRegister}
+              className="inline-flex shrink-0 items-center justify-center gap-2 rounded-[5px] border border-[#3538CD] bg-[#3538CD] px-[0.85rem] py-[0.4rem] text-[0.85rem] font-semibold leading-normal text-white shadow-[0_4px_20px_rgba(53,56,205,0.15)] transition-all duration-500 hover:border-[#2C2FB2] hover:bg-[#2C2FB2] hover:shadow-[0_3px_10px_rgba(53,56,205,0.5)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3538CD]/40"
+            >
+              <RefreshCw className="h-4 w-4" />
+              Reset
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowSalesHistory(true)}
+              className="inline-flex shrink-0 items-center justify-center gap-2 rounded-[5px] border border-[#FF0000] bg-[#FF0000] px-[0.85rem] py-[0.4rem] text-[0.85rem] font-semibold leading-normal text-white shadow-[0_4px_20px_rgba(255,0,0,0.15)] transition-all duration-500 hover:border-[#DB0000] hover:bg-[#DB0000] hover:shadow-[0_3px_10px_rgba(255,0,0,0.5)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF0000]/40"
+            >
+              <History className="h-4 w-4" />
+              Transaction
+            </button>
           </div>
         </nav>
       )}
@@ -2795,19 +6454,33 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
           aria-modal="true"
           aria-labelledby="summary-editor-title"
           onMouseDown={(event) => {
-            if (event.target === event.currentTarget) setSummaryEditor(null)
+            if (event.target === event.currentTarget) setSummaryEditor(null);
           }}
         >
           <div className="w-full max-w-lg overflow-hidden rounded-[7px] border border-[var(--dashboard-border)] bg-[var(--dashboard-surface)] text-[var(--dashboard-text)] shadow-[0_8px_24px_rgba(16,24,40,.16)]">
             <div className="flex h-[58px] items-center justify-between border-b border-[var(--dashboard-border)] px-5">
               <div className="flex min-w-0 items-center gap-3">
                 <div className="min-w-0">
-                  <h2 id="summary-editor-title" className="text-[20px] font-bold leading-6 tracking-tight">
-                    {summaryEditor === 'tax' ? 'Kenya VAT (eTIMS)' : summaryEditor === 'shipping' ? 'Shipping Cost' : summaryEditor === 'coupon' ? 'Coupon Code' : 'Discount'}
+                  <h2
+                    id="summary-editor-title"
+                    className="text-[20px] font-bold leading-6 tracking-tight"
+                  >
+                    {summaryEditor === 'tax'
+                      ? 'Kenya VAT (eTIMS)'
+                      : summaryEditor === 'shipping'
+                        ? 'Shipping Cost'
+                        : summaryEditor === 'coupon'
+                          ? 'Coupon Code'
+                          : 'Discount'}
                   </h2>
                 </div>
               </div>
-              <button type="button" onClick={() => setSummaryEditor(null)} aria-label="Close editor" className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#ff0000] text-white transition-colors hover:bg-[#db0000] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d92d20]/30">
+              <button
+                type="button"
+                onClick={() => setSummaryEditor(null)}
+                aria-label="Close editor"
+                className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#ff0000] text-white transition-colors hover:bg-[#db0000] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d92d20]/30"
+              >
                 <X className="h-3 w-3" aria-hidden="true" />
               </button>
             </div>
@@ -2816,10 +6489,25 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
               {summaryEditor === 'tax' ? (
                 <>
                   <div>
-                    <p className="mb-2 block text-sm font-medium text-[#273142] dark:text-[#e4e7ec]">Order VAT</p>
-                    <div id="pos-order-tax" className="flex h-10 w-full items-center justify-between rounded-[5px] border border-[#d5d9df] bg-[#f8fafc] px-3 text-sm text-[#273142] dark:border-white/15 dark:bg-[#161616] dark:text-white">
-                      <span>{settings.taxEnabled ? `${settings.taxName || 'VAT'} — ${settings.taxRate.toFixed(1)}%` : 'Non-VAT / VAT disabled'}</span>
-                      <span className="rounded bg-[#eaf8f0] px-2 py-0.5 text-[11px] font-semibold text-[#067647] dark:bg-emerald-950/40 dark:text-emerald-300">{settings.taxEnabled ? (settings.pricesIncludeTax ? 'Inclusive' : 'Exclusive') : 'Not charged'}</span>
+                    <p className="mb-2 block text-sm font-medium text-[#273142] dark:text-[#e4e7ec]">
+                      Order VAT
+                    </p>
+                    <div
+                      id="pos-order-tax"
+                      className="flex h-10 w-full items-center justify-between rounded-[5px] border border-[#d5d9df] bg-[#f8fafc] px-3 text-sm text-[#273142] dark:border-white/15 dark:bg-[#161616] dark:text-white"
+                    >
+                      <span>
+                        {settings.taxEnabled
+                          ? `${settings.taxName || 'VAT'} — ${settings.taxRate.toFixed(1)}%`
+                          : 'Non-VAT / VAT disabled'}
+                      </span>
+                      <span className="rounded bg-[#eaf8f0] px-2 py-0.5 text-[11px] font-semibold text-[#067647] dark:bg-emerald-950/40 dark:text-emerald-300">
+                        {settings.taxEnabled
+                          ? settings.pricesIncludeTax
+                            ? 'Inclusive'
+                            : 'Exclusive'
+                          : 'Not charged'}
+                      </span>
                     </div>
                     <p className="mt-2 text-xs leading-5 text-[#667085] dark:text-[#a8a8a8]">
                       {settings.taxEnabled
@@ -2831,38 +6519,107 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
               ) : summaryEditor === 'coupon' ? (
                 <>
                   <div>
-                    <label htmlFor="pos-coupon-code" className="mb-2 block text-sm font-medium text-[#273142] dark:text-[#e4e7ec]">Coupon Code <span className="text-[#ff0000]">*</span></label>
-                    <input id="pos-coupon-code" autoFocus value={couponDraftCode} onChange={(event) => setCouponDraftCode(event.target.value)} placeholder="Enter coupon or approval reference" maxLength={40} className="h-10 w-full rounded-[5px] border border-[#d5d9df] bg-white px-3 text-sm uppercase text-[#273142] outline-none transition-colors placeholder:normal-case placeholder:text-[#98a2b3] focus:border-[#86a5c9] focus:ring-1 focus:ring-[#155eef]/15 dark:border-white/15 dark:bg-[#161616] dark:text-white" />
+                    <label
+                      htmlFor="pos-coupon-code"
+                      className="mb-2 block text-sm font-medium text-[#273142] dark:text-[#e4e7ec]"
+                    >
+                      Coupon Code <span className="text-[#ff0000]">*</span>
+                    </label>
+                    <input
+                      id="pos-coupon-code"
+                      autoFocus
+                      value={couponDraftCode}
+                      onChange={(event) =>
+                        setCouponDraftCode(event.target.value)
+                      }
+                      placeholder="Enter coupon or approval reference"
+                      maxLength={40}
+                      className="h-10 w-full rounded-[5px] border border-[#d5d9df] bg-white px-3 text-sm uppercase text-[#273142] outline-none transition-colors placeholder:normal-case placeholder:text-[#98a2b3] focus:border-[#86a5c9] focus:ring-1 focus:ring-[#155eef]/15 dark:border-white/15 dark:bg-[#161616] dark:text-white"
+                    />
                   </div>
-                  <div>
-                    <label htmlFor="pos-coupon-value" className="mb-2 block text-sm font-medium text-[#273142] dark:text-[#e4e7ec]">Coupon Value <span className="text-[#ff0000]">*</span></label>
-                    <div className="relative">
-                      <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-xs font-semibold text-[#667085]">KES</span>
-                      <input id="pos-coupon-value" type="number" min="0" max={grossBeforeDiscount} step="0.01" value={summaryDraftValue} onChange={(event) => setSummaryDraftValue(event.target.value)} placeholder="0.00" className="h-10 w-full rounded-[5px] border border-[#d5d9df] bg-white pl-12 pr-3 text-sm tabular-nums text-[#273142] outline-none transition-colors placeholder:text-[#98a2b3] focus:border-[#86a5c9] focus:ring-1 focus:ring-[#155eef]/15 dark:border-white/15 dark:bg-[#161616] dark:text-white" />
-                    </div>
+                  <div className="rounded-[5px] border border-[#d5d9df] bg-[#f8fafc] p-3 text-xs leading-5 text-[#667085] dark:border-white/15 dark:bg-[#161616] dark:text-[#a8a8a8]">
+                    The coupon value, validity, minimum spend and usage limit
+                    are verified securely from your Promotions settings.
                   </div>
                 </>
               ) : summaryEditor === 'shipping' ? (
                 <>
                   <div>
-                    <label htmlFor="pos-shipping-cost" className="mb-2 block text-sm font-medium text-[#273142] dark:text-[#e4e7ec]">Shipping Cost <span className="text-[#ff0000]">*</span></label>
-                    <input id="pos-shipping-cost" autoFocus type="number" min="0" step="0.01" value={summaryDraftValue} onChange={(event) => setSummaryDraftValue(event.target.value)} className="h-10 w-full rounded-[5px] border border-[#d5d9df] bg-white px-3 text-sm tabular-nums text-[#273142] outline-none transition-colors focus:border-[#86a5c9] focus:ring-1 focus:ring-[#155eef]/15 dark:border-white/15 dark:bg-[#161616] dark:text-white" />
+                    <label
+                      htmlFor="pos-shipping-cost"
+                      className="mb-2 block text-sm font-medium text-[#273142] dark:text-[#e4e7ec]"
+                    >
+                      Shipping Cost <span className="text-[#ff0000]">*</span>
+                    </label>
+                    <input
+                      id="pos-shipping-cost"
+                      autoFocus
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={summaryDraftValue}
+                      onChange={(event) =>
+                        setSummaryDraftValue(event.target.value)
+                      }
+                      className="h-10 w-full rounded-[5px] border border-[#d5d9df] bg-white px-3 text-sm tabular-nums text-[#273142] outline-none transition-colors focus:border-[#86a5c9] focus:ring-1 focus:ring-[#155eef]/15 dark:border-white/15 dark:bg-[#161616] dark:text-white"
+                    />
                   </div>
                 </>
               ) : (
                 <>
                   <div>
-                    <label htmlFor="pos-discount-type" className="mb-2 block text-sm font-medium text-[#273142] dark:text-[#e4e7ec]">Order Discount Type <span className="text-[#ff0000]">*</span></label>
-                    <select id="pos-discount-type" autoFocus value={summaryDraftType} onChange={(event) => setSummaryDraftType(event.target.value as 'fixed' | 'percentage')} className="h-10 w-full rounded-[5px] border border-[#d5d9df] bg-white px-3 text-sm text-[#273142] outline-none transition-colors focus:border-[#86a5c9] focus:ring-1 focus:ring-[#155eef]/15 dark:border-white/15 dark:bg-[#161616] dark:text-white">
+                    <label
+                      htmlFor="pos-discount-type"
+                      className="mb-2 block text-sm font-medium text-[#273142] dark:text-[#e4e7ec]"
+                    >
+                      Order Discount Type{' '}
+                      <span className="text-[#ff0000]">*</span>
+                    </label>
+                    <select
+                      id="pos-discount-type"
+                      autoFocus
+                      value={summaryDraftType}
+                      onChange={(event) =>
+                        setSummaryDraftType(
+                          event.target.value as 'fixed' | 'percentage'
+                        )
+                      }
+                      className="h-10 w-full rounded-[5px] border border-[#d5d9df] bg-white px-3 text-sm text-[#273142] outline-none transition-colors focus:border-[#86a5c9] focus:ring-1 focus:ring-[#155eef]/15 dark:border-white/15 dark:bg-[#161616] dark:text-white"
+                    >
                       <option value="percentage">Percentage (%)</option>
                       <option value="fixed">Fixed amount (KES)</option>
                     </select>
                   </div>
                   <div>
-                    <label htmlFor="pos-discount-value" className="mb-2 block text-sm font-medium text-[#273142] dark:text-[#e4e7ec]">Value <span className="text-[#ff0000]">*</span></label>
+                    <label
+                      htmlFor="pos-discount-value"
+                      className="mb-2 block text-sm font-medium text-[#273142] dark:text-[#e4e7ec]"
+                    >
+                      Value <span className="text-[#ff0000]">*</span>
+                    </label>
                     <div className="relative">
-                      <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-xs font-semibold text-[#667085]">{summaryDraftType === 'fixed' ? 'KES' : '%'}</span>
-                      <input id="pos-discount-value" type="number" min="0" max={summaryDraftType === 'percentage' ? 100 : grossBeforeDiscount} step="0.01" value={summaryDraftValue} onChange={(event) => setSummaryDraftValue(event.target.value)} placeholder={summaryDraftType === 'percentage' ? '0–100' : '0.00'} className="h-10 w-full rounded-[5px] border border-[#d5d9df] bg-white pl-12 pr-3 text-sm tabular-nums text-[#273142] outline-none transition-colors placeholder:text-[#98a2b3] focus:border-[#86a5c9] focus:ring-1 focus:ring-[#155eef]/15 dark:border-white/15 dark:bg-[#161616] dark:text-white" />
+                      <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-xs font-semibold text-[#667085]">
+                        {summaryDraftType === 'fixed' ? 'KES' : '%'}
+                      </span>
+                      <input
+                        id="pos-discount-value"
+                        type="number"
+                        min="0"
+                        max={
+                          summaryDraftType === 'percentage'
+                            ? 100
+                            : grossBeforeDiscount
+                        }
+                        step="0.01"
+                        value={summaryDraftValue}
+                        onChange={(event) =>
+                          setSummaryDraftValue(event.target.value)
+                        }
+                        placeholder={
+                          summaryDraftType === 'percentage' ? '0–100' : '0.00'
+                        }
+                        className="h-10 w-full rounded-[5px] border border-[#d5d9df] bg-white pl-12 pr-3 text-sm tabular-nums text-[#273142] outline-none transition-colors placeholder:text-[#98a2b3] focus:border-[#86a5c9] focus:ring-1 focus:ring-[#155eef]/15 dark:border-white/15 dark:bg-[#161616] dark:text-white"
+                      />
                     </div>
                   </div>
                 </>
@@ -2870,15 +6627,30 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
             </div>
 
             <div className="flex min-h-[67px] flex-col-reverse items-center gap-2 border-t border-[var(--dashboard-border)] bg-white px-5 py-3 sm:flex-row sm:justify-end dark:bg-[#161616]">
-              <button type="button" onClick={() => setSummaryEditor(null)} className="h-[38px] rounded-[5px] border border-[#092c4c] bg-[#092c4c] px-[13px] text-sm font-semibold text-white transition-colors hover:border-[#05192c] hover:bg-[#05192c] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#092c4c]/30">
+              <button
+                type="button"
+                onClick={() => setSummaryEditor(null)}
+                className="h-[38px] rounded-[5px] border border-[#092c4c] bg-[#092c4c] px-[13px] text-sm font-semibold text-white transition-colors hover:border-[#05192c] hover:bg-[#05192c] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#092c4c]/30"
+              >
                 Cancel
               </button>
               {summaryEditor === 'tax' ? (
-                <button type="button" onClick={() => { setSummaryEditor(null); router.push('/dashboard/settings') }} className="h-[38px] rounded-[5px] border border-[#e94e16] bg-[#e94e16] px-[13px] text-sm font-bold text-white transition-colors hover:border-[#cf3f0b] hover:bg-[#cf3f0b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e94e16]/30">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSummaryEditor(null);
+                    router.push('/dashboard/settings');
+                  }}
+                  className="h-[38px] rounded-[5px] border border-[#e94e16] bg-[#e94e16] px-[13px] text-sm font-bold text-white transition-colors hover:border-[#cf3f0b] hover:bg-[#cf3f0b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e94e16]/30"
+                >
                   Manage VAT
                 </button>
               ) : (
-                <button type="button" onClick={applySummaryAdjustment} className="h-[38px] rounded-[5px] border border-[#e94e16] bg-[#e94e16] px-[13px] text-sm font-bold text-white transition-colors hover:border-[#cf3f0b] hover:bg-[#cf3f0b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e94e16]/30">
+                <button
+                  type="button"
+                  onClick={() => void applySummaryAdjustment()}
+                  className="h-[38px] rounded-[5px] border border-[#e94e16] bg-[#e94e16] px-[13px] text-sm font-bold text-white transition-colors hover:border-[#cf3f0b] hover:bg-[#cf3f0b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e94e16]/30"
+                >
                   Submit
                 </button>
               )}
@@ -2888,15 +6660,32 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
       )}
 
       {showAgeVerification && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0c111d]/50 p-4" role="dialog" aria-modal="true" aria-labelledby="age-check-title">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-[#0c111d]/50 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="age-check-title"
+        >
           <div className="w-full max-w-md rounded-2xl border border-[#e4e7ec] bg-white p-6 shadow-[0_20px_60px_rgba(16,24,40,.28)] dark:border-white/10 dark:bg-[#1c1c1e]">
             <span className="flex h-11 w-11 items-center justify-center rounded-lg bg-[#fffaeb] text-[#93370d] dark:bg-amber-950/30 dark:text-amber-300">
               <ShieldCheck className="h-5 w-5" />
             </span>
-            <h2 id="age-check-title" className="mt-4 text-lg font-bold text-[#101828] dark:text-white">Verify customer age</h2>
-            <p className="mt-2 text-sm leading-6 text-[#667085] dark:text-[#8b8b8b]">Check a valid photo ID where required and confirm the customer meets the legal drinking age before completing this sale.</p>
+            <h2
+              id="age-check-title"
+              className="mt-4 text-lg font-bold text-[#101828] dark:text-white"
+            >
+              Verify customer age
+            </h2>
+            <p className="mt-2 text-sm leading-6 text-[#667085] dark:text-[#8b8b8b]">
+              Check a valid photo ID where required and confirm the customer
+              meets the legal drinking age before completing this sale.
+            </p>
             <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-              <button type="button" onClick={() => setShowAgeVerification(false)} className="min-h-10 rounded-lg border border-[#d0d5dd] px-4 text-sm font-semibold text-[#344054] transition-colors hover:bg-[#f9fafb] dark:border-white/10 dark:text-[#c4c4c4] dark:hover:bg-white/5">
+              <button
+                type="button"
+                onClick={() => setShowAgeVerification(false)}
+                className="min-h-10 rounded-lg border border-[#d0d5dd] px-4 text-sm font-semibold text-[#344054] transition-colors hover:bg-[#f9fafb] dark:border-white/10 dark:text-[#c4c4c4] dark:hover:bg-white/5"
+              >
                 Cancel
               </button>
               <button
@@ -2906,7 +6695,8 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
                 style={{ backgroundColor: ui.primary, color: ui.primaryInk }}
                 className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg px-4 text-sm font-bold transition-opacity hover:opacity-90"
               >
-                <ShieldCheck className="h-4 w-4" />Age verified — continue
+                <ShieldCheck className="h-4 w-4" />
+                Age verified — continue
               </button>
             </div>
           </div>
@@ -2914,39 +6704,87 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
       )}
 
       {showHeldSales && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0c111d]/50 p-4" role="dialog" aria-modal="true" aria-labelledby="held-sales-title">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-[#0c111d]/50 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="held-sales-title"
+        >
           <div className="w-full max-w-md overflow-hidden rounded-2xl border border-[#e4e7ec] bg-white shadow-[0_20px_60px_rgba(16,24,40,.28)]">
             <div className="flex items-center justify-between border-b border-[#e4e7ec] px-5 py-4">
               <div>
-                <h2 id="held-sales-title" className="text-sm font-bold text-[#101828]">Held sales</h2>
-                <p className="mt-0.5 text-xs text-[#98a2b3]">Shared securely with authorized registers at this branch</p>
+                <h2
+                  id="held-sales-title"
+                  className="text-sm font-bold text-[#101828]"
+                >
+                  Held sales
+                </h2>
+                <p className="mt-0.5 text-xs text-[#98a2b3]">
+                  Shared securely with authorized registers at this branch
+                </p>
               </div>
-              <button type="button" onClick={() => setShowHeldSales(false)} className="rounded-lg p-1.5 text-[#667085] hover:bg-[#f2f4f7]" aria-label="Close held sales">
+              <button
+                type="button"
+                onClick={() => setShowHeldSales(false)}
+                className="rounded-lg p-1.5 text-[#667085] hover:bg-[#f2f4f7]"
+                aria-label="Close held sales"
+              >
                 <X className="h-4 w-4" />
               </button>
             </div>
             <div className="max-h-[55vh] overflow-y-auto p-3">
               {heldSalesLoading ? (
-                <p className="flex items-center justify-center gap-2 py-8 text-sm text-[#98a2b3]"><Loader2 className="h-4 w-4 animate-spin" />Loading held sales…</p>
+                <p className="flex items-center justify-center gap-2 py-8 text-sm text-[#98a2b3]">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Loading held sales…
+                </p>
               ) : heldSales.length === 0 ? (
-                <p className="py-8 text-center text-sm text-[#98a2b3]">No held sales</p>
+                <p className="py-8 text-center text-sm text-[#98a2b3]">
+                  No held sales
+                </p>
               ) : (
                 <div className="space-y-2">
                   {heldSales.map((heldSale) => (
-                    <div key={heldSale.id} className="flex items-center justify-between gap-3 rounded-xl border border-[#e4e7ec] p-3">
+                    <div
+                      key={heldSale.id}
+                      className="flex items-center justify-between gap-3 rounded-xl border border-[#e4e7ec] p-3"
+                    >
                       <div>
-                        <p className="text-sm font-semibold text-[#101828]">{heldSale.cart.length} item{heldSale.cart.length === 1 ? '' : 's'} · {formatCurrency(heldSale.cart.reduce((sum, item) => sum + item.totalPrice, 0))}</p>
-                        <p className="mt-1 text-xs text-[#98a2b3]">Held by {heldSale.cashierName} · {new Date(heldSale.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                        <p className="text-sm font-semibold text-[#101828]">
+                          {heldSale.cart.length} item
+                          {heldSale.cart.length === 1 ? '' : 's'} ·{' '}
+                          {formatCurrency(
+                            heldSale.cart.reduce(
+                              (sum, item) => sum + item.totalPrice,
+                              0
+                            )
+                          )}
+                        </p>
+                        <p className="mt-1 text-xs text-[#98a2b3]">
+                          Held by {heldSale.cashierName} ·{' '}
+                          {new Date(heldSale.createdAt).toLocaleTimeString([], {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                        </p>
                       </div>
                       <div className="flex gap-2">
-                        <button type="button" disabled={heldSaleActionId === heldSale.id} onClick={() => void deleteHeldSale(heldSale)} className="rounded-lg border border-[#d0d5dd] px-2.5 py-2 text-xs font-semibold text-[#667085] transition-colors hover:bg-[#f9fafb] disabled:opacity-50">
+                        <button
+                          type="button"
+                          disabled={heldSaleActionId === heldSale.id}
+                          onClick={() => void deleteHeldSale(heldSale)}
+                          className="rounded-lg border border-[#d0d5dd] px-2.5 py-2 text-xs font-semibold text-[#667085] transition-colors hover:bg-[#f9fafb] disabled:opacity-50"
+                        >
                           Discard
                         </button>
                         <button
                           type="button"
                           disabled={heldSaleActionId === heldSale.id}
                           onClick={() => void resumeHeldSale(heldSale)}
-                          style={{ backgroundColor: ui.primary, color: ui.primaryInk }}
+                          style={{
+                            backgroundColor: ui.primary,
+                            color: ui.primaryInk,
+                          }}
                           className="rounded-lg px-3 py-2 text-xs font-bold transition-opacity hover:opacity-90 disabled:opacity-50"
                         >
                           Resume
@@ -2965,10 +6803,14 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
       {showSalesHistory && (
         <SalesHistoryModal
           onClose={() => setShowSalesHistory(false)}
-          onSelectSale={canRefund ? (sale) => {
-            setRefundSale(sale)
-            setShowSalesHistory(false)
-          } : undefined}
+          onSelectSale={
+            canRefund
+              ? (sale) => {
+                  setRefundSale(sale);
+                  setShowSalesHistory(false);
+                }
+              : undefined
+          }
         />
       )}
 
@@ -2977,10 +6819,14 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
         <ReceiptReprint
           onClose={() => setShowReceiptReprint(false)}
           settings={settings}
-          onRefund={canRefund ? (sale) => {
-            setRefundSale(sale)
-            setShowReceiptReprint(false)
-          } : undefined}
+          onRefund={
+            canRefund
+              ? (sale) => {
+                  setRefundSale(sale);
+                  setShowReceiptReprint(false);
+                }
+              : undefined
+          }
         />
       )}
 
@@ -2990,43 +6836,201 @@ export function POSTerminal({ standalone = false, organizationId, products, cate
           sale={refundSale}
           onClose={() => setRefundSale(null)}
           onSuccess={(returnedItems) => {
-            setCatalogProducts((current) => current.map((product) => {
-              const returned = returnedItems.find((item) => item.productId === product.id)
-              return returned ? { ...product, stock: product.stock + returned.quantity } : product
-            }))
-            setRefundSale(null)
-            notify.success('Refund processed successfully')
+            setCatalogProducts((current) =>
+              current.map((product) => {
+                const returned = returnedItems.find(
+                  (item) => item.productId === product.id
+                );
+                return returned
+                  ? { ...product, stock: product.stock + returned.quantity }
+                  : product;
+              })
+            );
+            setRefundSale(null);
+            notify.success('Refund processed successfully');
           }}
         />
       )}
       {showNewCustomer && !checkoutOpen && (
-        <div className="fixed inset-0 z-[80] grid place-items-center bg-black/50 p-4" role="dialog" aria-modal="true" aria-labelledby="new-customer-title">
+        <div
+          className="fixed inset-0 z-[80] grid place-items-center bg-black/50 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="new-customer-title"
+        >
           <div className="w-full max-w-[815px] overflow-hidden rounded-[7px] border border-[#d5d9df] bg-white text-[#273142] shadow-[0_8px_24px_rgba(16,24,40,.16)] dark:border-white/10 dark:bg-[#171717] dark:text-white">
             <div className="flex h-[58px] items-center justify-between border-b border-[#e4e7ec] px-5 dark:border-white/10">
-              <h2 id="new-customer-title" className="text-[20px] font-bold leading-6">Create</h2>
-              <button type="button" onClick={() => setShowNewCustomer(false)} aria-label="Close" className="flex h-5 w-5 items-center justify-center rounded-full bg-[#ff0000] text-white transition-colors hover:bg-[#db0000] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff0000]/30"><X className="h-3 w-3" /></button>
+              <h2
+                id="new-customer-title"
+                className="text-[20px] font-bold leading-6"
+              >
+                Create
+              </h2>
+              <button
+                type="button"
+                onClick={() => setShowNewCustomer(false)}
+                aria-label="Close"
+                className="flex h-5 w-5 items-center justify-center rounded-full bg-[#ff0000] text-white transition-colors hover:bg-[#db0000] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff0000]/30"
+              >
+                <X className="h-3 w-3" />
+              </button>
             </div>
             <div className="grid gap-x-6 gap-y-4 px-5 py-[23px] sm:grid-cols-2">
-              <label className="grid gap-2 text-sm font-medium"><span>Customer Name <span className="text-[#ff0000]">*</span></span><input autoFocus required type="text" value={newCustomerName} onChange={(event) => setNewCustomerName(event.target.value)} className="h-10 rounded-[5px] border border-[#d5d9df] bg-white px-3 text-sm outline-none transition-colors focus:border-[#86a5c9] focus:ring-1 focus:ring-[#155eef]/15 disabled:opacity-60 dark:border-white/15 dark:bg-[#161616]" disabled={creatingCustomer} /></label>
-              <label className="grid gap-2 text-sm font-medium"><span>Phone <span className="text-[#ff0000]">*</span></span><input required type="tel" inputMode="tel" value={newCustomerPhone} onChange={(event) => setNewCustomerPhone(event.target.value)} className="h-10 rounded-[5px] border border-[#d5d9df] bg-white px-3 text-sm outline-none transition-colors focus:border-[#86a5c9] focus:ring-1 focus:ring-[#155eef]/15 disabled:opacity-60 dark:border-white/15 dark:bg-[#161616]" disabled={creatingCustomer} /></label>
-              <label className="grid gap-2 text-sm font-medium sm:col-span-2"><span>Email</span><input type="email" value={newCustomerEmail} onChange={(event) => setNewCustomerEmail(event.target.value)} className="h-10 rounded-[5px] border border-[#d5d9df] bg-white px-3 text-sm outline-none transition-colors focus:border-[#86a5c9] focus:ring-1 focus:ring-[#155eef]/15 disabled:opacity-60 dark:border-white/15 dark:bg-[#161616]" disabled={creatingCustomer} /></label>
-              <label className="grid gap-2 text-sm font-medium sm:col-span-2"><span>Address</span><input type="text" value={newCustomerAddress} onChange={(event) => setNewCustomerAddress(event.target.value)} className="h-10 rounded-[5px] border border-[#d5d9df] bg-white px-3 text-sm outline-none transition-colors focus:border-[#86a5c9] focus:ring-1 focus:ring-[#155eef]/15 disabled:opacity-60 dark:border-white/15 dark:bg-[#161616]" disabled={creatingCustomer} /></label>
-              <label className="grid gap-2 text-sm font-medium"><span>City</span><input type="text" value={newCustomerCity} onChange={(event) => setNewCustomerCity(event.target.value)} className="h-10 rounded-[5px] border border-[#d5d9df] bg-white px-3 text-sm outline-none transition-colors focus:border-[#86a5c9] focus:ring-1 focus:ring-[#155eef]/15 disabled:opacity-60 dark:border-white/15 dark:bg-[#161616]" disabled={creatingCustomer} /></label>
-              <label className="grid gap-2 text-sm font-medium"><span>Country</span><input type="text" value={newCustomerCountry} onChange={(event) => setNewCustomerCountry(event.target.value)} className="h-10 rounded-[5px] border border-[#d5d9df] bg-white px-3 text-sm outline-none transition-colors focus:border-[#86a5c9] focus:ring-1 focus:ring-[#155eef]/15 disabled:opacity-60 dark:border-white/15 dark:bg-[#161616]" disabled={creatingCustomer} /></label>
+              <label className="grid gap-2 text-sm font-medium">
+                <span>
+                  Customer Name <span className="text-[#ff0000]">*</span>
+                </span>
+                <input
+                  autoFocus
+                  required
+                  type="text"
+                  value={newCustomerName}
+                  onChange={(event) => setNewCustomerName(event.target.value)}
+                  className="h-10 rounded-[5px] border border-[#d5d9df] bg-white px-3 text-sm outline-none transition-colors focus:border-[#86a5c9] focus:ring-1 focus:ring-[#155eef]/15 disabled:opacity-60 dark:border-white/15 dark:bg-[#161616]"
+                  disabled={creatingCustomer}
+                />
+              </label>
+              <label className="grid gap-2 text-sm font-medium">
+                <span>
+                  Phone <span className="text-[#ff0000]">*</span>
+                </span>
+                <input
+                  required
+                  type="tel"
+                  inputMode="tel"
+                  value={newCustomerPhone}
+                  onChange={(event) => setNewCustomerPhone(event.target.value)}
+                  className="h-10 rounded-[5px] border border-[#d5d9df] bg-white px-3 text-sm outline-none transition-colors focus:border-[#86a5c9] focus:ring-1 focus:ring-[#155eef]/15 disabled:opacity-60 dark:border-white/15 dark:bg-[#161616]"
+                  disabled={creatingCustomer}
+                />
+              </label>
+              <label className="grid gap-2 text-sm font-medium sm:col-span-2">
+                <span>Email</span>
+                <input
+                  type="email"
+                  value={newCustomerEmail}
+                  onChange={(event) => setNewCustomerEmail(event.target.value)}
+                  className="h-10 rounded-[5px] border border-[#d5d9df] bg-white px-3 text-sm outline-none transition-colors focus:border-[#86a5c9] focus:ring-1 focus:ring-[#155eef]/15 disabled:opacity-60 dark:border-white/15 dark:bg-[#161616]"
+                  disabled={creatingCustomer}
+                />
+              </label>
+              <label className="grid gap-2 text-sm font-medium sm:col-span-2">
+                <span>Address</span>
+                <input
+                  type="text"
+                  value={newCustomerAddress}
+                  onChange={(event) =>
+                    setNewCustomerAddress(event.target.value)
+                  }
+                  className="h-10 rounded-[5px] border border-[#d5d9df] bg-white px-3 text-sm outline-none transition-colors focus:border-[#86a5c9] focus:ring-1 focus:ring-[#155eef]/15 disabled:opacity-60 dark:border-white/15 dark:bg-[#161616]"
+                  disabled={creatingCustomer}
+                />
+              </label>
+              <label className="grid gap-2 text-sm font-medium">
+                <span>City</span>
+                <input
+                  type="text"
+                  value={newCustomerCity}
+                  onChange={(event) => setNewCustomerCity(event.target.value)}
+                  className="h-10 rounded-[5px] border border-[#d5d9df] bg-white px-3 text-sm outline-none transition-colors focus:border-[#86a5c9] focus:ring-1 focus:ring-[#155eef]/15 disabled:opacity-60 dark:border-white/15 dark:bg-[#161616]"
+                  disabled={creatingCustomer}
+                />
+              </label>
+              <label className="grid gap-2 text-sm font-medium">
+                <span>Country</span>
+                <input
+                  type="text"
+                  value={newCustomerCountry}
+                  onChange={(event) =>
+                    setNewCustomerCountry(event.target.value)
+                  }
+                  className="h-10 rounded-[5px] border border-[#d5d9df] bg-white px-3 text-sm outline-none transition-colors focus:border-[#86a5c9] focus:ring-1 focus:ring-[#155eef]/15 disabled:opacity-60 dark:border-white/15 dark:bg-[#161616]"
+                  disabled={creatingCustomer}
+                />
+              </label>
             </div>
             <div className="flex min-h-[67px] items-center justify-end gap-2 border-t border-[#e4e7ec] bg-white px-5 py-3 dark:border-white/10 dark:bg-[#171717]">
-              <button type="button" onClick={() => setShowNewCustomer(false)} className="h-[38px] rounded-[5px] border border-[#092c4c] bg-[#092c4c] px-[13px] text-sm font-semibold text-white transition-colors hover:bg-[#05192c]">Cancel</button>
-              <button type="button" onClick={handleCreateCustomer} disabled={creatingCustomer || !newCustomerName.trim() || !newCustomerPhone.trim()} className="h-[38px] rounded-[5px] border border-[#e94e16] bg-[#e94e16] px-[13px] text-sm font-bold text-white transition-colors hover:bg-[#cf3f0b] disabled:cursor-not-allowed disabled:opacity-50">{creatingCustomer ? 'Creating…' : 'Submit'}</button>
+              <button
+                type="button"
+                onClick={() => setShowNewCustomer(false)}
+                className="h-[38px] rounded-[5px] border border-[#092c4c] bg-[#092c4c] px-[13px] text-sm font-semibold text-white transition-colors hover:bg-[#05192c]"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleCreateCustomer}
+                disabled={
+                  creatingCustomer ||
+                  !newCustomerName.trim() ||
+                  !newCustomerPhone.trim()
+                }
+                className="h-[38px] rounded-[5px] border border-[#e94e16] bg-[#e94e16] px-[13px] text-sm font-bold text-white transition-colors hover:bg-[#cf3f0b] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {creatingCustomer ? 'Creating…' : 'Submit'}
+              </button>
             </div>
           </div>
         </div>
       )}
+      <AlertDialog
+        open={mpesaExitConfirmation.open}
+        onOpenChange={(open) => {
+          if (!mpesaExitConfirmation.busy)
+            setMpesaExitConfirmation((current) => ({ ...current, open }));
+        }}
+      >
+        <AlertDialogContent className="w-[calc(100%_-_2rem)] max-w-[480px] gap-0 overflow-hidden rounded-[7px] border border-[#e4e7ec] !bg-white px-7 py-8 !text-[#273142] opacity-100 shadow-[0_20px_55px_rgba(16,24,40,.28)] dark:border-[#2c2c2e] dark:!bg-[#1c1c1e] dark:!text-white sm:px-9">
+          <AlertDialogHeader className="items-center space-y-0 text-center sm:text-center">
+            <span className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-[#fdb022] text-white shadow-[0_4px_12px_rgba(253,176,34,.22)] dark:bg-[#f59e0b]">
+              <AlertTriangle className="h-6 w-6" strokeWidth={2.25} />
+            </span>
+            <AlertDialogTitle className="text-[19px] font-bold leading-7 tracking-[-0.01em]">
+              Cancel M-Pesa payment?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="mt-1.5 max-w-[380px] text-center text-[13px] leading-5 !text-[#667085] dark:!text-[#b3b3b8]">
+              Switch to{' '}
+              <strong className="text-[#273142] dark:text-white">
+                {mpesaExitConfirmation.destination}
+              </strong>{' '}
+              and cancel the pending payment of{' '}
+              <strong className="text-[#273142] dark:text-white">
+                {formatMpesaAmount(total)}
+              </strong>
+              ?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="mt-4 flex-row justify-center space-x-2 sm:justify-center">
+            <AlertDialogCancel
+              disabled={mpesaExitConfirmation.busy}
+              className="mt-0 h-9 rounded-[5px] border-[#092c4c] bg-[#092c4c] px-4 text-xs font-semibold text-white hover:border-[#05192c] hover:bg-[#05192c] hover:text-white dark:border-[#092c4c] dark:bg-[#092c4c]"
+            >
+              Keep waiting
+            </AlertDialogCancel>
+            <AlertDialogAction
+              disabled={mpesaExitConfirmation.busy}
+              onClick={(event) => {
+                event.preventDefault();
+                void confirmMpesaExit();
+              }}
+              className="h-9 gap-2 rounded-[5px] bg-[#e94e16] px-4 text-xs font-semibold text-white hover:bg-[#cf3f0b]"
+            >
+              {mpesaExitConfirmation.busy && <Loader2 className="h-4 w-4" />}
+              Cancel &amp; switch
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       <WirelessScannerPairing
         open={showWirelessScanner}
         onClose={() => setShowWirelessScanner(false)}
-        onBarcode={scannerPurpose === 'customer' ? handleCustomerBarcode : handleBarcodeScan}
+        onBarcode={
+          scannerPurpose === 'customer'
+            ? handleCustomerBarcode
+            : handleBarcodeScan
+        }
         purpose={scannerPurpose}
       />
     </div>
-  )
+  );
 }

@@ -153,8 +153,8 @@ export function CashierShiftStrip({
 
   return (
     <>
-      <section className="overflow-hidden rounded-2xl border border-[#ead28a] bg-gradient-to-r from-[#fffdf7] via-[#fff9e5] to-[#fff1b8] shadow-[0_2px_8px_rgba(151,112,0,.08)] dark:border-[rgba(255,214,10,.22)] dark:from-[#15130c] dark:via-[#201b0d] dark:to-[#30270f] dark:shadow-[0_2px_8px_rgba(0,0,0,.18)]">
-        <div className="flex flex-col gap-3 px-4 py-3.5 xl:flex-row xl:items-center xl:justify-between">
+      <section className="hidden overflow-hidden rounded-2xl border border-[#ead28a] bg-gradient-to-r from-[#fffdf7] via-[#fff9e5] to-[#fff1b8] shadow-[0_2px_8px_rgba(151,112,0,.08)] dark:border-[rgba(255,214,10,.22)] dark:from-[#15130c] dark:via-[#201b0d] dark:to-[#30270f] dark:shadow-[0_2px_8px_rgba(0,0,0,.18)] lg:block">
+        <div className="flex flex-col gap-3 px-3 py-2.5 sm:px-4 sm:py-3.5 xl:flex-row xl:items-center xl:justify-between">
           <dl className="grid min-w-0 flex-1 grid-cols-2 gap-x-6 gap-y-3 md:grid-cols-3 xl:max-w-3xl">
             <Metric
               icon={Banknote}
@@ -167,7 +167,8 @@ export function CashierShiftStrip({
               label="Transactions"
               value={String(workspace.transactionCount)}
             />
-            <Metric
+            <div className="hidden sm:block">
+              <Metric
               icon={CircleDot}
               label="Register"
               value={
@@ -178,9 +179,10 @@ export function CashierShiftStrip({
                   : 'No active shift'
               }
               tone={session ? 'success' : undefined}
-            />
+              />
+            </div>
           </dl>
-          <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+          <div className="hidden shrink-0 flex-wrap items-center justify-end gap-2 sm:flex">
             {action}
             {!session ? (
               <Button
@@ -240,7 +242,7 @@ export function CashierShiftStrip({
           </div>
         </div>
         {session && (
-          <div className="flex flex-wrap items-center gap-x-5 gap-y-1 px-4 pb-3 text-[11px] text-[var(--dashboard-muted)]">
+          <div className="hidden flex-wrap items-center gap-x-5 gap-y-1 px-4 pb-3 text-[11px] text-[var(--dashboard-muted)] sm:flex">
             <span>Opening float {money(Number(session.openingCash))}</span>
             <span>
               {workspace.cashMovementCount} cash movement

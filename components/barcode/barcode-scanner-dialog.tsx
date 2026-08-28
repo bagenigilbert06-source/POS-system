@@ -1,7 +1,8 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { Barcode, Camera, Loader2, X } from 'lucide-react'
+import { Barcode, Camera, X } from 'lucide-react'
+import { LoadingSpinner as Loader2 } from '@/components/ui/page-loader'
 import { normalizeBarcode } from '@/lib/utils'
 
 interface BarcodeScannerDialogProps {

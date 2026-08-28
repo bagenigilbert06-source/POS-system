@@ -1,0 +1,10 @@
+ALTER TABLE "business_settings" ADD COLUMN IF NOT EXISTS "receiptPrintingMode" text DEFAULT 'direct' NOT NULL;
+ALTER TABLE "business_settings" ADD COLUMN IF NOT EXISTS "receiptPrinterName" text;
+ALTER TABLE "business_settings" ADD COLUMN IF NOT EXISTS "receiptPaperWidth" integer DEFAULT 80 NOT NULL;
+ALTER TABLE "business_settings" ADD COLUMN IF NOT EXISTS "receiptAutoPrint" boolean DEFAULT false NOT NULL;
+ALTER TABLE "business_settings" ADD COLUMN IF NOT EXISTS "receiptPrintCustomerCopy" boolean DEFAULT true NOT NULL;
+ALTER TABLE "business_settings" ADD COLUMN IF NOT EXISTS "receiptPrintCopies" integer DEFAULT 1 NOT NULL;
+ALTER TABLE "business_settings" ADD COLUMN IF NOT EXISTS "receiptCashDrawerPulse" boolean DEFAULT false NOT NULL;
+ALTER TABLE "business_settings" ADD CONSTRAINT "receipt_printing_mode_check" CHECK ("receiptPrintingMode" IN ('direct', 'browser'));
+ALTER TABLE "business_settings" ADD CONSTRAINT "receipt_paper_width_check" CHECK ("receiptPaperWidth" IN (58, 80));
+ALTER TABLE "business_settings" ADD CONSTRAINT "receipt_print_copies_check" CHECK ("receiptPrintCopies" BETWEEN 1 AND 5);

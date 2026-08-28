@@ -17,7 +17,6 @@ import {
   Check,
   CircleDollarSign,
   ImageIcon,
-  Loader2,
   Package2,
   Smartphone,
   Tag,
@@ -30,6 +29,7 @@ import { WirelessScannerPairing } from '@/components/barcode/wireless-scanner-pa
 import { useWorkspace } from '@/lib/context/workspace-context';
 import { isPharmacyBusiness } from '@/lib/pharmacy/rules';
 import { getProductTerminology } from '@/lib/products/terminology';
+import { LoadingSpinner as Loader2 } from '@/components/ui/page-loader';
 
 interface ProductFormProps {
   product?: Product;

@@ -14,7 +14,7 @@ import axios from 'axios';
 import { Input } from '@/components/ui/input';
 import { taxSchema } from '@/schema';
 import { ZodError } from 'zod';
-import { ReloadIcon } from '@radix-ui/react-icons';
+import { LoadingSpinner as ReloadIcon } from '@/components/ui/page-loader';
 import eventBus from '@/lib/even';
 
 interface TaxrateCardProps {

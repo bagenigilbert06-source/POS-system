@@ -68,7 +68,6 @@ function prepare(kind: NoticeKind, title: ReactNode, options: NoticeOptions = {}
       ...toastOptions,
       id,
       duration: toastOptions.duration ?? (kind === 'loading' ? Infinity : durations[kind]),
-      className: `pesaby-hot-toast pesaby-hot-toast-${kind}${toastOptions.className ? ` ${toastOptions.className}` : ''}`,
     } satisfies ToastOptions,
   }
 }

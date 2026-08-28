@@ -17,7 +17,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Cross2Icon, ReloadIcon } from '@radix-ui/react-icons';
+import { Cross2Icon } from '@radix-ui/react-icons';
+import { LoadingSpinner as ReloadIcon } from '@/components/ui/page-loader';
 import { useEffect, useState } from 'react';
 import { CatProduct } from '@prisma/client';
 import { productSchema } from '@/schema';

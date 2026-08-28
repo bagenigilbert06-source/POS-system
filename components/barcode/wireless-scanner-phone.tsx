@@ -1,7 +1,8 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Barcode, CheckCircle2, Loader2, ScanLine } from 'lucide-react'
+import { Barcode, CheckCircle2, ScanLine } from 'lucide-react'
+import { LoadingSpinner as Loader2 } from '@/components/ui/page-loader'
 import { BarcodeScannerDialog } from './barcode-scanner-dialog'
 
 export function WirelessScannerPhone({ token }: { token: string }) {

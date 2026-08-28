@@ -1,7 +1,8 @@
 'use client'
 
 import { useMemo, useState, useTransition } from 'react'
-import { Building2, Check, CheckCircle2, ChevronDown, Circle, KeyRound, Loader2, PlugZap, Save, ServerCog, ShieldAlert } from 'lucide-react'
+import { Building2, Check, CheckCircle2, ChevronDown, Circle, KeyRound, PlugZap, Save, ServerCog, ShieldAlert } from 'lucide-react'
+import { LoadingSpinner as Loader2 } from '@/components/ui/page-loader'
 import { saveEtimsConfiguration, testEtimsConnection, type EtimsConfigurationInput } from '@/app/actions/etims'
 import { notify } from '@/lib/notify'
 

@@ -2,7 +2,8 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { Delete, Loader2, LockKeyhole } from 'lucide-react'
+import { Delete, LockKeyhole } from 'lucide-react'
+import { LoadingSpinner as Loader2 } from '@/components/ui/page-loader'
 import { unlockPosWithPhonePin } from '@/app/actions/pos-pin'
 
 const keys = ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'clear', '0', 'delete'] as const

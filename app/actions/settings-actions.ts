@@ -49,6 +49,13 @@ export async function updateBusinessSettings(data: {
   pricesIncludeTax?: boolean
   showTaxOnReceipt?: boolean
   financialYearStart?: string
+  receiptPrintingMode?: 'direct' | 'browser'
+  receiptPrinterName?: string
+  receiptPaperWidth?: 58 | 80
+  receiptAutoPrint?: boolean
+  receiptPrintCustomerCopy?: boolean
+  receiptPrintCopies?: number
+  receiptCashDrawerPulse?: boolean
 }) {
   await requirePermission(PermissionEnum.SETTINGS_EDIT)
   const userId = await getUserId()
@@ -60,6 +67,7 @@ export async function updateBusinessSettings(data: {
   if (paymentMethods && paymentMethods.length === 0) throw new Error('Enable at least one payment method')
   if (data.defaultPaymentMethod && paymentMethods && !paymentMethods.includes(data.defaultPaymentMethod)) throw new Error('The default payment method must be enabled')
   if (data.financialYearStart && !/^\d{2}-\d{2}$/.test(data.financialYearStart)) throw new Error('Invalid financial year start')
+  if (data.receiptPrintCopies !== undefined && (!Number.isInteger(data.receiptPrintCopies) || data.receiptPrintCopies < 1 || data.receiptPrintCopies > 5)) throw new Error('Receipt copies must be between 1 and 5')
 
   try {
     const updated = await db
@@ -91,6 +99,13 @@ export async function updateBusinessSettings(data: {
         ...(data.pricesIncludeTax !== undefined && { pricesIncludeTax: data.pricesIncludeTax }),
         ...(data.showTaxOnReceipt !== undefined && { showTaxOnReceipt: data.showTaxOnReceipt }),
         ...(data.financialYearStart && { financialYearStart: data.financialYearStart }),
+        ...(data.receiptPrintingMode && { receiptPrintingMode: data.receiptPrintingMode }),
+        ...(data.receiptPrinterName !== undefined && { receiptPrinterName: data.receiptPrinterName.trim() || null }),
+        ...(data.receiptPaperWidth !== undefined && { receiptPaperWidth: data.receiptPaperWidth }),
+        ...(data.receiptAutoPrint !== undefined && { receiptAutoPrint: data.receiptAutoPrint }),
+        ...(data.receiptPrintCustomerCopy !== undefined && { receiptPrintCustomerCopy: data.receiptPrintCustomerCopy }),
+        ...(data.receiptPrintCopies !== undefined && { receiptPrintCopies: data.receiptPrintCopies }),
+        ...(data.receiptCashDrawerPulse !== undefined && { receiptCashDrawerPulse: data.receiptCashDrawerPulse }),
         updatedAt: new Date(),
       })
       .where(eq(businessSettings.organizationId, orgId))

@@ -3,11 +3,13 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
-import { Loader2, Save, X } from 'lucide-react'
+import { Save, X } from 'lucide-react'
+import { LoadingSpinner as Loader2 } from '@/components/ui/page-loader'
 import { notify } from '@/lib/notify'
 import { Button } from '@/components/ui/button'
 import { ReceiptTemplate } from '@/components/receipt/receipt-template'
 import { updateAccountName, updateBusinessSettings, updateOrganizationSettings } from '@/app/actions/settings-actions'
+import { directPrintReceipt, getDirectPrinterStatus, listDirectPrinters, type ReceiptPrinterStatus } from '@/lib/printing/receipt-print-service'
 import type { BusinessSettings, Organization } from '@/lib/db/schema'
 
 interface EditableSettingsProps {
@@ -23,6 +25,8 @@ export function EditableSettings({ businessSettings, organization, buttonOnly = 
   const [isEditing, setIsEditing] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [logoUploading, setLogoUploading] = useState(false)
+  const [printerStatus, setPrinterStatus] = useState<ReceiptPrinterStatus | null>(null)
+  const [availablePrinters, setAvailablePrinters] = useState<string[]>([])
   const [formData, setFormData] = useState({
     displayName: businessSettings?.displayName || organization.name,
     accountName,
@@ -45,6 +49,13 @@ export function EditableSettings({ businessSettings, organization, buttonOnly = 
     receiptShowPayment: businessSettings?.receiptShowPayment ?? true,
     receiptShowQrCode: businessSettings?.receiptShowQrCode ?? false,
     receiptShowItemSku: businessSettings?.receiptShowItemSku ?? false,
+    receiptPrintingMode: businessSettings?.receiptPrintingMode === 'browser' ? 'browser' as const : 'direct' as const,
+    receiptPrinterName: businessSettings?.receiptPrinterName || '',
+    receiptPaperWidth: businessSettings?.receiptPaperWidth === 58 ? 58 as const : 80 as const,
+    receiptAutoPrint: businessSettings?.receiptAutoPrint ?? false,
+    receiptPrintCustomerCopy: businessSettings?.receiptPrintCustomerCopy ?? true,
+    receiptPrintCopies: businessSettings?.receiptPrintCopies ?? 1,
+    receiptCashDrawerPulse: businessSettings?.receiptCashDrawerPulse ?? false,
     defaultPaymentMethod: businessSettings?.defaultPaymentMethod || 'cash',
     paymentMethods: (Array.isArray(businessSettings?.paymentMethods) && businessSettings.paymentMethods.length ? businessSettings.paymentMethods : ['cash']) as string[],
     taxEnabled: businessSettings?.taxEnabled ?? false,
@@ -103,6 +114,13 @@ export function EditableSettings({ businessSettings, organization, buttonOnly = 
           pricesIncludeTax: formData.pricesIncludeTax,
           showTaxOnReceipt: formData.showTaxOnReceipt,
           financialYearStart: formData.financialYearStart,
+          receiptPrintingMode: formData.receiptPrintingMode,
+          receiptPrinterName: formData.receiptPrinterName,
+          receiptPaperWidth: formData.receiptPaperWidth,
+          receiptAutoPrint: formData.receiptAutoPrint,
+          receiptPrintCustomerCopy: formData.receiptPrintCustomerCopy,
+          receiptPrintCopies: formData.receiptPrintCopies,
+          receiptCashDrawerPulse: formData.receiptCashDrawerPulse,
         }),
         updateOrganizationSettings({
           name: formData.displayName,
@@ -134,6 +152,22 @@ export function EditableSettings({ businessSettings, organization, buttonOnly = 
       setFormData({ ...formData, receiptLogoUrl: result.url })
       notify.success('Logo added to the receipt preview')
     } catch (error) { notify.error(error instanceof Error ? error.message : 'Could not upload logo') } finally { setLogoUploading(false) }
+  }
+
+  const discoverPrinters = async () => {
+    setPrinterStatus(null)
+    try { const printers = await listDirectPrinters(); setAvailablePrinters(printers); notify.success(`${printers.length} printer${printers.length === 1 ? '' : 's'} found`) }
+    catch { setPrinterStatus('unavailable'); notify.error('QZ Tray is unavailable', { description: 'Install and start QZ Tray on this register.' }) }
+  }
+
+  const testReceiptPrinter = async () => {
+    if (!formData.receiptPrinterName.trim()) return notify.error('Choose a thermal printer first')
+    setPrinterStatus('printing')
+    try {
+      const html = `<div class="receipt-paper" style="padding:5mm;font-family:monospace;font-size:11px;line-height:1.5;color:#000;background:#fff"><h1 style="text-align:center;font-size:15px">${formData.receiptBusinessName || formData.displayName}</h1><p style="text-align:center">PRINTER TEST</p><hr><p>POS: ${formData.displayName}</p><p>Branch: Workspace default</p><p>Register: Current terminal</p><p>Printer: ${formData.receiptPrinterName}</p><p>Paper: ${formData.receiptPaperWidth} mm</p><p>Date: ${new Date().toLocaleString()}</p><hr><p style="text-align:center">Printer setup is working</p></div>`
+      await directPrintReceipt(html, { mode: 'direct', printerName: formData.receiptPrinterName, paperWidth: formData.receiptPaperWidth, autoPrint: false, customerCopy: true, copies: 1, cashDrawerPulse: false })
+      setPrinterStatus('ready'); notify.success('Test receipt printed')
+    } catch (error) { setPrinterStatus('error'); notify.error('Test receipt could not be printed', { description: error instanceof Error ? error.message : 'Printer unavailable' }) }
   }
 
   if (buttonOnly && !isEditing) {
@@ -244,6 +278,21 @@ export function EditableSettings({ businessSettings, organization, buttonOnly = 
           {/* Receipt Settings */}
           {(!section || section === 'receipt') && <div className="space-y-4 border-b pb-6">
             <h4 className="font-medium">Receipt Settings</h4>
+            <div className="space-y-4 rounded-xl border border-[var(--dashboard-border)] bg-[var(--dashboard-surface-subtle)] p-4 sm:p-5">
+              <div><h5 className="font-semibold">POS receipt printing</h5><p className="mt-1 text-xs text-muted-foreground">Direct printing uses QZ Tray on this Windows register. Browser print remains available as a fallback.</p></div>
+              <div className="grid gap-4 md:grid-cols-3">
+                <div><label className="text-sm font-medium">Printing mode</label><select value={formData.receiptPrintingMode} onChange={(event) => setFormData({ ...formData, receiptPrintingMode: event.target.value as 'direct' | 'browser' })} className="mt-1 w-full rounded-lg border px-3 py-2 text-sm"><option value="direct">Direct thermal printer</option><option value="browser">Browser print</option></select></div>
+                <div><label className="text-sm font-medium">Paper width</label><select value={formData.receiptPaperWidth} onChange={(event) => setFormData({ ...formData, receiptPaperWidth: Number(event.target.value) as 58 | 80 })} className="mt-1 w-full rounded-lg border px-3 py-2 text-sm"><option value={80}>80 mm</option><option value={58}>58 mm</option></select></div>
+                <div><label className="text-sm font-medium">Number of copies</label><input type="number" min={1} max={5} value={formData.receiptPrintCopies} onChange={(event) => setFormData({ ...formData, receiptPrintCopies: Math.max(1, Math.min(5, Number(event.target.value))) })} className="mt-1 w-full rounded-lg border px-3 py-2 text-sm" /></div>
+              </div>
+              {formData.receiptPrintingMode === 'direct' && <div className="grid gap-3 md:grid-cols-[1fr_auto_auto] md:items-end"><div><label className="text-sm font-medium">Configured printer</label><input list="receipt-printers" value={formData.receiptPrinterName} onChange={async (event) => { const name = event.target.value; setFormData({ ...formData, receiptPrinterName: name }); if (name) setPrinterStatus(await getDirectPrinterStatus(name)) }} placeholder="Exact Windows printer name" className="mt-1 w-full rounded-lg border px-3 py-2 text-sm" /><datalist id="receipt-printers">{availablePrinters.map((printer) => <option key={printer} value={printer} />)}</datalist></div><Button type="button" variant="outline" onClick={() => void discoverPrinters()}>Find printers</Button><Button type="button" variant="outline" onClick={() => void testReceiptPrinter()}>Test receipt</Button></div>}
+              {printerStatus && <p className={`text-xs font-semibold ${printerStatus === 'ready' ? 'text-emerald-600' : printerStatus === 'printing' ? 'text-amber-600' : 'text-red-600'}`}>Printer: {printerStatus === 'ready' ? 'Ready' : printerStatus === 'printing' ? 'Printing' : printerStatus === 'unavailable' ? 'Unavailable' : 'Error'}</p>}
+              <div className="grid gap-2 sm:grid-cols-3">{([
+                ['receiptAutoPrint', 'Auto-print after sale', 'Print after the sale is safely saved.'],
+                ['receiptPrintCustomerCopy', 'Print customer copy', 'Use the configured copy count.'],
+                ['receiptCashDrawerPulse', 'Cash-drawer pulse', 'Send the standard ESC/POS drawer pulse.'],
+              ] as const).map(([key, title, detail]) => <label key={key} className="flex cursor-pointer items-start gap-3 rounded-lg border bg-background p-3"><input type="checkbox" checked={formData[key]} onChange={(event) => setFormData({ ...formData, [key]: event.target.checked })} className="mt-0.5 h-4 w-4 accent-[#e42527]"/><span><span className="block text-sm font-medium">{title}</span><span className="mt-0.5 block text-xs text-muted-foreground">{detail}</span></span></label>)}</div>
+            </div>
             <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_440px] lg:items-start">
             <div className="space-y-4 rounded-xl border border-[var(--dashboard-border)] bg-[var(--dashboard-surface-subtle)] p-4 sm:p-5">
             <div>

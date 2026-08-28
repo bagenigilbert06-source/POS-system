@@ -1,7 +1,8 @@
 'use client'
 
 import { useTransition } from 'react'
-import { Loader2, RotateCw } from 'lucide-react'
+import { RotateCw } from 'lucide-react'
+import { LoadingSpinner as Loader2 } from '@/components/ui/page-loader'
 import { retryEtimsCreditNote, retryEtimsSubmission } from '@/app/actions/etims'
 import { notify } from '@/lib/notify'
 

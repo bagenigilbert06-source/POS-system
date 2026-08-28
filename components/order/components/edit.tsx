@@ -18,7 +18,7 @@ import { useState } from 'react';
 import { orderSchema } from '@/schema';
 import axios from 'axios';
 import { z } from 'zod';
-import { ReloadIcon } from '@radix-ui/react-icons';
+import { LoadingSpinner as ReloadIcon } from '@/components/ui/page-loader';
 import eventBus from '@/lib/even';
 import { notify } from '@/lib/notify';
 // Interface for the DialogEdit component

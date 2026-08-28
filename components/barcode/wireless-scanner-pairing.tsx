@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState } from 'react'
 import Image from 'next/image'
-import { CheckCircle2, Copy, Loader2, ScanBarcode, X } from 'lucide-react'
+import { CheckCircle2, Copy, ScanBarcode, X } from 'lucide-react'
+import { LoadingSpinner as Loader2 } from '@/components/ui/page-loader'
 
 export function WirelessScannerPairing({ open, onClose, onBarcode, purpose = 'product' }: { open: boolean; onClose: () => void; onBarcode: (barcode: string) => void; purpose?: 'product' | 'customer' }) {
   const [session, setSession] = useState<{ id: string; token: string; expiresAt: string } | null>(null)

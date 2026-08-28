@@ -11,7 +11,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import eventBus from '@/lib/even';
 import * as AlertDialogR from '@radix-ui/react-alert-dialog';
-import { ReloadIcon } from '@radix-ui/react-icons';
+import { LoadingSpinner as ReloadIcon } from '@/components/ui/page-loader';
 import axios from 'axios';
 import { useState, useEffect } from 'react';
 import { notify } from '@/lib/notify';

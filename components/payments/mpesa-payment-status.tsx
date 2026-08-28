@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import { formatCurrency } from '@/lib/utils'
-import { Loader2, CheckCircle2, XCircle, AlertCircle } from 'lucide-react'
+import { CheckCircle2, XCircle, AlertCircle } from 'lucide-react'
+import { LoadingSpinner as Loader2 } from '@/components/ui/page-loader'
 import { cn } from '@/lib/utils'
 
 type PaymentStatus = 'pending' | 'success' | 'failed' | 'timeout'

@@ -18,7 +18,7 @@ import { DialogAdd } from './components/dialogAdd';
 import axios from 'axios';
 import { TransactionData } from '@/types/transaction';
 import eventBus from '@/lib/even';
-import { ReloadIcon } from '@radix-ui/react-icons';
+import { LoadingSpinner as ReloadIcon } from '@/components/ui/page-loader';
 import { AlertDialogDeletetransaction } from './components/dialogDelete';
 import { notify } from '@/lib/notify';
 export function Orders() {

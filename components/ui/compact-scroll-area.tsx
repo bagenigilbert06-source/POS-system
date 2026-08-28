@@ -3,22 +3,28 @@
 import { useCallback, useEffect, useRef, useState, type HTMLAttributes, type PointerEvent } from 'react'
 import { cn } from '@/lib/utils'
 
-const THUMB_HEIGHT = 116
 const TRACK_INSET = 8
+const MIN_THUMB_HEIGHT = 56
 
 export function CompactScrollArea({ className, children, ...props }: HTMLAttributes<HTMLDivElement>) {
   const viewportRef = useRef<HTMLDivElement>(null)
   const dragRef = useRef<{ pointerY: number; scrollTop: number } | null>(null)
-  const [thumb, setThumb] = useState({ visible: false, top: 0 })
+  const [thumb, setThumb] = useState({ visible: false, top: 0, height: MIN_THUMB_HEIGHT })
 
   const updateThumb = useCallback(() => {
     const viewport = viewportRef.current
     if (!viewport) return
     const maxScroll = viewport.scrollHeight - viewport.clientHeight
-    const travel = Math.max(0, viewport.clientHeight - TRACK_INSET * 2 - THUMB_HEIGHT)
+    const trackHeight = Math.max(0, viewport.clientHeight - TRACK_INSET * 2)
+    const proportionalHeight = viewport.scrollHeight > 0
+      ? trackHeight * (viewport.clientHeight / viewport.scrollHeight)
+      : trackHeight
+    const height = Math.min(trackHeight, Math.max(MIN_THUMB_HEIGHT, proportionalHeight))
+    const travel = Math.max(0, trackHeight - height)
     setThumb({
       visible: maxScroll > 1,
       top: maxScroll > 0 ? (viewport.scrollTop / maxScroll) * travel : 0,
+      height,
     })
   }, [])
 
@@ -36,7 +42,7 @@ export function CompactScrollArea({ className, children, ...props }: HTMLAttribu
     const viewport = viewportRef.current
     const drag = dragRef.current
     if (!viewport || !drag) return
-    const travel = Math.max(1, viewport.clientHeight - TRACK_INSET * 2 - THUMB_HEIGHT)
+    const travel = Math.max(1, viewport.clientHeight - TRACK_INSET * 2 - thumb.height)
     const maxScroll = viewport.scrollHeight - viewport.clientHeight
     viewport.scrollTop = drag.scrollTop + ((event.clientY - drag.pointerY) / travel) * maxScroll
   }
@@ -49,20 +55,20 @@ export function CompactScrollArea({ className, children, ...props }: HTMLAttribu
       {thumb.visible && (
         <div
           aria-hidden="true"
-          className="absolute inset-y-2 right-1 z-20 w-1 cursor-pointer rounded-full"
+          className="absolute inset-y-2 right-1 z-20 hidden w-2 cursor-pointer rounded-full bg-slate-200/35 lg:block dark:bg-white/[.04]"
           onPointerDown={(event) => {
             if (event.target !== event.currentTarget) return
             const viewport = viewportRef.current
             if (!viewport) return
             const bounds = event.currentTarget.getBoundingClientRect()
-            const travel = Math.max(1, bounds.height - THUMB_HEIGHT)
-            const nextTop = Math.min(travel, Math.max(0, event.clientY - bounds.top - THUMB_HEIGHT / 2))
+            const travel = Math.max(1, bounds.height - thumb.height)
+            const nextTop = Math.min(travel, Math.max(0, event.clientY - bounds.top - thumb.height / 2))
             viewport.scrollTop = (nextTop / travel) * (viewport.scrollHeight - viewport.clientHeight)
           }}
         >
           <div
-            className="absolute left-0 h-[116px] w-1 touch-none cursor-grab rounded-full bg-slate-400/55 transition-colors hover:bg-slate-500/75 active:cursor-grabbing dark:bg-slate-400/45 dark:hover:bg-slate-300/70"
-            style={{ transform: `translateY(${thumb.top}px)` }}
+            className="absolute left-1/2 w-1.5 -translate-x-1/2 touch-none cursor-grab rounded-full bg-slate-400/65 transition-[background-color,width] hover:w-2 hover:bg-slate-500/80 active:cursor-grabbing dark:bg-slate-400/50 dark:hover:bg-slate-300/75"
+            style={{ height: `${thumb.height}px`, transform: `translate(-50%, ${thumb.top}px)` }}
             onPointerDown={(event) => {
               const viewport = viewportRef.current
               if (!viewport) return

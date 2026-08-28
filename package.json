@@ -6,9 +6,9 @@
     "seed": "ts-node --compiler-options {\"module\":\"CommonJS\"} prisma/seed.ts"
   },
   "scripts": {
-    "dev": "next dev --webpack",
-    "dev:network": "next dev --webpack -H 0.0.0.0",
-    "dev:turbopack": "next dev",
+    "dev": "next dev",
+    "dev:network": "next dev -H 0.0.0.0",
+    "dev:webpack": "next dev --webpack",
     "build": "next build --webpack",
     "start": "next start",
     "lint": "eslint .",
@@ -90,6 +90,7 @@
     "nextjs-toploader": "^1.6.12",
     "pg": "^8.22.0",
     "qrcode": "^1.5.4",
+    "qz-tray": "2.2.6",
     "react": "^19.2.7",
     "react-apexcharts": "^1.4.1",
     "react-dom": "^19.2.7",
