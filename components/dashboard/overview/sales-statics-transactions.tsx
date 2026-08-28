@@ -136,7 +136,7 @@ export function SalesStaticsTransactions({
     tab === 'Sales'
       ? '/dashboard/sales'
       : tab === 'Purchases'
-        ? '/dashboard/purchases'
+        ? '/dashboard/stock-intake'
         : tab === 'Expenses'
           ? '/dashboard/expenses'
           : '/dashboard/invoices';

@@ -94,6 +94,10 @@ export enum PermissionEnum {
   AUDIT_LOG_VIEW = 'audit:log-view',
   STAFF_VIEW = 'staff:view',
   STAFF_MANAGE = 'staff:manage',
+  ATTENDANCE_USE = 'attendance:use',
+  ATTENDANCE_VIEW_OWN = 'attendance:view-own',
+  ATTENDANCE_VIEW_ALL = 'attendance:view-all',
+  ATTENDANCE_CORRECT = 'attendance:correct',
 
   // Restaurant Specific
   TABLE_VIEW = 'table:view',
@@ -509,6 +513,18 @@ export const ROLE_PERMISSIONS: Record<RoleEnum, PermissionEnum[]> = {
     PermissionEnum.SHIFT_CLOSE,
   ],
 };
+
+// Attendance is available to every signed-in employee. Elevated attendance
+// visibility remains explicitly permission-based, never role-name checks.
+Object.values(ROLE_PERMISSIONS).forEach((permissions) => {
+  permissions.push(PermissionEnum.ATTENDANCE_USE, PermissionEnum.ATTENDANCE_VIEW_OWN)
+})
+for (const role of [RoleEnum.OWNER, RoleEnum.ADMIN, RoleEnum.MANAGER, RoleEnum.SUPERVISOR]) {
+  ROLE_PERMISSIONS[role].push(PermissionEnum.ATTENDANCE_VIEW_ALL)
+}
+for (const role of [RoleEnum.OWNER, RoleEnum.ADMIN, RoleEnum.MANAGER]) {
+  ROLE_PERMISSIONS[role].push(PermissionEnum.ATTENDANCE_CORRECT)
+}
 
 /**
  * Roles managed through Staff & Access. Admin/owner is deliberately excluded:

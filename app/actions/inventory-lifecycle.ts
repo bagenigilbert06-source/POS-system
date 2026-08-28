@@ -130,7 +130,7 @@ function refreshInventory() {
   for (const path of [
     '/dashboard',
     '/dashboard/inventory',
-    '/dashboard/purchases',
+    '/dashboard/stock-intake',
     '/dashboard/products',
     '/dashboard/reports',
   ])

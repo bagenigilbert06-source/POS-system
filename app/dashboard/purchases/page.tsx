@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation';
 
-/** Purchasing is intentionally not part of the sell-side Pesaby experience. */
+/** Legacy URL retained for bookmarks after procurement was replaced by stock intake. */
 export default function PurchasesPage() {
-  redirect('/dashboard/inventory');
+  redirect('/dashboard/stock-intake');
 }

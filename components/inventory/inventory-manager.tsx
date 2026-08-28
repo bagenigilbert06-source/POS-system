@@ -159,13 +159,10 @@ export function InventoryManager({
   const [reorderProduct, setReorderProduct] = useState<InventoryProduct | null>(
     null
   );
+  // Physical receipts belong to the dedicated Stock Intake workflow. Keep the
+  // legacy state only while this dashboard component is being simplified.
   const [receiveProduct, setReceiveProduct] = useState<InventoryProduct | null>(
-    () =>
-      (canReceive
-        ? organizationProducts.find(
-            (item) => item.id === initialReceiveProductId
-          )
-        : null) ?? null
+    null
   );
   const [receiveQuantity, setReceiveQuantity] = useState(1);
   const [receiveUnit, setReceiveUnit] = useState<
@@ -263,10 +260,8 @@ export function InventoryManager({
     [products]
   );
   const activeBranchId = branchId === 'all' ? branches[0]?.id : branchId;
-  const openReceive = (item: InventoryProduct) => {
-    setReceiveProduct(item);
-    setReceiveQuantity(1);
-    setReceiveUnit('base');
+  const openReceive = (_item: InventoryProduct) => {
+    router.push('/dashboard/stock-intake');
   };
   const replenishment = products
     .filter((item) => item.stock + (item.incoming ?? 0) <= item.minStock)
@@ -1706,7 +1701,7 @@ function Replenishment({
                 )}
                 {canPurchase && (
                   <Button asChild size="sm">
-                    <Link href={`/dashboard/purchases?productId=${item.id}`}>
+                    <Link href="/dashboard/stock-intake">
                       Receive stock
                     </Link>
                   </Button>

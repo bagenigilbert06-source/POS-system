@@ -9,6 +9,7 @@ import {
   uniqueIndex,
   index,
 } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
 
 // --- Better Auth required tables -------------------------------------------
 export const user = pgTable('user', {
@@ -1224,6 +1225,49 @@ export const purchaseItem = pgTable('purchase_item', {
   unitCost: numeric('unitCost', { precision: 12, scale: 2 }).notNull(),
   totalCost: numeric('totalCost', { precision: 12, scale: 2 }).notNull(),
   orgId: text('orgId').notNull(),
+});
+
+/** A confirmed physical delivery. Unlike purchasing, an intake has no order,
+ * supplier-payment, or approval lifecycle. */
+export const stockIntake = pgTable(
+  'stock_intake',
+  {
+    id: text('id').primaryKey(),
+    intakeNo: text('intakeNo').notNull(),
+    externalReference: text('externalReference'),
+    sourceName: text('sourceName'),
+    sourceType: text('sourceType').notNull().default('new_stock'),
+    notes: text('notes'),
+    status: text('status').notNull().default('confirmed'),
+    receivedAt: timestamp('receivedAt').notNull(),
+    createdBy: text('createdBy').notNull(),
+    confirmedBy: text('confirmedBy').notNull(),
+    confirmedAt: timestamp('confirmedAt').notNull().defaultNow(),
+    idempotencyKey: text('idempotencyKey').notNull(),
+    orgId: text('orgId').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+    branchId: text('branchId').notNull().references(() => branch.id, { onDelete: 'restrict' }),
+    createdAt: timestamp('createdAt').notNull().defaultNow(),
+  },
+  (table) => ({
+    organizationNumberUnique: uniqueIndex('stock_intake_org_number_unique').on(table.orgId, table.intakeNo),
+    organizationIdempotencyUnique: uniqueIndex('stock_intake_org_idempotency_unique').on(table.orgId, table.idempotencyKey),
+    organizationReceivedIndex: index('stock_intake_org_received_idx').on(table.orgId, table.receivedAt),
+  })
+);
+
+export const stockIntakeItem = pgTable('stock_intake_item', {
+  id: text('id').primaryKey(),
+  intakeId: text('intakeId').notNull().references(() => stockIntake.id, { onDelete: 'restrict' }),
+  productId: text('productId').notNull().references(() => product.id, { onDelete: 'restrict' }),
+  productName: text('productName').notNull(),
+  sku: text('sku'),
+  packageId: text('packageId').references(() => productPackage.id, { onDelete: 'restrict' }),
+  enteredQuantity: integer('enteredQuantity').notNull(),
+  enteredUnit: text('enteredUnit').notNull(),
+  baseQuantity: integer('baseQuantity').notNull(),
+  unitCost: numeric('unitCost', { precision: 12, scale: 4 }).notNull(),
+  totalCost: numeric('totalCost', { precision: 12, scale: 2 }).notNull(),
+  orgId: text('orgId').notNull().references(() => organization.id, { onDelete: 'cascade' }),
 });
 
 export const stockMovement = pgTable(
@@ -2467,6 +2511,50 @@ export const employee = pgTable(
   (table) => ({ organizationIndex: index('employee_org_idx').on(table.orgId) })
 );
 
+// Work attendance deliberately remains separate from POS cash sessions. A
+// person can be clocked in without operating a register, and vice versa.
+export const staffAttendance = pgTable(
+  'staff_attendance',
+  {
+    id: text('id').primaryKey(),
+    organizationId: text('organizationId').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+    branchId: text('branchId').notNull().references(() => branch.id, { onDelete: 'restrict' }),
+    userId: text('userId').notNull().references(() => user.id, { onDelete: 'restrict' }),
+    workDate: text('workDate').notNull(), // organization-local ISO date at clock-in
+    clockInAt: timestamp('clockInAt').notNull(),
+    clockOutAt: timestamp('clockOutAt'),
+    status: text('status').notNull().default('working'),
+    createdAt: timestamp('createdAt').notNull().defaultNow(),
+    updatedAt: timestamp('updatedAt').notNull().defaultNow(),
+  },
+  (table) => ({
+    activeUserUnique: uniqueIndex('staff_attendance_active_user_unique').on(table.organizationId, table.userId).where(sql`${table.clockOutAt} is null`),
+    organizationDateIndex: index('staff_attendance_org_date_idx').on(table.organizationId, table.workDate),
+    userDateIndex: index('staff_attendance_user_date_idx').on(table.userId, table.workDate),
+  })
+);
+
+export const staffAttendanceBreak = pgTable('staff_attendance_break', {
+  id: text('id').primaryKey(),
+  attendanceId: text('attendanceId').notNull().references(() => staffAttendance.id, { onDelete: 'cascade' }),
+  startedAt: timestamp('startedAt').notNull(),
+  endedAt: timestamp('endedAt'),
+  createdAt: timestamp('createdAt').notNull().defaultNow(),
+}, (table) => ({
+  activeAttendanceUnique: uniqueIndex('staff_attendance_break_active_unique').on(table.attendanceId).where(sql`${table.endedAt} is null`),
+}));
+
+export const staffAttendanceAudit = pgTable('staff_attendance_audit', {
+  id: text('id').primaryKey(),
+  attendanceId: text('attendanceId').notNull().references(() => staffAttendance.id, { onDelete: 'cascade' }),
+  organizationId: text('organizationId').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  managerId: text('managerId').notNull().references(() => user.id, { onDelete: 'restrict' }),
+  originalValue: json('originalValue').notNull(),
+  correctedValue: json('correctedValue').notNull(),
+  reason: text('reason').notNull(),
+  createdAt: timestamp('createdAt').notNull().defaultNow(),
+});
+
 export const shift = pgTable(
   'shift',
   {
@@ -2978,6 +3066,8 @@ export type Expense = typeof expense.$inferSelect;
 export type Supplier = typeof supplier.$inferSelect;
 export type Purchase = typeof purchase.$inferSelect;
 export type PurchaseItem = typeof purchaseItem.$inferSelect;
+export type StockIntake = typeof stockIntake.$inferSelect;
+export type StockIntakeItem = typeof stockIntakeItem.$inferSelect;
 export type StockMovement = typeof stockMovement.$inferSelect;
 export type InventoryBalance = typeof inventoryBalance.$inferSelect;
 export type InventoryCostLayer = typeof inventoryCostLayer.$inferSelect;

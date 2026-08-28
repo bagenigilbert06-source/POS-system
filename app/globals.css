@@ -2765,7 +2765,8 @@ html.dark .pesaby-hot-toast-error {
 }
 
 .pesaby-loader--page {
-  --size: 1.25px;
+  /* Keep route loaders present without overpowering the workspace. */
+  --size: 1px;
 }
 
 /* Match the loader footprint to the UI context without changing its proportions. */

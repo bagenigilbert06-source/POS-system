@@ -257,12 +257,13 @@ export function DynamicAppSidebar({
     products: PermissionEnum.PRODUCT_VIEW,
     categories: PermissionEnum.PRODUCT_EDIT,
     barcodes: PermissionEnum.PRODUCT_VIEW,
+    attendance: PermissionEnum.ATTENDANCE_USE,
     inventory: PermissionEnum.INVENTORY_VIEW,
     batches: PermissionEnum.BATCH_TRACKING_VIEW,
     customers: PermissionEnum.CUSTOMER_VIEW,
     analytics: PermissionEnum.REPORT_VIEW,
     reports: PermissionEnum.REPORT_VIEW,
-    purchases: PermissionEnum.PURCHASE_VIEW,
+    purchases: PermissionEnum.INVENTORY_RECEIVE,
     expenses: PermissionEnum.EXPENSE_VIEW,
     operations: PermissionEnum.SHIFT_MANAGE,
     settings: PermissionEnum.SETTINGS_VIEW,
@@ -381,6 +382,9 @@ export function DynamicAppSidebar({
   // Keep the cashier workspace focused on counter work and their own records.
   // Management, inventory and business-wide reporting remain unavailable here.
   const cashierPrimaryNav = [
+    ...(permissions.includes(PermissionEnum.ATTENDANCE_USE)
+      ? [{ id: 'attendance', label: 'Attendance', icon: 'Watch', route: '/dashboard/attendance' }]
+      : []),
     ...(canView('pos') ? [posNav] : []),
     ...(permissions.includes(PermissionEnum.SALES_VIEW_OWN)
       ? [myReceiptsNav]
@@ -401,6 +405,9 @@ export function DynamicAppSidebar({
   // register activity, sell when needed, and check stock.
   // Configuration, staff administration and financial settings stay hidden.
   const supervisorPrimaryNav = [
+    ...(permissions.includes(PermissionEnum.ATTENDANCE_USE)
+      ? [{ id: 'attendance', label: 'Attendance', icon: 'Watch', route: '/dashboard/attendance' }]
+      : []),
     ...(permissions.includes(PermissionEnum.SHIFT_MANAGE)
       ? [
           {

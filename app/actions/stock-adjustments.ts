@@ -155,7 +155,7 @@ async function refreshInventory(orgId: string) {
     '/dashboard',
     '/dashboard/inventory',
     '/dashboard/products',
-    '/dashboard/purchases',
+    '/dashboard/stock-intake',
     '/dashboard/reports',
   ].forEach((path) => revalidatePath(path));
 }

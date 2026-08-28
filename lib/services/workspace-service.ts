@@ -89,11 +89,11 @@ const MODULE_NAV: Record<string, SidebarNavItem> = {
     icon: 'Tags',
     route: '/dashboard/products/categories',
   },
-  barcodes: {
-    id: 'barcodes',
-    label: 'Print barcodes',
-    icon: 'Barcode',
-    route: '/dashboard/barcodes',
+  attendance: {
+    id: 'attendance',
+    label: 'Attendance',
+    icon: 'Watch',
+    route: '/dashboard/attendance',
   },
   inventory: {
     id: 'inventory',
@@ -109,9 +109,9 @@ const MODULE_NAV: Record<string, SidebarNavItem> = {
   },
   purchases: {
     id: 'purchases',
-    label: 'Purchasing',
+    label: 'Stock Intake',
     icon: 'PackagePlus',
-    route: '/dashboard/purchases',
+    route: '/dashboard/stock-intake',
   },
   customers: {
     id: 'customers',
@@ -203,6 +203,7 @@ function navigationFor(
         icon: 'LayoutDashboard',
         route: '/dashboard',
       },
+      MODULE_NAV.attendance,
       ...enabledModules.flatMap((id) => {
         if (!MODULE_NAV[id]) return [];
         const items = [
@@ -212,7 +213,6 @@ function navigationFor(
         if (id === 'products') return [
           ...items,
           { ...MODULE_NAV.categories, label: `${productTerms.singular} categories` },
-          MODULE_NAV.barcodes,
         ];
         if (id === 'inventory' && isPharmacyBusiness(businessFamily, businessCategory)) return [...items, MODULE_NAV.batches];
         return items;
@@ -251,6 +251,7 @@ function runtimeConfig(input: {
       'reports',
       'analytics',
       'operations',
+      'products',
     ])
   );
   const storedTemplateId = input.stored?.templateId;
