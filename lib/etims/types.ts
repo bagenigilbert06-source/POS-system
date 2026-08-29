@@ -11,6 +11,14 @@ export const ETIMS_STATUSES = [
 
 export type EtimsStatus = (typeof ETIMS_STATUSES)[number]
 export type EtimsEnvironment = 'sandbox' | 'production'
+export type EtimsProviderCapabilities = {
+  supportsIntegrationAuthorizationVerification: boolean
+  supportsBranchDiscovery: boolean
+  supportsDeviceInitialization: boolean
+  supportsConnectionTest: boolean
+  supportsSalesSubmission: boolean
+  supportsCreditNotes: boolean
+}
 
 export type EtimsConfigurationSnapshot = {
   id: string
@@ -113,6 +121,8 @@ export interface EtimsProvider {
   authenticate(): Promise<void>
   validateConfiguration(): Promise<{ valid: boolean; message: string }>
   healthCheck(): Promise<{ ok: boolean; message: string; latencyMs: number }>
+  /** Verifies OSCU integration authorization without persisting the token. */
+  verifyIntegrationAuthorization?(input: { businessKraPin: string; integrationToken: string }): Promise<{ ok: boolean; code?: string; message?: string }>
   submitInvoice(invoice: EtimsInvoice): Promise<EtimsProviderResult>
   getInvoiceStatus(submissionId: string): Promise<EtimsProviderResult>
   submitCreditNote(note: EtimsCreditNoteRequest): Promise<EtimsProviderResult>

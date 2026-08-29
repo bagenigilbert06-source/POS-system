@@ -23,7 +23,7 @@ import {
   voidExpense,
   type ExpenseFilters,
 } from '@/app/actions/expenses';
-import { EXPENSE_CATEGORIES, EXPENSE_PAYMENT_METHODS } from '@/lib/expenses';
+import { EXPENSE_CATEGORIES, EXPENSE_FILTER_CATEGORIES, EXPENSE_PAYMENT_METHODS } from '@/lib/expenses';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -47,24 +47,34 @@ type ExpenseRow = ExpenseData['rows'][number];
 
 const titleCase = (value: string) =>
   value.replace(/_/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase());
-const statusVisual = {
-  effective: {
+const paymentLabel = (value: string) => ({
+  cash: 'Cash',
+  mpesa: 'M-Pesa',
+  airtel_money: 'Airtel Money',
+  card: 'Card',
+  bank: 'Bank',
+}[value] ?? titleCase(value));
+const statusVisual = (status: string, approvalId?: string | null) => {
+  if (status === 'effective') return approvalId ? {
     label: 'Approved',
     tone: 'border-emerald-500/25 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300',
-  },
-  pending: {
-    label: 'Pending',
+  } : {
+    label: 'Recorded',
+    tone: 'border-emerald-500/25 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300',
+  };
+  if (status === 'pending') return {
+    label: 'Pending approval',
     tone: 'border-sky-500/25 bg-sky-500/15 text-sky-700 dark:text-sky-300',
-  },
-  rejected: {
+  };
+  if (status === 'rejected') return {
     label: 'Rejected',
     tone: 'border-red-500/25 bg-red-500/15 text-red-700 dark:text-red-300',
-  },
-  voided: {
+  };
+  return {
     label: 'Voided',
     tone: 'border-border bg-muted text-muted-foreground',
-  },
-} as const;
+  };
+};
 const dateInput = (value: Date | string = new Date()) => {
   const date = new Date(value);
   const local = new Date(date.getTime() - date.getTimezoneOffset() * 60_000);
@@ -209,7 +219,7 @@ export function ExpenseManager({
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All categories</SelectItem>
-              {EXPENSE_CATEGORIES.map((item) => (
+              {EXPENSE_FILTER_CATEGORIES.map((item) => (
                 <SelectItem key={item} value={item}>
                   {titleCase(item)}
                 </SelectItem>
@@ -252,8 +262,8 @@ export function ExpenseManager({
             <SelectTrigger className="h-10 w-[145px] border-border bg-background shadow-none"><SelectValue placeholder="All statuses" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All statuses</SelectItem>
-              <SelectItem value="effective">Approved</SelectItem>
-              <SelectItem value="pending">Pending</SelectItem>
+              <SelectItem value="effective">Recorded / approved</SelectItem>
+              <SelectItem value="pending">Pending approval</SelectItem>
               <SelectItem value="rejected">Rejected</SelectItem>
               <SelectItem value="voided">Voided</SelectItem>
             </SelectContent>
@@ -308,14 +318,15 @@ export function ExpenseManager({
         </div>
         {data.rows.length ? (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[1180px] text-sm">
+            <table className="w-full min-w-[1280px] text-sm">
               <thead className="border-y border-border bg-muted/45 text-left text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
                 <tr>
                   <th className="px-5 py-3.5 font-medium">Reference</th>
-                  <th className="px-4 py-3 font-medium">Expense name</th>
+                  <th className="px-4 py-3 font-medium">Expense</th>
+                  <th className="px-4 py-3 font-medium">Payee</th>
                   <th className="px-4 py-3 font-medium">Category</th>
-                  <th className="px-4 py-3 font-medium">Description</th>
                   <th className="px-4 py-3 font-medium">Date</th>
+                  <th className="px-4 py-3 font-medium">Payment</th>
                   <th className="px-4 py-3 text-right font-medium">Amount</th>
                   <th className="px-4 py-3 font-medium">Status</th>
                   {canManage && (
@@ -335,13 +346,14 @@ export function ExpenseManager({
                       {row.record.expenseNo}
                     </td>
                     <td className="px-4 py-4"><p className="max-w-[210px] truncate font-medium">{row.record.title}</p></td>
+                    <td className="px-4 py-4"><p className="max-w-[180px] truncate text-muted-foreground">{row.record.payee || '—'}</p></td>
                     <td className="px-4 py-4 text-muted-foreground">{titleCase(row.record.category)}</td>
-                    <td className="px-4 py-4"><p className="max-w-[280px] truncate text-muted-foreground">{row.record.notes || [row.record.payee, titleCase(row.record.paymentMethod), row.branchName].filter(Boolean).join(' · ') || '—'}</p><p className="mt-1 text-xs text-muted-foreground">{row.record.reference ? `External: ${row.record.reference}` : row.record.payee ? `Paid to ${row.record.payee}` : ''}</p></td>
                     <td className="px-4 py-4"><p className="whitespace-nowrap font-medium">{new Date(row.record.expenseDate).toLocaleDateString()}</p><p className="mt-1 text-xs text-muted-foreground">{row.branchName ?? 'Workspace'}</p></td>
+                    <td className="px-4 py-4 text-muted-foreground">{paymentLabel(row.record.paymentMethod)}</td>
                     <td className="px-4 py-4 text-right font-semibold tabular-nums">
                       {formatCurrency(row.record.amount, currency)}
                     </td>
-                    <td className="px-4 py-3.5">{(() => { const status = statusVisual[row.record.status as keyof typeof statusVisual] ?? statusVisual.voided; return <span className={`inline-flex min-w-[72px] justify-center rounded-md border px-2.5 py-1 text-[11px] font-semibold leading-none ${status.tone}`}>{status.label}</span>; })()}</td>
+                    <td className="px-4 py-3.5">{(() => { const status = statusVisual(row.record.status, row.record.approvalId); return <span className={`inline-flex min-w-[72px] justify-center rounded-md border px-2.5 py-1 text-[11px] font-semibold leading-none ${status.tone}`}>{status.label}</span>; })()}</td>
                     {canManage && (
                       <td className="px-5 py-3.5">
                         <div className="flex justify-end gap-2">
@@ -597,14 +609,14 @@ export function ExpenseManager({
           <DialogHeader><DialogTitle>Expense details</DialogTitle></DialogHeader>
           {selected && <div className="grid grid-cols-2 gap-x-6 gap-y-4 text-sm">
             <Detail label="Internal reference" value={selected.record.expenseNo} />
-            <Detail label="Status" value={(statusVisual[selected.record.status as keyof typeof statusVisual] ?? statusVisual.voided).label} />
+            <Detail label="Status" value={statusVisual(selected.record.status, selected.record.approvalId).label} />
             <Detail label="Description" value={selected.record.title} />
             <Detail label="Paid to / Payee" value={selected.record.payee || '—'} />
             <Detail label="Amount" value={formatCurrency(selected.record.amount, currency)} />
             <Detail label="Category" value={titleCase(selected.record.category)} />
             <Detail label="Expense date" value={new Date(selected.record.expenseDate).toLocaleDateString()} />
             <Detail label="Location" value={selected.branchName ?? 'Workspace'} />
-            <Detail label="Payment method" value={titleCase(selected.record.paymentMethod)} />
+            <Detail label="Payment method" value={paymentLabel(selected.record.paymentMethod)} />
             <Detail label="Payment account" value={selected.accountName ?? '—'} />
             <Detail label="External reference" value={selected.record.reference || '—'} />
             <Detail label="Recorded by" value={selected.creatorName ?? '—'} />
@@ -621,7 +633,7 @@ export function ExpenseManager({
             <p className="text-xs text-muted-foreground">{editTarget.record.expenseNo}. Amount, payment method, account, branch, and date remain locked after posting.</p>
             <div className="space-y-2"><Label htmlFor="edit-expense-title">Expense name</Label><Input id="edit-expense-title" name="title" required maxLength={120} defaultValue={editTarget.record.title} /></div>
             <div className="space-y-2"><Label htmlFor="edit-expense-payee">Paid to / Payee</Label><Input id="edit-expense-payee" name="payee" maxLength={160} defaultValue={editTarget.record.payee ?? ''} /></div>
-            <div className="space-y-2"><Label>Category</Label><Select name="category" defaultValue={editTarget.record.category}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{EXPENSE_CATEGORIES.map((item) => <SelectItem key={item} value={item}>{titleCase(item)}</SelectItem>)}</SelectContent></Select></div>
+            <div className="space-y-2"><Label>Category</Label><Select name="category" defaultValue={editTarget.record.category}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{(editTarget.record.category === 'stock' ? EXPENSE_FILTER_CATEGORIES : EXPENSE_CATEGORIES).map((item) => <SelectItem key={item} value={item}>{item === 'stock' ? 'Stock (legacy)' : titleCase(item)}</SelectItem>)}</SelectContent></Select></div>
             <div className="space-y-2"><Label htmlFor="edit-expense-reference">External reference</Label><Input id="edit-expense-reference" name="reference" maxLength={100} defaultValue={editTarget.record.reference ?? ''} /></div>
             <div className="space-y-2"><Label htmlFor="edit-expense-notes">Notes</Label><textarea id="edit-expense-notes" name="notes" rows={3} maxLength={500} defaultValue={editTarget.record.notes ?? ''} className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring" /></div>
             <div className="flex justify-end gap-2"><Button type="button" variant="outline" onClick={() => setEditTarget(null)}>Cancel</Button><Button disabled={pending}>Save changes</Button></div>

@@ -27,21 +27,20 @@ export function DataTable<T>({
   columns,
   rowKey,
   onRowClick,
-  striped = true,
+  striped = false,
   hoverable = true,
   compact = false,
 }: DataTableProps<T>) {
   return (
-    <div className="overflow-x-auto rounded-lg border border-[#27272a]">
+    <div className="overflow-x-auto rounded-lg border bg-card">
       <table className="w-full text-sm">
         <thead>
-          <tr className="border-b border-[#27272a] bg-[#0f1118] dark:bg-[#0a0d12]">
+          <tr className="border-b bg-muted/40">
             {columns.map((column) => (
               <th
                 key={column.id}
                 className={cn(
-                  'px-6 py-4 text-left font-semibold text-[#a1a1aa] dark:text-[#a1a1aa] uppercase tracking-wide text-xs',
-                  'sticky top-0 bg-[#0f1118] dark:bg-[#0a0d12]',
+                  'sticky top-0 bg-muted/40 px-4 py-3 text-left text-xs font-semibold text-muted-foreground',
                   column.width
                 )}
               >
@@ -53,7 +52,7 @@ export function DataTable<T>({
         <tbody>
           {data.length === 0 ? (
             <tr>
-              <td colSpan={columns.length} className="px-6 py-12 text-center text-[#a1a1aa]">
+              <td colSpan={columns.length} className="px-4 py-10 text-center text-sm text-muted-foreground">
                 No data available
               </td>
             </tr>
@@ -63,9 +62,9 @@ export function DataTable<T>({
                 key={rowKey(row)}
                 onClick={() => onRowClick?.(row)}
                 className={cn(
-                  'border-b border-[#27272a] transition-all',
-                  striped && index % 2 === 0 && 'bg-[#111827]/40',
-                  hoverable && 'hover:bg-[#111827]/60 cursor-pointer',
+                  'border-b transition-colors last:border-0',
+                  striped && index % 2 === 0 && 'bg-muted/20',
+                  hoverable && 'hover:bg-muted/35 cursor-pointer',
                   onRowClick && 'cursor-pointer'
                 )}
               >
@@ -73,8 +72,8 @@ export function DataTable<T>({
                   <td
                     key={column.id}
                     className={cn(
-                      'text-[#fafafa] dark:text-[#fafafa]',
-                      compact ? 'px-6 py-3' : 'px-6 py-4',
+                      'text-foreground',
+                      compact ? 'px-4 py-2.5' : 'px-4 py-3',
                       column.align === 'center' && 'text-center',
                       column.align === 'right' && 'text-right'
                     )}

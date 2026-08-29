@@ -163,7 +163,7 @@ export function AppNavbar({
   };
 
   return (
-    <header className="dashboard-navbar z-30 flex h-[72px] shrink-0 items-center justify-between gap-4 border-b px-4 sm:px-6 lg:px-7">
+    <header className="dashboard-navbar z-30 flex h-[68px] shrink-0 items-center justify-between gap-4 border-b px-4 sm:px-5 lg:px-6">
       <div className="flex min-w-0 flex-1 items-center gap-4">
         <button
           type="button"
@@ -199,7 +199,7 @@ export function AppNavbar({
         </div>
       </div>
 
-      <div className="flex shrink-0 items-center gap-4 sm:gap-5">
+      <div className="flex shrink-0 items-center gap-2.5 sm:gap-3">
         {quickActions.length > 0 && (
           <div ref={quickCreateRef} className="relative">
             <button
@@ -244,10 +244,10 @@ export function AppNavbar({
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button
-              className="group flex h-11 items-center gap-2.5 rounded-xl px-1.5 py-0.5 text-left text-[var(--dashboard-text)] transition-colors hover:bg-[var(--dashboard-surface-subtle)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--dashboard-accent)] focus-visible:ring-offset-2 sm:pr-2.5"
+              className="group flex h-10 items-center gap-2 rounded-lg px-1 py-0.5 text-left text-[var(--dashboard-text)] transition-colors hover:bg-[var(--dashboard-surface-subtle)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--dashboard-accent)] focus-visible:ring-offset-1 sm:pr-2"
               aria-label="Open account menu"
             >
-              <div className="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-[var(--dashboard-accent-soft-border)] bg-[var(--dashboard-accent)] text-xs font-extrabold text-[var(--dashboard-accent-cta-ink)] ring-2 ring-[var(--dashboard-surface)]">
+              <div className="relative flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full border border-[var(--dashboard-accent-soft-border)] bg-[var(--dashboard-accent-soft)] text-xs font-extrabold text-[var(--dashboard-accent-strong)]">
                 {userImage && !avatarFailed ? (
                   <Image
                     src={userImage}

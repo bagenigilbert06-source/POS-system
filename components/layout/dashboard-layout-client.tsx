@@ -99,7 +99,7 @@ export function DashboardLayoutClient({
             className={
               isPosTerminal
                 ? 'min-h-0 flex-1 overflow-hidden bg-[#f4f6f8] p-0 outline-none dark:bg-[#090909]'
-                : 'dashboard-scroll-region min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-4 py-4 outline-none sm:px-6 sm:py-5 lg:px-7 lg:py-5'
+                : 'dashboard-scroll-region min-h-0 flex-1 overflow-y-auto overflow-x-hidden bg-[var(--dashboard-canvas)] px-4 py-5 outline-none sm:px-6 sm:py-6 lg:px-7 lg:py-6'
             }
           >
             {Children.toArray(children)}

@@ -10,17 +10,17 @@ interface StatusBadgeProps {
 }
 
 const variantClasses: Record<StatusVariant, string> = {
-  success: 'bg-[#22c55e]/12 text-[#22c55e] dark:bg-[#22c55e]/15 dark:text-[#22c55e] border border-[#22c55e]/20',
-  warning: 'bg-[#f59e0b]/12 text-[#f59e0b] dark:bg-[#f59e0b]/15 dark:text-[#f59e0b] border border-[#f59e0b]/20',
-  danger: 'bg-[#ef4444]/12 text-[#ef4444] dark:bg-[#ef4444]/15 dark:text-[#ef4444] border border-[#ef4444]/20',
-  info: 'bg-blue-500/12 text-blue-600 dark:bg-blue-500/15 dark:text-blue-400 border border-blue-500/20',
-  default: 'bg-gray-500/12 text-gray-700 dark:bg-gray-500/15 dark:text-gray-300 border border-gray-500/20',
+  success: 'border border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/35 dark:text-emerald-300',
+  warning: 'border border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900 dark:bg-amber-950/35 dark:text-amber-300',
+  danger: 'border border-red-200 bg-red-50 text-red-700 dark:border-red-900 dark:bg-red-950/35 dark:text-red-300',
+  info: 'border border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-900 dark:bg-blue-950/35 dark:text-blue-300',
+  default: 'border border-border bg-muted text-muted-foreground',
 }
 
 const sizeClasses: Record<'sm' | 'md' | 'lg', string> = {
-  sm: 'px-2 py-1 text-xs font-medium rounded',
-  md: 'px-3 py-1.5 text-sm font-medium rounded-md',
-  lg: 'px-4 py-2 text-base font-medium rounded-lg',
+  sm: 'px-2 py-0.5 text-[11px] font-semibold rounded-full',
+  md: 'px-2.5 py-1 text-xs font-semibold rounded-full',
+  lg: 'px-3 py-1.5 text-sm font-semibold rounded-full',
 }
 
 export function StatusBadge({ variant = 'default', children, className, size = 'md' }: StatusBadgeProps) {

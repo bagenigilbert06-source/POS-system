@@ -1,5 +1,10 @@
 import { MockEtimsProvider, type MockEtimsScenario } from './providers/mock-provider'
-import { EtimsValidationError, type EtimsConfigurationSnapshot, type EtimsProvider } from './types'
+import { EtimsValidationError, type EtimsConfigurationSnapshot, type EtimsProvider, type EtimsProviderCapabilities } from './types'
+
+export function getEtimsProviderCapabilities(configuration: Pick<EtimsConfigurationSnapshot, 'providerName'>): EtimsProviderCapabilities {
+  const runtime = configuration.providerName === 'mock'
+  return { supportsIntegrationAuthorizationVerification: false, supportsBranchDiscovery: false, supportsDeviceInitialization: false, supportsConnectionTest: runtime, supportsSalesSubmission: runtime, supportsCreditNotes: runtime }
+}
 
 const SECRET_REFERENCE = /^[A-Z][A-Z0-9_]{2,127}$/
 

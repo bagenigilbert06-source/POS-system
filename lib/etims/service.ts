@@ -5,6 +5,7 @@ import {
   etimsConfiguration,
   etimsCreditNote,
   etimsSubmission,
+  etimsSubmissionAttempt,
   sale,
   salesReturn,
   salesReturnItem,
@@ -97,13 +98,20 @@ export async function processEtimsSubmission(submissionId: string, options: { us
   if (!current) throw new Error('eTIMS submission not found')
   if (current.status === 'ACCEPTED') return { status: 'ACCEPTED' as const, submission: current }
 
-  const allowed = options.manual ? ['PENDING', 'FAILED', 'RETRYING'] : ['PENDING', 'RETRYING', 'SUBMITTING']
+  const allowed = options.manual ? ['PENDING', 'FAILED', 'RETRYING'] : ['PENDING', 'RETRYING']
+  // A stale SUBMITTING row is a recoverable lease. Compare the timestamp read
+  // above so two workers cannot both renew and deliver the same fiscal request.
+  const claimState = current.status === 'SUBMITTING' && !options.manual
+    ? and(eq(etimsSubmission.status, 'SUBMITTING'), current.lastAttemptAt
+      ? eq(etimsSubmission.lastAttemptAt, current.lastAttemptAt)
+      : isNull(etimsSubmission.lastAttemptAt))
+    : inArray(etimsSubmission.status, allowed)
   const [claimed] = await db.update(etimsSubmission).set({
     status: 'SUBMITTING',
     lastAttemptAt: new Date(),
     submittedAt: current.submittedAt ?? new Date(),
     updatedAt: new Date(),
-  }).where(and(eq(etimsSubmission.id, current.id), inArray(etimsSubmission.status, allowed))).returning()
+  }).where(and(eq(etimsSubmission.id, current.id), claimState)).returning()
   if (!claimed) {
     const [latest] = await db.select().from(etimsSubmission).where(eq(etimsSubmission.id, current.id)).limit(1)
     return { status: latest?.status ?? current.status, submission: latest ?? current }
@@ -146,6 +154,11 @@ export async function processEtimsSubmission(submissionId: string, options: { us
       errorMessage: null,
       updatedAt: acceptedAt,
     }).where(and(eq(etimsSubmission.id, claimed.id), eq(etimsSubmission.status, 'SUBMITTING'))).returning()
+    await db.insert(etimsSubmissionAttempt).values({ id: generateId(), submissionId: claimed.id,
+      organizationId: claimed.organizationId, attemptNumber: claimed.retryCount + 1,
+      trigger: options.manual ? 'MANUAL' : claimed.retryCount ? 'AUTOMATIC' : 'INITIAL', status: 'ACCEPTED',
+      resultCode: result.errorCode ?? null, resultMessage: result.errorMessage?.slice(0, 500) ?? null,
+      startedAt: claimed.lastAttemptAt ?? new Date(started) }).onConflictDoNothing()
     if (actorId) await audit({ organizationId: claimed.organizationId, userId: actorId, action: 'etims_invoice_accepted', metadata: { saleId: claimed.saleId, submissionId: claimed.id, provider: claimed.provider, environment: claimed.environment, duplicate: Boolean(result.duplicate) } })
     log('invoice_accepted', { saleId: claimed.saleId, submissionId: claimed.id, provider: claimed.provider, latencyMs: Date.now() - started })
     return { status: 'ACCEPTED' as const, submission: accepted }
@@ -163,6 +176,10 @@ export async function processEtimsSubmission(submissionId: string, options: { us
       responseData: { error: failure.code, retryable: failure.retryable },
       updatedAt: new Date(),
     }).where(eq(etimsSubmission.id, claimed.id)).returning()
+    await db.insert(etimsSubmissionAttempt).values({ id: generateId(), submissionId: claimed.id,
+      organizationId: claimed.organizationId, attemptNumber: attempts,
+      trigger: options.manual ? 'MANUAL' : claimed.retryCount ? 'AUTOMATIC' : 'INITIAL', status,
+      resultCode: failure.code, resultMessage: failure.message, startedAt: claimed.lastAttemptAt ?? new Date(started) }).onConflictDoNothing()
     if (actorId) await audit({ organizationId: claimed.organizationId, userId: actorId, action: mayRetry ? 'etims_invoice_retry_scheduled' : 'etims_invoice_failed', metadata: { saleId: claimed.saleId, submissionId: claimed.id, errorCode: failure.code, attempts } })
     log('invoice_failed', { saleId: claimed.saleId, submissionId: claimed.id, errorCode: failure.code, retryable: mayRetry, latencyMs: Date.now() - started })
     return { status, submission: failed, message: mayRetry ? 'Sale completed. eTIMS submission is pending and will retry automatically.' : 'Sale completed. eTIMS requires administrative review.' }

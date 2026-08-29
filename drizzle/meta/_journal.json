@@ -197,6 +197,13 @@
       "when": 1788201600000,
       "tag": "0047_clean_legacy_expense_numbers",
       "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1788205200000,
+      "tag": "0048_etims_operations",
+      "breakpoints": true
     }
   ]
 }

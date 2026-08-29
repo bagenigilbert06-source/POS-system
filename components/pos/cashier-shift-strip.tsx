@@ -110,14 +110,17 @@ export function CashierShiftStrip({
         if (notice) {
           await notify.track(task, {
             ...notice,
-            error: (cause) =>
-              cause instanceof Error ? cause.message : 'Unable to update this shift',
+            error: () => 'Unable to update this shift',
           });
         } else {
           await task();
         }
       } catch (cause) {
-        const message = cause instanceof Error ? cause.message : 'Unable to update this shift';
+        let message = 'Unable to update this shift';
+        try {
+          if (cause instanceof Error && typeof cause.message === 'string') message = cause.message;
+          else if (typeof cause === 'string') message = cause;
+        } catch { /* framework-wrapped server errors can expose read-only fields */ }
         setError(message);
         if (!notice) notify.error(message);
       }

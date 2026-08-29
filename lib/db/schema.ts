@@ -364,6 +364,10 @@ export const etimsConfiguration = pgTable(
     receiptDetailsEnabled: boolean('receiptDetailsEnabled')
       .notNull()
       .default(true),
+    connectionStatus: text('connectionStatus').notNull().default('NOT_CONFIGURED'),
+    lastConnectionTestAt: timestamp('lastConnectionTestAt'),
+    lastConnectionSuccessAt: timestamp('lastConnectionSuccessAt'),
+    lastConnectionMessage: text('lastConnectionMessage'),
     createdAt: timestamp('createdAt').notNull().defaultNow(),
     updatedAt: timestamp('updatedAt').notNull().defaultNow(),
   },
@@ -1119,6 +1123,27 @@ export const etimsSubmission = pgTable(
       table.branchId,
       table.createdAt
     ),
+  })
+);
+
+/** Sanitized, append-only history for every fiscal delivery attempt. */
+export const etimsSubmissionAttempt = pgTable(
+  'etims_submission_attempt',
+  {
+    id: text('id').primaryKey(),
+    submissionId: text('submissionId').notNull().references(() => etimsSubmission.id, { onDelete: 'cascade' }),
+    organizationId: text('organizationId').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+    attemptNumber: integer('attemptNumber').notNull(),
+    trigger: text('trigger').notNull(),
+    status: text('status').notNull(),
+    resultCode: text('resultCode'),
+    resultMessage: text('resultMessage'),
+    startedAt: timestamp('startedAt').notNull(),
+    completedAt: timestamp('completedAt').notNull().defaultNow(),
+  },
+  (table) => ({
+    submissionAttemptUnique: uniqueIndex('etims_attempt_submission_number_unique').on(table.submissionId, table.attemptNumber),
+    organizationCreatedIndex: index('etims_attempt_org_created_idx').on(table.organizationId, table.completedAt),
   })
 );
 

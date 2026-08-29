@@ -600,14 +600,14 @@ export function DynamicAppSidebar({
         group.items.some((groupItem) => groupItem.id === item.id)
       )
   );
-  const sidebarWidth = sidebarCollapsed ? 'lg:w-[68px]' : 'lg:w-[223px]';
+  const sidebarWidth = sidebarCollapsed ? 'lg:w-[68px]' : 'lg:w-[248px]';
 
   const sidebar = (
     <aside
       className={cn(
         'dashboard-sidebar flex h-full flex-col border-r',
         'transition-all duration-200 ease-in-out',
-        'w-[223px] max-w-[85vw]',
+        'w-[248px] max-w-[85vw]',
         sidebarWidth
       )}
     >
@@ -724,7 +724,7 @@ export function DynamicAppSidebar({
       </nav>
 
       {/* Bottom nav */}
-      <div className="border-t border-[rgba(255,214,10,0.08)] py-4 px-3">
+      <div className="border-t border-[var(--dashboard-border)] px-3 py-3">
         <ul className="space-y-1">
           {visibleSecondaryNav.map((item) => {
             const IconComponent = getIcon(item.icon);
@@ -749,8 +749,8 @@ export function DynamicAppSidebar({
                       ? 'lg:justify-center lg:px-3 lg:py-2'
                       : 'px-3 py-2',
                     active
-                      ? 'bg-[rgba(255,214,10,0.1)] text-[#ffd60a] border border-[rgba(255,214,10,0.2)]'
-                      : 'text-[#a1a1a6] hover:bg-[rgba(255,255,255,0.05)] hover:text-[#f5f5f7]'
+                      ? 'border border-[var(--dashboard-accent-soft-border)] bg-[var(--dashboard-accent-soft)] text-[var(--dashboard-accent)]'
+                      : 'text-[var(--dashboard-muted)] hover:bg-[var(--dashboard-surface-subtle)] hover:text-[var(--dashboard-text)]'
                   )}
                 >
                   <IconComponent className="h-4 w-4 flex-shrink-0" />
