@@ -1,6 +1,6 @@
 import { and, asc, desc, eq, gte, inArray, lt, lte, sql } from 'drizzle-orm'
 import { db } from '@/lib/db'
-import { branch, category, customer, expense, inventoryBalance, inventoryLot, invoice, organizationMembership, product, purchase, sale, saleItem, salesReturn, salesReturnItem } from '@/lib/db/schema'
+import { branch, category, customer, expense, inventoryBalance, inventoryLot, invoice, organizationMembership, product, sale, saleItem, salesReturn, salesReturnItem } from '@/lib/db/schema'
 
 export interface DashboardOverview {
   today: {
@@ -63,7 +63,6 @@ export interface DashboardOverview {
     status: string
     createdAt: Date
   }>
-  recentPurchases: Array<{ id: string; name: string; reference: string; date: Date; status: string; amount: number }>
   recentExpenses: Array<{ id: string; name: string; reference: string; date: Date; status: string; amount: number }>
   recentInvoices: Array<{ id: string; name: string; reference: string; date: Date; status: string; amount: number }>
   lowStockProducts: Array<{
@@ -398,10 +397,7 @@ export async function getDashboardOverview(organizationId: string, timeZone = 'A
   ])
   const revenueByMonth = new Map(monthlyRevenueRows.map((row) => [number(row.month), number(row.amount)]))
   const expenseByMonth = new Map(monthlyExpenseRows.map((row) => [number(row.month), number(row.amount)]))
-  const purchaseBranchScope = branchIds === undefined ? undefined : branchIds.length ? inArray(purchase.branchId, [...branchIds]) : sql`false`
-  const [recentPurchaseRows, recentExpenseRows, recentInvoiceRows, topCustomerRows, topCategoryRows, topCategoryRowsLast7Days, categoryCountRows] = await Promise.all([
-    db.select({ id: purchase.id, name: purchase.supplierName, reference: purchase.purchaseNo, date: purchase.createdAt, status: purchase.paymentStatus, amount: purchase.total })
-      .from(purchase).where(and(eq(purchase.orgId, organizationId), purchaseBranchScope)).orderBy(desc(purchase.createdAt)).limit(5),
+  const [recentExpenseRows, recentInvoiceRows, topCustomerRows, topCategoryRows, topCategoryRowsLast7Days, categoryCountRows] = await Promise.all([
     db.select({ id: expense.id, name: expense.title, reference: expense.reference, date: expense.expenseDate, status: expense.paymentMethod, amount: expense.amount })
       .from(expense).where(and(eq(expense.orgId, organizationId), expenseBranchScope)).orderBy(desc(expense.expenseDate)).limit(5),
     db.select({ id: invoice.id, name: customer.name, reference: invoice.invoiceNo, date: invoice.dueDate, createdAt: invoice.createdAt, status: invoice.status, amount: invoice.total })
@@ -530,7 +526,6 @@ export async function getDashboardOverview(organizationId: string, timeZone = 'A
       const item = recentProductBySale.get(row.id)
       return { ...row, productName: item?.productName ?? null, imageUrl: item?.imageUrl ?? null, categoryName: item?.categoryName ?? null, total: number(row.total) }
     }),
-    recentPurchases: recentPurchaseRows.map((row) => ({ ...row, amount: number(row.amount) })),
     recentExpenses: recentExpenseRows.map((row) => ({ ...row, reference: row.reference ?? row.id.slice(0, 8).toUpperCase(), amount: number(row.amount) })),
     recentInvoices: recentInvoiceRows.map((row) => ({ id: row.id, name: row.name ?? 'Walk-in customer', reference: row.reference, date: row.date ?? row.createdAt, status: row.status, amount: number(row.amount) })),
     topCustomers: topCustomerRows.map((row) => ({ id: row.id, name: row.name, location: row.location ?? 'Local customer', orders: number(row.orders), total: number(row.total) })),

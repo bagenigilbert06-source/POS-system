@@ -2,7 +2,7 @@
 
 import { auth } from '@/lib/auth'
 import { db } from '@/lib/db'
-import { branch, cardPaymentAttempt, cardTerminal, sale, saleItem, saleItemLotAllocation, salePayment, product, productPackage, pharmacyConfiguration, pharmacyPrescriptionItem, pharmacyProduct, pharmacySaleRecord, restrictedItemAudit, businessSettings, auditEvent, posSession, customer, salesReturn, salesReturnItem, expense, user, category, etimsConfiguration, etimsSubmission, offlineSaleSync } from '@/lib/db/schema'
+import { branch, cardPaymentAttempt, cardTerminal, sale, saleItem, saleItemLotAllocation, salePayment, product, productPackage, pharmacyConfiguration, pharmacyPrescriptionItem, pharmacyProduct, pharmacySaleRecord, restrictedItemAudit, businessSettings, auditEvent, posSession, customer, customerCreditLimit, creditSale, invoice, invoiceItem, invoiceNumberSequence, organization, salesReturn, salesReturnItem, expense, user, category, etimsConfiguration, etimsSubmission, offlineSaleSync } from '@/lib/db/schema'
 import { and, asc, desc, eq, gte, ilike, inArray, lt, lte, or, sql } from 'drizzle-orm'
 import { headers } from 'next/headers'
 import { revalidatePath } from 'next/cache'
@@ -23,6 +23,8 @@ import { baseUnitsForSale } from '@/lib/pos/product-packaging'
 import { isPharmacyBusiness } from '@/lib/pharmacy/rules'
 import { applySaleRewards, reverseRewardsForVoid } from '@/lib/services/rewards-service'
 import { money } from '@/lib/rewards/rules'
+import { configuredTax, money as financeMoney, paymentStatus } from '@/lib/finance/money'
+import Decimal from 'decimal.js'
 
 async function getUserId() {
   const session = await auth.api.getSession({ headers: await headers() })
@@ -36,6 +38,12 @@ async function getOrgId(userId: string, moduleId = 'sales') {
   const config = await WorkspaceService.getWorkspaceConfig(organization.id, userId)
   if (!config?.enabledModules.includes(moduleId)) throw new Error(`${moduleId} is not enabled for this workspace`)
   return organization.id
+}
+
+async function syncLinkedInvoiceFiscalStatus(saleId: string, orgId: string) {
+  const [fiscal] = await db.select({ status: etimsSubmission.status, invoiceNumber: etimsSubmission.invoiceNumber, controlNumber: etimsSubmission.controlNumber }).from(etimsSubmission).where(and(eq(etimsSubmission.saleId, saleId), eq(etimsSubmission.organizationId, orgId))).limit(1)
+  if (!fiscal) return
+  await db.update(invoice).set({ fiscalStatus: fiscal.status.toLowerCase(), fiscalReference: fiscal.invoiceNumber || fiscal.controlNumber || null, updatedAt: new Date() }).where(and(eq(invoice.saleId, saleId), eq(invoice.orgId, orgId)))
 }
 
 export type CartItem = {
@@ -80,6 +88,7 @@ export type CreateSaleInput = {
   cardPaymentAttemptId?: string
   mpesaPaymentRequestId?: string
   amountReceived?: number
+  creditDueDate?: Date
   pointsToRedeem?: number
   bonusToUse?: number
   paymentReceiver?: string
@@ -143,8 +152,7 @@ export async function createManualSale(input: z.input<typeof manualSaleSchema>) 
     .where(eq(businessSettings.organizationId, orgId)).limit(1)
   const allowedMethods = Array.isArray(settings?.paymentMethods) ? settings.paymentMethods as string[] : []
   if (!allowedMethods.includes(data.paymentMethod)) throw new Error('Choose a payment method enabled for this workspace')
-  const rate = settings?.taxEnabled ? Number(settings.taxRate ?? 0) / 100 : 0
-  const taxAmount = rate > 0 ? (settings?.pricesIncludeTax ? data.amount - (data.amount / (1 + rate)) : data.amount * rate) : 0
+  const taxAmount = configuredTax(data.amount, { enabled: settings?.taxEnabled ?? false, ratePercent: Number(settings?.taxRate ?? 0), pricesIncludeTax: settings?.pricesIncludeTax ?? false }).toNumber()
   const total = settings?.pricesIncludeTax ? data.amount : data.amount + taxAmount
   const saleId = generateId()
   const receiptNo = generateReceiptNo()
@@ -200,6 +208,7 @@ export async function createSale(data: CreateSaleInput) {
     let etims: Awaited<ReturnType<typeof enqueueEtimsInvoice>> | { status: 'PENDING'; message: string }
     try { etims = await enqueueEtimsInvoice(existingSale.id) }
     catch { etims = { status: 'PENDING', message: 'Sale completed. eTIMS submission will require reconciliation.' } }
+    await syncLinkedInvoiceFiscalStatus(existingSale.id, orgId)
     return { 
       saleId: existingSale.id, 
       receiptNo: existingSale.receiptNo, 
@@ -272,17 +281,12 @@ export async function createSale(data: CreateSaleInput) {
   }
 
   // Load business settings for tax configuration
-  const [settings] = await db.select({
-    taxEnabled: businessSettings.taxEnabled,
-    taxRate: businessSettings.taxRate,
-    pricesIncludeTax: businessSettings.pricesIncludeTax,
-    paymentMethods: businessSettings.paymentMethods,
-  }).from(businessSettings)
+  const [settings] = await db.select().from(businessSettings)
     .where(eq(businessSettings.organizationId, orgId)).limit(1)
   
   const configuredMethods = Array.isArray(settings?.paymentMethods) ? settings.paymentMethods as string[] : []
   const allowedMethods = Array.from(new Set([...(configuredMethods.length > 0 ? configuredMethods : ['cash']), 'airtel_money']))
-  if (!['cash', 'mpesa', 'airtel_money', 'card', 'bank_transfer'].includes(data.paymentMethod)) {
+  if (!['cash', 'mpesa', 'airtel_money', 'card', 'bank_transfer', 'credit'].includes(data.paymentMethod)) {
     throw new Error('Unsupported POS payment method')
   }
   if (!allowedMethods.includes(data.paymentMethod)) {
@@ -292,14 +296,11 @@ export async function createSale(data: CreateSaleInput) {
   if (data.paymentMethod === 'card' && !data.cardPaymentAttemptId) throw new Error('Record the approved physical terminal payment first')
   if (data.paymentMethod === 'bank_transfer' && !paymentReference) throw new Error('Enter the bank transfer reference')
   if (data.paymentMethod === 'airtel_money' && !paymentReference) throw new Error('Enter the Airtel Money transaction reference')
+  if (data.paymentMethod === 'credit' && !data.customerId) throw new Error('Select a customer for a credit sale')
+  if (data.paymentMethod === 'credit' && (!data.creditDueDate || Number.isNaN(data.creditDueDate.getTime()))) throw new Error('Select a valid due date for the customer credit')
   
   // Server-side calculation of tax (do not trust client)
-  const rate = settings?.taxEnabled ? Number(settings.taxRate ?? 0) / 100 : 0
-  const calculatedTax = rate > 0 
-    ? (settings?.pricesIncludeTax 
-      ? serverSubtotal - (serverSubtotal / (1 + rate))
-      : serverSubtotal * rate)
-    : 0
+  const calculatedTax = configuredTax(serverSubtotal, { enabled: settings?.taxEnabled ?? false, ratePercent: Number(settings?.taxRate ?? 0), pricesIncludeTax: settings?.pricesIncludeTax ?? false }).toNumber()
   
   // Validate discount doesn't exceed subtotal + tax
   const grossBeforeDiscount = settings?.pricesIncludeTax ? serverSubtotal : serverSubtotal + calculatedTax
@@ -347,6 +348,12 @@ export async function createSale(data: CreateSaleInput) {
     if (!lockedShift) throw new Error('This shift is no longer open. Start a new shift before completing the sale.')
     if ((data.pointsToRedeem || data.bonusToUse) && !data.customerId) throw new Error('Select a customer before using rewards')
     if ((data.pointsToRedeem || data.bonusToUse) && !saleAuthorization.permissions.includes(PermissionEnum.REWARDS_REDEEM)) throw new Error('Reward redemption permission denied')
+    let lockedCreditLimit: typeof customerCreditLimit.$inferSelect | null = null
+    if (data.paymentMethod === 'credit') {
+      const [limit] = await tx.select().from(customerCreditLimit).where(and(eq(customerCreditLimit.customerId, data.customerId!), eq(customerCreditLimit.orgId, orgId), eq(customerCreditLimit.status, 'active'))).limit(1).for('update')
+      if (!limit) throw new Error('This customer does not have an active credit limit')
+      lockedCreditLimit = limit
+    }
     const rewards = data.customerId ? await applySaleRewards(tx, {
       organizationId: orgId, customerId: data.customerId, branchId: saleBranchId, saleId, userId,
       lines: normalizedItems.map((item) => ({ productId: item.productId, categoryId: catalogueById.get(item.productId)?.categoryId ?? null, amount: item.totalPrice, discounted: data.discountAmount > 0 })),
@@ -357,6 +364,7 @@ export async function createSale(data: CreateSaleInput) {
     calculatedTotal = appliesRoundoff ? rewardAdjustedMpesa.amount : rewardAdjustedUnrounded
     roundingAmount = appliesRoundoff ? rewardAdjustedMpesa.roundingAmount : 0
     if (calculatedTotal < 0) throw new Error('Rewards exceed the amount due')
+    if (lockedCreditLimit && financeMoney(new Decimal(lockedCreditLimit.currentBalance).plus(calculatedTotal)).greaterThan(financeMoney(lockedCreditLimit.creditLimit))) throw new Error('Customer credit limit exceeded')
     if (data.paymentMethod === 'cash') {
       if (amountReceived < calculatedTotal) throw new Error('Insufficient payment received')
       changeAmount = amountReceived - calculatedTotal
@@ -491,15 +499,51 @@ export async function createSale(data: CreateSaleInput) {
       if (restrictedAuditRows.length) await tx.insert(restrictedItemAudit).values(restrictedAuditRows)
     }
 
-    await tx.insert(salePayment).values({
-      id: generateId(), saleId, method: data.paymentMethod, amount: String(calculatedTotal),
-      reference: paymentReference || null, status: 'completed', userId, orgId,
-      cardTerminalId: approvedCardAttempt?.cardTerminalId ?? null,
-      authorizationCode: approvedCardAttempt?.authorizationCode ?? null,
-      cardBrand: approvedCardAttempt?.cardBrand ?? null,
-      cardLast4: approvedCardAttempt?.last4 ?? null,
-      cardEntryMode: approvedCardAttempt?.entryMode ?? null,
-    })
+    if (data.paymentMethod === 'credit') {
+      const receivableId = generateId()
+      await tx.insert(creditSale).values({ id: receivableId, saleId, customerId: data.customerId!, amount: financeMoney(calculatedTotal).toFixed(2), amountPaid: '0', creditedAmount: '0', dueDate: data.creditDueDate, status: 'unpaid', userId, orgId })
+      const [[orgRecord], [customerRecord]] = await Promise.all([
+        tx.select().from(organization).where(eq(organization.id, orgId)).limit(1),
+        tx.select().from(customer).where(and(eq(customer.id, data.customerId!), eq(customer.orgId, orgId))).limit(1),
+      ])
+      if (!orgRecord || !customerRecord) throw new Error('Invoice snapshot context is unavailable')
+      const invoiceYear = Number(new Intl.DateTimeFormat('en', { timeZone: orgRecord.timezone || 'UTC', year: 'numeric' }).format(new Date()))
+      const [sequence] = await tx.insert(invoiceNumberSequence).values({ organizationId: orgId, year: invoiceYear, lastNumber: 1 }).onConflictDoUpdate({ target: [invoiceNumberSequence.organizationId, invoiceNumberSequence.year], set: { lastNumber: sql`${invoiceNumberSequence.lastNumber} + 1`, updatedAt: new Date() } }).returning({ lastNumber: invoiceNumberSequence.lastNumber })
+      const invoiceNo = `INV-${invoiceYear}-${String(sequence.lastNumber).padStart(6, '0')}`
+      const invoiceId = generateId()
+      const invoiceDiscount = financeMoney(data.discountAmount + (rewards?.externalAmountReduction ?? 0))
+      const invoiceState = paymentStatus(calculatedTotal, 0, data.creditDueDate ?? null)
+      await tx.insert(invoice).values({
+        id: invoiceId, invoiceNo, branchId: saleBranchId, saleId, creditSaleId: receivableId, customerId: data.customerId,
+        customerSnapshot: { name: customerRecord.name, phone: customerRecord.phone, email: customerRecord.email, address: customerRecord.address, kraPin: customerRecord.kraPin },
+        businessSnapshot: { name: settings?.receiptBusinessName || settings?.displayName || orgRecord.name, address: settings?.receiptAddress || settings?.address, phone: settings?.receiptPhone || orgRecord.phone, email: orgRecord.businessEmail, kraPin: settings?.taxIdentifier, logoUrl: settings?.receiptLogoUrl, taxName: settings?.taxName || 'Tax' },
+        subtotal: financeMoney(serverSubtotal).toFixed(2), discountAmount: invoiceDiscount.toFixed(2), shippingAmount: financeMoney(shippingAmount).toFixed(2), roundingAmount: financeMoney(roundingAmount).toFixed(2), taxableAmount: financeMoney(settings?.pricesIncludeTax ? new Decimal(serverSubtotal).minus(calculatedTax) : serverSubtotal).toFixed(2), taxRate: String(settings?.taxEnabled ? Number(settings.taxRate ?? 0) : 0), taxAmount: financeMoney(calculatedTax).toFixed(2), total: financeMoney(calculatedTotal).toFixed(2), amountPaid: '0', creditedAmount: '0', balanceDue: invoiceState.balance.toFixed(2), fiscalStatus: 'not_submitted', idempotencyKey: `pos-credit:${idempotencyKey}`, dueDate: data.creditDueDate, issuedAt: new Date(), status: invoiceState.status, userId, orgId,
+      })
+      let allocatedTax = financeMoney(0)
+      let allocatedDiscount = financeMoney(0)
+      await tx.insert(invoiceItem).values(saleItems.map((item, index) => {
+        const gross = financeMoney(item.totalPrice)
+        const last = index === saleItems.length - 1
+        const taxShare = last ? financeMoney(new Decimal(calculatedTax).minus(allocatedTax)) : financeMoney(serverSubtotal > 0 ? new Decimal(calculatedTax).mul(gross).div(serverSubtotal) : 0)
+        const discountShare = last ? financeMoney(invoiceDiscount.minus(allocatedDiscount)) : financeMoney(serverSubtotal > 0 ? invoiceDiscount.mul(gross).div(serverSubtotal) : 0)
+        allocatedTax = financeMoney(allocatedTax.plus(taxShare)); allocatedDiscount = financeMoney(allocatedDiscount.plus(discountShare))
+        const lineTotal = financeMoney(settings?.pricesIncludeTax ? gross.minus(discountShare) : gross.plus(taxShare).minus(discountShare))
+        return { id: generateId(), invoiceId, description: item.productName, quantity: item.quantity, unitPrice: financeMoney(item.unitPrice).toFixed(2), sku: null, unit: item.packageName || 'each', discountAmount: '0', invoiceDiscountShare: discountShare.toFixed(2), taxRate: String(settings?.taxEnabled ? Number(settings.taxRate ?? 0) : 0), taxAmount: taxShare.toFixed(2), total: lineTotal.toFixed(2), orgId }
+      }))
+      await tx.update(customerCreditLimit).set({ currentBalance: financeMoney(new Decimal(lockedCreditLimit!.currentBalance).plus(calculatedTotal)).toFixed(2), updatedAt: new Date() }).where(eq(customerCreditLimit.id, lockedCreditLimit!.id))
+      await tx.insert(auditEvent).values({ id: generateId(), organizationId: orgId, userId, action: 'credit_sale_created', metadata: { creditSaleId: receivableId, saleId, customerId: data.customerId, branchId: saleBranchId, amount: financeMoney(calculatedTotal).toFixed(2), dueDate: data.creditDueDate?.toISOString() } })
+      await tx.insert(auditEvent).values({ id: generateId(), organizationId: orgId, userId, action: 'invoice.created', metadata: { invoiceId, invoiceNo, branchId: saleBranchId, customerId: data.customerId, saleId, creditSaleId: receivableId, total: financeMoney(calculatedTotal).toFixed(2), source: 'pos_credit_sale' } })
+    } else {
+      await tx.insert(salePayment).values({
+        id: generateId(), saleId, method: data.paymentMethod, amount: String(calculatedTotal),
+        reference: paymentReference || null, status: 'completed', userId, orgId,
+        cardTerminalId: approvedCardAttempt?.cardTerminalId ?? null,
+        authorizationCode: approvedCardAttempt?.authorizationCode ?? null,
+        cardBrand: approvedCardAttempt?.cardBrand ?? null,
+        cardLast4: approvedCardAttempt?.last4 ?? null,
+        cardEntryMode: approvedCardAttempt?.entryMode ?? null,
+      })
+    }
 
     if (approvedCardAttempt) await tx.update(cardPaymentAttempt).set({ status: 'completed', saleId, recoveredAt: new Date(), updatedAt: new Date() }).where(eq(cardPaymentAttempt.id, approvedCardAttempt.id))
     
@@ -570,6 +614,7 @@ export async function createSale(data: CreateSaleInput) {
   let etims: Awaited<ReturnType<typeof enqueueEtimsInvoice>> | { status: 'PENDING'; message: string }
   try { etims = await enqueueEtimsInvoice(saleId) }
   catch { etims = { status: 'PENDING', message: 'Sale completed. eTIMS submission will require reconciliation.' } }
+  await syncLinkedInvoiceFiscalStatus(saleId, orgId)
   return { saleId, receiptNo, tax: calculatedTax, rounding: roundingAmount, total: calculatedTotal, idempotencyKey, items: saleItems.map(({ saleItemId, productId }) => ({ saleItemId, productId })), etims }
 }
 

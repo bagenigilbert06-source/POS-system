@@ -80,7 +80,7 @@ export const BUSINESS_TEMPLATES: Record<string, BusinessTemplate> = {
       { id: 'inventory', title: 'Set up inventory', description: 'Add medicines and products to inventory', action: '/dashboard/inventory' },
       { id: 'prescriptions', title: 'Review prescription records', description: 'Confirm prescription and restricted-medicine records', action: '/dashboard/pharmacy/prescriptions' },
       { id: 'batches', title: 'Review batches and expiry', description: 'Check expiring, expired and quarantined medicine stock', action: '/dashboard/inventory/batches' },
-      { id: 'suppliers', title: 'Set up suppliers', description: 'Add medicine suppliers and purchasing details', action: '/dashboard/purchases' },
+      { id: 'suppliers', title: 'Set up suppliers', description: 'Add medicine supplier details', action: '/dashboard/settings' },
       { id: 'customers', title: 'Register customers', description: 'Create customer records for counter sales', action: '/dashboard/customers' },
       { id: 'payments', title: 'Configure payments', description: 'Enable accepted pharmacy payment methods', action: '/dashboard/admin/payment-methods' },
     ],

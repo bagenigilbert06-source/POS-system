@@ -1,227 +1,88 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { Plus, Trash2 } from 'lucide-react'
-import { LoadingSpinner as Loader2 } from '@/components/ui/page-loader'
-import { notify } from '@/lib/notify'
+import { createInvoice, issueInvoice } from '@/app/actions/invoice-actions'
 import { Button } from '@/components/ui/button'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog'
-import { createInvoice } from '@/app/actions/invoice-actions'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { LoadingSpinner } from '@/components/ui/page-loader'
+import { calculateInvoiceTotals, type TaxPolicy } from '@/lib/finance/money'
+import { notify } from '@/lib/notify'
 
-export function CreateInvoiceDialog() {
+type Option = { id: string; name: string }
+type DraftLine = { description: string; sku: string; unit: string; quantity: number; unitPrice: number; discountAmount: number }
+const emptyLine = (): DraftLine => ({ description: '', sku: '', unit: 'each', quantity: 1, unitPrice: 0, discountAmount: 0 })
+
+export function CreateInvoiceDialog({ customers, branches, taxPolicy, canIssue }: { customers: Option[]; branches: Option[]; taxPolicy: TaxPolicy; canIssue: boolean }) {
   const [open, setOpen] = useState(false)
-  const [isLoading, setIsLoading] = useState(false)
-  const [items, setItems] = useState([{ description: '', quantity: 1, unitPrice: 0 }])
-  const [formData, setFormData] = useState({
-    invoiceNo: '',
-    customerId: '',
-    notes: '',
-    dueDate: '',
-  })
+  const [busy, setBusy] = useState(false)
+  const [items, setItems] = useState<DraftLine[]>([emptyLine()])
+  const [customerId, setCustomerId] = useState('')
+  const [branchId, setBranchId] = useState(branches[0]?.id ?? '')
+  const [dueDate, setDueDate] = useState('')
+  const [notes, setNotes] = useState('')
+  const [invoiceDiscount, setInvoiceDiscount] = useState(0)
+  const idempotencyKey = useRef(crypto.randomUUID())
+  const preview = useMemo(() => { try { return calculateInvoiceTotals(items, invoiceDiscount, taxPolicy) } catch { return null } }, [invoiceDiscount, items, taxPolicy])
 
-  const nextInvoiceNumber = () => `INV-${Date.now()}`
-
-  useEffect(() => {
-    if (open && !formData.invoiceNo) {
-      setFormData((current) => ({ ...current, invoiceNo: nextInvoiceNumber() }))
-    }
-  }, [open, formData.invoiceNo])
-
-  const handleAddItem = () => {
-    setItems([...items, { description: '', quantity: 1, unitPrice: 0 }])
+  const reset = () => {
+    setItems([emptyLine()]); setCustomerId(''); setBranchId(branches[0]?.id ?? ''); setDueDate(''); setNotes(''); setInvoiceDiscount(0)
+    idempotencyKey.current = crypto.randomUUID()
   }
+  const updateLine = (index: number, patch: Partial<DraftLine>) => setItems((current) => current.map((line, lineIndex) => lineIndex === index ? { ...line, ...patch } : line))
 
-  const handleRemoveItem = (index: number) => {
-    setItems(items.filter((_, i) => i !== index))
-  }
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (items.length === 0) return notify.error('Add at least one item')
-    if (items.some((item) => !item.description || item.quantity <= 0 || item.unitPrice <= 0)) {
-      return notify.error('Fill in all item details')
-    }
-
-    setIsLoading(true)
+  const submit = async (issueNow: boolean) => {
+    if (!branchId) return notify.error('Select a branch')
+    if (items.some((item) => !item.description.trim() || item.quantity <= 0 || item.unitPrice < 0)) return notify.error('Complete every invoice line')
+    setBusy(true)
     try {
-      await createInvoice({
-        invoiceNo: formData.invoiceNo,
-        customerId: formData.customerId || undefined,
-        items,
-        notes: formData.notes || undefined,
-        dueDate: formData.dueDate ? new Date(formData.dueDate) : undefined,
-      })
-      notify.success('Invoice created successfully')
-      setFormData({
-        invoiceNo: '',
-        customerId: '',
-        notes: '',
-        dueDate: '',
-      })
-      setItems([{ description: '', quantity: 1, unitPrice: 0 }])
-      setOpen(false)
+      const result = await createInvoice({ branchId, customerId: customerId || undefined, dueDate: dueDate ? new Date(`${dueDate}T12:00:00`) : undefined, notes: notes || undefined, discountAmount: invoiceDiscount, idempotencyKey: idempotencyKey.current, items: items.map((item) => ({ ...item, sku: item.sku || undefined })) })
+      if (issueNow) await issueInvoice(result.invoice.id)
+      notify.success(issueNow ? 'Invoice created and issued' : 'Invoice saved as draft')
+      reset(); setOpen(false)
     } catch (error) {
-      notify.error(error instanceof Error ? error.message : 'Failed to create invoice')
-    } finally {
-      setIsLoading(false)
-    }
+      notify.error(error instanceof Error ? error.message : 'Could not create invoice')
+    } finally { setBusy(false) }
   }
 
-  const subtotal = items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0)
-  const tax = subtotal * 0.16
-  const total = subtotal + tax
-
-  return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button className="gap-2">
-          <Plus className="h-4 w-4" />
-          New Invoice
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>Create New Invoice</DialogTitle>
-          <DialogDescription>Create and send invoices to customers.</DialogDescription>
-        </DialogHeader>
-
-        <form onSubmit={handleSubmit} className="space-y-4 max-h-[70vh] overflow-y-auto">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Invoice Number*</label>
-              <input
-                type="text"
-                value={formData.invoiceNo}
-                onChange={(e) => setFormData({ ...formData, invoiceNo: e.target.value })}
-                className="w-full rounded-lg border px-3 py-2 text-sm"
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Due Date</label>
-              <input
-                type="date"
-                value={formData.dueDate}
-                onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}
-                className="w-full rounded-lg border px-3 py-2 text-sm"
-              />
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Customer ID (Optional)</label>
-            <input
-              type="text"
-              value={formData.customerId}
-              onChange={(e) => setFormData({ ...formData, customerId: e.target.value })}
-              placeholder="CUST-001"
-              className="w-full rounded-lg border px-3 py-2 text-sm"
-            />
-          </div>
-
-          {/* Items */}
-          <div className="space-y-3">
-            <label className="text-sm font-medium">Items*</label>
-            {items.map((item, idx) => (
-              <div key={idx} className="flex gap-2">
-                <input
-                  type="text"
-                  value={item.description}
-                  onChange={(e) => {
-                    const newItems = [...items]
-                    newItems[idx].description = e.target.value
-                    setItems(newItems)
-                  }}
-                  placeholder="Item description"
-                  className="flex-1 rounded-lg border px-3 py-2 text-sm"
-                  required
-                />
-                <input
-                  type="number"
-                  value={item.quantity}
-                  onChange={(e) => {
-                    const newItems = [...items]
-                    newItems[idx].quantity = parseInt(e.target.value) || 0
-                    setItems(newItems)
-                  }}
-                  placeholder="Qty"
-                  className="w-20 rounded-lg border px-3 py-2 text-sm"
-                  required
-                />
-                <input
-                  type="number"
-                  value={item.unitPrice}
-                  onChange={(e) => {
-                    const newItems = [...items]
-                    newItems[idx].unitPrice = parseFloat(e.target.value) || 0
-                    setItems(newItems)
-                  }}
-                  placeholder="Price"
-                  className="w-24 rounded-lg border px-3 py-2 text-sm"
-                  required
-                />
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => handleRemoveItem(idx)}
-                  className="p-0"
-                >
-                  <Trash2 className="h-4 w-4 text-destructive" />
-                </Button>
-              </div>
-            ))}
-            <Button type="button" variant="outline" size="sm" onClick={handleAddItem} className="w-full">
-              <Plus className="mr-2 h-4 w-4" />
-              Add Item
-            </Button>
-          </div>
-
-          {/* Totals */}
-          <div className="space-y-2 rounded-lg bg-muted/50 p-3">
-            <div className="flex justify-between text-sm">
-              <span>Subtotal:</span>
-              <span>KES {subtotal.toFixed(2)}</span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span>Tax (16%):</span>
-              <span>KES {tax.toFixed(2)}</span>
-            </div>
-            <div className="border-t pt-2 flex justify-between font-semibold">
-              <span>Total:</span>
-              <span>KES {total.toFixed(2)}</span>
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Notes</label>
-            <textarea
-              value={formData.notes}
-              onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-              placeholder="Additional notes or terms..."
-              className="w-full rounded-lg border px-3 py-2 text-sm"
-              rows={3}
-            />
-          </div>
-
-          <div className="flex gap-3 pt-4">
-            <Button type="button" variant="outline" onClick={() => setOpen(false)}>
-              Cancel
-            </Button>
-            <Button type="submit" disabled={isLoading}>
-              {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Create Invoice
-            </Button>
-          </div>
-        </form>
-      </DialogContent>
-    </Dialog>
-  )
+  return <Dialog open={open} onOpenChange={(next) => { setOpen(next); if (!next && !busy) reset() }}>
+    <DialogTrigger asChild><Button className="gap-2"><Plus className="h-4 w-4" />New invoice</Button></DialogTrigger>
+    <DialogContent className="max-h-[92vh] max-w-5xl overflow-y-auto">
+      <DialogHeader><DialogTitle>Create invoice</DialogTitle><DialogDescription>The invoice number and final totals are generated securely by Pesaby.</DialogDescription></DialogHeader>
+      <div className="grid gap-4 sm:grid-cols-3">
+        <div className="space-y-2"><Label htmlFor="invoice-branch">Branch</Label><select id="invoice-branch" value={branchId} onChange={(event) => setBranchId(event.target.value)} className="h-9 w-full rounded-md border bg-background px-3 text-sm">{branches.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></div>
+        <div className="space-y-2"><Label htmlFor="invoice-customer">Customer</Label><select id="invoice-customer" value={customerId} onChange={(event) => setCustomerId(event.target.value)} className="h-9 w-full rounded-md border bg-background px-3 text-sm"><option value="">Walk-in / general customer</option>{customers.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></div>
+        <div className="space-y-2"><Label htmlFor="invoice-due">Due date</Label><Input id="invoice-due" type="date" value={dueDate} onChange={(event) => setDueDate(event.target.value)} /></div>
+      </div>
+      <div className="overflow-x-auto rounded-lg border">
+        <table className="w-full min-w-[820px] text-sm">
+          <thead className="bg-muted/60 text-xs uppercase text-muted-foreground"><tr><th className="px-3 py-2 text-left">Description</th><th className="px-3 py-2 text-left">SKU</th><th className="px-3 py-2 text-left">Unit</th><th className="px-3 py-2 text-right">Qty</th><th className="px-3 py-2 text-right">Unit price</th><th className="px-3 py-2 text-right">Discount</th><th className="w-10" /></tr></thead>
+          <tbody>{items.map((item, index) => <tr key={index} className="border-t">
+            <td className="p-2"><Input aria-label={`Description ${index + 1}`} value={item.description} onChange={(event) => updateLine(index, { description: event.target.value })} placeholder="Item or service" /></td>
+            <td className="p-2"><Input aria-label={`SKU ${index + 1}`} value={item.sku} onChange={(event) => updateLine(index, { sku: event.target.value })} placeholder="Optional" /></td>
+            <td className="p-2"><Input aria-label={`Unit ${index + 1}`} value={item.unit} onChange={(event) => updateLine(index, { unit: event.target.value })} /></td>
+            <td className="p-2"><Input aria-label={`Quantity ${index + 1}`} type="number" min="1" step="1" value={item.quantity} onChange={(event) => updateLine(index, { quantity: Number(event.target.value) })} className="text-right" /></td>
+            <td className="p-2"><Input aria-label={`Unit price ${index + 1}`} type="number" min="0" step="0.01" value={item.unitPrice} onChange={(event) => updateLine(index, { unitPrice: Number(event.target.value) })} className="text-right" /></td>
+            <td className="p-2"><Input aria-label={`Line discount ${index + 1}`} type="number" min="0" step="0.01" value={item.discountAmount} onChange={(event) => updateLine(index, { discountAmount: Number(event.target.value) })} className="text-right" /></td>
+            <td className="p-2"><Button type="button" variant="ghost" size="sm" disabled={items.length === 1} onClick={() => setItems((current) => current.filter((_, lineIndex) => lineIndex !== index))} aria-label="Remove line"><Trash2 className="h-4 w-4 text-destructive" /></Button></td>
+          </tr>)}</tbody>
+        </table>
+        <Button type="button" variant="ghost" size="sm" onClick={() => setItems((current) => [...current, emptyLine()])} className="m-2 gap-2"><Plus className="h-4 w-4" />Add line</Button>
+      </div>
+      <div className="grid gap-4 sm:grid-cols-[1fr_320px]">
+        <div className="space-y-2"><Label htmlFor="invoice-notes">Notes / payment terms</Label><textarea id="invoice-notes" value={notes} onChange={(event) => setNotes(event.target.value)} rows={5} className="w-full rounded-md border bg-background px-3 py-2 text-sm" placeholder="Optional message shown on the invoice" /></div>
+        <div className="space-y-2 rounded-lg border bg-muted/25 p-4 text-sm">
+          <div className="flex items-center justify-between gap-4"><Label htmlFor="invoice-discount">Invoice discount</Label><Input id="invoice-discount" type="number" min="0" step="0.01" value={invoiceDiscount} onChange={(event) => setInvoiceDiscount(Number(event.target.value))} className="w-32 text-right" /></div>
+          <div className="flex justify-between"><span>Subtotal</span><span>KES {preview?.subtotal.toFixed(2) ?? '—'}</span></div>
+          <div className="flex justify-between"><span>Discounts</span><span>- KES {preview ? preview.lineDiscount.plus(preview.discountAmount).toFixed(2) : '—'}</span></div>
+          <div className="flex justify-between"><span>{taxPolicy.enabled ? `Tax (${taxPolicy.ratePercent}%)` : 'Tax'}</span><span>KES {preview?.taxAmount.toFixed(2) ?? '—'}</span></div>
+          <div className="flex justify-between border-t pt-2 text-base font-semibold"><span>Total estimate</span><span>KES {preview?.total.toFixed(2) ?? '—'}</span></div>
+          <p className="text-xs text-muted-foreground">The server recalculates and saves the authoritative total.</p>
+        </div>
+      </div>
+      <div className="flex flex-wrap justify-end gap-2 border-t pt-4"><Button variant="outline" disabled={busy} onClick={() => setOpen(false)}>Cancel</Button><Button variant="outline" disabled={busy || !preview} onClick={() => submit(false)}>{busy && <LoadingSpinner className="mr-2 h-4 w-4" />}Save draft</Button>{canIssue && <Button disabled={busy || !preview} onClick={() => submit(true)}>Create and issue</Button>}</div>
+    </DialogContent>
+  </Dialog>
 }

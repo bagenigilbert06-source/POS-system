@@ -52,8 +52,6 @@ export enum PermissionEnum {
   INVENTORY_COUNT_START = 'inventory:count-start',
   INVENTORY_COUNT_APPROVE = 'inventory:count-approve',
   INVENTORY_ADJUST_APPROVE = 'inventory:adjust-approve',
-  PURCHASE_VIEW = 'purchase:view',
-  PURCHASE_MANAGE = 'purchase:manage',
 
   // Customers
   CUSTOMER_VIEW = 'customer:view',
@@ -76,6 +74,14 @@ export enum PermissionEnum {
   FINANCE_MANAGE = 'finance:manage',
   EXPENSE_VIEW = 'expense:view',
   EXPENSE_MANAGE = 'expense:manage',
+  INVOICE_VIEW = 'invoice:view',
+  INVOICE_CREATE = 'invoice:create',
+  INVOICE_ISSUE = 'invoice:issue',
+  INVOICE_RECORD_PAYMENT = 'invoice:record-payment',
+  INVOICE_CANCEL = 'invoice:cancel',
+  INVOICE_CREDIT_NOTE = 'invoice:credit-note',
+  RECEIVABLE_VIEW = 'receivable:view',
+  RECEIVABLE_MANAGE = 'receivable:manage',
 
   // Settings
   SETTINGS_VIEW = 'settings:view',
@@ -203,8 +209,6 @@ export const ROLE_PERMISSIONS: Record<RoleEnum, PermissionEnum[]> = {
     PermissionEnum.SHIFT_SAFE_DROP,
     PermissionEnum.SALES_VIEW_OWN,
     PermissionEnum.SALES_VIEW_ALL,
-    PermissionEnum.PURCHASE_VIEW,
-    PermissionEnum.PURCHASE_MANAGE,
     PermissionEnum.FINANCE_VIEW,
     PermissionEnum.FINANCE_MANAGE,
     PermissionEnum.EXPENSE_VIEW,
@@ -243,8 +247,6 @@ export const ROLE_PERMISSIONS: Record<RoleEnum, PermissionEnum[]> = {
     PermissionEnum.INVENTORY_COUNT_START,
     PermissionEnum.INVENTORY_COUNT_APPROVE,
     PermissionEnum.INVENTORY_ADJUST_APPROVE,
-    PermissionEnum.PURCHASE_VIEW,
-    PermissionEnum.PURCHASE_MANAGE,
     PermissionEnum.CUSTOMER_VIEW,
     PermissionEnum.CUSTOMER_CREATE,
     PermissionEnum.CUSTOMER_EDIT,
@@ -335,6 +337,7 @@ export const ROLE_PERMISSIONS: Record<RoleEnum, PermissionEnum[]> = {
     PermissionEnum.REPORT_GENERATE,
     PermissionEnum.REPORT_EXPORT,
     PermissionEnum.FINANCE_VIEW,
+    PermissionEnum.FINANCE_MANAGE,
     PermissionEnum.AUDIT_LOG_VIEW,
     PermissionEnum.TABLE_VIEW,
     PermissionEnum.KITCHEN_QUEUE_VIEW,
@@ -362,8 +365,6 @@ export const ROLE_PERMISSIONS: Record<RoleEnum, PermissionEnum[]> = {
     PermissionEnum.SHIFT_SAFE_DROP,
     PermissionEnum.SALES_VIEW_OWN,
     PermissionEnum.SALES_VIEW_ALL,
-    PermissionEnum.PURCHASE_VIEW,
-    PermissionEnum.PURCHASE_MANAGE,
     PermissionEnum.EXPENSE_VIEW,
     PermissionEnum.EXPENSE_MANAGE,
     PermissionEnum.STAFF_VIEW,
@@ -440,8 +441,6 @@ export const ROLE_PERMISSIONS: Record<RoleEnum, PermissionEnum[]> = {
     PermissionEnum.INVENTORY_COUNT_START,
     PermissionEnum.INVENTORY_COUNT_APPROVE,
     PermissionEnum.INVENTORY_ADJUST_APPROVE,
-    PermissionEnum.PURCHASE_VIEW,
-    PermissionEnum.PURCHASE_MANAGE,
   ],
   [RoleEnum.ACCOUNTANT]: [
     PermissionEnum.SALE_VIEW,
@@ -453,7 +452,6 @@ export const ROLE_PERMISSIONS: Record<RoleEnum, PermissionEnum[]> = {
     PermissionEnum.FINANCE_MANAGE,
     PermissionEnum.EXPENSE_VIEW,
     PermissionEnum.EXPENSE_MANAGE,
-    PermissionEnum.PURCHASE_VIEW,
     PermissionEnum.ETIMS_VIEW,
   ],
   [RoleEnum.STAFF]: [
@@ -483,8 +481,6 @@ export const ROLE_PERMISSIONS: Record<RoleEnum, PermissionEnum[]> = {
     PermissionEnum.INVENTORY_EDIT,
     PermissionEnum.INVENTORY_ADJUST,
     PermissionEnum.INVENTORY_RECEIVE,
-    PermissionEnum.PURCHASE_VIEW,
-    PermissionEnum.PURCHASE_MANAGE,
     PermissionEnum.CUSTOMER_VIEW,
     PermissionEnum.REPORT_VIEW,
     PermissionEnum.SALE_CREATE,
@@ -524,6 +520,20 @@ for (const role of [RoleEnum.OWNER, RoleEnum.ADMIN, RoleEnum.MANAGER, RoleEnum.S
 }
 for (const role of [RoleEnum.OWNER, RoleEnum.ADMIN, RoleEnum.MANAGER]) {
   ROLE_PERMISSIONS[role].push(PermissionEnum.ATTENDANCE_CORRECT)
+}
+
+for (const role of [RoleEnum.OWNER, RoleEnum.ADMIN, RoleEnum.MANAGER, RoleEnum.ACCOUNTANT]) {
+  ROLE_PERMISSIONS[role].push(
+    PermissionEnum.INVOICE_VIEW,
+    PermissionEnum.INVOICE_CREATE,
+    PermissionEnum.INVOICE_ISSUE,
+    PermissionEnum.INVOICE_RECORD_PAYMENT,
+    PermissionEnum.RECEIVABLE_VIEW,
+    PermissionEnum.RECEIVABLE_MANAGE,
+  )
+}
+for (const role of [RoleEnum.OWNER, RoleEnum.ADMIN, RoleEnum.MANAGER]) {
+  ROLE_PERMISSIONS[role].push(PermissionEnum.INVOICE_CANCEL, PermissionEnum.INVOICE_CREDIT_NOTE)
 }
 
 /**

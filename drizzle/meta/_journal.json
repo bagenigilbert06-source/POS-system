@@ -155,6 +155,27 @@
       "when": 1788014400000,
       "tag": "0041_staff_attendance",
       "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1788018000000,
+      "tag": "0042_invoice_lifecycle",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1788021600000,
+      "tag": "0043_finance_operations",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1788025200000,
+      "tag": "0044_finance_scope_cleanup",
+      "breakpoints": true
     }
   ]
 }

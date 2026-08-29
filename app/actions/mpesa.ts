@@ -34,6 +34,7 @@ import { isPharmacyBusiness } from '@/lib/pharmacy/rules';
 import { reserveRewardsForPayment } from '@/lib/services/rewards-service';
 import { finalizeConfirmedMpesaPayment } from '@/lib/mpesa/finalize-payment';
 import { normalizeMpesaPhoneForMode } from '@/lib/mpesa/phone-validation';
+import { configuredTax } from '@/lib/finance/money';
 
 const itemSchema = z.object({
   productId: z.string().min(1),
@@ -359,12 +360,7 @@ export async function initiateMpesaPayment(
     subtotal +=
       Number(selectedPackage?.sellingPrice ?? item.price) * line.quantity;
   }
-  const rate = settings?.taxEnabled ? Number(settings.taxRate || 0) / 100 : 0;
-  const tax = rate
-    ? settings?.pricesIncludeTax
-      ? subtotal - subtotal / (1 + rate)
-      : subtotal * rate
-    : 0;
+  const tax = configuredTax(subtotal, { enabled: settings?.taxEnabled ?? false, ratePercent: Number(settings?.taxRate ?? 0), pricesIncludeTax: settings?.pricesIncludeTax ?? false }).toNumber();
   const gross = settings?.pricesIncludeTax ? subtotal : subtotal + tax;
   if (data.discountAmount > gross)
     throw new Error('Discount exceeds the sale total');
@@ -622,12 +618,7 @@ export async function initiateMpesaPaybillPayment(
     subtotal +=
       Number(selectedPackage?.sellingPrice ?? item.price) * line.quantity;
   }
-  const rate = settings?.taxEnabled ? Number(settings.taxRate || 0) / 100 : 0;
-  const tax = rate
-    ? settings?.pricesIncludeTax
-      ? subtotal - subtotal / (1 + rate)
-      : subtotal * rate
-    : 0;
+  const tax = configuredTax(subtotal, { enabled: settings?.taxEnabled ?? false, ratePercent: Number(settings?.taxRate ?? 0), pricesIncludeTax: settings?.pricesIncludeTax ?? false }).toNumber();
   const gross = settings?.pricesIncludeTax ? subtotal : subtotal + tax;
   if (data.discountAmount > gross)
     throw new Error('Discount exceeds the sale total');

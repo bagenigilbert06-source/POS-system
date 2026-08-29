@@ -50,6 +50,13 @@ function TrendLine({ trend }: { trend: MetricTrend }) {
         trend.direction === 'down' && 'text-[var(--dashboard-danger)]',
         trend.direction === 'neutral' && 'text-[var(--dashboard-muted)]'
       )}
+      aria-label={
+        trend.direction === 'up'
+          ? 'Performance increased compared with yesterday'
+          : trend.direction === 'down'
+            ? 'Performance decreased compared with yesterday'
+            : 'No change compared with yesterday'
+      }
     >
       <Icon
         className="h-3.5 w-3.5 shrink-0"
@@ -57,7 +64,8 @@ function TrendLine({ trend }: { trend: MetricTrend }) {
         aria-hidden="true"
       />
       <span>
-        {trend.text ?? `${trend.value?.toFixed(1)}% ${trend.label ?? ''}`}
+        {trend.text ??
+          `${trend.direction === 'up' ? '+' : '−'}${trend.value?.toFixed(1)}% ${trend.label ?? ''}`}
       </span>
     </p>
   );

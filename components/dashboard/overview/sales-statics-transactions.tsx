@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { ArrowUpRight, CalendarDays, Flag, TriangleAlert } from 'lucide-react';
+import { ArrowUpRight, BarChart3, CalendarDays, Flag } from 'lucide-react';
 import { useState } from 'react';
 import {
   Bar,
@@ -22,12 +22,11 @@ interface Props {
   expenses: number;
   series: DashboardOverview['monthlySalesSeries'];
   transactions: DashboardOverview['recentSales'];
-  purchases: DashboardOverview['recentPurchases'];
   expensesList: DashboardOverview['recentExpenses'];
   invoices: DashboardOverview['recentInvoices'];
 }
 
-const tabs = ['Sales', 'Purchases', 'Expenses', 'Invoices'] as const;
+const tabs = ['Sales', 'Expenses', 'Invoices'] as const;
 
 function shortReceiptNumber(receiptNo: string) {
   const finalSegment = receiptNo.split('-').filter(Boolean).at(-1);
@@ -59,13 +58,13 @@ function SalesChartTooltip({
       <div className="mt-2 space-y-1.5">
         <p className="flex justify-between gap-5 text-[var(--dashboard-muted)]">
           <span>Revenue</span>
-          <strong className="text-[var(--dashboard-success)]">
+          <strong className="text-[var(--dashboard-accent)]">
             {formatCurrency(sales, currency)}
           </strong>
         </p>
         <p className="flex justify-between gap-5 text-[var(--dashboard-muted)]">
           <span>Expenses</span>
-          <strong className="text-[var(--dashboard-accent)]">
+          <strong className="text-[var(--dashboard-danger)]">
             {formatCurrency(expenses, currency)}
           </strong>
         </p>
@@ -122,7 +121,6 @@ export function SalesStaticsTransactions({
   expenses,
   series,
   transactions,
-  purchases,
   expensesList,
   invoices,
 }: Props) {
@@ -135,9 +133,7 @@ export function SalesStaticsTransactions({
   const viewHref =
     tab === 'Sales'
       ? '/dashboard/sales'
-      : tab === 'Purchases'
-        ? '/dashboard/stock-intake'
-        : tab === 'Expenses'
+      : tab === 'Expenses'
           ? '/dashboard/expenses'
           : '/dashboard/invoices';
 
@@ -150,10 +146,10 @@ export function SalesStaticsTransactions({
         <header className="flex h-16 items-center justify-between border-b border-[var(--dashboard-border)] px-5">
           <div className="flex items-center gap-2.5">
             <span className="flex h-9 w-9 items-center justify-center rounded-lg border border-[var(--dashboard-accent-soft-border)] bg-[var(--dashboard-accent-soft)] text-[var(--dashboard-accent)]">
-              <TriangleAlert className="h-4 w-4" />
+              <BarChart3 className="h-4 w-4" />
             </span>
             <h2 className="text-[0.95rem] font-bold text-[var(--dashboard-text)]">
-              Sales Statics
+              Sales Statistics
             </h2>
           </div>
           <span className="inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--dashboard-border)] px-2.5 text-[0.68rem] font-semibold text-[var(--dashboard-text)]">
@@ -163,9 +159,9 @@ export function SalesStaticsTransactions({
         </header>
         <div className="p-5">
           <div className="grid gap-2 sm:grid-cols-3">
-            <div className="min-w-[8.5rem] rounded-lg border border-[var(--dashboard-border)] px-3 py-2">
+            <div className="min-w-[8.5rem] rounded-lg border border-[var(--dashboard-accent-soft-border)] bg-[var(--dashboard-accent-soft)] px-3 py-2">
               <div className="flex items-center gap-2">
-                <strong className="text-base tabular-nums text-[var(--dashboard-success)]">
+                <strong className="text-base tabular-nums text-[var(--dashboard-text)]">
                   {formatCurrency(revenue, currency)}
                 </strong>
                 <span className="rounded border border-[var(--dashboard-success-soft-border)] bg-[var(--dashboard-success-soft)] px-2 py-0.5 text-[0.58rem] font-bold text-[var(--dashboard-success)]">
@@ -176,9 +172,9 @@ export function SalesStaticsTransactions({
                 Revenue
               </p>
             </div>
-            <div className="min-w-[8.5rem] rounded-lg border border-[var(--dashboard-border)] px-3 py-2">
+            <div className="min-w-[8.5rem] rounded-lg border border-[var(--dashboard-danger-soft-border)] bg-[var(--dashboard-danger-soft)] px-3 py-2">
               <div className="flex items-center gap-2">
-                <strong className="text-base tabular-nums text-[var(--dashboard-accent)]">
+                <strong className="text-base tabular-nums text-[var(--dashboard-danger)]">
                   {formatCurrency(expenses, currency)}
                 </strong>
                 <span className="rounded border border-[var(--dashboard-danger-soft-border)] bg-[var(--dashboard-danger-soft)] px-2 py-0.5 text-[0.58rem] font-bold text-[var(--dashboard-danger)]">
@@ -230,7 +226,7 @@ export function SalesStaticsTransactions({
                   dataKey="revenue"
                   stackId="monthly"
                   name="Revenue"
-                  fill="var(--dashboard-success)"
+                  fill="var(--dashboard-accent)"
                   radius={[5, 5, 0, 0]}
                   barSize={12}
                 />
@@ -238,7 +234,7 @@ export function SalesStaticsTransactions({
                   dataKey="expense"
                   stackId="monthly"
                   name="Expense"
-                  fill="var(--dashboard-accent)"
+                  fill="var(--dashboard-danger)"
                   radius={[0, 0, 5, 5]}
                   barSize={12}
                 />
@@ -267,7 +263,7 @@ export function SalesStaticsTransactions({
           </Link>
         </header>
         <nav
-          className="grid grid-cols-4 border-b border-[var(--dashboard-border)]"
+          className="grid grid-cols-3 border-b border-[var(--dashboard-border)]"
           aria-label="Transaction type"
         >
           {tabs.map((item) => (
@@ -298,16 +294,12 @@ export function SalesStaticsTransactions({
                   status: sale.status === 'completed' ? 'paid' : sale.status,
                   amount: sale.total,
                 }))
-              : tab === 'Purchases'
-                ? purchases
-                : tab === 'Expenses'
+              : tab === 'Expenses'
                   ? expensesList
                   : invoices
           }
           label={
-            tab === 'Purchases'
-              ? 'Supplier'
-              : tab === 'Expenses'
+            tab === 'Expenses'
                 ? 'Expense'
                 : 'Customer'
           }

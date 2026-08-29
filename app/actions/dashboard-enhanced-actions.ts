@@ -11,7 +11,6 @@ import {
   customer, 
   product, 
   stockMovement, 
-  purchase,
   creditSale,
   creditPayment
 } from '@/lib/db/schema'

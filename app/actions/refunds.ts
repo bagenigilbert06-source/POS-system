@@ -4,6 +4,11 @@ import { db } from '@/lib/db'
 import {
   auditEvent,
   inventoryBalance,
+  creditSale,
+  customerCreditLimit,
+  invoice,
+  invoiceCreditNote,
+  etimsCreditNote as etimsCreditNoteTable,
   organization,
   pharmacyReturnDisposition,
   sale,
@@ -26,6 +31,8 @@ import { enqueueEtimsCreditNote } from '@/lib/etims/service'
 import { isPharmacyBusiness, planReturnedLotTrace } from '@/lib/pharmacy/rules'
 import { money } from '@/lib/rewards/rules'
 import { reverseRewardsForReturn } from '@/lib/services/rewards-service'
+import Decimal from 'decimal.js'
+import { money as financeMoney, paymentStatus } from '@/lib/finance/money'
 
 interface RefundItem {
   saleItemId: string
@@ -169,6 +176,31 @@ export async function processRefund(data: {
       terminalId: refundTerminalId,
     })
 
+    // A return against a credit sale reduces the same receivable. It is not a
+    // cash refund and must never create a second, disconnected customer credit.
+    if (originalSale.paymentMethod === 'credit') {
+      if (data.refundMethod !== 'credit') throw new Error('Reduce the customer balance with a credit refund for this credit sale.')
+      const [receivable] = await tx.select().from(creditSale).where(and(eq(creditSale.saleId, originalSale.id), eq(creditSale.orgId, orgId))).limit(1).for('update')
+      if (!receivable) throw new Error('The credit-sale receivable is missing. Reconcile it before refunding.')
+      const creditAmount = financeMoney(verifiedTotal)
+      const outstanding = financeMoney(new Decimal(receivable.amount).minus(receivable.amountPaid).minus(receivable.creditedAmount))
+      if (creditAmount.greaterThan(outstanding)) throw new Error('Refund exceeds the unpaid customer balance. Refund the already-collected portion separately.')
+      const credited = financeMoney(new Decimal(receivable.creditedAmount).plus(creditAmount))
+      const remaining = financeMoney(new Decimal(receivable.amount).minus(receivable.amountPaid).minus(credited))
+      await tx.update(creditSale).set({ creditedAmount: credited.toFixed(2), status: remaining.isZero() ? 'credited' : Number(receivable.amountPaid) > 0 ? 'partially_paid' : 'unpaid', updatedAt: new Date() }).where(eq(creditSale.id, receivable.id))
+      const [limit] = await tx.select().from(customerCreditLimit).where(and(eq(customerCreditLimit.customerId, receivable.customerId), eq(customerCreditLimit.orgId, orgId))).limit(1).for('update')
+      if (limit) await tx.update(customerCreditLimit).set({ currentBalance: financeMoney(Decimal.max(0, new Decimal(limit.currentBalance).minus(creditAmount))).toFixed(2), updatedAt: new Date() }).where(eq(customerCreditLimit.id, limit.id))
+
+      const [linkedInvoice] = await tx.select().from(invoice).where(and(eq(invoice.creditSaleId, receivable.id), eq(invoice.orgId, orgId))).limit(1).for('update')
+      if (linkedInvoice) {
+        const invoiceCredited = financeMoney(new Decimal(linkedInvoice.creditedAmount).plus(creditAmount))
+        const state = paymentStatus(new Decimal(linkedInvoice.total).minus(invoiceCredited), linkedInvoice.amountPaid, linkedInvoice.dueDate)
+        const creditNoteNo = `CN-${linkedInvoice.invoiceNo}-${returnNo}`
+        await tx.insert(invoiceCreditNote).values({ id: generateId(), organizationId: orgId, branchId: linkedInvoice.branchId, invoiceId: linkedInvoice.id, returnId, creditNoteNo, amount: creditAmount.toFixed(2), reason: data.reason.trim(), idempotencyKey: `return:${returnId}`, createdBy: userId })
+        await tx.update(invoice).set({ creditedAmount: invoiceCredited.toFixed(2), balanceDue: state.balance.toFixed(2), status: state.balance.isZero() ? 'credited' : state.status, updatedAt: new Date() }).where(eq(invoice.id, linkedInvoice.id))
+      }
+    }
+
     // Process each returned item
     for (const [itemIndex, item] of data.items.entries()) {
       const original = originalById.get(item.saleItemId)!
@@ -294,6 +326,10 @@ export async function processRefund(data: {
   let etimsCreditNote: Awaited<ReturnType<typeof enqueueEtimsCreditNote>> | { status: 'FAILED'; message: string }
   try { etimsCreditNote = await enqueueEtimsCreditNote(returnId, userId) }
   catch { etimsCreditNote = { status: 'FAILED', message: 'Refund completed. The eTIMS credit note requires administrative review.' } }
+  const [fiscalNote] = await db.select({ status: etimsCreditNoteTable.status, reference: etimsCreditNoteTable.creditNoteNumber }).from(etimsCreditNoteTable).where(eq(etimsCreditNoteTable.returnId, returnId)).limit(1)
+  await db.update(invoiceCreditNote).set({ fiscalStatus: fiscalNote?.status.toLowerCase() ?? etimsCreditNote.status.toLowerCase(), fiscalReference: fiscalNote?.reference ?? null }).where(and(eq(invoiceCreditNote.returnId, returnId), eq(invoiceCreditNote.organizationId, orgId)))
+  revalidatePath('/dashboard/invoices')
+  revalidatePath('/dashboard/receivables')
   return { returnId, returnNo, status: 'success', etimsCreditNote }
 }
 

@@ -15,7 +15,6 @@ import {
   posTerminal,
   posAuthSession,
   purchase,
-  purchaseReceipt,
   sale,
   stockMovement,
   session,
@@ -114,7 +113,6 @@ export async function deleteEmptyBranch(id: string) {
     db.select({ count: sql<number>`count(*)` }).from(branchMembership).where(and(eq(branchMembership.branchId, branchId), ne(branchMembership.userId, authorization.userId))),
     db.select({ count: sql<number>`count(*)` }).from(sale).where(eq(sale.branchId, branchId)),
     db.select({ count: sql<number>`count(*)` }).from(purchase).where(eq(purchase.branchId, branchId)),
-    db.select({ count: sql<number>`count(*)` }).from(purchaseReceipt).where(eq(purchaseReceipt.branchId, branchId)),
     db.select({ count: sql<number>`count(*)` }).from(inventoryBalance).where(eq(inventoryBalance.branchId, branchId)),
     db.select({ count: sql<number>`count(*)` }).from(stockMovement).where(eq(stockMovement.branchId, branchId)),
     db.select({ count: sql<number>`count(*)` }).from(posTerminal).where(eq(posTerminal.branchId, branchId)),
@@ -122,7 +120,7 @@ export async function deleteEmptyBranch(id: string) {
     db.select({ count: sql<number>`count(*)` }).from(expense).where(eq(expense.branchId, branchId)),
     db.select({ count: sql<number>`count(*)` }).from(inventoryLoss).where(eq(inventoryLoss.branchId, branchId)),
   ])
-  const labels = ['staff assignments', 'sales', 'purchases', 'receipts', 'inventory balances', 'stock movements', 'POS terminals', 'M-Pesa accounts', 'expenses', 'inventory losses']
+  const labels = ['staff assignments', 'sales', 'historical purchases', 'inventory balances', 'stock movements', 'POS terminals', 'M-Pesa accounts', 'expenses', 'inventory losses']
   const usedBy = checks.map((rows, index) => Number(rows[0]?.count ?? 0) > 0 ? labels[index] : null).filter(Boolean)
   if (usedBy.length) throw new Error(`Move or archive this branch’s ${usedBy.join(', ')} before deleting it`)
 

@@ -125,7 +125,7 @@ export interface InventorySettings {
   trackStock: boolean
   allowNegativeStock: boolean
   lowStockThreshold: number
-  /** Automatically create purchase orders when stock hits reorder point */
+  /** Flag low-stock items for manual replenishment */
   autoReorder: boolean
   enableExpiryTracking: boolean
   enableBatchTracking: boolean

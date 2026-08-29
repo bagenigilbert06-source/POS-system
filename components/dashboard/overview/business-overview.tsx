@@ -62,7 +62,7 @@ const TEXT = 'text-[var(--dashboard-text)]';
 const MUTED = 'text-[var(--dashboard-muted)]';
 
 function yesterdayTrend(current: number, previous: number): MetricTrend {
-  if (previous <= 0)
+  if (!Number.isFinite(current) || !Number.isFinite(previous) || previous <= 0)
     return { direction: 'neutral', text: 'No previous-day comparison' };
   const change = ((current - previous) / previous) * 100;
   if (Math.abs(change) < 0.05)
@@ -70,7 +70,7 @@ function yesterdayTrend(current: number, previous: number): MetricTrend {
   return {
     direction: change > 0 ? 'up' : 'down',
     value: Math.abs(change),
-    label: 'vs yesterday',
+    label: change > 0 ? 'higher vs yesterday' : 'lower vs yesterday',
   };
 }
 
@@ -448,7 +448,6 @@ export function BusinessOverview({
         expenses={overview.month.expenses}
         series={overview.monthlySalesSeries}
         transactions={overview.recentSales}
-        purchases={overview.recentPurchases}
         expensesList={overview.recentExpenses}
         invoices={overview.recentInvoices}
       />

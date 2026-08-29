@@ -2745,7 +2745,8 @@ html.dark .pesaby-hot-toast-error {
 }
 
 .pesaby-loader {
-  --color-1: #ff3d00;
+  /* Match the Pesaby gold used by primary actions and the active navigation. */
+  --color-1: #f2b90c;
   --size: 0.3125px;
   display: inline-block;
   flex: none;
@@ -2828,7 +2829,7 @@ html.dark .pesaby-global-loader {
 }
 
 html.dark .pesaby-loader {
-  --color-1: #ff6b35;
+  --color-1: #ffd60a;
 }
 
 /* Route loaders sit on top of the existing dashboard surface; only the spinner is visible. */

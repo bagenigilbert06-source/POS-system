@@ -84,6 +84,7 @@ import {
   CloudOff,
   RefreshCw,
   Info,
+  HandCoins,
 } from 'lucide-react';
 import type {
   Product,
@@ -361,7 +362,8 @@ type PosPaymentMethod =
   | 'mpesa'
   | 'airtel_money'
   | 'card'
-  | 'bank_transfer';
+  | 'bank_transfer'
+  | 'credit';
 
 function PaymentBrand({
   method,
@@ -440,6 +442,12 @@ function PaymentBrand({
         )}
       >
         <Building2 className={compact ? 'h-6 w-6' : 'h-10 w-10'} />
+      </span>
+    );
+  if (method === 'credit')
+    return (
+      <span className={cn('flex items-center justify-center bg-[#fff4cc] text-[#7a5b00]', compact ? 'h-11 w-16 rounded-md' : 'h-full w-full rounded-[7px]')}>
+        <span className={cn('flex items-center font-extrabold', compact ? 'gap-1 text-[10px]' : 'gap-2 text-sm')}><HandCoins className={compact ? 'h-4 w-4' : 'h-6 w-6'} /><span>Credit</span></span>
       </span>
     );
   return (
@@ -550,6 +558,7 @@ export function POSTerminal({
   const [summaryDraftValue, setSummaryDraftValue] = useState('');
   const [couponDraftCode, setCouponDraftCode] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<PosPaymentMethod>('cash');
+  const [creditDueDate, setCreditDueDate] = useState('');
   const [paymentReceiver, setPaymentReceiver] = useState('');
   const [cardTerminals, setCardTerminals] = useState<ActiveCardTerminal[]>([]);
   const [cardTerminalsLoading, setCardTerminalsLoading] = useState(false);
@@ -1948,6 +1957,10 @@ export function POSTerminal({
       return notify.error('Enter the Airtel Money transaction reference');
     if (paymentMethod === 'bank_transfer' && !mpesaRef)
       return notify.error('Enter the confirmed bank transfer reference');
+    if (paymentMethod === 'credit' && !selectedCustomer)
+      return notify.error('Select a customer before creating a credit sale');
+    if (paymentMethod === 'credit' && !creditDueDate)
+      return notify.error('Select when the customer payment is due');
     if (paymentMethod === 'cash' && parseFloat(amountPaid || '0') < total) {
       return notify.error('Amount received is too low', {
         description: `${formatCurrency(total)} is required to complete this sale.`,
@@ -2045,6 +2058,10 @@ export function POSTerminal({
               amountReceived:
                 paymentMethod === 'cash'
                   ? parseFloat(amountPaid || '0')
+                  : undefined,
+              creditDueDate:
+                paymentMethod === 'credit'
+                  ? new Date(`${creditDueDate}T12:00:00`)
                   : undefined,
               paymentReceiver: paymentReceiver || undefined,
               paymentNote: paymentNote || undefined,
@@ -2196,7 +2213,9 @@ export function POSTerminal({
               ? 'Card payment recorded'
               : paymentMethod === 'airtel_money'
                 ? 'Airtel Money payment recorded'
-                : 'Payment recorded';
+                : paymentMethod === 'credit'
+                  ? 'Customer balance created'
+                  : 'Payment recorded';
       const paymentSuccessDescription =
         paymentMethod === 'cash'
           ? `${formatCurrency(parseFloat(amountPaid || '0'))} received · Receipt #${receiptNo}`
@@ -2883,6 +2902,7 @@ export function POSTerminal({
     setPrescriberReference('');
     setPharmacyNotes('');
     setPaymentMethod('cash');
+    setCreditDueDate('');
     setAgeVerified(false);
     setReceipt(null);
     setReceiptPrinted(false);
@@ -5292,6 +5312,12 @@ export function POSTerminal({
                           detail: 'Confirm bank reference',
                           shortcut: '',
                         },
+                        {
+                          key: 'credit',
+                          label: 'Customer credit',
+                          detail: 'Collect payment later',
+                          shortcut: '',
+                        },
                       ] as const
                     )
                       .filter(
@@ -5422,6 +5448,7 @@ export function POSTerminal({
                                             'airtel_money',
                                             'card',
                                             'bank_transfer',
+                                            'credit',
                                           ].includes(method)
                                       )
                                       .map((method) => (
@@ -5608,6 +5635,19 @@ export function POSTerminal({
                                     </div>
                                   ) : null}
                                 </div>
+                              </div>
+                            </div>
+                          )}
+
+                          {paymentMethod === 'credit' && (
+                            <div className="border-t border-[#e4e7ec] bg-white p-4 dark:border-white/10 dark:bg-[#1c1c1e]">
+                              <div className="rounded-lg border border-[#ead68a] bg-[#fffaf0] p-4 dark:border-amber-400/20 dark:bg-amber-400/5">
+                                <div className="flex items-start gap-3">
+                                  <span className="rounded-lg bg-[#f5b800] p-2 text-[#241d00]"><HandCoins className="h-5 w-5" /></span>
+                                  <div><h3 className="text-sm font-bold text-[#101828] dark:text-white">Customer credit sale</h3><p className="mt-1 text-xs leading-5 text-[#667085] dark:text-[#a3a3a3]">No payment is posted today. The full sale becomes an account receivable for the selected customer.</p></div>
+                                </div>
+                                <label className="mt-4 block text-xs font-semibold text-[#344054] dark:text-[#d0d5dd]">Payment due date <span className="text-red-500">*</span><input type="date" value={creditDueDate} min={new Date().toISOString().slice(0, 10)} onChange={(event) => setCreditDueDate(event.target.value)} className="mt-2 h-10 w-full rounded-md border border-[#d0d5dd] bg-white px-3 text-sm text-[#101828] outline-none focus:border-[#d7a400] dark:border-white/10 dark:bg-[#242426] dark:text-white" /></label>
+                                {!selectedCustomer && <p className="mt-3 rounded-md bg-red-50 px-3 py-2 text-xs font-medium text-red-700">Go back and select the customer receiving this credit.</p>}
                               </div>
                             </div>
                           )}
@@ -6467,7 +6507,9 @@ export function POSTerminal({
                                   (paymentMethod === 'airtel_money' &&
                                     !mpesaRef.trim()) ||
                                   (paymentMethod === 'bank_transfer' &&
-                                    !mpesaRef.trim())
+                                    !mpesaRef.trim()) ||
+                                  (paymentMethod === 'credit' &&
+                                    (!selectedCustomer || !creditDueDate))
                                 }
                                 className={cn(
                                   'flex min-h-[50px] flex-1 touch-manipulation items-center justify-center gap-2 rounded-lg px-3 text-center text-sm font-bold leading-tight shadow-none transition-colors sm:px-4',
@@ -6481,7 +6523,9 @@ export function POSTerminal({
                                     (paymentMethod === 'airtel_money' &&
                                       !mpesaRef.trim()) ||
                                     (paymentMethod === 'bank_transfer' &&
-                                      !mpesaRef.trim())
+                                      !mpesaRef.trim()) ||
+                                    (paymentMethod === 'credit' &&
+                                      (!selectedCustomer || !creditDueDate))
                                     ? 'cursor-not-allowed !bg-[#e4e7ec] !text-[#667085] shadow-none dark:!bg-white/10 dark:!text-[#8b8b8b]'
                                     : 'hover:bg-[#e2a900]'
                                 )}

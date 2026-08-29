@@ -35,6 +35,7 @@ import {
   Footprints,
   GlassWater,
   Grid,
+  HandCoins,
   Heart,
   Home,
   Laptop,
@@ -123,6 +124,7 @@ const ICONS: Record<string, LucideIcon> = {
   Footprints,
   GlassWater,
   Grid,
+  HandCoins,
   Heart,
   Home,
   Laptop,
@@ -274,6 +276,13 @@ export function DynamicAppSidebar({
     coupons: PermissionEnum.REWARDS_VIEW,
     discounts: PermissionEnum.REWARDS_VIEW,
     bonuses: PermissionEnum.REWARDS_VIEW,
+    financials: PermissionEnum.FINANCE_VIEW,
+    invoices: PermissionEnum.INVOICE_VIEW,
+    receivables: PermissionEnum.RECEIVABLE_VIEW,
+    'financial-accounts': PermissionEnum.FINANCE_VIEW,
+    reconciliation: PermissionEnum.FINANCE_VIEW,
+    approvals: PermissionEnum.FINANCE_VIEW,
+    'finance-audit': PermissionEnum.AUDIT_LOG_VIEW,
   };
   // Unknown workspace items are hidden until they have an explicit permission mapping.
   const canView = (id: string) =>
@@ -339,6 +348,16 @@ export function DynamicAppSidebar({
       route: '/dashboard/promotions/bonuses',
     },
   ];
+  const financeNav = [
+    { id: 'financials', label: 'Financial overview', icon: 'WalletCards', route: '/dashboard/financials' },
+    { id: 'expenses', label: 'Expenses', icon: 'ReceiptText', route: '/dashboard/expenses' },
+    { id: 'invoices', label: 'Invoices', icon: 'FileText', route: '/dashboard/invoices' },
+    { id: 'receivables', label: 'Accounts receivable', icon: 'HandCoins', route: '/dashboard/receivables' },
+    { id: 'financial-accounts', label: 'Payment accounts', icon: 'Wallet', route: '/dashboard/finance/accounts' },
+    { id: 'reconciliation', label: 'Reconciliation', icon: 'Shuffle', route: '/dashboard/finance/reconciliation' },
+    { id: 'approvals', label: 'Approval inbox', icon: 'ClipboardCheck', route: '/dashboard/finance/approvals' },
+    { id: 'finance-audit', label: 'Finance audit', icon: 'ShieldCheck', route: '/dashboard/finance/audit' },
+  ];
   // Keep the navigation aligned with the way a shop is run: understand the
   // business first, sell second, then manage the catalogue and operations.
   // The workspace template still decides which entries exist; this only gives
@@ -348,7 +367,19 @@ export function DynamicAppSidebar({
   );
   const workspaceNav = config.sidebarConfig.primaryNav.filter(
     (item) =>
-      item.id !== 'dashboard' && item.id !== 'pos' && item.id !== 'admin'
+      item.id !== 'dashboard' &&
+      item.id !== 'pos' &&
+      item.id !== 'admin' &&
+      ![
+        'expenses',
+        'financials',
+        'invoices',
+        'receivables',
+        'financial-accounts',
+        'reconciliation',
+        'approvals',
+        'finance-audit',
+      ].includes(item.id)
   );
   const composedPrimaryNav = [
     ...dashboardNav,
@@ -363,6 +394,7 @@ export function DynamicAppSidebar({
     ...workspaceNav,
     ...(permissions.includes(PermissionEnum.REWARDS_VIEW) ? promotionNav : []),
     ...(permissions.includes(PermissionEnum.ETIMS_VIEW) ? [etimsNav] : []),
+    ...financeNav.filter((item) => canView(item.id)),
     ...(permissions.includes(PermissionEnum.STAFF_MANAGE) ? [staffNav] : []),
     ...(permissions.includes(PermissionEnum.STAFF_VIEW)
       ? [staffPerformanceNav]
@@ -383,7 +415,14 @@ export function DynamicAppSidebar({
   // Management, inventory and business-wide reporting remain unavailable here.
   const cashierPrimaryNav = [
     ...(permissions.includes(PermissionEnum.ATTENDANCE_USE)
-      ? [{ id: 'attendance', label: 'Attendance', icon: 'Watch', route: '/dashboard/attendance' }]
+      ? [
+          {
+            id: 'attendance',
+            label: 'Attendance',
+            icon: 'Watch',
+            route: '/dashboard/attendance',
+          },
+        ]
       : []),
     ...(canView('pos') ? [posNav] : []),
     ...(permissions.includes(PermissionEnum.SALES_VIEW_OWN)
@@ -406,7 +445,14 @@ export function DynamicAppSidebar({
   // Configuration, staff administration and financial settings stay hidden.
   const supervisorPrimaryNav = [
     ...(permissions.includes(PermissionEnum.ATTENDANCE_USE)
-      ? [{ id: 'attendance', label: 'Attendance', icon: 'Watch', route: '/dashboard/attendance' }]
+      ? [
+          {
+            id: 'attendance',
+            label: 'Attendance',
+            icon: 'Watch',
+            route: '/dashboard/attendance',
+          },
+        ]
       : []),
     ...(permissions.includes(PermissionEnum.SHIFT_MANAGE)
       ? [
@@ -501,6 +547,63 @@ export function DynamicAppSidebar({
         : primaryNav;
   const visibleSecondaryNav =
     role === 'cashier' || role === 'supervisor' ? [] : secondaryNav;
+  const navigationGroups = [
+    { label: 'Workspace', ids: ['dashboard', 'pos', 'my-sales'] },
+    {
+      label: 'Sales & catalogue',
+      ids: ['sales', 'products', 'categories', 'customers', 'prescriptions'],
+    },
+    {
+      label: 'Inventory & operations',
+      ids: ['inventory', 'batches', 'purchases', 'operations'],
+    },
+    {
+      label: 'Staff & access',
+      ids: ['attendance', 'staff', 'staff-performance'],
+    },
+    {
+      label: 'Finance',
+      ids: [
+        'financials',
+        'expenses',
+        'invoices',
+        'receivables',
+        'financial-accounts',
+        'reconciliation',
+        'approvals',
+        'finance-audit',
+      ],
+    },
+    {
+      label: 'Promotions & rewards',
+      ids: ['coupons', 'discounts', 'bonuses'],
+    },
+    {
+      label: 'Tax & compliance',
+      ids: ['etims'],
+    },
+    {
+      label: 'Insights & reports',
+      ids: [
+        'reports',
+        'analytics',
+        'sales-analytics',
+        'customer-analytics',
+        'inventory-analytics',
+      ],
+    },
+  ]
+    .map((group) => ({
+      ...group,
+      items: visiblePrimaryNav.filter((item) => group.ids.includes(item.id)),
+    }))
+    .filter((group) => group.items.length > 0);
+  const ungroupedNav = visiblePrimaryNav.filter(
+    (item) =>
+      !navigationGroups.some((group) =>
+        group.items.some((groupItem) => groupItem.id === item.id)
+      )
+  );
   const sidebarWidth = sidebarCollapsed ? 'lg:w-[68px]' : 'lg:w-[223px]';
 
   const sidebar = (
@@ -563,53 +666,65 @@ export function DynamicAppSidebar({
       </div>
 
       {/* Main nav */}
-      <nav className="flex-1 overflow-y-auto py-6 px-3">
-        {!sidebarCollapsed && (
-          <p className="section-label mb-4 px-3 text-[#a1a1a6] text-xs font-semibold uppercase tracking-wider">
-            Workspace
-          </p>
-        )}
-        <ul className="space-y-1.5">
-          {visiblePrimaryNav.map((item) => {
-            // Skip items that don't have a route
-            if (!item.route) return null;
+      <nav className="flex-1 overflow-y-auto px-3 py-4">
+        {[
+          ...navigationGroups,
+          ...(ungroupedNav.length
+            ? [{ label: 'More', ids: [], items: ungroupedNav }]
+            : []),
+        ].map((group) => (
+          <section key={group.label} className="mb-5 last:mb-0">
+            {!sidebarCollapsed && (
+              <p className="mb-1.5 px-3 text-[9px] font-semibold uppercase tracking-[0.1em] text-[var(--dashboard-muted)]">
+                {group.label}
+              </p>
+            )}
+            <ul className="space-y-1">
+              {group.items.map((item) => {
+                // Skip items that don't have a route
+                if (!item.route) return null;
 
-            const active = isActive(item.route);
-            const IconComponent = getIcon(item.icon);
+                const active = isActive(item.route);
+                const IconComponent = getIcon(item.icon);
 
-            return (
-              <li key={item.id}>
-                <Link
-                  href={item.route}
-                  prefetch
-                  onMouseEnter={() => router.prefetch(item.route!)}
-                  onFocus={() => router.prefetch(item.route!)}
-                  onClick={onMobileClose}
-                  title={sidebarCollapsed ? item.label : undefined}
-                  className={cn(
-                    'sidebar-item rounded-lg transition-all',
-                    sidebarCollapsed
-                      ? 'lg:justify-center lg:px-3 lg:py-2.5'
-                      : 'px-3 py-2.5',
-                    active
-                      ? 'bg-[rgba(255,214,10,0.1)] text-[#ffd60a] border border-[rgba(255,214,10,0.2)]'
-                      : 'text-[#a1a1a6] hover:bg-[rgba(255,255,255,0.05)] hover:text-[#f5f5f7]'
-                  )}
-                >
-                  <IconComponent className="h-5 w-5 flex-shrink-0" />
-                  <span
-                    className={cn(
-                      'text-sm font-medium',
-                      sidebarCollapsed && 'lg:hidden'
-                    )}
-                  >
-                    {item.label}
-                  </span>
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
+                return (
+                  <li key={item.id}>
+                    <Link
+                      href={item.route}
+                      prefetch
+                      onMouseEnter={() => router.prefetch(item.route!)}
+                      onFocus={() => router.prefetch(item.route!)}
+                      onClick={onMobileClose}
+                      title={sidebarCollapsed ? item.label : undefined}
+                      className={cn(
+                        'sidebar-item rounded-md transition-colors',
+                        sidebarCollapsed
+                          ? 'lg:justify-center lg:px-3 lg:py-2'
+                          : 'px-3 py-2',
+                        active
+                          ? 'border border-[var(--dashboard-accent-soft-border)] bg-[var(--dashboard-accent-soft)] text-[var(--dashboard-accent)]'
+                          : 'text-[var(--dashboard-muted)] hover:bg-[var(--dashboard-surface-subtle)] hover:text-[var(--dashboard-text)]'
+                      )}
+                    >
+                      <IconComponent
+                        className="h-4 w-4 flex-shrink-0"
+                        strokeWidth={1.8}
+                      />
+                      <span
+                        className={cn(
+                          'text-sm font-medium leading-5',
+                          sidebarCollapsed && 'lg:hidden'
+                        )}
+                      >
+                        {item.label}
+                      </span>
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
+        ))}
       </nav>
 
       {/* Bottom nav */}
@@ -633,10 +748,10 @@ export function DynamicAppSidebar({
                   onClick={onMobileClose}
                   title={sidebarCollapsed ? item.label : undefined}
                   className={cn(
-                    'sidebar-item rounded-lg transition-all',
+                    'sidebar-item rounded-md transition-colors',
                     sidebarCollapsed
-                      ? 'lg:justify-center lg:px-3 lg:py-2.5'
-                      : 'px-3 py-2.5',
+                      ? 'lg:justify-center lg:px-3 lg:py-2'
+                      : 'px-3 py-2',
                     active
                       ? 'bg-[rgba(255,214,10,0.1)] text-[#ffd60a] border border-[rgba(255,214,10,0.2)]'
                       : 'text-[#a1a1a6] hover:bg-[rgba(255,255,255,0.05)] hover:text-[#f5f5f7]'
@@ -645,7 +760,7 @@ export function DynamicAppSidebar({
                   <IconComponent className="h-4 w-4 flex-shrink-0" />
                   <span
                     className={cn(
-                      'text-sm font-medium',
+                      'text-sm font-medium leading-5',
                       sidebarCollapsed && 'lg:hidden'
                     )}
                   >

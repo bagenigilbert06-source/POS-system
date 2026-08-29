@@ -15,7 +15,7 @@ const quickActions: QuickAction[] = [
   { id: 'new-sale', label: 'New Sale', href: '/dashboard/sales', icon: 'ShoppingCart', primary: true },
   { id: 'add-product', label: 'Add Product', href: '/dashboard/products', icon: 'Package' },
   { id: 'inventory', label: 'Inventory', href: '/dashboard/inventory', icon: 'PackageSearch' },
-  { id: 'purchase-order', label: 'Purchase Order', href: '/dashboard/purchase-orders', icon: 'ClipboardList' },
+  { id: 'stock-intake', label: 'Stock Intake', href: '/dashboard/stock-intake', icon: 'ClipboardList' },
 ]
 
 const starterCategories: StarterCategory[] = [
@@ -50,7 +50,7 @@ export const hardwareTemplate: WorkspaceTemplate = {
   dashboardWidgets,
   quickActions,
   enabledModules: ['inventory', 'sales', 'products', 'customers', 'reports', 'analytics'],
-  enabledFeatures: ['barcode-scanning', 'purchase-orders', 'low-stock-alerts', 'bulk-import'],
+  enabledFeatures: ['barcode-scanning', 'stock-intake', 'low-stock-alerts', 'bulk-import'],
   settings: RETAIL_SETTINGS,
   permissions: RETAIL_PERMISSIONS,
   reports: RETAIL_REPORTS,

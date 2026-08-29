@@ -24,6 +24,7 @@
     "test:pos-shift-db": "node tests/pos-shift-db.integration.mjs",
     "test:inventory": "ts-node --project tsconfig.test.json tests/inventory-rules.test.ts",
     "test:reports": "ts-node --project tsconfig.test.json tests/report-rules.test.ts",
+    "test:finance": "ts-node --project tsconfig.test.json tests/invoice-rules.test.ts && ts-node --project tsconfig.test.json tests/receivable-rules.test.ts && ts-node --project tsconfig.test.json tests/finance-operations.test.ts",
     "test:mpesa": "ts-node --project tsconfig.test.json tests/mpesa-rules.test.ts",
     "test:rewards": "ts-node --project tsconfig.test.json tests/reward-rules.test.ts && node tests/reward-migration.test.mjs",
     "test:etims": "ts-node --project tsconfig.test.json tests/etims-rules.test.ts",

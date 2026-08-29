@@ -1182,10 +1182,6 @@ export const purchase = pgTable(
     branchId: text('branchId').references(() => branch.id, {
       onDelete: 'restrict',
     }),
-    poId: text('poId').references(() => purchaseOrder.id, {
-      onDelete: 'set null',
-    }),
-    receiptId: text('receiptId'),
     paidAmount: numeric('paidAmount', { precision: 12, scale: 2 })
       .notNull()
       .default('0'),
@@ -1202,9 +1198,6 @@ export const purchase = pgTable(
     organizationNumberUnique: uniqueIndex('purchase_org_number_unique').on(
       table.orgId,
       table.purchaseNo
-    ),
-    receiptUnique: uniqueIndex('purchase_receipt_link_unique').on(
-      table.receiptId
     ),
     paymentIndex: index('purchase_org_payment_idx').on(
       table.orgId,
@@ -2355,6 +2348,9 @@ export const creditSale = pgTable(
     amountPaid: numeric('amountPaid', { precision: 12, scale: 2 })
       .notNull()
       .default('0'),
+    creditedAmount: numeric('creditedAmount', { precision: 12, scale: 2 })
+      .notNull()
+      .default('0'),
     dueDate: timestamp('dueDate'),
     status: text('status').notNull().default('unpaid'),
     userId: text('userId').notNull(),
@@ -2365,6 +2361,8 @@ export const creditSale = pgTable(
   (table) => ({
     organizationIndex: index('credit_sale_org_idx').on(table.orgId),
     customerIndex: index('credit_sale_customer_idx').on(table.customerId),
+    organizationStatusDueIndex: index('credit_sale_org_status_due_idx').on(table.orgId, table.status, table.dueDate),
+    saleUnique: uniqueIndex('credit_sale_sale_unique').on(table.saleId),
   })
 );
 
@@ -2378,12 +2376,15 @@ export const creditPayment = pgTable(
     amount: numeric('amount', { precision: 12, scale: 2 }).notNull(),
     method: text('method').notNull().default('cash'),
     reference: text('reference'),
+    idempotencyKey: text('idempotencyKey'),
     userId: text('userId').notNull(),
     orgId: text('orgId').notNull(),
     createdAt: timestamp('createdAt').notNull().defaultNow(),
   },
   (table) => ({
     organizationIndex: index('credit_payment_org_idx').on(table.orgId),
+    creditSaleCreatedIndex: index('credit_payment_credit_sale_created_idx').on(table.creditSaleId, table.createdAt),
+    organizationIdempotencyUnique: uniqueIndex('credit_payment_org_idempotency_unique').on(table.orgId, table.idempotencyKey),
   })
 );
 
@@ -2456,6 +2457,7 @@ export const customerCreditLimit = pgTable(
     customerIndex: index('customer_credit_limit_customer_idx').on(
       table.customerId
     ),
+    organizationCustomerUnique: uniqueIndex('customer_credit_limit_org_customer_unique').on(table.orgId, table.customerId),
   })
 );
 
@@ -2612,90 +2614,41 @@ export const employeeCommission = pgTable(
   })
 );
 
-// --- Financial Management ---
-export const glAccount = pgTable(
-  'gl_account',
-  {
-    id: text('id').primaryKey(),
-    code: text('code').notNull(),
-    name: text('name').notNull(),
-    type: text('type').notNull(), // asset, liability, equity, revenue, expense
-    category: text('category').notNull(),
-    orgId: text('orgId')
-      .notNull()
-      .references(() => organization.id, { onDelete: 'cascade' }),
-    createdAt: timestamp('createdAt').notNull().defaultNow(),
-  },
-  (table) => ({
-    organizationIndex: index('gl_account_org_idx').on(table.orgId),
-    codeUnique: uniqueIndex('gl_account_org_code_unique').on(
-      table.orgId,
-      table.code
-    ),
-  })
-);
-
-export const generalLedger = pgTable(
-  'general_ledger',
-  {
-    id: text('id').primaryKey(),
-    accountId: text('accountId')
-      .notNull()
-      .references(() => glAccount.id, { onDelete: 'restrict' }),
-    debit: numeric('debit', { precision: 12, scale: 2 }).notNull().default('0'),
-    credit: numeric('credit', { precision: 12, scale: 2 })
-      .notNull()
-      .default('0'),
-    description: text('description'),
-    referenceType: text('referenceType'), // sale, purchase, expense, adjustment
-    referenceId: text('referenceId'),
-    date: timestamp('date').notNull().defaultNow(),
-    orgId: text('orgId')
-      .notNull()
-      .references(() => organization.id, { onDelete: 'cascade' }),
-    createdAt: timestamp('createdAt').notNull().defaultNow(),
-  },
-  (table) => ({
-    organizationIndex: index('general_ledger_org_idx').on(table.orgId),
-    dateIndex: index('general_ledger_date_idx').on(table.date),
-  })
-);
-
-export const financialStatement = pgTable(
-  'financial_statement',
-  {
-    id: text('id').primaryKey(),
-    type: text('type').notNull(), // income_statement, balance_sheet, cash_flow
-    period: text('period').notNull(), // YYYY-MM-01 to YYYY-MM-31
-    data: json('data').notNull(), // Statement data
-    orgId: text('orgId')
-      .notNull()
-      .references(() => organization.id, { onDelete: 'cascade' }),
-    createdAt: timestamp('createdAt').notNull().defaultNow(),
-  },
-  (table) => ({
-    organizationIndex: index('financial_statement_org_idx').on(table.orgId),
-  })
-);
-
-// --- Documents: Invoices, Quotes, Purchase Orders ---
+// --- Customer documents ---
 export const invoice = pgTable(
   'invoice',
   {
     id: text('id').primaryKey(),
     invoiceNo: text('invoiceNo').notNull(),
+    branchId: text('branchId').references(() => branch.id, { onDelete: 'restrict' }),
+    saleId: text('saleId').references(() => sale.id, { onDelete: 'restrict' }),
+    creditSaleId: text('creditSaleId').references(() => creditSale.id, { onDelete: 'restrict' }),
+    customerSnapshot: json('customerSnapshot').notNull().default({}),
+    businessSnapshot: json('businessSnapshot').notNull().default({}),
     customerId: text('customerId').references(() => customer.id, {
       onDelete: 'set null',
     }),
     subtotal: numeric('subtotal', { precision: 12, scale: 2 })
       .notNull()
       .default('0'),
+    discountAmount: numeric('discountAmount', { precision: 12, scale: 2 }).notNull().default('0'),
+    shippingAmount: numeric('shippingAmount', { precision: 12, scale: 2 }).notNull().default('0'),
+    roundingAmount: numeric('roundingAmount', { precision: 12, scale: 2 }).notNull().default('0'),
+    taxableAmount: numeric('taxableAmount', { precision: 12, scale: 2 }).notNull().default('0'),
+    taxRate: numeric('taxRate', { precision: 7, scale: 4 }).notNull().default('0'),
     taxAmount: numeric('taxAmount', { precision: 12, scale: 2 })
       .notNull()
       .default('0'),
     total: numeric('total', { precision: 12, scale: 2 }).notNull(),
+    amountPaid: numeric('amountPaid', { precision: 12, scale: 2 }).notNull().default('0'),
+    creditedAmount: numeric('creditedAmount', { precision: 12, scale: 2 }).notNull().default('0'),
+    balanceDue: numeric('balanceDue', { precision: 12, scale: 2 }).notNull().default('0'),
+    fiscalStatus: text('fiscalStatus').notNull().default('not_submitted'),
+    fiscalReference: text('fiscalReference'),
+    idempotencyKey: text('idempotencyKey'),
     dueDate: timestamp('dueDate'),
-    status: text('status').notNull().default('draft'), // draft, sent, paid, overdue, cancelled
+    issuedAt: timestamp('issuedAt'),
+    status: text('status').notNull().default('draft'), // draft, issued, partially_paid, paid, overdue, cancelled, credited
     notes: text('notes'),
     orgId: text('orgId')
       .notNull()
@@ -2704,8 +2657,15 @@ export const invoice = pgTable(
     createdAt: timestamp('createdAt').notNull().defaultNow(),
     updatedAt: timestamp('updatedAt').notNull().defaultNow(),
   },
-  (table) => ({ organizationIndex: index('invoice_org_idx').on(table.orgId) })
+  (table) => ({ organizationIndex: index('invoice_org_idx').on(table.orgId), organizationBranchCreatedIndex: index('invoice_org_branch_created_idx').on(table.orgId, table.branchId, table.createdAt), organizationStatusDueIndex: index('invoice_org_status_due_idx').on(table.orgId, table.status, table.dueDate), organizationNumberUnique: uniqueIndex('invoice_org_number_unique').on(table.orgId, table.invoiceNo), organizationIdempotencyUnique: uniqueIndex('invoice_org_idempotency_unique').on(table.orgId, table.idempotencyKey), saleUnique: uniqueIndex('invoice_sale_unique').on(table.saleId), creditSaleUnique: uniqueIndex('invoice_credit_sale_unique').on(table.creditSaleId) })
 );
+
+export const invoiceNumberSequence = pgTable('invoice_number_sequence', {
+  organizationId: text('organizationId').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  year: integer('year').notNull(),
+  lastNumber: integer('lastNumber').notNull().default(0),
+  updatedAt: timestamp('updatedAt').notNull().defaultNow(),
+}, (table) => ({ organizationYearUnique: uniqueIndex('invoice_number_sequence_org_year_unique').on(table.organizationId, table.year) }));
 
 export const invoiceItem = pgTable('invoice_item', {
   id: text('id').primaryKey(),
@@ -2715,9 +2675,64 @@ export const invoiceItem = pgTable('invoice_item', {
   description: text('description').notNull(),
   quantity: integer('quantity').notNull(),
   unitPrice: numeric('unitPrice', { precision: 12, scale: 2 }).notNull(),
+  sku: text('sku'),
+  unit: text('unit').notNull().default('each'),
+  discountAmount: numeric('discountAmount', { precision: 12, scale: 2 }).notNull().default('0'),
+  invoiceDiscountShare: numeric('invoiceDiscountShare', { precision: 12, scale: 2 }).notNull().default('0'),
+  taxRate: numeric('taxRate', { precision: 7, scale: 4 }).notNull().default('0'),
+  taxAmount: numeric('taxAmount', { precision: 12, scale: 2 }).notNull().default('0'),
   total: numeric('total', { precision: 12, scale: 2 }).notNull(),
   orgId: text('orgId').notNull(),
 });
+
+export const invoicePayment = pgTable('invoice_payment', {
+  id: text('id').primaryKey(),
+  invoiceId: text('invoiceId').notNull().references(() => invoice.id, { onDelete: 'restrict' }),
+  organizationId: text('organizationId').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  branchId: text('branchId').references(() => branch.id, { onDelete: 'restrict' }),
+  amount: numeric('amount', { precision: 12, scale: 2 }).notNull(),
+  method: text('method').notNull(),
+  reference: text('reference'),
+  idempotencyKey: text('idempotencyKey').notNull(),
+  receivedBy: text('receivedBy').notNull().references(() => user.id, { onDelete: 'restrict' }),
+  createdAt: timestamp('createdAt').notNull().defaultNow(),
+}, (table) => ({ invoiceIndex: index('invoice_payment_invoice_idx').on(table.invoiceId), idempotencyUnique: uniqueIndex('invoice_payment_idempotency_unique').on(table.organizationId, table.idempotencyKey) }));
+
+export const invoiceCreditNote = pgTable('invoice_credit_note', {
+  id: text('id').primaryKey(),
+  organizationId: text('organizationId').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  branchId: text('branchId').references(() => branch.id, { onDelete: 'restrict' }),
+  invoiceId: text('invoiceId').notNull().references(() => invoice.id, { onDelete: 'restrict' }),
+  returnId: text('returnId').references(() => salesReturn.id, { onDelete: 'restrict' }),
+  creditNoteNo: text('creditNoteNo').notNull(),
+  amount: numeric('amount', { precision: 12, scale: 2 }).notNull(),
+  reason: text('reason').notNull(),
+  status: text('status').notNull().default('issued'),
+  fiscalStatus: text('fiscalStatus').notNull().default('not_submitted'),
+  fiscalReference: text('fiscalReference'),
+  idempotencyKey: text('idempotencyKey').notNull(),
+  createdBy: text('createdBy').notNull().references(() => user.id, { onDelete: 'restrict' }),
+  createdAt: timestamp('createdAt').notNull().defaultNow(),
+}, (table) => ({
+  organizationNumberUnique: uniqueIndex('invoice_credit_note_org_number_unique').on(table.organizationId, table.creditNoteNo),
+  organizationIdempotencyUnique: uniqueIndex('invoice_credit_note_org_idempotency_unique').on(table.organizationId, table.idempotencyKey),
+  returnUnique: uniqueIndex('invoice_credit_note_return_unique').on(table.returnId),
+  invoiceCreatedIndex: index('invoice_credit_note_invoice_created_idx').on(table.invoiceId, table.createdAt),
+}));
+
+/** Read-only preservation for deterministic finance migration repairs. */
+export const financeLegacyArchive = pgTable('finance_legacy_archive', {
+  id: text('id').primaryKey(),
+  organizationId: text('organizationId').notNull().references(() => organization.id, { onDelete: 'restrict' }),
+  entityType: text('entityType').notNull(),
+  legacyId: text('legacyId').notNull(),
+  reason: text('reason').notNull(),
+  data: json('data').notNull(),
+  archivedAt: timestamp('archivedAt').notNull().defaultNow(),
+}, (table) => ({
+  entityLegacyUnique: uniqueIndex('finance_legacy_archive_entity_legacy_unique').on(table.entityType, table.legacyId),
+  organizationIndex: index('finance_legacy_archive_org_idx').on(table.organizationId),
+}));
 
 export const quotation = pgTable(
   'quotation',
@@ -2757,135 +2772,6 @@ export const quotationItem = pgTable('quotation_item', {
   unitPrice: numeric('unitPrice', { precision: 12, scale: 2 }).notNull(),
   total: numeric('total', { precision: 12, scale: 2 }).notNull(),
   orgId: text('orgId').notNull(),
-});
-
-export const purchaseOrder = pgTable(
-  'purchase_order',
-  {
-    id: text('id').primaryKey(),
-    poNo: text('poNo').notNull(),
-    supplierId: text('supplierId')
-      .notNull()
-      .references(() => supplier.id, { onDelete: 'restrict' }),
-    subtotal: numeric('subtotal', { precision: 12, scale: 2 })
-      .notNull()
-      .default('0'),
-    taxAmount: numeric('taxAmount', { precision: 12, scale: 2 })
-      .notNull()
-      .default('0'),
-    total: numeric('total', { precision: 12, scale: 2 }).notNull(),
-    status: text('status').notNull().default('draft'), // draft, sent, confirmed, received, cancelled
-    expectedDelivery: timestamp('expectedDelivery'),
-    branchId: text('branchId').references(() => branch.id, {
-      onDelete: 'restrict',
-    }),
-    supplierReference: text('supplierReference'),
-    discountAmount: numeric('discountAmount', { precision: 12, scale: 2 })
-      .notNull()
-      .default('0'),
-    shippingAmount: numeric('shippingAmount', { precision: 12, scale: 2 })
-      .notNull()
-      .default('0'),
-    otherCosts: numeric('otherCosts', { precision: 12, scale: 2 })
-      .notNull()
-      .default('0'),
-    sentAt: timestamp('sentAt'),
-    confirmedAt: timestamp('confirmedAt'),
-    closedAt: timestamp('closedAt'),
-    notes: text('notes'),
-    orgId: text('orgId')
-      .notNull()
-      .references(() => organization.id, { onDelete: 'cascade' }),
-    userId: text('userId').notNull(),
-    createdAt: timestamp('createdAt').notNull().defaultNow(),
-    updatedAt: timestamp('updatedAt').notNull().defaultNow(),
-  },
-  (table) => ({
-    organizationIndex: index('purchase_order_org_idx').on(table.orgId),
-    organizationNumberUnique: uniqueIndex(
-      'purchase_order_org_number_unique'
-    ).on(table.orgId, table.poNo),
-  })
-);
-
-export const purchaseOrderItem = pgTable('purchase_order_item', {
-  id: text('id').primaryKey(),
-  poId: text('poId')
-    .notNull()
-    .references(() => purchaseOrder.id, { onDelete: 'cascade' }),
-  productId: text('productId'),
-  description: text('description').notNull(),
-  quantity: integer('quantity').notNull(),
-  receivedQuantity: numeric('receivedQuantity', { precision: 16, scale: 3 })
-    .notNull()
-    .default('0'),
-  rejectedQuantity: numeric('rejectedQuantity', { precision: 16, scale: 3 })
-    .notNull()
-    .default('0'),
-  packagingId: text('packagingId').references(() => productPackaging.id, {
-    onDelete: 'set null',
-  }),
-  unitPrice: numeric('unitPrice', { precision: 12, scale: 2 }).notNull(),
-  total: numeric('total', { precision: 12, scale: 2 }).notNull(),
-  orgId: text('orgId').notNull(),
-});
-
-export const purchaseReceipt = pgTable(
-  'purchase_receipt',
-  {
-    id: text('id').primaryKey(),
-    receiptNo: text('receiptNo').notNull(),
-    poId: text('poId')
-      .notNull()
-      .references(() => purchaseOrder.id, { onDelete: 'restrict' }),
-    branchId: text('branchId')
-      .notNull()
-      .references(() => branch.id, { onDelete: 'restrict' }),
-    supplierInvoice: text('supplierInvoice'),
-    idempotencyKey: text('idempotencyKey').notNull(),
-    status: text('status').notNull().default('received'),
-    notes: text('notes'),
-    receivedBy: text('receivedBy').notNull(),
-    orgId: text('orgId')
-      .notNull()
-      .references(() => organization.id, { onDelete: 'cascade' }),
-    createdAt: timestamp('createdAt').notNull().defaultNow(),
-  },
-  (table) => ({
-    organizationReceiptUnique: uniqueIndex(
-      'purchase_receipt_org_number_unique'
-    ).on(table.orgId, table.receiptNo),
-    organizationIdempotencyUnique: uniqueIndex(
-      'purchase_receipt_org_idempotency_unique'
-    ).on(table.orgId, table.idempotencyKey),
-  })
-);
-
-export const purchaseReceiptItem = pgTable('purchase_receipt_item', {
-  id: text('id').primaryKey(),
-  receiptId: text('receiptId')
-    .notNull()
-    .references(() => purchaseReceipt.id, { onDelete: 'cascade' }),
-  poItemId: text('poItemId')
-    .notNull()
-    .references(() => purchaseOrderItem.id, { onDelete: 'restrict' }),
-  productId: text('productId')
-    .notNull()
-    .references(() => product.id, { onDelete: 'restrict' }),
-  acceptedQuantity: numeric('acceptedQuantity', { precision: 16, scale: 3 })
-    .notNull()
-    .default('0'),
-  rejectedQuantity: numeric('rejectedQuantity', { precision: 16, scale: 3 })
-    .notNull()
-    .default('0'),
-  rejectionReason: text('rejectionReason'),
-  baseQuantity: numeric('baseQuantity', { precision: 16, scale: 3 }).notNull(),
-  unitCost: numeric('unitCost', { precision: 12, scale: 4 }).notNull(),
-  lotNumber: text('lotNumber'),
-  expiresAt: timestamp('expiresAt'),
-  orgId: text('orgId')
-    .notNull()
-    .references(() => organization.id, { onDelete: 'cascade' }),
 });
 
 // --- Inventory & Process Management ---
@@ -3045,6 +2931,72 @@ export const performanceGoal = pgTable(
   })
 );
 
+// --- Retail finance operations --------------------------------------------
+// These records extend the authoritative POS, Stock Intake and customer-credit
+// ledgers. They intentionally do not pretend to be a double-entry accounting
+// ledger.
+export const financialAccount = pgTable(
+  'financial_account',
+  {
+    id: text('id').primaryKey(),
+    organizationId: text('organizationId').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+    branchId: text('branchId').references(() => branch.id, { onDelete: 'restrict' }),
+    name: text('name').notNull(),
+    type: text('type').notNull(),
+    provider: text('provider'),
+    maskedIdentifier: text('maskedIdentifier'),
+    isActive: boolean('isActive').notNull().default(true),
+    reconciliationEnabled: boolean('reconciliationEnabled').notNull().default(true),
+    createdBy: text('createdBy').notNull().references(() => user.id, { onDelete: 'restrict' }),
+    createdAt: timestamp('createdAt').notNull().defaultNow(),
+    updatedAt: timestamp('updatedAt').notNull().defaultNow(),
+  },
+  (table) => ({ nameUnique: uniqueIndex('financial_account_org_name_unique').on(table.organizationId, table.name), organizationIndex: index('financial_account_org_active_idx').on(table.organizationId, table.isActive) })
+);
+
+export const reconciliationImport = pgTable(
+  'reconciliation_import',
+  {
+    id: text('id').primaryKey(), organizationId: text('organizationId').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+    financialAccountId: text('financialAccountId').notNull().references(() => financialAccount.id, { onDelete: 'restrict' }),
+    filename: text('filename').notNull(), fileHash: text('fileHash').notNull(), statementFrom: timestamp('statementFrom'), statementTo: timestamp('statementTo'), rowCount: integer('rowCount').notNull(),
+    status: text('status').notNull().default('imported'), importedBy: text('importedBy').notNull().references(() => user.id, { onDelete: 'restrict' }), createdAt: timestamp('createdAt').notNull().defaultNow(),
+  },
+  (table) => ({ hashUnique: uniqueIndex('reconciliation_import_org_hash_unique').on(table.organizationId, table.fileHash) })
+);
+
+export const externalFinancialTransaction = pgTable(
+  'external_financial_transaction',
+  {
+    id: text('id').primaryKey(), organizationId: text('organizationId').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+    financialAccountId: text('financialAccountId').notNull().references(() => financialAccount.id, { onDelete: 'restrict' }), importId: text('importId').references(() => reconciliationImport.id, { onDelete: 'restrict' }),
+    externalId: text('externalId').notNull(), transactionAt: timestamp('transactionAt').notNull(), amount: numeric('amount', { precision: 14, scale: 2 }).notNull(), feeAmount: numeric('feeAmount', { precision: 14, scale: 2 }).notNull().default('0'), direction: text('direction').notNull(), description: text('description'), reference: text('reference'),
+    status: text('status').notNull().default('unmatched'), ignoredReason: text('ignoredReason'), rowHash: text('rowHash').notNull(), createdAt: timestamp('createdAt').notNull().defaultNow(), updatedAt: timestamp('updatedAt').notNull().defaultNow(),
+  },
+  (table) => ({ rowUnique: uniqueIndex('external_financial_transaction_account_row_unique').on(table.financialAccountId, table.rowHash), statusIndex: index('external_financial_transaction_org_status_idx').on(table.organizationId, table.status, table.transactionAt) })
+);
+
+export const reconciliationMatch = pgTable(
+  'reconciliation_match',
+  {
+    id: text('id').primaryKey(), organizationId: text('organizationId').notNull().references(() => organization.id, { onDelete: 'cascade' }), externalTransactionId: text('externalTransactionId').notNull().references(() => externalFinancialTransaction.id, { onDelete: 'restrict' }),
+    systemType: text('systemType').notNull(), systemId: text('systemId').notNull(), systemAmount: numeric('systemAmount', { precision: 14, scale: 2 }).notNull(), externalAmount: numeric('externalAmount', { precision: 14, scale: 2 }).notNull(), difference: numeric('difference', { precision: 14, scale: 2 }).notNull(), status: text('status').notNull(), reason: text('reason'), idempotencyKey: text('idempotencyKey').notNull(), matchedBy: text('matchedBy').notNull().references(() => user.id, { onDelete: 'restrict' }), matchedAt: timestamp('matchedAt').notNull().defaultNow(),
+  },
+  (table) => ({ externalUnique: uniqueIndex('reconciliation_match_external_unique').on(table.externalTransactionId), idempotencyUnique: uniqueIndex('reconciliation_match_org_idempotency_unique').on(table.organizationId, table.idempotencyKey) })
+);
+
+export const financeApprovalPolicy = pgTable('finance_approval_policy', {
+  id: text('id').primaryKey(), organizationId: text('organizationId').notNull().references(() => organization.id, { onDelete: 'cascade' }), actionType: text('actionType').notNull(), thresholdAmount: numeric('thresholdAmount', { precision: 14, scale: 2 }).notNull(), preventSelfApproval: boolean('preventSelfApproval').notNull().default(true), isActive: boolean('isActive').notNull().default(true), createdAt: timestamp('createdAt').notNull().defaultNow(), updatedAt: timestamp('updatedAt').notNull().defaultNow(),
+}, (table) => ({ actionUnique: uniqueIndex('finance_approval_policy_org_action_unique').on(table.organizationId, table.actionType) }));
+
+export const financeApproval = pgTable('finance_approval', {
+  id: text('id').primaryKey(), organizationId: text('organizationId').notNull().references(() => organization.id, { onDelete: 'cascade' }), branchId: text('branchId').references(() => branch.id, { onDelete: 'restrict' }), actionType: text('actionType').notNull(), entityType: text('entityType').notNull(), entityId: text('entityId').notNull(), amount: numeric('amount', { precision: 14, scale: 2 }).notNull(), reason: text('reason').notNull(), status: text('status').notNull().default('pending'), requestedBy: text('requestedBy').notNull().references(() => user.id, { onDelete: 'restrict' }), decidedBy: text('decidedBy').references(() => user.id, { onDelete: 'restrict' }), decisionReason: text('decisionReason'), decidedAt: timestamp('decidedAt'), idempotencyKey: text('idempotencyKey').notNull(), createdAt: timestamp('createdAt').notNull().defaultNow(), updatedAt: timestamp('updatedAt').notNull().defaultNow(),
+}, (table) => ({ idempotencyUnique: uniqueIndex('finance_approval_org_idempotency_unique').on(table.organizationId, table.idempotencyKey), pendingIndex: index('finance_approval_org_status_idx').on(table.organizationId, table.status, table.createdAt) }));
+
+export const financeDocument = pgTable('finance_document', {
+  id: text('id').primaryKey(), organizationId: text('organizationId').notNull().references(() => organization.id, { onDelete: 'cascade' }), entityType: text('entityType').notNull(), entityId: text('entityId').notNull(), filename: text('filename').notNull(), storageUrl: text('storageUrl').notNull(), contentType: text('contentType').notNull(), sizeBytes: integer('sizeBytes').notNull(), uploadedBy: text('uploadedBy').notNull().references(() => user.id, { onDelete: 'restrict' }), createdAt: timestamp('createdAt').notNull().defaultNow(),
+}, (table) => ({ entityIndex: index('finance_document_org_entity_idx').on(table.organizationId, table.entityType, table.entityId) }));
+
 // --- Type exports ----------------------------------------------------------
 export type User = typeof user.$inferSelect;
 export type Organization = typeof organization.$inferSelect;
@@ -3101,18 +3053,15 @@ export type Employee = typeof employee.$inferSelect;
 export type Shift = typeof shift.$inferSelect;
 export type ShiftAssignment = typeof shiftAssignment.$inferSelect;
 export type EmployeeCommission = typeof employeeCommission.$inferSelect;
-export type GLAccount = typeof glAccount.$inferSelect;
-export type GeneralLedger = typeof generalLedger.$inferSelect;
-export type FinancialStatement = typeof financialStatement.$inferSelect;
 export type Invoice = typeof invoice.$inferSelect;
 export type InvoiceItem = typeof invoiceItem.$inferSelect;
 export type Quotation = typeof quotation.$inferSelect;
 export type QuotationItem = typeof quotationItem.$inferSelect;
-export type PurchaseOrder = typeof purchaseOrder.$inferSelect;
-export type PurchaseOrderItem = typeof purchaseOrderItem.$inferSelect;
-export type PurchaseReceipt = typeof purchaseReceipt.$inferSelect;
-export type PurchaseReceiptItem = typeof purchaseReceiptItem.$inferSelect;
 export type InventoryTransfer = typeof inventoryTransfer.$inferSelect;
 export type InventoryTransferItem = typeof inventoryTransferItem.$inferSelect;
 export type Task = typeof task.$inferSelect;
 export type PerformanceGoal = typeof performanceGoal.$inferSelect;
+export type FinancialAccount = typeof financialAccount.$inferSelect;
+export type ExternalFinancialTransaction = typeof externalFinancialTransaction.$inferSelect;
+export type FinanceApproval = typeof financeApproval.$inferSelect;
+

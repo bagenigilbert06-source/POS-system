@@ -8,5 +8,5 @@ export const enabledFeatures: string[] = [
   'loyalty-points',
   'low-stock-alerts',
   'bulk-import',
-  'purchase-orders',
+  'stock-intake',
 ]

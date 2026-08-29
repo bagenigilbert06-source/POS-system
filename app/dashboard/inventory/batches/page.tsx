@@ -109,7 +109,7 @@ export default async function PharmacyBatchesPage() {
             </p>
           </div>
           <Link
-            href="/dashboard/purchases"
+            href="/dashboard/stock-intake"
             className="rounded-md border px-3 py-2 text-xs font-semibold hover:bg-muted"
           >
             Receive medicine stock
@@ -196,8 +196,8 @@ export default async function PharmacyBatchesPage() {
                     colSpan={data.canManageBatches ? 9 : 8}
                     className="px-5 py-14 text-center text-sm text-muted-foreground"
                   >
-                    No medicine batches yet. Receive a confirmed purchase order
-                    with a batch number and expiry date.
+                    No medicine batches yet. Complete a Stock Intake with a
+                    batch number and expiry date.
                   </td>
                 </tr>
               )}

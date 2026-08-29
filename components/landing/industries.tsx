@@ -70,7 +70,7 @@ const industries = [
     features: [
       'Bulk & per-unit sales',
       'Customer credit accounts',
-      'Supplier purchase orders',
+      'Supplier-linked stock intake',
       'Stock by warehouse location',
       'LPO & invoice generation',
     ],

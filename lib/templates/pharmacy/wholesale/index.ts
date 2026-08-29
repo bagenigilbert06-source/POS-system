@@ -28,7 +28,7 @@ const dashboardWidgets: DashboardWidget[] = [
 const quickActions: QuickAction[] = [
   { id: 'new-sale', label: 'New Sale', href: '/dashboard/sales', icon: 'ShoppingCart', primary: true },
   { id: 'add-medicine', label: 'Add Medicine', href: '/dashboard/products', icon: 'Package' },
-  { id: 'purchase-order', label: 'Purchase Order', href: '/dashboard/purchase-orders', icon: 'ClipboardList' },
+  { id: 'stock-intake', label: 'Stock Intake', href: '/dashboard/stock-intake', icon: 'ClipboardList' },
   { id: 'expiry-report', label: 'Expiry Report', href: '/dashboard/inventory/batches', icon: 'AlertTriangle' },
 ]
 
@@ -74,7 +74,7 @@ export const wholesalePharmacyTemplate: WorkspaceTemplate = {
   dashboardWidgets,
   quickActions,
   enabledModules: ['inventory', 'batch-tracking', 'sales', 'products', 'customers', 'reports', 'analytics'],
-  enabledFeatures: ['batch-tracking', 'expiry-tracking', 'wholesale-pricing', 'low-stock-alerts', 'purchase-orders'],
+  enabledFeatures: ['batch-tracking', 'expiry-tracking', 'wholesale-pricing', 'low-stock-alerts', 'stock-intake'],
   settings,
   permissions: PHARMACY_PERMISSIONS,
   reports: PHARMACY_REPORTS,
