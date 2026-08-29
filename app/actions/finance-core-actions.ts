@@ -14,6 +14,7 @@ import { db } from '@/lib/db';
 import {
   auditEvent,
   branch,
+  expense,
   externalFinancialTransaction,
   financeApproval,
   financeApprovalPolicy,
@@ -26,6 +27,7 @@ import {
 import { reconciliationResult } from '@/lib/finance/operations';
 import { money } from '@/lib/finance/money';
 import { PermissionEnum } from '@/lib/types/permissions';
+import { finalizeApprovedExpense } from '@/app/actions/expenses';
 
 async function authorize(manage = false) {
   const context = await getAuthorizationContext();
@@ -80,10 +82,9 @@ function refresh() {
 const accountSchema = z.object({
   name: z.string().trim().min(2).max(100),
   type: z.enum([
-    'cash_drawer',
-    'cash',
     'mpesa_till',
     'mpesa_paybill',
+    'airtel_money',
     'bank',
     'card_settlement',
   ]),
@@ -130,6 +131,20 @@ export async function createFinancialAccount(
   return { success: true, account: record };
 }
 
+export async function setFinancialAccountActive(id: string, active: boolean) {
+  const context = await authorize(true);
+  const [account] = await db
+    .select({ id: financialAccount.id, branchId: financialAccount.branchId, name: financialAccount.name })
+    .from(financialAccount)
+    .where(and(eq(financialAccount.id, id), eq(financialAccount.organizationId, context.organizationId)))
+    .limit(1);
+  if (!account || !canUseBranch(context, account.branchId)) throw new Error('Payment account not found.');
+  await db.update(financialAccount).set({ isActive: active, updatedAt: new Date() }).where(eq(financialAccount.id, id));
+  await db.insert(auditEvent).values({ id: nanoid(), organizationId: context.organizationId, userId: context.userId, action: active ? 'financial_account.reactivated' : 'financial_account.disabled', metadata: { accountId: account.id, name: account.name } });
+  refresh();
+  return { success: true };
+}
+
 const externalRowSchema = z.object({
   externalId: z.string().trim().min(1).max(160),
   transactionAt: z.coerce.date(),
@@ -159,8 +174,8 @@ export async function importReconciliationStatement(
       )
     )
     .limit(1);
-  if (!account || !canUseBranch(context, account.branchId))
-    throw new Error('Financial account not found.');
+  if (!account || !canUseBranch(context, account.branchId) || !account.isActive || !account.reconciliationEnabled || ['cash', 'cash_drawer'].includes(account.type))
+    throw new Error('Payment account not found.');
   const canonical = data.rows.map((row) => ({
     ...row,
     transactionAt: row.transactionAt.toISOString(),
@@ -254,7 +269,7 @@ export async function importReconciliationStatement(
 
 const matchSchema = z.object({
   externalTransactionId: z.string().min(1),
-  systemType: z.enum(['sale_payment', 'invoice_payment']),
+  systemType: z.enum(['sale_payment', 'invoice_payment', 'expense']),
   systemId: z.string().min(1),
   reason: z.string().trim().max(500).optional(),
   idempotencyKey: z.string().min(8).max(120),
@@ -310,7 +325,7 @@ export async function reconcileTransaction(input: z.input<typeof matchSchema>) {
             )
             .limit(1)
             .then((rows) => rows[0])
-        : await tx
+        : data.systemType === 'invoice_payment' ? await tx
             .select({ id: invoicePayment.id, amount: invoicePayment.amount })
             .from(invoicePayment)
             .where(
@@ -320,8 +335,24 @@ export async function reconcileTransaction(input: z.input<typeof matchSchema>) {
               )
             )
             .limit(1)
-            .then((rows) => rows[0]);
+            .then((rows) => rows[0])
+        : await tx.select({ id: expense.id, amount: expense.amount, financialAccountId: expense.financialAccountId }).from(expense).where(and(eq(expense.id, data.systemId), eq(expense.orgId, context.organizationId), eq(expense.status, 'effective'))).limit(1).then((rows) => rows[0]);
     if (!system) throw new Error('System payment not found.');
+    if (data.systemType === 'expense' && (system as { financialAccountId?: string | null }).financialAccountId !== external.financialAccountId)
+      throw new Error('This expense belongs to a different Payment Account.');
+    const [existingSystemMatch] = await tx
+      .select({ id: reconciliationMatch.id })
+      .from(reconciliationMatch)
+      .where(
+        and(
+          eq(reconciliationMatch.organizationId, context.organizationId),
+          eq(reconciliationMatch.systemType, data.systemType),
+          eq(reconciliationMatch.systemId, data.systemId)
+        )
+      )
+      .limit(1);
+    if (existingSystemMatch)
+      throw new Error('This Pesaby payment is already matched to a statement transaction.');
     const comparison = reconciliationResult(system.amount, external.amount);
     if (
       comparison.status === 'difference' &&
@@ -579,6 +610,12 @@ export async function decideFinanceApproval(
       .limit(1);
     if (policy?.preventSelfApproval && approval.requestedBy === context.userId)
       throw new Error('Organization policy prevents self-approval.');
+    if (decision === 'approved' && approval.entityType === 'expense')
+      await finalizeApprovedExpense(tx, approval.entityId, context.userId);
+    if (decision === 'rejected' && approval.entityType === 'expense') {
+      await tx.update(expense).set({ status: 'rejected', updatedAt: new Date() }).where(and(eq(expense.id, approval.entityId), eq(expense.orgId, context.organizationId), eq(expense.status, 'pending')));
+      await tx.insert(auditEvent).values({ id: nanoid(), organizationId: context.organizationId, userId: context.userId, action: 'expense.rejected', metadata: { expenseId: approval.entityId, approvalId, amount: approval.amount, branchId: approval.branchId, reason: reason.trim() } });
+    }
     const [updated] = await tx
       .update(financeApproval)
       .set({
@@ -618,4 +655,3 @@ export async function decideFinanceApproval(
   refresh();
   return { success: true, approval: result };
 }
-

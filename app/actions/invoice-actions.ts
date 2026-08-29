@@ -7,7 +7,7 @@ import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { getAuthorizationContext, hasPermission, type AuthorizationContext } from '@/lib/auth/authorization'
 import { db } from '@/lib/db'
-import { auditEvent, branch, businessSettings, creditPayment, creditSale, customer, customerCreditLimit, etimsSubmission, invoice, invoiceCreditNote, invoiceItem, invoiceNumberSequence, invoicePayment, organization, sale } from '@/lib/db/schema'
+import { auditEvent, branch, businessSettings, creditPayment, creditSale, customer, customerCreditLimit, etimsSubmission, invoice, invoiceCreditNote, invoiceItem, invoiceNumberSequence, invoicePayment, organization, product, sale } from '@/lib/db/schema'
 import { calculateInvoiceTotals, money, paymentStatus } from '@/lib/finance/money'
 import { PermissionEnum } from '@/lib/types/permissions'
 
@@ -18,10 +18,11 @@ const lineSchema = z.object({
   discountAmount: z.number().nonnegative().finite().default(0),
   sku: z.string().trim().max(80).optional(),
   unit: z.string().trim().min(1).max(30).default('each'),
+  productId: z.string().trim().min(1).optional(),
 })
 const createSchema = z.object({
   customerId: z.string().trim().optional(), branchId: z.string().trim().optional(), saleId: z.string().trim().optional(), creditSaleId: z.string().trim().optional(),
-  items: z.array(lineSchema).min(1).max(500), discountAmount: z.number().nonnegative().finite().default(0), notes: z.string().trim().max(2000).optional(), dueDate: z.coerce.date().optional(), idempotencyKey: z.string().trim().min(8).max(120),
+  items: z.array(lineSchema).min(1).max(500), discountAmount: z.number().nonnegative().finite().default(0), notes: z.string().trim().max(2000).optional(), dueDate: z.coerce.date().optional(), invoiceDate: z.coerce.date().optional(), paymentTerms: z.enum(['due_on_receipt', '7_days', '14_days', '30_days', 'custom']).default('due_on_receipt'), customerReference: z.string().trim().max(160).optional(), idempotencyKey: z.string().trim().min(8).max(120),
 })
 const paymentSchema = z.object({
   invoiceId: z.string().min(1), amount: z.number().positive().finite(), method: z.enum(['cash', 'mpesa', 'card', 'bank_transfer', 'other']), reference: z.string().trim().max(120).optional(), idempotencyKey: z.string().trim().min(8).max(120),
@@ -90,8 +91,13 @@ export async function createInvoice(input: z.input<typeof createSchema>) {
     : undefined
   if (customerId && !selectedCustomer) throw new Error('Customer is not available in this organization.')
 
+  const catalogueIds = data.items.flatMap((item) => item.productId ? [item.productId] : [])
+  const catalogue = catalogueIds.length ? await db.select({ id: product.id, name: product.name, sku: product.sku, unit: product.unit, sellingPrice: product.sellingPrice }).from(product).where(and(eq(product.orgId, context.organizationId), eq(product.isActive, true), inArray(product.id, catalogueIds))) : []
+  if (catalogue.length !== new Set(catalogueIds).size) throw new Error('One or more selected products is unavailable.')
+  const catalogueById = new Map(catalogue.map((item) => [item.id, item]))
+  const authoritativeItems = data.items.map((item) => { if (!item.productId) return item; const source = catalogueById.get(item.productId)!; return { ...item, description: source.name, sku: source.sku ?? item.sku, unit: source.unit, unitPrice: Number(source.sellingPrice) } })
   const policy = { enabled: settings?.taxEnabled ?? false, ratePercent: Number(settings?.taxRate ?? 0), pricesIncludeTax: settings?.pricesIncludeTax ?? false }
-  const totals = calculateInvoiceTotals(data.items, data.discountAmount, policy)
+  const totals = calculateInvoiceTotals(authoritativeItems, data.discountAmount, policy)
   if (linkedCredit && !money(linkedCredit.amount).equals(totals.total)) throw new Error('Invoice total must exactly match the linked customer credit balance.')
   const paidAtCreation = money(linkedCredit?.amountPaid ?? 0)
   if (paidAtCreation.plus(linkedCredit?.creditedAmount ?? 0).greaterThan(totals.total)) throw new Error('Linked customer payments and credits exceed the invoice total.')
@@ -113,10 +119,10 @@ export async function createInvoice(input: z.input<typeof createSchema>) {
       customerSnapshot: selectedCustomer ? { name: selectedCustomer.name, phone: selectedCustomer.phone, email: selectedCustomer.email, address: selectedCustomer.address, kraPin: selectedCustomer.kraPin } : {},
       businessSnapshot: { name: settings?.receiptBusinessName || settings?.displayName || org.name, address: settings?.receiptAddress || settings?.address, phone: settings?.receiptPhone || org.phone, email: org.businessEmail, kraPin: settings?.taxIdentifier, logoUrl: settings?.receiptLogoUrl, taxName: settings?.taxName || 'Tax' },
       subtotal: totals.subtotal.toFixed(2), discountAmount: totals.lineDiscount.plus(totals.discountAmount).toFixed(2), shippingAmount: '0', roundingAmount: '0', taxableAmount: totals.taxableAmount.toFixed(2), taxRate: String(policy.ratePercent), taxAmount: totals.taxAmount.toFixed(2), total: totals.total.toFixed(2), amountPaid: paidAtCreation.toFixed(2), creditedAmount: linkedCredit?.creditedAmount ?? '0', balanceDue: totals.total.minus(paidAtCreation).minus(linkedCredit?.creditedAmount ?? 0).toFixed(2),
-      dueDate: data.dueDate ?? linkedCredit?.dueDate, status: 'draft', fiscalStatus: 'not_submitted', idempotencyKey: data.idempotencyKey, notes: data.notes, userId: context.userId, orgId: context.organizationId,
+      dueDate: data.dueDate ?? linkedCredit?.dueDate, invoiceDate: data.invoiceDate ?? new Date(), paymentTerms: data.paymentTerms, customerReference: data.customerReference, status: 'draft', fiscalStatus: 'not_submitted', idempotencyKey: data.idempotencyKey, notes: data.notes, userId: context.userId, orgId: context.organizationId,
     }).returning()
-    await tx.insert(invoiceItem).values(totals.lines.map((line) => ({
-      id: nanoid(), invoiceId, description: line.description, quantity: line.quantity, unitPrice: money(line.unitPrice).toFixed(2), sku: line.sku, unit: line.unit, discountAmount: line.discount.toFixed(2), invoiceDiscountShare: line.invoiceDiscountShare.toFixed(2), taxRate: String(policy.ratePercent), taxAmount: line.tax.toFixed(2), total: line.total.toFixed(2), orgId: context.organizationId,
+    await tx.insert(invoiceItem).values(totals.lines.map((line, index) => ({
+      id: nanoid(), invoiceId, productId: authoritativeItems[index]?.productId, description: line.description, quantity: line.quantity, unitPrice: money(line.unitPrice).toFixed(2), sku: line.sku, unit: line.unit, discountAmount: line.discount.toFixed(2), invoiceDiscountShare: line.invoiceDiscountShare.toFixed(2), taxRate: String(policy.ratePercent), taxAmount: line.tax.toFixed(2), total: line.total.toFixed(2), orgId: context.organizationId,
     })))
     await tx.insert(auditEvent).values({ id: nanoid(), organizationId: context.organizationId, userId: context.userId, action: 'invoice.created', metadata: { invoiceId, invoiceNo, branchId, customerId, saleId, creditSaleId: data.creditSaleId, total: totals.total.toFixed(2) } })
     return { record, duplicate: false }
@@ -132,6 +138,7 @@ export async function issueInvoice(invoiceId: string) {
     if (!current) throw new Error('Invoice not found.')
     if (!context.isOrganizationWide && (!current.branchId || !context.branchIds.includes(current.branchId))) throw new Error('You do not have access to this invoice.')
     if (current.status !== 'draft') throw new Error('Only a draft invoice can be issued.')
+    if (!current.customerId) throw new Error('A customer is required before issuing an invoice.')
     const next = paymentStatus(new Decimal(current.total).minus(current.creditedAmount), current.amountPaid, current.dueDate)
     const [updated] = await tx.update(invoice).set({ status: next.status, balanceDue: next.balance.toFixed(2), issuedAt: new Date(), updatedAt: new Date() }).where(and(eq(invoice.id, invoiceId), eq(invoice.status, 'draft'))).returning()
     if (!updated) throw new Error('Invoice was already issued by another user.')

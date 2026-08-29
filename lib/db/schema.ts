@@ -1124,10 +1124,20 @@ export const etimsSubmission = pgTable(
 
 export const expense = pgTable('expense', {
   id: text('id').primaryKey(),
+  expenseNo: text('expenseNo').notNull(),
   title: text('title').notNull(),
+  payee: text('payee'),
   amount: numeric('amount', { precision: 12, scale: 2 }).notNull(),
   category: text('category').notNull().default('general'),
   paymentMethod: text('paymentMethod').notNull().default('cash'),
+  financialAccountId: text('financialAccountId').references(() => financialAccount.id, { onDelete: 'restrict' }),
+  cashMovementId: text('cashMovementId').references(() => cashMovement.id, { onDelete: 'restrict' }),
+  status: text('status').notNull().default('effective'),
+  idempotencyKey: text('idempotencyKey'),
+  approvalId: text('approvalId').references(() => financeApproval.id, { onDelete: 'restrict' }),
+  voidReason: text('voidReason'),
+  voidedAt: timestamp('voidedAt'),
+  voidedBy: text('voidedBy').references(() => user.id, { onDelete: 'restrict' }),
   reference: text('reference'),
   notes: text('notes'),
   userId: text('userId').notNull(),
@@ -1138,7 +1148,19 @@ export const expense = pgTable('expense', {
   expenseDate: timestamp('expenseDate').notNull().defaultNow(),
   createdAt: timestamp('createdAt').notNull().defaultNow(),
   updatedAt: timestamp('updatedAt').notNull().defaultNow(),
-});
+}, (table) => ({
+  organizationNumberUnique: uniqueIndex('expense_org_number_unique').on(table.orgId, table.expenseNo),
+  organizationIdempotencyUnique: uniqueIndex('expense_org_idempotency_unique').on(table.orgId, table.idempotencyKey),
+  statusDateIndex: index('expense_org_status_date_idx').on(table.orgId, table.status, table.expenseDate),
+  accountIndex: index('expense_financial_account_idx').on(table.financialAccountId, table.expenseDate),
+}));
+
+export const expenseNumberSequence = pgTable('expense_number_sequence', {
+  organizationId: text('organizationId').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  year: integer('year').notNull(),
+  lastNumber: integer('lastNumber').notNull().default(0),
+  updatedAt: timestamp('updatedAt').notNull().defaultNow(),
+}, (table) => ({ organizationYearUnique: uniqueIndex('expense_number_sequence_org_year_unique').on(table.organizationId, table.year) }));
 
 export const supplier = pgTable(
   'supplier',
@@ -2647,6 +2669,9 @@ export const invoice = pgTable(
     fiscalReference: text('fiscalReference'),
     idempotencyKey: text('idempotencyKey'),
     dueDate: timestamp('dueDate'),
+    invoiceDate: timestamp('invoiceDate'),
+    paymentTerms: text('paymentTerms').notNull().default('due_on_receipt'),
+    customerReference: text('customerReference'),
     issuedAt: timestamp('issuedAt'),
     status: text('status').notNull().default('draft'), // draft, issued, partially_paid, paid, overdue, cancelled, credited
     notes: text('notes'),
@@ -2672,6 +2697,7 @@ export const invoiceItem = pgTable('invoice_item', {
   invoiceId: text('invoiceId')
     .notNull()
     .references(() => invoice.id, { onDelete: 'cascade' }),
+  productId: text('productId').references(() => product.id, { onDelete: 'restrict' }),
   description: text('description').notNull(),
   quantity: integer('quantity').notNull(),
   unitPrice: numeric('unitPrice', { precision: 12, scale: 2 }).notNull(),
@@ -3064,4 +3090,3 @@ export type PerformanceGoal = typeof performanceGoal.$inferSelect;
 export type FinancialAccount = typeof financialAccount.$inferSelect;
 export type ExternalFinancialTransaction = typeof externalFinancialTransaction.$inferSelect;
 export type FinanceApproval = typeof financeApproval.$inferSelect;
-

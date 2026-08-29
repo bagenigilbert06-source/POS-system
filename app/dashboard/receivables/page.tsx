@@ -47,7 +47,7 @@ export default async function ReceivablesPage({ searchParams }: { searchParams: 
   const receivables = rows.map((row) => ({ ...row, balance: (Number(row.amount) - Number(row.amountPaid) - Number(row.creditedAmount)).toFixed(2), age: receivableAge(row.dueDate, timezone) }))
 
   return <div className="mx-auto max-w-7xl space-y-5 pb-8">
-    <div className="flex flex-wrap items-start justify-between gap-3"><DashboardPageHeading icon={HandCoins} title="Accounts Receivable" description="See exactly who owes the business, what is overdue, and every collection made." />{hasPermission(context, PermissionEnum.RECEIVABLE_MANAGE) && <CreditLimitDialog customers={creditCustomers} />}</div>
+    <div className="flex flex-wrap items-start justify-between gap-3"><DashboardPageHeading theme="adaptive" icon={HandCoins} title="Accounts Receivable" description="See exactly who owes the business, what is overdue, and every collection made." />{hasPermission(context, PermissionEnum.RECEIVABLE_MANAGE) && <CreditLimitDialog customers={creditCustomers} />}</div>
     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{[
       ['Total outstanding', summaryRows[0]?.total ?? '0'], ['Overdue', summaryRows[0]?.overdue ?? '0'], ['Due in 7 days', summaryRows[0]?.dueSoon ?? '0'], ['Collected this month', collectedRows[0]?.total ?? '0'],
     ].map(([label, value]) => <div key={label} className="rounded-lg border bg-card p-4"><p className="text-xs font-medium text-muted-foreground">{label}</p><p className="mt-2 text-xl font-semibold">KES {Number(value).toLocaleString('en-KE', { minimumFractionDigits: 2 })}</p></div>)}</div>

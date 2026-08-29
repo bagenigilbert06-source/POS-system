@@ -1,12 +1,22 @@
 import { and, asc, eq, inArray, isNull, or } from 'drizzle-orm';
 import { WalletCards } from 'lucide-react';
-import { FinancialAccountDialog } from '@/components/finance/finance-forms';
+import { FinancialAccountDialog, FinancialAccountStatusButton } from '@/components/finance/finance-forms';
 import { DashboardPageHeading } from '@/components/dashboard/page-heading';
 import { requireDashboardPermission } from '@/lib/auth/dashboard-access';
 import { hasPermission } from '@/lib/auth/authorization';
 import { db } from '@/lib/db';
 import { branch, financialAccount } from '@/lib/db/schema';
 import { PermissionEnum } from '@/lib/types/permissions';
+
+const electronicAccountTypes = ['mpesa_till', 'mpesa_paybill', 'airtel_money', 'card_settlement', 'bank'];
+
+const accountTypeLabel: Record<string, string> = {
+  bank: 'Bank Account',
+  mpesa_till: 'M-Pesa Till',
+  mpesa_paybill: 'M-Pesa PayBill',
+  airtel_money: 'Airtel Money',
+  card_settlement: 'Card settlement',
+};
 
 export default async function PaymentAccountsPage() {
   const context = await requireDashboardPermission(PermissionEnum.FINANCE_VIEW);
@@ -28,6 +38,7 @@ export default async function PaymentAccountsPage() {
       .where(
         and(
           eq(financialAccount.organizationId, context.organizationId),
+          inArray(financialAccount.type, electronicAccountTypes),
           context.isOrganizationWide
             ? undefined
             : or(
@@ -54,21 +65,24 @@ export default async function PaymentAccountsPage() {
     <div className="mx-auto max-w-6xl space-y-5 pb-8">
       <div className="flex items-start justify-between">
         <DashboardPageHeading
+          theme="pos"
           icon={WalletCards}
           title="Payment Accounts"
-          description="Configure cash, M-Pesa, card settlement, and bank accounts using safe masked identifiers."
+          description="Configure M-Pesa, Airtel Money, Card, and Bank accounts for payment reconciliation."
         />
         {hasPermission(context, PermissionEnum.FINANCE_MANAGE) && (
           <FinancialAccountDialog branches={branches} />
         )}
       </div>
       <section className="rounded-lg border bg-card">
-        <div className="grid grid-cols-[1.4fr_1fr_1fr_1fr_100px] gap-3 border-b bg-muted/50 px-4 py-3 text-xs uppercase text-muted-foreground">
+        <div className="grid grid-cols-[1.4fr_1fr_1fr_1fr_1fr_100px_100px] gap-3 border-b bg-muted/50 px-4 py-3 text-xs uppercase text-muted-foreground">
           <span>Account</span>
-          <span>Type</span>
+          <span>Channel</span>
+          <span>Identifier</span>
           <span>Provider</span>
           <span>Branch</span>
           <span>Status</span>
+          <span>Action</span>
         </div>
         {accounts.length === 0 ? (
           <div className="p-12 text-center text-sm text-muted-foreground">
@@ -78,15 +92,13 @@ export default async function PaymentAccountsPage() {
           accounts.map((account) => (
             <div
               key={account.id}
-              className="grid grid-cols-[1.4fr_1fr_1fr_1fr_100px] gap-3 border-b px-4 py-4 text-sm last:border-0"
+              className="grid grid-cols-[1.4fr_1fr_1fr_1fr_1fr_100px_100px] gap-3 border-b px-4 py-4 text-sm last:border-0"
             >
               <div>
                 <p className="font-medium">{account.name}</p>
-                <p className="text-xs text-muted-foreground">
-                  {account.maskedIdentifier || 'No identifier stored'}
-                </p>
               </div>
-              <span>{account.type.replaceAll('_', ' ')}</span>
+              <span>{accountTypeLabel[account.type] ?? account.type.replaceAll('_', ' ')}</span>
+              <span className="font-mono text-xs text-muted-foreground">{account.maskedIdentifier || 'Not provided'}</span>
               <span>{account.provider || '—'}</span>
               <span>{account.branchName || 'All branches'}</span>
               <span
@@ -96,6 +108,7 @@ export default async function PaymentAccountsPage() {
               >
                 {account.active ? 'Active' : 'Inactive'}
               </span>
+              {hasPermission(context, PermissionEnum.FINANCE_MANAGE) ? <FinancialAccountStatusButton id={account.id} active={account.active} /> : <span className="text-muted-foreground">—</span>}
             </div>
           ))
         )}

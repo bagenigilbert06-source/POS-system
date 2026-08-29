@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Plus } from 'lucide-react';
 import {
   createFinancialAccount,
+  setFinancialAccountActive,
   decideFinanceApproval,
   importReconciliationStatement,
   reconcileTransaction,
@@ -46,10 +47,9 @@ export function FinancialAccountDialog({
       await createFinancialAccount({
         name,
         type: type as
-          | 'cash_drawer'
-          | 'cash'
           | 'mpesa_till'
           | 'mpesa_paybill'
+          | 'airtel_money'
           | 'bank'
           | 'card_settlement',
         branchId: branchId || undefined,
@@ -57,7 +57,7 @@ export function FinancialAccountDialog({
         maskedIdentifier: masked || undefined,
         reconciliationEnabled: type !== 'cash_drawer',
       });
-      notify.success('Financial account created');
+      notify.success('Payment account created');
       setOpen(false);
       router.refresh();
     } catch (error) {
@@ -71,7 +71,7 @@ export function FinancialAccountDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button>
+        <Button className="bg-[#f15a24] text-white hover:bg-[#d94b1b]">
           <Plus className="mr-2 h-4 w-4" />
           Add account
         </Button>
@@ -91,18 +91,19 @@ export function FinancialAccountDialog({
           />
         </label>
         <label className="space-y-2">
-          <Label>Type</Label>
+            <Label>Payment method / account type</Label>
           <select
             className={field}
             value={type}
             onChange={(event) => setType(event.target.value)}
           >
-            <option value="bank">Bank account</option>
-            <option value="mpesa_till">M-Pesa Till</option>
-            <option value="mpesa_paybill">M-Pesa PayBill</option>
-            <option value="card_settlement">Card settlement</option>
-            <option value="cash">Main cash account</option>
-            <option value="cash_drawer">Cash drawer reference</option>
+            <optgroup label="Electronic payment accounts">
+              <option value="mpesa_till">M-Pesa Till</option>
+              <option value="mpesa_paybill">M-Pesa PayBill</option>
+              <option value="airtel_money">Airtel Money</option>
+              <option value="card_settlement">Card settlement</option>
+              <option value="bank">Bank Account</option>
+            </optgroup>
           </select>
         </label>
         <label className="space-y-2">
@@ -129,7 +130,7 @@ export function FinancialAccountDialog({
           />
         </label>
         <label className="space-y-2">
-          <Label>Masked identifier</Label>
+          <Label>{type === 'mpesa_till' ? 'Till number' : type === 'mpesa_paybill' ? 'PayBill number' : type === 'airtel_money' ? 'Merchant / account identifier' : type === 'card_settlement' ? 'Settlement identifier' : 'Account identifier'}</Label>
           <Input
             value={masked}
             onChange={(event) => setMasked(event.target.value)}
@@ -142,6 +143,18 @@ export function FinancialAccountDialog({
       </DialogContent>
     </Dialog>
   );
+}
+
+export function FinancialAccountStatusButton({ id, active }: { id: string; active: boolean }) {
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
+  const toggle = async () => {
+    setBusy(true);
+    try { await setFinancialAccountActive(id, !active); notify.success(active ? 'Payment account disabled' : 'Payment account activated'); router.refresh(); }
+    catch (error) { notify.error(error instanceof Error ? error.message : 'Could not update account'); }
+    finally { setBusy(false); }
+  };
+  return <Button size="sm" variant="outline" disabled={busy} onClick={toggle}>{busy ? 'Saving…' : active ? 'Disable' : 'Activate'}</Button>;
 }
 
 function parseCsv(text: string) {
@@ -233,7 +246,7 @@ export function StatementImportDialog({
           </DialogDescription>
         </DialogHeader>
         <label className="space-y-2">
-          <Label>Financial account</Label>
+          <Label>Payment account</Label>
           <select
             className={field}
             value={accountId}
@@ -267,7 +280,7 @@ export function ReconcileDialog({
   candidates: {
     id: string;
     label: string;
-    type: 'sale_payment' | 'invoice_payment';
+    type: 'sale_payment' | 'invoice_payment' | 'expense';
     amount: string;
   }[];
 }) {

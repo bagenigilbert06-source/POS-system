@@ -15,8 +15,7 @@ export const EXPENSE_CATEGORIES = [
 export const EXPENSE_PAYMENT_METHODS = [
   'cash',
   'mpesa',
+  'airtel_money',
   'card',
-  'bank_transfer',
-  'credit',
-  'other',
+  'bank',
 ] as const;

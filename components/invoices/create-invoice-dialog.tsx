@@ -1,88 +1,44 @@
 'use client'
 
 import { useMemo, useRef, useState } from 'react'
-import { Plus, Trash2 } from 'lucide-react'
+import { Plus, Search, Trash2 } from 'lucide-react'
 import { createInvoice, issueInvoice } from '@/app/actions/invoice-actions'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { LoadingSpinner } from '@/components/ui/page-loader'
-import { calculateInvoiceTotals, type TaxPolicy } from '@/lib/finance/money'
+import { calculateInvoiceTotals, money, type TaxPolicy } from '@/lib/finance/money'
 import { notify } from '@/lib/notify'
 
+type Customer = { id: string; name: string; phone: string | null; email: string | null; address: string | null; kraPin: string | null }
+type Product = { id: string; name: string; sku: string | null; barcode: string | null; unit: string; sellingPrice: string; etimsTaxRate: string | null }
 type Option = { id: string; name: string }
-type DraftLine = { description: string; sku: string; unit: string; quantity: number; unitPrice: number; discountAmount: number }
-const emptyLine = (): DraftLine => ({ description: '', sku: '', unit: 'each', quantity: 1, unitPrice: 0, discountAmount: 0 })
+type DiscountType = 'amount' | 'percent'
+type DraftLine = { productId?: string; description: string; sku: string; unit: string; quantity: number; unitPrice: number; discountAmount: number; discountType: DiscountType }
+const emptyLine = (): DraftLine => ({ description: '', sku: '', unit: 'each', quantity: 1, unitPrice: 0, discountAmount: 0, discountType: 'amount' })
+const day = (date = new Date()) => date.toISOString().slice(0, 10)
 
-export function CreateInvoiceDialog({ customers, branches, taxPolicy, canIssue }: { customers: Option[]; branches: Option[]; taxPolicy: TaxPolicy; canIssue: boolean }) {
-  const [open, setOpen] = useState(false)
-  const [busy, setBusy] = useState(false)
-  const [items, setItems] = useState<DraftLine[]>([emptyLine()])
-  const [customerId, setCustomerId] = useState('')
-  const [branchId, setBranchId] = useState(branches[0]?.id ?? '')
-  const [dueDate, setDueDate] = useState('')
-  const [notes, setNotes] = useState('')
-  const [invoiceDiscount, setInvoiceDiscount] = useState(0)
-  const idempotencyKey = useRef(crypto.randomUUID())
-  const preview = useMemo(() => { try { return calculateInvoiceTotals(items, invoiceDiscount, taxPolicy) } catch { return null } }, [invoiceDiscount, items, taxPolicy])
-
-  const reset = () => {
-    setItems([emptyLine()]); setCustomerId(''); setBranchId(branches[0]?.id ?? ''); setDueDate(''); setNotes(''); setInvoiceDiscount(0)
-    idempotencyKey.current = crypto.randomUUID()
-  }
+export function CreateInvoiceDialog({ customers, branches, products, taxPolicy, canIssue }: { customers: Customer[]; branches: Option[]; products: Product[]; taxPolicy: TaxPolicy; canIssue: boolean }) {
+  const [open, setOpen] = useState(false), [busy, setBusy] = useState(false), [items, setItems] = useState<DraftLine[]>([emptyLine()])
+  const [customerId, setCustomerId] = useState(''), [branchId, setBranchId] = useState(branches[0]?.id ?? ''), [invoiceDate, setInvoiceDate] = useState(day()), [dueDate, setDueDate] = useState(day()), [terms, setTerms] = useState<'due_on_receipt' | '7_days' | '14_days' | '30_days' | 'custom'>('due_on_receipt'), [customerReference, setCustomerReference] = useState(''), [notes, setNotes] = useState(''), [search, setSearch] = useState('')
+  const [invoiceDiscount, setInvoiceDiscount] = useState(0), [invoiceDiscountType, setInvoiceDiscountType] = useState<DiscountType>('amount'), idempotencyKey = useRef(crypto.randomUUID())
+  const customer = customers.find((item) => item.id === customerId)
+  const filteredProducts = useMemo(() => { const q = search.trim().toLowerCase(); return q ? products.filter((item) => [item.name, item.sku, item.barcode].some((field) => field?.toLowerCase().includes(q))).slice(0, 8) : [] }, [products, search])
+  const normalizedItems = useMemo(() => items.map((item) => ({ ...item, discountAmount: item.discountType === 'percent' ? Number(money(item.unitPrice * item.quantity * item.discountAmount / 100)) : item.discountAmount })), [items])
+  const invoiceDiscountAmount = invoiceDiscountType === 'percent' ? Number(money(normalizedItems.reduce((sum, item) => sum + item.unitPrice * item.quantity - item.discountAmount, 0) * invoiceDiscount / 100)) : invoiceDiscount
+  const preview = useMemo(() => { try { return calculateInvoiceTotals(normalizedItems, invoiceDiscountAmount, taxPolicy) } catch { return null } }, [invoiceDiscountAmount, normalizedItems, taxPolicy])
   const updateLine = (index: number, patch: Partial<DraftLine>) => setItems((current) => current.map((line, lineIndex) => lineIndex === index ? { ...line, ...patch } : line))
-
-  const submit = async (issueNow: boolean) => {
-    if (!branchId) return notify.error('Select a branch')
-    if (items.some((item) => !item.description.trim() || item.quantity <= 0 || item.unitPrice < 0)) return notify.error('Complete every invoice line')
-    setBusy(true)
-    try {
-      const result = await createInvoice({ branchId, customerId: customerId || undefined, dueDate: dueDate ? new Date(`${dueDate}T12:00:00`) : undefined, notes: notes || undefined, discountAmount: invoiceDiscount, idempotencyKey: idempotencyKey.current, items: items.map((item) => ({ ...item, sku: item.sku || undefined })) })
-      if (issueNow) await issueInvoice(result.invoice.id)
-      notify.success(issueNow ? 'Invoice created and issued' : 'Invoice saved as draft')
-      reset(); setOpen(false)
-    } catch (error) {
-      notify.error(error instanceof Error ? error.message : 'Could not create invoice')
-    } finally { setBusy(false) }
-  }
-
-  return <Dialog open={open} onOpenChange={(next) => { setOpen(next); if (!next && !busy) reset() }}>
-    <DialogTrigger asChild><Button className="gap-2"><Plus className="h-4 w-4" />New invoice</Button></DialogTrigger>
-    <DialogContent className="max-h-[92vh] max-w-5xl overflow-y-auto">
-      <DialogHeader><DialogTitle>Create invoice</DialogTitle><DialogDescription>The invoice number and final totals are generated securely by Pesaby.</DialogDescription></DialogHeader>
-      <div className="grid gap-4 sm:grid-cols-3">
-        <div className="space-y-2"><Label htmlFor="invoice-branch">Branch</Label><select id="invoice-branch" value={branchId} onChange={(event) => setBranchId(event.target.value)} className="h-9 w-full rounded-md border bg-background px-3 text-sm">{branches.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></div>
-        <div className="space-y-2"><Label htmlFor="invoice-customer">Customer</Label><select id="invoice-customer" value={customerId} onChange={(event) => setCustomerId(event.target.value)} className="h-9 w-full rounded-md border bg-background px-3 text-sm"><option value="">Walk-in / general customer</option>{customers.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></div>
-        <div className="space-y-2"><Label htmlFor="invoice-due">Due date</Label><Input id="invoice-due" type="date" value={dueDate} onChange={(event) => setDueDate(event.target.value)} /></div>
-      </div>
-      <div className="overflow-x-auto rounded-lg border">
-        <table className="w-full min-w-[820px] text-sm">
-          <thead className="bg-muted/60 text-xs uppercase text-muted-foreground"><tr><th className="px-3 py-2 text-left">Description</th><th className="px-3 py-2 text-left">SKU</th><th className="px-3 py-2 text-left">Unit</th><th className="px-3 py-2 text-right">Qty</th><th className="px-3 py-2 text-right">Unit price</th><th className="px-3 py-2 text-right">Discount</th><th className="w-10" /></tr></thead>
-          <tbody>{items.map((item, index) => <tr key={index} className="border-t">
-            <td className="p-2"><Input aria-label={`Description ${index + 1}`} value={item.description} onChange={(event) => updateLine(index, { description: event.target.value })} placeholder="Item or service" /></td>
-            <td className="p-2"><Input aria-label={`SKU ${index + 1}`} value={item.sku} onChange={(event) => updateLine(index, { sku: event.target.value })} placeholder="Optional" /></td>
-            <td className="p-2"><Input aria-label={`Unit ${index + 1}`} value={item.unit} onChange={(event) => updateLine(index, { unit: event.target.value })} /></td>
-            <td className="p-2"><Input aria-label={`Quantity ${index + 1}`} type="number" min="1" step="1" value={item.quantity} onChange={(event) => updateLine(index, { quantity: Number(event.target.value) })} className="text-right" /></td>
-            <td className="p-2"><Input aria-label={`Unit price ${index + 1}`} type="number" min="0" step="0.01" value={item.unitPrice} onChange={(event) => updateLine(index, { unitPrice: Number(event.target.value) })} className="text-right" /></td>
-            <td className="p-2"><Input aria-label={`Line discount ${index + 1}`} type="number" min="0" step="0.01" value={item.discountAmount} onChange={(event) => updateLine(index, { discountAmount: Number(event.target.value) })} className="text-right" /></td>
-            <td className="p-2"><Button type="button" variant="ghost" size="sm" disabled={items.length === 1} onClick={() => setItems((current) => current.filter((_, lineIndex) => lineIndex !== index))} aria-label="Remove line"><Trash2 className="h-4 w-4 text-destructive" /></Button></td>
-          </tr>)}</tbody>
-        </table>
-        <Button type="button" variant="ghost" size="sm" onClick={() => setItems((current) => [...current, emptyLine()])} className="m-2 gap-2"><Plus className="h-4 w-4" />Add line</Button>
-      </div>
-      <div className="grid gap-4 sm:grid-cols-[1fr_320px]">
-        <div className="space-y-2"><Label htmlFor="invoice-notes">Notes / payment terms</Label><textarea id="invoice-notes" value={notes} onChange={(event) => setNotes(event.target.value)} rows={5} className="w-full rounded-md border bg-background px-3 py-2 text-sm" placeholder="Optional message shown on the invoice" /></div>
-        <div className="space-y-2 rounded-lg border bg-muted/25 p-4 text-sm">
-          <div className="flex items-center justify-between gap-4"><Label htmlFor="invoice-discount">Invoice discount</Label><Input id="invoice-discount" type="number" min="0" step="0.01" value={invoiceDiscount} onChange={(event) => setInvoiceDiscount(Number(event.target.value))} className="w-32 text-right" /></div>
-          <div className="flex justify-between"><span>Subtotal</span><span>KES {preview?.subtotal.toFixed(2) ?? '—'}</span></div>
-          <div className="flex justify-between"><span>Discounts</span><span>- KES {preview ? preview.lineDiscount.plus(preview.discountAmount).toFixed(2) : '—'}</span></div>
-          <div className="flex justify-between"><span>{taxPolicy.enabled ? `Tax (${taxPolicy.ratePercent}%)` : 'Tax'}</span><span>KES {preview?.taxAmount.toFixed(2) ?? '—'}</span></div>
-          <div className="flex justify-between border-t pt-2 text-base font-semibold"><span>Total estimate</span><span>KES {preview?.total.toFixed(2) ?? '—'}</span></div>
-          <p className="text-xs text-muted-foreground">The server recalculates and saves the authoritative total.</p>
-        </div>
-      </div>
-      <div className="flex flex-wrap justify-end gap-2 border-t pt-4"><Button variant="outline" disabled={busy} onClick={() => setOpen(false)}>Cancel</Button><Button variant="outline" disabled={busy || !preview} onClick={() => submit(false)}>{busy && <LoadingSpinner className="mr-2 h-4 w-4" />}Save draft</Button>{canIssue && <Button disabled={busy || !preview} onClick={() => submit(true)}>Create and issue</Button>}</div>
-    </DialogContent>
-  </Dialog>
+  const chooseProduct = (index: number, item: Product) => { updateLine(index, { productId: item.id, description: item.name, sku: item.sku ?? item.barcode ?? '', unit: item.unit, unitPrice: Number(item.sellingPrice), discountAmount: 0, discountType: 'amount' }); setSearch('') }
+  const updateTerms = (value: string) => { setTerms(value as typeof terms); if (value !== 'custom') { const next = new Date(); next.setDate(next.getDate() + (value === '7_days' ? 7 : value === '14_days' ? 14 : value === '30_days' ? 30 : 0)); setDueDate(day(next)) } }
+  const reset = () => { setItems([emptyLine()]); setCustomerId(''); setBranchId(branches[0]?.id ?? ''); setInvoiceDate(day()); setDueDate(day()); setTerms('due_on_receipt'); setCustomerReference(''); setNotes(''); setInvoiceDiscount(0); setSearch(''); idempotencyKey.current = crypto.randomUUID() }
+  const submit = async (issueNow: boolean) => { if (!branchId) return notify.error('Select a branch'); if (items.some((item) => !item.description.trim() || item.quantity <= 0 || item.unitPrice < 0)) return notify.error('Complete every invoice line'); if (issueNow && !customerId) return notify.error('Customer is required when issuing an invoice'); setBusy(true); try { const result = await createInvoice({ branchId, customerId: customerId || undefined, invoiceDate: new Date(`${invoiceDate}T12:00:00`), paymentTerms: terms, customerReference: customerReference || undefined, dueDate: new Date(`${dueDate}T12:00:00`), notes: notes || undefined, discountAmount: invoiceDiscountAmount, idempotencyKey: idempotencyKey.current, items: normalizedItems.map(({ discountType: _discountType, ...item }) => ({ ...item, sku: item.sku || undefined })) }); if (issueNow) await issueInvoice(result.invoice.id); notify.success(issueNow ? 'Invoice created and issued' : 'Invoice saved as draft'); reset(); setOpen(false) } catch (error) { notify.error(error instanceof Error ? error.message : 'Could not create invoice') } finally { setBusy(false) } }
+  return <Dialog open={open} onOpenChange={(next) => { setOpen(next); if (!next && !busy) reset() }}><DialogTrigger asChild><Button className="gap-2"><Plus className="h-4 w-4" />New invoice</Button></DialogTrigger><DialogContent className="max-h-[94vh] max-w-6xl overflow-y-auto"><DialogHeader><DialogTitle>Create invoice</DialogTitle><DialogDescription>Pesaby recalculates prices, tax, discounts, and totals securely when saved.</DialogDescription></DialogHeader>
+    <div className="grid gap-4 sm:grid-cols-5"><div className="space-y-2"><Label>Branch</Label><select value={branchId} onChange={(e) => setBranchId(e.target.value)} className="h-9 w-full rounded-md border bg-background px-3 text-sm">{branches.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></div><div className="space-y-2 sm:col-span-2"><Label>Customer</Label><select value={customerId} onChange={(e) => setCustomerId(e.target.value)} className="h-9 w-full rounded-md border bg-background px-3 text-sm"><option value="">Walk-in / general customer</option>{customers.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></div><div className="space-y-2"><Label>Invoice date</Label><Input type="date" value={invoiceDate} onChange={(e) => setInvoiceDate(e.target.value)} /></div><div className="space-y-2"><Label>Payment terms</Label><select value={terms} onChange={(e) => updateTerms(e.target.value)} className="h-9 w-full rounded-md border bg-background px-3 text-sm"><option value="due_on_receipt">Due on receipt</option><option value="7_days">7 days</option><option value="14_days">14 days</option><option value="30_days">30 days</option><option value="custom">Custom</option></select></div><div className="space-y-2"><Label>Due date</Label><Input type="date" value={dueDate} disabled={terms !== 'custom'} onChange={(e) => setDueDate(e.target.value)} /></div><div className="space-y-2 sm:col-span-2"><Label>Customer PO / reference</Label><Input value={customerReference} onChange={(e) => setCustomerReference(e.target.value)} placeholder="Optional customer reference" /></div></div>
+    {customer && <div className="rounded-lg border bg-muted/25 p-3 text-sm"><p className="font-semibold">{customer.name}</p><p className="mt-1 text-muted-foreground">{[customer.phone, customer.email, customer.address].filter(Boolean).join(' · ') || 'No contact details saved'}{customer.kraPin ? ` · KRA PIN ${customer.kraPin}` : ''}</p></div>}
+    <div className="space-y-2"><Label>Search and add product</Label><div className="relative"><Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" /><Input value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" placeholder="Search product name, SKU, or barcode" />{filteredProducts.length > 0 && <div className="absolute z-20 mt-1 w-full rounded-md border bg-popover p-1 shadow-lg">{filteredProducts.map((item) => <button type="button" key={item.id} onClick={() => chooseProduct(items.length - 1, item)} className="flex w-full justify-between rounded px-3 py-2 text-left text-sm hover:bg-muted"><span>{item.name}<span className="ml-2 text-xs text-muted-foreground">{item.sku || item.barcode || 'No SKU'}</span></span><span>KES {item.sellingPrice}</span></button>)}</div>}</div></div>
+    <div className="overflow-x-auto rounded-lg border"><table className="w-full min-w-[1100px] text-sm"><thead className="bg-muted/60 text-xs uppercase text-muted-foreground"><tr><th className="px-3 py-2 text-left">Product / description</th><th className="px-3 py-2 text-left">SKU</th><th className="px-3 py-2 text-left">Unit</th><th className="px-3 py-2 text-right">Qty</th><th className="px-3 py-2 text-right">Unit price</th><th className="px-3 py-2 text-right">Discount</th><th className="px-3 py-2 text-left">Tax</th><th className="px-3 py-2 text-right">Amount</th><th /></tr></thead><tbody>{items.map((item, index) => { const amount = Math.max(0, item.unitPrice * item.quantity - normalizedItems[index].discountAmount); return <tr key={index} className="border-t"><td className="p-2"><Input value={item.description} onChange={(e) => updateLine(index, { description: e.target.value })} placeholder="Manual/service line" /></td><td className="p-2"><Input value={item.sku} onChange={(e) => updateLine(index, { sku: e.target.value })} placeholder="Optional" /></td><td className="p-2"><Input value={item.unit} onChange={(e) => updateLine(index, { unit: e.target.value })} /></td><td className="p-2"><Input type="number" min="1" step="1" value={item.quantity} onChange={(e) => updateLine(index, { quantity: Number(e.target.value) })} className="w-20 text-right" /></td><td className="p-2"><Input type="number" min="0" step="0.01" value={item.unitPrice} onChange={(e) => updateLine(index, { unitPrice: Number(e.target.value) })} className="w-28 text-right" /></td><td className="p-2"><div className="flex gap-1"><select value={item.discountType} onChange={(e) => updateLine(index, { discountType: e.target.value as DiscountType })} className="h-9 rounded-md border bg-background px-2 text-xs"><option value="amount">KES</option><option value="percent">%</option></select><Input type="number" min="0" max={item.discountType === 'percent' ? 100 : undefined} step="0.01" value={item.discountAmount} onChange={(e) => updateLine(index, { discountAmount: Number(e.target.value) })} className="w-20 text-right" /></div></td><td className="p-2 text-xs text-muted-foreground">{taxPolicy.enabled ? `VAT ${taxPolicy.ratePercent}%` : 'No tax'}</td><td className="p-2 text-right font-medium">KES {amount.toFixed(2)}</td><td className="p-2"><Button type="button" variant="ghost" size="sm" disabled={items.length === 1} onClick={() => setItems((current) => current.filter((_, lineIndex) => lineIndex !== index))} aria-label="Remove line"><Trash2 className="h-4 w-4 text-destructive" /></Button></td></tr>})}</tbody></table><Button type="button" variant="ghost" size="sm" onClick={() => setItems((current) => [...current, emptyLine()])} className="m-2 gap-2"><Plus className="h-4 w-4" />Add manual/service line</Button></div>
+    <div className="grid gap-4 sm:grid-cols-[1fr_320px]"><div className="space-y-2"><Label>Notes</Label><textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={4} className="w-full rounded-md border bg-background px-3 py-2 text-sm" placeholder="Optional message shown on the invoice" /></div><div className="space-y-2 rounded-lg border bg-muted/25 p-4 text-sm"><div className="flex items-center justify-between"><Label>Invoice discount</Label><div className="flex gap-1"><select value={invoiceDiscountType} onChange={(e) => setInvoiceDiscountType(e.target.value as DiscountType)} className="h-9 rounded-md border bg-background px-2 text-xs"><option value="amount">KES</option><option value="percent">%</option></select><Input type="number" min="0" value={invoiceDiscount} onChange={(e) => setInvoiceDiscount(Number(e.target.value))} className="w-24 text-right" /></div></div><div className="flex justify-between"><span>Subtotal</span><span>KES {preview?.subtotal.toFixed(2) ?? '—'}</span></div><div className="flex justify-between"><span>Line discounts</span><span>- KES {preview?.lineDiscount.toFixed(2) ?? '—'}</span></div><div className="flex justify-between"><span>Invoice discount</span><span>- KES {preview?.discountAmount.toFixed(2) ?? '—'}</span></div><div className="flex justify-between"><span>Tax</span><span>KES {preview?.taxAmount.toFixed(2) ?? '—'}</span></div><div className="flex justify-between border-t pt-2 text-base font-semibold"><span>Invoice total</span><span>KES {preview?.total.toFixed(2) ?? '—'}</span></div><div className="flex justify-between"><span>Paid</span><span>KES 0.00</span></div><div className="flex justify-between font-semibold"><span>Balance due</span><span>KES {preview?.total.toFixed(2) ?? '—'}</span></div></div></div>
+    <div className="flex flex-wrap justify-end gap-2 border-t pt-4"><Button variant="outline" disabled={busy} onClick={() => setOpen(false)}>Cancel</Button><Button variant="outline" disabled={busy || !preview} onClick={() => submit(false)}>{busy && <LoadingSpinner className="mr-2 h-4 w-4" />}Save draft</Button>{canIssue && <Button disabled={busy || !preview} onClick={() => submit(true)}>{busy && <LoadingSpinner className="mr-2 h-4 w-4" />}Create and issue</Button>}</div>
+  </DialogContent></Dialog>
 }

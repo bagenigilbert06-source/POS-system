@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { and, asc, eq, inArray, isNull, or, sql } from 'drizzle-orm';
+import { and, asc, count, eq, inArray, isNull, or, sql } from 'drizzle-orm';
 import {
   ArrowRight,
   BadgeDollarSign,
@@ -15,11 +15,13 @@ import {
   creditSale,
   externalFinancialTransaction,
   financialAccount,
+  financeApproval,
   organization,
   sale,
 } from '@/lib/db/schema';
 import { getReportsOverview } from '@/lib/services/reports-service';
 import { PermissionEnum } from '@/lib/types/permissions';
+import { hasPermission } from '@/lib/auth/authorization';
 
 const cash = (value: number | string, currency: string) =>
   `${currency} ${Number(value).toLocaleString('en-KE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -72,7 +74,7 @@ export default async function FinancialOverview({
       : selected.length
         ? inArray(sale.branchId, selected)
         : sql`false`;
-  const [ar, reconciliation] = await Promise.all([
+  const [ar, reconciliation, pendingApprovals] = await Promise.all([
     db
       .select({
         total: sql<string>`coalesce(sum(${creditSale.amount} - ${creditSale.amountPaid} - ${creditSale.creditedAmount}),0)`,
@@ -100,7 +102,25 @@ export default async function FinancialOverview({
           context.isOrganizationWide ? undefined : or(isNull(financialAccount.branchId), inArray(financialAccount.branchId, context.branchIds))
         )
       ),
+    hasPermission(context, PermissionEnum.FINANCE_MANAGE)
+      ? db
+          .select({ count: count() })
+          .from(financeApproval)
+          .where(
+            and(
+              eq(financeApproval.organizationId, context.organizationId),
+              eq(financeApproval.status, 'pending'),
+              context.isOrganizationWide
+                ? undefined
+                : or(
+                    isNull(financeApproval.branchId),
+                    inArray(financeApproval.branchId, context.branchIds)
+                  )
+            )
+          )
+      : Promise.resolve([{ count: 0 }]),
   ]);
+  const pendingApprovalCount = Number(pendingApprovals[0]?.count ?? 0);
   const currency = org?.currency || 'KES';
   const reliable = report.totals.costDataComplete;
   const metrics = [
@@ -157,10 +177,20 @@ export default async function FinancialOverview({
   return (
     <div className="mx-auto max-w-7xl space-y-5 pb-8">
       <DashboardPageHeading
+        theme="adaptive"
         icon={CircleDollarSign}
         title="Financial Overview"
         description="A source-backed retail finance view. No balance sheet or trial balance is shown without a real double-entry ledger."
       />
+      {hasPermission(context, PermissionEnum.FINANCE_MANAGE) && pendingApprovalCount > 0 && (
+        <Link href="/dashboard/finance/approvals" className="flex items-center justify-between rounded-xl border border-amber-300/60 bg-amber-50 px-4 py-3 text-amber-950 shadow-sm transition-colors hover:bg-amber-100 dark:border-amber-500/30 dark:bg-amber-950/30 dark:text-amber-100 dark:hover:bg-amber-950/50">
+          <span>
+            <span className="block text-sm font-semibold">Needs attention</span>
+            <span className="text-xs opacity-80">{pendingApprovalCount} approval{pendingApprovalCount === 1 ? '' : 's'} awaiting review</span>
+          </span>
+          <span className="rounded-md bg-amber-500 px-3 py-1.5 text-xs font-semibold text-white">Review approvals</span>
+        </Link>
+      )}
       <form className="flex flex-wrap items-end gap-3 rounded-lg border bg-card p-4">
         <label className="space-y-1 text-xs font-medium">
           From

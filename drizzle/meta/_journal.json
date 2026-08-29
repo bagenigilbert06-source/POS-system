@@ -176,6 +176,27 @@
       "when": 1788025200000,
       "tag": "0044_finance_scope_cleanup",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1788028800000,
+      "tag": "0045_invoice_creation_fields",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1788115200000,
+      "tag": "0046_expense_lifecycle",
+      "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1788201600000,
+      "tag": "0047_clean_legacy_expense_numbers",
+      "breakpoints": true
     }
   ]
 }

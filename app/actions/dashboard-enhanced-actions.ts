@@ -148,6 +148,7 @@ export async function getExpenseDashboardData(dateFrom: Date, dateTo: Date) {
       .from(expense)
       .where(and(
         eq(expense.orgId, org.id),
+        eq(expense.status, 'effective'),
         gte(expense.createdAt, dateFrom),
         lte(expense.createdAt, dateTo)
       ))
@@ -167,6 +168,7 @@ export async function getExpenseDashboardData(dateFrom: Date, dateTo: Date) {
       .from(expense)
       .where(and(
         eq(expense.orgId, org.id),
+        eq(expense.status, 'effective'),
         gte(expense.createdAt, dateFrom),
         lte(expense.createdAt, dateTo)
       ))
@@ -182,6 +184,7 @@ export async function getExpenseDashboardData(dateFrom: Date, dateTo: Date) {
       .from(expense)
       .where(and(
         eq(expense.orgId, org.id),
+        eq(expense.status, 'effective'),
         gte(expense.createdAt, dateFrom),
         lte(expense.createdAt, dateTo)
       ))

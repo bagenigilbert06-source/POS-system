@@ -14,7 +14,7 @@ import { PermissionEnum } from '@/lib/types/permissions';
 const cash = (value: string) =>
   `KES ${Number(value).toLocaleString('en-KE', { minimumFractionDigits: 2 })}`;
 export default async function ApprovalsPage() {
-  const context = await requireDashboardPermission(PermissionEnum.FINANCE_VIEW);
+  const context = await requireDashboardPermission(PermissionEnum.FINANCE_MANAGE);
   const canManage = hasPermission(context, PermissionEnum.FINANCE_MANAGE);
   const [requests, policies] = await Promise.all([
     db
@@ -45,7 +45,8 @@ export default async function ApprovalsPage() {
   return (
     <div className="mx-auto max-w-7xl space-y-5 pb-8">
       <div className="flex items-start justify-between">
-        <DashboardPageHeading
+          <DashboardPageHeading
+            theme="adaptive"
           icon={BadgeCheck}
           title="Approval Inbox"
           description="Review high-value finance actions with separation of duties and an immutable decision history."

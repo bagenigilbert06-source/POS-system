@@ -281,7 +281,6 @@ export function DynamicAppSidebar({
     receivables: PermissionEnum.RECEIVABLE_VIEW,
     'financial-accounts': PermissionEnum.FINANCE_VIEW,
     reconciliation: PermissionEnum.FINANCE_VIEW,
-    approvals: PermissionEnum.FINANCE_VIEW,
     'finance-audit': PermissionEnum.AUDIT_LOG_VIEW,
   };
   // Unknown workspace items are hidden until they have an explicit permission mapping.
@@ -349,14 +348,13 @@ export function DynamicAppSidebar({
     },
   ];
   const financeNav = [
-    { id: 'financials', label: 'Financial overview', icon: 'WalletCards', route: '/dashboard/financials' },
+    { id: 'financials', label: 'Financial Overview', icon: 'WalletCards', route: '/dashboard/financials' },
     { id: 'expenses', label: 'Expenses', icon: 'ReceiptText', route: '/dashboard/expenses' },
     { id: 'invoices', label: 'Invoices', icon: 'FileText', route: '/dashboard/invoices' },
-    { id: 'receivables', label: 'Accounts receivable', icon: 'HandCoins', route: '/dashboard/receivables' },
-    { id: 'financial-accounts', label: 'Payment accounts', icon: 'Wallet', route: '/dashboard/finance/accounts' },
+    { id: 'receivables', label: 'Accounts Receivable', icon: 'HandCoins', route: '/dashboard/receivables' },
+    { id: 'financial-accounts', label: 'Payment Accounts', icon: 'Wallet', route: '/dashboard/finance/accounts' },
     { id: 'reconciliation', label: 'Reconciliation', icon: 'Shuffle', route: '/dashboard/finance/reconciliation' },
-    { id: 'approvals', label: 'Approval inbox', icon: 'ClipboardCheck', route: '/dashboard/finance/approvals' },
-    { id: 'finance-audit', label: 'Finance audit', icon: 'ShieldCheck', route: '/dashboard/finance/audit' },
+    { id: 'finance-audit', label: 'Finance Audit', icon: 'ShieldCheck', route: '/dashboard/finance/audit' },
   ];
   // Keep the navigation aligned with the way a shop is run: understand the
   // business first, sell second, then manage the catalogue and operations.
@@ -377,7 +375,6 @@ export function DynamicAppSidebar({
         'receivables',
         'financial-accounts',
         'reconciliation',
-        'approvals',
         'finance-audit',
       ].includes(item.id)
   );
@@ -570,7 +567,6 @@ export function DynamicAppSidebar({
         'receivables',
         'financial-accounts',
         'reconciliation',
-        'approvals',
         'finance-audit',
       ],
     },
