@@ -39,7 +39,7 @@ export type EtimsConfigurationInput = z.input<typeof configurationSchema>
 
 const merchantSetupSchema = z.object({ branchId: z.string().min(1), environment: z.enum(['sandbox', 'production']),
   integrationMethod: z.enum(['OSCU', 'VSCU']), businessKraPin: z.string().trim().toUpperCase().regex(/^[A-Z0-9]{5,20}$/),
-  externalBranchId: z.string().trim().min(1).max(120), vatRegistered: z.boolean() })
+  externalBranchId: z.string().trim().max(120).optional().or(z.literal('')), vatRegistered: z.boolean() })
 
 const integrationAuthorizationSchema = z.object({ branchId: z.string().min(1), integrationToken: z.string().trim().min(1).max(4096) })
 
@@ -55,7 +55,8 @@ export async function verifyEtimsIntegrationAuthorization(input: z.input<typeof 
     const provider = createEtimsProvider(configSnapshot(config))
     if (!provider.verifyIntegrationAuthorization) return { ok: false, code: 'UNSUPPORTED', message: 'This provider does not expose OSCU token verification yet.' }
     const result = await provider.verifyIntegrationAuthorization({ businessKraPin: config.businessKraPin ?? '', integrationToken: data.integrationToken })
-    if (result.ok) await db.update(etimsConfiguration).set({ connectionStatus: 'AUTHORIZATION_VERIFIED', lastConnectionMessage: 'Integration authorization verified.', updatedAt: new Date() }).where(eq(etimsConfiguration.id, config.id))
+    // Provider-specific authorization is informational until certified runtime
+    // onboarding/device initialization exists; it cannot activate this branch.
     return { ok: result.ok, code: result.code ?? (result.ok ? 'VERIFIED' : 'INVALID'), message: result.ok ? 'Integration authorization verified.' : 'Integration token could not be verified.' }
   } catch {
     return { ok: false, code: 'ERROR', message: 'Unable to verify integration authorization right now.' }
@@ -66,7 +67,7 @@ export async function verifyEtimsIntegrationAuthorization(input: z.input<typeof 
  * references remain server-owned and are never accepted from the browser. */
 export async function activateEtimsBranch(input: z.input<typeof merchantSetupSchema>) {
   let data: z.infer<typeof merchantSetupSchema>
-  try { data = merchantSetupSchema.parse(input) } catch { throw new Error('Enter a valid KRA PIN and eTIMS branch identifier.') }
+  try { data = merchantSetupSchema.parse(input) } catch { throw new Error('Enter a valid KRA PIN and setup details.') }
   const authorization = await requireFullAuthentication()
   if (!authorization.permissions.includes(PermissionEnum.ETIMS_CONFIGURE)) throw new Error('eTIMS configuration permission denied')
   const [existing] = await db.select().from(etimsConfiguration).where(and(eq(etimsConfiguration.organizationId, authorization.organizationId), eq(etimsConfiguration.branchId, data.branchId))).limit(1)

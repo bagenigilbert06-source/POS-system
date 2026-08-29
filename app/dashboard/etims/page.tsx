@@ -31,7 +31,7 @@ export default async function EtimsPage({ searchParams }: { searchParams: Promis
   const branches = await db.select({ id: branch.id, name: branch.name, code: branch.code }).from(branch)
     .where(and(eq(branch.organizationId, auth.organizationId), branchScope)).orderBy(asc(branch.name))
   const branchId = selectedBranchId && branches.some((item) => item.id === selectedBranchId) ? selectedBranchId : branches[0]?.id
-  const configurations = await db.select({ branchId: etimsConfiguration.branchId, environment: etimsConfiguration.environment,
+  const configurations = await db.select({ branchId: etimsConfiguration.branchId, enabled: etimsConfiguration.enabled, environment: etimsConfiguration.environment,
     integrationMethod: etimsConfiguration.integrationMethod, businessKraPin: etimsConfiguration.businessKraPin,
     externalBranchId: etimsConfiguration.externalBranchId, vatRegistered: etimsConfiguration.vatRegistered,
     providerName: etimsConfiguration.providerName, deviceId: etimsConfiguration.deviceId,

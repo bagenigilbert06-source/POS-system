@@ -24,6 +24,7 @@ import { isPharmacyBusiness } from '@/lib/pharmacy/rules'
 import { applySaleRewards, reverseRewardsForVoid } from '@/lib/services/rewards-service'
 import { money } from '@/lib/rewards/rules'
 import { configuredTax, money as financeMoney, paymentStatus } from '@/lib/finance/money'
+import { getFiscalReadiness } from '@/lib/etims/policy'
 import Decimal from 'decimal.js'
 
 async function getUserId() {
@@ -231,6 +232,9 @@ export async function createSale(data: CreateSaleInput) {
     saleBranchId = mainBranch?.id
   }
   if (!saleBranchId) throw new Error('No authorized branch is available for this sale')
+  const [fiscalConfiguration] = await db.select({ environment: etimsConfiguration.environment, enabled: etimsConfiguration.enabled, invoiceSubmissionEnabled: etimsConfiguration.invoiceSubmissionEnabled, connectionStatus: etimsConfiguration.connectionStatus }).from(etimsConfiguration).where(and(eq(etimsConfiguration.organizationId, orgId), eq(etimsConfiguration.branchId, saleBranchId))).limit(1)
+  const fiscalReadiness = getFiscalReadiness(fiscalConfiguration)
+  if (fiscalReadiness !== 'READY' && fiscalReadiness !== 'DEVELOPMENT_SIMULATOR' && fiscalConfiguration?.environment === 'production') throw new Error('eTIMS setup is incomplete for this branch. Complete fiscal setup before processing live sales.')
   const workspace = await WorkspaceService.getWorkspaceConfig(orgId, userId)
   const requiresAgeVerification = workspace?.businessCategory === 'liquor_shop'
   const pharmacyWorkspace = Boolean(workspace && isPharmacyBusiness(workspace.businessType, workspace.businessCategory))
