@@ -3,6 +3,7 @@
 import { useEffect, useState, useTransition } from 'react';
 import type { ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import {
   beginPosSessionClose,
   cancelPosSessionClose,
@@ -30,6 +31,7 @@ import {
   Clock3,
   ReceiptText,
   ShieldCheck,
+  Home,
 } from 'lucide-react';
 
 type Reconciliation = {
@@ -168,7 +170,7 @@ export function CashierShiftStrip({
     <>
       <section className="hidden overflow-hidden rounded-2xl border border-[#ead28a] bg-gradient-to-r from-[#fffdf7] via-[#fff9e5] to-[#fff1b8] shadow-[0_2px_8px_rgba(151,112,0,.08)] dark:border-[rgba(255,214,10,.22)] dark:from-[#15130c] dark:via-[#201b0d] dark:to-[#30270f] dark:shadow-[0_2px_8px_rgba(0,0,0,.18)] lg:block">
         <div className="flex flex-col gap-3 px-3 py-2.5 sm:px-4 sm:py-3.5 xl:flex-row xl:items-center xl:justify-between">
-          <dl className="grid min-w-0 flex-1 grid-cols-2 gap-x-6 gap-y-3 md:grid-cols-3 xl:max-w-3xl">
+          <dl className="grid min-w-0 flex-1 grid-cols-2 gap-x-5 gap-y-2 md:grid-cols-3 xl:max-w-5xl xl:grid-cols-4">
             <Metric
               icon={Banknote}
               label="Shift sales"
@@ -176,13 +178,6 @@ export function CashierShiftStrip({
               tone="gold"
             />
             <Metric icon={ReceiptText} label="M-Pesa confirmed" value={String(mpesa.confirmed)} tone="success" />
-            {(mpesa.pending > 0 || mpesa.failed > 0 || mpesa.reconciliationRequired > 0) && (
-              <div className="col-span-2 flex flex-wrap items-center gap-3 text-[11px] font-semibold text-amber-800 dark:text-amber-300 md:col-span-3">
-                {mpesa.pending > 0 && <span>{mpesa.pending} M-Pesa payment{mpesa.pending === 1 ? '' : 's'} pending</span>}
-                {mpesa.failed > 0 && <span>{mpesa.failed} failed/expired</span>}
-                {mpesa.reconciliationRequired > 0 && <span>{mpesa.reconciliationRequired} require reconciliation</span>}
-              </div>
-            )}
             <Metric
               icon={ReceiptText}
               label="Transactions"
@@ -204,6 +199,9 @@ export function CashierShiftStrip({
             </div>
           </dl>
           <div className="hidden shrink-0 flex-wrap items-center justify-end gap-2 sm:flex">
+            <Link href="/dashboard" aria-label="Back to dashboard" title="Back to dashboard" className="group !inline-flex !h-9 !w-9 !items-center !justify-center !rounded-full !border-0 !bg-transparent !p-0 text-[#b7791f] !shadow-none transition-colors hover:!bg-[#b7791f]/10 dark:!bg-transparent dark:text-[#facc15] dark:hover:!bg-[#facc15]/10">
+              <Home className="h-[18px] w-[18px] transition-transform group-hover:-translate-y-0.5" />
+            </Link>
             {action}
             {!session ? (
               <Button
@@ -275,6 +273,8 @@ export function CashierShiftStrip({
               {workspace.cashMovementCount} cash movement
               {workspace.cashMovementCount === 1 ? '' : 's'}
             </span>
+            {mpesa.pending > 0 && <span className="font-medium text-amber-700 dark:text-amber-300">{mpesa.pending} M-Pesa pending</span>}
+            {mpesa.reconciliationRequired > 0 && <span className="font-medium text-amber-700 dark:text-amber-300">{mpesa.reconciliationRequired} require reconciliation</span>}
             {isClosing && (
               <span className="inline-flex items-center gap-1 font-medium text-amber-700 dark:text-amber-300">
                 <ShieldCheck className="h-3.5 w-3.5" />

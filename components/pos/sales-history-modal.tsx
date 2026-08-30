@@ -205,8 +205,8 @@ export function SalesHistoryModal({
       aria-labelledby="recent-transactions-title"
       onMouseDown={(event) => event.target === event.currentTarget && onClose()}
     >
-      <div className="flex max-h-[calc(100dvh-24px)] w-full max-w-[815px] flex-col overflow-hidden rounded-[9px] border border-[#dfe3e8] bg-white text-[#273142] shadow-[0_24px_70px_rgba(16,24,40,.30)] dark:border-white/10 dark:bg-[#1c1c1e] dark:text-white sm:max-h-[90vh]">
-        <header className="flex min-h-[58px] items-center justify-between border-b border-[#e4e7ec] px-5 dark:border-white/10">
+      <div className="flex max-h-[calc(100dvh-24px)] w-full max-w-[815px] flex-col overflow-hidden rounded-xl border border-border bg-card text-card-foreground shadow-[0_24px_70px_rgba(16,24,40,.30)] sm:max-h-[90vh]">
+        <header className="flex min-h-[58px] items-center justify-between border-b border-border px-5">
           <h2
             id="recent-transactions-title"
             className="text-[18px] font-bold tracking-[-.01em]"
@@ -216,7 +216,7 @@ export function SalesHistoryModal({
           <button
             type="button"
             onClick={onClose}
-            className="grid h-5 w-5 place-items-center rounded-full bg-[#ef1b24] text-white transition-colors hover:bg-[#d9151d] focus:outline-none focus:ring-2 focus:ring-[#ef1b24]/40 focus:ring-offset-2"
+            className="grid h-5 w-5 place-items-center rounded-full bg-destructive text-destructive-foreground focus:outline-none focus:ring-2 focus:ring-destructive/40 focus:ring-offset-2"
             aria-label="Close recent transactions"
           >
             <X className="h-3 w-3" strokeWidth={3} />
@@ -229,13 +229,13 @@ export function SalesHistoryModal({
                 key={item.id}
                 type="button"
                 onClick={() => setTab(item.id)}
-                className={`h-[33px] rounded-[4px] px-3.5 text-xs font-medium transition-colors ${tab === item.id ? 'bg-[#ff9f43] text-white shadow-sm hover:bg-[#f58b27]' : 'bg-[#f6f7f9] text-[#344054] hover:bg-[#eef0f3] dark:bg-white/[.06] dark:text-[#d0d5dd] dark:hover:bg-white/10'}`}
+                className={`h-[33px] rounded-md px-3.5 text-xs font-medium ${tab === item.id ? 'bg-primary text-primary-foreground shadow-sm' : 'bg-muted text-foreground hover:bg-muted/80'}`}
               >
                 {item.label}
               </button>
             ))}
           </nav>
-          <section className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[8px] border border-[#dfe3e8] dark:border-white/10">
+          <section className="flex min-h-0 flex-1 flex-col overflow-hidden">
             <div className="flex min-h-[72px] flex-col gap-3 border-b border-[#e4e7ec] px-5 py-4 dark:border-white/10 sm:flex-row sm:items-center sm:justify-between">
               <label className="relative block w-full sm:max-w-[215px]">
                 <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -243,7 +243,7 @@ export function SalesHistoryModal({
                   value={query}
                   onChange={(event) => setQuery(event.target.value)}
                   placeholder="Search"
-                  className="h-[38px] w-full rounded-[6px] border border-[#dfe3e8] bg-white pl-9 pr-3 text-sm outline-none placeholder:text-[#98a2b3] focus:border-[#ff9f43] focus:ring-2 focus:ring-[#ff9f43]/15 dark:border-white/10 dark:bg-[#151516]"
+                  className="h-[38px] w-full rounded-md border border-input bg-background pl-9 pr-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/20"
                 />
               </label>
               <div className="flex gap-2">
@@ -269,11 +269,11 @@ export function SalesHistoryModal({
                 </ToolButton>
               </div>
             </div>
-            <div className="min-h-0 flex-1 overflow-auto px-5 py-5">
+            <div className="pos-scroll-region min-h-0 flex-1 overflow-auto px-2 py-4 sm:px-5 sm:py-5">
               {loading ? (
                 <div className="grid min-h-64 place-items-center">
-                  <div className="flex flex-col items-center gap-5 text-sm text-muted-foreground">
-                    <LoadingSpinner className="text-orange-500" />
+                  <div className="flex flex-col items-center gap-3 text-sm text-muted-foreground">
+                    <LoadingSpinner className="text-primary" />
                     Loading transactions...
                   </div>
                 </div>
@@ -288,9 +288,9 @@ export function SalesHistoryModal({
                   </div>
                 </div>
               ) : (
-                <table className="w-full min-w-[660px] border-collapse text-[14px]">
+                <table className="w-full min-w-[600px] border-collapse text-[13px] sm:min-w-[660px] sm:text-[14px]">
                   <thead>
-                    <tr className="border border-[#dfe3e8] bg-[#f7f8fa] text-left text-[13px] font-semibold text-[#101828] dark:border-white/10 dark:bg-white/[.045] dark:text-white">
+                    <tr className="border border-border bg-muted/50 text-left text-[13px] font-semibold text-foreground">
                       <th className="w-12 px-4 py-3">
                         <input
                           type="checkbox"
@@ -405,7 +405,7 @@ function TransactionRow({
 }) {
   return (
     <>
-      <tr className="border-x border-b border-[#dfe3e8] text-[#475467] transition-colors hover:bg-[#fffaf5] dark:border-white/10 dark:text-[#c4c4c4] dark:hover:bg-white/[.035]">
+      <tr className="border-x border-b border-border text-muted-foreground hover:bg-muted/40">
         <td className="px-4 py-2.5">
           <input
             type="checkbox"
@@ -417,11 +417,11 @@ function TransactionRow({
         </td>
         <td className="px-2 py-2.5">
           <div className="flex items-center gap-2.5">
-            <span className="grid h-8 w-8 shrink-0 place-items-center rounded-[4px] bg-[#fff0e6] text-[10px] font-bold text-[#e94e1b] dark:bg-[#e94e1b]/15 dark:text-[#ffab83]">
+            <span className="grid h-8 w-8 shrink-0 place-items-center rounded-md bg-primary/10 text-[10px] font-bold text-primary">
               {sale.customerId ? 'RC' : 'WC'}
             </span>
             <div>
-              <p className="whitespace-nowrap font-medium text-[#273142] dark:text-white">
+              <p className="whitespace-nowrap font-medium text-foreground">
                 {customerName(sale)}
               </p>
               {tab === 'payment' && (
@@ -443,7 +443,7 @@ function TransactionRow({
         <td className="whitespace-nowrap px-2 py-2.5 text-muted-foreground">
           {formatDate(sale.createdAt)}
         </td>
-        <td className="whitespace-nowrap px-2 py-2.5 font-medium text-[#475467] dark:text-[#e4e7ec]">
+        <td className="whitespace-nowrap px-2 py-2.5 font-medium text-foreground">
           {formatCurrency(Number(sale.total))}
         </td>
         <td className="px-2 py-2.5">
@@ -506,7 +506,7 @@ function ToolButton({
       onClick={onClick}
       title={label}
       aria-label={label}
-      className={`grid h-[37px] w-[37px] place-items-center rounded-[5px] border border-[#dfe3e8] bg-white text-[#475467] transition-colors hover:border-[#ff9f43] hover:bg-[#fff7ed] hover:text-[#e94e1b] dark:border-white/10 dark:bg-[#151516] dark:text-[#d0d5dd] dark:hover:border-[#ff9f43] dark:hover:bg-[#ff9f43]/10 [&_svg]:h-4 [&_svg]:w-4 ${className}`}
+      className={`grid h-[37px] w-[37px] place-items-center rounded-md border border-border bg-background text-muted-foreground hover:border-primary hover:bg-primary/10 hover:text-primary [&_svg]:h-4 [&_svg]:w-4 ${className}`}
     >
       {children}
     </button>

@@ -1002,6 +1002,34 @@ export async function findManualMpesaPayment(requestId: string) {
   };
 }
 
+/** Manager-only reconciliation for an unmatched provider receipt. */
+export async function reconcileIncomingMpesaPayment(input: { incomingPaymentId: string; paymentRequestId: string; reason: string }) {
+  const data = z.object({ incomingPaymentId: z.string().min(1), paymentRequestId: z.string().min(1), reason: z.string().trim().min(3).max(500) }).parse(input)
+  const authorization = await requireAnyPermission([PermissionEnum.SHIFT_MANAGE, PermissionEnum.AUDIT_LOG_VIEW])
+  const requestId = await db.transaction(async (tx) => {
+    const [incoming] = await tx.select().from(mpesaIncomingPayment).where(and(eq(mpesaIncomingPayment.id, data.incomingPaymentId), eq(mpesaIncomingPayment.organizationId, authorization.organizationId))).limit(1).for('update')
+    const [intent] = await tx.select().from(mpesaPaymentRequest).where(and(eq(mpesaPaymentRequest.id, data.paymentRequestId), eq(mpesaPaymentRequest.organizationId, authorization.organizationId))).limit(1).for('update')
+    if (!incoming || !intent) throw new Error('M-Pesa reconciliation record was not found')
+    // Idempotent retries are safe only when this receipt is already associated
+    // with the same payment request.  Never allow a stale/foreign match to
+    // fall through and finalize an unrelated request.
+    if (incoming.matchedRequestId || incoming.status === 'MATCHED') {
+      if (incoming.matchedRequestId !== intent.id) {
+        throw new Error('This M-Pesa payment has already been matched to another request')
+      }
+      return intent.id
+    }
+    if (intent.saleId || !['AWAITING_CONFIRMATION', 'RECONCILIATION_REQUIRED'].includes(intent.status)) throw new Error('This payment request is no longer eligible for reconciliation')
+    if (Number(incoming.amount) !== Number(intent.amount) || incoming.branchId !== intent.branchId) throw new Error('Provider payment does not match this branch and amount')
+    const [claimedIncoming] = await tx.update(mpesaIncomingPayment).set({ matchedRequestId: intent.id, matchedAt: new Date(), matchedBy: authorization.userId, status: 'MATCHED_PENDING_FINALIZATION' }).where(and(eq(mpesaIncomingPayment.id, incoming.id), isNull(mpesaIncomingPayment.matchedRequestId))).returning({ id: mpesaIncomingPayment.id })
+    if (!claimedIncoming) throw new Error('This M-Pesa payment has already been used.')
+    const [claimedIntent] = await tx.update(mpesaPaymentRequest).set({ receiptNumber: incoming.transactionId, resultCode: '0', resultDescription: `Reconciled by manager: ${data.reason}`, status: 'CONFIRMED', callbackPayload: incoming.payload, completedAt: new Date(), updatedAt: new Date() }).where(and(eq(mpesaPaymentRequest.id, intent.id), inArray(mpesaPaymentRequest.status, ['AWAITING_CONFIRMATION', 'RECONCILIATION_REQUIRED']))).returning({ id: mpesaPaymentRequest.id })
+    if (!claimedIntent) throw new Error('This payment request is no longer available')
+    return intent.id
+  })
+  return finalizeConfirmedMpesaPayment(requestId)
+}
+
 /** Returns receipt data only after the callback-owned finalizer has committed the sale. */
 export async function getFinalizedMpesaSale(requestId: string) {
   const authorization = await paymentAuthorization();

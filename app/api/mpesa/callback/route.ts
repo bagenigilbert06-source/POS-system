@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { eq } from 'drizzle-orm'
+import { and, eq, inArray } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { mpesaIncomingPayment, mpesaPaymentRequest } from '@/lib/db/schema'
 import { friendlyMpesaFailure, mpesaPaybillDetails, normalizeKenyanPhone, validCallbackToken } from '@/lib/mpesa/daraja'
@@ -34,13 +34,19 @@ export async function POST(request: NextRequest) {
       matchedRequestId: eligibleForAutomaticSale ? payment.id : null, matchedAt: eligibleForAutomaticSale ? new Date() : null,
       matchedBy: eligibleForAutomaticSale ? payment.userId : null, status: eligibleForAutomaticSale ? 'MATCHED_PENDING_FINALIZATION' : 'NEEDS_MATCHING', payload,
     }).onConflictDoNothing({ target: mpesaIncomingPayment.transactionId })
+    // Only an unresolved request may transition from the callback.  This keeps
+    // duplicate/replayed callbacks idempotent and prevents a late failure from
+    // downgrading an already-confirmed payment.
     await tx.update(mpesaPaymentRequest).set({
       merchantRequestId: callback.MerchantRequestID || payment.merchantRequestId,
       receiptNumber: successful ? receiptNumber : payment.receiptNumber,
       resultCode: String(resultCode), resultDescription: successful ? (eligibleForAutomaticSale ? 'Payment received' : 'Payment received after checkout expiry; reconciliation required') : friendlyMpesaFailure(resultCode, callback.ResultDesc),
-      status: successful ? 'CONFIRMED' : failureStatus, callbackPayload: payload,
+      status: successful ? (eligibleForAutomaticSale ? 'CONFIRMED' : 'RECONCILIATION_REQUIRED') : failureStatus, callbackPayload: payload,
       completedAt: new Date(), updatedAt: new Date(),
-    }).where(eq(mpesaPaymentRequest.id, payment.id))
+    }).where(and(
+      eq(mpesaPaymentRequest.id, payment.id),
+      inArray(mpesaPaymentRequest.status, ['SENDING_STK', 'AWAITING_CUSTOMER', 'AWAITING_CONFIRMATION']),
+    ))
   })
   if (eligibleForAutomaticSale) {
     try { await finalizeConfirmedMpesaPayment(payment.id) }
