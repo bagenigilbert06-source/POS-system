@@ -813,6 +813,7 @@ export const promotionRule = pgTable(
     startsAt: timestamp('startsAt').notNull(),
     endsAt: timestamp('endsAt').notNull(),
     isActive: boolean('isActive').notNull().default(true),
+    lifecycleStatus: text('lifecycleStatus').notNull().default('DRAFT'),
     createdBy: text('createdBy').references(() => user.id, {
       onDelete: 'set null',
     }),
