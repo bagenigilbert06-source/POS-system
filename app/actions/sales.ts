@@ -122,10 +122,11 @@ export async function cancelAgeVerification(input: z.input<typeof cancelAgeVerif
   const organizationId = pos?.organizationId ?? authorization.organizationId
   const [shift] = await db.select({ id: posSession.id, branchId: posSession.branchId, terminalId: posSession.terminalId }).from(posSession).where(and(eq(posSession.orgId, organizationId), eq(posSession.openedBy, userId), eq(posSession.status, 'open'), pos?.terminalId ? eq(posSession.terminalId, pos.terminalId) : undefined)).limit(1)
   if (!shift?.branchId) throw new Error('Start a branch-assigned shift before recording an age check')
+  const branchId = shift.branchId
   const now = new Date()
   await db.transaction(async (tx) => {
-    await tx.insert(ageVerification).values({ id: generateId(), organizationId, branchId: shift.branchId, terminalId: shift.terminalId ?? undefined, saleId: null, checkoutId, cashierId: userId, status: 'CANCELLED', cancelledAt: now })
-    await tx.insert(auditEvent).values({ id: generateId(), organizationId, userId, action: 'age_verification_cancelled', metadata: { checkoutId, branchId: shift.branchId, terminalId: shift.terminalId } })
+    await tx.insert(ageVerification).values({ id: generateId(), organizationId, branchId, terminalId: shift.terminalId ?? undefined, saleId: null, checkoutId, cashierId: userId, status: 'CANCELLED', cancelledAt: now })
+    await tx.insert(auditEvent).values({ id: generateId(), organizationId, userId, action: 'age_verification_cancelled', metadata: { checkoutId, branchId, terminalId: shift.terminalId } })
   })
   return { status: 'CANCELLED' as const }
 }
