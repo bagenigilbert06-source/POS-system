@@ -53,6 +53,7 @@ type Workspace = {
   transactionCount: number;
   cashMovementCount: number;
   locationName: string;
+  mpesaCounters?: { confirmed: number; pending: number; failed: number; reconciliationRequired: number };
 };
 const money = (amount: number) =>
   `KES ${amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -84,6 +85,7 @@ export function CashierShiftStrip({
   const [error, setError] = useState(''),
     [result, setResult] = useState<Reconciliation | null>(null);
   const session = workspace.session;
+  const mpesa = workspace.mpesaCounters ?? { confirmed: 0, pending: 0, failed: 0, reconciliationRequired: 0 };
   const isClosing = session?.status === 'closing';
   const shiftStartedAt = session
     ? new Intl.DateTimeFormat('en-KE', {
@@ -173,6 +175,14 @@ export function CashierShiftStrip({
               value={money(workspace.shiftSales)}
               tone="gold"
             />
+            <Metric icon={ReceiptText} label="M-Pesa confirmed" value={String(mpesa.confirmed)} tone="success" />
+            {(mpesa.pending > 0 || mpesa.failed > 0 || mpesa.reconciliationRequired > 0) && (
+              <div className="col-span-2 flex flex-wrap items-center gap-3 text-[11px] font-semibold text-amber-800 dark:text-amber-300 md:col-span-3">
+                {mpesa.pending > 0 && <span>{mpesa.pending} M-Pesa payment{mpesa.pending === 1 ? '' : 's'} pending</span>}
+                {mpesa.failed > 0 && <span>{mpesa.failed} failed/expired</span>}
+                {mpesa.reconciliationRequired > 0 && <span>{mpesa.reconciliationRequired} require reconciliation</span>}
+              </div>
+            )}
             <Metric
               icon={ReceiptText}
               label="Transactions"
@@ -271,6 +281,8 @@ export function CashierShiftStrip({
                 Sales and movements are paused while you count.
               </span>
             )}
+            {isClosing && mpesa.pending > 0 && <span className="font-medium text-amber-700 dark:text-amber-300">{mpesa.pending} M-Pesa payment{mpesa.pending === 1 ? ' is' : 's are'} still pending.</span>}
+            {isClosing && mpesa.reconciliationRequired > 0 && <span className="font-medium text-amber-700 dark:text-amber-300">{mpesa.reconciliationRequired} M-Pesa payment{mpesa.reconciliationRequired === 1 ? ' requires' : 's require'} reconciliation.</span>}
           </div>
         )}
         {error && (

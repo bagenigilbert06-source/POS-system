@@ -1,6 +1,6 @@
 import { and, desc, eq, gt, inArray, isNull, or, sql } from 'drizzle-orm'
 import { db } from '@/lib/db'
-import { branch, businessSettings, cashMovement, category, customer, inventoryBalance, inventoryLot, pharmacyProduct, posPinCredential, posSession, posTerminal, product, productPackage, sale, salesReturn } from '@/lib/db/schema'
+import { branch, businessSettings, cashMovement, category, customer, inventoryBalance, inventoryLot, pharmacyProduct, posPinCredential, posSession, posTerminal, product, productPackage, sale, salesReturn, mpesaPaymentRequest } from '@/lib/db/schema'
 import { readThroughRedis } from '@/lib/cache/redis-cache'
 import type { AuthorizationContext } from '@/lib/auth/authorization'
 import { filterPharmacyCatalog } from '@/lib/pharmacy/rules'
@@ -53,14 +53,15 @@ export async function getPosPageData(authorization: AuthorizationContext, includ
   const [terminal] = activeSession?.terminalId
     ? await db.select({ name: posTerminal.name }).from(posTerminal).where(eq(posTerminal.id, activeSession.terminalId)).limit(1)
     : []
-  const [summaryRows, refundRows, movementRows, recentSales] = activeSession
+  const [summaryRows, refundRows, movementRows, recentSales, mpesaRows] = activeSession
     ? await Promise.all([
       db.select({ total: sql<string>`coalesce(sum(${sale.total}),0)`, count: sql<number>`count(*)` }).from(sale).where(and(eq(sale.orgId, orgId), eq(sale.posSessionId, activeSession.id), inArray(sale.status, ['completed', 'partially_refunded', 'refunded']))),
       db.select({ total: sql<string>`coalesce(sum(${salesReturn.amount}),0)` }).from(salesReturn).where(and(eq(salesReturn.orgId, orgId), eq(salesReturn.posSessionId, activeSession.id), eq(salesReturn.status, 'completed'))),
       db.select({ count: sql<number>`count(*)` }).from(cashMovement).where(and(eq(cashMovement.orgId, orgId), eq(cashMovement.sessionId, activeSession.id))),
       db.select({ id: sale.id, receiptNo: sale.receiptNo, total: sale.total, createdAt: sale.createdAt }).from(sale).where(and(eq(sale.orgId, orgId), eq(sale.posSessionId, activeSession.id))).orderBy(desc(sale.createdAt)).limit(5),
+      db.select({ status: mpesaPaymentRequest.status, count: sql<number>`count(*)` }).from(mpesaPaymentRequest).where(and(eq(mpesaPaymentRequest.organizationId, orgId), eq(mpesaPaymentRequest.posSessionId, activeSession.id))).groupBy(mpesaPaymentRequest.status),
     ])
-    : [[], [], [], []]
+    : [[], [], [], [], []]
   const locationBalances = branchRows[0]
     ? await db.select({ productId: inventoryBalance.productId, onHand: inventoryBalance.onHand, reserved: inventoryBalance.reserved, unavailable: inventoryBalance.unavailable }).from(inventoryBalance).where(and(eq(inventoryBalance.orgId, orgId), eq(inventoryBalance.branchId, branchRows[0].id)))
     : []
@@ -80,9 +81,17 @@ export async function getPosPageData(authorization: AuthorizationContext, includ
   const eligibleCategoryIds = new Set(branchProducts.map((item) => item.categoryId).filter(Boolean))
   const posCategories = pharmacyWorkspace ? categories.filter((item) => eligibleCategoryIds.has(item.id)) : categories
   const summary = summaryRows[0], refunds = refundRows[0], movements = movementRows[0]
+  const mpesaCounters = { confirmed: 0, pending: 0, failed: 0, reconciliationRequired: 0 }
+  for (const row of mpesaRows as Array<{ status: string; count: number }>) {
+    const status = row.status.toLowerCase(); const count = Number(row.count)
+    if (['confirmed', 'completed', 'paid'].includes(status)) mpesaCounters.confirmed += count
+    else if (['pending', 'awaiting_confirmation'].includes(status)) mpesaCounters.pending += count
+    else if (['failed', 'expired', 'cancelled'].includes(status)) mpesaCounters.failed += count
+    else if (status === 'reconciliation_required') mpesaCounters.reconciliationRequired += count
+  }
   return {
     products: branchProducts, categories: posCategories, customers, settings: receiptSettings(settingsRows[0]), activeBranch: branchRows[0] ?? null,
     pinSet: Boolean(pinRows[0]?.enabled),
-    cashierWorkspace: { session: activeSession, registerName: terminal?.name ?? activeSession?.sessionNo ?? null, shiftSales: Number(summary?.total ?? 0) - Number(refunds?.total ?? 0), transactionCount: Number(summary?.count ?? 0), cashMovementCount: Number(movements?.count ?? 0), locationName: branchRows[0]?.name ?? 'Assigned location', recentSales },
+    cashierWorkspace: { session: activeSession, registerName: terminal?.name ?? activeSession?.sessionNo ?? null, shiftSales: Number(summary?.total ?? 0) - Number(refunds?.total ?? 0), transactionCount: Number(summary?.count ?? 0), cashMovementCount: Number(movements?.count ?? 0), locationName: branchRows[0]?.name ?? 'Assigned location', recentSales, mpesaCounters },
   }
 }
