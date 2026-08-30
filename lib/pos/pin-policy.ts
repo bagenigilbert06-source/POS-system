@@ -7,3 +7,22 @@ export function validatePosPin(pin: string) {
   if (weakPins.has(pin)) return 'Choose a less predictable PIN'
   return null
 }
+
+export type PosPinCandidate = { userId: string; pinHash: string }
+
+/**
+ * Returns every owner whose stored hash matches a PIN. Callers must reject
+ * anything other than one match: accepting the first match would make a
+ * duplicate PIN authenticate an arbitrary cashier.
+ */
+export async function findPosPinOwners(
+  pin: string,
+  candidates: readonly PosPinCandidate[],
+  verify: (candidate: PosPinCandidate, pin: string) => Promise<boolean>
+) {
+  const owners: string[] = []
+  for (const candidate of candidates) {
+    if (await verify(candidate, pin)) owners.push(candidate.userId)
+  }
+  return owners
+}

@@ -1,6 +1,6 @@
 'use server';
 import { cookies, headers } from 'next/headers';
-import { and, eq, sql } from 'drizzle-orm';
+import { and, eq, ne, sql } from 'drizzle-orm';
 import { hashPassword, verifyPassword } from 'better-auth/crypto';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
@@ -29,6 +29,7 @@ import { generateId } from '@/lib/utils';
 import {
   POS_PIN_LOCK_MINUTES,
   POS_PIN_MAX_ATTEMPTS,
+  findPosPinOwners,
   validatePosPin,
 } from '@/lib/pos/pin-policy';
 import {
@@ -45,13 +46,33 @@ export async function setOwnPosPin(pin: string) {
   const error = validatePosPin(pin);
   if (error) throw new Error(error);
   const context = await requirePermission(PermissionEnum.POS_PIN_USE);
+  const activeCredentials = await db
+    .select({ userId: posPinCredential.userId, pinHash: posPinCredential.pinHash })
+    .from(posPinCredential)
+    .innerJoin(employee, eq(employee.userId, posPinCredential.userId))
+    .where(
+      and(
+        eq(employee.orgId, context.organizationId),
+        eq(employee.status, 'active'),
+        eq(posPinCredential.enabled, true),
+        ne(posPinCredential.userId, context.userId)
+      )
+    );
+  const existingOwners = await findPosPinOwners(
+    pin,
+    activeCredentials,
+    ({ pinHash }, value) => verifyPassword({ hash: pinHash, password: value })
+  );
+  if (existingOwners.length)
+    throw new Error('This PIN is already assigned to another active cashier');
+  const pinHash = await hashPassword(pin);
   await db
     .insert(posPinCredential)
-    .values({ userId: context.userId, pinHash: await hashPassword(pin) })
+    .values({ userId: context.userId, pinHash })
     .onConflictDoUpdate({
       target: posPinCredential.userId,
       set: {
-        pinHash: await hashPassword(pin),
+        pinHash,
         failedAttempts: 0,
         lockedUntil: null,
         enabled: true,
@@ -163,15 +184,9 @@ export async function registerCurrentPosTerminal(branchId: string) {
   const existing = await getTerminal();
   if (existing?.branchId === branchId) return { success: true };
   const token = newToken();
-  // Losing the httpOnly device cookie (for example after clearing browser
-  // storage) must not create another record when this branch has one known
-  // terminal. Preserve its history and rotate only its access token.
-  const branchTerminals = await db.select({ id: posTerminal.id }).from(posTerminal).where(and(eq(posTerminal.organizationId, context.organizationId), eq(posTerminal.branchId, branchId), eq(posTerminal.status, 'active')));
-  if (branchTerminals.length === 1) {
-    await db.update(posTerminal).set({ tokenHash: tokenHash(token), lastSeenAt: new Date() }).where(eq(posTerminal.id, branchTerminals[0].id));
-    (await cookies()).set(POS_TERMINAL_COOKIE, token, { ...posCookieOptions, maxAge: 60 * 60 * 24 * 30 });
-    return { success: true };
-  }
+  // A browser without a terminal cookie is a new POS device. Never rotate an
+  // existing branch terminal's token here: that would make two tills share a
+  // terminal identity and allow one cashier switch to affect the other till.
   await db
     .insert(posTerminal)
     .values({
@@ -620,8 +635,9 @@ export async function unlockPosWithStaffPin(userId: string, pin: string) {
 export async function unlockPosByPin(pin: string) {
   const terminal = await getTerminal();
   if (!terminal) return { success: false, error: 'Terminal access not allowed' };
-  const candidates = await db.select({ userId: posPinCredential.userId, pinHash: posPinCredential.pinHash }).from(posPinCredential).innerJoin(employee, eq(employee.userId, posPinCredential.userId)).where(and(eq(employee.orgId, terminal.organizationId), eq(employee.status, 'active'), eq(posPinCredential.enabled, true)));
-  for (const candidate of candidates) if (await verifyPassword({ hash: candidate.pinHash, password: pin })) return unlockPosWithPin(candidate.userId, pin);
+  const candidates = await db.select({ userId: posPinCredential.userId, pinHash: posPinCredential.pinHash }).from(posPinCredential).innerJoin(employee, eq(employee.userId, posPinCredential.userId)).innerJoin(branchMembership, eq(branchMembership.userId, posPinCredential.userId)).where(and(eq(employee.orgId, terminal.organizationId), eq(employee.status, 'active'), eq(posPinCredential.enabled, true), eq(branchMembership.branchId, terminal.branchId)));
+  const owners = await findPosPinOwners(pin, candidates, ({ pinHash }, value) => verifyPassword({ hash: pinHash, password: value }));
+  if (owners.length === 1) return unlockPosWithPin(owners[0], pin);
   return { success: false, error: 'Invalid PIN or you are not authorized to use this terminal.' };
 }
 
