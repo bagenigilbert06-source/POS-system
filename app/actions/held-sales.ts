@@ -11,6 +11,8 @@ import { PermissionEnum } from '@/lib/types/permissions'
 import { generateId } from '@/lib/utils'
 import { canAccessHeldSale, heldSaleExpired, heldSalePriceChanged } from '@/lib/pos/held-sale-policy'
 
+const OPEN_SHIFT_REQUIRED = 'Open a shift before using held sales'
+
 const heldItemSchema = z.object({
   productId: z.string().min(1),
   productName: z.string().trim().min(1).max(240),
@@ -60,7 +62,7 @@ async function heldSaleContext() {
     ))
     .orderBy(desc(posSession.openedAt))
     .limit(1)
-  if (!session?.branchId) throw new Error('Open a shift before using held sales')
+  if (!session?.branchId) throw new Error(OPEN_SHIFT_REQUIRED)
   return { authorization, session, terminalId: pos?.terminalId ?? session.terminalId }
 }
 
@@ -95,23 +97,33 @@ async function expireHeldSales(organizationId: string, branchId: string, userId:
 }
 
 export async function listHeldSales() {
-  const { authorization, session } = await heldSaleContext()
-  const now = new Date()
-  const [, rows] = await Promise.all([
-    expireHeldSales(authorization.organizationId, session.branchId!, authorization.userId),
-    db.select({ record: suspendedSale, cashierName: user.name })
-      .from(suspendedSale)
-      .leftJoin(user, eq(user.id, suspendedSale.cashierId))
-      .where(and(
-        eq(suspendedSale.organizationId, authorization.organizationId),
-        eq(suspendedSale.branchId, session.branchId!),
-        eq(suspendedSale.status, 'HELD'),
-        gt(suspendedSale.expiresAt, now),
-      ))
-      .orderBy(desc(suspendedSale.createdAt))
-      .limit(100),
-  ])
-  return rows.map(({ record, cashierName }) => asHeldSale({ ...record, cashierName }))
+  try {
+    const { authorization, session } = await heldSaleContext()
+    const now = new Date()
+    const [, rows] = await Promise.all([
+      expireHeldSales(authorization.organizationId, session.branchId!, authorization.userId),
+      db.select({ record: suspendedSale, cashierName: user.name })
+        .from(suspendedSale)
+        .leftJoin(user, eq(user.id, suspendedSale.cashierId))
+        .where(and(
+          eq(suspendedSale.organizationId, authorization.organizationId),
+          eq(suspendedSale.branchId, session.branchId!),
+          eq(suspendedSale.status, 'HELD'),
+          gt(suspendedSale.expiresAt, now),
+        ))
+        .orderBy(desc(suspendedSale.createdAt))
+        .limit(100),
+    ])
+    return rows.map(({ record, cashierName }) => asHeldSale({ ...record, cashierName }))
+  } catch (error) {
+    // This read is started automatically when the POS mounts. A terminal that
+    // has not opened a shift yet simply has no accessible held-sale queue;
+    // returning an empty list avoids surfacing a production Server Component
+    // error to the cashier.
+    if (error instanceof Error && error.message === OPEN_SHIFT_REQUIRED)
+      return []
+    throw error
+  }
 }
 
 export async function holdSaleOnServer(input: z.input<typeof heldSaleInputSchema>) {

@@ -3106,6 +3106,10 @@ export function POSTerminal({
       setShowSalesHistory(true);
       return;
     }
+    if (!hasActiveShift) {
+      notify.error('Start a shift before viewing held sales');
+      return;
+    }
     setShowHeldSales(true);
     void refreshHeldSales();
   };
@@ -4196,7 +4200,7 @@ export function POSTerminal({
               <button
                 type="button"
                 onClick={openHeldOrders}
-                disabled={!canHold}
+                disabled={!canHold || !hasActiveShift}
                 className="h-8 shrink-0 rounded-md border border-[#092C4C] bg-[#092C4C] px-3 text-xs font-semibold text-white transition-colors hover:border-[#05192C] hover:bg-[#05192C] disabled:opacity-45"
               >
                 View Orders{heldSales.length ? ` (${heldSales.length})` : ''}
@@ -6861,7 +6865,7 @@ export function POSTerminal({
             <button
               type="button"
               onClick={openHeldOrders}
-              disabled={!canHold}
+              disabled={!canHold || !hasActiveShift}
               title="Open and resume held sales"
               className="relative inline-flex shrink-0 items-center justify-center gap-2 rounded-[5px] border border-[#092C4C] bg-[#092C4C] px-[0.85rem] py-[0.4rem] text-[0.85rem] font-semibold leading-normal text-white shadow-[0_4px_20px_rgba(9,44,76,0.15)] transition-all duration-500 hover:border-[#05192C] hover:bg-[#05192C] hover:shadow-[0_3px_10px_rgba(9,44,76,0.5)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#092C4C]/40 disabled:cursor-not-allowed disabled:opacity-50"
             >
