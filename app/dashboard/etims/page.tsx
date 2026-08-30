@@ -12,7 +12,7 @@ import { EtimsCreditRetryButton, EtimsRetryButton } from '@/components/etims/eti
 import { EmptyState } from '@/components/ui/empty-state'
 import { FilterFields, FilterPanel } from '@/components/ui/filter-panel'
 import { formatCurrency, formatDateTime } from '@/lib/utils'
-import { getEtimsProviderCapabilities } from '@/lib/etims/provider-factory'
+import { getEtimsProviderCapabilities, isGavaConnectSandboxConfigured } from '@/lib/etims/provider-factory'
 
 export const metadata = { title: 'eTIMS | Pesaby' }
 export const dynamic = 'force-dynamic'
@@ -21,6 +21,8 @@ const tabs = [['overview', 'Overview'], ['invoices', 'Fiscal invoices'], ['excep
 type Dashboard = Awaited<ReturnType<typeof getEtimsDashboard>>
 type Configuration = { connectionStatus: string; environment: string; integrationMethod: string; businessKraPin: string | null; externalBranchId: string | null; deviceId: string | null; lastConnectionSuccessAt: Date | null; lastConnectionTestAt: Date | null }
 function one(value: string | string[] | undefined) { return Array.isArray(value) ? value[0] : value }
+function maskPin(value: string | null) { if (!value) return 'Not provided'; if (value.length <= 4) return '••••'; return `${value.slice(0, 3)}${'•'.repeat(Math.max(4, value.length - 5))}${value.slice(-2)}` }
+function shortDevice(value: string | null) { if (!value) return 'Not assigned yet'; return value.length > 24 ? `${value.slice(0, 15)}…${value.slice(-4)}` : value }
 
 export default async function EtimsPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const auth = await requireDashboardPermission(PermissionEnum.ETIMS_VIEW)
@@ -59,7 +61,7 @@ export default async function EtimsPage({ searchParams }: { searchParams: Promis
     {tab === 'overview' && config && <ConfiguredOverview dashboard={dashboard} config={config} branchName={branches.find((item) => item.id === branchId)?.name} branchId={branchId} canConfigure={canConfigure}/>}
     {(tab === 'invoices' || tab === 'exceptions') && <><Filters branchId={branchId} params={params} tab={tab}/><InvoiceTable rows={dashboard.rows} canRetry={canRetry} empty={tab === 'exceptions' ? 'Everything looks good. There are no operational fiscal exceptions.' : 'No fiscal invoices yet. Fiscal invoices will appear after completed sales are submitted.'}/><Pagination page={dashboard.pagination.page} pages={dashboard.pagination.pages} tab={tab} branchId={branchId}/></>}
     {tab === 'credits' && <CreditTable rows={dashboard.creditRows} canRetry={canRetry}/>}
-    {tab === 'settings' && (canConfigure ? <EtimsConfigurationPanel branches={branches} configurations={safeConfigs} selectedBranchId={branchId} capabilities={getEtimsProviderCapabilities({ providerName: config?.providerName ?? 'mock' })}/> : <section className="app-panel p-6 text-xs text-muted-foreground">You do not have permission to change branch fiscal settings.</section>)}
+    {tab === 'settings' && (canConfigure ? <EtimsConfigurationPanel branches={branches} configurations={safeConfigs} selectedBranchId={branchId} capabilities={getEtimsProviderCapabilities({ providerName: config?.providerName ?? 'mock' })} providerCredentialsConfigured={isGavaConnectSandboxConfigured()}/> : <section className="app-panel p-6 text-xs text-muted-foreground">You do not have permission to change branch fiscal settings.</section>)}
   </div>
 }
 
@@ -83,17 +85,20 @@ function ConfiguredOverview({ dashboard, config, branchName, branchId, canConfig
     <Connection config={config} branchName={branchName} canConfigure={canConfigure} branchId={branchId}/>
     <div className="grid grid-cols-2 gap-3 md:grid-cols-5"><Metric label="Fiscal invoices today" value={dashboard.summary.submittedToday}/><Metric label="Accepted" value={dashboard.summary.accepted} tone="success"/><Metric label="Pending" value={Number(dashboard.summary.pending) + Number(dashboard.summary.retrying)} tone="warning"/><Metric label="Failed" value={dashboard.summary.failed} tone="error"/><Metric label="Credit notes" value={dashboard.summary.creditNotes}/></div>
     <div className="grid gap-3 md:grid-cols-2"><Money label="Accepted sales value" value={Number(dashboard.summary.acceptedValue)}/><Money label="Accepted tax" value={Number(dashboard.summary.acceptedTax)}/></div>
+    {!['CONNECTED', 'SANDBOX'].includes(config.connectionStatus) && <p className="text-xs text-muted-foreground">Fiscal transmission is not active yet.</p>}
     <div className="grid gap-3 lg:grid-cols-2"><FiscalConnectionCard config={config} branchName={branchName} branchId={branchId}/><ProductReadiness readiness={dashboard.readiness}/></div>
-    <Attention summary={dashboard.summary} readiness={dashboard.readiness} branchId={branchId}/>
+    <Attention summary={dashboard.summary} readiness={dashboard.readiness} branchId={branchId} connectionStatus={config.connectionStatus}/>
     <RecentInvoices rows={dashboard.rows.slice(0, 5)} branchId={branchId}/>
   </div>
 }
 
 function Connection({ config, branchName, canConfigure, branchId }: { config: Configuration; branchName?: string; canConfigure: boolean; branchId?: string }) {
   const connected = config.connectionStatus === 'CONNECTED'; const sandbox = config.connectionStatus === 'SANDBOX'; const failed = config.connectionStatus === 'ERROR'
-  const label = connected ? 'Connected to KRA' : sandbox ? 'Test connection verified' : failed ? 'Connection needs attention' : 'Connection verification pending'
+  const onboarding = config.connectionStatus === 'PORTAL_ONBOARDING_REQUIRED'
+  const label = connected ? 'Connected to KRA' : sandbox ? 'Development simulator' : failed ? 'Connection needs attention' : onboarding ? 'OSCU onboarding required' : 'Connection verification pending'
+  const subtitle = onboarding ? 'Complete KRA authorization before connecting this branch.' : `${config.environment === 'production' ? 'Production' : 'Test environment'} · ${config.integrationMethod} · ${branchName}`
   return <section className={`app-panel flex flex-wrap items-center justify-between gap-3 px-4 py-3 ${connected ? 'bg-emerald-500/[0.04]' : failed ? 'border-red-500/30 bg-red-500/[0.04]' : 'border-amber-500/25 bg-amber-500/[0.04]'}`}>
-    <div className="flex gap-2.5">{connected ? <CheckCircle2 className="h-4 w-4 text-emerald-600"/> : sandbox ? <Clock3 className="h-4 w-4 text-amber-600"/> : <CircleDot className={`h-4 w-4 ${failed ? 'text-red-600' : 'text-amber-600'}`}/>}<div><p className="text-sm font-semibold">{label}</p><p className="mt-0.5 text-[11px] text-muted-foreground">{config.environment === 'production' ? 'Production' : 'Test environment'} · {config.integrationMethod} · {branchName}</p>{config.lastConnectionSuccessAt && <p className="mt-0.5 text-[11px] text-muted-foreground">Last successful verification {formatDateTime(config.lastConnectionSuccessAt)}</p>}</div></div>
+    <div className="flex gap-2.5">{connected ? <CheckCircle2 className="h-4 w-4 text-emerald-600"/> : sandbox ? <Clock3 className="h-4 w-4 text-amber-600"/> : <CircleDot className={`h-4 w-4 ${failed ? 'text-red-600' : 'text-amber-600'}`}/>}<div><p className="text-sm font-semibold">{label}</p><p className="mt-0.5 text-[11px] text-muted-foreground">{subtitle}</p>{config.lastConnectionSuccessAt && <p className="mt-0.5 text-[11px] text-muted-foreground">Last successful verification {formatDateTime(config.lastConnectionSuccessAt)}</p>}</div></div>
     {canConfigure && <Link href={`?tab=settings&branch=${branchId ?? ''}`} className="rounded-md border px-3 py-1.5 text-xs font-semibold">Manage connection</Link>}
   </section>
 }
@@ -101,19 +106,19 @@ function Connection({ config, branchName, canConfigure, branchId }: { config: Co
 function FiscalConnectionCard({ config, branchName, branchId }: { config: Configuration; branchName?: string; branchId?: string }) {
   const connected = ['CONNECTED', 'SANDBOX'].includes(config.connectionStatus)
   return <section className="app-panel p-4"><div className="flex items-start justify-between"><div><h2 className="text-sm font-semibold">Fiscal connection</h2><p className={`mt-1 text-xs font-semibold ${connected ? 'text-emerald-600' : config.connectionStatus === 'ERROR' ? 'text-red-600' : 'text-amber-600'}`}>● {config.connectionStatus.replaceAll('_', ' ')}</p></div><Settings2 className="h-4 w-4 text-muted-foreground"/></div>
-    <dl className="mt-3 grid grid-cols-2 gap-x-5 gap-y-2 text-xs"><div><dt className="text-muted-foreground">Environment</dt><dd className="mt-0.5 font-medium">{config.environment === 'production' ? 'Production' : 'Test'} · {config.integrationMethod}</dd></div><div><dt className="text-muted-foreground">KRA PIN</dt><dd className="mt-0.5 font-medium">{config.businessKraPin ?? '—'}</dd></div><div><dt className="text-muted-foreground">Branch</dt><dd className="mt-0.5 font-medium">{config.externalBranchId ?? '—'} · {branchName}</dd></div><div><dt className="text-muted-foreground">Device identifier</dt><dd className="mt-0.5 truncate font-medium">{config.deviceId ?? '—'}</dd></div></dl>
+    <dl className="mt-3 grid grid-cols-2 gap-x-5 gap-y-2 text-xs"><div><dt className="text-muted-foreground">Environment</dt><dd className="mt-0.5 font-medium">{config.environment === 'production' ? 'Production' : 'Test'} · {config.integrationMethod}</dd></div><div><dt className="text-muted-foreground">KRA PIN</dt><dd className="mt-0.5 font-medium">{maskPin(config.businessKraPin)}</dd></div><div><dt className="text-muted-foreground">eTIMS branch</dt><dd className="mt-0.5 font-medium">{config.externalBranchId ? `${config.externalBranchId} · ${branchName}` : 'Awaiting KRA authorization'}</dd></div><div><dt className="text-muted-foreground">Device</dt><dd className="mt-0.5 truncate font-medium" title={config.deviceId ?? undefined}>{shortDevice(config.deviceId)}</dd></div></dl>
     <Link href={`?tab=settings&branch=${branchId ?? ''}`} className="mt-4 inline-flex text-xs font-semibold text-primary">Manage connection →</Link>
   </section>
 }
 
 function ProductReadiness({ readiness, compact = false }: { readiness: Dashboard['readiness']; compact?: boolean }) {
   const missing = Math.max(0, readiness.total - readiness.ready)
-  return <section className={`app-panel ${compact ? 'p-4' : 'p-4'}`}><div className="flex items-start justify-between"><div><h2 className="text-sm font-semibold">Product readiness</h2><p className="mt-2 text-xl font-bold tabular-nums">{readiness.ready} of {readiness.total} ready</p><p className={`mt-1 text-xs ${missing ? 'text-amber-600' : 'text-muted-foreground'}`}>{missing ? `${missing} products require fiscal configuration` : 'All active products are fiscally ready'}</p></div><Box className="h-4 w-4 text-muted-foreground"/></div><Link href="/dashboard/products?fiscal=attention" className="mt-4 inline-flex text-xs font-semibold text-primary">Review products →</Link></section>
+  return <section className={`app-panel ${compact ? 'p-4' : 'p-4'}`}><div className="flex items-start justify-between"><div><h2 className="text-sm font-semibold">Product readiness</h2><p className="mt-2 text-xl font-bold tabular-nums">{readiness.ready} of {readiness.total} ready</p><p className={`mt-1 text-xs ${missing ? 'text-amber-600' : 'text-muted-foreground'}`}>{missing ? `${missing} products require fiscal configuration` : 'All active products are fiscally ready'}</p></div><Box className="h-4 w-4 text-muted-foreground"/></div><Link href="/dashboard/products?fiscal=attention" className="mt-4 inline-flex rounded-md border px-3 py-1.5 text-xs font-semibold text-foreground transition-colors hover:bg-muted">Review products →</Link></section>
 }
 
-function Attention({ summary, readiness, branchId }: { summary: Dashboard['summary']; readiness: Dashboard['readiness']; branchId?: string }) {
-  const failed = Number(summary.failed); const retrying = Number(summary.retrying); const missing = Math.max(0, readiness.total - readiness.ready); const total = failed + retrying + missing
-  return <section className="app-panel p-4"><div className="flex items-start justify-between gap-4"><div><h2 className="text-sm font-semibold">Needs attention</h2>{total === 0 ? <><p className="mt-2 text-sm font-medium text-emerald-600">Everything looks good</p><p className="mt-0.5 text-xs text-muted-foreground">No eTIMS issues require attention.</p></> : <div className="mt-2 space-y-1 text-xs">{failed > 0 && <p><span className="font-semibold text-red-600">{failed} failed fiscal {failed === 1 ? 'invoice' : 'invoices'}</span> · <Link href={`?tab=exceptions&branch=${branchId ?? ''}`} className="font-semibold text-primary">View exceptions →</Link></p>}{retrying > 0 && <p><span className="font-semibold text-amber-600">{retrying} pending retry</span> · <Link href={`?tab=exceptions&branch=${branchId ?? ''}`} className="font-semibold text-primary">Review →</Link></p>}{missing > 0 && <p><span className="font-semibold text-amber-600">{missing} products need fiscal configuration</span> · <Link href="/dashboard/products?fiscal=attention" className="font-semibold text-primary">Review products →</Link></p>}</div>}</div>{total > 0 && <span className="rounded-full bg-amber-500/10 px-2.5 py-1 text-xs font-bold text-amber-600">{total} items</span>}</div></section>
+function Attention({ summary, readiness, branchId, connectionStatus }: { summary: Dashboard['summary']; readiness: Dashboard['readiness']; branchId?: string; connectionStatus: string }) {
+  const failed = Number(summary.failed); const retrying = Number(summary.retrying); const missing = Math.max(0, readiness.total - readiness.ready); const onboarding = connectionStatus === 'PORTAL_ONBOARDING_REQUIRED'; const total = failed + retrying + missing + (onboarding ? 1 : 0)
+  return <section className="app-panel p-4"><div className="flex items-start justify-between gap-4"><div><h2 className="text-sm font-semibold">Needs attention</h2>{total === 0 ? <><p className="mt-2 text-sm font-medium text-emerald-600">Everything looks good</p><p className="mt-0.5 text-xs text-muted-foreground">No eTIMS issues require attention.</p></> : <div className="mt-2 space-y-1 text-xs">{onboarding && <p className="text-muted-foreground">OSCU onboarding is incomplete</p>}{failed > 0 && <p><span className="font-semibold text-red-600">{failed} failed fiscal {failed === 1 ? 'invoice' : 'invoices'}</span> · <Link href={`?tab=exceptions&branch=${branchId ?? ''}`} className="font-semibold text-primary">View exceptions →</Link></p>}{retrying > 0 && <p><span className="font-semibold text-amber-600">{retrying} pending retry</span> · <Link href={`?tab=exceptions&branch=${branchId ?? ''}`} className="font-semibold text-primary">Review →</Link></p>}{missing > 0 && <p><span className="font-semibold text-amber-600">{missing} products need fiscal configuration</span> · <Link href="/dashboard/products?fiscal=attention" className="font-semibold text-primary">Review products →</Link></p>}</div>}</div>{total > 0 && <span className="rounded-full bg-amber-500/10 px-2.5 py-1 text-xs font-bold text-amber-600">{total} items</span>}</div></section>
 }
 
 function RecentInvoices({ rows, branchId }: { rows: Dashboard['rows']; branchId?: string }) {

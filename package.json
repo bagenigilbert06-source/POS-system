@@ -28,6 +28,7 @@
     "test:mpesa": "ts-node --project tsconfig.test.json tests/mpesa-rules.test.ts",
     "test:rewards": "ts-node --project tsconfig.test.json tests/reward-rules.test.ts && node tests/reward-migration.test.mjs",
     "test:etims": "ts-node --project tsconfig.test.json tests/etims-rules.test.ts",
+    "test:gavaconnect-auth": "node scripts/test-gavaconnect-auth.mjs",
     "test:offline-pos": "ts-node --project tsconfig.test.json tests/offline-pos-rules.test.ts",
     "test:offline-pos-db": "node --test tests/offline-pos-db.integration.mjs",
     "test:held-sales": "ts-node --project tsconfig.test.json tests/held-sale-rules.test.ts",

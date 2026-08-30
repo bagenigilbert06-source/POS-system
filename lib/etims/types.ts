@@ -121,6 +121,7 @@ export interface EtimsProvider {
   authenticate(): Promise<void>
   validateConfiguration(): Promise<{ valid: boolean; message: string }>
   healthCheck(): Promise<{ ok: boolean; message: string; latencyMs: number }>
+  initializeDevice?(input: { taxpayerPin: string; branchId: string; deviceSerial: string }): Promise<{ ok: boolean; code?: string; message?: string; identifiers?: Record<string, string> }>
   /** Verifies OSCU integration authorization without persisting the token. */
   verifyIntegrationAuthorization?(input: { businessKraPin: string; integrationToken: string }): Promise<{ ok: boolean; code?: string; message?: string }>
   submitInvoice(invoice: EtimsInvoice): Promise<EtimsProviderResult>

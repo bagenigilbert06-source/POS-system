@@ -9,7 +9,7 @@ import type { EtimsProviderCapabilities } from '@/lib/etims/types'
 type Branch = { id: string; name: string; code: string }
 type SafeConfiguration = { branchId: string; enabled: boolean; environment: 'sandbox' | 'production'; integrationMethod: 'OSCU' | 'VSCU'; businessKraPin: string; externalBranchId: string; vatRegistered: boolean; providerName: string; deviceId: string; connectionStatus: string; lastConnectionTestAt: Date | null }
 
-export function EtimsConfigurationPanel({ branches, configurations, selectedBranchId, capabilities }: { branches: Branch[]; configurations: SafeConfiguration[]; selectedBranchId?: string; capabilities: EtimsProviderCapabilities }) {
+export function EtimsConfigurationPanel({ branches, configurations, selectedBranchId, capabilities, providerCredentialsConfigured }: { branches: Branch[]; configurations: SafeConfiguration[]; selectedBranchId?: string; capabilities: EtimsProviderCapabilities; providerCredentialsConfigured: boolean }) {
   const branchId = selectedBranchId ?? branches[0]?.id ?? ''
   const existing = useMemo(() => configurations.find((item) => item.branchId === branchId), [branchId, configurations])
   const [environment, setEnvironment] = useState<'sandbox' | 'production'>(existing?.environment ?? 'sandbox')
@@ -38,7 +38,7 @@ export function EtimsConfigurationPanel({ branches, configurations, selectedBran
         <label className="text-xs font-semibold text-muted-foreground">Integration method<select value={method} onChange={(e) => setMethod(e.target.value as 'OSCU'|'VSCU')} className={input}><option value="OSCU">OSCU</option><option value="VSCU">VSCU</option></select></label>
         <label className="text-xs font-semibold text-muted-foreground">Environment<select value={environment} onChange={(e) => setEnvironment(e.target.value as 'sandbox'|'production')} className={input}><option value="sandbox">KRA / provider test</option><option value="production">Production</option></select></label>
         <label className="flex items-center gap-3 self-end rounded-lg border px-3 py-2.5 text-sm"><input type="checkbox" checked={vatRegistered} onChange={(e) => setVatRegistered(e.target.checked)} className="accent-primary" />VAT registered</label>
-        <div className="self-end rounded-lg border px-3 py-2"><p className="text-xs font-semibold">Credentials</p><p className="mt-1 flex items-center gap-1.5 text-xs text-emerald-600"><ShieldCheck className="h-3.5 w-3.5" />Configured securely</p></div>
+        <div className="self-end rounded-lg border px-3 py-2"><p className="text-xs font-semibold">Credentials</p><p className="mt-1 flex items-center gap-1.5 text-xs text-emerald-600"><ShieldCheck className="h-3.5 w-3.5" />{providerCredentialsConfigured ? 'Configured securely' : 'Not configured'}</p></div>
       </div>
       <div className="rounded-lg border border-amber-300/50 bg-amber-500/[0.06] p-4"><p className="text-xs font-semibold">Integration authorization</p><p className="mt-1 text-xs text-muted-foreground">Complete the OSCU service request in the KRA eTIMS Taxpayer Portal before connecting this branch.</p><p className="mt-2 text-xs font-medium text-amber-700">External OSCU onboarding required</p></div>
       {environment === 'sandbox' && <p className="rounded-lg border border-amber-300/50 bg-amber-500/10 px-3 py-2 text-xs text-amber-800 dark:text-amber-200">Test environment. Records are not KRA production fiscal invoices.</p>}

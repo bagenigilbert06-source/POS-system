@@ -1,9 +1,14 @@
 import { MockEtimsProvider, type MockEtimsScenario } from './providers/mock-provider'
+import { GavaConnectSandboxProvider } from './providers/gavaconnect-sandbox-provider'
 import { EtimsValidationError, type EtimsConfigurationSnapshot, type EtimsProvider, type EtimsProviderCapabilities } from './types'
 
 export function getEtimsProviderCapabilities(configuration: Pick<EtimsConfigurationSnapshot, 'providerName'>): EtimsProviderCapabilities {
   const runtime = configuration.providerName === 'mock'
   return { supportsIntegrationAuthorizationVerification: false, supportsBranchDiscovery: false, supportsDeviceInitialization: false, supportsConnectionTest: runtime, supportsSalesSubmission: runtime, supportsCreditNotes: runtime }
+}
+
+export function isGavaConnectSandboxConfigured() {
+  return Boolean(process.env.GAVACONNECT_CONSUMER_KEY && process.env.GAVACONNECT_CONSUMER_SECRET)
 }
 
 const SECRET_REFERENCE = /^[A-Z][A-Z0-9_]{2,127}$/
@@ -23,6 +28,11 @@ export function createEtimsProvider(configuration: EtimsConfigurationSnapshot): 
     }
     const scenario = String(configuration.tokenConfiguration.mockScenario ?? 'success') as MockEtimsScenario
     return new MockEtimsProvider(configuration, scenario)
+  }
+  if (configuration.providerName === 'gavaconnect-sandbox') {
+    if (configuration.environment !== 'sandbox') throw new EtimsValidationError('GavaConnect sandbox cannot be used in production', 'GAVACONNECT_SANDBOX_PRODUCTION_BLOCKED')
+    if (!isGavaConnectSandboxConfigured()) throw new EtimsValidationError('GavaConnect sandbox credentials are not configured', 'GAVACONNECT_NOT_CONFIGURED')
+    return new GavaConnectSandboxProvider(configuration)
   }
 
   // A real provider adapter must be implemented from its certified, versioned
