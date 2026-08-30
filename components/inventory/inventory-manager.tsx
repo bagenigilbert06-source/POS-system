@@ -1114,6 +1114,7 @@ export function InventoryManager({
                       type: String(form.get('type')) as
                         | 'stocktake'
                         | 'breakage'
+                        | 'spillage'
                         | 'damage'
                         | 'missing'
                         | 'theft_loss'
@@ -1251,6 +1252,7 @@ export function InventoryManager({
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="breakage">Breakage</SelectItem>
+                    <SelectItem value="spillage">Spillage</SelectItem>
                     <SelectItem value="damage">Damage</SelectItem>
                     <SelectItem value="missing">Missing stock</SelectItem>
                     <SelectItem value="theft_loss">Theft / loss</SelectItem>

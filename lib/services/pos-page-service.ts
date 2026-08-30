@@ -52,7 +52,7 @@ export async function getPosPageData(authorization: AuthorizationContext, includ
   const activeSession = sessionRows[0] ?? null
   const [[terminal], [cashier]] = activeSession
     ? await Promise.all([
-      activeSession.terminalId ? db.select({ name: posTerminal.name }).from(posTerminal).where(eq(posTerminal.id, activeSession.terminalId)).limit(1) : Promise.resolve([]),
+      activeSession.terminalId ? db.select({ name: posTerminal.name, printingMode: posTerminal.printingMode, printerDisplayName: posTerminal.printerDisplayName, printerIdentifier: posTerminal.printerIdentifier, paperWidth: posTerminal.paperWidth, autoPrint: posTerminal.autoPrint, receiptCopies: posTerminal.receiptCopies, cashDrawerPulse: posTerminal.cashDrawerPulse }).from(posTerminal).where(eq(posTerminal.id, activeSession.terminalId)).limit(1) : Promise.resolve([]),
       db.select({ name: user.name }).from(user).where(eq(user.id, activeSession.openedBy)).limit(1),
     ])
     : [[], []]
@@ -93,7 +93,7 @@ export async function getPosPageData(authorization: AuthorizationContext, includ
     else if (status === 'reconciliation_required') mpesaCounters.reconciliationRequired += count
   }
   return {
-    products: branchProducts, categories: posCategories, customers, settings: receiptSettings(settingsRows[0]), activeBranch: branchRows[0] ?? null,
+    products: branchProducts, categories: posCategories, customers, settings: { ...receiptSettings(settingsRows[0]), ...(terminal ? { receiptPrintingMode: terminal.printingMode === 'direct' ? 'direct' as const : 'browser' as const, receiptPrinterName: terminal.printerIdentifier || terminal.printerDisplayName || '', receiptPaperWidth: terminal.paperWidth === 58 ? 58 as const : 80 as const, receiptAutoPrint: terminal.autoPrint, receiptPrintCopies: Math.max(1, Math.min(3, terminal.receiptCopies)), receiptCashDrawerPulse: terminal.cashDrawerPulse } : {}) }, activeBranch: branchRows[0] ?? null,
     pinSet: Boolean(pinRows[0]?.enabled),
     cashierWorkspace: { session: activeSession, registerName: terminal?.name ?? activeSession?.sessionNo ?? null, cashierName: cashier?.name ?? null, shiftSales: Number(summary?.total ?? 0) - Number(refunds?.total ?? 0), transactionCount: Number(summary?.count ?? 0), cashMovementCount: Number(movements?.count ?? 0), locationName: branchRows[0]?.name ?? 'Assigned location', recentSales, mpesaCounters },
   }

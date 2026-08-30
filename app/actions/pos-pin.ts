@@ -163,6 +163,15 @@ export async function registerCurrentPosTerminal(branchId: string) {
   const existing = await getTerminal();
   if (existing?.branchId === branchId) return { success: true };
   const token = newToken();
+  // Losing the httpOnly device cookie (for example after clearing browser
+  // storage) must not create another record when this branch has one known
+  // terminal. Preserve its history and rotate only its access token.
+  const branchTerminals = await db.select({ id: posTerminal.id }).from(posTerminal).where(and(eq(posTerminal.organizationId, context.organizationId), eq(posTerminal.branchId, branchId), eq(posTerminal.status, 'active')));
+  if (branchTerminals.length === 1) {
+    await db.update(posTerminal).set({ tokenHash: tokenHash(token), lastSeenAt: new Date() }).where(eq(posTerminal.id, branchTerminals[0].id));
+    (await cookies()).set(POS_TERMINAL_COOKIE, token, { ...posCookieOptions, maxAge: 60 * 60 * 24 * 30 });
+    return { success: true };
+  }
   await db
     .insert(posTerminal)
     .values({

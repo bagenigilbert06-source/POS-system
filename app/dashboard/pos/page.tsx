@@ -76,6 +76,7 @@ export default async function POSPage() {
         canHold={operator.permissions.includes(PermissionEnum.POS_HOLD)}
         canRedeemRewards={operator.permissions.includes(PermissionEnum.REWARDS_REDEEM)}
         canApproveRestricted={operator.permissions.includes(PermissionEnum.PHARMACY_RESTRICTED_APPROVE)}
+        canOverrideAgeVerification={operator.permissions.includes(PermissionEnum.AGE_VERIFICATION_OVERRIDE)}
         receiptContext={{
           cashierName: currentSession?.user?.name || undefined,
           registerName: data.cashierWorkspace.registerName,

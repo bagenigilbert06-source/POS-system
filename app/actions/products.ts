@@ -664,6 +664,7 @@ export async function createProduct(data: {
   volume?: number;
   volumeUnit?: string;
   abv?: number;
+  requiresAgeVerification?: boolean;
   countryOfOrigin?: string;
   unitsPerPack?: number;
   preferredSupplierId?: string;
@@ -852,6 +853,7 @@ export async function updateProduct(
     volume: number;
     volumeUnit: string;
     abv: number;
+    requiresAgeVerification: boolean;
     countryOfOrigin: string;
     unitsPerPack: number;
     preferredSupplierId: string;

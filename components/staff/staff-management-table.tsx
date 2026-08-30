@@ -346,11 +346,11 @@ export function StaffManagementTable({
           { label: 'Total Employee', value: summary.total, icon: Users, card: 'var(--dashboard-accent-cta)', iconBg: 'var(--dashboard-accent-soft-border)', ink: 'var(--dashboard-accent-cta-ink)' },
           { label: 'Active', value: summary.active, icon: UserCheck, card: 'var(--dashboard-success)', iconBg: 'var(--dashboard-success-soft-border)', ink: '#fff' },
           { label: 'Inactive', value: summary.inactive, icon: UserX, card: 'var(--dashboard-danger)', iconBg: 'var(--dashboard-danger-soft-border)', ink: '#fff' },
-          { label: 'New Joiners', value: summary.newJoiners, icon: UserPlus, card: 'var(--dashboard-accent-strong)', iconBg: 'var(--dashboard-accent-soft-border)', ink: 'var(--dashboard-accent-cta-ink)' },
+          { label: 'New Joiners', value: summary.newJoiners, icon: UserPlus, card: 'var(--dashboard-accent-cta)', iconBg: 'var(--dashboard-accent-soft-border)', ink: 'var(--dashboard-accent-cta-ink)' },
         ].map(({ label, value, icon: Icon, card, iconBg, ink }) => (
           <div key={label} style={{ backgroundColor: card, color: ink }} className="flex min-h-[90px] items-center justify-between rounded-lg p-5">
             <div className="min-w-0"><p className="truncate text-sm font-normal">{label}</p><p className="mt-1 text-xl font-bold leading-none">{value}</p></div>
-            <span style={{ backgroundColor: iconBg }} className="flex h-12 w-12 shrink-0 items-center justify-center rounded"><Icon className="h-5 w-5" aria-hidden="true" /></span>
+            <span style={{ color: ink }} className="flex h-12 w-12 shrink-0 items-center justify-center bg-transparent"><Icon className="h-5 w-5" aria-hidden="true" /></span>
           </div>
         ))}
       </div>
@@ -531,7 +531,7 @@ export function StaffManagementTable({
                       <h3 className="mb-1 max-w-full truncate text-sm font-semibold text-[var(--dashboard-text)]">
                         {employee.name}
                       </h3>
-                      <span className="rounded bg-[var(--dashboard-surface-subtle)] px-2 py-1 text-[10px] font-medium text-[var(--dashboard-text)]">
+                      <span className="inline-flex min-h-6 items-center rounded-md border border-[var(--dashboard-accent-soft-border)] bg-[var(--dashboard-accent-soft)] px-2.5 py-1 text-xs font-semibold text-[var(--dashboard-accent-strong)] shadow-sm">
                         {roleLabel(employee.role)}
                       </span>
                     </div>

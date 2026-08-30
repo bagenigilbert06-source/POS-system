@@ -2,11 +2,11 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import type { Metadata } from 'next'
 import { and, eq, inArray, sql } from 'drizzle-orm'
-import { AlertTriangle, BarChart3, Boxes, CalendarDays, CreditCard, Package, ReceiptText, TrendingUp, UsersRound, WalletCards } from 'lucide-react'
+import { AlertTriangle, BarChart3, Boxes, CalendarDays, CreditCard, Package, ReceiptText, ShieldCheck, TrendingUp, UsersRound, WalletCards } from 'lucide-react'
 import { db } from '@/lib/db'
 import { branch } from '@/lib/db/schema'
 import { OrganizationService } from '@/lib/services/organization-service'
-import { getReportsOverview, getReportShifts, type ReportsOverview } from '@/lib/services/reports-service'
+import { getAgeVerificationReport, getReportsOverview, getReportShifts, type ReportsOverview } from '@/lib/services/reports-service'
 import { formatCurrency, formatNumber } from '@/lib/utils/format'
 import { ReportsCharts } from '@/components/reports/reports-charts'
 import { ReportExportButton } from '@/components/reports/report-export-button'
@@ -25,7 +25,7 @@ export async function generateMetadata(): Promise<Metadata> {
   return { title: terminology.title === 'Medicines' ? 'Pharmacy Reports' : terminology.title === 'Stock Items' ? 'Liquor Store Reports' : 'Reports' }
 }
 
-const sections = ['overview', 'sales', 'products', 'payments', 'profit', 'inventory', 'shifts', 'tax', 'staff'] as const
+const sections = ['overview', 'sales', 'products', 'payments', 'profit', 'inventory', 'shifts', 'compliance', 'tax', 'staff'] as const
 type ReportSection = typeof sections[number]
 type Params = Record<string, string | string[] | undefined>
 
@@ -63,9 +63,10 @@ export default async function ReportsPage({ searchParams }: { searchParams?: Pro
   const requestedBranch = first(params, 'branch')
   const selectedLocation = locations.find((location) => location.id === requestedBranch)
   const branchIds = selectedLocation ? [selectedLocation.id] : accessibleBranchIds
-  const [report, shifts] = await Promise.all([
+  const [report, shifts, compliance] = await Promise.all([
     getReportsOverview(organization.id, organization.timezone || 'Africa/Nairobi', { branchIds, ...period }),
     section === 'shifts' ? getReportShifts(organization.id, organization.timezone || 'Africa/Nairobi', { branchIds, ...period }) : Promise.resolve([]),
+    section === 'compliance' && organization.businessCategory === 'liquor_shop' ? getAgeVerificationReport(organization.id, new Date(`${period.from}T00:00:00Z`), new Date(new Date(`${period.to}T00:00:00Z`).getTime() + 86_400_000), branchIds) : Promise.resolve(null),
   ])
   const currency = organization.currency || 'KES'
   const pharmacyWorkspace = isPharmacyBusiness(organization.businessType, organization.businessCategory)
@@ -98,6 +99,7 @@ export default async function ReportsPage({ searchParams }: { searchParams?: Pro
       {section === 'profit' && <><ProfitSummary report={report} currency={currency} terminology={productTerms} /><FinancialBreakdown report={report} currency={currency} /></>}
       {section === 'inventory' && <InventoryReport report={report} currency={currency} asOf={today} terminology={productTerms} />}
       {section === 'shifts' && <ShiftHistory shifts={shifts} currency={currency} />}
+      {section === 'compliance' && compliance && <section className="app-panel p-5"><div className="flex items-center gap-2"><ShieldCheck className="h-5 w-5 text-amber-600" /><h2 className="font-semibold">Age-verification compliance</h2></div><div className="mt-4 grid gap-3 sm:grid-cols-3"><SummaryCard label="Verified restricted sales" value={formatNumber(compliance.summary.verified)} detail={rangeLabel} /><SummaryCard label="Cancelled checks" value={formatNumber(compliance.summary.cancelled)} detail={rangeLabel} /><SummaryCard label="Supervisor overrides" value={formatNumber(compliance.summary.overridden)} detail={rangeLabel} /></div><div className="mt-5 overflow-x-auto"><table className="w-full text-left text-sm"><thead className="border-b text-xs text-muted-foreground"><tr><th className="py-2">Date/time</th><th>Receipt</th><th>Branch</th><th>Terminal</th><th>Cashier</th><th>Status</th></tr></thead><tbody className="divide-y">{compliance.rows.map((row) => <tr key={row.id}><td className="py-3">{row.createdAt.toLocaleString('en-KE')}</td><td>{row.receiptNo ?? '—'}</td><td>{row.branchName ?? '—'}</td><td>{row.terminalName ?? '—'}</td><td>{row.cashierName ?? '—'}</td><td className="font-semibold capitalize">{row.status.toLowerCase()}</td></tr>)}</tbody></table></div></section>}
       {section === 'tax' && <TaxReport report={report} currency={currency} />}
       {section === 'staff' && <ReportLinkPanel icon={UsersRound} title="Staff performance" detail="Review cashier sales, transaction activity and team performance using the existing staff reporting data." href="/dashboard/staff-performance" action="Open staff report" />}
     </div>

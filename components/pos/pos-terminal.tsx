@@ -13,6 +13,7 @@ import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import dynamic from 'next/dynamic';
 import {
+  cancelAgeVerification,
   createSale,
   syncOfflineSale,
   type CartItem,
@@ -28,7 +29,7 @@ import {
   setManualMpesaPayerPhone,
 } from '@/app/actions/mpesa';
 import { createCustomer } from '@/app/actions/customers';
-import { validateCoupon } from '@/app/actions/promotions';
+import { validateCoupon, quoteAutomaticDiscount } from '@/app/actions/promotions';
 import { quoteCheckoutRewards, refreshCustomerRewards } from '@/app/actions/rewards';
 import {
   getAirtelMoneyPaymentStatus,
@@ -129,7 +130,7 @@ import {
 } from '@/lib/pos/offline-policy';
 import { useWorkspace } from '@/lib/context/workspace-context';
 import { getProductTerminology } from '@/lib/products/terminology';
-import { browserPrintReceipt, captureReceiptHtml, directPrintReceipt, type ReceiptPrinterSettings } from '@/lib/printing/receipt-print-service';
+import { browserPrintReceipt, captureReceiptHtml, directPrintReceipt, getReceiptPrinterErrorCopy, hasConfiguredReceiptPrinter, type ReceiptPrinterSettings } from '@/lib/printing/receipt-print-service';
 
 const RefundDialog = dynamic(
   () => import('./refund-dialog').then((module) => module.RefundDialog),
@@ -174,7 +175,7 @@ interface POSTerminalProps {
   standalone?: boolean;
   organizationId: string;
   products: PosProduct[];
-  categories: Array<{ id: string; name: string }>;
+  categories: Array<{ id: string; name: string; requiresAgeVerification?: boolean | null }>;
   requiresAgeVerification?: boolean;
   pharmacyMode?: boolean;
   customers: PosCustomer[];
@@ -200,6 +201,9 @@ interface POSTerminalProps {
     receiptShowPayment: boolean;
     receiptShowQrCode: boolean;
     receiptShowItemSku: boolean;
+    receiptShowShipping?: boolean;
+    receiptShowCoupon?: boolean;
+    receiptShowBonus?: boolean;
     receiptPrintingMode: 'direct' | 'browser';
     receiptPrinterName: string;
     receiptPaperWidth: 58 | 80;
@@ -216,6 +220,7 @@ interface POSTerminalProps {
   canHold?: boolean;
   canRedeemRewards?: boolean;
   canApproveRestricted?: boolean;
+  canOverrideAgeVerification?: boolean;
   receiptContext?: {
     cashierName?: string;
     registerName?: string | null;
@@ -253,6 +258,9 @@ interface ReceiptData {
   discountValue?: number;
   customerName: string;
   customerEmail?: string | null;
+  couponCode?: string | null;
+  couponAmount?: number;
+  bonusRedeemed?: number;
   etims?: {
     status: string;
     message?: string;
@@ -346,13 +354,13 @@ function SummaryEditIcon({ className }: { className?: string }) {
  * through the JSX.
  */
 const ui = {
-  card: 'rounded-xl border border-[#e4e7ec] bg-white dark:border-white/10 dark:bg-[#161616]',
+  card: 'rounded-2xl border border-[#e4e7ec] bg-white shadow-[0_8px_30px_-18px_rgba(16,24,40,.35)] dark:border-white/10 dark:bg-[#161616]',
   panel:
-    'rounded-xl border border-[#e4e7ec] bg-[#fbfbfc] dark:border-white/10 dark:bg-[#131313]',
+    'rounded-2xl border border-[#e4e7ec] bg-[#fbfbfc] shadow-sm dark:border-white/10 dark:bg-[#131313]',
   subtleBtn:
     'rounded-lg border border-[#d8dce3] bg-white px-3 py-2 text-xs font-medium text-[#344054] transition-colors hover:bg-[#f9fafb] disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/10 dark:bg-transparent dark:text-[#d0d5dd] dark:hover:bg-white/5',
   input:
-    'w-full rounded-lg border border-[#d0d5dd] bg-white px-3 py-2 text-sm text-[#101828] outline-none transition-shadow placeholder:text-[#98a2b3] focus:border-[#101828] focus:ring-4 focus:ring-[#101828]/[0.06] disabled:bg-[#f9fafb] disabled:text-[#98a2b3] dark:border-white/10 dark:bg-[#1c1c1c] dark:text-[#f2f2f2]',
+    'w-full rounded-lg border border-[#d0d5dd] bg-white px-3 py-2 text-sm text-[#101828] outline-none transition-all placeholder:text-[#98a2b3] focus:border-[#d7a400] focus:ring-4 focus:ring-[#f2b705]/[0.14] disabled:bg-[#f9fafb] disabled:text-[#98a2b3] dark:border-white/10 dark:bg-[#1c1c1c] dark:text-[#f2f2f2]',
   label:
     'mb-1.5 block text-[11px] font-semibold uppercase tracking-wide text-[#667085] dark:text-[#8b8b8b]',
   divider: 'border-[#e4e7ec] dark:border-white/10',
@@ -528,6 +536,7 @@ export function POSTerminal({
   canHold = false,
   canRedeemRewards = false,
   canApproveRestricted = false,
+  canOverrideAgeVerification = false,
   receiptContext,
   offlineContext,
 }: POSTerminalProps) {
@@ -612,6 +621,8 @@ export function POSTerminal({
   const [amountPaid, setAmountPaid] = useState('');
   const [selectedCustomer, setSelectedCustomer] = useState<string>('');
   const [rewardQuote, setRewardQuote] = useState<RewardQuote | null>(null);
+  const [automaticDiscount, setAutomaticDiscount] = useState(0);
+  const [automaticDiscountName, setAutomaticDiscountName] = useState('');
   const [rewardQuoteLoading, setRewardQuoteLoading] = useState(false);
   const [pointsToRedeem, setPointsToRedeem] = useState('');
   const [bonusToUse, setBonusToUse] = useState('');
@@ -649,6 +660,11 @@ export function POSTerminal({
   >(null);
   const [ageVerified, setAgeVerified] = useState(false);
   const [showAgeVerification, setShowAgeVerification] = useState(false);
+  const [ageIdType, setAgeIdType] = useState<'national_id' | 'passport' | 'driving_licence' | 'other'>('national_id');
+  const [ageIdReference, setAgeIdReference] = useState('');
+  const [ageConfirmed, setAgeConfirmed] = useState(false);
+  const [ageVerificationMode, setAgeVerificationMode] = useState<'VERIFIED' | 'OVERRIDDEN'>('VERIFIED');
+  const [ageOverrideReason, setAgeOverrideReason] = useState('');
   const [checkoutOpen, setCheckoutOpen] = useState(startCheckout);
   const [checkoutStep, setCheckoutStep] = useState<'customer' | 'payment'>(
     startCheckout ? 'payment' : 'customer'
@@ -1616,7 +1632,11 @@ export function POSTerminal({
     () => new Map(cart.map((item) => [item.productId, item.quantity])),
     [cart]
   );
-  const containsAgeRestrictedItem = requiresAgeVerification && cart.length > 0;
+  const categoryRestrictionById = new Map(categories.map((item) => [item.id, item.requiresAgeVerification]));
+  const containsAgeRestrictedItem = cart.some((line) => {
+    const item = products.find((candidate) => candidate.id === line.productId);
+    return item?.requiresAgeVerification ?? (item?.categoryId ? categoryRestrictionById.get(item.categoryId) : null) ?? requiresAgeVerification;
+  });
   const prescriptionRequired = cart.some(
     (item) => productsById.get(item.productId)?.pharmacy?.prescriptionRequired
   );
@@ -1714,9 +1734,11 @@ export function POSTerminal({
       )
     : 0;
   const discountAmount = Math.min(
-    manualDiscountAmount + couponAmount,
+    automaticDiscount + manualDiscountAmount + couponAmount,
     grossBeforeDiscount
   );
+
+  useEffect(() => { if (!isOnline || cart.length === 0) { setAutomaticDiscount(0); setAutomaticDiscountName(''); return; } const subtotalForCampaign = cart.reduce((s, i) => s + i.totalPrice, 0); void quoteAutomaticDiscount({ subtotal: subtotalForCampaign }).then((q) => { setAutomaticDiscount(q?.discountAmount ?? 0); setAutomaticDiscountName(q?.campaignName ?? ''); }).catch(() => { setAutomaticDiscount(0); setAutomaticDiscountName(''); }); }, [cart, isOnline]);
 
   const unroundedTotal = Number(
     (grossBeforeDiscount + shippingCost - discountAmount).toFixed(2)
@@ -1926,7 +1948,7 @@ export function POSTerminal({
         roundoffEnabled,
         total,
         amountReceived: parseFloat(amountPaid || '0'),
-        ageVerified: requiresAgeVerification ? verified : false,
+        ageVerified: containsAgeRestrictedItem ? verified : false,
       },
     };
     await saveOfflineSale(record);
@@ -1947,7 +1969,7 @@ export function POSTerminal({
       paymentMethod: 'cash',
       change: parseFloat(amountPaid || '0') - total,
       idempotencyKey: queueId,
-      ageVerified: requiresAgeVerification ? verified : false,
+      ageVerified: containsAgeRestrictedItem ? verified : false,
       completedAt: offlineCreatedAt,
       amountReceived: parseFloat(amountPaid || '0'),
       discountType:
@@ -2148,7 +2170,8 @@ export function POSTerminal({
               saleNote: saleNote || undefined,
               staffNote: staffNote || undefined,
               idempotencyKey: checkoutIdempotencyKeyRef.current,
-              ageVerified: requiresAgeVerification ? verified : undefined,
+              ageVerified: containsAgeRestrictedItem ? verified : undefined,
+              ageVerification: containsAgeRestrictedItem && verified ? { status: ageVerificationMode, idType: ageVerificationMode === 'VERIFIED' ? ageIdType : undefined, idReference: ageVerificationMode === 'VERIFIED' ? ageIdReference.trim() || undefined : undefined, overrideReason: ageVerificationMode === 'OVERRIDDEN' ? ageOverrideReason.trim() : undefined } : undefined,
               pointsToRedeem: appliedPoints || undefined,
               bonusToUse: appliedBonus || undefined,
               pharmacy:
@@ -2221,7 +2244,7 @@ export function POSTerminal({
             ? parseFloat(amountPaid || '0') - (returnedTotal || total)
             : 0,
         idempotencyKey: checkoutIdempotencyKeyRef.current,
-        ageVerified: requiresAgeVerification ? verified : false,
+        ageVerified: containsAgeRestrictedItem ? verified : false,
         completedAt: new Date(),
         amountReceived:
           paymentMethod === 'cash' ? parseFloat(amountPaid || '0') : undefined,
@@ -2364,6 +2387,14 @@ export function POSTerminal({
   });
 
   const confirmAgeVerification = useCallback(() => {
+    if (ageVerificationMode === 'OVERRIDDEN' && ageOverrideReason.trim().length < 3) {
+      notify.error('Enter a reason for the supervisor override');
+      return;
+    }
+    if (!ageConfirmed) {
+      notify.error('Confirm that the customer meets the required legal age');
+      return;
+    }
     setAgeVerified(true);
     setShowAgeVerification(false);
 
@@ -2374,7 +2405,15 @@ export function POSTerminal({
     } else if (mpesaFlow === 'paybill') {
       window.setTimeout(() => manualMpesaStartRef.current(), 0);
     }
-  }, [mpesaStatus, paymentMethod, mpesaFlow]);
+  }, [ageConfirmed, ageOverrideReason, ageVerificationMode, mpesaStatus, paymentMethod, mpesaFlow]);
+
+  const dismissAgeVerification = useCallback(async () => {
+    setShowAgeVerification(false);
+    const checkoutId = checkoutIdempotencyKeyRef.current;
+    if (!checkoutId) return;
+    try { await cancelAgeVerification({ checkoutId }); }
+    catch (cause) { notify.error(cause instanceof Error ? cause.message : 'Unable to record the cancelled age check'); }
+  }, []);
 
   useEffect(() => {
     if (!showAgeVerification) return;
@@ -2382,7 +2421,7 @@ export function POSTerminal({
     const handleAgeVerificationKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         event.preventDefault();
-        setShowAgeVerification(false);
+        void dismissAgeVerification();
         return;
       }
 
@@ -2401,7 +2440,7 @@ export function POSTerminal({
       window.cancelAnimationFrame(frame);
       window.removeEventListener('keydown', handleAgeVerificationKeyDown);
     };
-  }, [confirmAgeVerification, showAgeVerification]);
+  }, [confirmAgeVerification, dismissAgeVerification, showAgeVerification]);
 
   useEffect(() => {
     if (!summaryEditor) return;
@@ -2427,7 +2466,7 @@ export function POSTerminal({
       return notify.error('Start your shift before completing a sale');
     if (paymentMethod === 'mpesa' && mpesaStatus !== 'success')
       return notify.error('Send the M-Pesa prompt and wait for confirmation');
-    if (requiresAgeVerification && !ageVerified) {
+    if (containsAgeRestrictedItem && !ageVerified) {
       setShowAgeVerification(true);
       return;
     }
@@ -2438,7 +2477,7 @@ export function POSTerminal({
   });
 
   const handleMpesaPrompt = async () => {
-    if (requiresAgeVerification && !ageVerified) {
+    if (containsAgeRestrictedItem && !ageVerified) {
       setShowAgeVerification(true);
       return;
     }
@@ -2476,6 +2515,8 @@ export function POSTerminal({
         roundoffEnabled,
         idempotencyKey: checkoutIdempotencyKeyRef.current,
         ageVerified,
+        ageVerificationStatus: ageVerificationMode,
+        ageOverrideReason: ageVerificationMode === 'OVERRIDDEN' ? ageOverrideReason.trim() : undefined,
         customerId: selectedCustomer || undefined,
         pointsToRedeem: appliedPoints || undefined,
         bonusToUse: appliedBonus || undefined,
@@ -2542,7 +2583,7 @@ export function POSTerminal({
   const handlePaybillPayment = async (
     manualMode: 'till' | 'paybill' = mpesaAccountType
   ) => {
-    if (requiresAgeVerification && !ageVerified) {
+    if (containsAgeRestrictedItem && !ageVerified) {
       setShowAgeVerification(true);
       return;
     }
@@ -2576,6 +2617,8 @@ export function POSTerminal({
         roundoffEnabled,
         idempotencyKey: checkoutIdempotencyKeyRef.current,
         ageVerified,
+        ageVerificationStatus: ageVerificationMode,
+        ageOverrideReason: ageVerificationMode === 'OVERRIDDEN' ? ageOverrideReason.trim() : undefined,
         customerId: selectedCustomer || undefined,
         pointsToRedeem: appliedPoints || undefined,
         bonusToUse: appliedBonus || undefined,
@@ -3003,6 +3046,10 @@ export function POSTerminal({
     setPaymentMethod('cash');
     setCreditDueDate('');
     setAgeVerified(false);
+    setAgeConfirmed(false);
+    setAgeIdReference('');
+    setAgeVerificationMode('VERIFIED');
+    setAgeOverrideReason('');
     setReceipt(null);
     setReceiptPrinted(false);
     setReceiptOptionsOpen(false);
@@ -3086,6 +3133,14 @@ export function POSTerminal({
     const paper = document.querySelector<HTMLElement>('.receipt-preview-origin .receipt-paper');
     if (!paper) return notify.error('Receipt preview is unavailable');
     if (printerSettings.mode === 'browser') return handleBrowserPrintReceipt();
+    if (!hasConfiguredReceiptPrinter(printerSettings)) {
+      notify.info('No receipt printer configured', {
+        description: 'Use browser printing or configure a receipt printer.',
+        action: { label: 'Browser print', onClick: handleBrowserPrintReceipt },
+        cancel: { label: 'Printer settings', onClick: () => { window.location.href = '/dashboard/admin/devices'; } },
+      });
+      return;
+    }
     setReceiptPrinting(true);
     const toastId = notify.loading('Printing receipt…', { description: printerSettings.printerName || 'Connecting to the configured thermal printer.' });
     try {
@@ -3093,7 +3148,8 @@ export function POSTerminal({
       setReceiptPrinted(true);
       notify.success('Receipt printed', { id: toastId, description: `Submitted to ${printerSettings.printerName}.` });
     } catch (error) {
-      notify.error('Receipt could not be printed', { id: toastId, description: error instanceof Error ? error.message : 'The thermal printer is unavailable.', action: { label: 'Try again', onClick: () => retryReceiptPrintRef.current() }, cancel: { label: 'Browser print', onClick: handleBrowserPrintReceipt } });
+      const copy = getReceiptPrinterErrorCopy(error);
+      notify.error(copy.title, { id: toastId, description: copy.description, action: { label: 'Try again', onClick: () => retryReceiptPrintRef.current() }, cancel: { label: 'Browser print', onClick: handleBrowserPrintReceipt } });
     } finally { setReceiptPrinting(false); }
   }, [handleBrowserPrintReceipt, printerSettings]);
 
@@ -3511,6 +3567,10 @@ export function POSTerminal({
       subtotal: receipt.subtotal.toFixed(2),
       taxAmount: receipt.taxAmount.toFixed(2),
       discountAmount: receipt.discountAmount.toFixed(2),
+      shippingAmount: receipt.shippingAmount,
+      couponAmount,
+      couponCode: couponCode || null,
+      bonusRedeemed: appliedBonus,
       roundingAmount: receipt.roundingAmount.toFixed(2),
       total: receipt.total.toFixed(2),
       paymentMethod: receipt.paymentMethod,
@@ -3656,6 +3716,9 @@ export function POSTerminal({
                     showPayment={settings.receiptShowPayment}
                     showQrCode={settings.receiptShowQrCode}
                     showItemSku={settings.receiptShowItemSku}
+                    showShipping={settings.receiptShowShipping}
+                    showCoupon={settings.receiptShowCoupon}
+                    showBonus={settings.receiptShowBonus}
                   />
                 </div>
                 </div>
@@ -4890,6 +4953,7 @@ export function POSTerminal({
                 {formatCurrency(subtotal)}
               </span>
             </div>
+            {containsAgeRestrictedItem && <div className="mb-3 flex items-center gap-2 rounded-lg bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800 dark:bg-amber-950/25 dark:text-amber-200"><ShieldCheck className="h-4 w-4" />{ageVerified ? 'Age verification completed' : 'Age verification required'}</div>}
             <button
               onClick={openCheckout}
               disabled={!hasActiveShift}
@@ -4914,8 +4978,8 @@ export function POSTerminal({
                 ? 'Continue to checkout'
                 : 'Start shift to take payment'}
             </button>
-            <p className="mt-2 text-center text-[10px] text-[#98a2b3]">
-              Review customer details and order total next.
+            <p className="mt-2 text-center text-[11px] font-medium text-[#7a8699] dark:text-[#9aa3b2]">
+              Review customer details and order total before payment.
             </p>
           </div>
         )}
@@ -5156,6 +5220,7 @@ export function POSTerminal({
                       />
                       <span>
                         Discount
+                        {automaticDiscount > 0 ? ` · ${automaticDiscountName || 'Automatic campaign'}` : ''}
                         {discountType === 'percentage' &&
                         manualDiscountAmount > 0
                           ? ` (${discount.toFixed(1)}%)`
@@ -5174,12 +5239,12 @@ export function POSTerminal({
                     <dd
                       className={cn(
                         'font-semibold tabular-nums',
-                        manualDiscountAmount > 0 &&
+                        manualDiscountAmount + automaticDiscount > 0 &&
                           'text-[#b42318] dark:text-[#f97066]'
                       )}
                     >
                       {manualDiscountAmount > 0 ? '−' : ''}
-                      {formatCurrency(manualDiscountAmount)}
+                      {formatCurrency(manualDiscountAmount + automaticDiscount)}
                     </dd>
                   </div>
                   <div className="flex min-h-9 items-center justify-between gap-4 py-2">
@@ -6094,7 +6159,7 @@ export function POSTerminal({
                                           {mpesaStatus === 'initiating'
                                             ? 'Preparing the branch Till or PayBill account.'
                                             : mpesaMessage ||
-                                              (requiresAgeVerification &&
+                                              (containsAgeRestrictedItem &&
                                               !ageVerified
                                                 ? 'Verify the customer age to load payment details.'
                                                 : 'Check the branch M-Pesa configuration and try again.')}
@@ -7020,7 +7085,7 @@ export function POSTerminal({
                   type="button"
                   onClick={() => {
                     setSummaryEditor(null);
-                    router.push('/dashboard/settings');
+                    router.push('/dashboard/admin/profile#operating-configuration');
                   }}
                   className="h-[38px] rounded-[5px] border border-[#e94e16] bg-[#e94e16] px-[13px] text-sm font-bold text-white transition-colors hover:border-[#cf3f0b] hover:bg-[#cf3f0b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e94e16]/30"
                 >
@@ -7055,19 +7120,27 @@ export function POSTerminal({
               id="age-check-title"
               className="mt-4 text-lg font-bold text-[#101828] dark:text-white"
             >
-              Verify customer age
+              Age verification required
             </h2>
             <p className="mt-2 text-sm leading-6 text-[#667085] dark:text-[#8b8b8b]">
-              Check a valid photo ID where required and confirm the customer
-              meets the legal drinking age before completing this sale.
+              Alcohol is included in this sale. Confirm the customer meets the
+              required legal age before payment.
             </p>
+            <div className="mt-5 space-y-4">
+              {canOverrideAgeVerification && <div className="flex rounded-lg border p-1 text-xs font-semibold"><button type="button" onClick={() => setAgeVerificationMode('VERIFIED')} className={cn('flex-1 rounded-md px-2 py-2', ageVerificationMode === 'VERIFIED' && 'bg-amber-100 text-amber-900')}>Verify customer</button><button type="button" onClick={() => { setAgeVerificationMode('OVERRIDDEN'); setAgeConfirmed(true); }} className={cn('flex-1 rounded-md px-2 py-2', ageVerificationMode === 'OVERRIDDEN' && 'bg-amber-100 text-amber-900')}>Supervisor override</button></div>}
+              {ageVerificationMode === 'OVERRIDDEN' ? <div><label className={ui.label}>Override reason</label><textarea value={ageOverrideReason} onChange={(event) => setAgeOverrideReason(event.target.value.slice(0, 500))} className={cn(ui.input, 'min-h-20')} placeholder="Explain why verification is being overridden" /></div> : <>
+              <div><label className={ui.label}>ID type</label><select value={ageIdType} onChange={(event) => setAgeIdType(event.target.value as typeof ageIdType)} className={cn(ui.input, 'h-11')}><option value="national_id">National ID</option><option value="passport">Passport</option><option value="driving_licence">Driving licence</option><option value="other">Other</option></select></div>
+              <div><label className={ui.label}>ID/reference <span className="font-normal normal-case">(optional)</span></label><input value={ageIdReference} onChange={(event) => setAgeIdReference(event.target.value.slice(0, 80))} className={cn(ui.input, 'h-11')} placeholder="Reference only — stored masked" /></div>
+              <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-[#e4e7ec] bg-[#f9fafb] p-3 text-sm font-medium text-[#344054] dark:border-white/10 dark:bg-white/[.04] dark:text-[#d0d5dd]"><input type="checkbox" checked={ageConfirmed} onChange={(event) => setAgeConfirmed(event.target.checked)} className="mt-0.5 h-4 w-4 accent-[#f2b705]" /><span>I confirm the customer meets the required legal age.</span></label>
+              </>}
+            </div>
             <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
               <button
                 type="button"
-                onClick={() => setShowAgeVerification(false)}
+                onClick={() => void dismissAgeVerification()}
                 className="min-h-10 rounded-lg border border-[#d0d5dd] px-4 text-sm font-semibold text-[#344054] transition-colors hover:bg-[#f9fafb] dark:border-white/10 dark:text-[#c4c4c4] dark:hover:bg-white/5"
               >
-                Cancel
+                Cancel check
               </button>
               <button
                 ref={ageVerificationConfirmRef}
@@ -7077,7 +7150,7 @@ export function POSTerminal({
                 className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg px-4 text-sm font-bold transition-opacity hover:opacity-90"
               >
                 <ShieldCheck className="h-4 w-4" />
-                Age verified — continue
+                {ageVerificationMode === 'OVERRIDDEN' ? 'Approve override' : 'Verify age'}
               </button>
             </div>
           </div>

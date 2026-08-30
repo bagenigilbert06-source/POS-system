@@ -21,6 +21,7 @@
     "test:email": "ts-node --project tsconfig.test.json tests/email-templates.test.ts",
     "test:pos-pin": "ts-node --project tsconfig.test.json tests/pos-pin-policy.test.ts",
     "test:pos-sale": "ts-node --project tsconfig.test.json tests/pos-sale-rules.test.ts",
+    "test:age-verification": "ts-node --project tsconfig.test.json tests/age-verification-rules.test.ts && node --test tests/age-verification-db.integration.mjs",
     "test:pos-shift-db": "node tests/pos-shift-db.integration.mjs",
     "test:inventory": "ts-node --project tsconfig.test.json tests/inventory-rules.test.ts",
     "test:reports": "ts-node --project tsconfig.test.json tests/report-rules.test.ts",

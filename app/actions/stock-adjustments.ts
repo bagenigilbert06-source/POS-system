@@ -10,6 +10,7 @@ import {
   category,
   inventoryBalance,
   product,
+  productPackage,
   sale,
   saleItem,
   stockAdjustment,
@@ -30,6 +31,7 @@ const adjustmentSchema = z.object({
   type: z.enum([
     'stocktake',
     'breakage',
+    'spillage',
     'damage',
     'missing',
     'theft_loss',
@@ -88,7 +90,9 @@ const startCountSessionSchema = z.object({
 const saveCountLineSchema = z.object({
   sessionId: z.string().min(1),
   productId: z.string().min(1),
-  physicalQuantity: z.coerce.number().int().nonnegative().max(10_000_000),
+  physicalQuantity: z.coerce.number().int().nonnegative().max(10_000_000).optional(),
+  looseQuantity: z.coerce.number().int().nonnegative().max(10_000_000).optional(),
+  packages: z.array(z.object({ packageId: z.string().min(1), quantity: z.coerce.number().int().nonnegative().max(1_000_000) })).max(20).optional(),
   notes: z.string().trim().max(300).optional(),
 });
 
@@ -743,11 +747,20 @@ export async function saveStockCountLine(
     )
     .limit(1);
   if (!line) throw new Error('Count line not found');
+  let physicalQuantity = data.physicalQuantity
+  if (data.packages?.length) {
+    const packageIds = data.packages.map((item) => item.packageId)
+    const configured = await db.select({ id: productPackage.id, baseUnitQuantity: productPackage.baseUnitQuantity }).from(productPackage).where(and(eq(productPackage.organizationId, orgId), eq(productPackage.productId, data.productId), inArray(productPackage.id, packageIds), eq(productPackage.isActive, true)))
+    if (configured.length !== new Set(packageIds).size) throw new Error('A selected packaging option is unavailable')
+    const units = new Map(configured.map((item) => [item.id, item.baseUnitQuantity]))
+    physicalQuantity = (data.looseQuantity ?? 0) + data.packages.reduce((sum, item) => sum + item.quantity * (units.get(item.packageId) ?? 0), 0)
+  }
+  if (physicalQuantity === undefined) throw new Error('Enter a physical quantity')
   await db
     .update(stockAdjustmentItem)
     .set({
-      quantityAfter: data.physicalQuantity,
-      variance: stockVariance(line.quantityBefore, data.physicalQuantity),
+      quantityAfter: physicalQuantity,
+      variance: stockVariance(line.quantityBefore, physicalQuantity),
       countedAt: new Date(),
       countedBy: userId,
       notes: data.notes || null,
@@ -898,10 +911,14 @@ export async function getStockCountSessionDetails(
     .orderBy(stockAdjustmentItem.productName)
     .limit(filters.pageSize)
     .offset((page - 1) * filters.pageSize);
+  const displayedProductIds = items.map((row) => row.product.id)
+  const packageRows = displayedProductIds.length ? await db.select().from(productPackage).where(and(eq(productPackage.organizationId, orgId), inArray(productPackage.productId, displayedProductIds), eq(productPackage.isActive, true))) : []
+  const packagesByProduct = new Map<string, typeof packageRows>()
+  for (const item of packageRows) packagesByProduct.set(item.productId, [...(packagesByProduct.get(item.productId) ?? []), item])
   return {
     session,
     location: location ?? null,
-    items,
+    items: items.map((row) => ({ ...row, packages: packagesByProduct.get(row.product.id) ?? [] })),
     progress: {
       total: Number(totals?.total ?? 0),
       counted: Number(totals?.counted ?? 0),
@@ -1264,11 +1281,15 @@ export async function approveStockAdjustment(adjustmentId: string) {
               ? 'count_adjustment'
               : adjustment.type === 'breakage'
                 ? 'breakage'
+                : adjustment.type === 'spillage'
+                  ? 'spillage'
                 : adjustment.type === 'damage'
                   ? 'damage'
                   : ['missing', 'theft_loss'].includes(adjustment.type)
                     ? 'loss'
-                    : 'manual_adjustment',
+                    : adjustment.type === 'expired_unsellable'
+                      ? 'expired'
+                      : 'manual_adjustment',
           referenceType: 'adjustment',
           referenceId: id,
           reason: adjustment.notes || `Approved ${adjustment.type}`,

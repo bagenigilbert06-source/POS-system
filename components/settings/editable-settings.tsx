@@ -49,6 +49,9 @@ export function EditableSettings({ businessSettings, organization, buttonOnly = 
     receiptShowPayment: businessSettings?.receiptShowPayment ?? true,
     receiptShowQrCode: businessSettings?.receiptShowQrCode ?? false,
     receiptShowItemSku: businessSettings?.receiptShowItemSku ?? false,
+    receiptShowShipping: businessSettings?.receiptShowShipping ?? true,
+    receiptShowCoupon: businessSettings?.receiptShowCoupon ?? true,
+    receiptShowBonus: businessSettings?.receiptShowBonus ?? true,
     receiptPrintingMode: businessSettings?.receiptPrintingMode === 'browser' ? 'browser' as const : 'direct' as const,
     receiptPrinterName: businessSettings?.receiptPrinterName || '',
     receiptPaperWidth: businessSettings?.receiptPaperWidth === 58 ? 58 as const : 80 as const,
@@ -73,6 +76,8 @@ export function EditableSettings({ businessSettings, organization, buttonOnly = 
     subtotal: '2500.00',
     taxAmount: '400.00',
     discountAmount: '0.00',
+    shippingAmount: '0.00',
+    bonusRedeemed: '0.00',
     roundingAmount: '0.00',
     total: '2900.00',
     paymentMethod: formData.defaultPaymentMethod,
@@ -108,6 +113,9 @@ export function EditableSettings({ businessSettings, organization, buttonOnly = 
           receiptShowPayment: formData.receiptShowPayment,
           receiptShowQrCode: formData.receiptShowQrCode,
           receiptShowItemSku: formData.receiptShowItemSku,
+          receiptShowShipping: formData.receiptShowShipping,
+          receiptShowCoupon: formData.receiptShowCoupon,
+          receiptShowBonus: formData.receiptShowBonus,
           defaultPaymentMethod: formData.defaultPaymentMethod,
           paymentMethods: formData.paymentMethods,
           taxEnabled: formData.taxEnabled,
@@ -278,7 +286,7 @@ export function EditableSettings({ businessSettings, organization, buttonOnly = 
           {/* Receipt Settings */}
           {(!section || section === 'receipt') && <div className="space-y-4 border-b pb-6">
             <h4 className="font-medium">Receipt Settings</h4>
-            <div className="space-y-4 rounded-xl border border-[var(--dashboard-border)] bg-[var(--dashboard-surface-subtle)] p-4 sm:p-5">
+            {false && <div className="space-y-4 rounded-xl border border-[var(--dashboard-border)] bg-[var(--dashboard-surface-subtle)] p-4 sm:p-5">
               <div><h5 className="font-semibold">POS receipt printing</h5><p className="mt-1 text-xs text-muted-foreground">Direct printing uses QZ Tray on this Windows register. Browser print remains available as a fallback.</p></div>
               <div className="grid gap-4 md:grid-cols-3">
                 <div><label className="text-sm font-medium">Printing mode</label><select value={formData.receiptPrintingMode} onChange={(event) => setFormData({ ...formData, receiptPrintingMode: event.target.value as 'direct' | 'browser' })} className="mt-1 w-full rounded-lg border px-3 py-2 text-sm"><option value="direct">Direct thermal printer</option><option value="browser">Browser print</option></select></div>
@@ -292,7 +300,7 @@ export function EditableSettings({ businessSettings, organization, buttonOnly = 
                 ['receiptPrintCustomerCopy', 'Print customer copy', 'Use the configured copy count.'],
                 ['receiptCashDrawerPulse', 'Cash-drawer pulse', 'Send the standard ESC/POS drawer pulse.'],
               ] as const).map(([key, title, detail]) => <label key={key} className="flex cursor-pointer items-start gap-3 rounded-lg border bg-background p-3"><input type="checkbox" checked={formData[key]} onChange={(event) => setFormData({ ...formData, [key]: event.target.checked })} className="mt-0.5 h-4 w-4 accent-[#e42527]"/><span><span className="block text-sm font-medium">{title}</span><span className="mt-0.5 block text-xs text-muted-foreground">{detail}</span></span></label>)}</div>
-            </div>
+            </div>}
             <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_440px] lg:items-start">
             <div className="space-y-4 rounded-xl border border-[var(--dashboard-border)] bg-[var(--dashboard-surface-subtle)] p-4 sm:p-5">
             <div>
@@ -385,6 +393,9 @@ export function EditableSettings({ businessSettings, organization, buttonOnly = 
                   ['receiptShowPayment', 'Payment details', 'Show the payment method and reference.'],
                   ['receiptShowQrCode', 'Receipt QR code', 'Include a scan-friendly receipt reference.'],
                   ['receiptShowItemSku', 'Item codes', 'Show catalogue identifiers under receipt items.'],
+                  ['receiptShowShipping', 'Shipping', 'Show delivery or shipping charges.'],
+                  ['receiptShowCoupon', 'Coupon discount', 'Show coupon savings and code when applied.'],
+                  ['receiptShowBonus', 'Bonus redeemed', 'Show promotional bonus credit used on the sale.'],
                 ] as const).map(([key, title, description]) => (
                   <label key={key} className="flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors hover:bg-muted/40">
                     <input type="checkbox" checked={formData[key]} onChange={(event) => setFormData({ ...formData, [key]: event.target.checked })} className="mt-0.5 h-4 w-4 accent-[#e42527]" />
@@ -397,7 +408,7 @@ export function EditableSettings({ businessSettings, organization, buttonOnly = 
             </div>
             <div className="overflow-hidden rounded-xl border border-[var(--dashboard-border)] bg-[#181818] shadow-[0_10px_24px_rgba(0,0,0,.16)] lg:sticky lg:top-5">
               <div className="flex items-center justify-between border-b border-white/10 px-4 py-3"><div><h5 className="text-sm font-semibold text-white">Live receipt preview</h5><p className="mt-0.5 text-[11px] text-zinc-400">Updates as you change the settings.</p></div><span className="rounded-full bg-white/10 px-2.5 py-1 text-[10px] font-semibold text-zinc-300">Preview</span></div>
-              <div className="max-h-[560px] overflow-y-auto bg-zinc-100 p-4"><div style={{ zoom: 0.78 }}><ReceiptTemplate sale={receiptPreview} businessName={formData.receiptBusinessName || formData.displayName} businessPhone={formData.receiptPhone} businessAddress={formData.receiptAddress} receiptFooter={formData.receiptFooter || 'Thank you for your business.'} taxName={formData.taxName} layout={formData.receiptLayout} template={formData.receiptTemplate} logoUrl={formData.receiptLogoUrl} showPhone={formData.receiptShowPhone} showAddress={formData.receiptShowAddress} showCashier={formData.receiptShowCashier} showCustomer={formData.receiptShowCustomer} showPayment={formData.receiptShowPayment} showQrCode={formData.receiptShowQrCode} showItemSku={formData.receiptShowItemSku} /></div></div>
+              <div className="max-h-[560px] overflow-y-auto receipt-settings-preview-scroll bg-zinc-100 p-4"><div style={{ zoom: 0.78 }}><ReceiptTemplate sale={receiptPreview} businessName={formData.receiptBusinessName || formData.displayName} businessPhone={formData.receiptPhone} businessAddress={formData.receiptAddress} receiptFooter={formData.receiptFooter || 'Thank you for your business.'} taxName={formData.taxName} layout={formData.receiptLayout} template={formData.receiptTemplate} logoUrl={formData.receiptLogoUrl} showPhone={formData.receiptShowPhone} showAddress={formData.receiptShowAddress} showCashier={formData.receiptShowCashier} showCustomer={formData.receiptShowCustomer} showPayment={formData.receiptShowPayment} showQrCode={formData.receiptShowQrCode} showItemSku={formData.receiptShowItemSku} showShipping={formData.receiptShowShipping} showCoupon={formData.receiptShowCoupon} showBonus={formData.receiptShowBonus} /></div></div>
             </div>
             </div>
           </div>}

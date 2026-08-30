@@ -2,7 +2,7 @@
 
 import { auth } from '@/lib/auth'
 import { db } from '@/lib/db'
-import { branch, cardPaymentAttempt, cardTerminal, sale, saleItem, saleItemLotAllocation, salePayment, product, productPackage, pharmacyConfiguration, pharmacyPrescriptionItem, pharmacyProduct, pharmacySaleRecord, restrictedItemAudit, businessSettings, auditEvent, posSession, customer, customerCreditLimit, creditSale, invoice, invoiceItem, invoiceNumberSequence, organization, salesReturn, salesReturnItem, expense, user, category, etimsConfiguration, etimsSubmission, offlineSaleSync } from '@/lib/db/schema'
+import { ageVerification, branch, cardPaymentAttempt, cardTerminal, sale, saleItem, saleItemLotAllocation, salePayment, product, productPackage, pharmacyConfiguration, pharmacyPrescriptionItem, pharmacyProduct, pharmacySaleRecord, restrictedItemAudit, businessSettings, auditEvent, posSession, customer, customerCreditLimit, creditSale, invoice, invoiceItem, invoiceNumberSequence, organization, salesReturn, salesReturnItem, expense, user, category, etimsConfiguration, etimsSubmission, offlineSaleSync } from '@/lib/db/schema'
 import { and, asc, desc, eq, gte, ilike, inArray, lt, lte, or, sql } from 'drizzle-orm'
 import { headers } from 'next/headers'
 import { revalidatePath } from 'next/cache'
@@ -26,6 +26,7 @@ import { money, preTaxRewardAmount } from '@/lib/rewards/rules'
 import { configuredTax, money as financeMoney, paymentStatus } from '@/lib/finance/money'
 import { getFiscalReadiness } from '@/lib/etims/policy'
 import Decimal from 'decimal.js'
+import { maskAgeIdReference } from '@/lib/pos/age-verification'
 
 async function getUserId() {
   const session = await auth.api.getSession({ headers: await headers() })
@@ -75,6 +76,13 @@ const pharmacyWorkflowSchema = z.object({
   notes: z.string().trim().max(500).optional(),
 }).optional()
 
+const ageVerificationEvidenceSchema = z.object({
+  status: z.enum(['VERIFIED', 'OVERRIDDEN']),
+  idType: z.enum(['national_id', 'passport', 'driving_licence', 'other']).optional(),
+  idReference: z.string().trim().max(80).optional(),
+  overrideReason: z.string().trim().min(3).max(500).optional(),
+})
+
 export type CreateSaleInput = {
   customerId?: string
   items: CartItem[]
@@ -98,8 +106,28 @@ export type CreateSaleInput = {
   staffNote?: string
   idempotencyKey?: string
   ageVerified?: boolean
+  ageVerification?: z.input<typeof ageVerificationEvidenceSchema>
   pharmacy?: z.input<typeof pharmacyWorkflowSchema>
   offline?: z.input<typeof offlineMetadataSchema>
+}
+
+const cancelAgeVerificationSchema = z.object({ checkoutId: z.string().uuid() })
+
+/** Records a compliance check that the cashier dismissed; it never authorizes payment. */
+export async function cancelAgeVerification(input: z.input<typeof cancelAgeVerificationSchema>) {
+  const { checkoutId } = cancelAgeVerificationSchema.parse(input)
+  const pos = await getPosAuthorizationContext()
+  const authorization = pos ?? await requireAnyPermission([PermissionEnum.POS_SELL, PermissionEnum.SALE_CREATE])
+  const userId = pos?.userId ?? authorization.userId
+  const organizationId = pos?.organizationId ?? authorization.organizationId
+  const [shift] = await db.select({ id: posSession.id, branchId: posSession.branchId, terminalId: posSession.terminalId }).from(posSession).where(and(eq(posSession.orgId, organizationId), eq(posSession.openedBy, userId), eq(posSession.status, 'open'), pos?.terminalId ? eq(posSession.terminalId, pos.terminalId) : undefined)).limit(1)
+  if (!shift?.branchId) throw new Error('Start a branch-assigned shift before recording an age check')
+  const now = new Date()
+  await db.transaction(async (tx) => {
+    await tx.insert(ageVerification).values({ id: generateId(), organizationId, branchId: shift.branchId, terminalId: shift.terminalId, saleId: null, checkoutId, cashierId: userId, status: 'CANCELLED', cancelledAt: now })
+    await tx.insert(auditEvent).values({ id: generateId(), organizationId, userId, action: 'age_verification_cancelled', metadata: { checkoutId, branchId: shift.branchId, terminalId: shift.terminalId } })
+  })
+  return { status: 'CANCELLED' as const }
 }
 
 const manualSaleSchema = z.object({
@@ -236,18 +264,25 @@ export async function createSale(data: CreateSaleInput) {
   const fiscalReadiness = getFiscalReadiness(fiscalConfiguration)
   if (fiscalReadiness !== 'READY' && fiscalReadiness !== 'DEVELOPMENT_SIMULATOR' && fiscalConfiguration?.environment === 'production') throw new Error('eTIMS setup is incomplete for this branch. Complete fiscal setup before processing live sales.')
   const workspace = await WorkspaceService.getWorkspaceConfig(orgId, userId)
-  const requiresAgeVerification = workspace?.businessCategory === 'liquor_shop'
+  const liquorWorkspace = workspace?.businessCategory === 'liquor_shop'
+  const verificationEvidence = data.ageVerification ? ageVerificationEvidenceSchema.parse(data.ageVerification) : null
   const pharmacyWorkspace = Boolean(workspace && isPharmacyBusiness(workspace.businessType, workspace.businessCategory))
-  if (requiresAgeVerification && !data.ageVerified) {
-    throw new Error('Age verification is required before completing this liquor sale')
+  if (verificationEvidence?.status === 'OVERRIDDEN') {
+    if (!saleAuthorization.permissions.includes(PermissionEnum.AGE_VERIFICATION_OVERRIDE)) throw new Error('Age verification override permission denied')
+    if (!verificationEvidence.overrideReason) throw new Error('Enter a reason for the age verification override')
   }
   
   if (data.discountAmount > 0 && !saleAuthorization.permissions.includes(PermissionEnum.POS_DISCOUNT)) throw new Error('A supervisor or manager must apply this discount')
   const productIds = Array.from(new Set(data.items.map((line) => line.productId)))
   if (productIds.length !== data.items.length) throw new Error('Duplicate products must be combined into one basket line')
-  const catalogue = await db.select({ id: product.id, name: product.name, sellingPrice: product.sellingPrice, categoryId: product.categoryId, active: product.isActive })
+  const catalogue = await db.select({ id: product.id, name: product.name, sellingPrice: product.sellingPrice, categoryId: product.categoryId, active: product.isActive, requiresAgeVerification: product.requiresAgeVerification })
     .from(product).where(and(eq(product.orgId, orgId), inArray(product.id, productIds)))
   const catalogueById = new Map(catalogue.map((item) => [item.id, item]))
+  const categoryIds = Array.from(new Set(catalogue.map((item) => item.categoryId).filter((value): value is string => Boolean(value))))
+  const categoryRestrictions = categoryIds.length ? await db.select({ id: category.id, requiresAgeVerification: category.requiresAgeVerification }).from(category).where(and(eq(category.orgId, orgId), inArray(category.id, categoryIds))) : []
+  const categoryRestrictionById = new Map(categoryRestrictions.map((item) => [item.id, item.requiresAgeVerification]))
+  const requiresAgeVerification = catalogue.some((item) => item.requiresAgeVerification ?? (item.categoryId ? categoryRestrictionById.get(item.categoryId) : null) ?? liquorWorkspace)
+  if (requiresAgeVerification && !verificationEvidence) throw new Error('Age verification is required before completing this restricted sale')
   const medicineRows = pharmacyWorkspace ? await db.select().from(pharmacyProduct).where(and(eq(pharmacyProduct.organizationId, orgId), inArray(pharmacyProduct.productId, productIds))) : []
   const [pharmacyPolicy] = pharmacyWorkspace ? await db.select().from(pharmacyConfiguration).where(eq(pharmacyConfiguration.organizationId, orgId)).limit(1) : []
   const prescriptionItems = medicineRows.filter((item) => item.prescriptionRequired)
@@ -360,7 +395,7 @@ export async function createSale(data: CreateSaleInput) {
     }
     const rewards = data.customerId ? await applySaleRewards(tx, {
       organizationId: orgId, customerId: data.customerId, branchId: saleBranchId, saleId, userId,
-      lines: normalizedItems.map((item) => ({ productId: item.productId, categoryId: catalogueById.get(item.productId)?.categoryId ?? null, amount: preTaxRewardAmount(item.totalPrice, { enabled: settings?.taxEnabled ?? false, ratePercent: Number(settings?.taxRate ?? 0), pricesIncludeTax: settings?.pricesIncludeTax ?? false }), discounted: data.discountAmount > 0 })),
+      lines: normalizedItems.map((item) => ({ productId: item.productId, categoryId: catalogueById.get(item.productId)?.categoryId ?? null, amount: preTaxRewardAmount(item.totalPrice, { enabled: settings?.taxEnabled ?? false, ratePercent: Number(settings?.taxRate ?? 0), pricesIncludeTax: settings?.pricesIncludeTax ?? false }), campaignAmount: item.totalPrice, discounted: data.discountAmount > 0 })),
       ordinaryDiscount: preTaxRewardAmount(data.discountAmount, { enabled: settings?.taxEnabled ?? false, ratePercent: Number(settings?.taxRate ?? 0), pricesIncludeTax: settings?.pricesIncludeTax ?? false }), pointsToRedeem: data.pointsToRedeem, bonusToUse: data.bonusToUse,
     }) : null
     const rewardAdjustedUnrounded = money(unroundedTotal - (rewards?.externalAmountReduction ?? 0))
@@ -424,9 +459,9 @@ export async function createSale(data: CreateSaleInput) {
       change: data.paymentMethod === 'cash' ? String(changeAmount) : null,
       paymentMethod: data.paymentMethod,
       mpesaRef: data.paymentMethod === 'mpesa' ? paymentReference : null,
-      ageVerified: requiresAgeVerification,
-      ageVerifiedAt: requiresAgeVerification ? new Date() : null,
-      ageVerifiedBy: requiresAgeVerification ? userId : null,
+      ageVerified: Boolean(verificationEvidence),
+      ageVerifiedAt: verificationEvidence ? new Date() : null,
+      ageVerifiedBy: verificationEvidence ? userId : null,
       status: 'completed',
       idempotencyKey,
       origin: offline ? 'offline' : 'online',
@@ -440,6 +475,21 @@ export async function createSale(data: CreateSaleInput) {
       terminalId: activeShift.terminalId,
       createdAt: offline?.createdAt,
     })
+    if (requiresAgeVerification && verificationEvidence) {
+      const now = new Date()
+      await tx.insert(ageVerification).values({
+        id: generateId(), organizationId: orgId, branchId: saleBranchId,
+        terminalId: activeShift.terminalId, saleId, checkoutId: idempotencyKey,
+        cashierId: userId, status: verificationEvidence.status,
+        idType: verificationEvidence.idType ?? null,
+        idReferenceMasked: maskAgeIdReference(verificationEvidence.idReference),
+        verifiedAt: verificationEvidence.status === 'VERIFIED' ? now : null,
+        overrideReason: verificationEvidence.status === 'OVERRIDDEN' ? verificationEvidence.overrideReason : null,
+        overrideApprovedBy: verificationEvidence.status === 'OVERRIDDEN' ? userId : null,
+        overrideApprovedAt: verificationEvidence.status === 'OVERRIDDEN' ? now : null,
+      })
+      await tx.insert(auditEvent).values({ id: generateId(), organizationId: orgId, userId, action: verificationEvidence.status === 'OVERRIDDEN' ? 'age_verification_overridden' : 'age_verified', metadata: { saleId, receiptNo, branchId: saleBranchId, terminalId: activeShift.terminalId, verificationStatus: verificationEvidence.status } })
+    }
 
     // Process each item to create sale items and stock movements
     await tx.insert(saleItem).values(saleItems.map((item) => ({
@@ -571,6 +621,9 @@ export async function createSale(data: CreateSaleInput) {
         bonusRedeemed: rewards?.bonusRedeemed ?? 0,
         items: normalizedItems.length,
         paymentMethod: data.paymentMethod,
+        ageVerification: requiresAgeVerification
+          ? { status: data.ageVerified ? 'verified' : 'missing' }
+          : null,
         cardPaymentAttemptId: approvedCardAttempt?.id ?? null,
         cardTerminalId: approvedCardAttempt?.cardTerminalId ?? null,
         cardBrand: approvedCardAttempt?.cardBrand ?? null,

@@ -285,6 +285,9 @@ export const businessSettings = pgTable('business_settings', {
   receiptShowPayment: boolean('receiptShowPayment').notNull().default(true),
   receiptShowQrCode: boolean('receiptShowQrCode').notNull().default(false),
   receiptShowItemSku: boolean('receiptShowItemSku').notNull().default(false),
+  receiptShowShipping: boolean('receiptShowShipping').notNull().default(true),
+  receiptShowCoupon: boolean('receiptShowCoupon').notNull().default(true),
+  receiptShowBonus: boolean('receiptShowBonus').notNull().default(true),
   receiptPrintingMode: text('receiptPrintingMode').notNull().default('direct'),
   receiptPrinterName: text('receiptPrinterName'),
   receiptPaperWidth: integer('receiptPaperWidth').notNull().default(80),
@@ -412,6 +415,8 @@ export const category = pgTable(
     imageUrl: text('imageUrl'),
     parentCategoryId: text('parentCategoryId'),
     isActive: boolean('isActive').notNull().default(true),
+    lifecycleStatus: text('lifecycleStatus').notNull().default('DRAFT'),
+    requiresAgeVerification: boolean('requiresAgeVerification'),
     userId: text('userId').notNull(),
     orgId: text('orgId').notNull(),
     createdAt: timestamp('createdAt').notNull().defaultNow(),
@@ -458,6 +463,7 @@ export const product = pgTable(
     volume: numeric('volume', { precision: 10, scale: 2 }),
     volumeUnit: text('volumeUnit'),
     abv: numeric('abv', { precision: 5, scale: 2 }),
+    requiresAgeVerification: boolean('requiresAgeVerification'),
     countryOfOrigin: text('countryOfOrigin'),
     unitsPerPack: integer('unitsPerPack'),
     preferredSupplierId: text('preferredSupplierId'),
@@ -801,6 +807,7 @@ export const promotionRule = pgTable(
       .notNull()
       .default('0'),
     maximumDiscount: numeric('maximumDiscount', { precision: 12, scale: 2 }),
+    bonusValidityDays: integer('bonusValidityDays'),
     usageLimit: integer('usageLimit'),
     usedCount: integer('usedCount').notNull().default(0),
     startsAt: timestamp('startsAt').notNull(),
@@ -872,6 +879,12 @@ export const rewardLedger = pgTable(
     ),
   })
 );
+
+export const bonusGrant = pgTable('bonus_grant', {
+  id: text('id').primaryKey(), organizationId: text('organizationId').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  rewardAccountId: text('rewardAccountId').notNull().references(() => customerRewardAccount.id, { onDelete: 'cascade' }), customerId: text('customerId').notNull().references(() => customer.id, { onDelete: 'cascade' }),
+  promotionRuleId: text('promotionRuleId'), sourceSaleId: text('sourceSaleId'), originalAmount: numeric('originalAmount',{precision:12,scale:2}).notNull(), remainingAmount: numeric('remainingAmount',{precision:12,scale:2}).notNull(), issuedAt: timestamp('issuedAt').notNull(), expiresAt: timestamp('expiresAt'), status: text('status').notNull().default('ACTIVE'), idempotencyKey: text('idempotencyKey').notNull(), createdAt: timestamp('createdAt').notNull().defaultNow(), updatedAt: timestamp('updatedAt').notNull().defaultNow()
+}, (table) => ({ idem: uniqueIndex('bonus_grant_org_idem_unique').on(table.organizationId, table.idempotencyKey), active: index('bonus_grant_account_expiry_idx').on(table.rewardAccountId, table.status, table.expiresAt) }));
 
 export const rewardReservation = pgTable(
   'reward_reservation',
@@ -1026,6 +1039,30 @@ export const sale = pgTable(
       table.receiptNo
     ),
   })
+);
+
+/** Immutable compliance record for each age-restricted checkout attempt. */
+export const ageVerification = pgTable(
+  'age_verification',
+  {
+    id: text('id').primaryKey(),
+    organizationId: text('organizationId').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+    branchId: text('branchId').notNull().references(() => branch.id, { onDelete: 'restrict' }),
+    terminalId: text('terminalId').references(() => posTerminal.id, { onDelete: 'restrict' }),
+    saleId: text('saleId').references(() => sale.id, { onDelete: 'restrict' }),
+    checkoutId: text('checkoutId').notNull(),
+    cashierId: text('cashierId').notNull().references(() => user.id, { onDelete: 'restrict' }),
+    status: text('status').notNull(),
+    idType: text('idType'),
+    idReferenceMasked: text('idReferenceMasked'),
+    verifiedAt: timestamp('verifiedAt'),
+    cancelledAt: timestamp('cancelledAt'),
+    overrideReason: text('overrideReason'),
+    overrideApprovedBy: text('overrideApprovedBy').references(() => user.id, { onDelete: 'restrict' }),
+    overrideApprovedAt: timestamp('overrideApprovedAt'),
+    createdAt: timestamp('createdAt').notNull().defaultNow(),
+  },
+  (table) => ({ saleIndex: index('age_verification_sale_idx').on(table.saleId), checkoutIndex: index('age_verification_checkout_idx').on(table.organizationId, table.checkoutId), organizationCreatedIndex: index('age_verification_org_created_idx').on(table.organizationId, table.createdAt) })
 );
 
 export const saleItem = pgTable(
@@ -2063,6 +2100,13 @@ export const posTerminal = pgTable(
     tokenHash: text('tokenHash').notNull().unique(),
     name: text('name').notNull().default('POS terminal'),
     status: text('status').notNull().default('active'),
+    printingMode: text('printingMode').notNull().default('browser'),
+    printerDisplayName: text('printerDisplayName'),
+    printerIdentifier: text('printerIdentifier'),
+    paperWidth: integer('paperWidth').notNull().default(80),
+    autoPrint: boolean('autoPrint').notNull().default(false),
+    receiptCopies: integer('receiptCopies').notNull().default(1),
+    cashDrawerPulse: boolean('cashDrawerPulse').notNull().default(false),
     registeredBy: text('registeredBy')
       .notNull()
       .references(() => user.id, { onDelete: 'restrict' }),

@@ -38,6 +38,7 @@ type CountLine = {
     countedAt: Date | null;
     notes: string | null;
   };
+  packages: Array<{ id: string; name: string; baseUnitQuantity: number }>;
   product: {
     id: string;
     sku: string | null;
@@ -265,7 +266,7 @@ export function StockCountSessionManager({
               </tr>
             </thead>
             <tbody className="divide-y">
-              {items.map(({ item, product }) => {
+              {items.map(({ item, product, packages }) => {
                 const hideExpected = session.blindCount && editable;
                 return (
                   <tr
@@ -323,9 +324,10 @@ export function StockCountSessionManager({
                                 saveStockCountLine({
                                   sessionId: session.id,
                                   productId: item.productId,
-                                  physicalQuantity: Number(
-                                    form.get('quantity')
-                                  ),
+                                  ...(packages.length ? {
+                                    looseQuantity: Number(form.get('looseQuantity') || 0),
+                                    packages: packages.map((option) => ({ packageId: option.id, quantity: Number(form.get(`package-${option.id}`) || 0) })),
+                                  } : { physicalQuantity: Number(form.get('quantity')) }),
                                   notes: String(form.get('notes') || ''),
                                 }),
                               `${item.productName} count saved`
@@ -333,7 +335,7 @@ export function StockCountSessionManager({
                           }
                           className="flex items-center gap-2"
                         >
-                          <Input
+                          {packages.length ? <div className="flex flex-wrap items-end gap-2">{packages.map((option) => <label key={option.id} className="text-[10px] font-medium text-muted-foreground">{option.name} × {option.baseUnitQuantity}<Input name={`package-${option.id}`} type="number" min="0" defaultValue="0" className="mt-1 w-20" /></label>)}<label className="text-[10px] font-medium text-muted-foreground">Loose {product.unit}<Input name="looseQuantity" type="number" min="0" defaultValue={item.countedAt ? item.quantityAfter : ''} className="mt-1 w-20" /></label></div> : <Input
                             name="quantity"
                             type="number"
                             min="0"
@@ -344,7 +346,7 @@ export function StockCountSessionManager({
                             placeholder="Qty"
                             className="w-24"
                             required
-                          />
+                          />}
                           <Input
                             name="notes"
                             defaultValue={item.notes || ''}

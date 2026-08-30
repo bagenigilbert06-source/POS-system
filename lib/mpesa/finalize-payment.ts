@@ -1,7 +1,7 @@
 import { and, eq, inArray, isNull } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import {
-  auditEvent, businessSettings, customer, mpesaIncomingPayment, mpesaPaymentRequest,
+  ageVerification, auditEvent, businessSettings, category, customer, mpesaIncomingPayment, mpesaPaymentRequest,
   pharmacyPrescriptionItem, pharmacyProduct, pharmacySaleRecord, posSession, product, productPackage, restrictedItemAudit,
   sale, saleItem, saleItemLotAllocation, salePayment,
 } from '@/lib/db/schema'
@@ -18,6 +18,8 @@ export type MpesaCheckoutPayload = {
   shippingAmount?: number
   roundoffEnabled?: boolean
   ageVerified: boolean
+  ageVerificationStatus?: 'VERIFIED' | 'OVERRIDDEN'
+  ageOverrideReason?: string
   pointsToRedeem?: number
   bonusToUse?: number
   pharmacy?: { prescriptionReference?: string; prescriberReference?: string; patientReference?: string; issuedAt?: string | Date; expiresAt?: string | Date; notes?: string }
@@ -36,7 +38,7 @@ export async function finalizeConfirmedMpesaPayment(requestId: string) {
     if (intent.saleId) return { saleId: intent.saleId, alreadyFinalized: true }
     if (intent.status !== 'CONFIRMED' || !intent.receiptNumber) throw new Error('M-Pesa payment is not confirmed')
     if (!intent.branchId || !intent.posSessionId) throw new Error('M-Pesa checkout is missing branch or shift context')
-    const [activeShift] = await tx.select({ id: posSession.id }).from(posSession).where(and(
+    const [activeShift] = await tx.select({ id: posSession.id, terminalId: posSession.terminalId }).from(posSession).where(and(
       eq(posSession.id, intent.posSessionId),
       eq(posSession.orgId, intent.organizationId),
       eq(posSession.branchId, intent.branchId),
@@ -55,9 +57,14 @@ export async function finalizeConfirmedMpesaPayment(requestId: string) {
       pricesIncludeTax: businessSettings.pricesIncludeTax,
     }).from(businessSettings).where(eq(businessSettings.organizationId, intent.organizationId)).limit(1)
     const catalogue = await tx.select({
-      id: product.id, name: product.name, sellingPrice: product.sellingPrice, active: product.isActive, categoryId: product.categoryId,
+      id: product.id, name: product.name, sellingPrice: product.sellingPrice, active: product.isActive, categoryId: product.categoryId, requiresAgeVerification: product.requiresAgeVerification,
     }).from(product).where(and(eq(product.orgId, intent.organizationId), inArray(product.id, productIds)))
     const byId = new Map(catalogue.map((item) => [item.id, item]))
+    const categoryIds = Array.from(new Set(catalogue.map((item) => item.categoryId).filter((value): value is string => Boolean(value))))
+    const restrictedCategories = categoryIds.length ? await tx.select({ id: category.id, requiresAgeVerification: category.requiresAgeVerification }).from(category).where(and(eq(category.orgId, intent.organizationId), inArray(category.id, categoryIds))) : []
+    const categoryRestrictions = new Map(restrictedCategories.map((item) => [item.id, item.requiresAgeVerification]))
+    const restrictedBasket = catalogue.some((item) => item.requiresAgeVerification === true || (item.requiresAgeVerification == null && item.categoryId && categoryRestrictions.get(item.categoryId) === true))
+    if (restrictedBasket && !checkout.ageVerified) throw new Error('Age verification is required before finalizing this restricted M-Pesa sale')
     const medicineRows = await tx.select().from(pharmacyProduct).where(and(eq(pharmacyProduct.organizationId, intent.organizationId), inArray(pharmacyProduct.productId, productIds)))
     const packageIds = checkout.items.map((line) => line.packageId).filter((value): value is string => Boolean(value))
     const packages = packageIds.length ? await tx.select().from(productPackage).where(and(eq(productPackage.organizationId, intent.organizationId), inArray(productPackage.id, packageIds), eq(productPackage.isActive, true))) : []
@@ -125,6 +132,12 @@ export async function finalizeConfirmedMpesaPayment(requestId: string) {
       rewardEligibleSpend: String(rewards?.loyaltyEligible ?? 0), rewardEarningRateSnapshot: rewards ? String(rewards.settings.spendPerPoint) : null,
       rewardPointValueSnapshot: rewards ? String(rewards.settings.pointValue) : null,
     })
+    if (restrictedBasket) {
+      const now = new Date()
+      const status = checkout.ageVerificationStatus ?? 'VERIFIED'
+      await tx.insert(ageVerification).values({ id: generateId(), organizationId: intent.organizationId, branchId: intent.branchId, terminalId: activeShift.terminalId, saleId, checkoutId: intent.idempotencyKey, cashierId: intent.userId, status, verifiedAt: status === 'VERIFIED' ? now : null, overrideReason: status === 'OVERRIDDEN' ? checkout.ageOverrideReason : null, overrideApprovedBy: status === 'OVERRIDDEN' ? intent.userId : null, overrideApprovedAt: status === 'OVERRIDDEN' ? now : null })
+      await tx.insert(auditEvent).values({ id: generateId(), organizationId: intent.organizationId, userId: intent.userId, action: status === 'OVERRIDDEN' ? 'age_verification_overridden' : 'age_verified', metadata: { saleId, receiptNo, branchId: intent.branchId, terminalId: activeShift.terminalId, verificationStatus: status } })
+    }
     await tx.insert(saleItem).values(lines.map((line) => ({
       id: line.saleItemId, saleId, productId: line.productId, productName: line.productName, quantity: line.quantity,
       packageId: line.packageId ?? null, packageName: line.packageName ?? null, baseUnitQuantity: line.baseUnitQuantity,

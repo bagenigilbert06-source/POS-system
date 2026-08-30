@@ -43,6 +43,9 @@ export async function updateBusinessSettings(data: {
   receiptShowPayment?: boolean
   receiptShowQrCode?: boolean
   receiptShowItemSku?: boolean
+  receiptShowShipping?: boolean
+  receiptShowCoupon?: boolean
+  receiptShowBonus?: boolean
   defaultPaymentMethod?: string
   paymentMethods?: string[]
   taxEnabled?: boolean
@@ -93,6 +96,9 @@ export async function updateBusinessSettings(data: {
         ...(data.receiptShowPayment !== undefined && { receiptShowPayment: data.receiptShowPayment }),
         ...(data.receiptShowQrCode !== undefined && { receiptShowQrCode: data.receiptShowQrCode }),
         ...(data.receiptShowItemSku !== undefined && { receiptShowItemSku: data.receiptShowItemSku }),
+        ...(data.receiptShowShipping !== undefined && { receiptShowShipping: data.receiptShowShipping }),
+        ...(data.receiptShowCoupon !== undefined && { receiptShowCoupon: data.receiptShowCoupon }),
+        ...(data.receiptShowBonus !== undefined && { receiptShowBonus: data.receiptShowBonus }),
         ...(data.defaultPaymentMethod && { defaultPaymentMethod: data.defaultPaymentMethod }),
         ...(paymentMethods && { paymentMethods }),
         ...(data.taxEnabled !== undefined && { taxEnabled: data.taxEnabled }),

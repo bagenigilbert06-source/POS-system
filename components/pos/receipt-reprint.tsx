@@ -8,7 +8,7 @@ import { formatCurrency } from '@/lib/utils'
 import { ReceiptTemplate } from '@/components/receipt/receipt-template'
 import { getSalesByReceiptNo, getSalesByDateRange } from '@/app/actions/pos-queries'
 import type { Sale, SaleItem } from '@/lib/db/schema'
-import { browserPrintReceipt, captureReceiptHtml, directPrintReceipt, type ReceiptPrinterSettings } from '@/lib/printing/receipt-print-service'
+import { browserPrintReceipt, captureReceiptHtml, directPrintReceipt, getReceiptPrinterErrorCopy, hasConfiguredReceiptPrinter, type ReceiptPrinterSettings } from '@/lib/printing/receipt-print-service'
 
 type ReprintSale = Awaited<ReturnType<typeof getSalesByReceiptNo>>[number]
 
@@ -30,6 +30,9 @@ interface ReceiptReprintProps {
     receiptShowPayment?: boolean
     receiptShowQrCode?: boolean
     receiptShowItemSku?: boolean
+    receiptShowShipping?: boolean
+    receiptShowCoupon?: boolean
+    receiptShowBonus?: boolean
     receiptPrintingMode: 'direct' | 'browser'
     receiptPrinterName: string
     receiptPaperWidth: 58 | 80
@@ -105,10 +108,18 @@ export function ReceiptReprint({ onClose, settings, onRefund }: ReceiptReprintPr
   const handlePrint = async () => {
     const html = receiptMarkup(); if (!html) return notify.error('Receipt preview is unavailable')
     if (settings.receiptPrintingMode === 'browser') return handleBrowserPrint()
+    if (!hasConfiguredReceiptPrinter(printerSettings)) {
+      notify.info('No receipt printer configured', {
+        description: 'Use browser printing or configure a receipt printer.',
+        action: { label: 'Browser print', onClick: handleBrowserPrint },
+        cancel: { label: 'Printer settings', onClick: () => { window.location.href = '/dashboard/admin/devices' } },
+      })
+      return
+    }
     setPrinting(true)
     const toastId = notify.loading('Printing receipt…')
     try { await directPrintReceipt(html, printerSettings); notify.success('Receipt printed', { id: toastId, description: `Submitted to ${settings.receiptPrinterName}.` }) }
-    catch (error) { notify.error('Receipt could not be printed', { id: toastId, description: error instanceof Error ? error.message : 'Printer unavailable', action: { label: 'Try again', onClick: () => void handlePrint() }, cancel: { label: 'Browser print', onClick: handleBrowserPrint } }) }
+    catch (error) { const copy = getReceiptPrinterErrorCopy(error); notify.error(copy.title, { id: toastId, description: copy.description, action: { label: 'Try again', onClick: () => void handlePrint() }, cancel: { label: 'Browser print', onClick: handleBrowserPrint } }) }
     finally { setPrinting(false) }
   }
 
@@ -141,6 +152,9 @@ export function ReceiptReprint({ onClose, settings, onRefund }: ReceiptReprintPr
               showPayment={settings.receiptShowPayment}
               showQrCode={settings.receiptShowQrCode}
               showItemSku={settings.receiptShowItemSku}
+              showShipping={settings.receiptShowShipping}
+              showCoupon={settings.receiptShowCoupon}
+              showBonus={settings.receiptShowBonus}
             />
           </div>
 

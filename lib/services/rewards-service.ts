@@ -1,6 +1,6 @@
 import { and, eq, inArray, sql } from 'drizzle-orm'
 import { db } from '@/lib/db'
-import { auditEvent, customer, customerRewardAccount, rewardBranchEligibility, rewardCategoryEligibility, rewardLedger, rewardProductEligibility, rewardReservation, rewardSettings, sale, salesReturn } from '@/lib/db/schema'
+import { auditEvent, customer, customerRewardAccount, rewardBranchEligibility, rewardCategoryEligibility, rewardLedger, rewardProductEligibility, rewardReservation, rewardSettings, sale, salesReturn, promotionRule, bonusGrant } from '@/lib/db/schema'
 import { generateId } from '@/lib/utils'
 import { PermissionEnum } from '@/lib/types/permissions'
 import { requirePermission } from '@/lib/auth/authorization'
@@ -20,6 +20,7 @@ export interface RewardSaleLine {
   categoryId: string | null
   amount: number
   discounted?: boolean
+  campaignAmount?: number
 }
 
 const defaults: Omit<RewardSettingsModel, 'id' | 'organizationId'> = {
@@ -122,7 +123,7 @@ async function eligibleLines(tx: RewardTransaction | typeof db, settings: Reward
     const included = !hasIncludes || includedProducts.has(line.productId) || Boolean(line.categoryId && includedCategories.has(line.categoryId))
     const excluded = excludedProducts.has(line.productId) || Boolean(line.categoryId && excludedCategories.has(line.categoryId))
     const discountEligible = settings.discountedItemsEarnPoints || !line.discounted
-    return { ...line, eligibleAmount: included && !excluded && (kind === 'bonus' || discountEligible) ? money(line.amount) : 0 }
+    return { ...line, eligibleAmount: included && !excluded && (kind === 'bonus' || discountEligible) ? money(line.amount) : 0, campaignAmount: kind === 'bonus' && included && !excluded ? money(line.campaignAmount ?? line.amount) : 0 }
   })
 }
 
@@ -137,7 +138,7 @@ export async function applySaleRewards(tx: RewardTransaction, input: { organizat
   const loyaltyLines = await eligibleLines(tx, settings, input.branchId, 'loyalty', input.lines)
   const bonusLines = await eligibleLines(tx, settings, input.branchId, 'bonus', input.lines)
   const loyaltyEligibleGross = money(loyaltyLines.reduce((sum, line) => sum + line.eligibleAmount, 0))
-  const bonusEligibleGross = money(bonusLines.reduce((sum, line) => sum + line.eligibleAmount, 0))
+  const bonusEligibleGross = money(bonusLines.reduce((sum, line) => sum + (line.campaignAmount ?? line.eligibleAmount), 0))
   const discountShare = input.lines.reduce((sum, line) => sum + line.amount, 0) > 0 ? Math.min(1, input.ordinaryDiscount / input.lines.reduce((sum, line) => sum + line.amount, 0)) : 0
   const loyaltyEligible = money(loyaltyEligibleGross * (settings.discountedItemsEarnPoints ? 1 : 1 - discountShare))
   const requestedPoints = Math.max(0, Math.trunc(input.pointsToRedeem ?? 0))
@@ -167,8 +168,25 @@ export async function applySaleRewards(tx: RewardTransaction, input: { organizat
   if (requestedPoints) await addLedger(tx, { organizationId: input.organizationId, customerId: input.customerId, accountId: account.id, branchId: input.branchId, saleId: input.saleId, type: 'POINTS_REDEEMED', pointsDelta: -requestedPoints, monetaryValue: pointsValue, reason: 'Redeemed on sale', reference: input.saleId, createdBy: input.userId, idempotencyKey: `sale:${input.saleId}:points-redeem` })
   if (requestedBonus) await addLedger(tx, { organizationId: input.organizationId, customerId: input.customerId, accountId: account.id, branchId: input.branchId, saleId: input.saleId, type: 'BONUS_REDEEMED', bonusDelta: -requestedBonus, monetaryValue: requestedBonus, reason: 'Bonus used on sale', reference: input.saleId, createdBy: input.userId, idempotencyKey: `sale:${input.saleId}:bonus-redeem` })
   if (pointsEarned) await addLedger(tx, { organizationId: input.organizationId, customerId: input.customerId, accountId: account.id, branchId: input.branchId, saleId: input.saleId, type: 'POINTS_EARNED', pointsDelta: pointsEarned, monetaryValue: money(pointsEarned * settings.pointValue), reason: 'Earned from completed sale', reference: input.saleId, idempotencyKey: `sale:${input.saleId}:earn`, metadata: { debtRepaid: earnedAfterDebt.debtPaid } })
+  const bonusEarned = await awardActiveBonusCampaigns(tx, { ...input, accountId: account.id, eligibleSpend: bonusEligibleGross })
   if (reservation) await tx.update(rewardReservation).set({ status: 'CONSUMED', consumedAt: new Date(), updatedAt: new Date() }).where(eq(rewardReservation.id, reservation.id))
-  return { settings, loyaltyEligible, bonusEligible: bonusEligibleGross, pointsRedeemed: requestedPoints, loyaltyRedemptionValue: pointsValue, bonusRedeemed: requestedBonus, pointsEarned, externalAmountReduction: money(pointsValue + requestedBonus), lineEligibility: new Map(loyaltyLines.map((line) => [line.productId, line.eligibleAmount])) }
+  return { settings, loyaltyEligible, bonusEligible: bonusEligibleGross, pointsRedeemed: requestedPoints, loyaltyRedemptionValue: pointsValue, bonusRedeemed: requestedBonus, pointsEarned, bonusEarned, externalAmountReduction: money(pointsValue + requestedBonus), lineEligibility: new Map(loyaltyLines.map((line) => [line.productId, line.eligibleAmount])) }
+}
+
+async function awardActiveBonusCampaigns(tx: RewardTransaction, input: { organizationId: string; customerId: string; branchId: string; saleId: string; userId: string; accountId: string; eligibleSpend: number }) {
+  const now = new Date(); let total = 0
+  const campaigns = await tx.select().from(promotionRule).where(and(eq(promotionRule.organizationId, input.organizationId), eq(promotionRule.kind, 'bonus'), eq(promotionRule.isActive, true)))
+  for (const campaign of campaigns) {
+    const lifecycleActive = campaign.lifecycleStatus === 'ACTIVE' || (!campaign.lifecycleStatus && campaign.isActive)
+    if (!lifecycleActive || campaign.startsAt > now || campaign.endsAt < now || input.eligibleSpend < Number(campaign.minimumSpend) || (campaign.usageLimit != null && campaign.usedCount >= campaign.usageLimit)) continue
+    const amount = money(campaign.valueType === 'percentage' ? Math.min(Number(campaign.maximumDiscount ?? Infinity), input.eligibleSpend * Number(campaign.value) / 100) : Number(campaign.value)); if (amount <= 0) continue
+    const expiresAt = campaign.bonusValidityDays ? new Date(now.getTime() + campaign.bonusValidityDays * 86400000).toISOString() : null
+    const inserted = await addLedger(tx, { organizationId: input.organizationId, customerId: input.customerId, accountId: input.accountId, branchId: input.branchId, saleId: input.saleId, type: 'BONUS_CREDITED', bonusDelta: amount, monetaryValue: amount, reason: campaign.name, reference: campaign.id, createdBy: input.userId, idempotencyKey: `sale:${input.saleId}:campaign:${campaign.id}:bonus`, metadata: { campaignId: campaign.id, expiresAt } }); if (!inserted) continue
+    await tx.insert(bonusGrant).values({ id: generateId(), organizationId: input.organizationId, rewardAccountId: input.accountId, customerId: input.customerId, promotionRuleId: campaign.id, sourceSaleId: input.saleId, originalAmount: String(amount), remainingAmount: String(amount), issuedAt: now, expiresAt: expiresAt ? new Date(expiresAt) : null, status: 'ACTIVE', idempotencyKey: `sale:${input.saleId}:campaign:${campaign.id}:grant` }).onConflictDoNothing({ target: [bonusGrant.organizationId, bonusGrant.idempotencyKey] })
+    await tx.update(customerRewardAccount).set({ bonusBalance: sql`(${customerRewardAccount.bonusBalance} + ${amount})`, lifetimeBonusCredited: sql`(${customerRewardAccount.lifetimeBonusCredited} + ${amount})`, updatedAt: now }).where(eq(customerRewardAccount.id, input.accountId))
+    await tx.update(promotionRule).set({ usedCount: sql`${promotionRule.usedCount} + 1`, updatedAt: now }).where(eq(promotionRule.id, campaign.id)); total = money(total + amount)
+  }
+  return total
 }
 
 export async function reserveRewardsForPayment(tx: RewardTransaction, input: { organizationId: string; customerId: string; branchId: string; paymentRequestId: string; expiresAt: Date; lines: RewardSaleLine[]; ordinaryDiscount: number; pointsToRedeem?: number; bonusToUse?: number }) {

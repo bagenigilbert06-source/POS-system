@@ -60,10 +60,10 @@ export default async function SignInPage({ searchParams }: { searchParams: Promi
 
           <div className="relative z-10 px-10 pb-9 xl:px-12">
             <p className="max-w-lg text-2xl font-black leading-tight tracking-[-0.035em] text-slate-950">
-              Every sale, stock update, and shift—connected.
+              Keep your store moving.
             </p>
             <p className="mt-2 text-sm font-medium text-slate-700">
-              Secure access for owners, managers, and point-of-sale teams.
+              Sales, stock, and shifts — all in sync.
             </p>
           </div>
 

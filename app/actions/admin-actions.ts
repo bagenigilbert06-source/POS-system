@@ -9,11 +9,16 @@ import {
   branch,
   branchMembership,
   expense,
+  cashMovement,
   inventoryBalance,
   inventoryLoss,
   mpesaBusinessAccount,
   posTerminal,
   posAuthSession,
+  posSession,
+  offlineSaleSync,
+  suspendedSale,
+  salesReturn,
   purchase,
   sale,
   stockMovement,
@@ -34,6 +39,88 @@ const branchSchema = z.object({
   city: z.string().trim().max(80).optional(),
   timezone: z.string().trim().min(3).max(80).default('Africa/Nairobi'),
 })
+
+const printerSchema = z.object({
+  printingMode: z.enum(['browser', 'direct']),
+  printerDisplayName: z.string().trim().max(120).optional(),
+  printerIdentifier: z.string().trim().max(240).optional(),
+  paperWidth: z.union([z.literal(58), z.literal(80)]),
+  autoPrint: z.boolean(),
+  receiptCopies: z.number().int().min(1).max(3),
+  cashDrawerPulse: z.boolean(),
+})
+
+export async function renamePosTerminal(id: string, name: string) {
+  const authorization = await requirePermission(PermissionEnum.ADMIN_ACCESS)
+  const terminalId = z.string().min(1).parse(id)
+  const value = z.string().trim().min(2).max(80).parse(name)
+  const [updated] = await db.update(posTerminal).set({ name: value }).where(and(eq(posTerminal.id, terminalId), eq(posTerminal.organizationId, authorization.organizationId))).returning({ id: posTerminal.id })
+  if (!updated) throw new Error('POS terminal not found')
+  await db.insert(auditEvent).values({ id: generateId(), organizationId: authorization.organizationId, userId: authorization.userId, action: 'pos_terminal.renamed', metadata: { terminalId, name: value } })
+  refreshAdmin(); return { success: true }
+}
+
+export async function setPosTerminalStatus(id: string, status: 'active' | 'inactive') {
+  const authorization = await requirePermission(PermissionEnum.ADMIN_ACCESS)
+  const terminalId = z.string().min(1).parse(id)
+  const [updated] = await db.update(posTerminal).set({ status }).where(and(eq(posTerminal.id, terminalId), eq(posTerminal.organizationId, authorization.organizationId))).returning({ id: posTerminal.id })
+  if (!updated) throw new Error('POS terminal not found')
+  await db.insert(auditEvent).values({ id: generateId(), organizationId: authorization.organizationId, userId: authorization.userId, action: `pos_terminal.${status === 'active' ? 'reactivated' : 'deactivated'}`, metadata: { terminalId } })
+  refreshAdmin(); return { success: true }
+}
+
+/** Read-only usage summary used to decide whether a terminal may be removed. */
+export async function getPosTerminalUsage(id: string) {
+  const authorization = await requirePermission(PermissionEnum.ADMIN_ACCESS)
+  const terminalId = z.string().min(1).parse(id)
+  const [terminal] = await db.select({ id: posTerminal.id, name: posTerminal.name, status: posTerminal.status, printingMode: posTerminal.printingMode, printerDisplayName: posTerminal.printerDisplayName, printerIdentifier: posTerminal.printerIdentifier }).from(posTerminal).where(and(eq(posTerminal.id, terminalId), eq(posTerminal.organizationId, authorization.organizationId))).limit(1)
+  if (!terminal) throw new Error('POS terminal not found')
+  const [sales, shifts, movements, returns, offline, held, authSessions, audits] = await Promise.all([
+    db.select({ count: sql<number>`count(*)` }).from(sale).where(eq(sale.terminalId, terminalId)),
+    db.select({ count: sql<number>`count(*)` }).from(posSession).where(eq(posSession.terminalId, terminalId)),
+    db.select({ count: sql<number>`count(*)` }).from(cashMovement).where(eq(cashMovement.terminalId, terminalId)),
+    db.select({ count: sql<number>`count(*)` }).from(salesReturn).where(eq(salesReturn.terminalId, terminalId)),
+    db.select({ count: sql<number>`count(*)` }).from(offlineSaleSync).where(eq(offlineSaleSync.terminalId, terminalId)),
+    db.select({ count: sql<number>`count(*)` }).from(suspendedSale).where(eq(suspendedSale.terminalId, terminalId)),
+    db.select({ count: sql<number>`count(*)` }).from(posAuthSession).where(eq(posAuthSession.terminalId, terminalId)),
+    db.select({ count: sql<number>`count(*)` }).from(auditEvent).where(sql`${auditEvent.organizationId} = ${authorization.organizationId} and ${auditEvent.metadata}->>'terminalId' = ${terminalId}`),
+  ])
+  const counts = { sales: Number(sales[0]?.count ?? 0), shifts: Number(shifts[0]?.count ?? 0), cashMovements: Number(movements[0]?.count ?? 0), receipts: Number(sales[0]?.count ?? 0), returns: Number(returns[0]?.count ?? 0), offlineSales: Number(offline[0]?.count ?? 0), heldSales: Number(held[0]?.count ?? 0), authSessions: Number(authSessions[0]?.count ?? 0), auditHistory: Number(audits[0]?.count ?? 0) }
+  return { ...terminal, counts, hasPrinterSettings: Boolean(terminal.printerDisplayName || terminal.printerIdentifier || terminal.printingMode === 'direct'), canRemove: Object.values(counts).every((count) => count === 0) && !Boolean(terminal.printerDisplayName || terminal.printerIdentifier || terminal.printingMode === 'direct') }
+}
+
+/** Permanently remove only a terminal with no operational or audit history. */
+export async function deleteUnusedPosTerminal(id: string) {
+  const authorization = await requirePermission(PermissionEnum.ADMIN_ACCESS)
+  const terminalId = z.string().min(1).parse(id)
+  const usage = await getPosTerminalUsage(terminalId)
+  if (!usage.canRemove) throw new Error('This terminal has history or printer settings and can only be deactivated')
+  const [deleted] = await db.delete(posTerminal).where(and(eq(posTerminal.id, terminalId), eq(posTerminal.organizationId, authorization.organizationId))).returning({ id: posTerminal.id })
+  if (!deleted) throw new Error('POS terminal not found')
+  revalidatePath('/dashboard/admin/devices')
+  return { success: true }
+}
+
+export async function updatePosTerminalPrinter(id: string, input: z.input<typeof printerSchema>) {
+  const authorization = await requirePermission(PermissionEnum.ADMIN_ACCESS)
+  const terminalId = z.string().min(1).parse(id)
+  const data = printerSchema.parse(input)
+  if (data.printingMode === 'direct' && !(data.printerIdentifier?.trim() || data.printerDisplayName?.trim())) throw new Error('Enter a printer name or identifier for direct thermal printing')
+  const [updated] = await db.update(posTerminal).set({
+    printingMode: data.printingMode,
+    printerDisplayName: data.printerDisplayName?.trim() || null,
+    printerIdentifier: data.printerIdentifier?.trim() || null,
+    paperWidth: data.paperWidth,
+    autoPrint: data.autoPrint,
+    receiptCopies: data.receiptCopies,
+    cashDrawerPulse: data.cashDrawerPulse,
+  }).where(and(eq(posTerminal.id, terminalId), eq(posTerminal.organizationId, authorization.organizationId))).returning({ id: posTerminal.id })
+  if (!updated) throw new Error('POS terminal not found')
+  await db.insert(auditEvent).values({ id: generateId(), organizationId: authorization.organizationId, userId: authorization.userId, action: 'pos_terminal.printer_updated', metadata: { terminalId, printingMode: data.printingMode, paperWidth: data.paperWidth, autoPrint: data.autoPrint, receiptCopies: data.receiptCopies } })
+  refreshAdmin()
+  revalidatePath('/dashboard/pos')
+  return { success: true }
+}
 
 function refreshAdmin() {
   revalidatePath('/dashboard', 'layout')

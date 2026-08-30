@@ -155,7 +155,7 @@ export function AdminControlShell({
   const items = sections.flatMap((section) => section.items);
 
   return (
-    <div className="-mx-4 -my-4 min-h-[calc(100vh-4rem)] bg-[var(--dashboard-canvas)] sm:-mx-6 sm:-my-5 lg:-mx-7 lg:-my-5">
+    <div className="admin-control-theme -mx-4 -my-4 min-h-[calc(100vh-4rem)] bg-[var(--dashboard-canvas)] sm:-mx-6 sm:-my-5 lg:-mx-7 lg:-my-5">
       <div className="flex min-h-[calc(100vh-4rem)] min-w-0 flex-col lg:flex-row">
         <aside className="hidden w-64 shrink-0 border-r border-[var(--dashboard-border)] bg-[var(--dashboard-surface)] lg:block">
           <div className="sticky top-0 max-h-[calc(100vh-4rem)] overflow-y-auto py-3">

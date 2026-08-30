@@ -103,6 +103,7 @@ export default async function AdminProfilePage() {
         </AdminSettingsCard>
 
         <AdminSettingsCard
+          id="operating-configuration"
           icon={CreditCard}
           title="Operating defaults"
           description="Currency, payments, tax and reporting preferences."
@@ -237,6 +238,7 @@ function AdminSettingsCard({
   description,
   action,
   className = '',
+  id,
   children,
 }: {
   icon: LucideIcon
@@ -244,10 +246,11 @@ function AdminSettingsCard({
   description: string
   action?: React.ReactNode
   className?: string
+  id?: string
   children: React.ReactNode
 }) {
   return (
-    <section className={`overflow-hidden rounded-lg border bg-card ${className}`}>
+    <section id={id} className={`overflow-hidden rounded-lg border bg-card ${className}`}>
       <div className="flex items-start gap-3 border-b px-4 py-4 sm:px-5">
         <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
           <Icon className="h-4 w-4" />

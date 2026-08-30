@@ -1,6 +1,6 @@
 import { and, asc, desc, eq, gte, inArray, lt, sql } from 'drizzle-orm'
 import { db } from '@/lib/db'
-import { branch, businessSettings, cashMovement, expense, inventoryBalance, posSession, posTerminal, product, sale, saleItem, salesReturn, salesReturnItem, user } from '@/lib/db/schema'
+import { ageVerification, branch, businessSettings, cashMovement, expense, inventoryBalance, posSession, posTerminal, product, sale, saleItem, salesReturn, salesReturnItem, user } from '@/lib/db/schema'
 import { fiscalYearLabel, fiscalYearStart } from '@/lib/finance/fiscal-year'
 import { calculateNetSales, previousPeriod } from '@/lib/reports/report-rules'
 
@@ -27,6 +27,16 @@ export interface ReportsOverview {
   daily: Array<{ date: string; label: string; revenue: number; refunds: number; expenses: number; netProfit: number; count: number }>
   payments: Array<{ method: string; amount: number; transactions: number }>
   topProducts: Array<{ name: string; quantity: number; revenue: number; profit: number | null }>
+}
+
+export async function getAgeVerificationReport(organizationId: string, from: Date, to: Date, branchIds: string[] = []) {
+  const scope = and(eq(ageVerification.organizationId, organizationId), gte(ageVerification.createdAt, from), lt(ageVerification.createdAt, to), branchIds.length ? inArray(ageVerification.branchId, branchIds) : undefined)
+  const [summary, rows] = await Promise.all([
+    db.select({ status: ageVerification.status, count: sql<number>`count(*)` }).from(ageVerification).where(scope).groupBy(ageVerification.status),
+    db.select({ id: ageVerification.id, createdAt: ageVerification.createdAt, status: ageVerification.status, receiptNo: sale.receiptNo, branchName: branch.name, terminalName: posTerminal.name, cashierName: user.name }).from(ageVerification).leftJoin(sale, eq(sale.id, ageVerification.saleId)).leftJoin(branch, eq(branch.id, ageVerification.branchId)).leftJoin(posTerminal, eq(posTerminal.id, ageVerification.terminalId)).leftJoin(user, eq(user.id, ageVerification.cashierId)).where(scope).orderBy(desc(ageVerification.createdAt)).limit(500),
+  ])
+  const counts = new Map(summary.map((item) => [item.status, Number(item.count)]))
+  return { summary: { verified: counts.get('VERIFIED') ?? 0, cancelled: counts.get('CANCELLED') ?? 0, overridden: counts.get('OVERRIDDEN') ?? 0 }, rows }
 }
 
 export interface ReportsQuery {

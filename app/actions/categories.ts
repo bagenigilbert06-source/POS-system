@@ -12,7 +12,7 @@ import { WorkspaceService } from '@/lib/services/workspace-service'
 import { z } from 'zod'
 import { invalidateCategoryCache, readThroughRedis } from '@/lib/cache/redis-cache'
 
-const categoryInput = z.object({ name: z.string().trim().min(2).max(80), description: z.string().trim().max(300).optional(), parentCategoryId: z.string().min(1).nullable().optional(), imageUrl: z.string().url().or(z.string().startsWith('/')).nullable().optional() })
+const categoryInput = z.object({ name: z.string().trim().min(2).max(80), description: z.string().trim().max(300).optional(), parentCategoryId: z.string().min(1).nullable().optional(), imageUrl: z.string().url().or(z.string().startsWith('/')).nullable().optional(), requiresAgeVerification: z.boolean().nullable().optional() })
 
 async function categoryContext(requireManage = false) {
   const session = await auth.api.getSession({ headers: await headers() })
@@ -87,7 +87,7 @@ export async function createCategory(input: z.infer<typeof categoryInput>) {
   await ensureUnique(orgId, data.name, slug, data.parentCategoryId)
   const id = generateId()
   await db.transaction(async (tx) => {
-    await tx.insert(category).values({ id, name: data.name, slug, description: data.description || null, imageUrl: data.imageUrl || null, parentCategoryId: data.parentCategoryId || null, isActive: true, userId, orgId, updatedAt: new Date() })
+    await tx.insert(category).values({ id, name: data.name, slug, description: data.description || null, imageUrl: data.imageUrl || null, parentCategoryId: data.parentCategoryId || null, requiresAgeVerification: data.requiresAgeVerification ?? null, isActive: true, userId, orgId, updatedAt: new Date() })
     await tx.insert(auditEvent).values({ id: generateId(), organizationId: orgId, userId, action: 'category.created', metadata: { categoryId: id, name: data.name } })
   })
   await invalidateCategoryCache(orgId)
@@ -106,7 +106,7 @@ export async function updateCategory(id: string, input: z.infer<typeof categoryI
   await assertParent(orgId, data.parentCategoryId, id)
   await ensureUnique(orgId, data.name, slug, data.parentCategoryId, id)
   await db.transaction(async (tx) => {
-    await tx.update(category).set({ name: data.name, slug, description: data.description || null, imageUrl: data.imageUrl || null, parentCategoryId: data.parentCategoryId || null, updatedAt: new Date() }).where(and(eq(category.id, id), eq(category.orgId, orgId)))
+    await tx.update(category).set({ name: data.name, slug, description: data.description || null, imageUrl: data.imageUrl || null, parentCategoryId: data.parentCategoryId || null, requiresAgeVerification: data.requiresAgeVerification ?? null, updatedAt: new Date() }).where(and(eq(category.id, id), eq(category.orgId, orgId)))
     await tx.insert(auditEvent).values({ id: generateId(), organizationId: orgId, userId, action: 'category.updated', metadata: { categoryId: id, name: data.name } })
   })
   await invalidateCategoryCache(orgId)

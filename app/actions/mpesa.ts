@@ -6,6 +6,7 @@ import { db } from '@/lib/db';
 import {
   branch,
   businessSettings,
+  category,
   customer,
   mpesaBusinessAccount,
   mpesaIncomingPayment,
@@ -60,6 +61,8 @@ const initiateSchema = z.object({
   roundoffEnabled: z.boolean().default(true),
   idempotencyKey: z.string().min(8).max(100),
   ageVerified: z.boolean().optional(),
+  ageVerificationStatus: z.enum(['VERIFIED', 'OVERRIDDEN']).optional(),
+  ageOverrideReason: z.string().trim().min(3).max(500).optional(),
   customerId: z.string().min(1).optional(),
   pointsToRedeem: z.number().int().min(0).optional(),
   bonusToUse: z.number().finite().min(0).optional(),
@@ -249,6 +252,14 @@ async function validatePharmacyPayment(
     throw new Error('Enter the restricted-medicine approval reason');
 }
 
+async function basketRequiresAgeVerification(orgId: string, productIds: string[], legacyLiquorDefault: boolean) {
+  const rows = await db.select({ categoryId: product.categoryId, restricted: product.requiresAgeVerification }).from(product).where(and(eq(product.orgId, orgId), inArray(product.id, productIds)))
+  const categoryIds = Array.from(new Set(rows.map((item) => item.categoryId).filter((value): value is string => Boolean(value))))
+  const inherited = categoryIds.length ? await db.select({ id: category.id, restricted: category.requiresAgeVerification }).from(category).where(and(eq(category.orgId, orgId), inArray(category.id, categoryIds))) : []
+  const inheritedById = new Map(inherited.map((item) => [item.id, item.restricted]))
+  return rows.some((item) => item.restricted ?? (item.categoryId ? inheritedById.get(item.categoryId) : null) ?? legacyLiquorDefault)
+}
+
 export async function initiateMpesaPayment(
   input: z.input<typeof initiateSchema>
 ) {
@@ -272,8 +283,9 @@ export async function initiateMpesaPayment(
   if (!activeShift)
     throw new Error('Start your shift before requesting payment');
   const workspace = await WorkspaceService.getWorkspaceConfig(orgId, userId);
-  if (workspace?.businessCategory === 'liquor_shop' && !data.ageVerified)
+  if (await basketRequiresAgeVerification(orgId, data.items.map((item) => item.productId), workspace?.businessCategory === 'liquor_shop') && !data.ageVerified)
     throw new Error('Verify the customer age before requesting M-Pesa payment');
+  if (data.ageVerificationStatus === 'OVERRIDDEN' && (!authorization.permissions.includes(PermissionEnum.AGE_VERIFICATION_OVERRIDE) || !data.ageOverrideReason)) throw new Error('An authorized supervisor and reason are required for an age override')
   if (
     data.discountAmount > 0 &&
     !authorization.permissions.includes(PermissionEnum.POS_DISCOUNT)
@@ -457,6 +469,8 @@ export async function initiateMpesaPayment(
         shippingAmount: data.shippingAmount,
         roundoffEnabled: data.roundoffEnabled,
         ageVerified: Boolean(data.ageVerified),
+        ageVerificationStatus: data.ageVerificationStatus,
+        ageOverrideReason: data.ageOverrideReason,
         pharmacy: data.pharmacy,
         pointsToRedeem: data.pointsToRedeem,
         bonusToUse: data.bonusToUse,
@@ -532,8 +546,9 @@ export async function initiateMpesaPaybillPayment(
   if (!activeShift)
     throw new Error('Start your shift before requesting payment');
   const workspace = await WorkspaceService.getWorkspaceConfig(orgId, userId);
-  if (workspace?.businessCategory === 'liquor_shop' && !data.ageVerified)
+  if (await basketRequiresAgeVerification(orgId, data.items.map((item) => item.productId), workspace?.businessCategory === 'liquor_shop') && !data.ageVerified)
     throw new Error('Verify the customer age before requesting M-Pesa payment');
+  if (data.ageVerificationStatus === 'OVERRIDDEN' && (!authorization.permissions.includes(PermissionEnum.AGE_VERIFICATION_OVERRIDE) || !data.ageOverrideReason)) throw new Error('An authorized supervisor and reason are required for an age override')
   if (
     data.discountAmount > 0 &&
     !authorization.permissions.includes(PermissionEnum.POS_DISCOUNT)
@@ -769,6 +784,8 @@ export async function initiateMpesaPaybillPayment(
         shippingAmount: data.shippingAmount,
         roundoffEnabled: data.roundoffEnabled,
         ageVerified: Boolean(data.ageVerified),
+        ageVerificationStatus: data.ageVerificationStatus,
+        ageOverrideReason: data.ageOverrideReason,
         pharmacy: data.pharmacy,
         pointsToRedeem: data.pointsToRedeem,
         bonusToUse: data.bonusToUse,

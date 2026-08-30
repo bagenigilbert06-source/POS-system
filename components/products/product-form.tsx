@@ -121,6 +121,7 @@ export function ProductForm({
     volume: product?.volume ?? '',
     volumeUnit: product?.volumeUnit ?? 'ml',
     abv: product?.abv ?? '',
+    requiresAgeVerification: product?.requiresAgeVerification ?? (config?.businessCategory === 'liquor_shop'),
     countryOfOrigin: product?.countryOfOrigin ?? '',
     unitsPerPack: product?.unitsPerPack ?? '',
     preferredSupplierId: product?.preferredSupplierId ?? '',
@@ -368,6 +369,7 @@ export function ProductForm({
         volume: form.volume === '' ? undefined : Number(form.volume),
         volumeUnit: form.volumeUnit || undefined,
         abv: form.abv === '' ? undefined : Number(form.abv),
+        requiresAgeVerification: form.requiresAgeVerification,
         countryOfOrigin: form.countryOfOrigin || undefined,
         unitsPerPack:
           form.unitsPerPack === '' ? undefined : Number(form.unitsPerPack),
@@ -794,6 +796,7 @@ export function ProductForm({
                       </div>
                     </div>
                   </details>}
+                  {!isPharmacy && <label className="mt-4 flex items-start gap-3 rounded-lg border bg-background p-3"><input type="checkbox" checked={form.requiresAgeVerification} onChange={(event) => set('requiresAgeVerification', event.target.checked)} className="mt-0.5 h-4 w-4" /><span><span className="block text-sm font-semibold">Age restricted</span><span className="mt-0.5 block text-xs text-muted-foreground">Requires age verification before checkout.</span></span></label>}
                   <div className="mt-4">
                     <FieldLabel>Description</FieldLabel>
                     <textarea
