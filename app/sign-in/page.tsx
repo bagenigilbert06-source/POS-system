@@ -18,13 +18,13 @@ export default async function SignInPage({ searchParams }: { searchParams: Promi
   if (session?.user && !isPosLogin) redirect('/dashboard')
 
   return (
-    <main className="auth-workspace relative flex min-h-dvh items-center justify-center overflow-hidden bg-[#15171c] p-3 text-slate-950 sm:p-6 lg:p-8">
-      <div className="pointer-events-none absolute inset-0 opacity-60" aria-hidden="true">
-        <div className="absolute -left-32 -top-40 h-96 w-96 rounded-full bg-[#ffda32]/15 blur-3xl" />
-        <div className="absolute -bottom-48 right-0 h-[30rem] w-[30rem] rounded-full bg-[#e42527]/10 blur-3xl" />
+    <main className="auth-workspace relative flex min-h-dvh items-center justify-center overflow-hidden bg-[#f4f6f8] p-3 text-slate-950 sm:p-6 lg:p-8">
+      <div className="pointer-events-none absolute inset-0" aria-hidden="true">
+        <div className="absolute -left-32 -top-40 h-96 w-96 rounded-full bg-[#ffda32]/10 blur-3xl" />
+        <div className="absolute -bottom-48 right-0 h-[30rem] w-[30rem] rounded-full bg-[#e42527]/5 blur-3xl" />
       </div>
 
-      <div className="relative grid w-full max-w-[1220px] overflow-hidden rounded-[28px] bg-white shadow-[0_34px_100px_rgba(0,0,0,0.42)] xl:min-h-[min(760px,calc(100dvh-64px))] xl:grid-cols-[56%_44%]">
+      <div className="relative grid w-full max-w-[1220px] overflow-hidden rounded-[28px] bg-white shadow-[0_20px_60px_rgba(15,23,42,0.14)] ring-1 ring-slate-200/80 xl:min-h-[min(760px,calc(100dvh-64px))] xl:grid-cols-[56%_44%]">
         <section className="relative hidden bg-[#ffda32] xl:flex xl:flex-col">
           <div className="absolute inset-0" aria-hidden="true">
             <div className="absolute -left-28 top-28 h-[33rem] w-[39rem] rounded-[48%_52%_57%_43%/42%_48%_52%_58%] bg-[#fff8dc]/75" />

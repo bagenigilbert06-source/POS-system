@@ -30,7 +30,7 @@ import {
   requirePermission,
 } from '@/lib/auth/authorization';
 import { PermissionEnum } from '@/lib/types/permissions';
-import { getPosAuthorizationContext } from '@/lib/pos/pos-auth';
+import { getPosAuthorizationContext, getTerminal } from '@/lib/pos/pos-auth';
 import { invalidateProductReadCache } from '@/lib/cache/redis-cache';
 import { applyInventoryMovement } from '@/lib/inventory/inventory-service';
 
@@ -49,13 +49,23 @@ async function posOperator(permission: PermissionEnum) {
     };
   }
   const full = await requirePermission(permission);
+  // A fully signed-in dashboard user does not have a POS PIN auth session, but
+  // this browser can still be registered to a terminal. Resolve that terminal
+  // cookie here so shift operations use the same device identity as PIN mode.
+  const registeredTerminal = await getTerminal();
+  const terminal =
+    registeredTerminal &&
+    registeredTerminal.organizationId === full.organizationId &&
+    (full.isOrganizationWide || full.branchIds.includes(registeredTerminal.branchId))
+      ? registeredTerminal
+      : null;
   return {
     userId: full.userId,
     orgId: full.organizationId,
     permissions: full.permissions,
-    branchIds: full.branchIds,
-    isOrganizationWide: full.isOrganizationWide,
-    terminalId: null,
+    branchIds: terminal ? [terminal.branchId] : full.branchIds,
+    isOrganizationWide: terminal ? false : full.isOrganizationWide,
+    terminalId: terminal?.id ?? null,
   };
 }
 const refresh = () =>

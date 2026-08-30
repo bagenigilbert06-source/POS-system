@@ -29,6 +29,7 @@ import {
 } from '@/app/actions/mpesa';
 import { createCustomer } from '@/app/actions/customers';
 import { validateCoupon } from '@/app/actions/promotions';
+import { quoteCheckoutRewards, refreshCustomerRewards } from '@/app/actions/rewards';
 import {
   getAirtelMoneyPaymentStatus,
   initiateAirtelMoneyPayment,
@@ -166,6 +167,8 @@ type PosProduct = Product & {
   packages: ProductPackage[];
   pharmacy?: PharmacyProduct | null;
 };
+type PosCustomer = Customer & { pointsBalance?: number; bonusBalance?: number };
+type RewardQuote = Awaited<ReturnType<typeof quoteCheckoutRewards>>;
 
 interface POSTerminalProps {
   standalone?: boolean;
@@ -174,7 +177,7 @@ interface POSTerminalProps {
   categories: Array<{ id: string; name: string }>;
   requiresAgeVerification?: boolean;
   pharmacyMode?: boolean;
-  customers: Customer[];
+  customers: PosCustomer[];
   settings: {
     displayName: string;
     receiptBusinessName: string;
@@ -211,6 +214,7 @@ interface POSTerminalProps {
   canDiscount?: boolean;
   canRefund?: boolean;
   canHold?: boolean;
+  canRedeemRewards?: boolean;
   canApproveRestricted?: boolean;
   receiptContext?: {
     cashierName?: string;
@@ -522,6 +526,7 @@ export function POSTerminal({
   canDiscount = false,
   canRefund = false,
   canHold = false,
+  canRedeemRewards = false,
   canApproveRestricted = false,
   receiptContext,
   offlineContext,
@@ -606,6 +611,10 @@ export function POSTerminal({
   );
   const [amountPaid, setAmountPaid] = useState('');
   const [selectedCustomer, setSelectedCustomer] = useState<string>('');
+  const [rewardQuote, setRewardQuote] = useState<RewardQuote | null>(null);
+  const [rewardQuoteLoading, setRewardQuoteLoading] = useState(false);
+  const [pointsToRedeem, setPointsToRedeem] = useState('');
+  const [bonusToUse, setBonusToUse] = useState('');
   const [prescriptionReference, setPrescriptionReference] = useState('');
   const [prescriberReference, setPrescriberReference] = useState('');
   const [patientReference, setPatientReference] = useState('');
@@ -1712,11 +1721,41 @@ export function POSTerminal({
   const unroundedTotal = Number(
     (grossBeforeDiscount + shippingCost - discountAmount).toFixed(2)
   );
-  const mpesaAmount = calculateMpesaAmount(unroundedTotal);
   const appliesRoundoff = roundoffEnabled;
-  const total = appliesRoundoff ? mpesaAmount.amount : unroundedTotal;
-  totalRef.current = total;
-  const roundingAmount = appliesRoundoff ? mpesaAmount.roundingAmount : 0;
+  const totalBeforeRewards = appliesRoundoff ? calculateMpesaAmount(unroundedTotal).amount : unroundedTotal;
+  const requestedPoints = pointsToRedeem.trim() ? Number(pointsToRedeem) : 0;
+  const requestedBonus = bonusToUse.trim() ? Number(bonusToUse) : 0;
+  const pointsError = !rewardQuote || requestedPoints === 0
+    ? ''
+    : !Number.isInteger(requestedPoints) || requestedPoints < 0
+      ? 'Enter a whole, positive point amount'
+      : requestedPoints < rewardQuote.minimumRedemptionPoints
+        ? `Minimum redemption is ${rewardQuote.minimumRedemptionPoints.toLocaleString()} points`
+        : requestedPoints > rewardQuote.pointsBalance
+          ? 'This customer does not have enough points'
+          : requestedPoints > rewardQuote.maximumPoints
+            ? `Maximum for this sale is ${rewardQuote.maximumPoints.toLocaleString()} points`
+            : '';
+  const bonusError = !rewardQuote || requestedBonus === 0
+    ? ''
+    : !Number.isFinite(requestedBonus) || requestedBonus < 0
+      ? 'Enter a valid bonus amount'
+      : requestedBonus > rewardQuote.bonusBalance
+        ? 'This customer does not have enough bonus'
+        : requestedBonus > rewardQuote.maximumBonus
+          ? `Maximum for this sale is ${formatCurrency(rewardQuote.maximumBonus)}`
+          : '';
+  const combinationError = Boolean(requestedPoints && requestedBonus && rewardQuote && !rewardQuote.allowPointsWithBonus);
+  const appliedPoints = pointsError || combinationError ? 0 : requestedPoints;
+  const loyaltyRedemptionValue = rewardQuote ? appliedPoints * rewardQuote.pointValue : 0;
+  const appliedBonus = bonusError || combinationError ? 0 : requestedBonus;
+  const rewardReduction = Number((loyaltyRedemptionValue + appliedBonus).toFixed(2));
+  const rewardAdjustedUnrounded = Math.max(0, Number((unroundedTotal - rewardReduction).toFixed(2)));
+  const total = appliesRoundoff ? calculateMpesaAmount(rewardAdjustedUnrounded).amount : rewardAdjustedUnrounded;
+  useEffect(() => {
+    totalRef.current = total;
+  }, [total]);
+  const roundingAmount = appliesRoundoff ? calculateMpesaAmount(rewardAdjustedUnrounded).roundingAmount : 0;
   const change =
     paymentMethod === 'cash'
       ? Math.max(0, parseFloat(amountPaid || '0') - total)
@@ -1729,6 +1768,41 @@ export function POSTerminal({
     offlineQueueSummary.pending > 0 ||
     offlineQueueSummary.failed > 0 ||
     offlineSyncing;
+
+  useEffect(() => {
+    setPointsToRedeem('');
+    setBonusToUse('');
+    setRewardQuote(null);
+  }, [selectedCustomer]);
+
+  useEffect(() => {
+    if (!selectedCustomer || cart.length === 0 || !isOnline) {
+      setRewardQuote(null);
+      return;
+    }
+    let active = true;
+    const timeout = window.setTimeout(() => {
+      setRewardQuoteLoading(true);
+      void quoteCheckoutRewards({
+        customerId: selectedCustomer,
+        lines: cart.map(({ productId, quantity, packageId }) => ({ productId, quantity, packageId })),
+        discountAmount,
+      }).then((quote) => {
+        if (active) setRewardQuote(quote);
+      }).catch((error) => {
+        if (active) {
+          setRewardQuote(null);
+          notify.error(error instanceof Error ? error.message : 'Could not load customer rewards');
+        }
+      }).finally(() => {
+        if (active) setRewardQuoteLoading(false);
+      });
+    }, 180);
+    return () => {
+      active = false;
+      window.clearTimeout(timeout);
+    };
+  }, [selectedCustomer, cart, discountAmount, isOnline]);
 
   const openSummaryEditor = (editor: Exclude<SummaryEditor, null>) => {
     if (mpesaLocksBasket)
@@ -1930,6 +2004,12 @@ export function POSTerminal({
     if (!hasActiveShift)
       return notify.error('Start your shift before completing a sale');
     if (cart.length === 0) return notify.error('Cart is empty');
+    if (pointsError || bonusError || combinationError)
+      return notify.error(pointsError || bonusError || 'Loyalty points and bonus cannot be combined');
+    if ((requestedPoints || requestedBonus) && (!selectedCustomer || !canRedeemRewards))
+      return notify.error(!selectedCustomer ? 'Select a customer before using rewards' : 'Reward redemption permission denied');
+    if ((requestedPoints || requestedBonus) && !isOnline)
+      return notify.error('Reward redemption requires an online connection');
     if (prescriptionRequired && !prescriptionReference.trim())
       return notify.error('Enter the prescription reference');
     if (containsRestrictedMedicine && !canApproveRestricted)
@@ -2069,6 +2149,8 @@ export function POSTerminal({
               staffNote: staffNote || undefined,
               idempotencyKey: checkoutIdempotencyKeyRef.current,
               ageVerified: requiresAgeVerification ? verified : undefined,
+              pointsToRedeem: appliedPoints || undefined,
+              bonusToUse: appliedBonus || undefined,
               pharmacy:
                 prescriptionRequired || containsRestrictedMedicine
                   ? {
@@ -2201,6 +2283,17 @@ export function POSTerminal({
         })
       );
       setCart([]);
+      if (selectedCustomer) {
+        try {
+          const latestRewards = await refreshCustomerRewards(selectedCustomer);
+          setAvailableCustomers((current) => current.map((customer) => customer.id === selectedCustomer ? { ...customer, loyaltyPoints: latestRewards.pointsBalance, pointsBalance: latestRewards.pointsBalance, bonusBalance: latestRewards.bonusBalance } : customer));
+        } catch {
+          router.refresh();
+        }
+      }
+      setPointsToRedeem('');
+      setBonusToUse('');
+      setRewardQuote(null);
       window.localStorage.removeItem(cartStorageKey);
       window.localStorage.removeItem(checkoutStorageKey);
 
@@ -2340,7 +2433,9 @@ export function POSTerminal({
     }
     void processCheckout();
   };
-  completeCheckoutRef.current = handleCheckout;
+  useEffect(() => {
+    completeCheckoutRef.current = handleCheckout;
+  });
 
   const handleMpesaPrompt = async () => {
     if (requiresAgeVerification && !ageVerified) {
@@ -2382,6 +2477,8 @@ export function POSTerminal({
         idempotencyKey: checkoutIdempotencyKeyRef.current,
         ageVerified,
         customerId: selectedCustomer || undefined,
+        pointsToRedeem: appliedPoints || undefined,
+        bonusToUse: appliedBonus || undefined,
         pharmacy:
           prescriptionRequired || containsRestrictedMedicine
             ? {
@@ -2480,6 +2577,8 @@ export function POSTerminal({
         idempotencyKey: checkoutIdempotencyKeyRef.current,
         ageVerified,
         customerId: selectedCustomer || undefined,
+        pointsToRedeem: appliedPoints || undefined,
+        bonusToUse: appliedBonus || undefined,
         pharmacy:
           prescriptionRequired || containsRestrictedMedicine
             ? {
@@ -4611,11 +4710,11 @@ export function POSTerminal({
                   <p className="text-sm font-semibold">{activeCustomer.name}</p>
                   <p className="mt-1 text-xs text-[#667085] dark:text-[#aeb4c0]">
                     Bonus:{' '}
-                    <span className="font-semibold text-[#0f8b83]">0</span>
+                    <span className="font-semibold text-[#0f8b83]">{activeCustomer.bonusBalance ?? 0}</span>
                     <span className="mx-1.5">|</span>
                     Loyalty:{' '}
                     <span className="font-semibold text-[#0f8b83]">
-                      {activeCustomer.loyaltyPoints ?? 0}
+                      {activeCustomer.pointsBalance ?? activeCustomer.loyaltyPoints ?? 0}
                     </span>
                   </p>
                 </div>
@@ -4967,6 +5066,24 @@ export function POSTerminal({
                       {formatCurrency(shippingCost)}
                     </dd>
                   </div>
+                  {loyaltyRedemptionValue > 0 && (
+                    <div className="flex min-h-9 items-center justify-between gap-4 py-2 text-[#0f766e] dark:text-teal-300">
+                      <dt>Loyalty redeemed</dt>
+                      <dd className="font-semibold tabular-nums">-{formatCurrency(loyaltyRedemptionValue)}</dd>
+                    </div>
+                  )}
+                  {rewardReduction > 0 && (
+                    <div className="flex min-h-9 items-center justify-between gap-4 py-2">
+                      <dt className="text-[var(--dashboard-muted)]">Total before rewards</dt>
+                      <dd className="font-semibold tabular-nums">{formatCurrency(totalBeforeRewards)}</dd>
+                    </div>
+                  )}
+                  {appliedBonus > 0 && (
+                    <div className="flex min-h-9 items-center justify-between gap-4 py-2 text-[#0f766e] dark:text-teal-300">
+                      <dt>Bonus redeemed</dt>
+                      <dd className="font-semibold tabular-nums">-{formatCurrency(appliedBonus)}</dd>
+                    </div>
+                  )}
                   <div className="flex min-h-9 items-center justify-between gap-4 py-2">
                     <dt className="flex items-center gap-2 text-[var(--dashboard-muted)]">
                       <Banknote className="h-3.5 w-3.5" aria-hidden="true" />
@@ -5131,11 +5248,60 @@ export function POSTerminal({
               </section>
             )}
 
+            {checkoutStep === 'customer' && selectedCustomer && (
+              <section aria-labelledby="pos-rewards-heading" className="rounded-xl border border-[#ead68a] bg-[#fffdf5] p-4 dark:border-amber-400/20 dark:bg-amber-400/5">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <h3 id="pos-rewards-heading" className="text-sm font-bold text-[#101828] dark:text-white">Rewards</h3>
+                    <p className="mt-0.5 text-[11px] text-[#667085] dark:text-[#aeb4c0]">Apply this customer&apos;s available balance</p>
+                  </div>
+                  {rewardQuoteLoading && <Loader2 className="h-4 w-4 text-[#a47700]" label="Loading rewards" />}
+                </div>
+                {rewardQuote ? (
+                  <div className="mt-3 space-y-4">
+                    <div>
+                      <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+                        <span className="text-[#667085] dark:text-[#aeb4c0]">Loyalty</span><strong className="text-right tabular-nums">{rewardQuote.pointsBalance.toLocaleString()} pts</strong>
+                        <span className="text-[#667085] dark:text-[#aeb4c0]">Worth</span><span className="text-right tabular-nums">{formatCurrency(rewardQuote.pointsBalance * rewardQuote.pointValue)}</span>
+                        <span className="text-[#667085] dark:text-[#aeb4c0]">Maximum usable</span><span className="text-right font-semibold tabular-nums">{formatCurrency(rewardQuote.maximumPointsValue)}</span>
+                      </div>
+                      <p className="mt-1.5 text-[10px] text-[#98a2b3]">Up to {rewardQuote.maximumPointsRedemptionPercent}% of eligible merchandise spend</p>
+                      <div className="mt-2 flex gap-2">
+                        <input type="number" min="0" step="1" inputMode="numeric" value={pointsToRedeem} onChange={(event) => setPointsToRedeem(event.target.value)} disabled={!canRedeemRewards || !isOnline || !rewardQuote.loyaltyEnabled || rewardQuote.maximumPoints === 0 || mpesaLocksBasket} placeholder="Points to redeem" aria-label="Loyalty points to redeem" aria-invalid={Boolean(pointsError)} className="h-10 min-w-0 flex-1 rounded-md border border-[#d0d5dd] bg-white px-3 text-sm tabular-nums outline-none focus:border-[#d7a400] disabled:bg-[#f2f4f7] disabled:text-[#98a2b3] dark:border-white/10 dark:bg-[#1c1c1e]" />
+                        <button type="button" onClick={() => setPointsToRedeem(String(rewardQuote.maximumPoints))} disabled={!canRedeemRewards || !isOnline || rewardQuote.maximumPoints === 0 || mpesaLocksBasket} className="h-10 rounded-md border border-[#d7a400] bg-[#fff8df] px-3 text-xs font-bold text-[#6f5600] disabled:opacity-40 dark:bg-amber-950/20 dark:text-amber-200">Use max</button>
+                        {pointsToRedeem && <button type="button" onClick={() => setPointsToRedeem('')} disabled={mpesaLocksBasket} className="h-10 px-2 text-xs font-semibold text-[#667085]">Clear</button>}
+                      </div>
+                      {pointsError && <p className="mt-1.5 text-[11px] font-medium text-red-600" role="alert">{pointsError}</p>}
+                    </div>
+                    <div className="border-t border-[#ead68a]/70 pt-3 dark:border-amber-400/15">
+                      <div className="flex items-center justify-between text-xs"><span className="text-[#667085] dark:text-[#aeb4c0]">Bonus balance</span><strong className="tabular-nums">{formatCurrency(rewardQuote.bonusBalance)}</strong></div>
+                      {rewardQuote.bonusBalance > 0 && rewardQuote.maximumBonus > 0 ? (
+                        <div className="mt-2">
+                          <p className="mb-2 text-[11px] text-[#667085]">Maximum usable: {formatCurrency(rewardQuote.maximumBonus)}</p>
+                          <div className="flex gap-2">
+                            <input type="number" min="0" step="0.01" inputMode="decimal" value={bonusToUse} onChange={(event) => setBonusToUse(event.target.value)} disabled={!canRedeemRewards || !isOnline || !rewardQuote.bonusEnabled || mpesaLocksBasket} placeholder="Bonus amount" aria-label="Bonus amount to use" aria-invalid={Boolean(bonusError)} className="h-10 min-w-0 flex-1 rounded-md border border-[#d0d5dd] bg-white px-3 text-sm tabular-nums outline-none focus:border-[#d7a400] disabled:bg-[#f2f4f7] dark:border-white/10 dark:bg-[#1c1c1e]" />
+                            <button type="button" onClick={() => setBonusToUse(String(rewardQuote.maximumBonus))} disabled={!canRedeemRewards || !isOnline || mpesaLocksBasket} className="h-10 rounded-md border border-[#d7a400] bg-[#fff8df] px-3 text-xs font-bold text-[#6f5600] disabled:opacity-40 dark:bg-amber-950/20 dark:text-amber-200">Use max</button>
+                            {bonusToUse && <button type="button" onClick={() => setBonusToUse('')} disabled={mpesaLocksBasket} className="h-10 px-2 text-xs font-semibold text-[#667085]">Clear</button>}
+                          </div>
+                          {bonusError && <p className="mt-1.5 text-[11px] font-medium text-red-600" role="alert">{bonusError}</p>}
+                        </div>
+                      ) : <p className="mt-1.5 text-[11px] text-[#98a2b3]">No bonus available</p>}
+                    </div>
+                    {combinationError && <p className="text-[11px] font-medium text-red-600" role="alert">Loyalty points and bonus cannot be combined under the current reward settings.</p>}
+                    {!canRedeemRewards && <p className="text-[11px] font-medium text-amber-800 dark:text-amber-200">Your role can view rewards but cannot redeem them.</p>}
+                    {!isOnline && <p className="text-[11px] font-medium text-amber-800 dark:text-amber-200">Connect to the internet to redeem rewards.</p>}
+                    {rewardReduction > 0 && <div className="flex items-center justify-between rounded-lg bg-white px-3 py-2.5 text-xs dark:bg-white/5"><span className="font-semibold">Amount remaining</span><strong className="text-sm tabular-nums">{formatCurrency(total)}</strong></div>}
+                  </div>
+                ) : !rewardQuoteLoading ? <p className="mt-3 text-xs text-[#667085]">Rewards are unavailable for this basket.</p> : null}
+              </section>
+            )}
+
             {checkoutStep === 'customer' && (
               <div className="rounded-xl border border-[#e4e7ec] bg-white p-3.5 dark:border-white/10 dark:bg-[#171717]">
                 <button
                   type="button"
                   onClick={() => {
+                    if (pointsError || bonusError || combinationError) return notify.error(pointsError || bonusError || 'Loyalty points and bonus cannot be combined');
                     if (paymentMethod === 'cash' && !amountPaid)
                       setAmountPaid(String(total));
                     setCheckoutStep('payment');

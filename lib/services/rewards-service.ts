@@ -24,7 +24,7 @@ export interface RewardSaleLine {
 
 const defaults: Omit<RewardSettingsModel, 'id' | 'organizationId'> = {
   loyaltyEnabled: true, spendPerPoint: 100, pointValue: 1, minimumRedemptionPoints: 100,
-  maximumPointsRedemptionPercent: 50, minimumEligibleSpend: 0, pointsExpiryDays: null,
+  maximumPointsRedemptionPercent: 25, minimumEligibleSpend: 0, pointsExpiryDays: null,
   bonusEnabled: true, maximumBonusRedemptionPercent: 100, allowPointsWithBonus: true,
   discountedItemsEarnPoints: true, bonusPaidAmountEarnsPoints: false,
   loyaltyPaidAmountEarnsPoints: false, roundingMode: 'floor',
@@ -73,7 +73,40 @@ export async function getRewardSummary(organizationId: string, customerId: strin
   return { ...account, bonusBalance: Number(account.bonusBalance), bonusDebt: Number(account.bonusDebt), pointsValue: money(account.pointsBalance * settings.pointValue), settings }
 }
 
-async function eligibleLines(tx: RewardTransaction, settings: RewardSettingsModel, branchId: string, kind: 'loyalty' | 'bonus', lines: RewardSaleLine[]) {
+/** Read-only checkout quote. Final sale processing repeats every calculation while
+ * holding the reward account lock, so this is guidance for the cashier, not authority. */
+export async function getRewardCheckoutQuote(input: { organizationId: string; customerId: string; branchId: string; lines: RewardSaleLine[]; ordinaryDiscount: number }) {
+  const [settings, account] = await Promise.all([
+    getRewardSettings(input.organizationId),
+    getRewardAccount(input.organizationId, input.customerId),
+  ])
+  const loyaltyLines = await eligibleLines(db, settings, input.branchId, 'loyalty', input.lines)
+  const bonusLines = await eligibleLines(db, settings, input.branchId, 'bonus', input.lines)
+  const loyaltyGross = money(loyaltyLines.reduce((sum, line) => sum + line.eligibleAmount, 0))
+  const bonusEligible = money(bonusLines.reduce((sum, line) => sum + line.eligibleAmount, 0))
+  const gross = money(input.lines.reduce((sum, line) => sum + line.amount, 0))
+  const discountShare = gross > 0 ? Math.min(1, Math.max(0, input.ordinaryDiscount) / gross) : 0
+  const loyaltyEligible = money(loyaltyGross * (settings.discountedItemsEarnPoints ? 1 : 1 - discountShare))
+  const maxPoints = calculateMaxPointsRedemption(account.pointsBalance, loyaltyEligible, settings)
+  const maxBonus = calculateMaxBonusRedemption(Number(account.bonusBalance), bonusEligible, settings)
+  return {
+    pointsBalance: account.pointsBalance,
+    bonusBalance: Number(account.bonusBalance),
+    pointValue: settings.pointValue,
+    minimumRedemptionPoints: settings.minimumRedemptionPoints,
+    loyaltyEnabled: settings.loyaltyEnabled,
+    bonusEnabled: settings.bonusEnabled,
+    allowPointsWithBonus: settings.allowPointsWithBonus,
+    maximumPoints: maxPoints.points,
+    maximumPointsValue: maxPoints.value,
+    maximumPointsRedemptionPercent: settings.maximumPointsRedemptionPercent,
+    maximumBonus: maxBonus,
+    loyaltyEligible,
+    bonusEligible,
+  }
+}
+
+async function eligibleLines(tx: RewardTransaction | typeof db, settings: RewardSettingsModel, branchId: string, kind: 'loyalty' | 'bonus', lines: RewardSaleLine[]) {
   const branches = await tx.select({ branchId: rewardBranchEligibility.branchId }).from(rewardBranchEligibility).where(and(eq(rewardBranchEligibility.rewardSettingsId, settings.id), eq(rewardBranchEligibility.rewardKind, kind)))
   if (branches.length && !branches.some((row) => row.branchId === branchId)) throw new Error(`${kind === 'loyalty' ? 'Loyalty' : 'Bonus'} rewards are unavailable at this branch`)
   const [productScopes, categoryScopes] = await Promise.all([
@@ -109,6 +142,7 @@ export async function applySaleRewards(tx: RewardTransaction, input: { organizat
   const loyaltyEligible = money(loyaltyEligibleGross * (settings.discountedItemsEarnPoints ? 1 : 1 - discountShare))
   const requestedPoints = Math.max(0, Math.trunc(input.pointsToRedeem ?? 0))
   const requestedBonus = money(Math.max(0, input.bonusToUse ?? 0))
+  if (requestedPoints > 0 && requestedPoints < settings.minimumRedemptionPoints) throw new Error(`Minimum redemption is ${settings.minimumRedemptionPoints} points`)
   const [reservation] = input.paymentRequestId ? await tx.select().from(rewardReservation).where(and(eq(rewardReservation.paymentRequestId, input.paymentRequestId), eq(rewardReservation.organizationId, input.organizationId))).limit(1).for('update') : []
   if (reservation && (reservation.status !== 'ACTIVE' || reservation.expiresAt <= new Date())) throw new Error('The reward reservation expired; reconcile this payment manually')
   if (reservation && (reservation.pointsReserved !== requestedPoints || Number(reservation.bonusReserved) !== requestedBonus)) throw new Error('Reward reservation does not match the checkout')
@@ -143,6 +177,7 @@ export async function reserveRewardsForPayment(tx: RewardTransaction, input: { o
   if (!requestedPoints && !requestedBonus) return { externalAmountReduction: 0 }
   const settings = await getRewardSettings(input.organizationId, tx)
   const account = await ensureRewardAccount(tx, input.organizationId, input.customerId)
+  if (requestedPoints > 0 && requestedPoints < settings.minimumRedemptionPoints) throw new Error(`Minimum redemption is ${settings.minimumRedemptionPoints} points`)
   const loyaltyLines = await eligibleLines(tx, settings, input.branchId, 'loyalty', input.lines)
   const bonusLines = await eligibleLines(tx, settings, input.branchId, 'bonus', input.lines)
   const gross = money(input.lines.reduce((sum, line) => sum + line.amount, 0))

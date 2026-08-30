@@ -106,7 +106,7 @@ function decode<T>(value: string): T {
  * failures all fall back to the authoritative PostgreSQL loader.
  */
 export async function readThroughRedis<T>(options: {
-  namespace: 'products' | 'categories'
+  namespace: 'products' | 'categories' | 'dashboard'
   organizationId: string
   variant: string
   ttlSeconds: number
@@ -138,7 +138,7 @@ export async function readThroughRedis<T>(options: {
   }
 }
 
-export async function invalidateRedisCache(namespace: 'products' | 'categories', organizationId: string) {
+export async function invalidateRedisCache(namespace: 'products' | 'categories' | 'dashboard', organizationId: string) {
   const client = await redisClient()
   if (!client) return false
   try {

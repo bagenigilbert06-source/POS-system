@@ -1,5 +1,8 @@
 import { and, asc, desc, eq, gte, inArray, lt, lte, sql } from 'drizzle-orm'
 import { db } from '@/lib/db'
+import { readThroughRedis } from '@/lib/cache/redis-cache'
+
+const dashboardOverviewCache = new Map<string, { value: DashboardOverview; expiresAt: number }>()
 import { branch, category, customer, expense, inventoryBalance, inventoryLot, invoice, organizationMembership, product, sale, saleItem, salesReturn, salesReturnItem } from '@/lib/db/schema'
 
 export interface DashboardOverview {
@@ -134,7 +137,10 @@ function calendarKey(parts: { year: number; month: number; day: number }) {
  * The organization id passed here is resolved by authenticated server routes,
  * never accepted from the browser.
  */
-export async function getDashboardOverview(organizationId: string, timeZone = 'Africa/Nairobi', branchIds?: readonly string[]): Promise<DashboardOverview> {
+async function loadDashboardOverview(organizationId: string, timeZone = 'Africa/Nairobi', branchIds?: readonly string[]): Promise<DashboardOverview> {
+  const cacheKey = `${organizationId}:${timeZone}:${branchIds?.join(',') ?? '*'}`
+  const cached = dashboardOverviewCache.get(cacheKey)
+  if (cached && cached.expiresAt > Date.now()) return cached.value
   let safeTimeZone = timeZone
   try {
     new Intl.DateTimeFormat('en', { timeZone: safeTimeZone }).format()
@@ -463,7 +469,7 @@ export async function getDashboardOverview(organizationId: string, timeZone = 'A
   const yesterdayCostDataComplete = yesterdayCosts.missingCosts === 0
   const productRefunds = new Map(productRefundRows.map((row) => [`${row.date}:${row.productId}`, { quantity: number(row.quantity), revenue: number(row.revenue) }]))
 
-  return {
+  const result = {
     today: {
       revenue: todayRevenue,
       transactions: number(todaySalesRows[0]?.transactions),
@@ -544,4 +550,10 @@ export async function getDashboardOverview(organizationId: string, timeZone = 'A
       valueAtRisk: number(pharmacyInventoryRows?.valueAtRisk),
     },
   }
+  dashboardOverviewCache.set(cacheKey, { value: result, expiresAt: Date.now() + 10_000 })
+  return result
+}
+
+export async function getDashboardOverview(organizationId: string, timeZone = 'Africa/Nairobi', branchIds?: readonly string[]) {
+  return readThroughRedis({ namespace: 'dashboard', organizationId, variant: `${timeZone}:${branchIds?.join(',') ?? '*'}`, ttlSeconds: 15, load: () => loadDashboardOverview(organizationId, timeZone, branchIds) })
 }

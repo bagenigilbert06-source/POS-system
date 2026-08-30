@@ -21,6 +21,8 @@ import {
 } from '@/lib/db/schema';
 import { PermissionEnum } from '@/lib/types/permissions';
 import { money } from '@/lib/finance/money';
+import { mpesaPaymentRequest } from '@/lib/db/schema';
+import { PendingPaymentAction } from '@/app/dashboard/pos/mpesa-reconciliation/reconciliation-actions';
 
 const cash = (value: string | number) =>
   `KES ${money(value).toNumber().toLocaleString('en-KE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -45,6 +47,7 @@ export default async function ReconciliationPage({ searchParams }: { searchParam
       )
     );
   const accountIds = accounts.map((account) => account.id);
+  const pendingMpesa = await db.select({ id: mpesaPaymentRequest.id, amount: mpesaPaymentRequest.amount, status: mpesaPaymentRequest.status, phone: mpesaPaymentRequest.phone }).from(mpesaPaymentRequest).where(and(eq(mpesaPaymentRequest.organizationId, context.organizationId), inArray(mpesaPaymentRequest.status, ['AWAITING_CONFIRMATION', 'RECONCILIATION_REQUIRED']))).limit(200);
   const params = await searchParams;
   const selectedAccount = params.account && accountIds.includes(params.account) ? params.account : undefined;
   const page = Number.isInteger(Number(params.page)) && Number(params.page) > 0 ? Number(params.page) : 1;
@@ -235,6 +238,7 @@ export default async function ReconciliationPage({ searchParams }: { searchParam
           <StatementImportDialog accounts={accounts} />
         )}
       </div>
+      {pendingMpesa.length > 0 && <section className="rounded-xl border border-amber-200 bg-card shadow-sm dark:border-amber-900"><div className="flex items-center justify-between border-b px-5 py-3"><div><h2 className="font-semibold">Pending M-Pesa payments</h2><p className="text-xs text-muted-foreground">Resolve these before closing the POS shift.</p></div><span className="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-800 dark:bg-amber-950/50 dark:text-amber-300">{pendingMpesa.length} pending</span></div><div className="grid gap-3 p-4 md:grid-cols-2">{pendingMpesa.map((item) => <div key={item.id} className="flex items-center gap-3 rounded-lg border border-border bg-muted/20 px-4 py-3"><div className="min-w-0 flex-1"><p className="text-sm font-semibold">{item.id.slice(0, 12)} <span className="font-normal text-muted-foreground">· {cash(item.amount)}</span></p><p className="mt-0.5 text-xs text-muted-foreground">{item.status.replaceAll('_', ' ')}{item.phone ? ` · ${item.phone}` : ''}</p></div><PendingPaymentAction requestId={item.id} /></div>)}</div></section>}
       {accounts.length > 0 && <form className="grid gap-3 rounded-lg border bg-card p-4 sm:grid-cols-3">
         <label className="space-y-1 text-xs font-medium">Channel
           <select name="channel" defaultValue={channel ?? ''} className="block h-9 w-full rounded-md border bg-background px-3 text-sm font-normal">

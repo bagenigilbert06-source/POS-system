@@ -10,6 +10,7 @@ import { generateId, generateReceiptNo } from '@/lib/utils'
 import { applyInventoryMovement, consumeInventoryCost } from '@/lib/inventory/inventory-service'
 import { enqueueEtimsInvoice } from '@/lib/etims/service'
 import { applySaleRewards } from '@/lib/services/rewards-service'
+import { preTaxRewardAmount } from '@/lib/rewards/rules'
 
 export type MpesaCheckoutPayload = {
   items: Array<{ productId: string; quantity: number; packageId?: string }>
@@ -87,8 +88,8 @@ export async function finalizeConfirmedMpesaPayment(requestId: string) {
     const rewards = intent.customerId ? await applySaleRewards(tx, {
       organizationId: intent.organizationId, customerId: intent.customerId, branchId: intent.branchId,
       saleId, userId: intent.userId,
-      lines: lines.map((line) => ({ productId: line.productId, categoryId: byId.get(line.productId)?.categoryId ?? null, amount: line.totalPrice, discounted: checkout.discountAmount > 0 })),
-      ordinaryDiscount: checkout.discountAmount, pointsToRedeem: checkout.pointsToRedeem, bonusToUse: checkout.bonusToUse,
+      lines: lines.map((line) => ({ productId: line.productId, categoryId: byId.get(line.productId)?.categoryId ?? null, amount: preTaxRewardAmount(line.totalPrice, { enabled: settings?.taxEnabled ?? false, ratePercent: Number(settings?.taxRate ?? 0), pricesIncludeTax: settings?.pricesIncludeTax ?? false }), discounted: checkout.discountAmount > 0 })),
+      ordinaryDiscount: preTaxRewardAmount(checkout.discountAmount, { enabled: settings?.taxEnabled ?? false, ratePercent: Number(settings?.taxRate ?? 0), pricesIncludeTax: settings?.pricesIncludeTax ?? false }), pointsToRedeem: checkout.pointsToRedeem, bonusToUse: checkout.bonusToUse,
       paymentRequestId: intent.id,
     }) : null
     const unroundedTotal = Number((gross + shippingAmount - checkout.discountAmount - (rewards?.externalAmountReduction ?? 0)).toFixed(2))

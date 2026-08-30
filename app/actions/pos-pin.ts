@@ -336,6 +336,13 @@ export async function unlockPosWithPin(userId: string, pin: string) {
 }
 
 /** Staff eligible to unlock the registered terminal. No contact data is exposed. */
+export async function getPosTerminalContext() {
+  const terminal = await getTerminal();
+  if (!terminal) return { terminalName: null, branchName: null };
+  const [location] = await db.select({ name: branch.name }).from(branch).where(eq(branch.id, terminal.branchId)).limit(1);
+  return { terminalName: terminal.name || null, branchName: location?.name || null };
+}
+
 export async function getPosTerminalStaff() {
   try {
     const terminal = await getTerminal();
@@ -598,6 +605,15 @@ export async function unlockPosWithStaffPin(userId: string, pin: string) {
       error: 'Unable to unlock this POS terminal. Please try again.',
     };
   }
+}
+
+/** PIN-only login identifies the cashier server-side. */
+export async function unlockPosByPin(pin: string) {
+  const terminal = await getTerminal();
+  if (!terminal) return { success: false, error: 'Terminal access not allowed' };
+  const candidates = await db.select({ userId: posPinCredential.userId, pinHash: posPinCredential.pinHash }).from(posPinCredential).innerJoin(employee, eq(employee.userId, posPinCredential.userId)).where(and(eq(employee.orgId, terminal.organizationId), eq(employee.status, 'active'), eq(posPinCredential.enabled, true)));
+  for (const candidate of candidates) if (await verifyPassword({ hash: candidate.pinHash, password: pin })) return unlockPosWithPin(candidate.userId, pin);
+  return { success: false, error: 'Invalid PIN or you are not authorized to use this terminal.' };
 }
 
 /** Unlocks only the cashier who created the current locked terminal session. */

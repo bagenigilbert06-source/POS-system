@@ -47,6 +47,7 @@ export function PageLoader({
       data-pesaby-initial-loader={initial ? '' : undefined}
       role="status"
       aria-live="polite"
+      aria-label={label}
     >
       <LoadingSpinner className="pesaby-loader--page" />
       <span className="sr-only">{label}</span>

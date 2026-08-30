@@ -2,7 +2,7 @@
 
 import { auth } from '@/lib/auth'
 import { db } from '@/lib/db'
-import { customer } from '@/lib/db/schema'
+import { customer, customerRewardAccount } from '@/lib/db/schema'
 import { and, desc, eq, ilike, or, sql } from 'drizzle-orm'
 import { headers } from 'next/headers'
 import { revalidatePath } from 'next/cache'
@@ -46,18 +46,21 @@ export async function getCustomers(search?: string) {
     )
   }
   return db
-    .select()
+    .select({ customer, pointsBalance: customerRewardAccount.pointsBalance, bonusBalance: customerRewardAccount.bonusBalance })
     .from(customer)
+    .leftJoin(customerRewardAccount, and(eq(customerRewardAccount.customerId, customer.id), eq(customerRewardAccount.organizationId, orgId)))
     .where(and(...conditions))
     .orderBy(desc(customer.createdAt))
+    .then(rows => rows.map(({ customer: row, pointsBalance, bonusBalance }) => ({ ...row, pointsBalance: pointsBalance ?? row.loyaltyPoints, bonusBalance: Number(bonusBalance ?? 0) })))
 }
 
 export async function getCustomerById(id: string) {
   const userId = await getUserId()
   const orgId = await getOrgId(userId)
-  const [item] = await db.select().from(customer)
+  const [item] = await db.select({ customer, pointsBalance: customerRewardAccount.pointsBalance, bonusBalance: customerRewardAccount.bonusBalance }).from(customer)
+    .leftJoin(customerRewardAccount, and(eq(customerRewardAccount.customerId, customer.id), eq(customerRewardAccount.organizationId, orgId)))
     .where(and(eq(customer.id, id), eq(customer.orgId, orgId))).limit(1)
-  return item ?? null
+  return item ? { ...item.customer, pointsBalance: item.pointsBalance ?? item.customer.loyaltyPoints, bonusBalance: Number(item.bonusBalance ?? 0) } : null
 }
 
 const customerSchema = z.object({

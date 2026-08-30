@@ -35,6 +35,7 @@ import { reserveRewardsForPayment } from '@/lib/services/rewards-service';
 import { finalizeConfirmedMpesaPayment } from '@/lib/mpesa/finalize-payment';
 import { normalizeMpesaPhoneForMode } from '@/lib/mpesa/phone-validation';
 import { configuredTax } from '@/lib/finance/money';
+import { preTaxRewardAmount } from '@/lib/rewards/rules';
 
 const itemSchema = z.object({
   productId: z.string().min(1),
@@ -417,17 +418,19 @@ export async function initiateMpesaPayment(
           branchId,
           paymentRequestId: id,
           expiresAt,
-          ordinaryDiscount: data.discountAmount,
+          ordinaryDiscount: preTaxRewardAmount(data.discountAmount, { enabled: settings?.taxEnabled ?? false, ratePercent: Number(settings?.taxRate ?? 0), pricesIncludeTax: settings?.pricesIncludeTax ?? false }),
           pointsToRedeem: data.pointsToRedeem,
           bonusToUse: data.bonusToUse,
           lines: data.items.map((line) => ({
             productId: line.productId,
             categoryId: byId.get(line.productId)?.categoryId ?? null,
-            amount:
+            amount: preTaxRewardAmount(
               Number(
                 packageById.get(line.packageId ?? '')?.sellingPrice ??
                   byId.get(line.productId)!.price
               ) * line.quantity,
+              { enabled: settings?.taxEnabled ?? false, ratePercent: Number(settings?.taxRate ?? 0), pricesIncludeTax: settings?.pricesIncludeTax ?? false }
+            ),
             discounted: data.discountAmount > 0,
           })),
         })
@@ -727,17 +730,19 @@ export async function initiateMpesaPaybillPayment(
           branchId,
           paymentRequestId: id,
           expiresAt,
-          ordinaryDiscount: data.discountAmount,
+          ordinaryDiscount: preTaxRewardAmount(data.discountAmount, { enabled: settings?.taxEnabled ?? false, ratePercent: Number(settings?.taxRate ?? 0), pricesIncludeTax: settings?.pricesIncludeTax ?? false }),
           pointsToRedeem: data.pointsToRedeem,
           bonusToUse: data.bonusToUse,
           lines: data.items.map((line) => ({
             productId: line.productId,
             categoryId: byId.get(line.productId)?.categoryId ?? null,
-            amount:
+            amount: preTaxRewardAmount(
               Number(
                 packageById.get(line.packageId ?? '')?.sellingPrice ??
                   byId.get(line.productId)!.price
               ) * line.quantity,
+              { enabled: settings?.taxEnabled ?? false, ratePercent: Number(settings?.taxRate ?? 0), pricesIncludeTax: settings?.pricesIncludeTax ?? false }
+            ),
             discounted: data.discountAmount > 0,
           })),
         })

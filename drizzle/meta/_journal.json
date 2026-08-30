@@ -204,6 +204,13 @@
       "when": 1788205200000,
       "tag": "0048_etims_operations",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1788210000000,
+      "tag": "0049_safe_loyalty_defaults",
+      "breakpoints": true
     }
   ]
 }

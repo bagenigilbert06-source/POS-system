@@ -1,6 +1,6 @@
 import { and, desc, eq, gt, inArray, isNull, or, sql } from 'drizzle-orm'
 import { db } from '@/lib/db'
-import { branch, businessSettings, cashMovement, category, customer, inventoryBalance, inventoryLot, pharmacyProduct, posPinCredential, posSession, posTerminal, product, productPackage, sale, salesReturn, mpesaPaymentRequest } from '@/lib/db/schema'
+import { branch, businessSettings, cashMovement, category, customer, customerRewardAccount, inventoryBalance, inventoryLot, pharmacyProduct, posPinCredential, posSession, posTerminal, product, productPackage, sale, salesReturn, mpesaPaymentRequest, user } from '@/lib/db/schema'
 import { readThroughRedis } from '@/lib/cache/redis-cache'
 import type { AuthorizationContext } from '@/lib/auth/authorization'
 import { filterPharmacyCatalog } from '@/lib/pharmacy/rules'
@@ -43,16 +43,19 @@ export async function getPosPageData(authorization: AuthorizationContext, includ
     db.select().from(productPackage).where(and(eq(productPackage.organizationId, orgId), eq(productPackage.isActive, true))).orderBy(productPackage.baseUnitQuantity),
     db.select().from(pharmacyProduct).where(eq(pharmacyProduct.organizationId, orgId)),
     readThroughRedis({ namespace: 'categories', organizationId: orgId, variant: 'pos-filter-list', ttlSeconds: 600, load: () => db.select({ id: category.id, name: category.name, parentCategoryId: category.parentCategoryId, isActive: category.isActive }).from(category).where(eq(category.orgId, orgId)).orderBy(category.name) }),
-    includeCustomers ? db.select().from(customer).where(eq(customer.orgId, orgId)).orderBy(desc(customer.createdAt)) : Promise.resolve([]),
+    includeCustomers ? db.select({ customer, pointsBalance: customerRewardAccount.pointsBalance, bonusBalance: customerRewardAccount.bonusBalance }).from(customer).leftJoin(customerRewardAccount, and(eq(customerRewardAccount.customerId, customer.id), eq(customerRewardAccount.organizationId, orgId))).where(eq(customer.orgId, orgId)).orderBy(desc(customer.createdAt)).then(rows => rows.map(({ customer: row, pointsBalance, bonusBalance }) => ({ ...row, loyaltyPoints: pointsBalance ?? row.loyaltyPoints, pointsBalance: pointsBalance ?? row.loyaltyPoints, bonusBalance: Number(bonusBalance ?? 0) }))) : Promise.resolve([]),
     db.select().from(businessSettings).where(eq(businessSettings.organizationId, orgId)).limit(1),
     db.select().from(posSession).where(and(eq(posSession.orgId, orgId), terminalId ? eq(posSession.terminalId, terminalId) : eq(posSession.openedBy, authorization.userId), inArray(posSession.status, ['open', 'closing']))).orderBy(desc(posSession.openedAt)).limit(1),
     db.select({ id: branch.id, name: branch.name, code: branch.code }).from(branch).where(and(eq(branch.organizationId, orgId), branchFilter)).limit(1),
     db.select({ enabled: posPinCredential.enabled }).from(posPinCredential).where(eq(posPinCredential.userId, authorization.userId)).limit(1),
   ])
   const activeSession = sessionRows[0] ?? null
-  const [terminal] = activeSession?.terminalId
-    ? await db.select({ name: posTerminal.name }).from(posTerminal).where(eq(posTerminal.id, activeSession.terminalId)).limit(1)
-    : []
+  const [[terminal], [cashier]] = activeSession
+    ? await Promise.all([
+      activeSession.terminalId ? db.select({ name: posTerminal.name }).from(posTerminal).where(eq(posTerminal.id, activeSession.terminalId)).limit(1) : Promise.resolve([]),
+      db.select({ name: user.name }).from(user).where(eq(user.id, activeSession.openedBy)).limit(1),
+    ])
+    : [[], []]
   const [summaryRows, refundRows, movementRows, recentSales, mpesaRows] = activeSession
     ? await Promise.all([
       db.select({ total: sql<string>`coalesce(sum(${sale.total}),0)`, count: sql<number>`count(*)` }).from(sale).where(and(eq(sale.orgId, orgId), eq(sale.posSessionId, activeSession.id), inArray(sale.status, ['completed', 'partially_refunded', 'refunded']))),
@@ -92,6 +95,6 @@ export async function getPosPageData(authorization: AuthorizationContext, includ
   return {
     products: branchProducts, categories: posCategories, customers, settings: receiptSettings(settingsRows[0]), activeBranch: branchRows[0] ?? null,
     pinSet: Boolean(pinRows[0]?.enabled),
-    cashierWorkspace: { session: activeSession, registerName: terminal?.name ?? activeSession?.sessionNo ?? null, shiftSales: Number(summary?.total ?? 0) - Number(refunds?.total ?? 0), transactionCount: Number(summary?.count ?? 0), cashMovementCount: Number(movements?.count ?? 0), locationName: branchRows[0]?.name ?? 'Assigned location', recentSales, mpesaCounters },
+    cashierWorkspace: { session: activeSession, registerName: terminal?.name ?? activeSession?.sessionNo ?? null, cashierName: cashier?.name ?? null, shiftSales: Number(summary?.total ?? 0) - Number(refunds?.total ?? 0), transactionCount: Number(summary?.count ?? 0), cashMovementCount: Number(movements?.count ?? 0), locationName: branchRows[0]?.name ?? 'Assigned location', recentSales, mpesaCounters },
   }
 }

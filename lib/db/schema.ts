@@ -640,7 +640,7 @@ export const rewardSettings = pgTable(
       scale: 2,
     })
       .notNull()
-      .default('50'),
+      .default('25'),
     minimumEligibleSpend: numeric('minimumEligibleSpend', {
       precision: 12,
       scale: 2,

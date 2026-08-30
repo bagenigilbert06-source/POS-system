@@ -22,7 +22,7 @@ import { classifyOfflineSyncError, offlineAmountConflicts } from '@/lib/pos/offl
 import { baseUnitsForSale } from '@/lib/pos/product-packaging'
 import { isPharmacyBusiness } from '@/lib/pharmacy/rules'
 import { applySaleRewards, reverseRewardsForVoid } from '@/lib/services/rewards-service'
-import { money } from '@/lib/rewards/rules'
+import { money, preTaxRewardAmount } from '@/lib/rewards/rules'
 import { configuredTax, money as financeMoney, paymentStatus } from '@/lib/finance/money'
 import { getFiscalReadiness } from '@/lib/etims/policy'
 import Decimal from 'decimal.js'
@@ -360,8 +360,8 @@ export async function createSale(data: CreateSaleInput) {
     }
     const rewards = data.customerId ? await applySaleRewards(tx, {
       organizationId: orgId, customerId: data.customerId, branchId: saleBranchId, saleId, userId,
-      lines: normalizedItems.map((item) => ({ productId: item.productId, categoryId: catalogueById.get(item.productId)?.categoryId ?? null, amount: item.totalPrice, discounted: data.discountAmount > 0 })),
-      ordinaryDiscount: data.discountAmount, pointsToRedeem: data.pointsToRedeem, bonusToUse: data.bonusToUse,
+      lines: normalizedItems.map((item) => ({ productId: item.productId, categoryId: catalogueById.get(item.productId)?.categoryId ?? null, amount: preTaxRewardAmount(item.totalPrice, { enabled: settings?.taxEnabled ?? false, ratePercent: Number(settings?.taxRate ?? 0), pricesIncludeTax: settings?.pricesIncludeTax ?? false }), discounted: data.discountAmount > 0 })),
+      ordinaryDiscount: preTaxRewardAmount(data.discountAmount, { enabled: settings?.taxEnabled ?? false, ratePercent: Number(settings?.taxRate ?? 0), pricesIncludeTax: settings?.pricesIncludeTax ?? false }), pointsToRedeem: data.pointsToRedeem, bonusToUse: data.bonusToUse,
     }) : null
     const rewardAdjustedUnrounded = money(unroundedTotal - (rewards?.externalAmountReduction ?? 0))
     const rewardAdjustedMpesa = calculateMpesaAmount(rewardAdjustedUnrounded)

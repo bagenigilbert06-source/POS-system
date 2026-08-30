@@ -106,6 +106,8 @@ export interface Customer {
   email?: string;
   address?: string;
   loyaltyPoints: number;
+  pointsBalance?: number;
+  bonusBalance?: number;
   createdAt: Date;
   updatedAt: Date;
 }

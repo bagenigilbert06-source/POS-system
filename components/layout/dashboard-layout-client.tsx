@@ -48,8 +48,10 @@ export function DashboardLayoutClient({
     pathname === '/dashboard/admin' || pathname.startsWith('/dashboard/admin/');
   const isEmployeesPage =
     pathname === '/dashboard/staff' || pathname.startsWith('/dashboard/staff/');
-  const isPosWorkspace =
-    pathname === '/dashboard/pos' || pathname.startsWith('/dashboard/pos/');
+  // Keep the immersive terminal chrome only on the main POS screen. Supporting
+  // pages (reconciliation, history, checkout) remain inside the normal dashboard
+  // shell so navigation is always available.
+  const isPosWorkspace = pathname === '/dashboard/pos';
   const isPosTerminal = pathname === '/dashboard/pos';
   const experience = initialWorkspaceConfig
     ? getBusinessExperience(

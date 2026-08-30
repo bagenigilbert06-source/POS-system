@@ -20,6 +20,13 @@ export function money(value: number) {
   return Math.round((value + Number.EPSILON) * 100) / 100
 }
 
+/** Converts a merchandise or discount amount to its tax-exclusive reward base.
+ * Tax calculation itself remains owned by the finance pricing engine. */
+export function preTaxRewardAmount(value: number, tax: { enabled: boolean; ratePercent: number; pricesIncludeTax: boolean }) {
+  if (!tax.enabled || !tax.pricesIncludeTax || tax.ratePercent <= 0) return money(value)
+  return money(value / (1 + tax.ratePercent / 100))
+}
+
 export function calculatePointsEarned(eligibleSpend: number, settings: RewardRuleSettings) {
   if (!settings.loyaltyEnabled || eligibleSpend < settings.minimumEligibleSpend || eligibleSpend <= 0) return 0
   const raw = eligibleSpend / settings.spendPerPoint

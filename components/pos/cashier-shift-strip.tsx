@@ -27,11 +27,8 @@ import {
 import {
   ArrowDownToLine,
   Banknote,
-  CircleDot,
-  Clock3,
-  ReceiptText,
-  ShieldCheck,
   Home,
+  ReceiptText,
 } from 'lucide-react';
 
 type Reconciliation = {
@@ -51,6 +48,7 @@ type Workspace = {
     openedAt: Date;
   } | null;
   registerName: string | null;
+  cashierName: string | null;
   shiftSales: number;
   transactionCount: number;
   cashMovementCount: number;
@@ -59,6 +57,8 @@ type Workspace = {
 };
 const money = (amount: number) =>
   `KES ${amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const compactMoney = (amount: number) =>
+  `KES ${amount.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
 
 export function CashierShiftStrip({
   workspace,
@@ -168,44 +168,40 @@ export function CashierShiftStrip({
 
   return (
     <>
-      <section className="hidden overflow-hidden rounded-2xl border border-[#ead28a] bg-gradient-to-r from-[#fffdf7] via-[#fff9e5] to-[#fff1b8] shadow-[0_2px_8px_rgba(151,112,0,.08)] dark:border-[rgba(255,214,10,.22)] dark:from-[#15130c] dark:via-[#201b0d] dark:to-[#30270f] dark:shadow-[0_2px_8px_rgba(0,0,0,.18)] lg:block">
-        <div className="flex flex-col gap-3 px-3 py-2.5 sm:px-4 sm:py-3.5 xl:flex-row xl:items-center xl:justify-between">
-          <dl className="grid min-w-0 flex-1 grid-cols-2 gap-x-5 gap-y-2 md:grid-cols-3 xl:max-w-5xl xl:grid-cols-4">
-            <Metric
-              icon={Banknote}
-              label="Shift sales"
-              value={money(workspace.shiftSales)}
-              tone="gold"
-            />
-            <Metric icon={ReceiptText} label="M-Pesa confirmed" value={String(mpesa.confirmed)} tone="success" />
-            <Metric
-              icon={ReceiptText}
-              label="Transactions"
-              value={String(workspace.transactionCount)}
-            />
-            <div className="hidden sm:block">
-              <Metric
-                icon={CircleDot}
-                label="Register"
-                value={
-                  session
-                    ? isClosing
-                      ? 'Reconciling'
-                      : `Open · ${workspace.registerName ?? session.sessionNo}`
-                    : 'No active shift'
-                }
-                tone={session ? 'success' : undefined}
-              />
+      <section className="hidden overflow-hidden rounded-2xl border border-[#ead28a] bg-gradient-to-r from-[#fffdf7] via-[#fff9e5] to-[#fff1b8] font-sans shadow-[0_2px_8px_rgba(151,112,0,.08)] dark:border-[rgba(255,214,10,.22)] dark:from-[#15130c] dark:via-[#201b0d] dark:to-[#30270f] dark:shadow-[0_2px_8px_rgba(0,0,0,.18)] lg:block">
+        <div className="flex flex-col gap-2 px-3 py-2 sm:px-4 sm:py-2.5 xl:flex-row xl:items-center xl:justify-between">
+          <dl className="grid min-w-0 flex-1 grid-cols-2 gap-x-4 gap-y-2 sm:grid-cols-4 lg:max-w-4xl">
+            <SummaryMetric icon={Banknote} label="Shift sales" value={money(workspace.shiftSales)} />
+            <SummaryMetric icon={ReceiptText} label="Transactions" value={String(workspace.transactionCount)} />
+            <div className="flex min-w-0 items-center gap-2.5">
+              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-[#b8e5c8] bg-[#f1fbf4] text-[10px] font-extrabold tracking-[-0.05em] text-[#17883b] dark:border-emerald-800/60 dark:bg-emerald-950/30 dark:text-emerald-300">
+                M
+              </span>
+              <div className="min-w-0">
+                <dt className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--dashboard-muted)]">M-Pesa</dt>
+                <dd className="mt-0.5 whitespace-nowrap text-sm font-bold tabular-nums tracking-[-0.01em] text-[var(--dashboard-text)]">{mpesa.confirmed} confirmed</dd>
+              </div>
+            </div>
+            <div className="min-w-0">
+              <dt className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--dashboard-muted)]">Register</dt>
+              <dd className="mt-0.5 flex items-center gap-1.5 text-sm font-bold text-[var(--dashboard-text)]">
+                <span className={`h-2 w-2 shrink-0 rounded-full ${session ? isClosing ? 'bg-amber-500' : 'bg-emerald-500' : 'bg-slate-400'}`} aria-hidden="true" />
+                {session ? isClosing ? 'Closing' : 'Open' : 'Closed'}
+              </dd>
+              <dd className="mt-0.5 truncate text-[11px] text-[var(--dashboard-muted)]" title={session ? `${workspace.registerName ?? session.sessionNo}${workspace.cashierName ? ` · ${workspace.cashierName}` : ''}` : 'No active register'}>
+                {session ? <>{workspace.registerName ?? session.sessionNo}{workspace.cashierName ? ` · ${workspace.cashierName}` : ''}</> : 'No active register'}
+              </dd>
             </div>
           </dl>
           <div className="hidden shrink-0 flex-wrap items-center justify-end gap-2 sm:flex">
-            <Link href="/dashboard" aria-label="Back to dashboard" title="Back to dashboard" className="group !inline-flex !h-9 !w-9 !items-center !justify-center !rounded-full !border-0 !bg-transparent !p-0 text-[#b7791f] !shadow-none transition-colors hover:!bg-[#b7791f]/10 dark:!bg-transparent dark:text-[#facc15] dark:hover:!bg-[#facc15]/10">
-              <Home className="h-[18px] w-[18px] transition-transform group-hover:-translate-y-0.5" />
+            <Link href="/dashboard" aria-label="Back to dashboard" title="Back to dashboard" className="group inline-flex h-8 items-center gap-1 rounded-md bg-[#b7791f]/10 px-2 text-xs font-semibold text-[#8a6500] transition-colors hover:bg-[#b7791f]/15 dark:bg-[#facc15]/10 dark:text-[#facc15] dark:hover:bg-[#facc15]/15">
+              <Home className="h-3.5 w-3.5 transition-transform group-hover:-translate-y-0.5" />
+              <span>Home</span>
             </Link>
             {action}
             {!session ? (
               <Button
-                className="h-9"
+                className="h-8 bg-[#d99b00] text-[#241d00] hover:bg-[#c58d00]"
                 onClick={() => {
                   setError('');
                   setOpeningOpen(true);
@@ -216,7 +212,7 @@ export function CashierShiftStrip({
             ) : isClosing ? (
               <Button
                 disabled={pending}
-                className="h-9"
+                className="h-8 bg-amber-600 text-white hover:bg-amber-700"
                 onClick={openReconciliation}
               >
                 {session.countedCash != null
@@ -229,7 +225,7 @@ export function CashierShiftStrip({
                   <Button
                     disabled={pending}
                     variant="outline"
-                    className="h-9 bg-white/70 dark:bg-black/10"
+                    className="h-8 bg-white/55 dark:bg-black/10"
                     onClick={() => {
                       setError('');
                       setMovementOpen(true);
@@ -241,7 +237,7 @@ export function CashierShiftStrip({
                 )}
                 <Button
                   disabled={pending}
-                  className="h-9"
+                  className="h-8 bg-amber-600 text-white hover:bg-amber-700"
                   onClick={() =>
                     run(async () => {
                       if (!session) return;
@@ -261,33 +257,27 @@ export function CashierShiftStrip({
           </div>
         </div>
         {session && (
-          <div className="hidden flex-wrap items-center gap-x-5 gap-y-1 px-4 pb-3 text-[11px] text-[var(--dashboard-muted)] sm:flex">
-            <span>Opening float {money(Number(session.openingCash))}</span>
+          <div className="hidden flex-wrap items-center gap-x-4 gap-y-1 px-4 pb-2 text-[10px] text-[var(--dashboard-muted)] sm:flex">
+            <span>Float {compactMoney(Number(session.openingCash))}</span>
+            <span aria-hidden="true">•</span>
             {shiftStartedAt && (
-              <span className="inline-flex items-center gap-1">
-                <Clock3 className="h-3.5 w-3.5" />
-                Shift started {shiftStartedAt}
-              </span>
+              <><span>Started {shiftStartedAt}</span><span aria-hidden="true">•</span></>
             )}
             <span>
               {workspace.cashMovementCount} cash movement
               {workspace.cashMovementCount === 1 ? '' : 's'}
             </span>
-            {mpesa.pending > 0 && <span className="font-medium text-amber-700 dark:text-amber-300">{mpesa.pending} M-Pesa pending</span>}
-            {mpesa.reconciliationRequired > 0 && <span className="font-medium text-amber-700 dark:text-amber-300">{mpesa.reconciliationRequired} require reconciliation</span>}
-            {isClosing && (
-              <span className="inline-flex items-center gap-1 font-medium text-amber-700 dark:text-amber-300">
-                <ShieldCheck className="h-3.5 w-3.5" />
-                Sales and movements are paused while you count.
-              </span>
-            )}
-            {isClosing && mpesa.pending > 0 && <span className="font-medium text-amber-700 dark:text-amber-300">{mpesa.pending} M-Pesa payment{mpesa.pending === 1 ? ' is' : 's are'} still pending.</span>}
-            {isClosing && mpesa.reconciliationRequired > 0 && <span className="font-medium text-amber-700 dark:text-amber-300">{mpesa.reconciliationRequired} M-Pesa payment{mpesa.reconciliationRequired === 1 ? ' requires' : 's require'} reconciliation.</span>}
+            {isClosing && <><span aria-hidden="true">•</span><span className="font-medium text-amber-700 dark:text-amber-300">Sales paused during reconciliation</span></>}
           </div>
         )}
         {error && (
-          <p className="border-t border-red-200 bg-red-50 px-4 py-2 text-xs text-destructive dark:border-red-900 dark:bg-red-950/20">
+          <p className="flex items-center justify-between gap-3 border-t border-red-200 bg-red-50 px-4 py-2 text-xs text-destructive dark:border-red-900 dark:bg-red-950/20">
             {error}
+            {/M-Pesa payment/i.test(error) && (
+              <Link href="/dashboard/finance/reconciliation?channel=mpesa" className="shrink-0 font-semibold underline underline-offset-2 hover:no-underline">
+                Review payments
+              </Link>
+            )}
           </p>
         )}
       </section>
@@ -609,39 +599,13 @@ function ResultCard({
     </div>
   );
 }
-function Metric({
-  icon: Icon,
-  mark,
-  label,
-  value,
-  tone,
-}: {
-  icon?: typeof Banknote;
-  mark?: ReactNode;
-  label: string;
-  value: string;
-  tone?: 'gold' | 'success';
-}) {
-  const colour =
-    tone === 'gold'
-      ? 'border-[#ead38a] bg-[#fff3bd] text-[#8a6500] dark:border-[rgba(255,214,10,.2)] dark:bg-[rgba(255,214,10,.1)] dark:text-[#ffd60a]'
-      : tone === 'success'
-        ? 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-300'
-        : 'border-[#e4e7ec] bg-white/70 text-[#526078] dark:border-white/10 dark:bg-white/5 dark:text-[#c4c4c4]';
+function SummaryMetric({ icon: Icon, label, value }: { icon: typeof Banknote; label: string; value: string }) {
   return (
-    <div className="flex min-w-0 items-center gap-3">
-      <span
-        className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border ${colour}`}
-      >
-        {mark ?? (Icon ? <Icon className="h-4 w-4" /> : null)}
-      </span>
+    <div className="flex min-w-0 items-center gap-2.5">
+      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-[#ead28a] bg-white/65 text-[#9a6900] dark:border-amber-400/20 dark:bg-white/5 dark:text-amber-300"><Icon className="h-3.5 w-3.5" /></span>
       <div className="min-w-0">
-        <dt className="text-[11px] font-semibold text-[var(--dashboard-muted)]">
-          {label}
-        </dt>
-        <dd className="mt-0.5 whitespace-nowrap text-base font-bold tabular-nums text-[var(--dashboard-text)]">
-          {value}
-        </dd>
+        <dt className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--dashboard-muted)]">{label}</dt>
+      <dd className="mt-0.5 whitespace-nowrap text-sm font-bold tabular-nums tracking-[-0.01em] text-[var(--dashboard-text)]" title={value}>{value}</dd>
       </div>
     </div>
   );

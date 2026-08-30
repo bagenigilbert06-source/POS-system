@@ -2779,7 +2779,7 @@ html.dark .pesaby-hot-toast-error {
   z-index: 999999;
   display: flex;
   width: 100%;
-  height: 100vh;
+  min-height: 100dvh;
   align-items: center;
   justify-content: center;
   background: #ffffff;
@@ -2864,8 +2864,8 @@ html.dark .pesaby-hot-toast-error {
   position: relative;
   inset: auto;
   z-index: auto;
-  min-height: 18rem;
-  height: auto;
+  width: 100%;
+  min-height: calc(100dvh - 8rem);
   background: transparent;
 }
 
@@ -2906,5 +2906,11 @@ html.dark .pesaby-global-loader.pesaby-inline-loader {
   .pesaby-loader.animate-spin {
     animation: none;
     box-shadow: 0 0 0 calc(6 * var(--size)) inset;
+  }
+}
+
+@media (max-width: 640px) {
+  .pesaby-inline-loader {
+    min-height: calc(100dvh - 7rem);
   }
 }

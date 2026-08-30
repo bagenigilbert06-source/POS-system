@@ -6,7 +6,7 @@ import type { Customer } from '@/lib/db/schema'
 import { cn } from '@/lib/utils'
 
 interface CustomerCreditCardProps {
-  customer: Customer
+  customer: Customer & { pointsBalance?: number; bonusBalance?: number }
   totalSpent?: number
   transactionCount?: number
   lastTransactionDate?: Date
@@ -22,9 +22,10 @@ export function CustomerCreditCard({
   creditBalance = 0,
   onSelect,
 }: CustomerCreditCardProps) {
-  const loyaltyTier = customer.loyaltyPoints > 5000 ? 'Gold' :
-                     customer.loyaltyPoints > 2000 ? 'Silver' :
-                     customer.loyaltyPoints > 500 ? 'Bronze' : 'Regular'
+  const pointsBalance = customer.pointsBalance ?? customer.loyaltyPoints
+  const loyaltyTier = pointsBalance > 5000 ? 'Gold' :
+                     pointsBalance > 2000 ? 'Silver' :
+                     pointsBalance > 500 ? 'Bronze' : 'Regular'
 
   return (
     <button
@@ -54,7 +55,7 @@ export function CustomerCreditCard({
         </div>
         <div className="text-right">
           <p className="text-xs text-muted-foreground">Loyalty Points</p>
-          <p className="text-lg font-bold text-primary">{customer.loyaltyPoints.toLocaleString()}</p>
+          <p className="text-lg font-bold text-primary">{pointsBalance.toLocaleString()}</p>
         </div>
       </div>
 

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { reconcileIncomingMpesaPayment } from '@/app/actions/mpesa'
+import { reconcileIncomingMpesaPayment, cancelMpesaPayment } from '@/app/actions/mpesa'
 import { formatCurrency } from '@/lib/utils'
 
 export function ReconciliationAction({ payment, candidates }: { payment: { id: string; transactionId: string; amount: string; phone: string | null; createdAt: Date; branchId: string | null }; candidates: Array<{ id: string; amount: string; phone: string; branchId: string | null; status: string; createdAt: Date }> }) {
@@ -11,3 +11,11 @@ export function ReconciliationAction({ payment, candidates }: { payment: { id: s
   if (!candidates.length) return <span className="text-xs text-muted-foreground">No eligible request</span>
   return <div className="flex items-center gap-2"><button type="button" className="rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground" onClick={() => setOpen(true)}>Match payment</button>{message && <span className="text-xs text-muted-foreground">{message}</span>}{open && <div className="fixed inset-0 z-50 grid place-items-center bg-black/50 p-4"><div className="w-full max-w-lg rounded-xl border border-border bg-card p-5 text-card-foreground"><h2 className="text-lg font-semibold">Match payment</h2><div className="mt-4 grid gap-3 text-sm sm:grid-cols-2"><div><p className="text-xs text-muted-foreground">Incoming provider payment</p><p>{payment.transactionId}</p><p>{formatCurrency(Number(payment.amount))}</p></div><div><p className="text-xs text-muted-foreground">Pesaby payment request</p><select className="mt-1 w-full rounded-md border border-input bg-background p-2" value={requestId} onChange={(event) => setRequestId(event.target.value)}>{candidates.map((item) => <option key={item.id} value={item.id}>{item.id.slice(0, 12)} · {formatCurrency(Number(item.amount))}</option>)}</select>{selected && <p className="mt-1 text-xs text-muted-foreground">{selected.status} · {selected.branchId}</p>}</div></div><textarea className="mt-4 w-full rounded-md border border-input bg-background p-2 text-sm" rows={3} placeholder="Reconciliation reason" value={reason} onChange={(event) => setReason(event.target.value)} /><div className="mt-4 flex justify-end gap-2"><button type="button" className="rounded-md border border-input px-3 py-2 text-sm" onClick={() => setOpen(false)}>Cancel</button><button type="button" disabled={busy || reason.trim().length < 3} className="rounded-md bg-primary px-3 py-2 text-sm text-primary-foreground disabled:opacity-50" onClick={submit}>{busy ? 'Matching…' : 'Match payment'}</button></div></div></div>}</div>
 }
+
+export function PendingPaymentAction({ requestId }: { requestId: string }) {
+  const [busy, setBusy] = useState(false)
+  const [confirmOpen, setConfirmOpen] = useState(false)
+  async function cancel() { setBusy(true); try { await cancelMpesaPayment(requestId); window.location.reload() } finally { setBusy(false); setConfirmOpen(false) } }
+  return <><button type="button" disabled={busy} onClick={() => setConfirmOpen(true)} className="rounded-md border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-50 disabled:opacity-50">{busy ? 'Cancelling…' : 'Cancel payment'}</button>{confirmOpen && <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4"><div role="dialog" aria-modal="true" className="w-full max-w-sm rounded-xl border bg-card p-5 shadow-xl"><h2 className="font-semibold">Cancel pending payment?</h2><p className="mt-2 text-sm text-muted-foreground">This marks the request as cancelled. Only continue if no M-Pesa confirmation was received.</p><div className="mt-5 flex justify-end gap-2"><button type="button" className="rounded-md border px-3 py-2 text-sm" onClick={() => setConfirmOpen(false)}>Keep pending</button><button type="button" className="rounded-md bg-red-600 px-3 py-2 text-sm font-semibold text-white" onClick={cancel}>Cancel payment</button></div></div></div>}</>
+}
+
