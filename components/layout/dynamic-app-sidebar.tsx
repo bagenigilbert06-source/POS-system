@@ -72,6 +72,7 @@ import {
   Stethoscope,
   Tags,
   TreePine,
+  Trash2,
   TrendingUp,
   Tv,
   Users,
@@ -91,6 +92,7 @@ import {
 import { PesabyLogoMark } from '@/components/brand/pesaby-logo';
 import { PermissionEnum } from '@/lib/types/permissions';
 import { isPharmacyBusiness } from '@/lib/pharmacy/rules';
+import { isCafeBusiness } from '@/lib/hospitality/rules';
 
 const ICONS: Record<string, LucideIcon> = {
   AlertTriangle,
@@ -159,6 +161,7 @@ const ICONS: Record<string, LucideIcon> = {
   Stethoscope,
   Tags,
   TreePine,
+  Trash2,
   TrendingUp,
   Tv,
   Users,
@@ -270,6 +273,8 @@ export function DynamicAppSidebar({
     purchases: PermissionEnum.INVENTORY_RECEIVE,
     expenses: PermissionEnum.EXPENSE_VIEW,
     operations: PermissionEnum.SHIFT_MANAGE,
+    'cafe-preparation': PermissionEnum.KITCHEN_QUEUE_VIEW,
+    'cafe-wastage': PermissionEnum.INVENTORY_VIEW,
     settings: PermissionEnum.SETTINGS_VIEW,
     staff: PermissionEnum.STAFF_MANAGE,
     'staff-performance': PermissionEnum.STAFF_VIEW,
@@ -350,13 +355,48 @@ export function DynamicAppSidebar({
     },
   ];
   const financeNav = [
-    { id: 'financials', label: 'Financial Overview', icon: 'WalletCards', route: '/dashboard/financials' },
-    { id: 'expenses', label: 'Expenses', icon: 'ReceiptText', route: '/dashboard/expenses' },
-    { id: 'invoices', label: 'Invoices', icon: 'FileText', route: '/dashboard/invoices' },
-    { id: 'receivables', label: 'Accounts Receivable', icon: 'HandCoins', route: '/dashboard/receivables' },
-    { id: 'financial-accounts', label: 'Payment Accounts', icon: 'Wallet', route: '/dashboard/finance/accounts' },
-    { id: 'reconciliation', label: 'Reconciliation', icon: 'Shuffle', route: '/dashboard/finance/reconciliation' },
-    { id: 'finance-audit', label: 'Finance Audit', icon: 'ShieldCheck', route: '/dashboard/finance/audit' },
+    {
+      id: 'financials',
+      label: 'Financial Overview',
+      icon: 'WalletCards',
+      route: '/dashboard/financials',
+    },
+    {
+      id: 'expenses',
+      label: 'Expenses',
+      icon: 'ReceiptText',
+      route: '/dashboard/expenses',
+    },
+    {
+      id: 'invoices',
+      label: 'Invoices',
+      icon: 'FileText',
+      route: '/dashboard/invoices',
+    },
+    {
+      id: 'receivables',
+      label: 'Accounts Receivable',
+      icon: 'HandCoins',
+      route: '/dashboard/receivables',
+    },
+    {
+      id: 'financial-accounts',
+      label: 'Payment Accounts',
+      icon: 'Wallet',
+      route: '/dashboard/finance/accounts',
+    },
+    {
+      id: 'reconciliation',
+      label: 'Reconciliation',
+      icon: 'Shuffle',
+      route: '/dashboard/finance/reconciliation',
+    },
+    {
+      id: 'finance-audit',
+      label: 'Finance Audit',
+      icon: 'ShieldCheck',
+      route: '/dashboard/finance/audit',
+    },
   ];
   // Keep the navigation aligned with the way a shop is run: understand the
   // business first, sell second, then manage the catalogue and operations.
@@ -546,54 +586,123 @@ export function DynamicAppSidebar({
         : primaryNav;
   const visibleSecondaryNav =
     role === 'cashier' || role === 'supervisor' ? [] : secondaryNav;
-  const navigationGroups = [
-    { label: 'Workspace', ids: ['dashboard', 'pos', 'my-sales'] },
-    {
-      label: 'Sales & catalogue',
-      ids: ['sales', 'products', 'categories', 'customers', 'prescriptions'],
-    },
-    {
-      label: 'Inventory & operations',
-      ids: ['inventory', 'batches', 'purchases', 'operations'],
-    },
-    {
-      label: 'Staff & access',
-      ids: ['attendance', 'staff', 'staff-performance'],
-    },
-    {
-      label: 'Finance',
-      ids: [
-        'financials',
-        'expenses',
-        'invoices',
-        'receivables',
-        'financial-accounts',
-        'reconciliation',
-        'finance-audit',
-      ],
-    },
-    {
-      label: 'Promotions & rewards',
-      ids: ['coupons', 'discounts', 'bonuses'],
-    },
-    {
-      label: 'Tax & compliance',
-      ids: ['etims'],
-    },
-    {
-      label: 'Insights & reports',
-      ids: [
-        'reports',
-        'analytics',
-        'sales-analytics',
-        'customer-analytics',
-        'inventory-analytics',
-      ],
-    },
-  ]
+  const cafeWorkspace = isCafeBusiness(
+    config.businessType,
+    config.businessCategory
+  );
+  const navigationGroups = (
+    cafeWorkspace
+      ? [
+          { label: 'Workspace', ids: ['dashboard'] },
+          { label: 'Sell', ids: ['pos', 'my-sales', 'sales'] },
+          {
+            label: 'Menu & stock',
+            ids: [
+              'products',
+              'categories',
+              'inventory',
+              'purchases',
+              'cafe-preparation',
+              'cafe-wastage',
+            ],
+          },
+          { label: 'Guests', ids: ['customers'] },
+          { label: 'Operations', ids: ['attendance', 'operations'] },
+          {
+            label: 'Finance',
+            ids: [
+              'financials',
+              'expenses',
+              'invoices',
+              'receivables',
+              'financial-accounts',
+              'reconciliation',
+              'finance-audit',
+            ],
+          },
+          {
+            label: 'Promotions & rewards',
+            ids: ['coupons', 'discounts', 'bonuses'],
+          },
+          { label: 'Tax & compliance', ids: ['etims'] },
+          {
+            label: 'Insights & reports',
+            ids: [
+              'reports',
+              'analytics',
+              'sales-analytics',
+              'customer-analytics',
+              'inventory-analytics',
+            ],
+          },
+        ]
+      : [
+          { label: 'Workspace', ids: ['dashboard', 'pos', 'my-sales'] },
+          {
+            label: 'Sales & catalogue',
+            ids: [
+              'sales',
+              'products',
+              'categories',
+              'customers',
+              'prescriptions',
+            ],
+          },
+          {
+            label: 'Inventory & operations',
+            ids: [
+              'inventory',
+              'batches',
+              'purchases',
+              'cafe-preparation',
+              'cafe-wastage',
+              'operations',
+            ],
+          },
+          {
+            label: 'Staff & access',
+            ids: ['attendance', 'staff', 'staff-performance'],
+          },
+          {
+            label: 'Finance',
+            ids: [
+              'financials',
+              'expenses',
+              'invoices',
+              'receivables',
+              'financial-accounts',
+              'reconciliation',
+              'finance-audit',
+            ],
+          },
+          {
+            label: 'Promotions & rewards',
+            ids: ['coupons', 'discounts', 'bonuses'],
+          },
+          {
+            label: 'Tax & compliance',
+            ids: ['etims'],
+          },
+          {
+            label: 'Insights & reports',
+            ids: [
+              'reports',
+              'analytics',
+              'sales-analytics',
+              'customer-analytics',
+              'inventory-analytics',
+            ],
+          },
+        ]
+  )
     .map((group) => ({
       ...group,
-      items: visiblePrimaryNav.filter((item) => group.ids.includes(item.id)),
+      items: visiblePrimaryNav
+        .filter((item) => group.ids.includes(item.id))
+        .sort(
+          (left, right) =>
+            group.ids.indexOf(left.id) - group.ids.indexOf(right.id)
+        ),
     }))
     .filter((group) => group.items.length > 0);
   const ungroupedNav = visiblePrimaryNav.filter(

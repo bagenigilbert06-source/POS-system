@@ -17,8 +17,9 @@ import {
   salesReturn,
   salesReturnItem,
   posSession,
+  cafeMenuItem,
 } from '@/lib/db/schema'
-import { eq, and, sql } from 'drizzle-orm'
+import { eq, and, inArray, sql } from 'drizzle-orm'
 import { generateId } from '@/lib/utils'
 import { requirePermission } from '@/lib/auth/authorization'
 import { PermissionEnum } from '@/lib/types/permissions'
@@ -202,6 +203,8 @@ export async function processRefund(data: {
     }
 
     // Process each returned item
+    const cafeRows = originalItems.length ? await tx.select({ productId: cafeMenuItem.productId, inventoryMode: cafeMenuItem.inventoryMode }).from(cafeMenuItem).where(and(eq(cafeMenuItem.organizationId, orgId), inArray(cafeMenuItem.productId, originalItems.map((item) => item.productId)))) : []
+    const cafeInventoryMode = new Map(cafeRows.map((row) => [row.productId, row.inventoryMode]))
     for (const [itemIndex, item] of data.items.entries()) {
       const original = originalById.get(item.saleItemId)!
       const lineRefundTotal = refundLineAmounts[itemIndex]
@@ -216,12 +219,13 @@ export async function processRefund(data: {
         quantity: item.quantity,
         unitPrice: String(lineRefundTotal / item.quantity),
         total: String(lineRefundTotal),
-        disposition: pharmacyWorkspace ? 'quarantined' : 'restock',
+        disposition: pharmacyWorkspace ? 'quarantined' : cafeInventoryMode.get(original.productId) === 'recipe' || cafeInventoryMode.get(original.productId) === 'none' ? 'not_restocked' : 'restock',
         orgId,
       })
 
       const returnedBaseQuantity = item.quantity * original.baseUnitQuantity
-      await applyInventoryMovement(tx, { productId: original.productId, productName: original.productName, branchId: originalSale.branchId!, quantity: returnedBaseQuantity, type: 'return', referenceType: 'refund', referenceId: returnId, reason: `Refund: ${data.reason}`, userId, orgId })
+      if (cafeInventoryMode.get(original.productId) !== 'recipe' && cafeInventoryMode.get(original.productId) !== 'none')
+        await applyInventoryMovement(tx, { productId: original.productId, productName: original.productName, branchId: originalSale.branchId!, quantity: returnedBaseQuantity, type: 'return', referenceType: 'refund', referenceId: returnId, reason: `Refund: ${data.reason}`, userId, orgId })
 
       if (pharmacyWorkspace) {
         await tx.update(inventoryBalance).set({

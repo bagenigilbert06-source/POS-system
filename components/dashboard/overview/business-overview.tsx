@@ -104,6 +104,7 @@ export function BusinessOverview({
     workspaceConfig.businessType,
     workspaceConfig.businessCategory
   );
+  const isHospitality = experience.kind === 'hospitality';
   const hasProducts = workspaceConfig.enabledModules.includes('products');
   const hasInventory = workspaceConfig.enabledModules.includes('inventory');
   const hasCustomers = workspaceConfig.enabledModules.includes('customers');
@@ -153,11 +154,11 @@ export function BusinessOverview({
       ? [
           {
             id: 'customers',
-            label: 'Customers',
+            label: isHospitality ? 'Guests' : 'Customers',
             href: '/dashboard/customers',
             icon: UsersRound,
             primary: false,
-            description: 'Manage customers',
+            description: isHospitality ? 'Manage guests' : 'Manage customers',
           },
         ]
       : []),
@@ -180,31 +181,32 @@ export function BusinessOverview({
 
   const todayProfit = overview.today.grossProfit;
   const profitAvailable = todayProfit !== null;
+  const transactionNoun = isHospitality ? 'order' : 'sale';
   const lowStockCount = Math.max(
     overview.records.lowStock - overview.records.outOfStock,
     0
   );
   const metrics = [
     {
-      label: "Today's Sales",
+      label: experience.metricLabels[0],
       value: formatCurrency(overview.today.revenue, currency),
-      description: `${formatNumber(overview.today.transactions)} completed ${overview.today.transactions === 1 ? 'sale' : 'sales'}`,
+      description: `${formatNumber(overview.today.transactions)} completed ${transactionNoun}${overview.today.transactions === 1 ? '' : 's'}`,
       trend: yesterdayTrend(
         overview.today.revenue,
         overview.previousDay.revenue
       ),
       icon: TrendingUp,
       href: '/dashboard/sales',
-      linkLabel: 'View sales',
+      linkLabel: isHospitality ? 'View orders' : 'View sales',
     },
     {
-      label: "Today's Profit",
+      label: isHospitality ? 'Gross profit today' : "Today's Profit",
       value: profitAvailable
         ? formatCurrency(todayProfit, currency)
         : 'Unavailable',
       description: profitAvailable
         ? overview.today.profitMargin === null
-          ? 'No sales to calculate margin'
+          ? `No ${transactionNoun}s to calculate margin`
           : `${overview.today.profitMargin.toFixed(1)}% gross margin`
         : `Some sold ${productTerms.pluralLower} are missing cost`,
       trend:
@@ -216,10 +218,10 @@ export function BusinessOverview({
         : 'Profit unavailable for incomplete cost data',
       icon: BadgeDollarSign,
       href: '/dashboard/sales',
-      linkLabel: 'View sales',
+      linkLabel: isHospitality ? 'View orders' : 'View sales',
     },
     {
-      label: 'Stock Value',
+      label: isHospitality ? 'Ingredient & menu stock' : 'Stock Value',
       value: formatMetricCurrency(overview.records.inventoryCost, currency),
       description: 'Based on current buying cost',
       primaryMeta: `${formatNumber(overview.records.products)} ${productTerms.pluralLower} tracked`,
@@ -228,7 +230,7 @@ export function BusinessOverview({
       linkLabel: 'View inventory',
     },
     {
-      label: 'Low Stock',
+      label: isHospitality ? 'Menu availability' : 'Low Stock',
       value: `${formatNumber(overview.records.lowStock)} ${countProductTerm(productTerms, overview.records.lowStock)}`,
       description:
         overview.records.lowStock > 0

@@ -6,6 +6,7 @@ import {
   Activity,
   Building2,
   CreditCard,
+  Coffee,
   MonitorSmartphone,
   FileClock,
   KeyRound,
@@ -146,13 +147,18 @@ function AdminLink({
 
 export function AdminControlShell({
   organizationName,
+  cafeWorkspace = false,
   children,
 }: {
   organizationName: string;
+  cafeWorkspace?: boolean;
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
-  const items = sections.flatMap((section) => section.items);
+  const visibleSections = sections.map((section) => section.label === 'Business setup' && cafeWorkspace
+    ? { ...section, items: [...section.items, { label: 'Café configuration', href: '/dashboard/admin/cafe', icon: Coffee }] }
+    : section);
+  const items = visibleSections.flatMap((section) => section.items);
 
   return (
     <div className="admin-control-theme -mx-4 -my-4 min-h-[calc(100vh-4rem)] bg-[var(--dashboard-canvas)] sm:-mx-6 sm:-my-5 lg:-mx-7 lg:-my-5">
@@ -168,7 +174,7 @@ export function AdminControlShell({
               </p>
             </div>
             <nav className="py-2" aria-label="Admin control navigation">
-              {sections.map((section) => (
+              {visibleSections.map((section) => (
                 <div key={section.label} className="py-1">
                   <p className="px-4 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground/70">
                     {section.label}

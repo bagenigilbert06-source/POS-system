@@ -1,4 +1,5 @@
-import { isPharmacyBusiness } from '@/lib/pharmacy/rules';
+import { isPharmacyBusiness } from '../pharmacy/rules';
+import { isCafeBusiness } from '../hospitality/rules';
 
 export type ProductTerminology = Readonly<{
   title: string;
@@ -39,6 +40,19 @@ const LIQUOR_TERMINOLOGY: ProductTerminology = {
   description: 'Manage store items, pricing, categories and stock setup.',
 };
 
+const CAFE_TERMINOLOGY: ProductTerminology = {
+  title: 'Menu Items',
+  singular: 'Menu Item',
+  plural: 'Menu Items',
+  singularLower: 'menu item',
+  pluralLower: 'menu items',
+  all: 'All Menu Items',
+  add: 'Add Menu Item',
+  searchPlaceholder: 'Search menu items, SKU, barcode...',
+  importCsv: 'Import Menu Items CSV',
+  description: 'Manage your café menu, pricing, categories and availability.',
+};
+
 const DEFAULT_TERMINOLOGY: ProductTerminology = {
   title: 'Products',
   singular: 'Product',
@@ -61,6 +75,7 @@ export function getProductTerminology(
 
   if (isPharmacyBusiness(family, category)) return PHARMACY_TERMINOLOGY;
   if (category === 'liquor_shop') return LIQUOR_TERMINOLOGY;
+  if (isCafeBusiness(family, category)) return CAFE_TERMINOLOGY;
   return DEFAULT_TERMINOLOGY;
 }
 

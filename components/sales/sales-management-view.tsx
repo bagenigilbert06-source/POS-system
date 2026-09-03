@@ -187,6 +187,7 @@ export function SalesManagementView({
   );
   const pharmacySales = experience.label === 'Pharmacy';
   const liquorStoreSales = experience.label === 'Liquor store';
+  const hospitalitySales = experience.kind === 'hospitality';
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [openingSaleId, setOpeningSaleId] = useState<string | null>(null);
@@ -285,7 +286,7 @@ export function SalesManagementView({
           </p>
           <h1 className="mt-1 text-2xl font-bold text-slate-950 dark:text-slate-100">{experience.navigation.sales}</h1>
           <p className="mt-1 text-sm text-muted-foreground dark:text-slate-300">
-            {pharmacySales ? 'A complete view of pharmacy sales, dispensing records, returns and profitability.' : liquorStoreSales ? 'A complete view of liquor store transactions, returns and profitability.' : 'A complete view of transactions, returns and profitability.'}
+            {pharmacySales ? 'A complete view of pharmacy sales, dispensing records, returns and profitability.' : liquorStoreSales ? 'A complete view of liquor store transactions, returns and profitability.' : hospitalitySales ? 'A complete view of café orders, payments, refunds and profitability.' : 'A complete view of transactions, returns and profitability.'}
           </p>
         </div>
         {hasPos ? (
@@ -332,12 +333,12 @@ export function SalesManagementView({
       </section>
       <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <MetricCard
-          label="Transactions"
+          label={hospitalitySales ? 'Completed orders' : 'Transactions'}
           value={String(totals.transactions ?? 0)}
           comparison={data.comparison?.transactions}
         />
         <MetricCard
-          label="Average sale"
+          label={hospitalitySales ? 'Average order' : 'Average sale'}
           value={formatCurrency(Number(totals.average ?? 0))}
           comparison={data.comparison?.average}
         />
@@ -370,11 +371,11 @@ export function SalesManagementView({
       <section className="relative overflow-hidden rounded-xl border bg-white shadow-sm dark:border-slate-800 dark:bg-[#111111]">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b p-4 dark:border-slate-800">
           <div>
-            <h2 className="font-semibold">Transactions</h2>
+            <h2 className="font-semibold">{hospitalitySales ? 'Orders' : 'Transactions'}</h2>
             <p className="text-xs text-muted-foreground">
               Showing {data.total ? (data.page - 1) * data.pageSize + 1 : 0}–
               {Math.min(data.page * data.pageSize, data.total)} of{' '}
-              {data.total.toLocaleString()} matching sales
+              {data.total.toLocaleString()} matching {hospitalitySales ? 'orders' : 'sales'}
             </p>
           </div>
           <select
@@ -390,7 +391,7 @@ export function SalesManagementView({
         {data.rows.length === 0 && (
           <div className="p-12 text-center">
             <Receipt className="mx-auto h-8 w-8 text-muted-foreground" />
-            <p className="mt-3 font-semibold">No sales match these filters</p>
+            <p className="mt-3 font-semibold">No {hospitalitySales ? 'orders' : 'sales'} match these filters</p>
             <button
               onClick={() =>
                 navigate({

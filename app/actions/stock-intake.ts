@@ -10,6 +10,7 @@ import { auditEvent, branch, inventoryBalance, product, productPackage, stockInt
 import { addCostLayer, applyInventoryMovement } from '@/lib/inventory/inventory-service'
 import { PermissionEnum } from '@/lib/types/permissions'
 import { generateId } from '@/lib/utils'
+import { convertCafeQuantityToBase } from '@/lib/cafe/rules'
 
 const intakeSchema = z.object({
   branchId: z.string().min(1),
@@ -22,7 +23,8 @@ const intakeSchema = z.object({
   items: z.array(z.object({
     productId: z.string().min(1),
     packageId: z.string().min(1).optional(),
-    quantity: z.coerce.number().int().positive().max(1_000_000),
+    enteredUnit: z.string().trim().max(30).optional(),
+    quantity: z.coerce.number().positive().max(1_000_000),
     unitCost: z.coerce.number().nonnegative().max(1_000_000_000).optional(),
   })).min(1).max(100),
 })
@@ -97,8 +99,9 @@ export async function confirmStockIntake(input: StockIntakeInput) {
     if (item.trackingMode !== 'none') throw new Error(`${item.name} requires batch or serial details and cannot be received through this intake yet`)
     const selectedPackage = line.packageId ? packageById.get(line.packageId) : null
     if (line.packageId && (!selectedPackage || selectedPackage.productId !== item.id)) throw new Error(`The selected package for ${item.name} is unavailable`)
-    const conversion = selectedPackage?.baseUnitQuantity ?? 1
-    const baseQuantity = line.quantity * conversion
+    if (line.enteredUnit && selectedPackage) throw new Error(`Choose either a receiving unit or package for ${item.name}`)
+    const conversion = selectedPackage?.baseUnitQuantity ?? (line.enteredUnit ? convertCafeQuantityToBase({ quantity: 1, enteredUnit: line.enteredUnit, productBaseUnit: item.unit }) : 1)
+    const baseQuantity = line.enteredUnit ? convertCafeQuantityToBase({ quantity: line.quantity, enteredUnit: line.enteredUnit, productBaseUnit: item.unit }) : line.quantity * conversion
     if (!Number.isSafeInteger(baseQuantity) || baseQuantity > 10_000_000) throw new Error(`The quantity for ${item.name} is too large`)
     const unitCost = line.unitCost === undefined ? Number(item.buyingPrice) : line.unitCost / conversion
     return { ...line, item, selectedPackage, conversion, baseQuantity, unitCost, totalCost: unitCost * baseQuantity }
@@ -128,7 +131,7 @@ export async function confirmStockIntake(input: StockIntakeInput) {
       await tx.insert(stockIntakeItem).values({
         id: generateId(), intakeId, productId: line.item.id, productName: line.item.name, sku: line.item.sku,
         packageId: line.selectedPackage?.id ?? null, enteredQuantity: line.quantity,
-        enteredUnit: line.selectedPackage?.name ?? line.item.unit, baseQuantity: line.baseQuantity,
+        enteredUnit: line.enteredUnit ?? line.selectedPackage?.name ?? line.item.unit, baseQuantity: line.baseQuantity,
         unitCost: String(line.unitCost), totalCost: String(line.totalCost), orgId,
       })
       if (line.unitCost !== Number(line.item.buyingPrice)) await tx.update(product).set({ buyingPrice: String(line.unitCost), updatedAt: new Date() }).where(and(eq(product.id, line.item.id), eq(product.orgId, orgId)))

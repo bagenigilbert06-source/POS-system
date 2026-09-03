@@ -4,11 +4,12 @@ import { useMemo, useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Archive, ArrowRight, Boxes, Check, CheckCircle2, ExternalLink, FolderCheck, Grid2X2, Layers3, List, Pencil, Plus, RotateCcw, Search, TriangleAlert } from 'lucide-react'
+import { Archive, ArrowRight, Boxes, ExternalLink, Grid2X2, List, Plus, RotateCcw, Search, TriangleAlert } from 'lucide-react'
 import { notify } from '@/lib/notify'
 import { createCategory, setCategoryActive, updateCategory } from '@/app/actions/categories'
 import { useWorkspace } from '@/lib/context/workspace-context'
 import { countProductTerm, getProductTerminology } from '@/lib/products/terminology'
+import { PaymentSummaryEditIcon } from '@/components/ui/payment-summary-edit-icon'
 
 type Category = {
   id: string
@@ -51,6 +52,10 @@ export function CategoriesClient({ initialCategories }: { initialCategories: Cat
   const [search, setSearch] = useState('')
   const [editing, setEditing] = useState<Category | null>(null)
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
+  const activeCategories = categories.filter((item) => item.isActive)
+  const categoriesInUse = categories.filter((item) => item.productCount > 0)
+  const emptyCategories = activeCategories.filter((item) => item.productCount === 0)
+  const menuItemCount = categories.reduce((total, item) => total + item.productCount, 0)
   const filtered = useMemo(
     () => categories.filter((item) => (item.name || '').toLowerCase().includes(search.toLowerCase())),
     [categories, search],
@@ -84,10 +89,11 @@ export function CategoriesClient({ initialCategories }: { initialCategories: Cat
 
   return (
     <div className="space-y-5 [font-feature-settings:'ss01','cv02','cv03']">
-      <div className="grid gap-3 sm:grid-cols-3">
-        <Summary label="Total categories" value={categories.length} icon={Layers3} />
-        <Summary label="Active categories" value={categories.filter((item) => item.isActive).length} tone="green" icon={CheckCircle2} />
-        <Summary label="Categories in use" value={categories.filter((item) => item.productCount > 0).length} tone="gold" icon={FolderCheck} />
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <Summary label="Total categories" value={categories.length} description="All menu groupings" />
+        <Summary label="Active categories" value={activeCategories.length} description="Available for menu items" />
+        <Summary label="Categories in use" value={categoriesInUse.length} description={`${menuItemCount} ${countProductTerm(terminology, menuItemCount)} assigned`} />
+        <Summary label="Empty categories" value={emptyCategories.length} description="Need menu items" />
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -115,7 +121,7 @@ export function CategoriesClient({ initialCategories }: { initialCategories: Cat
               <div className={`relative h-36 overflow-hidden bg-[#f5efe3] dark:bg-[#101010] ${item.productCount === 0 ? 'grayscale-[35%]' : ''}`}><CategoryImage src={item.imageUrl} name={item.name} priority={index < 5} /><span className={`absolute left-2.5 top-2.5 rounded-full border bg-white/95 px-2 py-1 text-[10px] font-semibold shadow-sm dark:bg-[#171717]/95 ${item.isActive ? 'border-emerald-100 text-emerald-700 dark:border-emerald-900 dark:text-emerald-400' : 'border-slate-200 text-slate-500 dark:border-slate-700 dark:text-slate-400'}`}>{item.isActive ? 'Active' : 'Archived'}</span></div>
               <div className="p-4 pb-2"><div className="flex items-center justify-between gap-3"><h2 className="truncate text-[15px] font-semibold text-[#111827] dark:text-slate-100">{item.name}</h2><ArrowRight className="h-4 w-4 shrink-0 text-[#b87918] dark:text-[#f0bd2f]" /></div><div className={`mt-2 flex min-h-8 items-start gap-1.5 text-xs leading-4 ${parent.missing ? 'font-medium text-red-600 dark:text-red-400' : 'text-[#61708b] dark:text-slate-400'}`}>{parent.missing && <TriangleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" />}<span className="line-clamp-2">{item.description?.trim() || parent.label}</span></div></div>
             </Link>}
-            <div className="mx-4 mt-auto flex items-center justify-between py-2.5">{incomplete ? <button type="button" onClick={() => setEditing(item)} className="text-[11px] font-semibold text-amber-700 hover:text-primary dark:text-amber-400">Finish setup →</button> : <span className={`text-[11px] font-semibold ${item.productCount === 0 ? 'text-slate-400' : 'text-[#9a620f] dark:text-[#f0bd2f]'}`}>{item.productCount > 0 ? `${item.productCount} ${countProductTerm(terminology, item.productCount)}` : `No ${terminology.pluralLower} yet`}</span>}{!incomplete && <div className="flex items-center gap-1"><button onClick={() => setEditing(item)} className="rounded-full p-1.5 text-muted-foreground hover:bg-[#f7f1e7] hover:text-[#9a620f] dark:hover:bg-white/10 dark:hover:text-[#f0bd2f]" aria-label={`Edit ${item.name}`} title="Edit category"><Pencil className="h-3.5 w-3.5" /></button>{item.slug !== 'uncategorised' && <button onClick={async () => { try { await setCategoryActive(item.id, !item.isActive); router.refresh() } catch (error) { notify.error(error instanceof Error ? error.message : 'Could not update category') } }} className="rounded-full p-1.5 text-muted-foreground hover:bg-[#f7f1e7] hover:text-[#9a620f] dark:hover:bg-white/10 dark:hover:text-[#f0bd2f]" aria-label={item.isActive ? `Archive ${item.name}` : `Restore ${item.name}`} title={item.isActive ? 'Archive category' : 'Restore category'}>{item.isActive ? <Archive className="h-3.5 w-3.5" /> : <RotateCcw className="h-3.5 w-3.5" />}</button>}</div>}</div>
+            <div className="mx-4 mt-auto flex items-center justify-between py-2.5">{incomplete ? <button type="button" onClick={() => setEditing(item)} className="text-[11px] font-semibold text-amber-700 hover:text-primary dark:text-amber-400">Finish setup →</button> : <span className={`text-[11px] font-semibold ${item.productCount === 0 ? 'text-slate-400' : 'text-[#9a620f] dark:text-[#f0bd2f]'}`}>{item.productCount > 0 ? `${item.productCount} ${countProductTerm(terminology, item.productCount)}` : `No ${terminology.pluralLower} yet`}</span>}{!incomplete && <div className="flex items-center gap-1"><button type="button" onClick={() => setEditing(item)} className="inline-flex h-6 w-6 items-center justify-center rounded-md border border-[var(--dashboard-border)] bg-[var(--dashboard-surface-subtle)] text-[var(--dashboard-muted)] transition-colors hover:border-[var(--dashboard-accent-soft-border)] hover:bg-[var(--dashboard-accent-soft)] hover:text-[var(--dashboard-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--dashboard-accent)]/30" aria-label={`Edit ${item.name}`} title="Edit category"><PaymentSummaryEditIcon className="h-3 w-3" /></button>{item.slug !== 'uncategorised' && <button type="button" onClick={async () => { try { await setCategoryActive(item.id, !item.isActive); router.refresh() } catch (error) { notify.error(error instanceof Error ? error.message : 'Could not update category') } }} className="inline-flex h-6 w-6 items-center justify-center rounded-md border border-[var(--dashboard-border)] bg-[var(--dashboard-surface-subtle)] text-[var(--dashboard-muted)] transition-colors hover:border-[var(--dashboard-accent-soft-border)] hover:bg-[var(--dashboard-accent-soft)] hover:text-[var(--dashboard-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--dashboard-accent)]/30" aria-label={item.isActive ? `Archive ${item.name}` : `Restore ${item.name}`} title={item.isActive ? 'Archive category' : 'Restore category'}>{item.isActive ? <Archive className="h-3 w-3" /> : <RotateCcw className="h-3 w-3" />}</button>}</div>}</div>
           </article>
         })}
       </div> : <div className="overflow-hidden rounded-xl border bg-white dark:border-slate-800 dark:bg-[#141414]">
@@ -136,8 +142,8 @@ export function CategoriesClient({ initialCategories }: { initialCategories: Cat
                 <td className="px-4 py-3"><span className={`inline-flex rounded-full border px-2 py-1 text-xs font-medium ${item.isActive ? 'border-emerald-200 bg-[#edf7ef] text-[#28743c] dark:border-emerald-900/70 dark:bg-emerald-950/35 dark:text-emerald-400' : 'border-slate-200 bg-muted text-muted-foreground dark:border-slate-700 dark:bg-slate-800/50 dark:text-slate-400'}`}>{item.isActive ? 'Active' : 'Archived'}</span></td>
                 <td className="px-4 py-3 text-right">
                   <Link href={href} className="rounded p-2 text-muted-foreground hover:bg-muted" aria-label={`View category ${item.name}`}><ExternalLink className="inline h-4 w-4" /></Link>
-                  <button onClick={() => setEditing(item)} className="rounded p-2 text-muted-foreground hover:bg-muted" aria-label={`Edit ${item.name}`}><Pencil className="inline h-4 w-4" /></button>
-                  {item.slug !== 'uncategorised' && <button onClick={async () => { try { await setCategoryActive(item.id, !item.isActive); router.refresh() } catch (error) { notify.error(error instanceof Error ? error.message : 'Could not update category') } }} className="rounded p-2 text-muted-foreground hover:bg-muted" aria-label={item.isActive ? `Archive ${item.name}` : `Restore ${item.name}`}>{item.isActive ? <RotateCcw className="inline h-4 w-4" /> : <Check className="inline h-4 w-4" />}</button>}
+                  <button type="button" onClick={() => setEditing(item)} className="inline-flex h-6 w-6 items-center justify-center rounded-md border border-[var(--dashboard-border)] bg-[var(--dashboard-surface-subtle)] text-[var(--dashboard-muted)] transition-colors hover:border-[var(--dashboard-accent-soft-border)] hover:bg-[var(--dashboard-accent-soft)] hover:text-[var(--dashboard-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--dashboard-accent)]/30" aria-label={`Edit ${item.name}`} title="Edit category"><PaymentSummaryEditIcon className="h-3 w-3" /></button>
+                  {item.slug !== 'uncategorised' && <button type="button" onClick={async () => { try { await setCategoryActive(item.id, !item.isActive); router.refresh() } catch (error) { notify.error(error instanceof Error ? error.message : 'Could not update category') } }} className="ml-1 inline-flex h-6 w-6 items-center justify-center rounded-md border border-[var(--dashboard-border)] bg-[var(--dashboard-surface-subtle)] text-[var(--dashboard-muted)] transition-colors hover:border-[var(--dashboard-accent-soft-border)] hover:bg-[var(--dashboard-accent-soft)] hover:text-[var(--dashboard-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--dashboard-accent)]/30" aria-label={item.isActive ? `Archive ${item.name}` : `Restore ${item.name}`} title={item.isActive ? 'Archive category' : 'Restore category'}>{item.isActive ? <Archive className="h-3 w-3" /> : <RotateCcw className="h-3 w-3" />}</button>}
                 </td>
               </tr>
             })}
@@ -150,14 +156,8 @@ export function CategoriesClient({ initialCategories }: { initialCategories: Cat
   )
 }
 
-function Summary({ label, value, tone, icon: Icon }: { label: string; value: number; tone?: 'green' | 'gold'; icon: typeof Layers3 }) {
-  const toneClass = tone === 'green'
-    ? 'border-[#9cdbb3] bg-gradient-to-br from-white via-[#f4fff7] to-[#dcf6e5] dark:border-[#2f7650] dark:from-[#10261b] dark:via-[#102019] dark:to-[#102b1d]'
-    : tone === 'gold'
-      ? 'border-[#f0d77f] bg-gradient-to-br from-[#fffefa] to-[#fff5ca] dark:border-[#80651d] dark:from-[#30270f] dark:to-[#1b180d]'
-      : 'border-slate-200 bg-white dark:border-slate-700 dark:bg-[#141414]'
-  const iconClass = tone === 'green' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400' : tone === 'gold' ? 'bg-[#fff0b5] text-[#946500] dark:bg-[#3b300d] dark:text-[#f5c542]' : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'
-  return <div className={`flex min-w-0 items-center justify-between gap-4 rounded-xl border px-4 py-3 shadow-[0_1px_2px_rgba(16,24,40,.04)] dark:shadow-none ${toneClass}`}><div className="flex min-w-0 items-center gap-3"><span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${iconClass}`}><Icon className="h-[18px] w-[18px]" strokeWidth={1.8} /></span><p className="truncate text-xs font-semibold tracking-wide text-slate-600 dark:text-slate-300">{label}</p></div><p className={`text-xl font-semibold leading-none tracking-[-.02em] tabular-nums ${tone === 'green' ? 'text-emerald-700 dark:text-emerald-400' : 'text-slate-950 dark:text-slate-100'}`}>{value}</p></div>
+function Summary({ label, value, description }: { label: string; value: number; description: string }) {
+  return <section className="min-h-[112px] rounded-lg border bg-card px-5 py-4 shadow-sm dark:border-white/10 dark:bg-[#141414]"><p className="text-sm font-medium text-muted-foreground">{label}</p><p className="mt-2 text-2xl font-semibold leading-none tracking-[-0.02em] tabular-nums text-foreground">{value}</p><p className="mt-2 text-xs text-muted-foreground">{description}</p></section>
 }
 
 function CategoryModal({ category, categories, onClose, onSave }: { category: Category | null; categories: Category[]; onClose: () => void; onSave: (form: CategoryForm) => Promise<void> }) {

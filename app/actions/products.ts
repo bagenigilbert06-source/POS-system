@@ -6,6 +6,7 @@ import {
   branch,
   auditEvent,
   category,
+  cafeMenuItem,
   inventoryLot,
   organizationMembership,
   pharmacyProduct,
@@ -35,6 +36,8 @@ import {
 import { requirePermission } from '@/lib/auth/authorization';
 import { PermissionEnum } from '@/lib/types/permissions';
 import { isPharmacyBusiness } from '@/lib/pharmacy/rules';
+import { isCafeBusiness } from '@/lib/hospitality/rules';
+import { databaseTableExists } from '@/lib/db/schema-capabilities';
 
 type PharmacyProductInput = {
   genericName?: string;
@@ -93,15 +96,28 @@ export async function getProducts(search?: string, includeInactive = false) {
 }
 
 export async function getPosProducts() {
-  const userId = await getUserId()
-  const orgId = await getOrgId(userId)
+  const userId = await getUserId();
+  const orgId = await getOrgId(userId);
   const [products, packages] = await Promise.all([
     getProductsForOrg(orgId),
-    db.select().from(productPackage).where(and(eq(productPackage.organizationId, orgId), eq(productPackage.isActive, true))).orderBy(productPackage.baseUnitQuantity),
-  ])
-  const grouped = new Map<string, typeof packages>()
-  for (const item of packages) grouped.set(item.productId, [...(grouped.get(item.productId) ?? []), item])
-  return products.map((item) => ({ ...item, packages: grouped.get(item.id) ?? [] }))
+    db
+      .select()
+      .from(productPackage)
+      .where(
+        and(
+          eq(productPackage.organizationId, orgId),
+          eq(productPackage.isActive, true)
+        )
+      )
+      .orderBy(productPackage.baseUnitQuantity),
+  ]);
+  const grouped = new Map<string, typeof packages>();
+  for (const item of packages)
+    grouped.set(item.productId, [...(grouped.get(item.productId) ?? []), item]);
+  return products.map((item) => ({
+    ...item,
+    packages: grouped.get(item.id) ?? [],
+  }));
 }
 
 async function getProductsForOrg(
@@ -161,34 +177,61 @@ export async function getProductMonthlySales() {
     .groupBy(saleItem.productId);
 }
 
-export async function getProductsPageData() {
+export async function getProductsPageData(options?: {
+  includeCafeIngredients?: boolean;
+}) {
   const userId = await getUserId();
   const orgId = await getOrgId(userId);
+  const workspaceConfig = await WorkspaceService.getWorkspaceConfig(
+    orgId,
+    userId
+  );
+  const cafeWorkspace = Boolean(
+    workspaceConfig &&
+    isCafeBusiness(
+      workspaceConfig.businessType,
+      workspaceConfig.businessCategory
+    )
+  );
+  const cafeMenuSchemaReady =
+    !cafeWorkspace || (await databaseTableExists('cafe_menu_item'));
   const now = new Date();
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-  const [products, monthlySales, categories] = await Promise.all([
-    getProductsForOrg(orgId, undefined, true),
-    db
-      .select({
-        productId: saleItem.productId,
-        unitsSoldMonth: sql<number>`coalesce(sum(${saleItem.quantity}), 0)`,
-      })
-      .from(saleItem)
-      .innerJoin(sale, eq(sale.id, saleItem.saleId))
-      .where(
-        and(
-          eq(saleItem.orgId, orgId),
-          eq(sale.orgId, orgId),
-          eq(sale.status, 'completed'),
-          gte(sale.createdAt, monthStart)
+  const [allProducts, monthlySales, categories, cafeMenuRows] =
+    await Promise.all([
+      getProductsForOrg(orgId, undefined, true),
+      db
+        .select({
+          productId: saleItem.productId,
+          unitsSoldMonth: sql<number>`coalesce(sum(${saleItem.quantity}), 0)`,
+        })
+        .from(saleItem)
+        .innerJoin(sale, eq(sale.id, saleItem.saleId))
+        .where(
+          and(
+            eq(saleItem.orgId, orgId),
+            eq(sale.orgId, orgId),
+            eq(sale.status, 'completed'),
+            gte(sale.createdAt, monthStart)
+          )
         )
-      )
-      .groupBy(saleItem.productId),
-    db
-      .select({ id: category.id, name: category.name })
-      .from(category)
-      .where(eq(category.orgId, orgId)),
-  ]);
+        .groupBy(saleItem.productId),
+      db
+        .select({ id: category.id, name: category.name })
+        .from(category)
+        .where(eq(category.orgId, orgId)),
+      cafeWorkspace && cafeMenuSchemaReady && !options?.includeCafeIngredients
+        ? db
+            .select({ productId: cafeMenuItem.productId })
+            .from(cafeMenuItem)
+            .where(eq(cafeMenuItem.organizationId, orgId))
+        : Promise.resolve([]),
+    ]);
+  const menuProductIds = new Set(cafeMenuRows.map((item) => item.productId));
+  const products =
+    cafeWorkspace && !options?.includeCafeIngredients
+      ? allProducts.filter((item) => menuProductIds.has(item.id))
+      : allProducts;
   const unitsSoldByProduct = new Map(
     monthlySales.map((item) => [item.productId, Number(item.unitsSoldMonth)])
   );
@@ -480,7 +523,12 @@ export async function getProductOverview(id: string) {
   const [pharmacyMetadata] = await db
     .select()
     .from(pharmacyProduct)
-    .where(and(eq(pharmacyProduct.productId, id), eq(pharmacyProduct.organizationId, orgId)))
+    .where(
+      and(
+        eq(pharmacyProduct.productId, id),
+        eq(pharmacyProduct.organizationId, orgId)
+      )
+    )
     .limit(1);
 
   const now = new Date();
@@ -541,18 +589,30 @@ export async function getProductOverview(id: string) {
     Math.ceil((now.getTime() - monthStart.getTime()) / 86_400_000) + 1
   );
   const averageDailySales = monthlyUnits / daysElapsed;
-  const rawLots = pharmacyMetadata ? await db.select({
-    id: inventoryLot.id,
-    lotNumber: inventoryLot.lotNumber,
-    branchName: branch.name,
-    quantity: inventoryLot.quantity,
-    expiresAt: inventoryLot.expiresAt,
-    status: inventoryLot.status,
-    receivedAt: inventoryLot.receivedAt,
-  }).from(inventoryLot)
-    .innerJoin(branch, and(eq(branch.id, inventoryLot.branchId), eq(branch.organizationId, orgId)))
-    .where(and(eq(inventoryLot.productId, id), eq(inventoryLot.orgId, orgId)))
-    .orderBy(inventoryLot.expiresAt, desc(inventoryLot.receivedAt)) : [];
+  const rawLots = pharmacyMetadata
+    ? await db
+        .select({
+          id: inventoryLot.id,
+          lotNumber: inventoryLot.lotNumber,
+          branchName: branch.name,
+          quantity: inventoryLot.quantity,
+          expiresAt: inventoryLot.expiresAt,
+          status: inventoryLot.status,
+          receivedAt: inventoryLot.receivedAt,
+        })
+        .from(inventoryLot)
+        .innerJoin(
+          branch,
+          and(
+            eq(branch.id, inventoryLot.branchId),
+            eq(branch.organizationId, orgId)
+          )
+        )
+        .where(
+          and(eq(inventoryLot.productId, id), eq(inventoryLot.orgId, orgId))
+        )
+        .orderBy(inventoryLot.expiresAt, desc(inventoryLot.receivedAt))
+    : [];
   const lots = rawLots.map((lot) => ({
     ...lot,
     expired: Boolean(lot.expiresAt && lot.expiresAt.getTime() < now.getTime()),
@@ -678,18 +738,43 @@ export async function createProduct(data: {
   etimsTaxRate?: number;
   etimsVatClassification?: string;
   confirmLoss?: boolean;
+  /** Café-only: ingredients are stock records, not POS menu items. */
+  cafeCatalogType?: 'menu_item' | 'ingredient';
   pharmacy?: PharmacyProductInput;
 }) {
   const userId = await getUserId();
   const orgId = await getOrgId(userId);
-  const workspaceConfig = await WorkspaceService.getWorkspaceConfig(orgId, userId);
-  const pharmacyWorkspace = Boolean(workspaceConfig && isPharmacyBusiness(workspaceConfig.businessType, workspaceConfig.businessCategory));
+  const workspaceConfig = await WorkspaceService.getWorkspaceConfig(
+    orgId,
+    userId
+  );
+  const pharmacyWorkspace = Boolean(
+    workspaceConfig &&
+    isPharmacyBusiness(
+      workspaceConfig.businessType,
+      workspaceConfig.businessCategory
+    )
+  );
+  const cafeWorkspace = Boolean(
+    workspaceConfig &&
+    isCafeBusiness(
+      workspaceConfig.businessType,
+      workspaceConfig.businessCategory
+    )
+  );
   await requireProductManager(userId, orgId);
   const id = generateId();
   if (!data.name.trim()) throw new Error('Product name is required');
   if (!data.categoryId) throw new Error('Choose a category for this product');
-  if (!Number.isFinite(data.buyingPrice) || data.buyingPrice <= 0)
-    throw new Error('Cost price must be greater than zero');
+  if (
+    !Number.isFinite(data.buyingPrice) ||
+    (cafeWorkspace ? data.buyingPrice < 0 : data.buyingPrice <= 0)
+  )
+    throw new Error(
+      cafeWorkspace
+        ? 'Menu item cost cannot be negative'
+        : 'Cost price must be greater than zero'
+    );
   if (!Number.isFinite(data.sellingPrice) || data.sellingPrice < 0)
     throw new Error('Enter a valid selling price');
   if (!Number.isInteger(data.stock) || data.stock < 0)
@@ -706,14 +791,21 @@ export async function createProduct(data: {
     (!Number.isInteger(data.unitsPerPack) || data.unitsPerPack <= 0)
   )
     throw new Error('Units per pack must be a positive whole number');
-  if (data.etimsTaxRate !== undefined && (!Number.isFinite(data.etimsTaxRate) || data.etimsTaxRate < 0 || data.etimsTaxRate > 100))
+  if (
+    data.etimsTaxRate !== undefined &&
+    (!Number.isFinite(data.etimsTaxRate) ||
+      data.etimsTaxRate < 0 ||
+      data.etimsTaxRate > 100)
+  )
     throw new Error('eTIMS tax rate must be between 0 and 100');
   if (data.sellingPrice < data.buyingPrice && data.confirmLoss !== true)
     throw new Error(
       'Confirm that this product will be sold at a loss before saving'
     );
   if (pharmacyWorkspace && data.stock > 0)
-    throw new Error('Receive pharmacy opening stock by batch so its lot number and expiry remain traceable');
+    throw new Error(
+      'Receive pharmacy opening stock by batch so its lot number and expiry remain traceable'
+    );
   const [selectedCategory] = await db
     .select({ isActive: category.isActive })
     .from(category)
@@ -721,8 +813,14 @@ export async function createProduct(data: {
     .limit(1);
   if (!selectedCategory || !selectedCategory.isActive)
     throw new Error('Choose an active category');
-  const { confirmLoss: _confirmLoss, pharmacy: pharmacyData, ...safeData } = data;
+  const {
+    confirmLoss: _confirmLoss,
+    cafeCatalogType: _cafeCatalogType,
+    pharmacy: pharmacyData,
+    ...safeData
+  } = data;
   void _confirmLoss;
+  void _cafeCatalogType;
   const generatedSku =
     data.sku?.trim().toUpperCase() ||
     (await generateProductSku({
@@ -773,7 +871,9 @@ export async function createProduct(data: {
         ? { volume: String(safeData.volume) }
         : {}),
       ...(safeData.abv !== undefined ? { abv: String(safeData.abv) } : {}),
-      ...(safeData.etimsTaxRate !== undefined ? { etimsTaxRate: String(safeData.etimsTaxRate) } : {}),
+      ...(safeData.etimsTaxRate !== undefined
+        ? { etimsTaxRate: String(safeData.etimsTaxRate) }
+        : {}),
       name: data.name.trim(),
       buyingPrice: String(data.buyingPrice),
       sellingPrice: String(data.sellingPrice),
@@ -781,19 +881,28 @@ export async function createProduct(data: {
       orgId,
       trackingMode: pharmacyWorkspace ? 'lot' : safeData.trackingMode,
     } as any);
-    if (pharmacyWorkspace) await tx.insert(pharmacyProduct).values({
-      productId: id,
-      organizationId: orgId,
-      genericName: pharmacyData?.genericName?.trim() || null,
-      internalCode: pharmacyData?.internalCode?.trim() || null,
-      manufacturer: pharmacyData?.manufacturer?.trim() || null,
-      strength: pharmacyData?.strength?.trim() || null,
-      dosageForm: pharmacyData?.dosageForm?.trim() || null,
-      packSize: pharmacyData?.packSize?.trim() || null,
-      prescriptionRequired: Boolean(pharmacyData?.prescriptionRequired),
-      restrictedItem: Boolean(pharmacyData?.restrictedItem),
-      notes: pharmacyData?.notes?.trim() || null,
-    });
+    if (pharmacyWorkspace)
+      await tx.insert(pharmacyProduct).values({
+        productId: id,
+        organizationId: orgId,
+        genericName: pharmacyData?.genericName?.trim() || null,
+        internalCode: pharmacyData?.internalCode?.trim() || null,
+        manufacturer: pharmacyData?.manufacturer?.trim() || null,
+        strength: pharmacyData?.strength?.trim() || null,
+        dosageForm: pharmacyData?.dosageForm?.trim() || null,
+        packSize: pharmacyData?.packSize?.trim() || null,
+        prescriptionRequired: Boolean(pharmacyData?.prescriptionRequired),
+        restrictedItem: Boolean(pharmacyData?.restrictedItem),
+        notes: pharmacyData?.notes?.trim() || null,
+      });
+    if (cafeWorkspace && data.cafeCatalogType !== 'ingredient')
+      await tx.insert(cafeMenuItem).values({
+        productId: id,
+        organizationId: orgId,
+        inventoryMode: data.stock > 0 ? 'product' : 'none',
+        preparationRequired: false,
+        manualAvailability: 'available',
+      });
     if (data.stock > 0) {
       const [location] = await tx
         .select({ id: branch.id })
@@ -873,8 +982,24 @@ export async function updateProduct(
 ) {
   const userId = await getUserId();
   const orgId = await getOrgId(userId);
-  const workspaceConfig = await WorkspaceService.getWorkspaceConfig(orgId, userId);
-  const pharmacyWorkspace = Boolean(workspaceConfig && isPharmacyBusiness(workspaceConfig.businessType, workspaceConfig.businessCategory));
+  const workspaceConfig = await WorkspaceService.getWorkspaceConfig(
+    orgId,
+    userId
+  );
+  const pharmacyWorkspace = Boolean(
+    workspaceConfig &&
+    isPharmacyBusiness(
+      workspaceConfig.businessType,
+      workspaceConfig.businessCategory
+    )
+  );
+  const cafeWorkspace = Boolean(
+    workspaceConfig &&
+    isCafeBusiness(
+      workspaceConfig.businessType,
+      workspaceConfig.businessCategory
+    )
+  );
   await requireProductManager(userId, orgId);
   if ('stock' in data)
     throw new Error(
@@ -884,9 +1009,14 @@ export async function updateProduct(
     throw new Error('Product name is required');
   if (
     data.buyingPrice !== undefined &&
-    (!Number.isFinite(data.buyingPrice) || data.buyingPrice <= 0)
+    (!Number.isFinite(data.buyingPrice) ||
+      (cafeWorkspace ? data.buyingPrice < 0 : data.buyingPrice <= 0))
   )
-    throw new Error('Cost price must be greater than zero');
+    throw new Error(
+      cafeWorkspace
+        ? 'Menu item cost cannot be negative'
+        : 'Cost price must be greater than zero'
+    );
   if (
     data.sellingPrice !== undefined &&
     (!Number.isFinite(data.sellingPrice) || data.sellingPrice < 0)
@@ -917,7 +1047,12 @@ export async function updateProduct(
     (!Number.isInteger(data.expiryAlertDays) || data.expiryAlertDays < 0)
   )
     throw new Error('Expiry alert days cannot be negative');
-  if (data.etimsTaxRate !== undefined && (!Number.isFinite(data.etimsTaxRate) || data.etimsTaxRate < 0 || data.etimsTaxRate > 100))
+  if (
+    data.etimsTaxRate !== undefined &&
+    (!Number.isFinite(data.etimsTaxRate) ||
+      data.etimsTaxRate < 0 ||
+      data.etimsTaxRate > 100)
+  )
     throw new Error('eTIMS tax rate must be between 0 and 100');
   const [current] = await db
     .select({
@@ -934,7 +1069,11 @@ export async function updateProduct(
     throw new Error(
       'Confirm that this product will be sold at a loss before saving'
     );
-  const { confirmLoss: _confirmLoss, pharmacy: pharmacyData, ...safeData } = data;
+  const {
+    confirmLoss: _confirmLoss,
+    pharmacy: pharmacyData,
+    ...safeData
+  } = data;
   void _confirmLoss;
   if (safeData.sku !== undefined) {
     safeData.sku = safeData.sku.trim().toUpperCase();
@@ -978,40 +1117,69 @@ export async function updateProduct(
     }
   }
   await db.transaction(async (tx) => {
-    await tx.update(product).set({
+    await tx
+      .update(product)
+      .set({
         ...safeData,
-        ...(normalizedBarcode !== undefined ? { barcode: normalizedBarcode } : {}),
-        ...(safeData.buyingPrice !== undefined ? { buyingPrice: String(safeData.buyingPrice) } : {}),
-        ...(safeData.sellingPrice !== undefined ? { sellingPrice: String(safeData.sellingPrice) } : {}),
-        ...(safeData.etimsTaxRate !== undefined ? { etimsTaxRate: String(safeData.etimsTaxRate) } : {}),
+        ...(normalizedBarcode !== undefined
+          ? { barcode: normalizedBarcode }
+          : {}),
+        ...(safeData.buyingPrice !== undefined
+          ? { buyingPrice: String(safeData.buyingPrice) }
+          : {}),
+        ...(safeData.sellingPrice !== undefined
+          ? { sellingPrice: String(safeData.sellingPrice) }
+          : {}),
+        ...(safeData.etimsTaxRate !== undefined
+          ? { etimsTaxRate: String(safeData.etimsTaxRate) }
+          : {}),
         ...(pharmacyWorkspace ? { trackingMode: 'lot' } : {}),
         updatedAt: new Date(),
       } as any)
       .where(and(eq(product.id, id), eq(product.orgId, orgId)));
-    if (pharmacyWorkspace && pharmacyData) await tx.insert(pharmacyProduct).values({
-      productId: id, organizationId: orgId,
-      genericName: pharmacyData.genericName?.trim() || null,
-      internalCode: pharmacyData.internalCode?.trim() || null,
-      manufacturer: pharmacyData.manufacturer?.trim() || null,
-      strength: pharmacyData.strength?.trim() || null,
-      dosageForm: pharmacyData.dosageForm?.trim() || null,
-      packSize: pharmacyData.packSize?.trim() || null,
-      prescriptionRequired: Boolean(pharmacyData.prescriptionRequired),
-      restrictedItem: Boolean(pharmacyData.restrictedItem),
-      notes: pharmacyData.notes?.trim() || null,
-      updatedAt: new Date(),
-    }).onConflictDoUpdate({ target: pharmacyProduct.productId, set: {
-      genericName: pharmacyData.genericName?.trim() || null,
-      internalCode: pharmacyData.internalCode?.trim() || null,
-      manufacturer: pharmacyData.manufacturer?.trim() || null,
-      strength: pharmacyData.strength?.trim() || null,
-      dosageForm: pharmacyData.dosageForm?.trim() || null,
-      packSize: pharmacyData.packSize?.trim() || null,
-      prescriptionRequired: Boolean(pharmacyData.prescriptionRequired),
-      restrictedItem: Boolean(pharmacyData.restrictedItem),
-      notes: pharmacyData.notes?.trim() || null,
-      updatedAt: new Date(),
-    } });
+    if (pharmacyWorkspace && pharmacyData)
+      await tx
+        .insert(pharmacyProduct)
+        .values({
+          productId: id,
+          organizationId: orgId,
+          genericName: pharmacyData.genericName?.trim() || null,
+          internalCode: pharmacyData.internalCode?.trim() || null,
+          manufacturer: pharmacyData.manufacturer?.trim() || null,
+          strength: pharmacyData.strength?.trim() || null,
+          dosageForm: pharmacyData.dosageForm?.trim() || null,
+          packSize: pharmacyData.packSize?.trim() || null,
+          prescriptionRequired: Boolean(pharmacyData.prescriptionRequired),
+          restrictedItem: Boolean(pharmacyData.restrictedItem),
+          notes: pharmacyData.notes?.trim() || null,
+          updatedAt: new Date(),
+        })
+        .onConflictDoUpdate({
+          target: pharmacyProduct.productId,
+          set: {
+            genericName: pharmacyData.genericName?.trim() || null,
+            internalCode: pharmacyData.internalCode?.trim() || null,
+            manufacturer: pharmacyData.manufacturer?.trim() || null,
+            strength: pharmacyData.strength?.trim() || null,
+            dosageForm: pharmacyData.dosageForm?.trim() || null,
+            packSize: pharmacyData.packSize?.trim() || null,
+            prescriptionRequired: Boolean(pharmacyData.prescriptionRequired),
+            restrictedItem: Boolean(pharmacyData.restrictedItem),
+            notes: pharmacyData.notes?.trim() || null,
+            updatedAt: new Date(),
+          },
+        });
+    if (cafeWorkspace)
+      await tx
+        .insert(cafeMenuItem)
+        .values({
+          productId: id,
+          organizationId: orgId,
+          inventoryMode: 'none',
+          preparationRequired: false,
+          manualAvailability: 'available',
+        })
+        .onConflictDoNothing({ target: cafeMenuItem.productId });
   });
   if (data.categoryId !== undefined || data.isActive !== undefined)
     await invalidateProductCache(orgId);
@@ -1042,49 +1210,165 @@ export async function archiveProduct(id: string) {
 }
 
 export async function getProductPackages(productId: string) {
-  const userId = await getUserId()
-  const orgId = await getOrgId(userId)
-  return db.select().from(productPackage).where(and(eq(productPackage.organizationId, orgId), eq(productPackage.productId, productId), eq(productPackage.isActive, true))).orderBy(productPackage.baseUnitQuantity)
+  const userId = await getUserId();
+  const orgId = await getOrgId(userId);
+  return db
+    .select()
+    .from(productPackage)
+    .where(
+      and(
+        eq(productPackage.organizationId, orgId),
+        eq(productPackage.productId, productId),
+        eq(productPackage.isActive, true)
+      )
+    )
+    .orderBy(productPackage.baseUnitQuantity);
 }
 
-export async function saveProductPackage(input: { id?: string; productId: string; name: string; packageType: 'six_pack' | 'twelve_pack' | 'case' | 'custom'; barcode?: string; sellingPrice: number; baseUnitQuantity: number; etimsItemCode?: string; etimsUnitCode?: string }) {
-  const userId = await getUserId()
-  const orgId = await getOrgId(userId)
-  await requireProductManager(userId, orgId)
-  const name = input.name.trim().slice(0, 80)
-  const barcode = normalizeBarcode(input.barcode ?? '') || null
-  if (!name) throw new Error('Package name is required')
-  if (!['six_pack', 'twelve_pack', 'case', 'custom'].includes(input.packageType)) throw new Error('Choose a valid package type')
-  if (!Number.isInteger(input.baseUnitQuantity) || input.baseUnitQuantity <= 1 || input.baseUnitQuantity > 10000) throw new Error('Package conversion must be a whole number greater than one')
-  if (!Number.isFinite(input.sellingPrice) || input.sellingPrice <= 0) throw new Error('Package selling price must be greater than zero')
-  const [validProduct] = await db.select({ id: product.id, barcode: product.barcode }).from(product).where(and(eq(product.id, input.productId), eq(product.orgId, orgId))).limit(1)
-  if (!validProduct) throw new Error('Product not found')
+export async function saveProductPackage(input: {
+  id?: string;
+  productId: string;
+  name: string;
+  packageType: 'six_pack' | 'twelve_pack' | 'case' | 'custom';
+  barcode?: string;
+  sellingPrice: number;
+  baseUnitQuantity: number;
+  etimsItemCode?: string;
+  etimsUnitCode?: string;
+}) {
+  const userId = await getUserId();
+  const orgId = await getOrgId(userId);
+  await requireProductManager(userId, orgId);
+  const name = input.name.trim().slice(0, 80);
+  const barcode = normalizeBarcode(input.barcode ?? '') || null;
+  if (!name) throw new Error('Package name is required');
+  if (
+    !['six_pack', 'twelve_pack', 'case', 'custom'].includes(input.packageType)
+  )
+    throw new Error('Choose a valid package type');
+  if (
+    !Number.isInteger(input.baseUnitQuantity) ||
+    input.baseUnitQuantity <= 1 ||
+    input.baseUnitQuantity > 10000
+  )
+    throw new Error(
+      'Package conversion must be a whole number greater than one'
+    );
+  if (!Number.isFinite(input.sellingPrice) || input.sellingPrice <= 0)
+    throw new Error('Package selling price must be greater than zero');
+  const [validProduct] = await db
+    .select({ id: product.id, barcode: product.barcode })
+    .from(product)
+    .where(and(eq(product.id, input.productId), eq(product.orgId, orgId)))
+    .limit(1);
+  if (!validProduct) throw new Error('Product not found');
   if (barcode) {
-    if (normalizeBarcode(validProduct.barcode ?? '') === barcode) throw new Error('The package barcode must differ from the bottle barcode')
-    const [productConflict] = await db.select({ id: product.id }).from(product).where(and(eq(product.orgId, orgId), eq(product.barcode, barcode), eq(product.isActive, true))).limit(1)
-    const [packageConflict] = await db.select({ id: productPackage.id }).from(productPackage).where(and(eq(productPackage.organizationId, orgId), eq(productPackage.barcode, barcode), eq(productPackage.isActive, true), input.id ? sql`${productPackage.id} <> ${input.id}` : undefined)).limit(1)
-    if (productConflict || packageConflict) throw new Error('This barcode is already assigned to another product or package')
+    if (normalizeBarcode(validProduct.barcode ?? '') === barcode)
+      throw new Error(
+        'The package barcode must differ from the bottle barcode'
+      );
+    const [productConflict] = await db
+      .select({ id: product.id })
+      .from(product)
+      .where(
+        and(
+          eq(product.orgId, orgId),
+          eq(product.barcode, barcode),
+          eq(product.isActive, true)
+        )
+      )
+      .limit(1);
+    const [packageConflict] = await db
+      .select({ id: productPackage.id })
+      .from(productPackage)
+      .where(
+        and(
+          eq(productPackage.organizationId, orgId),
+          eq(productPackage.barcode, barcode),
+          eq(productPackage.isActive, true),
+          input.id ? sql`${productPackage.id} <> ${input.id}` : undefined
+        )
+      )
+      .limit(1);
+    if (productConflict || packageConflict)
+      throw new Error(
+        'This barcode is already assigned to another product or package'
+      );
   }
-  const id = input.id || generateId()
-  const values = { organizationId: orgId, productId: input.productId, name, packageType: input.packageType, barcode, sellingPrice: String(input.sellingPrice), baseUnitQuantity: input.baseUnitQuantity, etimsItemCode: input.etimsItemCode?.trim() || null, etimsUnitCode: input.etimsUnitCode?.trim() || null, isActive: true, updatedAt: new Date() }
+  const id = input.id || generateId();
+  const values = {
+    organizationId: orgId,
+    productId: input.productId,
+    name,
+    packageType: input.packageType,
+    barcode,
+    sellingPrice: String(input.sellingPrice),
+    baseUnitQuantity: input.baseUnitQuantity,
+    etimsItemCode: input.etimsItemCode?.trim() || null,
+    etimsUnitCode: input.etimsUnitCode?.trim() || null,
+    isActive: true,
+    updatedAt: new Date(),
+  };
   if (input.id) {
-    const [updated] = await db.update(productPackage).set(values).where(and(eq(productPackage.id, input.id), eq(productPackage.organizationId, orgId), eq(productPackage.productId, input.productId))).returning()
-    if (!updated) throw new Error('Package not found')
-  } else await db.insert(productPackage).values({ id, ...values })
-  await db.insert(auditEvent).values({ id: generateId(), organizationId: orgId, userId, action: input.id ? 'product_package.updated' : 'product_package.created', metadata: { packageId: id, productId: input.productId, name, packageType: input.packageType, baseUnitQuantity: input.baseUnitQuantity } })
-  await invalidateProductReadCache(orgId)
-  revalidatePath(`/dashboard/products/${input.productId}`); revalidatePath('/dashboard/pos')
-  return (await getProductPackages(input.productId)).find((item) => item.id === id)!
+    const [updated] = await db
+      .update(productPackage)
+      .set(values)
+      .where(
+        and(
+          eq(productPackage.id, input.id),
+          eq(productPackage.organizationId, orgId),
+          eq(productPackage.productId, input.productId)
+        )
+      )
+      .returning();
+    if (!updated) throw new Error('Package not found');
+  } else await db.insert(productPackage).values({ id, ...values });
+  await db.insert(auditEvent).values({
+    id: generateId(),
+    organizationId: orgId,
+    userId,
+    action: input.id ? 'product_package.updated' : 'product_package.created',
+    metadata: {
+      packageId: id,
+      productId: input.productId,
+      name,
+      packageType: input.packageType,
+      baseUnitQuantity: input.baseUnitQuantity,
+    },
+  });
+  await invalidateProductReadCache(orgId);
+  revalidatePath(`/dashboard/products/${input.productId}`);
+  revalidatePath('/dashboard/pos');
+  return (await getProductPackages(input.productId)).find(
+    (item) => item.id === id
+  )!;
 }
 
 export async function archiveProductPackage(id: string) {
-  const userId = await getUserId()
-  const orgId = await getOrgId(userId)
-  await requireProductManager(userId, orgId)
-  const [record] = await db.update(productPackage).set({ isActive: false, updatedAt: new Date() }).where(and(eq(productPackage.id, id), eq(productPackage.organizationId, orgId), eq(productPackage.isActive, true))).returning({ id: productPackage.id, productId: productPackage.productId })
-  if (!record) throw new Error('Package not found')
-  await db.insert(auditEvent).values({ id: generateId(), organizationId: orgId, userId, action: 'product_package.archived', metadata: { packageId: id, productId: record.productId } })
-  await invalidateProductReadCache(orgId)
-  revalidatePath(`/dashboard/products/${record.productId}`); revalidatePath('/dashboard/pos')
-  return { success: true }
+  const userId = await getUserId();
+  const orgId = await getOrgId(userId);
+  await requireProductManager(userId, orgId);
+  const [record] = await db
+    .update(productPackage)
+    .set({ isActive: false, updatedAt: new Date() })
+    .where(
+      and(
+        eq(productPackage.id, id),
+        eq(productPackage.organizationId, orgId),
+        eq(productPackage.isActive, true)
+      )
+    )
+    .returning({ id: productPackage.id, productId: productPackage.productId });
+  if (!record) throw new Error('Package not found');
+  await db.insert(auditEvent).values({
+    id: generateId(),
+    organizationId: orgId,
+    userId,
+    action: 'product_package.archived',
+    metadata: { packageId: id, productId: record.productId },
+  });
+  await invalidateProductReadCache(orgId);
+  revalidatePath(`/dashboard/products/${record.productId}`);
+  revalidatePath('/dashboard/pos');
+  return { success: true };
 }

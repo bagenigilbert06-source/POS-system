@@ -29,8 +29,14 @@ import {
   setManualMpesaPayerPhone,
 } from '@/app/actions/mpesa';
 import { createCustomer } from '@/app/actions/customers';
-import { validateCoupon, quoteAutomaticDiscount } from '@/app/actions/promotions';
-import { quoteCheckoutRewards, refreshCustomerRewards } from '@/app/actions/rewards';
+import {
+  validateCoupon,
+  quoteAutomaticDiscount,
+} from '@/app/actions/promotions';
+import {
+  quoteCheckoutRewards,
+  refreshCustomerRewards,
+} from '@/app/actions/rewards';
 import {
   getAirtelMoneyPaymentStatus,
   initiateAirtelMoneyPayment,
@@ -99,6 +105,7 @@ import type {
 import { notify } from '@/lib/notify';
 import { CompactScrollArea } from '@/components/ui/compact-scroll-area';
 import { LoadingSpinner as Loader2 } from '@/components/ui/page-loader';
+import { PaymentSummaryEditIcon } from '@/components/ui/payment-summary-edit-icon';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -130,7 +137,14 @@ import {
 } from '@/lib/pos/offline-policy';
 import { useWorkspace } from '@/lib/context/workspace-context';
 import { getProductTerminology } from '@/lib/products/terminology';
-import { browserPrintReceipt, captureReceiptHtml, directPrintReceipt, getReceiptPrinterErrorCopy, hasConfiguredReceiptPrinter, type ReceiptPrinterSettings } from '@/lib/printing/receipt-print-service';
+import {
+  browserPrintReceipt,
+  captureReceiptHtml,
+  directPrintReceipt,
+  getReceiptPrinterErrorCopy,
+  hasConfiguredReceiptPrinter,
+  type ReceiptPrinterSettings,
+} from '@/lib/printing/receipt-print-service';
 
 const RefundDialog = dynamic(
   () => import('./refund-dialog').then((module) => module.RefundDialog),
@@ -167,6 +181,40 @@ const WirelessScannerPairing = dynamic(
 type PosProduct = Product & {
   packages: ProductPackage[];
   pharmacy?: PharmacyProduct | null;
+  cafe?: CafePosMenuItem | null;
+};
+type CafeModifierOption = { id: string; name: string; priceAdjustment: number };
+type CafeModifierGroup = {
+  id: string;
+  name: string;
+  selectionType: string;
+  minimumSelections: number;
+  maximumSelections: number;
+  options: CafeModifierOption[];
+};
+type CafePosMenuItem = {
+  productId: string;
+  inventoryMode: string;
+  preparationRequired: boolean;
+  available: boolean;
+  availabilityReason: string | null;
+  blockingIngredients: string[];
+  availabilityBySize: Array<{
+    packageId: string | null;
+    available: boolean;
+    blockingIngredients: string[];
+  }>;
+  modifierGroups: CafeModifierGroup[];
+};
+type CafePosExperience = {
+  configuration: {
+    enabledOrderTypes: Array<'takeaway' | 'dine_in' | 'delivery'>;
+    defaultOrderType: 'takeaway' | 'dine_in' | 'delivery';
+    tablesEnabled: boolean;
+    preparationEnabled: boolean;
+  };
+  tables: Array<{ id: string; name: string; status: string }>;
+  menuItems: CafePosMenuItem[];
 };
 type PosCustomer = Customer & { pointsBalance?: number; bonusBalance?: number };
 type RewardQuote = Awaited<ReturnType<typeof quoteCheckoutRewards>>;
@@ -175,9 +223,15 @@ interface POSTerminalProps {
   standalone?: boolean;
   organizationId: string;
   products: PosProduct[];
-  categories: Array<{ id: string; name: string; requiresAgeVerification?: boolean | null }>;
+  categories: Array<{
+    id: string;
+    name: string;
+    requiresAgeVerification?: boolean | null;
+  }>;
   requiresAgeVerification?: boolean;
   pharmacyMode?: boolean;
+  cafeMode?: boolean;
+  cafeExperience?: CafePosExperience | null;
   customers: PosCustomer[];
   settings: {
     displayName: string;
@@ -236,6 +290,13 @@ interface POSTerminalProps {
 interface ReceiptData {
   saleId: string;
   receiptNo: string;
+  cafeOrder?: {
+    orderNumber: number;
+    orderType?: string;
+    tableId?: string | null;
+    tableName?: string | null;
+    preparationStatus?: string;
+  } | null;
   items: Array<CartItem & { saleItemId: string }>;
   subtotal: number;
   taxAmount: number;
@@ -332,20 +393,6 @@ function formatKenyanPhoneInput(value: string) {
   ]
     .filter(Boolean)
     .join(' ');
-}
-
-function SummaryEditIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 -960 960 960"
-      fill="currentColor"
-      aria-hidden="true"
-      className={className}
-    >
-      <path d="M200-120q-33 0-56.5-23.5T120-200v-560q0-33 23.5-56.5T200-840h357l-80 80H200v560h560v-278l80-80v358q0 33-23.5 56.5T760-120H200Zm280-360ZM360-360v-170l367-367q12-12 27-18t30-6q16 0 30.5 6t26.5 18l56 57q11 12 17 26.5t6 29.5q0 15-5.5 29.5T897-728L530-360H360Zm481-424-56-56 56 56ZM440-440h56l232-232-28-28-29-28-231 231v57Zm260-260-29-28 29 28 28 28-28-28Z" />
-    </svg>
-  );
 }
 
 /**
@@ -458,8 +505,21 @@ function PaymentBrand({
     );
   if (method === 'credit')
     return (
-      <span className={cn('flex items-center justify-center bg-[#fff4cc] text-[#7a5b00]', compact ? 'h-11 w-16 rounded-md' : 'h-full w-full rounded-[7px]')}>
-        <span className={cn('flex items-center font-extrabold', compact ? 'gap-1 text-[10px]' : 'gap-2 text-sm')}><HandCoins className={compact ? 'h-4 w-4' : 'h-6 w-6'} /><span>Credit</span></span>
+      <span
+        className={cn(
+          'flex items-center justify-center bg-[#fff4cc] text-[#7a5b00]',
+          compact ? 'h-11 w-16 rounded-md' : 'h-full w-full rounded-[7px]'
+        )}
+      >
+        <span
+          className={cn(
+            'flex items-center font-extrabold',
+            compact ? 'gap-1 text-[10px]' : 'gap-2 text-sm'
+          )}
+        >
+          <HandCoins className={compact ? 'h-4 w-4' : 'h-6 w-6'} />
+          <span>Credit</span>
+        </span>
       </span>
     );
   return (
@@ -528,6 +588,8 @@ export function POSTerminal({
   settings,
   requiresAgeVerification = false,
   pharmacyMode = false,
+  cafeMode = false,
+  cafeExperience = null,
   startCheckout = false,
   checkoutOnly = false,
   hasActiveShift = false,
@@ -556,6 +618,17 @@ export function POSTerminal({
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('');
   const [cart, setCart] = useState<CartItem[]>([]);
+  const [cafeOrderType, setCafeOrderType] = useState<
+    'takeaway' | 'dine_in' | 'delivery'
+  >(cafeExperience?.configuration.defaultOrderType ?? 'takeaway');
+  const [cafeTableId, setCafeTableId] = useState('');
+  const [cafeCustomizer, setCafeCustomizer] = useState<{
+    product: PosProduct;
+    packageId: string | null;
+    selected: Record<string, string[]>;
+    notes: string;
+    editLineId?: string;
+  } | null>(null);
   const [cartHydrated, setCartHydrated] = useState(false);
   const [discount, setDiscount] = useState(0);
   const [discountType, setDiscountType] = useState<'fixed' | 'percentage'>(
@@ -577,11 +650,17 @@ export function POSTerminal({
   const [cardTerminals, setCardTerminals] = useState<ActiveCardTerminal[]>([]);
   const [cardTerminalsLoading, setCardTerminalsLoading] = useState(false);
   const [selectedCardTerminalId, setSelectedCardTerminalId] = useState('');
-  const [cardResult, setCardResult] = useState<'idle' | 'approved' | 'declined'>('idle');
+  const [cardResult, setCardResult] = useState<
+    'idle' | 'approved' | 'declined'
+  >('idle');
   const [cardApproved, setCardApproved] = useState(false);
-  const [cardBrand, setCardBrand] = useState<'visa' | 'mastercard' | 'amex' | 'other' | ''>('');
+  const [cardBrand, setCardBrand] = useState<
+    'visa' | 'mastercard' | 'amex' | 'other' | ''
+  >('');
   const [cardLast4, setCardLast4] = useState('');
-  const [cardEntryMode, setCardEntryMode] = useState<'chip' | 'contactless' | 'swipe' | 'manual' | ''>('');
+  const [cardEntryMode, setCardEntryMode] = useState<
+    'chip' | 'contactless' | 'swipe' | 'manual' | ''
+  >('');
   const [cardAttemptId, setCardAttemptId] = useState('');
   const [cardRecovery, setCardRecovery] = useState(false);
   const [paymentNote, setPaymentNote] = useState('');
@@ -660,10 +739,14 @@ export function POSTerminal({
   >(null);
   const [ageVerified, setAgeVerified] = useState(false);
   const [showAgeVerification, setShowAgeVerification] = useState(false);
-  const [ageIdType, setAgeIdType] = useState<'national_id' | 'passport' | 'driving_licence' | 'other'>('national_id');
+  const [ageIdType, setAgeIdType] = useState<
+    'national_id' | 'passport' | 'driving_licence' | 'other'
+  >('national_id');
   const [ageIdReference, setAgeIdReference] = useState('');
   const [ageConfirmed, setAgeConfirmed] = useState(false);
-  const [ageVerificationMode, setAgeVerificationMode] = useState<'VERIFIED' | 'OVERRIDDEN'>('VERIFIED');
+  const [ageVerificationMode, setAgeVerificationMode] = useState<
+    'VERIFIED' | 'OVERRIDDEN'
+  >('VERIFIED');
   const [ageOverrideReason, setAgeOverrideReason] = useState('');
   const [checkoutOpen, setCheckoutOpen] = useState(startCheckout);
   const [checkoutStep, setCheckoutStep] = useState<'customer' | 'payment'>(
@@ -680,7 +763,9 @@ export function POSTerminal({
   const [scannerPurpose, setScannerPurpose] = useState<'product' | 'customer'>(
     'product'
   );
-  const [receiptPaperWidth, setReceiptPaperWidth] = useState<58 | 80>(settings.receiptPaperWidth);
+  const [receiptPaperWidth, setReceiptPaperWidth] = useState<58 | 80>(
+    settings.receiptPaperWidth
+  );
   const [receiptOptionsOpen, setReceiptOptionsOpen] = useState(false);
   const [receiptPrinted, setReceiptPrinted] = useState(false);
   const [receiptPrinting, setReceiptPrinting] = useState(false);
@@ -1064,14 +1149,21 @@ export function POSTerminal({
         setSelectedCardTerminalId((current) =>
           terminals.some((terminal) => terminal.id === current)
             ? current
-            : terminals[0]?.id ?? ''
+            : (terminals[0]?.id ?? '')
         );
       })
       .catch((error) => {
-        if (active) notify.error(error instanceof Error ? error.message : 'Could not load card terminals');
+        if (active)
+          notify.error(
+            error instanceof Error
+              ? error.message
+              : 'Could not load card terminals'
+          );
       })
       .finally(() => active && setCardTerminalsLoading(false));
-    return () => { active = false; };
+    return () => {
+      active = false;
+    };
   }, [paymentMethod]);
 
   useEffect(() => {
@@ -1398,7 +1490,16 @@ export function POSTerminal({
   ]);
 
   const addToCart = useCallback(
-    (product: PosProduct, selectedPackage?: ProductPackage) => {
+    (
+      product: PosProduct,
+      selectedPackage?: ProductPackage,
+      selectedModifiers: Array<{
+        id: string;
+        name: string;
+        priceAdjustment: number;
+      }> = [],
+      lineNotes?: string
+    ) => {
       if (
         paymentMethod === 'mpesa' &&
         ['initiating', 'pending', 'success'].includes(mpesaStatus)
@@ -1415,20 +1516,24 @@ export function POSTerminal({
         return;
       }
       setCart((previousCart) => {
+        const modifierOptionIds = selectedModifiers
+          .map((option) => option.id)
+          .sort();
+        const lineKey = `${product.id}:${selectedPackage?.id ?? 'base'}:${modifierOptionIds.join(',')}`;
         const existing = previousCart.find(
-          (item) => item.productId === product.id
+          (item) =>
+            (item.lineId ??
+              `${item.productId}:${item.packageId ?? 'base'}:${(item.modifierOptionIds ?? []).slice().sort().join(',')}`) ===
+            lineKey
         );
-        const price = Number(
-          selectedPackage?.sellingPrice ?? product.sellingPrice
-        );
+        const price =
+          Number(selectedPackage?.sellingPrice ?? product.sellingPrice) +
+          selectedModifiers.reduce(
+            (sum, option) => sum + option.priceAdjustment,
+            0
+          );
         const packageName = selectedPackage?.name;
         if (existing) {
-          if ((existing.packageId ?? null) !== (selectedPackage?.id ?? null)) {
-            notify.error(
-              `Remove ${product.name} from the basket before changing its package`
-            );
-            return previousCart;
-          }
           if (existing.quantity >= availablePackages) {
             notify.error(
               `Only ${availablePackages} ${packageName ?? product.unit} in stock`
@@ -1436,7 +1541,9 @@ export function POSTerminal({
             return previousCart;
           }
           return previousCart.map((item) =>
-            item.productId === product.id
+            (item.lineId ??
+              `${item.productId}:${item.packageId ?? 'base'}:${(item.modifierOptionIds ?? []).slice().sort().join(',')}`) ===
+            lineKey
               ? {
                   ...item,
                   quantity: item.quantity + 1,
@@ -1448,6 +1555,7 @@ export function POSTerminal({
         return [
           ...previousCart,
           {
+            lineId: lineKey,
             productId: product.id,
             productName: packageName
               ? `${product.name} (${packageName})`
@@ -1458,12 +1566,143 @@ export function POSTerminal({
             packageId: selectedPackage?.id,
             packageName,
             baseUnitQuantity: unitsPerSale,
+            modifierOptionIds,
+            modifierNames: selectedModifiers.map((option) => option.name),
+            lineNotes: lineNotes?.trim() || undefined,
           },
         ];
       });
     },
     [paymentMethod, mpesaStatus]
   );
+
+  const startCafeItem = useCallback(
+    (product: PosProduct, selectedPackage?: ProductPackage) => {
+      const cafe = product.cafe;
+      if (!cafeMode || !cafe) return addToCart(product, selectedPackage);
+      if (!cafe.available) {
+        notify.error(
+          cafe.availabilityReason ||
+            (cafe.blockingIngredients.length
+              ? `Unavailable: insufficient ${cafe.blockingIngredients.join(', ')}`
+              : `${product.name} is sold out`)
+        );
+        return;
+      }
+      const needsSize = !selectedPackage && product.packages.length > 0;
+      const needsModifiers = cafe.modifierGroups.length > 0;
+      if (!needsSize && !needsModifiers)
+        return addToCart(product, selectedPackage);
+      const initialSelected = Object.fromEntries(
+        cafe.modifierGroups.map((group) => [group.id, [] as string[]])
+      );
+      setCafeCustomizer({
+        product,
+        packageId: selectedPackage?.id ?? null,
+        selected: initialSelected,
+        notes: '',
+      });
+    },
+    [addToCart, cafeMode]
+  );
+
+  const editCafeCartLine = useCallback(
+    (item: CartItem) => {
+      const selectedProduct = catalogProducts.find(
+        (product) => product.id === item.productId
+      );
+      if (!selectedProduct?.cafe) return;
+      const selectedIds = new Set(item.modifierOptionIds ?? []);
+      setCafeCustomizer({
+        product: selectedProduct,
+        packageId: item.packageId ?? null,
+        selected: Object.fromEntries(
+          selectedProduct.cafe.modifierGroups.map((group) => [
+            group.id,
+            group.options
+              .filter((option) => selectedIds.has(option.id))
+              .map((option) => option.id),
+          ])
+        ),
+        notes: item.lineNotes ?? '',
+        editLineId: item.lineId ?? item.productId,
+      });
+    },
+    [catalogProducts]
+  );
+
+  const confirmCafeCustomizer = useCallback(() => {
+    if (!cafeCustomizer?.product.cafe) return;
+    const { product, selected, editLineId } = cafeCustomizer;
+    const cafeMenuItem = product.cafe!;
+    const selectedPackage = cafeCustomizer.packageId
+      ? product.packages.find((item) => item.id === cafeCustomizer.packageId)
+      : undefined;
+    if (product.packages.length && !selectedPackage) {
+      notify.error('Choose a size');
+      return;
+    }
+    const selectedModifiers: CafeModifierOption[] = [];
+    for (const group of cafeMenuItem.modifierGroups) {
+      const ids = selected[group.id] ?? [];
+      if (ids.length < group.minimumSelections) {
+        notify.error(
+          `Choose at least ${group.minimumSelections} option${group.minimumSelections === 1 ? '' : 's'} for ${group.name}`
+        );
+        return;
+      }
+      if (ids.length > group.maximumSelections) {
+        notify.error(
+          `Choose no more than ${group.maximumSelections} options for ${group.name}`
+        );
+        return;
+      }
+      selectedModifiers.push(
+        ...group.options.filter((option) => ids.includes(option.id))
+      );
+    }
+    if (editLineId) {
+      const modifierOptionIds = selectedModifiers
+        .map((option) => option.id)
+        .sort();
+      const lineId = `${product.id}:${selectedPackage?.id ?? 'base'}:${modifierOptionIds.join(',')}`;
+      const unitPrice =
+        Number(selectedPackage?.sellingPrice ?? product.sellingPrice) +
+        selectedModifiers.reduce(
+          (sum, option) => sum + option.priceAdjustment,
+          0
+        );
+      setCart((current) =>
+        current.map((item) =>
+          (item.lineId ?? item.productId) === editLineId
+            ? {
+                ...item,
+                lineId,
+                packageId: selectedPackage?.id,
+                packageName: selectedPackage?.name,
+                productName: selectedPackage
+                  ? `${product.name} (${selectedPackage.name})`
+                  : product.name,
+                baseUnitQuantity: selectedPackage?.baseUnitQuantity ?? 1,
+                unitPrice,
+                totalPrice: unitPrice * item.quantity,
+                modifierOptionIds,
+                modifierNames: selectedModifiers.map((option) => option.name),
+                lineNotes: cafeCustomizer.notes.trim() || undefined,
+              }
+            : item
+        )
+      );
+    } else {
+      addToCart(
+        product,
+        selectedPackage,
+        selectedModifiers,
+        cafeCustomizer.notes
+      );
+    }
+    setCafeCustomizer(null);
+  }, [addToCart, cafeCustomizer]);
 
   const handleBarcodeScan = useCallback(
     (rawBarcode: string) => {
@@ -1522,7 +1761,7 @@ export function POSTerminal({
         notify.error(`${product.name} is out of stock`);
         return false;
       }
-      addToCart(product, selectedPackage);
+      startCafeItem(product, selectedPackage);
       setSearch('');
       setSelectedCategory('');
       setScanMessage(
@@ -1530,7 +1769,7 @@ export function POSTerminal({
       );
       return true;
     },
-    [addToCart, catalogProducts, productTerms, router]
+    [catalogProducts, productTerms, router, startCafeItem]
   );
 
   const SCANNER_INACTIVITY_MS = 450;
@@ -1628,14 +1867,27 @@ export function POSTerminal({
     () => new Map(catalogProducts.map((product) => [product.id, product])),
     [catalogProducts]
   );
-  const cartQuantityByProductId = useMemo(
-    () => new Map(cart.map((item) => [item.productId, item.quantity])),
-    [cart]
+  const cartQuantityByProductId = useMemo(() => {
+    const totals = new Map<string, number>();
+    for (const item of cart)
+      totals.set(
+        item.productId,
+        (totals.get(item.productId) ?? 0) + item.quantity
+      );
+    return totals;
+  }, [cart]);
+  const categoryRestrictionById = new Map(
+    categories.map((item) => [item.id, item.requiresAgeVerification])
   );
-  const categoryRestrictionById = new Map(categories.map((item) => [item.id, item.requiresAgeVerification]));
   const containsAgeRestrictedItem = cart.some((line) => {
     const item = products.find((candidate) => candidate.id === line.productId);
-    return item?.requiresAgeVerification ?? (item?.categoryId ? categoryRestrictionById.get(item.categoryId) : null) ?? requiresAgeVerification;
+    return (
+      item?.requiresAgeVerification ??
+      (item?.categoryId
+        ? categoryRestrictionById.get(item.categoryId)
+        : null) ??
+      requiresAgeVerification
+    );
   });
   const prescriptionRequired = cart.some(
     (item) => productsById.get(item.productId)?.pharmacy?.prescriptionRequired
@@ -1670,7 +1922,7 @@ export function POSTerminal({
     [catalogProducts, deferredSearch, selectedCategory]
   );
 
-  const updateQty = (productId: string, delta: number) => {
+  const updateQty = (lineKey: string, delta: number) => {
     if (mpesaLocksBasket)
       return notify.error(
         'The basket is locked while M-Pesa payment is in progress'
@@ -1679,10 +1931,10 @@ export function POSTerminal({
       (prev) =>
         prev
           .map((i) => {
-            if (i.productId !== productId) return i;
+            if ((i.lineId ?? i.productId) !== lineKey) return i;
             const newQty = i.quantity + delta;
             if (newQty <= 0) return null;
-            const product = productsById.get(productId);
+            const product = productsById.get(i.productId);
             const unitsPerSale = i.baseUnitQuantity ?? 1;
             if (product && newQty * unitsPerSale > product.stock) {
               notify.error(
@@ -1696,12 +1948,14 @@ export function POSTerminal({
     );
   };
 
-  const removeFromCart = (productId: string) => {
+  const removeFromCart = (lineKey: string) => {
     if (mpesaLocksBasket)
       return notify.error(
         'The basket is locked while M-Pesa payment is in progress'
       );
-    setCart((prev) => prev.filter((i) => i.productId !== productId));
+    setCart((prev) =>
+      prev.filter((i) => (i.lineId ?? i.productId) !== lineKey)
+    );
   };
 
   const subtotal = cart.reduce((sum, i) => sum + i.totalPrice, 0);
@@ -1738,46 +1992,82 @@ export function POSTerminal({
     grossBeforeDiscount
   );
 
-  useEffect(() => { if (!isOnline || cart.length === 0) { setAutomaticDiscount(0); setAutomaticDiscountName(''); return; } const subtotalForCampaign = cart.reduce((s, i) => s + i.totalPrice, 0); void quoteAutomaticDiscount({ subtotal: subtotalForCampaign }).then((q) => { setAutomaticDiscount(q?.discountAmount ?? 0); setAutomaticDiscountName(q?.campaignName ?? ''); }).catch(() => { setAutomaticDiscount(0); setAutomaticDiscountName(''); }); }, [cart, isOnline]);
+  useEffect(() => {
+    if (!isOnline || cart.length === 0) {
+      setAutomaticDiscount(0);
+      setAutomaticDiscountName('');
+      return;
+    }
+    const subtotalForCampaign = cart.reduce((s, i) => s + i.totalPrice, 0);
+    void quoteAutomaticDiscount({ subtotal: subtotalForCampaign })
+      .then((q) => {
+        setAutomaticDiscount(q?.discountAmount ?? 0);
+        setAutomaticDiscountName(q?.campaignName ?? '');
+      })
+      .catch(() => {
+        setAutomaticDiscount(0);
+        setAutomaticDiscountName('');
+      });
+  }, [cart, isOnline]);
 
   const unroundedTotal = Number(
     (grossBeforeDiscount + shippingCost - discountAmount).toFixed(2)
   );
   const appliesRoundoff = roundoffEnabled;
-  const totalBeforeRewards = appliesRoundoff ? calculateMpesaAmount(unroundedTotal).amount : unroundedTotal;
+  const totalBeforeRewards = appliesRoundoff
+    ? calculateMpesaAmount(unroundedTotal).amount
+    : unroundedTotal;
   const requestedPoints = pointsToRedeem.trim() ? Number(pointsToRedeem) : 0;
   const requestedBonus = bonusToUse.trim() ? Number(bonusToUse) : 0;
-  const pointsError = !rewardQuote || requestedPoints === 0
-    ? ''
-    : !Number.isInteger(requestedPoints) || requestedPoints < 0
-      ? 'Enter a whole, positive point amount'
-      : requestedPoints < rewardQuote.minimumRedemptionPoints
-        ? `Minimum redemption is ${rewardQuote.minimumRedemptionPoints.toLocaleString()} points`
-        : requestedPoints > rewardQuote.pointsBalance
-          ? 'This customer does not have enough points'
-          : requestedPoints > rewardQuote.maximumPoints
-            ? `Maximum for this sale is ${rewardQuote.maximumPoints.toLocaleString()} points`
+  const pointsError =
+    !rewardQuote || requestedPoints === 0
+      ? ''
+      : !Number.isInteger(requestedPoints) || requestedPoints < 0
+        ? 'Enter a whole, positive point amount'
+        : requestedPoints < rewardQuote.minimumRedemptionPoints
+          ? `Minimum redemption is ${rewardQuote.minimumRedemptionPoints.toLocaleString()} points`
+          : requestedPoints > rewardQuote.pointsBalance
+            ? 'This customer does not have enough points'
+            : requestedPoints > rewardQuote.maximumPoints
+              ? `Maximum for this sale is ${rewardQuote.maximumPoints.toLocaleString()} points`
+              : '';
+  const bonusError =
+    !rewardQuote || requestedBonus === 0
+      ? ''
+      : !Number.isFinite(requestedBonus) || requestedBonus < 0
+        ? 'Enter a valid bonus amount'
+        : requestedBonus > rewardQuote.bonusBalance
+          ? 'This customer does not have enough bonus'
+          : requestedBonus > rewardQuote.maximumBonus
+            ? `Maximum for this sale is ${formatCurrency(rewardQuote.maximumBonus)}`
             : '';
-  const bonusError = !rewardQuote || requestedBonus === 0
-    ? ''
-    : !Number.isFinite(requestedBonus) || requestedBonus < 0
-      ? 'Enter a valid bonus amount'
-      : requestedBonus > rewardQuote.bonusBalance
-        ? 'This customer does not have enough bonus'
-        : requestedBonus > rewardQuote.maximumBonus
-          ? `Maximum for this sale is ${formatCurrency(rewardQuote.maximumBonus)}`
-          : '';
-  const combinationError = Boolean(requestedPoints && requestedBonus && rewardQuote && !rewardQuote.allowPointsWithBonus);
+  const combinationError = Boolean(
+    requestedPoints &&
+    requestedBonus &&
+    rewardQuote &&
+    !rewardQuote.allowPointsWithBonus
+  );
   const appliedPoints = pointsError || combinationError ? 0 : requestedPoints;
-  const loyaltyRedemptionValue = rewardQuote ? appliedPoints * rewardQuote.pointValue : 0;
+  const loyaltyRedemptionValue = rewardQuote
+    ? appliedPoints * rewardQuote.pointValue
+    : 0;
   const appliedBonus = bonusError || combinationError ? 0 : requestedBonus;
-  const rewardReduction = Number((loyaltyRedemptionValue + appliedBonus).toFixed(2));
-  const rewardAdjustedUnrounded = Math.max(0, Number((unroundedTotal - rewardReduction).toFixed(2)));
-  const total = appliesRoundoff ? calculateMpesaAmount(rewardAdjustedUnrounded).amount : rewardAdjustedUnrounded;
+  const rewardReduction = Number(
+    (loyaltyRedemptionValue + appliedBonus).toFixed(2)
+  );
+  const rewardAdjustedUnrounded = Math.max(
+    0,
+    Number((unroundedTotal - rewardReduction).toFixed(2))
+  );
+  const total = appliesRoundoff
+    ? calculateMpesaAmount(rewardAdjustedUnrounded).amount
+    : rewardAdjustedUnrounded;
   useEffect(() => {
     totalRef.current = total;
   }, [total]);
-  const roundingAmount = appliesRoundoff ? calculateMpesaAmount(rewardAdjustedUnrounded).roundingAmount : 0;
+  const roundingAmount = appliesRoundoff
+    ? calculateMpesaAmount(rewardAdjustedUnrounded).roundingAmount
+    : 0;
   const change =
     paymentMethod === 'cash'
       ? Math.max(0, parseFloat(amountPaid || '0') - total)
@@ -1807,18 +2097,29 @@ export function POSTerminal({
       setRewardQuoteLoading(true);
       void quoteCheckoutRewards({
         customerId: selectedCustomer,
-        lines: cart.map(({ productId, quantity, packageId }) => ({ productId, quantity, packageId })),
+        lines: cart.map(({ productId, quantity, packageId }) => ({
+          productId,
+          quantity,
+          packageId,
+        })),
         discountAmount,
-      }).then((quote) => {
-        if (active) setRewardQuote(quote);
-      }).catch((error) => {
-        if (active) {
-          setRewardQuote(null);
-          notify.error(error instanceof Error ? error.message : 'Could not load customer rewards');
-        }
-      }).finally(() => {
-        if (active) setRewardQuoteLoading(false);
-      });
+      })
+        .then((quote) => {
+          if (active) setRewardQuote(quote);
+        })
+        .catch((error) => {
+          if (active) {
+            setRewardQuote(null);
+            notify.error(
+              error instanceof Error
+                ? error.message
+                : 'Could not load customer rewards'
+            );
+          }
+        })
+        .finally(() => {
+          if (active) setRewardQuoteLoading(false);
+        });
     }, 180);
     return () => {
       active = false;
@@ -1914,6 +2215,10 @@ export function POSTerminal({
   ) => {
     if (paymentMethod !== 'cash')
       throw new Error('Offline checkout supports cash only');
+    if (cafeMode)
+      throw new Error(
+        'Café checkout requires an online connection so prices, modifiers and ingredient stock can be verified'
+      );
     if (!offlineContext?.sessionId)
       throw new Error(
         'This register has no cached open shift for offline selling'
@@ -2023,13 +2328,26 @@ export function POSTerminal({
     verified = ageVerified,
     serverAlreadyConfirmed = false
   ) => {
+    if (cafeMode && cafeOrderType === 'dine_in' && !cafeTableId)
+      return notify.error('Choose a table for this dine-in order');
     if (!hasActiveShift)
       return notify.error('Start your shift before completing a sale');
     if (cart.length === 0) return notify.error('Cart is empty');
     if (pointsError || bonusError || combinationError)
-      return notify.error(pointsError || bonusError || 'Loyalty points and bonus cannot be combined');
-    if ((requestedPoints || requestedBonus) && (!selectedCustomer || !canRedeemRewards))
-      return notify.error(!selectedCustomer ? 'Select a customer before using rewards' : 'Reward redemption permission denied');
+      return notify.error(
+        pointsError ||
+          bonusError ||
+          'Loyalty points and bonus cannot be combined'
+      );
+    if (
+      (requestedPoints || requestedBonus) &&
+      (!selectedCustomer || !canRedeemRewards)
+    )
+      return notify.error(
+        !selectedCustomer
+          ? 'Select a customer before using rewards'
+          : 'Reward redemption permission denied'
+      );
     if ((requestedPoints || requestedBonus) && !isOnline)
       return notify.error('Reward redemption requires an online connection');
     if (prescriptionRequired && !prescriptionReference.trim())
@@ -2171,7 +2489,24 @@ export function POSTerminal({
               staffNote: staffNote || undefined,
               idempotencyKey: checkoutIdempotencyKeyRef.current,
               ageVerified: containsAgeRestrictedItem ? verified : undefined,
-              ageVerification: containsAgeRestrictedItem && verified ? { status: ageVerificationMode, idType: ageVerificationMode === 'VERIFIED' ? ageIdType : undefined, idReference: ageVerificationMode === 'VERIFIED' ? ageIdReference.trim() || undefined : undefined, overrideReason: ageVerificationMode === 'OVERRIDDEN' ? ageOverrideReason.trim() : undefined } : undefined,
+              ageVerification:
+                containsAgeRestrictedItem && verified
+                  ? {
+                      status: ageVerificationMode,
+                      idType:
+                        ageVerificationMode === 'VERIFIED'
+                          ? ageIdType
+                          : undefined,
+                      idReference:
+                        ageVerificationMode === 'VERIFIED'
+                          ? ageIdReference.trim() || undefined
+                          : undefined,
+                      overrideReason:
+                        ageVerificationMode === 'OVERRIDDEN'
+                          ? ageOverrideReason.trim()
+                          : undefined,
+                    }
+                  : undefined,
               pointsToRedeem: appliedPoints || undefined,
               bonusToUse: appliedBonus || undefined,
               pharmacy:
@@ -2191,6 +2526,20 @@ export function POSTerminal({
                       notes: pharmacyNotes.trim() || undefined,
                     }
                   : undefined,
+              cafe: cafeMode
+                ? {
+                    orderType: cafeOrderType,
+                    tableId:
+                      cafeOrderType === 'dine_in' ? cafeTableId : undefined,
+                    lines: cart.map((item) => ({
+                      productId: item.productId,
+                      packageId: item.packageId,
+                      quantity: item.quantity,
+                      modifierOptionIds: item.modifierOptionIds,
+                      notes: item.lineNotes,
+                    })),
+                  }
+                : undefined,
             });
       const {
         saleId,
@@ -2203,13 +2552,23 @@ export function POSTerminal({
       } = completed;
       const completedMpesaDetails =
         'mpesaDetails' in completed ? completed.mpesaDetails : undefined;
+      const completedCafeOrder =
+        'cafeOrder' in completed ? completed.cafeOrder : null;
       setReceipt({
         saleId,
         receiptNo,
-        items: cart.map((item) => {
-          const savedItem = savedItems.find(
-            (candidate) => candidate.productId === item.productId
-          );
+        cafeOrder: completedCafeOrder
+          ? {
+              ...completedCafeOrder,
+              orderType: cafeOrderType,
+              tableId: cafeTableId || null,
+              tableName:
+                cafeExperience?.tables.find((table) => table.id === cafeTableId)
+                  ?.name ?? null,
+            }
+          : null,
+        items: cart.map((item, itemIndex) => {
+          const savedItem = savedItems[itemIndex];
           if (!savedItem)
             throw new Error(
               `Receipt item was not saved for ${item.productName}`
@@ -2309,7 +2668,18 @@ export function POSTerminal({
       if (selectedCustomer) {
         try {
           const latestRewards = await refreshCustomerRewards(selectedCustomer);
-          setAvailableCustomers((current) => current.map((customer) => customer.id === selectedCustomer ? { ...customer, loyaltyPoints: latestRewards.pointsBalance, pointsBalance: latestRewards.pointsBalance, bonusBalance: latestRewards.bonusBalance } : customer));
+          setAvailableCustomers((current) =>
+            current.map((customer) =>
+              customer.id === selectedCustomer
+                ? {
+                    ...customer,
+                    loyaltyPoints: latestRewards.pointsBalance,
+                    pointsBalance: latestRewards.pointsBalance,
+                    bonusBalance: latestRewards.bonusBalance,
+                  }
+                : customer
+            )
+          );
         } catch {
           router.refresh();
         }
@@ -2349,7 +2719,8 @@ export function POSTerminal({
         setCardRecovery(true);
         notify.error('Card may already be charged', {
           id: saleToastId,
-          description: 'The terminal approval is saved. Retry saving this sale or send it to reconciliation—do not charge the card again.',
+          description:
+            'The terminal approval is saved. Retry saving this sale or send it to reconciliation—do not charge the card again.',
         });
         return;
       }
@@ -2387,7 +2758,10 @@ export function POSTerminal({
   });
 
   const confirmAgeVerification = useCallback(() => {
-    if (ageVerificationMode === 'OVERRIDDEN' && ageOverrideReason.trim().length < 3) {
+    if (
+      ageVerificationMode === 'OVERRIDDEN' &&
+      ageOverrideReason.trim().length < 3
+    ) {
       notify.error('Enter a reason for the supervisor override');
       return;
     }
@@ -2405,14 +2779,28 @@ export function POSTerminal({
     } else if (mpesaFlow === 'paybill') {
       window.setTimeout(() => manualMpesaStartRef.current(), 0);
     }
-  }, [ageConfirmed, ageOverrideReason, ageVerificationMode, mpesaStatus, paymentMethod, mpesaFlow]);
+  }, [
+    ageConfirmed,
+    ageOverrideReason,
+    ageVerificationMode,
+    mpesaStatus,
+    paymentMethod,
+    mpesaFlow,
+  ]);
 
   const dismissAgeVerification = useCallback(async () => {
     setShowAgeVerification(false);
     const checkoutId = checkoutIdempotencyKeyRef.current;
     if (!checkoutId) return;
-    try { await cancelAgeVerification({ checkoutId }); }
-    catch (cause) { notify.error(cause instanceof Error ? cause.message : 'Unable to record the cancelled age check'); }
+    try {
+      await cancelAgeVerification({ checkoutId });
+    } catch (cause) {
+      notify.error(
+        cause instanceof Error
+          ? cause.message
+          : 'Unable to record the cancelled age check'
+      );
+    }
   }, []);
 
   useEffect(() => {
@@ -2477,6 +2865,8 @@ export function POSTerminal({
   });
 
   const handleMpesaPrompt = async () => {
+    if (cafeMode && cafeOrderType === 'dine_in' && !cafeTableId)
+      return notify.error('Choose a table for this dine-in order');
     if (containsAgeRestrictedItem && !ageVerified) {
       setShowAgeVerification(true);
       return;
@@ -2516,7 +2906,10 @@ export function POSTerminal({
         idempotencyKey: checkoutIdempotencyKeyRef.current,
         ageVerified,
         ageVerificationStatus: ageVerificationMode,
-        ageOverrideReason: ageVerificationMode === 'OVERRIDDEN' ? ageOverrideReason.trim() : undefined,
+        ageOverrideReason:
+          ageVerificationMode === 'OVERRIDDEN'
+            ? ageOverrideReason.trim()
+            : undefined,
         customerId: selectedCustomer || undefined,
         pointsToRedeem: appliedPoints || undefined,
         bonusToUse: appliedBonus || undefined,
@@ -2536,6 +2929,19 @@ export function POSTerminal({
                 notes: pharmacyNotes.trim() || undefined,
               }
             : undefined,
+        cafe: cafeMode
+          ? {
+              orderType: cafeOrderType,
+              tableId: cafeOrderType === 'dine_in' ? cafeTableId : undefined,
+              lines: cart.map((item) => ({
+                productId: item.productId,
+                packageId: item.packageId,
+                quantity: item.quantity,
+                modifierOptionIds: item.modifierOptionIds,
+                notes: item.lineNotes,
+              })),
+            }
+          : undefined,
       });
       setMpesaRequestId(response.id);
       window.localStorage.setItem(
@@ -2583,6 +2989,8 @@ export function POSTerminal({
   const handlePaybillPayment = async (
     manualMode: 'till' | 'paybill' = mpesaAccountType
   ) => {
+    if (cafeMode && cafeOrderType === 'dine_in' && !cafeTableId)
+      return notify.error('Choose a table for this dine-in order');
     if (containsAgeRestrictedItem && !ageVerified) {
       setShowAgeVerification(true);
       return;
@@ -2618,7 +3026,10 @@ export function POSTerminal({
         idempotencyKey: checkoutIdempotencyKeyRef.current,
         ageVerified,
         ageVerificationStatus: ageVerificationMode,
-        ageOverrideReason: ageVerificationMode === 'OVERRIDDEN' ? ageOverrideReason.trim() : undefined,
+        ageOverrideReason:
+          ageVerificationMode === 'OVERRIDDEN'
+            ? ageOverrideReason.trim()
+            : undefined,
         customerId: selectedCustomer || undefined,
         pointsToRedeem: appliedPoints || undefined,
         bonusToUse: appliedBonus || undefined,
@@ -2638,6 +3049,19 @@ export function POSTerminal({
                 notes: pharmacyNotes.trim() || undefined,
               }
             : undefined,
+        cafe: cafeMode
+          ? {
+              orderType: cafeOrderType,
+              tableId: cafeOrderType === 'dine_in' ? cafeTableId : undefined,
+              lines: cart.map((item) => ({
+                productId: item.productId,
+                packageId: item.packageId,
+                quantity: item.quantity,
+                modifierOptionIds: item.modifierOptionIds,
+                notes: item.lineNotes,
+              })),
+            }
+          : undefined,
       });
       setMpesaRequestId(response.id);
       window.localStorage.setItem(
@@ -3114,57 +3538,113 @@ export function POSTerminal({
     void refreshHeldSales();
   };
 
-  const printerSettings = useMemo<ReceiptPrinterSettings>(() => ({
-    mode: settings.receiptPrintingMode,
-    printerName: settings.receiptPrinterName,
-    paperWidth: receiptPaperWidth,
-    autoPrint: settings.receiptAutoPrint,
-    customerCopy: settings.receiptPrintCustomerCopy,
-    copies: settings.receiptPrintCustomerCopy ? settings.receiptPrintCopies : 1,
-    cashDrawerPulse: settings.receiptCashDrawerPulse,
-  }), [receiptPaperWidth, settings.receiptAutoPrint, settings.receiptCashDrawerPulse, settings.receiptPrintCopies, settings.receiptPrintCustomerCopy, settings.receiptPrinterName, settings.receiptPrintingMode]);
+  const printerSettings = useMemo<ReceiptPrinterSettings>(
+    () => ({
+      mode: settings.receiptPrintingMode,
+      printerName: settings.receiptPrinterName,
+      paperWidth: receiptPaperWidth,
+      autoPrint: settings.receiptAutoPrint,
+      customerCopy: settings.receiptPrintCustomerCopy,
+      copies: settings.receiptPrintCustomerCopy
+        ? settings.receiptPrintCopies
+        : 1,
+      cashDrawerPulse: settings.receiptCashDrawerPulse,
+    }),
+    [
+      receiptPaperWidth,
+      settings.receiptAutoPrint,
+      settings.receiptCashDrawerPulse,
+      settings.receiptPrintCopies,
+      settings.receiptPrintCustomerCopy,
+      settings.receiptPrinterName,
+      settings.receiptPrintingMode,
+    ]
+  );
 
   const handleBrowserPrintReceipt = useCallback(() => {
     const paper = document.querySelector<HTMLElement>(
       '.receipt-preview-origin .receipt-paper'
     );
     if (!paper) return notify.error('Receipt preview is unavailable');
-    try { browserPrintReceipt(captureReceiptHtml(paper), receiptPaperWidth); notify.info('Print dialog opened', { description: 'Choose a printer in the browser dialog to continue.' }); }
-    catch { notify.error('Could not open the print dialog'); }
+    try {
+      browserPrintReceipt(captureReceiptHtml(paper), receiptPaperWidth);
+      notify.info('Print dialog opened', {
+        description: 'Choose a printer in the browser dialog to continue.',
+      });
+    } catch {
+      notify.error('Could not open the print dialog');
+    }
   }, [receiptPaperWidth]);
 
   const handlePrintReceipt = useCallback(async () => {
-    const paper = document.querySelector<HTMLElement>('.receipt-preview-origin .receipt-paper');
+    const paper = document.querySelector<HTMLElement>(
+      '.receipt-preview-origin .receipt-paper'
+    );
     if (!paper) return notify.error('Receipt preview is unavailable');
     if (printerSettings.mode === 'browser') return handleBrowserPrintReceipt();
     if (!hasConfiguredReceiptPrinter(printerSettings)) {
       notify.info('No receipt printer configured', {
         description: 'Use browser printing or configure a receipt printer.',
         action: { label: 'Browser print', onClick: handleBrowserPrintReceipt },
-        cancel: { label: 'Printer settings', onClick: () => { window.location.href = '/dashboard/admin/devices'; } },
+        cancel: {
+          label: 'Printer settings',
+          onClick: () => {
+            window.location.href = '/dashboard/admin/devices';
+          },
+        },
       });
       return;
     }
     setReceiptPrinting(true);
-    const toastId = notify.loading('Printing receipt…', { description: printerSettings.printerName || 'Connecting to the configured thermal printer.' });
+    const toastId = notify.loading('Printing receipt…', {
+      description:
+        printerSettings.printerName ||
+        'Connecting to the configured thermal printer.',
+    });
     try {
       await directPrintReceipt(captureReceiptHtml(paper), printerSettings);
       setReceiptPrinted(true);
-      notify.success('Receipt printed', { id: toastId, description: `Submitted to ${printerSettings.printerName}.` });
+      notify.success('Receipt printed', {
+        id: toastId,
+        description: `Submitted to ${printerSettings.printerName}.`,
+      });
     } catch (error) {
       const copy = getReceiptPrinterErrorCopy(error);
-      notify.error(copy.title, { id: toastId, description: copy.description, action: { label: 'Try again', onClick: () => retryReceiptPrintRef.current() }, cancel: { label: 'Browser print', onClick: handleBrowserPrintReceipt } });
-    } finally { setReceiptPrinting(false); }
+      notify.error(copy.title, {
+        id: toastId,
+        description: copy.description,
+        action: {
+          label: 'Try again',
+          onClick: () => retryReceiptPrintRef.current(),
+        },
+        cancel: { label: 'Browser print', onClick: handleBrowserPrintReceipt },
+      });
+    } finally {
+      setReceiptPrinting(false);
+    }
   }, [handleBrowserPrintReceipt, printerSettings]);
 
-  useEffect(() => { retryReceiptPrintRef.current = () => void handlePrintReceipt(); }, [handlePrintReceipt]);
+  useEffect(() => {
+    retryReceiptPrintRef.current = () => void handlePrintReceipt();
+  }, [handlePrintReceipt]);
 
   useEffect(() => {
-    if (!receipt || !settings.receiptAutoPrint || settings.receiptPrintingMode !== 'direct' || autoPrintedReceiptRef.current === receipt.saleId) return;
+    if (
+      !receipt ||
+      !settings.receiptAutoPrint ||
+      settings.receiptPrintingMode !== 'direct' ||
+      autoPrintedReceiptRef.current === receipt.saleId
+    )
+      return;
     autoPrintedReceiptRef.current = receipt.saleId;
     const timer = window.setTimeout(() => void handlePrintReceipt(), 250);
     return () => window.clearTimeout(timer);
-  }, [handlePrintReceipt, receipt, settings.receiptAutoPrint, settings.receiptPrintingMode]);
+  }, [
+    handlePrintReceipt,
+    receipt,
+    settings.receiptAutoPrint,
+    settings.receiptPrintingMode,
+  ]);
 
   const handleDownloadReceipt = useCallback(async () => {
     if (!receipt) return;
@@ -3197,7 +3677,9 @@ export function POSTerminal({
             ? Promise.resolve()
             : new Promise<void>((resolve) => {
                 image.addEventListener('load', () => resolve(), { once: true });
-                image.addEventListener('error', () => resolve(), { once: true });
+                image.addEventListener('error', () => resolve(), {
+                  once: true,
+                });
               })
         )
       );
@@ -3285,8 +3767,7 @@ export function POSTerminal({
   const holdSale = async () => {
     if (!canHold || cart.length === 0) return;
     const reference =
-      holdReference.trim() ||
-      `HLD-${Date.now().toString(36).toUpperCase()}`;
+      holdReference.trim() || `HLD-${Date.now().toString(36).toUpperCase()}`;
     if (!isOnline)
       return notify.error(
         'Reconnect to hold this sale on the shared register queue'
@@ -3579,12 +4060,15 @@ export function POSTerminal({
       total: receipt.total.toFixed(2),
       paymentMethod: receipt.paymentMethod,
       mpesaRef: receipt.mpesaRef ?? null,
+      cafeOrder: receipt.cafeOrder,
       items: receipt.items.map((item) => ({
-        id: `${receipt.saleId}-${item.productId}`,
+        id: item.saleItemId,
         productName: item.productName,
         productId: item.productId,
         quantity: item.quantity,
         totalPrice: item.totalPrice.toFixed(2),
+        modifierNames: item.modifierNames,
+        lineNotes: item.lineNotes,
       })),
       etims: receipt.etims?.showOnReceipt ? receipt.etims : null,
       offline: receipt.offline ?? null,
@@ -3697,34 +4181,34 @@ export function POSTerminal({
             <div className="flex min-h-[500px] items-center justify-center bg-[#f7f8fa] p-5 dark:bg-[var(--dashboard-surface-subtle)] sm:p-8">
               <div className="receipt-preview-scroll max-w-full">
                 <div className="receipt-screen-preview w-fit max-w-full">
-                <div
-                  className="receipt-preview-origin mx-auto w-full max-w-[80mm] overflow-hidden rounded-[4px] bg-white shadow-[0_8px_24px_rgba(16,24,40,.12)] ring-1 ring-black/5"
-                  style={{ width: `${receiptPaperWidth}mm` }}
-                >
-                  <ReceiptTemplate
-                    sale={printableSale}
-                    businessName={settings.receiptBusinessName}
-                    businessPhone={settings.receiptPhone}
-                    businessAddress={settings.receiptAddress}
-                    receiptFooter={settings.receiptFooter}
-                    cashierName={receiptContext?.cashierName}
-                    customerName={receipt.customerName}
-                    layout="thermal"
-                    template={settings.receiptTemplate}
-                    logoUrl={settings.receiptLogoUrl}
-                    taxName={taxLabel}
-                    showPhone={settings.receiptShowPhone}
-                    showAddress={settings.receiptShowAddress}
-                    showCashier={settings.receiptShowCashier}
-                    showCustomer={settings.receiptShowCustomer}
-                    showPayment={settings.receiptShowPayment}
-                    showQrCode={settings.receiptShowQrCode}
-                    showItemSku={settings.receiptShowItemSku}
-                    showShipping={settings.receiptShowShipping}
-                    showCoupon={settings.receiptShowCoupon}
-                    showBonus={settings.receiptShowBonus}
-                  />
-                </div>
+                  <div
+                    className="receipt-preview-origin mx-auto w-full max-w-[80mm] overflow-hidden rounded-[4px] bg-white shadow-[0_8px_24px_rgba(16,24,40,.12)] ring-1 ring-black/5"
+                    style={{ width: `${receiptPaperWidth}mm` }}
+                  >
+                    <ReceiptTemplate
+                      sale={printableSale}
+                      businessName={settings.receiptBusinessName}
+                      businessPhone={settings.receiptPhone}
+                      businessAddress={settings.receiptAddress}
+                      receiptFooter={settings.receiptFooter}
+                      cashierName={receiptContext?.cashierName}
+                      customerName={receipt.customerName}
+                      layout="thermal"
+                      template={settings.receiptTemplate}
+                      logoUrl={settings.receiptLogoUrl}
+                      taxName={taxLabel}
+                      showPhone={settings.receiptShowPhone}
+                      showAddress={settings.receiptShowAddress}
+                      showCashier={settings.receiptShowCashier}
+                      showCustomer={settings.receiptShowCustomer}
+                      showPayment={settings.receiptShowPayment}
+                      showQrCode={settings.receiptShowQrCode}
+                      showItemSku={settings.receiptShowItemSku}
+                      showShipping={settings.receiptShowShipping}
+                      showCoupon={settings.receiptShowCoupon}
+                      showBonus={settings.receiptShowBonus}
+                    />
+                  </div>
                 </div>
               </div>
             </div>
@@ -3946,8 +4430,16 @@ export function POSTerminal({
                     disabled={receiptPrinting}
                     className="flex h-11 items-center justify-center gap-2 rounded-[6px] border border-[#092c4c] bg-[#092c4c] px-3 text-sm font-semibold text-white shadow-[0_3px_10px_rgba(9,44,76,.14)] transition-all duration-300 hover:border-[#061f36] hover:bg-[#061f36] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#092c4c]/35 disabled:cursor-not-allowed disabled:opacity-55"
                   >
-                    {receiptPrinting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Printer className="h-4 w-4" />}
-                    {receiptPrinting ? 'Printing…' : receiptPrinted ? 'Reprint receipt' : 'Print receipt'}
+                    {receiptPrinting ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Printer className="h-4 w-4" />
+                    )}
+                    {receiptPrinting
+                      ? 'Printing…'
+                      : receiptPrinted
+                        ? 'Reprint receipt'
+                        : 'Print receipt'}
                   </button>
                   <button
                     onClick={handleDownloadReceipt}
@@ -3973,9 +4465,9 @@ export function POSTerminal({
                       aria-label="Receipt options"
                       aria-expanded={receiptOptionsOpen}
                       onClick={() => setReceiptOptionsOpen((open) => !open)}
-                    className={cn(
-                      ui.subtleBtn,
-                      'flex h-11 w-11 items-center justify-center rounded-[6px] px-0'
+                      className={cn(
+                        ui.subtleBtn,
+                        'flex h-11 w-11 items-center justify-center rounded-[6px] px-0'
                       )}
                     >
                       <MoreHorizontal className="h-4 w-4" />
@@ -3985,8 +4477,18 @@ export function POSTerminal({
                         <p className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-[#667085] dark:text-[#a8a8a8]">
                           Print options
                         </p>
-                        <button onClick={() => { setReceiptOptionsOpen(false); handleBrowserPrintReceipt(); }} className="flex w-full rounded-md px-2 py-1.5 text-left text-xs font-medium hover:bg-[#f9fafb] dark:hover:bg-white/5">Browser print</button>
-                        <p className="px-2 pt-2 text-[10px] font-semibold uppercase tracking-wide text-[#667085] dark:text-[#a8a8a8]">Paper width</p>
+                        <button
+                          onClick={() => {
+                            setReceiptOptionsOpen(false);
+                            handleBrowserPrintReceipt();
+                          }}
+                          className="flex w-full rounded-md px-2 py-1.5 text-left text-xs font-medium hover:bg-[#f9fafb] dark:hover:bg-white/5"
+                        >
+                          Browser print
+                        </button>
+                        <p className="px-2 pt-2 text-[10px] font-semibold uppercase tracking-wide text-[#667085] dark:text-[#a8a8a8]">
+                          Paper width
+                        </p>
                         {([80, 58] as const).map((width) => (
                           <button
                             key={width}
@@ -4158,6 +4660,59 @@ export function POSTerminal({
               autoFocus
             />
           </div>
+          {cafeMode && cafeExperience && (
+            <div
+              className="mt-3 flex flex-wrap items-end gap-2"
+              aria-label="Café order type"
+            >
+              <div className="flex rounded-lg border border-[#e4e7ec] bg-white p-1 dark:border-white/10 dark:bg-[#181818]">
+                {cafeExperience.configuration.enabledOrderTypes.map((type) => (
+                  <button
+                    key={type}
+                    type="button"
+                    onClick={() => {
+                      setCafeOrderType(type);
+                      if (type !== 'dine_in') setCafeTableId('');
+                    }}
+                    aria-pressed={cafeOrderType === type}
+                    className={cn(
+                      'h-8 rounded-md px-3 text-xs font-bold capitalize',
+                      cafeOrderType === type
+                        ? 'bg-[#fff0bd] text-[#765800] dark:bg-[#3a3016] dark:text-[#ffd166]'
+                        : 'text-[#667085] dark:text-[#b0b0b0]'
+                    )}
+                  >
+                    {type.replace('_', '-')}
+                  </button>
+                ))}
+              </div>
+              {cafeOrderType === 'dine_in' &&
+                cafeExperience.configuration.tablesEnabled && (
+                  <label className="grid gap-1 text-[10px] font-bold uppercase tracking-wide text-[#667085]">
+                    Table
+                    <select
+                      value={cafeTableId}
+                      onChange={(event) => setCafeTableId(event.target.value)}
+                      className="h-9 min-w-40 rounded-lg border bg-white px-3 text-xs font-semibold normal-case dark:border-white/10 dark:bg-[#181818]"
+                    >
+                      <option value="">Choose table</option>
+                      {cafeExperience.tables.map((table) => (
+                        <option
+                          key={table.id}
+                          value={table.id}
+                          disabled={table.status !== 'available'}
+                        >
+                          {table.name}
+                          {table.status !== 'available'
+                            ? ` · ${table.status.replace('_', ' ')}`
+                            : ''}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                )}
+            </div>
+          )}
           <div className="mt-3 rounded-xl border border-[#e4e7ec] bg-[#f9fafb] p-2.5 dark:border-white/10 dark:bg-[#151515] lg:hidden">
             <div className="flex items-center gap-2.5">
               <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#fff3c4] text-[#8a6500] dark:bg-[#3a3016] dark:text-[#ffd166]">
@@ -4184,7 +4739,9 @@ export function POSTerminal({
               <button
                 type="button"
                 onClick={openHoldDialog}
-                disabled={!canHold || cart.length === 0 || Boolean(heldSaleActionId)}
+                disabled={
+                  !canHold || cart.length === 0 || Boolean(heldSaleActionId)
+                }
                 className="h-8 shrink-0 rounded-md border border-[#E04F16] bg-[#E04F16] px-3 text-xs font-semibold text-white transition-colors hover:border-[#BF4313] hover:bg-[#BF4313] disabled:opacity-45"
               >
                 Hold
@@ -4356,7 +4913,7 @@ export function POSTerminal({
                 return (
                   <article
                     key={product.id}
-                    onClick={() => addToCart(product)}
+                    onClick={() => startCafeItem(product)}
                     onKeyDown={(event) => {
                       if (
                         event.target !== event.currentTarget ||
@@ -4364,7 +4921,7 @@ export function POSTerminal({
                       )
                         return;
                       event.preventDefault();
-                      addToCart(product);
+                      startCafeItem(product);
                     }}
                     role="button"
                     tabIndex={outOfStock ? -1 : 0}
@@ -4478,7 +5035,7 @@ export function POSTerminal({
                               key={item.id}
                               type="button"
                               disabled={product.stock < item.baseUnitQuantity}
-                              onClick={() => addToCart(product, item)}
+                              onClick={() => startCafeItem(product, item)}
                               className="rounded-md border border-[#dfe3ea] bg-[#f9fafb] px-1.5 py-1 text-[9px] font-bold text-[#344054] hover:border-[#f9b21d] disabled:cursor-not-allowed disabled:opacity-40 dark:border-white/10 dark:bg-white/5 dark:text-[#e4e7ec]"
                               title={`${item.baseUnitQuantity} base units · ${formatCurrency(item.sellingPrice)}`}
                             >
@@ -4655,7 +5212,7 @@ export function POSTerminal({
             <div className="mt-4 border-t border-solid border-[#e7e9ed] pt-4 dark:border-white/10">
               <div className="mb-2 flex items-center justify-between">
                 <span className="text-base font-semibold leading-5 text-[#111827] dark:text-white">
-                  Customer Information
+                  {cafeMode ? 'Guest' : 'Customer'} Information
                 </span>
                 {activeCustomer && (
                   <button
@@ -4678,7 +5235,8 @@ export function POSTerminal({
                     className="flex h-10 w-full items-center justify-between rounded-[5px] border border-[#d9dde3] bg-white px-3.5 text-left text-sm font-normal text-[#344054] outline-none transition-colors hover:border-[#bfc5ce] focus:border-[#86a5c9] focus:ring-1 focus:ring-[#155eef]/15 disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/15 dark:bg-[#161616] dark:text-[#e4e7ec]"
                   >
                     <span className="truncate">
-                      {activeCustomer?.name ?? 'Walk in Customer'}
+                      {activeCustomer?.name ??
+                        (cafeMode ? 'Walk-in guest' : 'Walk-in customer')}
                       {activeCustomer?.phone
                         ? ' (' + activeCustomer.phone + ')'
                         : ''}
@@ -4710,7 +5268,7 @@ export function POSTerminal({
                             : 'text-[#344054] dark:text-[#e4e7ec]'
                         )}
                       >
-                        Walk in Customer
+                        {cafeMode ? 'Walk-in guest' : 'Walk-in customer'}
                       </button>
                       {availableCustomers.map((customer) => (
                         <button
@@ -4741,8 +5299,8 @@ export function POSTerminal({
                   type="button"
                   disabled={mpesaLocksBasket || !isOnline}
                   onClick={() => setShowNewCustomer(true)}
-                  title="Add customer"
-                  aria-label="Add customer"
+                  title={cafeMode ? 'Add guest' : 'Add customer'}
+                  aria-label={cafeMode ? 'Add guest' : 'Add customer'}
                   className="inline-flex h-10 w-[38px] shrink-0 items-center justify-center rounded-[5px] bg-[#009688] text-white shadow-none transition-colors hover:bg-[#007f73] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#009688]/30 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <UserRoundPlus
@@ -4777,11 +5335,15 @@ export function POSTerminal({
                   <p className="text-sm font-semibold">{activeCustomer.name}</p>
                   <p className="mt-1 text-xs text-[#667085] dark:text-[#aeb4c0]">
                     Bonus:{' '}
-                    <span className="font-semibold text-[#0f8b83]">{activeCustomer.bonusBalance ?? 0}</span>
+                    <span className="font-semibold text-[#0f8b83]">
+                      {activeCustomer.bonusBalance ?? 0}
+                    </span>
                     <span className="mx-1.5">|</span>
                     Loyalty:{' '}
                     <span className="font-semibold text-[#0f8b83]">
-                      {activeCustomer.pointsBalance ?? activeCustomer.loyaltyPoints ?? 0}
+                      {activeCustomer.pointsBalance ??
+                        activeCustomer.loyaltyPoints ??
+                        0}
                     </span>
                   </p>
                 </div>
@@ -4840,7 +5402,7 @@ export function POSTerminal({
             <ul className="divide-y divide-[#eef0f3] dark:divide-white/10">
               {cart.map((item) => (
                 <li
-                  key={item.productId}
+                  key={item.lineId ?? item.productId}
                   className="group grid min-h-[64px] grid-cols-[36px_minmax(0,1fr)] items-center gap-3 px-3 py-2.5 transition-colors duration-75 hover:bg-[#fbfbfc] dark:bg-[#161616] dark:hover:bg-[#202020] sm:grid-cols-[36px_minmax(0,1fr)_minmax(190px,auto)] sm:px-4 sm:py-2"
                 >
                   {productsById.get(item.productId)?.imageUrl ? (
@@ -4869,13 +5431,20 @@ export function POSTerminal({
                       {formatCurrency(item.unitPrice)} ·{' '}
                       {productsById.get(item.productId)?.unit || 'unit'}
                     </p>
+                    {item.modifierNames?.length ? (
+                      <p className="mt-0.5 text-[11px] leading-4 text-[#667085] dark:text-[#aeb4c0]">
+                        {item.modifierNames.join(' · ')}
+                      </p>
+                    ) : null}
                   </div>
 
                   {/* Quantity, total & remove */}
                   <div className="col-span-2 flex items-center justify-end gap-2 sm:col-span-1">
                     <div className="flex h-7 shrink-0 items-center overflow-hidden rounded-lg border border-[#e4e7ec] bg-white dark:border-white/15 dark:bg-[#1d1d1d]">
                       <button
-                        onClick={() => updateQty(item.productId, -1)}
+                        onClick={() =>
+                          updateQty(item.lineId ?? item.productId, -1)
+                        }
                         className="flex h-full w-7 items-center justify-center text-[#667085] transition-colors duration-75 hover:bg-[#f2f4f7] hover:text-[#101828] focus-visible:outline-none dark:text-[#c4c4c4] dark:hover:bg-white/10"
                         title="Decrease quantity"
                         aria-label={`Reduce ${item.productName} quantity`}
@@ -4889,7 +5458,9 @@ export function POSTerminal({
                         {item.quantity}
                       </span>
                       <button
-                        onClick={() => updateQty(item.productId, 1)}
+                        onClick={() =>
+                          updateQty(item.lineId ?? item.productId, 1)
+                        }
                         disabled={
                           item.quantity >=
                           (productsById.get(item.productId)?.stock ??
@@ -4911,8 +5482,21 @@ export function POSTerminal({
                     <span className="min-w-[88px] text-right text-sm font-bold tabular-nums text-[#101828] dark:text-[#f4f4f5]">
                       {formatCurrency(item.totalPrice)}
                     </span>
+                    {cafeMode && productsById.get(item.productId)?.cafe && (
+                      <button
+                        type="button"
+                        onClick={() => editCafeCartLine(item)}
+                        className="inline-flex h-7 w-7 items-center justify-center rounded-md text-[#667085] transition-colors hover:bg-[#fff5d6] hover:text-[#7a5b00] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#f9b21d]/50 dark:text-[#c4c4c4] dark:hover:bg-[#3a3016] dark:hover:text-[#ffd166]"
+                        title="Edit size and modifiers"
+                        aria-label={`Edit ${item.productName} choices`}
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </button>
+                    )}
                     <button
-                      onClick={() => removeFromCart(item.productId)}
+                      onClick={() =>
+                        removeFromCart(item.lineId ?? item.productId)
+                      }
                       className="inline-flex h-7 w-7 items-center justify-center rounded-md text-[#d92d20] transition-colors hover:bg-[#fef3f2] hover:text-[#b42318] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#f9b21d]/50 dark:text-[#f97066] dark:hover:bg-red-950/30 dark:hover:text-[#ff8a80]"
                       title="Remove item"
                       aria-label={`Remove ${item.productName} from basket`}
@@ -4957,7 +5541,14 @@ export function POSTerminal({
                 {formatCurrency(subtotal)}
               </span>
             </div>
-            {containsAgeRestrictedItem && <div className="mb-3 flex items-center gap-2 rounded-lg bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800 dark:bg-amber-950/25 dark:text-amber-200"><ShieldCheck className="h-4 w-4" />{ageVerified ? 'Age verification completed' : 'Age verification required'}</div>}
+            {containsAgeRestrictedItem && (
+              <div className="mb-3 flex items-center gap-2 rounded-lg bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800 dark:bg-amber-950/25 dark:text-amber-200">
+                <ShieldCheck className="h-4 w-4" />
+                {ageVerified
+                  ? 'Age verification completed'
+                  : 'Age verification required'}
+              </div>
+            )}
             <button
               onClick={openCheckout}
               disabled={!hasActiveShift}
@@ -5127,7 +5718,7 @@ export function POSTerminal({
                         title="Edit shipping"
                         className="inline-flex h-6 w-6 items-center justify-center rounded-md border border-[var(--dashboard-border)] bg-[var(--dashboard-surface-subtle)] text-[var(--dashboard-muted)] transition-colors hover:border-[var(--dashboard-accent-soft-border)] hover:bg-[var(--dashboard-accent-soft)] hover:text-[var(--dashboard-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--dashboard-accent)]/30"
                       >
-                        <SummaryEditIcon className="h-3 w-3" />
+                        <PaymentSummaryEditIcon className="h-3 w-3" />
                       </button>
                     </dt>
                     <dd className="font-semibold tabular-nums">
@@ -5137,19 +5728,27 @@ export function POSTerminal({
                   {loyaltyRedemptionValue > 0 && (
                     <div className="flex min-h-9 items-center justify-between gap-4 py-2 text-[#0f766e] dark:text-teal-300">
                       <dt>Loyalty redeemed</dt>
-                      <dd className="font-semibold tabular-nums">-{formatCurrency(loyaltyRedemptionValue)}</dd>
+                      <dd className="font-semibold tabular-nums">
+                        -{formatCurrency(loyaltyRedemptionValue)}
+                      </dd>
                     </div>
                   )}
                   {rewardReduction > 0 && (
                     <div className="flex min-h-9 items-center justify-between gap-4 py-2">
-                      <dt className="text-[var(--dashboard-muted)]">Total before rewards</dt>
-                      <dd className="font-semibold tabular-nums">{formatCurrency(totalBeforeRewards)}</dd>
+                      <dt className="text-[var(--dashboard-muted)]">
+                        Total before rewards
+                      </dt>
+                      <dd className="font-semibold tabular-nums">
+                        {formatCurrency(totalBeforeRewards)}
+                      </dd>
                     </div>
                   )}
                   {appliedBonus > 0 && (
                     <div className="flex min-h-9 items-center justify-between gap-4 py-2 text-[#0f766e] dark:text-teal-300">
                       <dt>Bonus redeemed</dt>
-                      <dd className="font-semibold tabular-nums">-{formatCurrency(appliedBonus)}</dd>
+                      <dd className="font-semibold tabular-nums">
+                        -{formatCurrency(appliedBonus)}
+                      </dd>
                     </div>
                   )}
                   <div className="flex min-h-9 items-center justify-between gap-4 py-2">
@@ -5168,7 +5767,7 @@ export function POSTerminal({
                         title="Edit tax"
                         className="inline-flex h-6 w-6 items-center justify-center rounded-md border border-[var(--dashboard-border)] bg-[var(--dashboard-surface-subtle)] text-[var(--dashboard-muted)] transition-colors hover:border-[var(--dashboard-accent-soft-border)] hover:bg-[var(--dashboard-accent-soft)] hover:text-[var(--dashboard-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--dashboard-accent)]/30"
                       >
-                        <SummaryEditIcon className="h-3 w-3" />
+                        <PaymentSummaryEditIcon className="h-3 w-3" />
                       </button>
                     </dt>
                     <dd className="font-semibold tabular-nums">
@@ -5196,7 +5795,7 @@ export function POSTerminal({
                         title="Edit coupon"
                         className="inline-flex h-6 w-6 items-center justify-center rounded-md border border-[var(--dashboard-border)] bg-[var(--dashboard-surface-subtle)] text-[var(--dashboard-muted)] transition-colors hover:border-[var(--dashboard-accent-soft-border)] hover:bg-[var(--dashboard-accent-soft)] hover:text-[var(--dashboard-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--dashboard-accent)]/30"
                       >
-                        <SummaryEditIcon className="h-3 w-3" />
+                        <PaymentSummaryEditIcon className="h-3 w-3" />
                       </button>
                     </dt>
                     <dd
@@ -5224,7 +5823,9 @@ export function POSTerminal({
                       />
                       <span>
                         Discount
-                        {automaticDiscount > 0 ? ` · ${automaticDiscountName || 'Automatic campaign'}` : ''}
+                        {automaticDiscount > 0
+                          ? ` · ${automaticDiscountName || 'Automatic campaign'}`
+                          : ''}
                         {discountType === 'percentage' &&
                         manualDiscountAmount > 0
                           ? ` (${discount.toFixed(1)}%)`
@@ -5237,7 +5838,7 @@ export function POSTerminal({
                         title="Edit discount"
                         className="inline-flex h-6 w-6 items-center justify-center rounded-md border border-[var(--dashboard-border)] bg-[var(--dashboard-surface-subtle)] text-[var(--dashboard-muted)] transition-colors hover:border-[var(--dashboard-accent-soft-border)] hover:bg-[var(--dashboard-accent-soft)] hover:text-[var(--dashboard-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--dashboard-accent)]/30"
                       >
-                        <SummaryEditIcon className="h-3 w-3" />
+                        <PaymentSummaryEditIcon className="h-3 w-3" />
                       </button>
                     </dt>
                     <dd
@@ -5318,50 +5919,225 @@ export function POSTerminal({
             )}
 
             {checkoutStep === 'customer' && selectedCustomer && (
-              <section aria-labelledby="pos-rewards-heading" className="rounded-xl border border-[#ead68a] bg-[#fffdf5] p-4 dark:border-amber-400/20 dark:bg-amber-400/5">
+              <section
+                aria-labelledby="pos-rewards-heading"
+                className="rounded-xl border border-[#ead68a] bg-[#fffdf5] p-4 dark:border-amber-400/20 dark:bg-amber-400/5"
+              >
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <h3 id="pos-rewards-heading" className="text-sm font-bold text-[#101828] dark:text-white">Rewards</h3>
-                    <p className="mt-0.5 text-[11px] text-[#667085] dark:text-[#aeb4c0]">Apply this customer&apos;s available balance</p>
+                    <h3
+                      id="pos-rewards-heading"
+                      className="text-sm font-bold text-[#101828] dark:text-white"
+                    >
+                      Rewards
+                    </h3>
+                    <p className="mt-0.5 text-[11px] text-[#667085] dark:text-[#aeb4c0]">
+                      Apply this customer&apos;s available balance
+                    </p>
                   </div>
-                  {rewardQuoteLoading && <Loader2 className="h-4 w-4 text-[#a47700]" label="Loading rewards" />}
+                  {rewardQuoteLoading && (
+                    <Loader2
+                      className="h-4 w-4 text-[#a47700]"
+                      label="Loading rewards"
+                    />
+                  )}
                 </div>
                 {rewardQuote ? (
                   <div className="mt-3 space-y-4">
                     <div>
                       <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
-                        <span className="text-[#667085] dark:text-[#aeb4c0]">Loyalty</span><strong className="text-right tabular-nums">{rewardQuote.pointsBalance.toLocaleString()} pts</strong>
-                        <span className="text-[#667085] dark:text-[#aeb4c0]">Worth</span><span className="text-right tabular-nums">{formatCurrency(rewardQuote.pointsBalance * rewardQuote.pointValue)}</span>
-                        <span className="text-[#667085] dark:text-[#aeb4c0]">Maximum usable</span><span className="text-right font-semibold tabular-nums">{formatCurrency(rewardQuote.maximumPointsValue)}</span>
+                        <span className="text-[#667085] dark:text-[#aeb4c0]">
+                          Loyalty
+                        </span>
+                        <strong className="text-right tabular-nums">
+                          {rewardQuote.pointsBalance.toLocaleString()} pts
+                        </strong>
+                        <span className="text-[#667085] dark:text-[#aeb4c0]">
+                          Worth
+                        </span>
+                        <span className="text-right tabular-nums">
+                          {formatCurrency(
+                            rewardQuote.pointsBalance * rewardQuote.pointValue
+                          )}
+                        </span>
+                        <span className="text-[#667085] dark:text-[#aeb4c0]">
+                          Maximum usable
+                        </span>
+                        <span className="text-right font-semibold tabular-nums">
+                          {formatCurrency(rewardQuote.maximumPointsValue)}
+                        </span>
                       </div>
-                      <p className="mt-1.5 text-[10px] text-[#98a2b3]">Up to {rewardQuote.maximumPointsRedemptionPercent}% of eligible merchandise spend</p>
+                      <p className="mt-1.5 text-[10px] text-[#98a2b3]">
+                        Up to {rewardQuote.maximumPointsRedemptionPercent}% of
+                        eligible merchandise spend
+                      </p>
                       <div className="mt-2 flex gap-2">
-                        <input type="number" min="0" step="1" inputMode="numeric" value={pointsToRedeem} onChange={(event) => setPointsToRedeem(event.target.value)} disabled={!canRedeemRewards || !isOnline || !rewardQuote.loyaltyEnabled || rewardQuote.maximumPoints === 0 || mpesaLocksBasket} placeholder="Points to redeem" aria-label="Loyalty points to redeem" aria-invalid={Boolean(pointsError)} className="h-10 min-w-0 flex-1 rounded-md border border-[#d0d5dd] bg-white px-3 text-sm tabular-nums outline-none focus:border-[#d7a400] disabled:bg-[#f2f4f7] disabled:text-[#98a2b3] dark:border-white/10 dark:bg-[#1c1c1e]" />
-                        <button type="button" onClick={() => setPointsToRedeem(String(rewardQuote.maximumPoints))} disabled={!canRedeemRewards || !isOnline || rewardQuote.maximumPoints === 0 || mpesaLocksBasket} className="h-10 rounded-md border border-[#d7a400] bg-[#fff8df] px-3 text-xs font-bold text-[#6f5600] disabled:opacity-40 dark:bg-amber-950/20 dark:text-amber-200">Use max</button>
-                        {pointsToRedeem && <button type="button" onClick={() => setPointsToRedeem('')} disabled={mpesaLocksBasket} className="h-10 px-2 text-xs font-semibold text-[#667085]">Clear</button>}
+                        <input
+                          type="number"
+                          min="0"
+                          step="1"
+                          inputMode="numeric"
+                          value={pointsToRedeem}
+                          onChange={(event) =>
+                            setPointsToRedeem(event.target.value)
+                          }
+                          disabled={
+                            !canRedeemRewards ||
+                            !isOnline ||
+                            !rewardQuote.loyaltyEnabled ||
+                            rewardQuote.maximumPoints === 0 ||
+                            mpesaLocksBasket
+                          }
+                          placeholder="Points to redeem"
+                          aria-label="Loyalty points to redeem"
+                          aria-invalid={Boolean(pointsError)}
+                          className="h-10 min-w-0 flex-1 rounded-md border border-[#d0d5dd] bg-white px-3 text-sm tabular-nums outline-none focus:border-[#d7a400] disabled:bg-[#f2f4f7] disabled:text-[#98a2b3] dark:border-white/10 dark:bg-[#1c1c1e]"
+                        />
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setPointsToRedeem(String(rewardQuote.maximumPoints))
+                          }
+                          disabled={
+                            !canRedeemRewards ||
+                            !isOnline ||
+                            rewardQuote.maximumPoints === 0 ||
+                            mpesaLocksBasket
+                          }
+                          className="h-10 rounded-md border border-[#d7a400] bg-[#fff8df] px-3 text-xs font-bold text-[#6f5600] disabled:opacity-40 dark:bg-amber-950/20 dark:text-amber-200"
+                        >
+                          Use max
+                        </button>
+                        {pointsToRedeem && (
+                          <button
+                            type="button"
+                            onClick={() => setPointsToRedeem('')}
+                            disabled={mpesaLocksBasket}
+                            className="h-10 px-2 text-xs font-semibold text-[#667085]"
+                          >
+                            Clear
+                          </button>
+                        )}
                       </div>
-                      {pointsError && <p className="mt-1.5 text-[11px] font-medium text-red-600" role="alert">{pointsError}</p>}
+                      {pointsError && (
+                        <p
+                          className="mt-1.5 text-[11px] font-medium text-red-600"
+                          role="alert"
+                        >
+                          {pointsError}
+                        </p>
+                      )}
                     </div>
                     <div className="border-t border-[#ead68a]/70 pt-3 dark:border-amber-400/15">
-                      <div className="flex items-center justify-between text-xs"><span className="text-[#667085] dark:text-[#aeb4c0]">Bonus balance</span><strong className="tabular-nums">{formatCurrency(rewardQuote.bonusBalance)}</strong></div>
-                      {rewardQuote.bonusBalance > 0 && rewardQuote.maximumBonus > 0 ? (
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-[#667085] dark:text-[#aeb4c0]">
+                          Bonus balance
+                        </span>
+                        <strong className="tabular-nums">
+                          {formatCurrency(rewardQuote.bonusBalance)}
+                        </strong>
+                      </div>
+                      {rewardQuote.bonusBalance > 0 &&
+                      rewardQuote.maximumBonus > 0 ? (
                         <div className="mt-2">
-                          <p className="mb-2 text-[11px] text-[#667085]">Maximum usable: {formatCurrency(rewardQuote.maximumBonus)}</p>
+                          <p className="mb-2 text-[11px] text-[#667085]">
+                            Maximum usable:{' '}
+                            {formatCurrency(rewardQuote.maximumBonus)}
+                          </p>
                           <div className="flex gap-2">
-                            <input type="number" min="0" step="0.01" inputMode="decimal" value={bonusToUse} onChange={(event) => setBonusToUse(event.target.value)} disabled={!canRedeemRewards || !isOnline || !rewardQuote.bonusEnabled || mpesaLocksBasket} placeholder="Bonus amount" aria-label="Bonus amount to use" aria-invalid={Boolean(bonusError)} className="h-10 min-w-0 flex-1 rounded-md border border-[#d0d5dd] bg-white px-3 text-sm tabular-nums outline-none focus:border-[#d7a400] disabled:bg-[#f2f4f7] dark:border-white/10 dark:bg-[#1c1c1e]" />
-                            <button type="button" onClick={() => setBonusToUse(String(rewardQuote.maximumBonus))} disabled={!canRedeemRewards || !isOnline || mpesaLocksBasket} className="h-10 rounded-md border border-[#d7a400] bg-[#fff8df] px-3 text-xs font-bold text-[#6f5600] disabled:opacity-40 dark:bg-amber-950/20 dark:text-amber-200">Use max</button>
-                            {bonusToUse && <button type="button" onClick={() => setBonusToUse('')} disabled={mpesaLocksBasket} className="h-10 px-2 text-xs font-semibold text-[#667085]">Clear</button>}
+                            <input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              inputMode="decimal"
+                              value={bonusToUse}
+                              onChange={(event) =>
+                                setBonusToUse(event.target.value)
+                              }
+                              disabled={
+                                !canRedeemRewards ||
+                                !isOnline ||
+                                !rewardQuote.bonusEnabled ||
+                                mpesaLocksBasket
+                              }
+                              placeholder="Bonus amount"
+                              aria-label="Bonus amount to use"
+                              aria-invalid={Boolean(bonusError)}
+                              className="h-10 min-w-0 flex-1 rounded-md border border-[#d0d5dd] bg-white px-3 text-sm tabular-nums outline-none focus:border-[#d7a400] disabled:bg-[#f2f4f7] dark:border-white/10 dark:bg-[#1c1c1e]"
+                            />
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setBonusToUse(String(rewardQuote.maximumBonus))
+                              }
+                              disabled={
+                                !canRedeemRewards ||
+                                !isOnline ||
+                                mpesaLocksBasket
+                              }
+                              className="h-10 rounded-md border border-[#d7a400] bg-[#fff8df] px-3 text-xs font-bold text-[#6f5600] disabled:opacity-40 dark:bg-amber-950/20 dark:text-amber-200"
+                            >
+                              Use max
+                            </button>
+                            {bonusToUse && (
+                              <button
+                                type="button"
+                                onClick={() => setBonusToUse('')}
+                                disabled={mpesaLocksBasket}
+                                className="h-10 px-2 text-xs font-semibold text-[#667085]"
+                              >
+                                Clear
+                              </button>
+                            )}
                           </div>
-                          {bonusError && <p className="mt-1.5 text-[11px] font-medium text-red-600" role="alert">{bonusError}</p>}
+                          {bonusError && (
+                            <p
+                              className="mt-1.5 text-[11px] font-medium text-red-600"
+                              role="alert"
+                            >
+                              {bonusError}
+                            </p>
+                          )}
                         </div>
-                      ) : <p className="mt-1.5 text-[11px] text-[#98a2b3]">No bonus available</p>}
+                      ) : (
+                        <p className="mt-1.5 text-[11px] text-[#98a2b3]">
+                          No bonus available
+                        </p>
+                      )}
                     </div>
-                    {combinationError && <p className="text-[11px] font-medium text-red-600" role="alert">Loyalty points and bonus cannot be combined under the current reward settings.</p>}
-                    {!canRedeemRewards && <p className="text-[11px] font-medium text-amber-800 dark:text-amber-200">Your role can view rewards but cannot redeem them.</p>}
-                    {!isOnline && <p className="text-[11px] font-medium text-amber-800 dark:text-amber-200">Connect to the internet to redeem rewards.</p>}
-                    {rewardReduction > 0 && <div className="flex items-center justify-between rounded-lg bg-white px-3 py-2.5 text-xs dark:bg-white/5"><span className="font-semibold">Amount remaining</span><strong className="text-sm tabular-nums">{formatCurrency(total)}</strong></div>}
+                    {combinationError && (
+                      <p
+                        className="text-[11px] font-medium text-red-600"
+                        role="alert"
+                      >
+                        Loyalty points and bonus cannot be combined under the
+                        current reward settings.
+                      </p>
+                    )}
+                    {!canRedeemRewards && (
+                      <p className="text-[11px] font-medium text-amber-800 dark:text-amber-200">
+                        Your role can view rewards but cannot redeem them.
+                      </p>
+                    )}
+                    {!isOnline && (
+                      <p className="text-[11px] font-medium text-amber-800 dark:text-amber-200">
+                        Connect to the internet to redeem rewards.
+                      </p>
+                    )}
+                    {rewardReduction > 0 && (
+                      <div className="flex items-center justify-between rounded-lg bg-white px-3 py-2.5 text-xs dark:bg-white/5">
+                        <span className="font-semibold">Amount remaining</span>
+                        <strong className="text-sm tabular-nums">
+                          {formatCurrency(total)}
+                        </strong>
+                      </div>
+                    )}
                   </div>
-                ) : !rewardQuoteLoading ? <p className="mt-3 text-xs text-[#667085]">Rewards are unavailable for this basket.</p> : null}
+                ) : !rewardQuoteLoading ? (
+                  <p className="mt-3 text-xs text-[#667085]">
+                    Rewards are unavailable for this basket.
+                  </p>
+                ) : null}
               </section>
             )}
 
@@ -5370,7 +6146,12 @@ export function POSTerminal({
                 <button
                   type="button"
                   onClick={() => {
-                    if (pointsError || bonusError || combinationError) return notify.error(pointsError || bonusError || 'Loyalty points and bonus cannot be combined');
+                    if (pointsError || bonusError || combinationError)
+                      return notify.error(
+                        pointsError ||
+                          bonusError ||
+                          'Loyalty points and bonus cannot be combined'
+                      );
                     if (paymentMethod === 'cash' && !amountPaid)
                       setAmountPaid(String(total));
                     setCheckoutStep('payment');
@@ -5878,11 +6659,39 @@ export function POSTerminal({
                             <div className="border-t border-[#e4e7ec] bg-white p-4 dark:border-white/10 dark:bg-[#1c1c1e]">
                               <div className="rounded-lg border border-[#ead68a] bg-[#fffaf0] p-4 dark:border-amber-400/20 dark:bg-amber-400/5">
                                 <div className="flex items-start gap-3">
-                                  <span className="rounded-lg bg-[#f5b800] p-2 text-[#241d00]"><HandCoins className="h-5 w-5" /></span>
-                                  <div><h3 className="text-sm font-bold text-[#101828] dark:text-white">Customer credit sale</h3><p className="mt-1 text-xs leading-5 text-[#667085] dark:text-[#a3a3a3]">No payment is posted today. The full sale becomes an account receivable for the selected customer.</p></div>
+                                  <span className="rounded-lg bg-[#f5b800] p-2 text-[#241d00]">
+                                    <HandCoins className="h-5 w-5" />
+                                  </span>
+                                  <div>
+                                    <h3 className="text-sm font-bold text-[#101828] dark:text-white">
+                                      Customer credit sale
+                                    </h3>
+                                    <p className="mt-1 text-xs leading-5 text-[#667085] dark:text-[#a3a3a3]">
+                                      No payment is posted today. The full sale
+                                      becomes an account receivable for the
+                                      selected customer.
+                                    </p>
+                                  </div>
                                 </div>
-                                <label className="mt-4 block text-xs font-semibold text-[#344054] dark:text-[#d0d5dd]">Payment due date <span className="text-red-500">*</span><input type="date" value={creditDueDate} min={new Date().toISOString().slice(0, 10)} onChange={(event) => setCreditDueDate(event.target.value)} className="mt-2 h-10 w-full rounded-md border border-[#d0d5dd] bg-white px-3 text-sm text-[#101828] outline-none focus:border-[#d7a400] dark:border-white/10 dark:bg-[#242426] dark:text-white" /></label>
-                                {!selectedCustomer && <p className="mt-3 rounded-md bg-red-50 px-3 py-2 text-xs font-medium text-red-700">Go back and select the customer receiving this credit.</p>}
+                                <label className="mt-4 block text-xs font-semibold text-[#344054] dark:text-[#d0d5dd]">
+                                  Payment due date{' '}
+                                  <span className="text-red-500">*</span>
+                                  <input
+                                    type="date"
+                                    value={creditDueDate}
+                                    min={new Date().toISOString().slice(0, 10)}
+                                    onChange={(event) =>
+                                      setCreditDueDate(event.target.value)
+                                    }
+                                    className="mt-2 h-10 w-full rounded-md border border-[#d0d5dd] bg-white px-3 text-sm text-[#101828] outline-none focus:border-[#d7a400] dark:border-white/10 dark:bg-[#242426] dark:text-white"
+                                  />
+                                </label>
+                                {!selectedCustomer && (
+                                  <p className="mt-3 rounded-md bg-red-50 px-3 py-2 text-xs font-medium text-red-700">
+                                    Go back and select the customer receiving
+                                    this credit.
+                                  </p>
+                                )}
                               </div>
                             </div>
                           )}
@@ -6508,13 +7317,22 @@ export function POSTerminal({
                                 <div className="flex items-center gap-2.5">
                                   <PaymentBrand method="card" compact />
                                   <div>
-                                    <p className="text-sm font-bold">Card payment</p>
-                                    <p className="text-[11px] text-[#667085] dark:text-[#a1a1a6]">Use the physical terminal, then record its result</p>
+                                    <p className="text-sm font-bold">
+                                      Card payment
+                                    </p>
+                                    <p className="text-[11px] text-[#667085] dark:text-[#a1a1a6]">
+                                      Use the physical terminal, then record its
+                                      result
+                                    </p>
                                   </div>
                                 </div>
                                 <div className="text-right">
-                                  <span className="block text-[9px] font-bold uppercase tracking-wider text-[#667085]">Amount to charge</span>
-                                  <strong className="text-base tabular-nums">{formatCurrency(total)}</strong>
+                                  <span className="block text-[9px] font-bold uppercase tracking-wider text-[#667085]">
+                                    Amount to charge
+                                  </span>
+                                  <strong className="text-base tabular-nums">
+                                    {formatCurrency(total)}
+                                  </strong>
                                 </div>
                               </div>
                               <div className="space-y-3 p-4">
@@ -6523,23 +7341,265 @@ export function POSTerminal({
                                   <select
                                     className={cn(inputCls, 'h-10')}
                                     value={selectedCardTerminalId}
-                                    disabled={cardTerminalsLoading || cardResult === 'approved' || cardRecovery}
-                                    onChange={(event) => setSelectedCardTerminalId(event.target.value)}
+                                    disabled={
+                                      cardTerminalsLoading ||
+                                      cardResult === 'approved' ||
+                                      cardRecovery
+                                    }
+                                    onChange={(event) =>
+                                      setSelectedCardTerminalId(
+                                        event.target.value
+                                      )
+                                    }
                                   >
-                                    <option value="">{cardTerminalsLoading ? 'Loading terminals…' : 'Select terminal'}</option>
-                                    {cardTerminals.map((terminal) => <option key={terminal.id} value={terminal.id}>{terminal.name} · {terminal.terminalCode}</option>)}
+                                    <option value="">
+                                      {cardTerminalsLoading
+                                        ? 'Loading terminals…'
+                                        : 'Select terminal'}
+                                    </option>
+                                    {cardTerminals.map((terminal) => (
+                                      <option
+                                        key={terminal.id}
+                                        value={terminal.id}
+                                      >
+                                        {terminal.name} ·{' '}
+                                        {terminal.terminalCode}
+                                      </option>
+                                    ))}
                                   </select>
                                 </div>
-                                {!cardTerminalsLoading && cardTerminals.length === 0 && <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-200"><strong>No active terminal</strong><p className="mt-1">Ask a manager to configure a physical card terminal for this branch.</p></div>}
-                                {cardResult === 'idle' && cardTerminals.length > 0 && <div className="grid grid-cols-2 gap-2"><button type="button" disabled={!selectedCardTerminalId} onClick={() => setCardResult('declined')} className="h-11 rounded-lg border border-red-200 bg-white text-sm font-bold text-red-600 hover:bg-red-50 disabled:opacity-50 dark:border-red-500/30 dark:bg-white/5">Declined</button><button type="button" disabled={!selectedCardTerminalId} onClick={() => setCardResult('approved')} className="h-11 rounded-lg bg-emerald-600 text-sm font-bold text-white hover:bg-emerald-700 disabled:opacity-50">Approved</button></div>}
-                                {cardResult === 'declined' && <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-center dark:border-red-500/20 dark:bg-red-500/10"><AlertTriangle className="mx-auto h-7 w-7 text-red-600"/><p className="mt-2 text-sm font-bold">Payment declined</p><p className="mt-1 text-xs text-[#667085] dark:text-[#a1a1a6]">No payment was recorded. Try the terminal again or choose another method.</p><div className="mt-3 flex justify-center gap-2"><button type="button" onClick={() => setCardResult('idle')} className="h-9 rounded-lg border bg-white px-3 text-xs font-bold dark:bg-white/5">Try again</button><button type="button" onClick={() => void switchPaymentMethod('cash')} className="h-9 rounded-lg bg-[#f5b800] px-3 text-xs font-bold text-[#241d00]">Choose another method</button></div></div>}
-                                {cardResult === 'approved' && <>
-                                  <div><label className={ui.label}>Authorization code <span className="text-[#d92d20]">*</span></label><input type="text" maxLength={40} placeholder="Approval code from terminal" value={mpesaRef} disabled={Boolean(cardAttemptId)} onChange={(event) => setMpesaRef(event.target.value.toUpperCase().replace(/[^A-Z0-9-]/g, ''))} className={cn(inputCls, 'h-10')} /></div>
-                                  <div><label className={ui.label}>Reference / RRN {cardTerminals.find((item) => item.id === selectedCardTerminalId)?.referenceRequired ? <span className="text-[#d92d20]">*</span> : <span className="font-normal text-[#98a2b3]">(optional)</span>}</label><input type="text" maxLength={120} placeholder="Retrieval reference" value={paymentReceiver} disabled={Boolean(cardAttemptId)} onChange={(event) => setPaymentReceiver(event.target.value.toUpperCase())} className={cn(inputCls, 'h-10')} /></div>
-                                  <div className="grid grid-cols-3 gap-2"><select aria-label="Card brand" value={cardBrand} disabled={Boolean(cardAttemptId)} onChange={(event) => setCardBrand(event.target.value as typeof cardBrand)} className={cn(inputCls, 'h-10 px-2 text-xs')}><option value="">Brand</option><option value="visa">Visa</option><option value="mastercard">Mastercard</option><option value="amex">Amex</option><option value="other">Other</option></select><input aria-label="Last four digits" inputMode="numeric" maxLength={4} placeholder="Last 4" value={cardLast4} disabled={Boolean(cardAttemptId)} onChange={(event) => setCardLast4(event.target.value.replace(/\D/g, '').slice(0, 4))} className={cn(inputCls, 'h-10 px-2 text-xs')} /><select aria-label="Entry mode" value={cardEntryMode} disabled={Boolean(cardAttemptId)} onChange={(event) => setCardEntryMode(event.target.value as typeof cardEntryMode)} className={cn(inputCls, 'h-10 px-2 text-xs')}><option value="">Entry</option><option value="chip">Chip</option><option value="contactless">Tap</option><option value="swipe">Swipe</option><option value="manual">Manual</option></select></div>
-                                  <label className="flex cursor-pointer items-start gap-2.5 rounded-lg border border-[#e4e7ec] bg-[#f9fafb] p-3 text-xs font-semibold text-[#344054] dark:border-white/10 dark:bg-white/5 dark:text-white"><input type="checkbox" checked={cardApproved} disabled={Boolean(cardAttemptId)} onChange={(event) => setCardApproved(event.target.checked)} className="mt-0.5 h-4 w-4 accent-emerald-600"/><span>I confirm the terminal shows APPROVED<span className="mt-0.5 block text-[10px] font-normal text-[#667085]">Never enter or store a full card number, CVV, or PIN.</span></span></label>
-                                </>}
-                                {cardRecovery && <div className="rounded-xl border border-amber-300 bg-amber-50 p-3 dark:border-amber-500/30 dark:bg-amber-500/10"><p className="text-xs font-bold text-amber-900 dark:text-amber-200">Card may already be charged</p><p className="mt-1 text-[11px] text-amber-800 dark:text-amber-300">Retry saving this sale. Do not charge the customer again.</p><button type="button" onClick={async () => { if (!cardAttemptId) return; await markCardAttemptForReconciliation(cardAttemptId); setCardRecovery(false); notify.success('Sent to card reconciliation'); }} className="mt-2 text-xs font-bold underline">Send to reconciliation</button></div>}
+                                {!cardTerminalsLoading &&
+                                  cardTerminals.length === 0 && (
+                                    <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-200">
+                                      <strong>No active terminal</strong>
+                                      <p className="mt-1">
+                                        Ask a manager to configure a physical
+                                        card terminal for this branch.
+                                      </p>
+                                    </div>
+                                  )}
+                                {cardResult === 'idle' &&
+                                  cardTerminals.length > 0 && (
+                                    <div className="grid grid-cols-2 gap-2">
+                                      <button
+                                        type="button"
+                                        disabled={!selectedCardTerminalId}
+                                        onClick={() =>
+                                          setCardResult('declined')
+                                        }
+                                        className="h-11 rounded-lg border border-red-200 bg-white text-sm font-bold text-red-600 hover:bg-red-50 disabled:opacity-50 dark:border-red-500/30 dark:bg-white/5"
+                                      >
+                                        Declined
+                                      </button>
+                                      <button
+                                        type="button"
+                                        disabled={!selectedCardTerminalId}
+                                        onClick={() =>
+                                          setCardResult('approved')
+                                        }
+                                        className="h-11 rounded-lg bg-emerald-600 text-sm font-bold text-white hover:bg-emerald-700 disabled:opacity-50"
+                                      >
+                                        Approved
+                                      </button>
+                                    </div>
+                                  )}
+                                {cardResult === 'declined' && (
+                                  <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-center dark:border-red-500/20 dark:bg-red-500/10">
+                                    <AlertTriangle className="mx-auto h-7 w-7 text-red-600" />
+                                    <p className="mt-2 text-sm font-bold">
+                                      Payment declined
+                                    </p>
+                                    <p className="mt-1 text-xs text-[#667085] dark:text-[#a1a1a6]">
+                                      No payment was recorded. Try the terminal
+                                      again or choose another method.
+                                    </p>
+                                    <div className="mt-3 flex justify-center gap-2">
+                                      <button
+                                        type="button"
+                                        onClick={() => setCardResult('idle')}
+                                        className="h-9 rounded-lg border bg-white px-3 text-xs font-bold dark:bg-white/5"
+                                      >
+                                        Try again
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          void switchPaymentMethod('cash')
+                                        }
+                                        className="h-9 rounded-lg bg-[#f5b800] px-3 text-xs font-bold text-[#241d00]"
+                                      >
+                                        Choose another method
+                                      </button>
+                                    </div>
+                                  </div>
+                                )}
+                                {cardResult === 'approved' && (
+                                  <>
+                                    <div>
+                                      <label className={ui.label}>
+                                        Authorization code{' '}
+                                        <span className="text-[#d92d20]">
+                                          *
+                                        </span>
+                                      </label>
+                                      <input
+                                        type="text"
+                                        maxLength={40}
+                                        placeholder="Approval code from terminal"
+                                        value={mpesaRef}
+                                        disabled={Boolean(cardAttemptId)}
+                                        onChange={(event) =>
+                                          setMpesaRef(
+                                            event.target.value
+                                              .toUpperCase()
+                                              .replace(/[^A-Z0-9-]/g, '')
+                                          )
+                                        }
+                                        className={cn(inputCls, 'h-10')}
+                                      />
+                                    </div>
+                                    <div>
+                                      <label className={ui.label}>
+                                        Reference / RRN{' '}
+                                        {cardTerminals.find(
+                                          (item) =>
+                                            item.id === selectedCardTerminalId
+                                        )?.referenceRequired ? (
+                                          <span className="text-[#d92d20]">
+                                            *
+                                          </span>
+                                        ) : (
+                                          <span className="font-normal text-[#98a2b3]">
+                                            (optional)
+                                          </span>
+                                        )}
+                                      </label>
+                                      <input
+                                        type="text"
+                                        maxLength={120}
+                                        placeholder="Retrieval reference"
+                                        value={paymentReceiver}
+                                        disabled={Boolean(cardAttemptId)}
+                                        onChange={(event) =>
+                                          setPaymentReceiver(
+                                            event.target.value.toUpperCase()
+                                          )
+                                        }
+                                        className={cn(inputCls, 'h-10')}
+                                      />
+                                    </div>
+                                    <div className="grid grid-cols-3 gap-2">
+                                      <select
+                                        aria-label="Card brand"
+                                        value={cardBrand}
+                                        disabled={Boolean(cardAttemptId)}
+                                        onChange={(event) =>
+                                          setCardBrand(
+                                            event.target
+                                              .value as typeof cardBrand
+                                          )
+                                        }
+                                        className={cn(
+                                          inputCls,
+                                          'h-10 px-2 text-xs'
+                                        )}
+                                      >
+                                        <option value="">Brand</option>
+                                        <option value="visa">Visa</option>
+                                        <option value="mastercard">
+                                          Mastercard
+                                        </option>
+                                        <option value="amex">Amex</option>
+                                        <option value="other">Other</option>
+                                      </select>
+                                      <input
+                                        aria-label="Last four digits"
+                                        inputMode="numeric"
+                                        maxLength={4}
+                                        placeholder="Last 4"
+                                        value={cardLast4}
+                                        disabled={Boolean(cardAttemptId)}
+                                        onChange={(event) =>
+                                          setCardLast4(
+                                            event.target.value
+                                              .replace(/\D/g, '')
+                                              .slice(0, 4)
+                                          )
+                                        }
+                                        className={cn(
+                                          inputCls,
+                                          'h-10 px-2 text-xs'
+                                        )}
+                                      />
+                                      <select
+                                        aria-label="Entry mode"
+                                        value={cardEntryMode}
+                                        disabled={Boolean(cardAttemptId)}
+                                        onChange={(event) =>
+                                          setCardEntryMode(
+                                            event.target
+                                              .value as typeof cardEntryMode
+                                          )
+                                        }
+                                        className={cn(
+                                          inputCls,
+                                          'h-10 px-2 text-xs'
+                                        )}
+                                      >
+                                        <option value="">Entry</option>
+                                        <option value="chip">Chip</option>
+                                        <option value="contactless">Tap</option>
+                                        <option value="swipe">Swipe</option>
+                                        <option value="manual">Manual</option>
+                                      </select>
+                                    </div>
+                                    <label className="flex cursor-pointer items-start gap-2.5 rounded-lg border border-[#e4e7ec] bg-[#f9fafb] p-3 text-xs font-semibold text-[#344054] dark:border-white/10 dark:bg-white/5 dark:text-white">
+                                      <input
+                                        type="checkbox"
+                                        checked={cardApproved}
+                                        disabled={Boolean(cardAttemptId)}
+                                        onChange={(event) =>
+                                          setCardApproved(event.target.checked)
+                                        }
+                                        className="mt-0.5 h-4 w-4 accent-emerald-600"
+                                      />
+                                      <span>
+                                        I confirm the terminal shows APPROVED
+                                        <span className="mt-0.5 block text-[10px] font-normal text-[#667085]">
+                                          Never enter or store a full card
+                                          number, CVV, or PIN.
+                                        </span>
+                                      </span>
+                                    </label>
+                                  </>
+                                )}
+                                {cardRecovery && (
+                                  <div className="rounded-xl border border-amber-300 bg-amber-50 p-3 dark:border-amber-500/30 dark:bg-amber-500/10">
+                                    <p className="text-xs font-bold text-amber-900 dark:text-amber-200">
+                                      Card may already be charged
+                                    </p>
+                                    <p className="mt-1 text-[11px] text-amber-800 dark:text-amber-300">
+                                      Retry saving this sale. Do not charge the
+                                      customer again.
+                                    </p>
+                                    <button
+                                      type="button"
+                                      onClick={async () => {
+                                        if (!cardAttemptId) return;
+                                        await markCardAttemptForReconciliation(
+                                          cardAttemptId
+                                        );
+                                        setCardRecovery(false);
+                                        notify.success(
+                                          'Sent to card reconciliation'
+                                        );
+                                      }}
+                                      className="mt-2 text-xs font-bold underline"
+                                    >
+                                      Send to reconciliation
+                                    </button>
+                                  </div>
+                                )}
                               </div>
                             </div>
                           )}
@@ -6728,77 +7788,99 @@ export function POSTerminal({
                               >
                                 Back
                               </button>
-                              {(paymentMethod !== 'card' || cardResult === 'approved') && <button
-                                type="button"
-                                onClick={() => handleCheckout()}
-                                disabled={
-                                  processing ||
-                                  cart.length === 0 ||
-                                  !hasActiveShift ||
-                                  (paymentMethod === 'cash' &&
-                                    parseFloat(amountPaid || '0') < total) ||
-                                  (paymentMethod === 'card' &&
-                                    (!mpesaRef.trim() || !cardApproved || !selectedCardTerminalId || (cardLast4.length > 0 && cardLast4.length !== 4) || (cardTerminals.find((item) => item.id === selectedCardTerminalId)?.referenceRequired && !paymentReceiver.trim()))) ||
-                                  (paymentMethod === 'airtel_money' &&
-                                    !mpesaRef.trim()) ||
-                                  (paymentMethod === 'bank_transfer' &&
-                                    !mpesaRef.trim()) ||
-                                  (paymentMethod === 'credit' &&
-                                    (!selectedCustomer || !creditDueDate))
-                                }
-                                className={cn(
-                                  'flex min-h-[50px] flex-1 touch-manipulation items-center justify-center gap-2 rounded-lg px-3 text-center text-sm font-bold leading-tight shadow-none transition-colors sm:px-4',
-                                  processing ||
+                              {(paymentMethod !== 'card' ||
+                                cardResult === 'approved') && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleCheckout()}
+                                  disabled={
+                                    processing ||
                                     cart.length === 0 ||
                                     !hasActiveShift ||
                                     (paymentMethod === 'cash' &&
                                       parseFloat(amountPaid || '0') < total) ||
                                     (paymentMethod === 'card' &&
-                                      (!mpesaRef.trim() || !cardApproved || !selectedCardTerminalId || (cardLast4.length > 0 && cardLast4.length !== 4) || (cardTerminals.find((item) => item.id === selectedCardTerminalId)?.referenceRequired && !paymentReceiver.trim()))) ||
+                                      (!mpesaRef.trim() ||
+                                        !cardApproved ||
+                                        !selectedCardTerminalId ||
+                                        (cardLast4.length > 0 &&
+                                          cardLast4.length !== 4) ||
+                                        (cardTerminals.find(
+                                          (item) =>
+                                            item.id === selectedCardTerminalId
+                                        )?.referenceRequired &&
+                                          !paymentReceiver.trim()))) ||
                                     (paymentMethod === 'airtel_money' &&
                                       !mpesaRef.trim()) ||
                                     (paymentMethod === 'bank_transfer' &&
                                       !mpesaRef.trim()) ||
                                     (paymentMethod === 'credit' &&
                                       (!selectedCustomer || !creditDueDate))
-                                    ? 'cursor-not-allowed !bg-[#e4e7ec] !text-[#667085] shadow-none dark:!bg-white/10 dark:!text-[#8b8b8b]'
-                                    : 'hover:bg-[#e2a900]'
-                                )}
-                                style={
-                                  processing ||
-                                  cart.length === 0 ||
-                                  !hasActiveShift
-                                    ? undefined
-                                    : {
-                                        backgroundColor: '#f5b800',
-                                        color: '#241d00',
-                                      }
-                                }
-                              >
-                                {processing ? (
-                                  <>
-                                    <Loader2 className="h-4 w-4 animate-spin" />
-                                    {paymentMethod === 'cash'
-                                      ? 'Processing cash sale…'
-                                      : paymentMethod === 'card'
-                                        ? 'Recording card payment…'
-                                        : 'Processing payment…'}
-                                  </>
-                                ) : (
-                                  <>
-                                    <CheckCircle2 className="hidden h-4 w-4" />
-                                    {!hasActiveShift
-                                      ? 'Start shift to take payment'
-                                      : paymentMethod === 'cash'
-                                        ? `Complete cash sale · ${formatCurrency(total)}`
+                                  }
+                                  className={cn(
+                                    'flex min-h-[50px] flex-1 touch-manipulation items-center justify-center gap-2 rounded-lg px-3 text-center text-sm font-bold leading-tight shadow-none transition-colors sm:px-4',
+                                    processing ||
+                                      cart.length === 0 ||
+                                      !hasActiveShift ||
+                                      (paymentMethod === 'cash' &&
+                                        parseFloat(amountPaid || '0') <
+                                          total) ||
+                                      (paymentMethod === 'card' &&
+                                        (!mpesaRef.trim() ||
+                                          !cardApproved ||
+                                          !selectedCardTerminalId ||
+                                          (cardLast4.length > 0 &&
+                                            cardLast4.length !== 4) ||
+                                          (cardTerminals.find(
+                                            (item) =>
+                                              item.id === selectedCardTerminalId
+                                          )?.referenceRequired &&
+                                            !paymentReceiver.trim()))) ||
+                                      (paymentMethod === 'airtel_money' &&
+                                        !mpesaRef.trim()) ||
+                                      (paymentMethod === 'bank_transfer' &&
+                                        !mpesaRef.trim()) ||
+                                      (paymentMethod === 'credit' &&
+                                        (!selectedCustomer || !creditDueDate))
+                                      ? 'cursor-not-allowed !bg-[#e4e7ec] !text-[#667085] shadow-none dark:!bg-white/10 dark:!text-[#8b8b8b]'
+                                      : 'hover:bg-[#e2a900]'
+                                  )}
+                                  style={
+                                    processing ||
+                                    cart.length === 0 ||
+                                    !hasActiveShift
+                                      ? undefined
+                                      : {
+                                          backgroundColor: '#f5b800',
+                                          color: '#241d00',
+                                        }
+                                  }
+                                >
+                                  {processing ? (
+                                    <>
+                                      <Loader2 className="h-4 w-4 animate-spin" />
+                                      {paymentMethod === 'cash'
+                                        ? 'Processing cash sale…'
                                         : paymentMethod === 'card'
-                                          ? `Complete card sale · ${formatCurrency(total)}`
-                                          : paymentMethod === 'airtel_money'
-                                            ? `Record Airtel payment · ${formatCurrency(total)}`
-                                            : `Complete sale · ${formatCurrency(total)}`}
-                                  </>
-                                )}
-                              </button>}
+                                          ? 'Recording card payment…'
+                                          : 'Processing payment…'}
+                                    </>
+                                  ) : (
+                                    <>
+                                      <CheckCircle2 className="hidden h-4 w-4" />
+                                      {!hasActiveShift
+                                        ? 'Start shift to take payment'
+                                        : paymentMethod === 'cash'
+                                          ? `Complete cash sale · ${formatCurrency(total)}`
+                                          : paymentMethod === 'card'
+                                            ? `Complete card sale · ${formatCurrency(total)}`
+                                            : paymentMethod === 'airtel_money'
+                                              ? `Record Airtel payment · ${formatCurrency(total)}`
+                                              : `Complete sale · ${formatCurrency(total)}`}
+                                    </>
+                                  )}
+                                </button>
+                              )}
                             </div>
                           )}
                           {paymentMethod === 'mpesa' && (
@@ -7089,7 +8171,9 @@ export function POSTerminal({
                   type="button"
                   onClick={() => {
                     setSummaryEditor(null);
-                    router.push('/dashboard/admin/profile#operating-configuration');
+                    router.push(
+                      '/dashboard/admin/profile#operating-configuration'
+                    );
                   }}
                   className="h-[38px] rounded-[5px] border border-[#e94e16] bg-[#e94e16] px-[13px] text-sm font-bold text-white transition-colors hover:border-[#cf3f0b] hover:bg-[#cf3f0b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e94e16]/30"
                 >
@@ -7131,12 +8215,95 @@ export function POSTerminal({
               required legal age before payment.
             </p>
             <div className="mt-5 space-y-4">
-              {canOverrideAgeVerification && <div className="flex rounded-lg border p-1 text-xs font-semibold"><button type="button" onClick={() => setAgeVerificationMode('VERIFIED')} className={cn('flex-1 rounded-md px-2 py-2', ageVerificationMode === 'VERIFIED' && 'bg-amber-100 text-amber-900')}>Verify customer</button><button type="button" onClick={() => { setAgeVerificationMode('OVERRIDDEN'); setAgeConfirmed(true); }} className={cn('flex-1 rounded-md px-2 py-2', ageVerificationMode === 'OVERRIDDEN' && 'bg-amber-100 text-amber-900')}>Supervisor override</button></div>}
-              {ageVerificationMode === 'OVERRIDDEN' ? <div><label className={ui.label}>Override reason</label><textarea value={ageOverrideReason} onChange={(event) => setAgeOverrideReason(event.target.value.slice(0, 500))} className={cn(ui.input, 'min-h-20')} placeholder="Explain why verification is being overridden" /></div> : <>
-              <div><label className={ui.label}>ID type</label><select value={ageIdType} onChange={(event) => setAgeIdType(event.target.value as typeof ageIdType)} className={cn(ui.input, 'h-11')}><option value="national_id">National ID</option><option value="passport">Passport</option><option value="driving_licence">Driving licence</option><option value="other">Other</option></select></div>
-              <div><label className={ui.label}>ID/reference <span className="font-normal normal-case">(optional)</span></label><input value={ageIdReference} onChange={(event) => setAgeIdReference(event.target.value.slice(0, 80))} className={cn(ui.input, 'h-11')} placeholder="Reference only — stored masked" /></div>
-              <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-[#e4e7ec] bg-[#f9fafb] p-3 text-sm font-medium text-[#344054] dark:border-white/10 dark:bg-white/[.04] dark:text-[#d0d5dd]"><input type="checkbox" checked={ageConfirmed} onChange={(event) => setAgeConfirmed(event.target.checked)} className="mt-0.5 h-4 w-4 accent-[#f2b705]" /><span>I confirm the customer meets the required legal age.</span></label>
-              </>}
+              {canOverrideAgeVerification && (
+                <div className="flex rounded-lg border p-1 text-xs font-semibold">
+                  <button
+                    type="button"
+                    onClick={() => setAgeVerificationMode('VERIFIED')}
+                    className={cn(
+                      'flex-1 rounded-md px-2 py-2',
+                      ageVerificationMode === 'VERIFIED' &&
+                        'bg-amber-100 text-amber-900'
+                    )}
+                  >
+                    Verify customer
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAgeVerificationMode('OVERRIDDEN');
+                      setAgeConfirmed(true);
+                    }}
+                    className={cn(
+                      'flex-1 rounded-md px-2 py-2',
+                      ageVerificationMode === 'OVERRIDDEN' &&
+                        'bg-amber-100 text-amber-900'
+                    )}
+                  >
+                    Supervisor override
+                  </button>
+                </div>
+              )}
+              {ageVerificationMode === 'OVERRIDDEN' ? (
+                <div>
+                  <label className={ui.label}>Override reason</label>
+                  <textarea
+                    value={ageOverrideReason}
+                    onChange={(event) =>
+                      setAgeOverrideReason(event.target.value.slice(0, 500))
+                    }
+                    className={cn(ui.input, 'min-h-20')}
+                    placeholder="Explain why verification is being overridden"
+                  />
+                </div>
+              ) : (
+                <>
+                  <div>
+                    <label className={ui.label}>ID type</label>
+                    <select
+                      value={ageIdType}
+                      onChange={(event) =>
+                        setAgeIdType(event.target.value as typeof ageIdType)
+                      }
+                      className={cn(ui.input, 'h-11')}
+                    >
+                      <option value="national_id">National ID</option>
+                      <option value="passport">Passport</option>
+                      <option value="driving_licence">Driving licence</option>
+                      <option value="other">Other</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className={ui.label}>
+                      ID/reference{' '}
+                      <span className="font-normal normal-case">
+                        (optional)
+                      </span>
+                    </label>
+                    <input
+                      value={ageIdReference}
+                      onChange={(event) =>
+                        setAgeIdReference(event.target.value.slice(0, 80))
+                      }
+                      className={cn(ui.input, 'h-11')}
+                      placeholder="Reference only — stored masked"
+                    />
+                  </div>
+                  <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-[#e4e7ec] bg-[#f9fafb] p-3 text-sm font-medium text-[#344054] dark:border-white/10 dark:bg-white/[.04] dark:text-[#d0d5dd]">
+                    <input
+                      type="checkbox"
+                      checked={ageConfirmed}
+                      onChange={(event) =>
+                        setAgeConfirmed(event.target.checked)
+                      }
+                      className="mt-0.5 h-4 w-4 accent-[#f2b705]"
+                    />
+                    <span>
+                      I confirm the customer meets the required legal age.
+                    </span>
+                  </label>
+                </>
+              )}
             </div>
             <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
               <button
@@ -7154,7 +8321,9 @@ export function POSTerminal({
                 className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg px-4 text-sm font-bold transition-opacity hover:opacity-90"
               >
                 <ShieldCheck className="h-4 w-4" />
-                {ageVerificationMode === 'OVERRIDDEN' ? 'Approve override' : 'Verify age'}
+                {ageVerificationMode === 'OVERRIDDEN'
+                  ? 'Approve override'
+                  : 'Verify age'}
               </button>
             </div>
           </div>
@@ -7200,7 +8369,8 @@ export function POSTerminal({
                     {formatCurrency(total)}
                   </p>
                   <p className="mt-0.5 text-xs text-[#667085] dark:text-[#a8a8a8]">
-                    {cart.length} item{cart.length === 1 ? '' : 's'} in the current order
+                    {cart.length} item{cart.length === 1 ? '' : 's'} in the
+                    current order
                   </p>
                 </div>
               </div>
@@ -7208,8 +8378,8 @@ export function POSTerminal({
                 id="reset-register-description"
                 className="text-sm leading-6 text-[#667085] dark:text-[#a8a8a8]"
               >
-                Resetting returns the POS to a fresh sale and clears the
-                current basket, customer, discounts and payment progress.
+                Resetting returns the POS to a fresh sale and clears the current
+                basket, customer, discounts and payment progress.
               </p>
             </div>
 
@@ -7273,7 +8443,8 @@ export function POSTerminal({
                     {formatCurrency(total)}
                   </p>
                   <p className="mt-0.5 text-xs text-[#667085] dark:text-[#a8a8a8]">
-                    {cart.length} item{cart.length === 1 ? '' : 's'} in this order
+                    {cart.length} item{cart.length === 1 ? '' : 's'} in this
+                    order
                   </p>
                 </div>
               </div>
@@ -7492,6 +8663,208 @@ export function POSTerminal({
         </div>
       )}
 
+      {cafeCustomizer?.product.cafe && (
+        <div
+          className="fixed inset-0 z-[95] grid place-items-center bg-black/60 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="cafe-customizer-title"
+          onKeyDown={(event) => {
+            if (event.key === 'Escape') setCafeCustomizer(null);
+            if (
+              event.key === 'Enter' &&
+              !event.shiftKey &&
+              event.target instanceof HTMLElement &&
+              event.target.tagName !== 'TEXTAREA'
+            ) {
+              event.preventDefault();
+              confirmCafeCustomizer();
+            }
+          }}
+        >
+          <div className="flex max-h-[90dvh] w-full max-w-[620px] flex-col overflow-hidden rounded-xl border border-[#e4e7ec] bg-white text-[#101828] shadow-2xl dark:border-white/10 dark:bg-[#171717] dark:text-white">
+            <div className="flex items-start justify-between border-b border-[#e4e7ec] px-5 py-4 dark:border-white/10">
+              <div>
+                <h2 id="cafe-customizer-title" className="text-lg font-bold">
+                  {cafeCustomizer.product.name}
+                </h2>
+                <p className="mt-1 text-xs text-[#667085] dark:text-[#a8a8a8]">
+                  Choose the size and preparation options for this item.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setCafeCustomizer(null)}
+                aria-label="Close item choices"
+                className="grid h-8 w-8 place-items-center rounded-full hover:bg-black/5 dark:hover:bg-white/10"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <CompactScrollArea className="min-h-0 flex-1">
+              <div className="space-y-6 px-5 py-5">
+                {cafeCustomizer.product.packages.length > 0 && (
+                  <fieldset>
+                    <legend className="mb-2 text-sm font-bold">
+                      Size <span className="text-red-500">*</span>
+                    </legend>
+                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                      {cafeCustomizer.product.packages.map((item) => {
+                        const availability =
+                          cafeCustomizer.product.cafe?.availabilityBySize.find(
+                            (row) => row.packageId === item.id
+                          );
+                        const unavailable = availability
+                          ? !availability.available
+                          : false;
+                        const active = cafeCustomizer.packageId === item.id;
+                        return (
+                          <button
+                            key={item.id}
+                            type="button"
+                            disabled={unavailable}
+                            onClick={() =>
+                              setCafeCustomizer((current) =>
+                                current
+                                  ? { ...current, packageId: item.id }
+                                  : current
+                              )
+                            }
+                            className={cn(
+                              'min-h-14 rounded-lg border px-3 py-2 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#f9b21d]',
+                              active
+                                ? 'border-[#f9b21d] bg-[#fff5d6] text-[#5f4600] dark:bg-[#3a3016] dark:text-[#ffd166]'
+                                : 'border-[#dfe3ea] hover:border-[#f9b21d] dark:border-white/10 dark:bg-white/5',
+                              unavailable && 'cursor-not-allowed opacity-40'
+                            )}
+                          >
+                            <span className="block text-sm font-bold">
+                              {item.name}
+                            </span>
+                            <span className="mt-0.5 block text-xs tabular-nums">
+                              {formatCurrency(item.sellingPrice)}
+                            </span>
+                            {unavailable && (
+                              <span className="mt-1 block text-[10px]">
+                                Ingredient unavailable
+                              </span>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </fieldset>
+                )}
+                {cafeCustomizer.product.cafe.modifierGroups.map((group) => (
+                  <fieldset key={group.id}>
+                    <legend className="mb-2 flex w-full items-center justify-between gap-3 text-sm font-bold">
+                      <span>
+                        {group.name}
+                        {group.minimumSelections > 0 && (
+                          <span className="text-red-500"> *</span>
+                        )}
+                      </span>
+                      <span className="text-[10px] font-medium text-[#667085] dark:text-[#a8a8a8]">
+                        {group.minimumSelections
+                          ? `Choose ${group.minimumSelections}`
+                          : 'Optional'}
+                        {group.maximumSelections > 1
+                          ? `–${group.maximumSelections}`
+                          : ''}
+                      </span>
+                    </legend>
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                      {group.options.map((option) => {
+                        const active = (
+                          cafeCustomizer.selected[group.id] ?? []
+                        ).includes(option.id);
+                        return (
+                          <button
+                            key={option.id}
+                            type="button"
+                            aria-pressed={active}
+                            onClick={() =>
+                              setCafeCustomizer((current) => {
+                                if (!current) return current;
+                                const existing =
+                                  current.selected[group.id] ?? [];
+                                const next = active
+                                  ? existing.filter((id) => id !== option.id)
+                                  : group.selectionType === 'single'
+                                    ? [option.id]
+                                    : existing.length < group.maximumSelections
+                                      ? [...existing, option.id]
+                                      : existing;
+                                return {
+                                  ...current,
+                                  selected: {
+                                    ...current.selected,
+                                    [group.id]: next,
+                                  },
+                                };
+                              })
+                            }
+                            className={cn(
+                              'flex min-h-12 items-center justify-between rounded-lg border px-3 py-2 text-left text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#f9b21d]',
+                              active
+                                ? 'border-[#f9b21d] bg-[#fff5d6] font-semibold text-[#5f4600] dark:bg-[#3a3016] dark:text-[#ffd166]'
+                                : 'border-[#dfe3ea] hover:border-[#f9b21d] dark:border-white/10 dark:bg-white/5'
+                            )}
+                          >
+                            <span>{option.name}</span>
+                            {option.priceAdjustment !== 0 && (
+                              <span className="ml-3 text-xs tabular-nums">
+                                +{formatCurrency(option.priceAdjustment)}
+                              </span>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </fieldset>
+                ))}
+                <label className="grid gap-2 text-sm font-bold">
+                  Preparation note{' '}
+                  <span className="text-xs font-normal text-[#667085] dark:text-[#a8a8a8]">
+                    (optional)
+                  </span>
+                  <textarea
+                    value={cafeCustomizer.notes}
+                    onChange={(event) =>
+                      setCafeCustomizer((current) =>
+                        current
+                          ? { ...current, notes: event.target.value }
+                          : current
+                      )
+                    }
+                    maxLength={500}
+                    rows={2}
+                    placeholder="e.g. extra hot"
+                    className="resize-none rounded-lg border border-[#dfe3ea] bg-white px-3 py-2 text-sm font-normal outline-none focus:border-[#f9b21d] focus:ring-2 focus:ring-[#f9b21d]/20 dark:border-white/10 dark:bg-[#111]"
+                  />
+                </label>
+              </div>
+            </CompactScrollArea>
+            <div className="flex items-center justify-end gap-2 border-t border-[#e4e7ec] px-5 py-4 dark:border-white/10">
+              <button
+                type="button"
+                onClick={() => setCafeCustomizer(null)}
+                className="h-10 rounded-lg border border-[#d0d5dd] px-4 text-sm font-semibold dark:border-white/15"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={confirmCafeCustomizer}
+                className="h-10 rounded-lg bg-[#f9b21d] px-5 text-sm font-bold text-[#241d00] hover:bg-[#e5a20e]"
+              >
+                {cafeCustomizer.editLineId ? 'Update item' : 'Add to order'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showHeldSales && (
         <OrdersModal
           heldSales={heldSales}
@@ -7582,7 +8955,8 @@ export function POSTerminal({
             <div className="grid gap-x-6 gap-y-4 px-5 py-[23px] sm:grid-cols-2">
               <label className="grid gap-2 text-sm font-medium">
                 <span>
-                  Customer Name <span className="text-[#ff0000]">*</span>
+                  {cafeMode ? 'Guest name' : 'Customer Name'}{' '}
+                  <span className="text-[#ff0000]">*</span>
                 </span>
                 <input
                   autoFocus

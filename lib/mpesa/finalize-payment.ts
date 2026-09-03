@@ -4,6 +4,7 @@ import {
   ageVerification, auditEvent, businessSettings, category, customer, mpesaIncomingPayment, mpesaPaymentRequest,
   pharmacyPrescriptionItem, pharmacyProduct, pharmacySaleRecord, posSession, product, productPackage, restrictedItemAudit,
   sale, saleItem, saleItemLotAllocation, salePayment,
+  organization, cafeOrder,
 } from '@/lib/db/schema'
 import { calculateMpesaAmount } from '@/lib/mpesa/amount'
 import { generateId, generateReceiptNo } from '@/lib/utils'
@@ -11,6 +12,8 @@ import { applyInventoryMovement, consumeInventoryCost } from '@/lib/inventory/in
 import { enqueueEtimsInvoice } from '@/lib/etims/service'
 import { applySaleRewards } from '@/lib/services/rewards-service'
 import { preTaxRewardAmount } from '@/lib/rewards/rules'
+import { isCafeBusiness } from '@/lib/hospitality/rules'
+import { createCafeOrderForSale, consumeCafeRecipeInventory, getCafeConfiguration, resolveCafeCheckout, type CafeCheckoutInput } from '@/lib/cafe/sale-service'
 
 export type MpesaCheckoutPayload = {
   items: Array<{ productId: string; quantity: number; packageId?: string }>
@@ -23,6 +26,7 @@ export type MpesaCheckoutPayload = {
   pointsToRedeem?: number
   bonusToUse?: number
   pharmacy?: { prescriptionReference?: string; prescriberReference?: string; patientReference?: string; issuedAt?: string | Date; expiresAt?: string | Date; notes?: string }
+  cafe?: CafeCheckoutInput
 }
 
 /**
@@ -69,14 +73,35 @@ export async function finalizeConfirmedMpesaPayment(requestId: string) {
     const packageIds = checkout.items.map((line) => line.packageId).filter((value): value is string => Boolean(value))
     const packages = packageIds.length ? await tx.select().from(productPackage).where(and(eq(productPackage.organizationId, intent.organizationId), inArray(productPackage.id, packageIds), eq(productPackage.isActive, true))) : []
     const packageById = new Map(packages.map((item) => [item.id, item]))
-    const lines = checkout.items.map((line) => {
+    const [workspace] = await tx.select({ businessType: organization.businessType, businessCategory: organization.businessCategory }).from(organization).where(eq(organization.id, intent.organizationId)).limit(1)
+    const cafeWorkspace = Boolean(workspace && isCafeBusiness(workspace.businessType, workspace.businessCategory))
+    if (checkout.cafe && !cafeWorkspace) throw new Error('Café order details are not valid for this workspace')
+    const cafeConfiguration = cafeWorkspace ? await getCafeConfiguration(intent.organizationId) : null
+    const defaultCafeCheckout: CafeCheckoutInput | null = cafeWorkspace
+      ? {
+          orderType: cafeConfiguration!.defaultOrderType,
+          lines: checkout.items.map((line) => ({
+            productId: line.productId,
+            packageId: line.packageId,
+            quantity: line.quantity,
+          })),
+        }
+      : null
+    const resolvedCafe = cafeWorkspace ? await resolveCafeCheckout({
+      organizationId: intent.organizationId,
+      branchId: intent.branchId,
+      checkout: checkout.cafe ?? defaultCafeCheckout!,
+    }) : null
+    const lines = checkout.items.map((line, lineIndex) => {
       if (!Number.isInteger(line.quantity) || line.quantity <= 0) throw new Error('Invalid M-Pesa basket quantity')
       const item = byId.get(line.productId)
       if (!item?.active) throw new Error('A paid basket product is unavailable')
       const selectedPackage = line.packageId ? packageById.get(line.packageId) : null
       if (line.packageId && (!selectedPackage || selectedPackage.productId !== line.productId)) throw new Error('A paid basket package is unavailable')
-      const unitPrice = Number(selectedPackage?.sellingPrice ?? item.sellingPrice)
-      return { ...line, productName: selectedPackage ? `${item.name} (${selectedPackage.name})` : item.name, packageName: selectedPackage?.name, baseUnitQuantity: selectedPackage?.baseUnitQuantity ?? 1, unitPrice, totalPrice: unitPrice * line.quantity, saleItemId: generateId() }
+      const cafeLine = resolvedCafe?.lines[lineIndex]
+      if (cafeLine && (cafeLine.productId !== line.productId || (cafeLine.packageId ?? null) !== (line.packageId ?? null))) throw new Error('Café selections do not match the paid basket')
+      const unitPrice = cafeLine?.unitPrice ?? Number(selectedPackage?.sellingPrice ?? item.sellingPrice)
+      return { ...line, productName: cafeLine?.displayName ?? (selectedPackage ? `${item.name} (${selectedPackage.name})` : item.name), packageName: selectedPackage?.name, baseUnitQuantity: selectedPackage?.baseUnitQuantity ?? 1, unitPrice, totalPrice: unitPrice * line.quantity, saleItemId: generateId() }
     })
     if (intent.customerId) {
       const [ownedCustomer] = await tx.select({ id: customer.id }).from(customer).where(and(
@@ -111,13 +136,19 @@ export async function finalizeConfirmedMpesaPayment(requestId: string) {
     )).returning({ id: mpesaPaymentRequest.id })
     if (claimed.length !== 1) throw new Error('M-Pesa payment has already been claimed')
 
-    const costByProduct = new Map<string, { unitCost: number; totalCost: number }>()
+    const costBySaleItem = new Map<string, { unitCost: number; totalCost: number }>()
     const lotsBySaleItem = new Map<string, Array<{ lotId: string; lotNumber: string; expiresAt: Date | null; quantity: number }>>()
-    for (const line of lines) {
+    for (const [lineIndex, line] of lines.entries()) {
+      const cafeLine = resolvedCafe?.lines[lineIndex]
+      if (cafeLine && cafeLine.inventoryMode !== 'product') continue
       const inventoryQuantity = line.quantity * line.baseUnitQuantity
       const movement = await applyInventoryMovement(tx, { productId: line.productId, productName: line.productName, branchId: intent.branchId, quantity: -inventoryQuantity, type: 'sale', referenceType: 'sale', referenceId: saleId, reason: receiptNo, userId: intent.userId, orgId: intent.organizationId })
       if (movement.lotAllocations.length) lotsBySaleItem.set(line.saleItemId, movement.lotAllocations)
-      costByProduct.set(line.productId, await consumeInventoryCost(tx, { productId: line.productId, branchId: intent.branchId, orgId: intent.organizationId, quantity: inventoryQuantity }))
+      costBySaleItem.set(line.saleItemId, await consumeInventoryCost(tx, { productId: line.productId, branchId: intent.branchId, orgId: intent.organizationId, quantity: inventoryQuantity }))
+    }
+    if (resolvedCafe) {
+      const recipeCosts = await consumeCafeRecipeInventory(tx, { organizationId: intent.organizationId, branchId: intent.branchId, userId: intent.userId, saleId, receiptNo, checkout: resolvedCafe, saleItemIds: lines.map((line) => line.saleItemId) })
+      for (const [saleItemId, cost] of recipeCosts) costBySaleItem.set(saleItemId, cost)
     }
 
     await tx.insert(sale).values({
@@ -142,7 +173,7 @@ export async function finalizeConfirmedMpesaPayment(requestId: string) {
       id: line.saleItemId, saleId, productId: line.productId, productName: line.productName, quantity: line.quantity,
       packageId: line.packageId ?? null, packageName: line.packageName ?? null, baseUnitQuantity: line.baseUnitQuantity,
       unitPrice: String(line.unitPrice), totalPrice: String(line.totalPrice), userId: intent.userId, orgId: intent.organizationId,
-      unitCostAtSale: String(costByProduct.get(line.productId)?.unitCost ?? 0), totalCost: String(costByProduct.get(line.productId)?.totalCost ?? 0),
+      unitCostAtSale: String(costBySaleItem.get(line.saleItemId)?.unitCost ?? 0), totalCost: String(costBySaleItem.get(line.saleItemId)?.totalCost ?? 0),
       rewardEligibleAmount: String(rewards?.lineEligibility.get(line.productId) ?? 0),
     })))
     const allocatedLots = lines.flatMap((line) => (lotsBySaleItem.get(line.saleItemId) ?? []).map((allocation) => ({
@@ -150,6 +181,11 @@ export async function finalizeConfirmedMpesaPayment(requestId: string) {
       lotId: allocation.lotId, lotNumber: allocation.lotNumber, expiresAt: allocation.expiresAt, quantity: String(allocation.quantity),
     })))
     if (allocatedLots.length) await tx.insert(saleItemLotAllocation).values(allocatedLots)
+    if (resolvedCafe) await createCafeOrderForSale(tx, {
+      organizationId: intent.organizationId, branchId: intent.branchId, userId: intent.userId,
+      saleId, customerId: intent.customerId ?? undefined, idempotencyKey: intent.idempotencyKey,
+      checkout: resolvedCafe, saleItemIds: lines.map((line) => line.saleItemId),
+    })
     const prescriptionItems = medicineRows.filter((item) => item.prescriptionRequired)
     const restrictedItems = medicineRows.filter((item) => item.restrictedItem)
     if (prescriptionItems.length || restrictedItems.length) {

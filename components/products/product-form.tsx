@@ -28,6 +28,7 @@ import { notify } from '@/lib/notify';
 import { WirelessScannerPairing } from '@/components/barcode/wireless-scanner-pairing';
 import { useWorkspace } from '@/lib/context/workspace-context';
 import { isPharmacyBusiness } from '@/lib/pharmacy/rules';
+import { isCafeBusiness } from '@/lib/hospitality/rules';
 import { getProductTerminology } from '@/lib/products/terminology';
 import { LoadingSpinner as Loader2 } from '@/components/ui/page-loader';
 
@@ -56,7 +57,30 @@ const SELLING_UNITS = [
   'piece',
   'other',
 ];
-const PHARMACY_SELLING_UNITS = ['tablet', 'capsule', 'strip', 'bottle', 'box', 'tube', 'sachet', 'vial', 'ampoule', 'pack', 'piece', 'other'];
+const PHARMACY_SELLING_UNITS = [
+  'tablet',
+  'capsule',
+  'strip',
+  'bottle',
+  'box',
+  'tube',
+  'sachet',
+  'vial',
+  'ampoule',
+  'pack',
+  'piece',
+  'other',
+];
+const CAFE_SELLING_UNITS = [
+  'item',
+  'serving',
+  'piece',
+  'cup',
+  'slice',
+  'g',
+  'ml',
+  'pack',
+];
 const VOLUME_UNITS = ['ml', 'litre'];
 
 export function ProductForm({
@@ -68,7 +92,13 @@ export function ProductForm({
   pharmacyMetadata,
 }: ProductFormProps) {
   const { config } = useWorkspace();
-  const isPharmacy = Boolean(config && isPharmacyBusiness(config.businessType, config.businessCategory));
+  const isPharmacy = Boolean(
+    config && isPharmacyBusiness(config.businessType, config.businessCategory)
+  );
+  const isCafe = Boolean(
+    config && isCafeBusiness(config.businessType, config.businessCategory)
+  );
+  const isLiquor = config?.businessCategory === 'liquor_shop';
   const terminology = getProductTerminology(
     config?.businessType,
     config?.businessCategory
@@ -113,19 +143,23 @@ export function ProductForm({
     description: product?.description ?? '',
     imageUrl: product?.imageUrl ?? '',
     categoryId: product?.categoryId ?? initialCategoryId ?? '',
-    buyingPrice: product?.buyingPrice ?? '',
+    buyingPrice: product?.buyingPrice ?? (isCafe ? '0' : ''),
     sellingPrice: product?.sellingPrice ?? '',
     stock: product?.stock ?? 0,
-    minStock: product?.minStock ?? 5,
-    unit: product?.unit ?? (isPharmacy ? 'tablet' : 'bottle'),
+    minStock: product?.minStock ?? (isCafe ? 0 : 5),
+    unit:
+      product?.unit ??
+      (isPharmacy ? 'tablet' : isCafe ? 'item' : isLiquor ? 'bottle' : 'piece'),
     volume: product?.volume ?? '',
     volumeUnit: product?.volumeUnit ?? 'ml',
     abv: product?.abv ?? '',
-    requiresAgeVerification: product?.requiresAgeVerification ?? (config?.businessCategory === 'liquor_shop'),
+    requiresAgeVerification:
+      product?.requiresAgeVerification ??
+      config?.businessCategory === 'liquor_shop',
     countryOfOrigin: product?.countryOfOrigin ?? '',
     unitsPerPack: product?.unitsPerPack ?? '',
     preferredSupplierId: product?.preferredSupplierId ?? '',
-    trackingMode: isPharmacy ? 'lot' : product?.trackingMode ?? 'none',
+    trackingMode: isPharmacy ? 'lot' : (product?.trackingMode ?? 'none'),
     costingMethod: product?.costingMethod ?? 'weighted_average',
     shelfLifeDays: product?.shelfLifeDays ?? '',
     expiryAlertDays: product?.expiryAlertDays ?? '',
@@ -143,6 +177,7 @@ export function ProductForm({
     prescriptionRequired: pharmacyMetadata?.prescriptionRequired ?? false,
     restrictedItem: pharmacyMetadata?.restrictedItem ?? false,
     pharmacyNotes: pharmacyMetadata?.notes ?? '',
+    cafeCatalogType: 'menu_item' as 'menu_item' | 'ingredient',
   });
 
   const set = (k: string, v: string | number | boolean) =>
@@ -255,12 +290,20 @@ export function ProductForm({
     }
   };
 
-  const steps = [terminology.singular, 'Identification', 'Pricing', 'Stock', 'Review'];
+  const steps = [
+    terminology.singular,
+    'Identification',
+    'Pricing',
+    'Stock',
+    'Review',
+  ];
   const continueStep = () => {
     if (step === 1 && (!form.name.trim() || (!product && !form.categoryId))) {
       setErrors((current) => ({
         ...current,
-        name: form.name.trim() ? undefined : `Enter a ${terminology.singularLower} name.`,
+        name: form.name.trim()
+          ? undefined
+          : `Enter a ${terminology.singularLower} name.`,
         categoryId:
           !product && !form.categoryId ? 'Choose a category.' : undefined,
       }));
@@ -268,13 +311,19 @@ export function ProductForm({
     }
     if (
       step === 3 &&
-      (Number(form.buyingPrice) <= 0 || Number(form.sellingPrice) < 0)
+      ((isCafe
+        ? Number(form.buyingPrice) < 0
+        : Number(form.buyingPrice) <= 0) ||
+        Number(form.sellingPrice) < 0)
     ) {
       setErrors((current) => ({
         ...current,
-        buyingPrice:
-          Number(form.buyingPrice) > 0
-            ? undefined
+        buyingPrice: (
+          isCafe ? Number(form.buyingPrice) >= 0 : Number(form.buyingPrice) > 0
+        )
+          ? undefined
+          : isCafe
+            ? 'Ingredient or item cost cannot be negative.'
             : 'Cost price is required and must be greater than zero.',
         sellingPrice:
           Number(form.sellingPrice) >= 0
@@ -308,19 +357,26 @@ export function ProductForm({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const nextErrors = {
-      name: form.name.trim() ? undefined : `Enter a ${terminology.singularLower} name.`,
+      name: form.name.trim()
+        ? undefined
+        : `Enter a ${terminology.singularLower} name.`,
       categoryId:
         !product && !form.categoryId ? 'Choose a category.' : undefined,
       buyingPrice:
-        Number(form.buyingPrice) > 0 && form.buyingPrice !== ''
+        (isCafe
+          ? Number(form.buyingPrice) >= 0
+          : Number(form.buyingPrice) > 0) && form.buyingPrice !== ''
           ? undefined
-          : 'Cost price is required and must be greater than zero.',
+          : isCafe
+            ? 'Enter zero for a recipe-costed item, or a non-negative packaged item cost.'
+            : 'Cost price is required and must be greater than zero.',
       sellingPrice:
         Number(form.sellingPrice) >= 0 && form.sellingPrice !== ''
           ? undefined
           : 'Enter a selling price.',
       stock:
-        !product && !isPharmacy &&
+        !product &&
+        !isPharmacy &&
         Number(form.stock) >= 0 &&
         Number.isInteger(Number(form.stock))
           ? undefined
@@ -374,7 +430,10 @@ export function ProductForm({
         unitsPerPack:
           form.unitsPerPack === '' ? undefined : Number(form.unitsPerPack),
         preferredSupplierId: form.preferredSupplierId || undefined,
-        trackingMode: (isPharmacy ? 'lot' : form.trackingMode) as 'none' | 'lot' | 'serial',
+        trackingMode: (isPharmacy ? 'lot' : form.trackingMode) as
+          | 'none'
+          | 'lot'
+          | 'serial',
         costingMethod: form.costingMethod as
           | 'weighted_average'
           | 'fifo'
@@ -388,19 +447,25 @@ export function ProductForm({
         etimsItemCode: form.etimsItemCode || undefined,
         etimsUnitCode: form.etimsUnitCode || undefined,
         etimsTaxCategory: form.etimsTaxCategory || undefined,
-        etimsTaxRate: form.etimsTaxRate === '' ? undefined : Number(form.etimsTaxRate),
+        etimsTaxRate:
+          form.etimsTaxRate === '' ? undefined : Number(form.etimsTaxRate),
         etimsVatClassification: form.etimsVatClassification || undefined,
-        ...(isPharmacy ? { pharmacy: {
-          genericName: form.genericName || undefined,
-          internalCode: form.internalCode || undefined,
-          manufacturer: form.manufacturer || undefined,
-          strength: form.strength || undefined,
-          dosageForm: form.dosageForm || undefined,
-          packSize: form.packSize || undefined,
-          prescriptionRequired: form.prescriptionRequired,
-          restrictedItem: form.restrictedItem,
-          notes: form.pharmacyNotes || undefined,
-        } } : {}),
+        ...(isPharmacy
+          ? {
+              pharmacy: {
+                genericName: form.genericName || undefined,
+                internalCode: form.internalCode || undefined,
+                manufacturer: form.manufacturer || undefined,
+                strength: form.strength || undefined,
+                dosageForm: form.dosageForm || undefined,
+                packSize: form.packSize || undefined,
+                prescriptionRequired: form.prescriptionRequired,
+                restrictedItem: form.restrictedItem,
+                notes: form.pharmacyNotes || undefined,
+              },
+            }
+          : {}),
+        ...(isCafe ? { cafeCatalogType: form.cafeCatalogType } : {}),
         confirmLoss: loss,
       };
       if (product) {
@@ -410,13 +475,26 @@ export function ProductForm({
         );
         notify.success(`${terminology.singular} changes saved.`);
       } else {
-        await createProduct(data as Parameters<typeof createProduct>[0]);
+        const created = await createProduct(
+          data as Parameters<typeof createProduct>[0]
+        );
         notify.success(`${terminology.singular} created`);
+        if (isCafe) {
+          router.push(
+            form.cafeCatalogType === 'ingredient'
+              ? `/dashboard/inventory?receive=${created.id}`
+              : `/dashboard/products/${created.id}`
+          );
+          router.refresh();
+          return;
+        }
       }
       closeEditor();
     } catch (err) {
       notify.error(
-        err instanceof Error ? err.message : `Failed to save ${terminology.singularLower}`
+        err instanceof Error
+          ? err.message
+          : `Failed to save ${terminology.singularLower}`
       );
     } finally {
       setLoading(false);
@@ -457,10 +535,13 @@ export function ProductForm({
             </div>
             <div>
               <h2 className="text-base font-semibold">
-                {product ? `${terminology.singular} setup` : `New ${terminology.singularLower}`}
+                {product
+                  ? `${terminology.singular} setup`
+                  : `New ${terminology.singularLower}`}
               </h2>
               <p className="mt-0.5 text-sm text-muted-foreground">
-                Manage the {terminology.singularLower} information, pricing and stock levels.
+                Manage the {terminology.singularLower} information, pricing and
+                stock levels.
               </p>
             </div>
           </div>
@@ -524,10 +605,20 @@ export function ProductForm({
                 </div>
                 <div className="rounded-lg border bg-muted/20 p-4 sm:p-5">
                   <div>
-                    <FieldLabel required>{terminology.singular} name</FieldLabel>
+                    <FieldLabel required>
+                      {terminology.singular} name
+                    </FieldLabel>
                     <input
                       type="text"
-                      placeholder="e.g. Johnnie Walker Black Label 750ml"
+                      placeholder={
+                        isPharmacy
+                          ? 'e.g. Paracetamol 500 mg'
+                          : isCafe
+                            ? 'e.g. Cappuccino'
+                            : isLiquor
+                              ? 'e.g. Johnnie Walker Black Label 750ml'
+                              : 'e.g. Premium flour 2 kg'
+                      }
                       value={form.name}
                       onChange={(e) => {
                         set('name', e.target.value);
@@ -548,145 +639,362 @@ export function ProductForm({
                       </p>
                     )}
                   </div>
-                  {isPharmacy && <div className="mt-4 rounded-lg border bg-background p-4">
-                    <div className="mb-3"><h4 className="text-sm font-semibold">Medicine details</h4><p className="text-xs text-muted-foreground">Commercial catalogue information only—no diagnosis or dosage advice.</p></div>
-                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                      <div><FieldLabel>Generic name</FieldLabel><input value={form.genericName} onChange={(e) => set('genericName', e.target.value)} placeholder="e.g. Paracetamol + Caffeine" className={inputCls} /></div>
-                      <div><FieldLabel>Manufacturer</FieldLabel><input value={form.manufacturer} onChange={(e) => set('manufacturer', e.target.value)} placeholder="Manufacturer" className={inputCls} /></div>
-                      <div><FieldLabel>Internal medicine code</FieldLabel><input value={form.internalCode} onChange={(e) => set('internalCode', e.target.value)} placeholder="e.g. MED-0001" className={inputCls} /></div>
-                      <div><FieldLabel>Strength</FieldLabel><input value={form.strength} onChange={(e) => set('strength', e.target.value)} placeholder="e.g. 500 mg / 65 mg" className={inputCls} /></div>
-                      <div><FieldLabel>Dosage form</FieldLabel><input value={form.dosageForm} onChange={(e) => set('dosageForm', e.target.value)} placeholder="e.g. Tablet" className={inputCls} /></div>
-                      <div><FieldLabel>Pack size</FieldLabel><input value={form.packSize} onChange={(e) => set('packSize', e.target.value)} placeholder="e.g. 20 tablets" className={inputCls} /></div>
-                      <div><FieldLabel>Base selling unit</FieldLabel><select value={form.unit} onChange={(e) => set('unit', e.target.value)} className={inputCls}>{PHARMACY_SELLING_UNITS.map((unit) => <option key={unit} value={unit}>{unit[0].toUpperCase() + unit.slice(1)}</option>)}</select></div>
-                    </div>
-                    <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                      <label className="flex items-start gap-3 rounded-md border p-3 text-sm"><input type="checkbox" checked={form.prescriptionRequired} onChange={(e) => set('prescriptionRequired', e.target.checked)} className="mt-0.5" /><span><b className="block">Prescription required</b><span className="text-xs text-muted-foreground">Require a commercial prescription reference during checkout.</span></span></label>
-                      <label className="flex items-start gap-3 rounded-md border p-3 text-sm"><input type="checkbox" checked={form.restrictedItem} onChange={(e) => set('restrictedItem', e.target.checked)} className="mt-0.5" /><span><b className="block">Restricted-item audit</b><span className="text-xs text-muted-foreground">Record additional approval and traceability details.</span></span></label>
-                    </div>
-                  </div>}
-                  {!isPharmacy && <div className="mt-4 grid gap-4 sm:grid-cols-3">
-                    <div>
-                      <FieldLabel>Brand</FieldLabel>
-                      <input
-                        value={form.brand}
-                        onChange={(e) => set('brand', e.target.value)}
-                        placeholder="e.g. Johnnie Walker"
-                        className={inputCls}
-                      />
-                    </div>
-                    <div>
-                      <FieldLabel>Variant</FieldLabel>
-                      <input
-                        value={form.variant}
-                        onChange={(e) => set('variant', e.target.value)}
-                        placeholder="e.g. Black Label"
-                        className={inputCls}
-                      />
-                    </div>
-                    <div>
-                      <FieldLabel>Category</FieldLabel>
-                      <div className="flex gap-2">
-                        <input
-                          list="product-category-options"
-                          value={categoryLabel(
-                            availableCategories.find(
-                              (item) => item.id === form.categoryId
-                            ) ?? { id: '', name: '' }
-                          )}
-                          onChange={(event) => {
-                            const selected = selectableCategories.find(
-                              (item) =>
-                                categoryLabel(item) === event.target.value
-                            );
-                            if (selected) {
-                              set('categoryId', selected.id);
-                              setErrors((current) => ({
-                                ...current,
-                                categoryId: undefined,
-                              }));
-                            }
-                          }}
-                          placeholder="Search categories…"
-                          aria-invalid={Boolean(errors.categoryId)}
-                          className={cn(
-                            inputCls,
-                            errors.categoryId && 'border-destructive'
-                          )}
-                        />
-                        <datalist id="product-category-options">
-                          {selectableCategories.map((item) => (
-                            <option key={item.id} value={categoryLabel(item)} />
-                          ))}
-                        </datalist>
-                        <button
-                          type="button"
-                          onClick={() => setCategoryDialogOpen(true)}
-                          className="shrink-0 rounded-md border bg-background px-3 py-2 text-sm font-medium hover:bg-secondary"
-                        >
-                          + Add
-                        </button>
-                      </div>
-                      {errors.categoryId && (
-                        <p className="mt-1 text-xs text-destructive">
-                          {errors.categoryId}
+                  {isPharmacy && (
+                    <div className="mt-4 rounded-lg border bg-background p-4">
+                      <div className="mb-3">
+                        <h4 className="text-sm font-semibold">
+                          Medicine details
+                        </h4>
+                        <p className="text-xs text-muted-foreground">
+                          Commercial catalogue information only—no diagnosis or
+                          dosage advice.
                         </p>
+                      </div>
+                      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                        <div>
+                          <FieldLabel>Generic name</FieldLabel>
+                          <input
+                            value={form.genericName}
+                            onChange={(e) => set('genericName', e.target.value)}
+                            placeholder="e.g. Paracetamol + Caffeine"
+                            className={inputCls}
+                          />
+                        </div>
+                        <div>
+                          <FieldLabel>Manufacturer</FieldLabel>
+                          <input
+                            value={form.manufacturer}
+                            onChange={(e) =>
+                              set('manufacturer', e.target.value)
+                            }
+                            placeholder="Manufacturer"
+                            className={inputCls}
+                          />
+                        </div>
+                        <div>
+                          <FieldLabel>Internal medicine code</FieldLabel>
+                          <input
+                            value={form.internalCode}
+                            onChange={(e) =>
+                              set('internalCode', e.target.value)
+                            }
+                            placeholder="e.g. MED-0001"
+                            className={inputCls}
+                          />
+                        </div>
+                        <div>
+                          <FieldLabel>Strength</FieldLabel>
+                          <input
+                            value={form.strength}
+                            onChange={(e) => set('strength', e.target.value)}
+                            placeholder="e.g. 500 mg / 65 mg"
+                            className={inputCls}
+                          />
+                        </div>
+                        <div>
+                          <FieldLabel>Dosage form</FieldLabel>
+                          <input
+                            value={form.dosageForm}
+                            onChange={(e) => set('dosageForm', e.target.value)}
+                            placeholder="e.g. Tablet"
+                            className={inputCls}
+                          />
+                        </div>
+                        <div>
+                          <FieldLabel>Pack size</FieldLabel>
+                          <input
+                            value={form.packSize}
+                            onChange={(e) => set('packSize', e.target.value)}
+                            placeholder="e.g. 20 tablets"
+                            className={inputCls}
+                          />
+                        </div>
+                        <div>
+                          <FieldLabel>Base selling unit</FieldLabel>
+                          <select
+                            value={form.unit}
+                            onChange={(e) => set('unit', e.target.value)}
+                            className={inputCls}
+                          >
+                            {PHARMACY_SELLING_UNITS.map((unit) => (
+                              <option key={unit} value={unit}>
+                                {unit[0].toUpperCase() + unit.slice(1)}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+                      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                        <label className="flex items-start gap-3 rounded-md border p-3 text-sm">
+                          <input
+                            type="checkbox"
+                            checked={form.prescriptionRequired}
+                            onChange={(e) =>
+                              set('prescriptionRequired', e.target.checked)
+                            }
+                            className="mt-0.5"
+                          />
+                          <span>
+                            <b className="block">Prescription required</b>
+                            <span className="text-xs text-muted-foreground">
+                              Require a commercial prescription reference during
+                              checkout.
+                            </span>
+                          </span>
+                        </label>
+                        <label className="flex items-start gap-3 rounded-md border p-3 text-sm">
+                          <input
+                            type="checkbox"
+                            checked={form.restrictedItem}
+                            onChange={(e) =>
+                              set('restrictedItem', e.target.checked)
+                            }
+                            className="mt-0.5"
+                          />
+                          <span>
+                            <b className="block">Restricted-item audit</b>
+                            <span className="text-xs text-muted-foreground">
+                              Record additional approval and traceability
+                              details.
+                            </span>
+                          </span>
+                        </label>
+                      </div>
+                    </div>
+                  )}
+                  {isCafe && !product && (
+                    <div className="mt-4 rounded-lg border border-[#f9b21d]/40 bg-[#fff8e6] p-3 text-sm text-[#694d00] dark:bg-[#2a2111] dark:text-[#ffd166]">
+                      <b className="block">Café-ready setup</b>
+                      <span className="mt-1 block text-xs leading-5">
+                        Save the basics first. The next screen lets you add
+                        optional sizes, modifiers, recipe ingredients and
+                        preparation routing. A simple menu item can be sold
+                        immediately.
+                      </span>
+                    </div>
+                  )}
+                  {isCafe && !product && (
+                    <fieldset className="mt-4 rounded-lg border border-border bg-muted/20 p-3">
+                      <legend className="px-1 text-sm font-semibold">
+                        What are you adding?
+                      </legend>
+                      <div className="grid gap-2 sm:grid-cols-2">
+                        <label
+                          className={cn(
+                            'cursor-pointer rounded-md border p-3 text-sm transition-colors',
+                            form.cafeCatalogType === 'menu_item' &&
+                              'border-primary bg-primary/5'
+                          )}
+                        >
+                          <input
+                            type="radio"
+                            name="cafe-catalog-type"
+                            className="sr-only"
+                            checked={form.cafeCatalogType === 'menu_item'}
+                            onChange={() => set('cafeCatalogType', 'menu_item')}
+                          />
+                          <b className="block">Menu item</b>
+                          <span className="mt-1 block text-xs text-muted-foreground">
+                            Shown at Counter POS. Add sizes, modifiers, recipes
+                            and preparation after saving.
+                          </span>
+                        </label>
+                        <label
+                          className={cn(
+                            'cursor-pointer rounded-md border p-3 text-sm transition-colors',
+                            form.cafeCatalogType === 'ingredient' &&
+                              'border-primary bg-primary/5'
+                          )}
+                        >
+                          <input
+                            type="radio"
+                            name="cafe-catalog-type"
+                            className="sr-only"
+                            checked={form.cafeCatalogType === 'ingredient'}
+                            onChange={() =>
+                              set('cafeCatalogType', 'ingredient')
+                            }
+                          />
+                          <b className="block">Ingredient or supply</b>
+                          <span className="mt-1 block text-xs text-muted-foreground">
+                            Tracked in Ingredients and available for recipes,
+                            but never sold directly at POS.
+                          </span>
+                        </label>
+                      </div>
+                    </fieldset>
+                  )}
+                  {
+                    <div
+                      className={cn(
+                        'mt-4 grid gap-4',
+                        isCafe ? 'sm:grid-cols-1' : 'sm:grid-cols-3'
                       )}
-                    </div>
-                  </div>}
-                  <div className="mt-4 grid gap-4 sm:grid-cols-3">
-                    {!isPharmacy && <div>
-                      <FieldLabel>Bottle or package size</FieldLabel>
-                      <input
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value={form.volume}
-                        onChange={(e) => set('volume', e.target.value)}
-                        placeholder="750"
-                        className={inputCls}
-                      />
-                    </div>}
-                    {!isPharmacy && <div>
-                      <FieldLabel>Volume unit</FieldLabel>
-                      <select
-                        value={form.volumeUnit}
-                        onChange={(e) => set('volumeUnit', e.target.value)}
-                        className={inputCls}
-                      >
-                        {VOLUME_UNITS.map((unit) => (
-                          <option key={unit}>{unit}</option>
-                        ))}
-                      </select>
-                    </div>}
-                    <div>
-                      <FieldLabel>How this {terminology.singularLower} is sold</FieldLabel>
-                      <select
-                        value={form.unit}
-                        onChange={(e) => set('unit', e.target.value)}
-                        className={inputCls}
-                      >
-                        {SELLING_UNITS.map((unit) => (
-                          <option key={unit} value={unit}>
-                            {unit[0].toUpperCase() + unit.slice(1)}
-                          </option>
-                        ))}
-                        {product && !SELLING_UNITS.includes(form.unit) && (
-                          <option value={form.unit}>{form.unit}</option>
+                    >
+                      {!isCafe && !isPharmacy && (
+                        <div>
+                          <FieldLabel>Brand</FieldLabel>
+                          <input
+                            value={form.brand}
+                            onChange={(e) => set('brand', e.target.value)}
+                            placeholder={
+                              isCafe
+                                ? 'Optional, e.g. House made'
+                                : isLiquor
+                                  ? 'e.g. Johnnie Walker'
+                                  : 'Optional brand'
+                            }
+                            className={inputCls}
+                          />
+                        </div>
+                      )}
+                      {!isCafe && !isPharmacy && (
+                        <div>
+                          <FieldLabel>Variant</FieldLabel>
+                          <input
+                            value={form.variant}
+                            onChange={(e) => set('variant', e.target.value)}
+                            placeholder={
+                              isCafe
+                                ? 'Optional, e.g. Iced'
+                                : isLiquor
+                                  ? 'e.g. Black Label'
+                                  : 'Optional variant'
+                            }
+                            className={inputCls}
+                          />
+                        </div>
+                      )}
+                      <div>
+                        <FieldLabel>Category</FieldLabel>
+                        <div className="flex gap-2">
+                          <input
+                            list="product-category-options"
+                            value={categoryLabel(
+                              availableCategories.find(
+                                (item) => item.id === form.categoryId
+                              ) ?? { id: '', name: '' }
+                            )}
+                            onChange={(event) => {
+                              const selected = selectableCategories.find(
+                                (item) =>
+                                  categoryLabel(item) === event.target.value
+                              );
+                              if (selected) {
+                                set('categoryId', selected.id);
+                                setErrors((current) => ({
+                                  ...current,
+                                  categoryId: undefined,
+                                }));
+                              }
+                            }}
+                            placeholder="Search categories…"
+                            aria-invalid={Boolean(errors.categoryId)}
+                            className={cn(
+                              inputCls,
+                              errors.categoryId && 'border-destructive'
+                            )}
+                          />
+                          <datalist id="product-category-options">
+                            {selectableCategories.map((item) => (
+                              <option
+                                key={item.id}
+                                value={categoryLabel(item)}
+                              />
+                            ))}
+                          </datalist>
+                          <button
+                            type="button"
+                            onClick={() => setCategoryDialogOpen(true)}
+                            className="shrink-0 rounded-md border bg-background px-3 py-2 text-sm font-medium hover:bg-secondary"
+                          >
+                            + Add
+                          </button>
+                        </div>
+                        {errors.categoryId && (
+                          <p className="mt-1 text-xs text-destructive">
+                            {errors.categoryId}
+                          </p>
                         )}
-                      </select>
+                      </div>
                     </div>
+                  }
+                  <div className="mt-4 grid gap-4 sm:grid-cols-3">
+                    {isLiquor && (
+                      <div>
+                        <FieldLabel>Bottle or package size</FieldLabel>
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={form.volume}
+                          onChange={(e) => set('volume', e.target.value)}
+                          placeholder="750"
+                          className={inputCls}
+                        />
+                      </div>
+                    )}
+                    {isLiquor && (
+                      <div>
+                        <FieldLabel>Volume unit</FieldLabel>
+                        <select
+                          value={form.volumeUnit}
+                          onChange={(e) => set('volumeUnit', e.target.value)}
+                          className={inputCls}
+                        >
+                          {VOLUME_UNITS.map((unit) => (
+                            <option key={unit}>{unit}</option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+                    {!isPharmacy && (
+                      <div>
+                        <FieldLabel>
+                          How this {terminology.singularLower} is sold
+                        </FieldLabel>
+                        <select
+                          value={form.unit}
+                          onChange={(e) => set('unit', e.target.value)}
+                          className={inputCls}
+                        >
+                          {(isCafe ? CAFE_SELLING_UNITS : SELLING_UNITS).map(
+                            (unit) => (
+                              <option key={unit} value={unit}>
+                                {unit[0].toUpperCase() + unit.slice(1)}
+                              </option>
+                            )
+                          )}
+                          {product &&
+                            !(
+                              isCafe ? CAFE_SELLING_UNITS : SELLING_UNITS
+                            ).includes(form.unit) && (
+                              <option value={form.unit}>{form.unit}</option>
+                            )}
+                        </select>
+                      </div>
+                    )}
                   </div>
                   <div className="mt-4 grid gap-4 sm:grid-cols-3">
                     <div>
                       <FieldLabel>{terminology.singular} code (SKU)</FieldLabel>
                       <p className="mb-1 text-xs text-muted-foreground">
                         A unique code used by your shop to identify this
-                        {terminology.singularLower}. Leave it blank and the system will create one.
+                        {terminology.singularLower}. Leave it blank and the
+                        system will create one.
                       </p>
                       <input
                         id="product-sku"
                         type="text"
-                        placeholder="e.g. JWB-750"
+                        placeholder={
+                          isPharmacy
+                            ? 'e.g. MED-0001'
+                            : isCafe
+                              ? 'e.g. CAP-LATTE'
+                              : isLiquor
+                                ? 'e.g. JWB-750'
+                                : 'e.g. ITEM-001'
+                        }
                         value={form.sku}
                         onChange={(e) => set('sku', e.target.value)}
                         className={inputCls}
@@ -695,7 +1003,9 @@ export function ProductForm({
                     <div>
                       <FieldLabel>Barcode number</FieldLabel>
                       <p className="mb-1 text-xs text-muted-foreground">
-                        Scan the barcode on the {isPharmacy ? 'medicine pack' : 'bottle'} or type the number
+                        {isCafe
+                          ? 'For packaged retail items, scan the pack barcode or type the number'
+                          : `Scan the barcode on the ${isPharmacy ? 'medicine pack' : isLiquor ? 'bottle' : 'product'} or type the number`}
                         printed below it.
                       </p>
                       <div className="flex gap-2">
@@ -753,50 +1063,73 @@ export function ProductForm({
                       )}
                     </div>
                   </div>
-                  {!isPharmacy && <details className="mt-4 rounded-md border bg-background px-3 py-2">
-                    <summary className="cursor-pointer text-sm font-medium">
-                      More {terminology.singularLower} details
-                    </summary>
-                    <div className="mt-3 grid gap-4 sm:grid-cols-3">
-                      <div>
-                        <FieldLabel>Alcohol percentage (ABV)</FieldLabel>
-                        <input
-                          type="number"
-                          min="0"
-                          max="100"
-                          step="0.1"
-                          value={form.abv}
-                          onChange={(e) => set('abv', e.target.value)}
-                          placeholder="40"
-                          className={inputCls}
-                        />
+                  {isLiquor && (
+                    <details className="mt-4 rounded-md border bg-background px-3 py-2">
+                      <summary className="cursor-pointer text-sm font-medium">
+                        More {terminology.singularLower} details
+                      </summary>
+                      <div className="mt-3 grid gap-4 sm:grid-cols-3">
+                        <div>
+                          <FieldLabel>Alcohol percentage (ABV)</FieldLabel>
+                          <input
+                            type="number"
+                            min="0"
+                            max="100"
+                            step="0.1"
+                            value={form.abv}
+                            onChange={(e) => set('abv', e.target.value)}
+                            placeholder="40"
+                            className={inputCls}
+                          />
+                        </div>
+                        <div>
+                          <FieldLabel>Country of origin</FieldLabel>
+                          <input
+                            value={form.countryOfOrigin}
+                            onChange={(e) =>
+                              set('countryOfOrigin', e.target.value)
+                            }
+                            placeholder="e.g. Scotland"
+                            className={inputCls}
+                          />
+                        </div>
+                        <div>
+                          <FieldLabel>Units per pack/carton</FieldLabel>
+                          <input
+                            type="number"
+                            min="1"
+                            step="1"
+                            value={form.unitsPerPack}
+                            onChange={(e) =>
+                              set('unitsPerPack', e.target.value)
+                            }
+                            placeholder="1"
+                            className={inputCls}
+                          />
+                        </div>
                       </div>
-                      <div>
-                        <FieldLabel>Country of origin</FieldLabel>
-                        <input
-                          value={form.countryOfOrigin}
-                          onChange={(e) =>
-                            set('countryOfOrigin', e.target.value)
-                          }
-                          placeholder="e.g. Scotland"
-                          className={inputCls}
-                        />
-                      </div>
-                      <div>
-                        <FieldLabel>Units per pack/carton</FieldLabel>
-                        <input
-                          type="number"
-                          min="1"
-                          step="1"
-                          value={form.unitsPerPack}
-                          onChange={(e) => set('unitsPerPack', e.target.value)}
-                          placeholder="1"
-                          className={inputCls}
-                        />
-                      </div>
-                    </div>
-                  </details>}
-                  {!isPharmacy && <label className="mt-4 flex items-start gap-3 rounded-lg border bg-background p-3"><input type="checkbox" checked={form.requiresAgeVerification} onChange={(event) => set('requiresAgeVerification', event.target.checked)} className="mt-0.5 h-4 w-4" /><span><span className="block text-sm font-semibold">Age restricted</span><span className="mt-0.5 block text-xs text-muted-foreground">Requires age verification before checkout.</span></span></label>}
+                    </details>
+                  )}
+                  {isLiquor && (
+                    <label className="mt-4 flex items-start gap-3 rounded-lg border bg-background p-3">
+                      <input
+                        type="checkbox"
+                        checked={form.requiresAgeVerification}
+                        onChange={(event) =>
+                          set('requiresAgeVerification', event.target.checked)
+                        }
+                        className="mt-0.5 h-4 w-4"
+                      />
+                      <span>
+                        <span className="block text-sm font-semibold">
+                          Age restricted
+                        </span>
+                        <span className="mt-0.5 block text-xs text-muted-foreground">
+                          Requires age verification before checkout.
+                        </span>
+                      </span>
+                    </label>
+                  )}
                   <div className="mt-4">
                     <FieldLabel>Description</FieldLabel>
                     <textarea
@@ -878,7 +1211,11 @@ export function ProductForm({
                         <option value="lot">Batch / lot and expiry</option>
                         <option value="serial">Unique serial numbers</option>
                       </select>
-                      {isPharmacy && <p className="mt-1 text-xs text-muted-foreground">Medicine stock is always batch and expiry tracked.</p>}
+                      {isPharmacy && (
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          Medicine stock is always batch and expiry tracked.
+                        </p>
+                      )}
                     </div>
                     <div>
                       <FieldLabel>Costing method</FieldLabel>
@@ -1026,8 +1363,8 @@ export function ProductForm({
                   </h3>
                 </div>
                 <p className="text-sm text-muted-foreground">
-                  Your {terminology.singularLower} code is generated automatically when you save if
-                  it is blank.
+                  Your {terminology.singularLower} code is generated
+                  automatically when you save if it is blank.
                 </p>
                 <dl className="mt-4 grid gap-4 sm:grid-cols-2">
                   <div>
@@ -1062,9 +1399,17 @@ export function ProductForm({
                 <div className="rounded-lg border bg-muted/20 p-4 sm:p-5">
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div>
-                      <FieldLabel required>Cost price</FieldLabel>
+                      <FieldLabel required={!isCafe}>
+                        {isCafe ? 'Direct item cost' : 'Cost price'}
+                      </FieldLabel>
                       <p className="mb-1 text-xs text-muted-foreground">
-                        {isPharmacy ? 'Required for accurate profit reporting. Enter the cost per selling unit.' : 'Required for accurate profit reporting. How much you paid for one bottle or unit.'}
+                        {isPharmacy
+                          ? 'Required for accurate profit reporting. Enter the cost per selling unit.'
+                          : isCafe
+                            ? 'Use zero for a prepared item whose cost will come from its ingredient recipe, or enter the packaged item cost.'
+                            : isLiquor
+                              ? 'Required for accurate profit reporting. How much you paid for one bottle or unit.'
+                              : 'Required for accurate profit reporting. Enter the cost per selling unit.'}
                       </p>
                       <input
                         type="number"
@@ -1088,7 +1433,13 @@ export function ProductForm({
                     <div>
                       <FieldLabel required>Selling price</FieldLabel>
                       <p className="mb-1 text-xs text-muted-foreground">
-                        {isPharmacy ? 'How much the customer will pay for one selling unit.' : 'How much the customer will pay for one bottle or unit.'}
+                        {isPharmacy
+                          ? 'How much the customer will pay for one selling unit.'
+                          : isCafe
+                            ? 'The base menu price. Size and modifier adjustments can be configured after saving.'
+                            : isLiquor
+                              ? 'How much the customer will pay for one bottle or unit.'
+                              : 'How much the customer will pay for one selling unit.'}
                       </p>
                       <input
                         type="number"
@@ -1117,13 +1468,69 @@ export function ProductForm({
                     </div>
                   </div>
                   <div className="mt-5 border-t pt-5">
-                    <div><h4 className="text-sm font-semibold">eTIMS tax mapping</h4><p className="mt-1 text-xs text-muted-foreground">Use only the item, unit and tax codes supplied by your certified eTIMS provider or KRA specification.</p></div>
+                    <div>
+                      <h4 className="text-sm font-semibold">
+                        eTIMS tax mapping
+                      </h4>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Use only the item, unit and tax codes supplied by your
+                        certified eTIMS provider or KRA specification.
+                      </p>
+                    </div>
                     <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                      <div><FieldLabel>Item code</FieldLabel><input value={form.etimsItemCode} onChange={(e) => set('etimsItemCode', e.target.value)} placeholder="Provider/KRA item code" className={inputCls} /></div>
-                      <div><FieldLabel>Unit code</FieldLabel><input value={form.etimsUnitCode} onChange={(e) => set('etimsUnitCode', e.target.value)} placeholder="Official unit code" className={inputCls} /></div>
-                      <div><FieldLabel>Tax category</FieldLabel><input value={form.etimsTaxCategory} onChange={(e) => set('etimsTaxCategory', e.target.value)} placeholder="Official tax category" className={inputCls} /></div>
-                      <div><FieldLabel>Tax rate (%)</FieldLabel><input type="number" min="0" max="100" step="0.01" value={form.etimsTaxRate} onChange={(e) => set('etimsTaxRate', e.target.value)} placeholder="e.g. 16" className={inputCls} /></div>
-                      <div className="sm:col-span-2"><FieldLabel>VAT classification</FieldLabel><input value={form.etimsVatClassification} onChange={(e) => set('etimsVatClassification', e.target.value)} placeholder="Official classification, if required" className={inputCls} /></div>
+                      <div>
+                        <FieldLabel>Item code</FieldLabel>
+                        <input
+                          value={form.etimsItemCode}
+                          onChange={(e) => set('etimsItemCode', e.target.value)}
+                          placeholder="Provider/KRA item code"
+                          className={inputCls}
+                        />
+                      </div>
+                      <div>
+                        <FieldLabel>Unit code</FieldLabel>
+                        <input
+                          value={form.etimsUnitCode}
+                          onChange={(e) => set('etimsUnitCode', e.target.value)}
+                          placeholder="Official unit code"
+                          className={inputCls}
+                        />
+                      </div>
+                      <div>
+                        <FieldLabel>Tax category</FieldLabel>
+                        <input
+                          value={form.etimsTaxCategory}
+                          onChange={(e) =>
+                            set('etimsTaxCategory', e.target.value)
+                          }
+                          placeholder="Official tax category"
+                          className={inputCls}
+                        />
+                      </div>
+                      <div>
+                        <FieldLabel>Tax rate (%)</FieldLabel>
+                        <input
+                          type="number"
+                          min="0"
+                          max="100"
+                          step="0.01"
+                          value={form.etimsTaxRate}
+                          onChange={(e) => set('etimsTaxRate', e.target.value)}
+                          placeholder="e.g. 16"
+                          className={inputCls}
+                        />
+                      </div>
+                      <div className="sm:col-span-2">
+                        <FieldLabel>VAT classification</FieldLabel>
+                        <input
+                          value={form.etimsVatClassification}
+                          onChange={(e) =>
+                            set('etimsVatClassification', e.target.value)
+                          }
+                          placeholder="Official classification, if required"
+                          className={inputCls}
+                        />
+                      </div>
                     </div>
                   </div>
                   <div
@@ -1172,7 +1579,11 @@ export function ProductForm({
                 </div>
                 <div className="rounded-lg border bg-muted/20 p-4 sm:p-5">
                   <p className="mb-4 text-xs text-muted-foreground">
-                    {isPharmacy ? 'Set the reorder level. Opening medicine stock is received separately with its batch and expiry.' : `Set the opening quantity and the level at which this ${terminology.singularLower} should be flagged for reorder.`}
+                    {isPharmacy
+                      ? 'Set the reorder level. Opening medicine stock is received separately with its batch and expiry.'
+                      : isCafe
+                        ? 'Prepared items can start at zero and consume recipe ingredients. Enter stock only for ready-made or packaged items.'
+                        : `Set the opening quantity and the level at which this ${terminology.singularLower} should be flagged for reorder.`}
                   </p>
                   <div className="grid gap-4 sm:grid-cols-3">
                     <div>
@@ -1185,14 +1596,21 @@ export function ProductForm({
                         value={form.stock}
                         onChange={(e) => set('stock', e.target.value)}
                         readOnly={Boolean(product) || isPharmacy}
-                        className={cn(inputCls, (product || isPharmacy) && 'bg-muted')}
+                        className={cn(
+                          inputCls,
+                          (product || isPharmacy) && 'bg-muted'
+                        )}
                       />
                       <p className="mt-1 text-xs text-muted-foreground">
                         {isPharmacy
                           ? 'Use Purchasing or Receive stock to record a batch number and expiry date.'
                           : product
-                          ? 'Use Adjust stock to record a stock movement.'
-                          : 'How many bottles, cans, cartons or units you currently have.'}
+                            ? 'Use Adjust stock to record a stock movement.'
+                            : isCafe
+                              ? 'Use zero for prepared items. Enter a count only for packaged or ready-made items.'
+                              : isLiquor
+                                ? 'How many bottles, cans, cartons or units you currently have.'
+                                : 'How many selling units you currently have.'}
                       </p>
                       {product && (
                         <button
@@ -1235,13 +1653,17 @@ export function ProductForm({
 
             {step === 5 && (
               <section className="rounded-lg border bg-muted/20 p-5">
-                <h3 className="text-base font-semibold">Review {terminology.singularLower}</h3>
+                <h3 className="text-base font-semibold">
+                  Review {terminology.singularLower}
+                </h3>
                 <p className="mt-1 text-sm text-muted-foreground">
                   Check the details before saving.
                 </p>
                 <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
                   <div>
-                    <dt className="text-muted-foreground">{terminology.singular}</dt>
+                    <dt className="text-muted-foreground">
+                      {terminology.singular}
+                    </dt>
                     <dd className="font-semibold">
                       {form.name || 'Not provided'}
                     </dd>
@@ -1257,7 +1679,9 @@ export function ProductForm({
                     </dd>
                   </div>
                   <div>
-                    <dt className="text-muted-foreground">{terminology.singular} code</dt>
+                    <dt className="text-muted-foreground">
+                      {terminology.singular} code
+                    </dt>
                     <dd>{form.sku || 'Generated on save'}</dd>
                   </div>
                   <div>
@@ -1283,7 +1707,8 @@ export function ProductForm({
                 </dl>
                 {selling < buying && (
                   <p className="mt-4 rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
-                    Warning: this {terminology.singularLower} will be sold below cost.
+                    Warning: this {terminology.singularLower} will be sold below
+                    cost.
                   </p>
                 )}
               </section>
@@ -1331,7 +1756,9 @@ export function ProductForm({
                   )}
                 >
                   {loading && <Loader2 className="h-4 w-4 animate-spin" />}
-                  {product ? 'Save changes' : `Save ${terminology.singularLower}`}
+                  {product
+                    ? 'Save changes'
+                    : `Save ${terminology.singularLower}`}
                 </button>
               )}
             </div>

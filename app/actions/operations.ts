@@ -23,6 +23,7 @@ import {
   salesReturnItem,
   stockMovement,
   user,
+  cafeMenuItem,
 } from '@/lib/db/schema';
 import { generateId } from '@/lib/utils';
 import {
@@ -832,7 +833,10 @@ export async function refundSale(input: {
       orgId,
       posSessionId: refundSessionId,
     });
+    const cafeRows = items.length ? await tx.select({ productId: cafeMenuItem.productId, inventoryMode: cafeMenuItem.inventoryMode }).from(cafeMenuItem).where(and(eq(cafeMenuItem.organizationId, orgId), inArray(cafeMenuItem.productId, items.map((line) => line.productId)))) : [];
+    const cafeInventoryMode = new Map(cafeRows.map((row) => [row.productId, row.inventoryMode]));
     for (const line of items) {
+      const consumedRecipe = cafeInventoryMode.get(line.productId) === 'recipe' || cafeInventoryMode.get(line.productId) === 'none';
       await tx.insert(salesReturnItem).values({
         id: generateId(),
         returnId,
@@ -841,10 +845,10 @@ export async function refundSale(input: {
         quantity: line.quantity,
         unitPrice: line.unitPrice,
         total: line.totalPrice,
-        disposition: data.disposition,
+        disposition: consumedRecipe ? 'not_restocked' : data.disposition,
         orgId,
       });
-      if (data.disposition === 'restock')
+      if (data.disposition === 'restock' && !consumedRecipe)
         await applyInventoryMovement(tx, {
           productId: line.productId,
           productName: line.productName,

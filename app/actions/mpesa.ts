@@ -7,6 +7,7 @@ import {
   branch,
   businessSettings,
   category,
+  cafeOrder,
   customer,
   mpesaBusinessAccount,
   mpesaIncomingPayment,
@@ -43,6 +44,20 @@ const itemSchema = z.object({
   quantity: z.number().int().positive(),
   packageId: z.string().min(1).optional(),
 });
+const cafeLineSchema = z.object({
+  productId: z.string().min(1),
+  quantity: z.number().int().positive(),
+  packageId: z.string().min(1).optional(),
+  modifierOptionIds: z.array(z.string().min(1)).max(50).optional(),
+  notes: z.string().trim().max(500).optional(),
+});
+const cafeCheckoutSchema = z.object({
+  orderType: z.enum(['takeaway', 'dine_in', 'delivery']),
+  tableId: z.string().min(1).optional(),
+  orderId: z.string().min(1).optional(),
+  notes: z.string().trim().max(500).optional(),
+  lines: z.array(cafeLineSchema).min(1).max(250),
+});
 const pharmacyWorkflowSchema = z
   .object({
     prescriptionReference: z.string().trim().min(2).max(120).optional(),
@@ -67,6 +82,7 @@ const initiateSchema = z.object({
   pointsToRedeem: z.number().int().min(0).optional(),
   bonusToUse: z.number().finite().min(0).optional(),
   pharmacy: pharmacyWorkflowSchema,
+  cafe: cafeCheckoutSchema.optional(),
 });
 const paybillSchema = initiateSchema.extend({
   phone: z.string().max(30).nullable().optional().default(''),
@@ -468,6 +484,7 @@ export async function initiateMpesaPayment(
         discountAmount: data.discountAmount,
         shippingAmount: data.shippingAmount,
         roundoffEnabled: data.roundoffEnabled,
+        cafe: data.cafe,
         ageVerified: Boolean(data.ageVerified),
         ageVerificationStatus: data.ageVerificationStatus,
         ageOverrideReason: data.ageOverrideReason,
@@ -783,6 +800,7 @@ export async function initiateMpesaPaybillPayment(
         discountAmount: data.discountAmount,
         shippingAmount: data.shippingAmount,
         roundoffEnabled: data.roundoffEnabled,
+        cafe: data.cafe,
         ageVerified: Boolean(data.ageVerified),
         ageVerificationStatus: data.ageVerificationStatus,
         ageOverrideReason: data.ageOverrideReason,
@@ -1093,6 +1111,13 @@ export async function getFinalizedMpesaSale(requestId: string) {
         eq(saleItem.orgId, authorization.organizationId)
       )
     );
+  const [completedCafeOrder] = await db.select({
+    orderId: cafeOrder.id,
+    orderNumber: cafeOrder.orderNumber,
+    orderType: cafeOrder.orderType,
+    tableId: cafeOrder.tableId,
+    preparationStatus: cafeOrder.preparationStatus,
+  }).from(cafeOrder).where(and(eq(cafeOrder.organizationId, authorization.organizationId), eq(cafeOrder.saleId, completedSale.id))).limit(1);
   return {
     saleId: completedSale.id,
     receiptNo: completedSale.receiptNo,
@@ -1101,6 +1126,7 @@ export async function getFinalizedMpesaSale(requestId: string) {
     total: Number(completedSale.total),
     idempotencyKey: completedSale.idempotencyKey,
     items,
+    cafeOrder: completedCafeOrder ?? null,
     isDuplicate: true,
     mpesaDetails: {
       mode: request.paymentMode,

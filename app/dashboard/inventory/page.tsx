@@ -9,10 +9,20 @@ import { requireWorkspaceModule } from '@/lib/onboarding/require-module';
 import { PermissionEnum } from '@/lib/types/permissions';
 import { isPharmacyBusiness } from '@/lib/pharmacy/rules';
 import { getCurrentProductTerminology } from '@/lib/products/current-terminology';
+import { isCafeBusiness } from '@/lib/hospitality/rules';
 
 export async function generateMetadata(): Promise<Metadata> {
   const terminology = await getCurrentProductTerminology();
-  return { title: terminology.title === 'Medicines' ? 'Medicine Inventory | Pesaby' : terminology.title === 'Stock Items' ? 'Store Inventory | Pesaby' : 'Inventory control | Pesaby' };
+  return {
+    title:
+      terminology.title === 'Medicines'
+        ? 'Medicine Inventory | Pesaby'
+        : terminology.title === 'Stock Items'
+          ? 'Store Inventory | Pesaby'
+          : terminology.title === 'Menu Items'
+            ? 'Café Inventory | Pesaby'
+            : 'Inventory control | Pesaby',
+  };
 }
 export const dynamic = 'force-dynamic';
 
@@ -25,12 +35,16 @@ export default async function InventoryPage({
   const initialReceiveProductId = (await searchParams)?.receive;
   const [{ organization, config }, products, control] = await Promise.all([
     requireWorkspaceModule('inventory'),
-    getProductsPageData(),
+    getProductsPageData({ includeCafeIngredients: true }),
     getInventoryControlData(),
   ]);
   const activeProducts = products.filter((item) => item.isActive);
-  const pharmacy = isPharmacyBusiness(config.businessType, config.businessCategory);
+  const pharmacy = isPharmacyBusiness(
+    config.businessType,
+    config.businessCategory
+  );
   const liquorStore = config.businessCategory === 'liquor_shop';
+  const cafe = isCafeBusiness(config.businessType, config.businessCategory);
   const canAdjust = authorization.permissions.includes(
     PermissionEnum.INVENTORY_ADJUST
   );
@@ -57,9 +71,33 @@ export default async function InventoryPage({
       <DashboardPageHeading
         theme="adaptive"
         icon={Boxes}
-        eyebrow={pharmacy ? 'Pharmacy stock control' : liquorStore ? 'Liquor store stock control' : 'Stock control'}
-        title={pharmacy ? 'Medicine Inventory' : liquorStore ? 'Store Inventory' : 'Inventory'}
-        description={pharmacy ? 'Count, receive and audit medicine stock with batch and expiry controls.' : liquorStore ? 'Count, replenish and audit bottles, packs, cases and other store stock.' : 'Count, replenish, adjust and audit every change to stock on hand.'}
+        eyebrow={
+          pharmacy
+            ? 'Pharmacy stock control'
+            : liquorStore
+              ? 'Liquor store stock control'
+              : cafe
+                ? 'Café stock control'
+                : 'Stock control'
+        }
+        title={
+          pharmacy
+            ? 'Medicine Inventory'
+            : liquorStore
+              ? 'Store Inventory'
+              : cafe
+                ? 'Ingredients & Menu Stock'
+                : 'Inventory'
+        }
+        description={
+          pharmacy
+            ? 'Count, receive and audit medicine stock with batch and expiry controls.'
+            : liquorStore
+              ? 'Count, replenish and audit bottles, packs, cases and other store stock.'
+              : cafe
+                ? 'Count, receive and audit ingredients, packaged drinks and ready-to-sell menu items.'
+                : 'Count, replenish, adjust and audit every change to stock on hand.'
+        }
       />
 
       <InventoryManager

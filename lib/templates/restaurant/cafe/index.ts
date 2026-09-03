@@ -3,11 +3,15 @@ import { RESTAURANT_PERMISSIONS, RESTAURANT_REPORTS, RESTAURANT_SETTINGS } from 
 
 export const navigation: NavigationConfig = {
   primaryNav: [
-    { id: 'dashboard', label: 'Dashboard', icon: 'LayoutDashboard', route: '/dashboard/restaurant' },
-    { id: 'orders', label: 'Orders', icon: 'ClipboardList', route: '/dashboard/orders' },
-    { id: 'tables', label: 'Tables', icon: 'Coffee', route: '/dashboard/tables' },
+    { id: 'dashboard', label: 'Café overview', icon: 'LayoutDashboard', route: '/dashboard' },
+    { id: 'pos', label: 'Counter POS', icon: 'ShoppingCart', route: '/dashboard/pos' },
+    { id: 'sales', label: 'Orders', icon: 'ReceiptText', route: '/dashboard/sales' },
     { id: 'menu', label: 'Menu', icon: 'BookOpen', route: '/dashboard/products' },
-    { id: 'customers', label: 'Customers', icon: 'Users', route: '/dashboard/customers' },
+    { id: 'inventory', label: 'Ingredients', icon: 'Boxes', route: '/dashboard/inventory' },
+    { id: 'stock-intake', label: 'Stock intake', icon: 'PackagePlus', route: '/dashboard/stock-intake' },
+    { id: 'customers', label: 'Guests', icon: 'Users', route: '/dashboard/customers' },
+    { id: 'expenses', label: 'Expenses', icon: 'WalletCards', route: '/dashboard/expenses' },
+    { id: 'operations', label: 'Operations', icon: 'ClipboardCheck', route: '/dashboard/operations' },
     { id: 'analytics', label: 'Analytics', icon: 'BarChart3', route: '/dashboard/analytics' },
     { id: 'reports', label: 'Reports', icon: 'FileBarChart', route: '/dashboard/reports' },
   ],
@@ -17,18 +21,18 @@ export const navigation: NavigationConfig = {
 }
 
 const dashboardWidgets: DashboardWidget[] = [
-  { id: 'active-tables', type: 'stat', title: 'Active Tables', dataSource: 'activeTableCount', span: 1 },
-  { id: 'pending-orders', type: 'stat', title: 'Pending Orders', dataSource: 'pendingOrderCount', span: 1 },
-  { id: 'daily-revenue', type: 'stat', title: 'Daily Revenue', dataSource: 'todaysSales', span: 1 },
-  { id: 'avg-order', type: 'stat', title: 'Avg Order Value', dataSource: 'averageOrderValue', span: 1 },
-  { id: 'order-queue', type: 'order-queue', title: 'Order Queue', dataSource: 'kitchenQueue', span: 2 },
-  { id: 'table-status', type: 'table-grid', title: 'Table Status', dataSource: 'tableStatus', span: 2 },
+  { id: 'daily-revenue', type: 'stat', title: 'Sales today', dataSource: 'todaysSales', span: 1 },
+  { id: 'completed-orders', type: 'stat', title: 'Completed orders', dataSource: 'todaysTransactions', span: 1 },
+  { id: 'avg-order', type: 'stat', title: 'Average order', dataSource: 'averageOrderValue', span: 1 },
+  { id: 'menu-availability', type: 'stat', title: 'Menu availability', dataSource: 'stockHealth', span: 1 },
+  { id: 'recent-orders', type: 'product-table', title: 'Recent orders', dataSource: 'recentSales', span: 2 },
+  { id: 'ingredient-alerts', type: 'alert-list', title: 'Ingredient attention', dataSource: 'lowStockProducts', span: 2 },
 ]
 
 const quickActions: QuickAction[] = [
-  { id: 'new-order', label: 'New Order', href: '/dashboard/orders', icon: 'ClipboardList', primary: true },
-  { id: 'tables', label: 'View Tables', href: '/dashboard/tables', icon: 'Coffee' },
-  { id: 'menu', label: 'Update Menu', href: '/dashboard/products', icon: 'BookOpen' },
+  { id: 'new-order', label: 'New order', href: '/dashboard/pos', icon: 'ShoppingCart', primary: true },
+  { id: 'menu', label: 'Manage menu', href: '/dashboard/products', icon: 'BookOpen' },
+  { id: 'ingredients', label: 'Check ingredients', href: '/dashboard/inventory', icon: 'Boxes' },
 ]
 
 const starterCategories: StarterCategory[] = [
@@ -50,9 +54,10 @@ const starterProducts: StarterProduct[] = [
 
 const gettingStartedTasks: GettingStartedTask[] = [
   { id: 'menu', title: 'Build your menu', description: 'Add your beverages and food items', action: '/dashboard/products' },
-  { id: 'tables', title: 'Set up your seating', description: 'Configure your café seating layout', action: '/dashboard/tables' },
+  { id: 'stock', title: 'Record opening stock', description: 'Add ingredients, packaged drinks and ready-to-sell items', action: '/dashboard/stock-intake' },
+  { id: 'pos', title: 'Open the counter', description: 'Create your first café order in the counter POS', action: '/dashboard/pos' },
   { id: 'staff', title: 'Invite baristas and staff', description: 'Add your team to the workspace', action: '/dashboard/settings' },
-  { id: 'wifi', title: 'Add Wi-Fi details to receipt', description: 'Update the receipt footer with Wi-Fi info', action: '/dashboard/settings' },
+  { id: 'receipt', title: 'Customize café receipts', description: 'Add Wi-Fi details or a return message to the receipt footer', action: '/dashboard/settings' },
 ]
 
 export const cafeTemplate: WorkspaceTemplate = {
@@ -63,8 +68,8 @@ export const cafeTemplate: WorkspaceTemplate = {
   navigation,
   dashboardWidgets,
   quickActions,
-  enabledModules: ['tables', 'orders', 'inventory', 'sales', 'customers', 'reports', 'analytics'],
-  enabledFeatures: ['table-management', 'quick-service', 'loyalty-points'],
+  enabledModules: ['pos', 'sales', 'products', 'inventory', 'purchases', 'customers', 'expenses', 'operations', 'reports', 'analytics'],
+  enabledFeatures: ['counter-service', 'menu-management', 'stock-control', 'customer-profiles'],
   settings: RESTAURANT_SETTINGS,
   permissions: RESTAURANT_PERMISSIONS,
   reports: RESTAURANT_REPORTS,

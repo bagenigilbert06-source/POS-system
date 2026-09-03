@@ -5,248 +5,449 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1785707352928,
+      "when": 1785714995000,
       "tag": "0000_init",
       "breakpoints": true
     },
     {
       "idx": 1,
       "version": "7",
-      "when": 1786669000000,
-      "tag": "0011_inventory_foundation",
+      "when": 1785714995001,
+      "tag": "0001_category_management",
       "breakpoints": true
     },
     {
       "idx": 2,
       "version": "7",
-      "when": 1786670000000,
-      "tag": "0012_purchase_workflow",
+      "when": 1785714995002,
+      "tag": "0002_product_details",
       "breakpoints": true
     },
     {
       "idx": 3,
       "version": "7",
-      "when": 1786682000000,
-      "tag": "0013_branch_scoped_operations",
+      "when": 1785714995003,
+      "tag": "0003_category_images",
       "breakpoints": true
     },
     {
       "idx": 4,
       "version": "7",
-      "when": 1786769000000,
-      "tag": "0014_pos_shift_reconciliation",
+      "when": 1785841895000,
+      "tag": "0003_receipt_logo",
       "breakpoints": true
     },
     {
       "idx": 5,
       "version": "7",
-      "when": 1786770000000,
-      "tag": "0015_pos_cash_variance_policy",
+      "when": 1786561404000,
+      "tag": "0004_pos_pin_auth",
       "breakpoints": true
     },
     {
       "idx": 6,
       "version": "7",
-      "when": 1786771000000,
-      "tag": "0016_pos_reconciliation_draft",
+      "when": 1786561404001,
+      "tag": "0005_pos_sale_integrity",
       "breakpoints": true
     },
     {
       "idx": 7,
       "version": "7",
-      "when": 1787600000000,
-      "tag": "0027_pharmacy_operations",
+      "when": 1786561404002,
+      "tag": "0006_mpesa_stk_push",
       "breakpoints": true
     },
     {
       "idx": 8,
       "version": "7",
-      "when": 1787601000000,
-      "tag": "0028_pharmacy_batch_transfers",
+      "when": 1786561404003,
+      "tag": "0007_mpesa_paybill_reconciliation",
       "breakpoints": true
     },
     {
       "idx": 9,
       "version": "7",
-      "when": 1787602000000,
-      "tag": "0029_pharmacy_supplier_returns",
+      "when": 1786561404004,
+      "tag": "0008_sale_payment_rounding",
       "breakpoints": true
     },
     {
       "idx": 10,
       "version": "7",
-      "when": 1787603000000,
-      "tag": "0030_pharmacy_batch_barcodes",
+      "when": 1786614669000,
+      "tag": "0009_mpesa_callback_finalization",
       "breakpoints": true
     },
     {
       "idx": 11,
       "version": "7",
-      "when": 1787733851571,
-      "tag": "0031_employee_profile",
+      "when": 1786614669001,
+      "tag": "0010_wireless_barcode_scanner",
       "breakpoints": true
     },
     {
       "idx": 12,
       "version": "7",
-      "when": 1787734851571,
-      "tag": "0032_sale_shipping",
+      "when": 1786667609000,
+      "tag": "0011_inventory_foundation",
       "breakpoints": true
     },
     {
       "idx": 13,
       "version": "7",
-      "when": 1787817600000,
-      "tag": "0033_customer_rewards",
+      "when": 1786668989000,
+      "tag": "0012_purchase_workflow",
       "breakpoints": true
     },
     {
       "idx": 14,
       "version": "7",
-      "when": 1787896800000,
-      "tag": "0034_mpesa_manual_payment_audit",
+      "when": 1786674816000,
+      "tag": "0013_branch_scoped_operations",
       "breakpoints": true
     },
     {
       "idx": 15,
       "version": "7",
-      "when": 1787900400000,
-      "tag": "0035_card_terminal_payments",
+      "when": 1787292213000,
+      "tag": "0014_sales_management_indexes",
       "breakpoints": true
     },
     {
       "idx": 16,
       "version": "7",
-      "when": 1787904000000,
-      "tag": "0036_receipt_printing_settings",
+      "when": 1787299842000,
+      "tag": "0015_normalize_wine_category_names",
       "breakpoints": true
     },
     {
       "idx": 17,
       "version": "7",
-      "when": 1788000000000,
-      "tag": "0037_promotion_rules",
+      "when": 1787319302000,
+      "tag": "0016_normalize_staff_departments",
       "breakpoints": true
     },
     {
       "idx": 18,
       "version": "7",
-      "when": 1788003600000,
-      "tag": "0038_terminal_attribution",
+      "when": 1787340239000,
+      "tag": "0017_stock_count_sessions",
       "breakpoints": true
     },
     {
       "idx": 19,
       "version": "7",
-      "when": 1788007200000,
-      "tag": "0039_inventory_loss_terminal_attribution",
+      "when": 1787340239001,
+      "tag": "0018_product_variant",
       "breakpoints": true
     },
     {
       "idx": 20,
       "version": "7",
-      "when": 1788010800000,
-      "tag": "0040_stock_intake",
+      "when": 1787340239002,
+      "tag": "0019_expense_management",
       "breakpoints": true
     },
     {
       "idx": 21,
       "version": "7",
-      "when": 1788014400000,
-      "tag": "0041_staff_attendance",
+      "when": 1787391832000,
+      "tag": "0020_user_profile",
       "breakpoints": true
     },
     {
       "idx": 22,
       "version": "7",
-      "when": 1788018000000,
-      "tag": "0042_invoice_lifecycle",
+      "when": 1787443160000,
+      "tag": "0014_pos_shift_reconciliation",
       "breakpoints": true
     },
     {
       "idx": 23,
       "version": "7",
-      "when": 1788021600000,
-      "tag": "0043_finance_operations",
+      "when": 1787443160001,
+      "tag": "0015_pos_cash_variance_policy",
       "breakpoints": true
     },
     {
       "idx": 24,
       "version": "7",
-      "when": 1788025200000,
-      "tag": "0044_finance_scope_cleanup",
+      "when": 1787443160002,
+      "tag": "0016_pos_reconciliation_draft",
       "breakpoints": true
     },
     {
       "idx": 25,
       "version": "7",
-      "when": 1788028800000,
-      "tag": "0045_invoice_creation_fields",
+      "when": 1787593934000,
+      "tag": "0021_etims_integration",
       "breakpoints": true
     },
     {
       "idx": 26,
       "version": "7",
-      "when": 1788115200000,
-      "tag": "0046_expense_lifecycle",
+      "when": 1787593934001,
+      "tag": "0022_offline_pos",
       "breakpoints": true
     },
     {
       "idx": 27,
       "version": "7",
-      "when": 1788201600000,
-      "tag": "0047_clean_legacy_expense_numbers",
+      "when": 1787593934002,
+      "tag": "0023_suspended_sales",
       "breakpoints": true
     },
     {
       "idx": 28,
       "version": "7",
-      "when": 1788205200000,
-      "tag": "0048_etims_operations",
+      "when": 1787593934003,
+      "tag": "0024_product_packages",
       "breakpoints": true
     },
     {
       "idx": 29,
       "version": "7",
-      "when": 1788210000000,
-      "tag": "0049_safe_loyalty_defaults",
+      "when": 1787593934004,
+      "tag": "0025_pharmacy_vertical",
       "breakpoints": true
     },
-    {"idx":31,"version":"7","when":1788217200000,"tag":"0051_bonus_grants","breakpoints":true},
-    {"idx":32,"version":"7","when":1788220800000,"tag":"0052_bonus_campaign_lifecycle","breakpoints":true}
-    ,{
+    {
       "idx": 30,
       "version": "7",
-      "when": 1788213600000,
-      "tag": "0050_bonus_validity",
+      "when": 1787593934005,
+      "tag": "0026_pharmacy_return_quarantine",
+      "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1787606029000,
+      "tag": "0027_pharmacy_operations",
+      "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1787606029001,
+      "tag": "0028_pharmacy_batch_transfers",
       "breakpoints": true
     },
     {
       "idx": 33,
       "version": "7",
-      "when": 1788224400000,
-      "tag": "0053_receipt_promotion_visibility",
+      "when": 1787606029002,
+      "tag": "0029_pharmacy_supplier_returns",
       "breakpoints": true
     },
     {
       "idx": 34,
       "version": "7",
-      "when": 1788228000000,
-      "tag": "0054_terminal_printer_settings",
+      "when": 1787606029003,
+      "tag": "0030_pharmacy_batch_barcodes",
       "breakpoints": true
     },
     {
       "idx": 35,
       "version": "7",
-      "when": 1788231600000,
-      "tag": "0055_age_verification",
+      "when": 1787736333000,
+      "tag": "0031_employee_profile",
       "breakpoints": true
     },
     {
       "idx": 36,
       "version": "7",
-      "when": 1788235200000,
+      "when": 1787819177000,
+      "tag": "0032_sale_shipping",
+      "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1787874639000,
+      "tag": "0033_customer_rewards",
+      "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1787874640000,
+      "tag": "0034_mpesa_manual_payment_audit",
+      "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1787902064000,
+      "tag": "0035_card_terminal_payments",
+      "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1787902064001,
+      "tag": "0036_receipt_printing_settings",
+      "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1787911195000,
+      "tag": "0037_promotion_rules",
+      "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "7",
+      "when": 1787933315000,
+      "tag": "0038_terminal_attribution",
+      "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "7",
+      "when": 1787936673000,
+      "tag": "0039_inventory_loss_terminal_attribution",
+      "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "7",
+      "when": 1787944609000,
+      "tag": "0040_stock_intake",
+      "breakpoints": true
+    },
+    {
+      "idx": 45,
+      "version": "7",
+      "when": 1787944610000,
+      "tag": "0041_staff_attendance",
+      "breakpoints": true
+    },
+    {
+      "idx": 46,
+      "version": "7",
+      "when": 1788009612000,
+      "tag": "0042_invoice_lifecycle",
+      "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "7",
+      "when": 1788009612001,
+      "tag": "0043_finance_operations",
+      "breakpoints": true
+    },
+    {
+      "idx": 48,
+      "version": "7",
+      "when": 1788009612002,
+      "tag": "0044_finance_scope_cleanup",
+      "breakpoints": true
+    },
+    {
+      "idx": 49,
+      "version": "7",
+      "when": 1788029797000,
+      "tag": "0045_invoice_creation_fields",
+      "breakpoints": true
+    },
+    {
+      "idx": 50,
+      "version": "7",
+      "when": 1788029797001,
+      "tag": "0046_expense_lifecycle",
+      "breakpoints": true
+    },
+    {
+      "idx": 51,
+      "version": "7",
+      "when": 1788029797002,
+      "tag": "0047_clean_legacy_expense_numbers",
+      "breakpoints": true
+    },
+    {
+      "idx": 52,
+      "version": "7",
+      "when": 1788047056000,
+      "tag": "0048_etims_operations",
+      "breakpoints": true
+    },
+    {
+      "idx": 53,
+      "version": "7",
+      "when": 1788065450000,
+      "tag": "0049_safe_loyalty_defaults",
+      "breakpoints": true
+    },
+    {
+      "idx": 54,
+      "version": "7",
+      "when": 1788124655000,
+      "tag": "0050_bonus_validity",
+      "breakpoints": true
+    },
+    {
+      "idx": 55,
+      "version": "7",
+      "when": 1788124655001,
+      "tag": "0051_bonus_grants",
+      "breakpoints": true
+    },
+    {
+      "idx": 56,
+      "version": "7",
+      "when": 1788124655002,
+      "tag": "0052_bonus_campaign_lifecycle",
+      "breakpoints": true
+    },
+    {
+      "idx": 57,
+      "version": "7",
+      "when": 1788124655003,
+      "tag": "0053_receipt_promotion_visibility",
+      "breakpoints": true
+    },
+    {
+      "idx": 58,
+      "version": "7",
+      "when": 1788124655004,
+      "tag": "0054_terminal_printer_settings",
+      "breakpoints": true
+    },
+    {
+      "idx": 59,
+      "version": "7",
+      "when": 1788124655005,
+      "tag": "0055_age_verification",
+      "breakpoints": true
+    },
+    {
+      "idx": 60,
+      "version": "7",
+      "when": 1788124655006,
       "tag": "0056_restricted_products",
+      "breakpoints": true
+    },
+    {
+      "idx": 61,
+      "version": "7",
+      "when": 1788238800000,
+      "tag": "0057_age_verification_integrity",
+      "breakpoints": true
+    },
+    {
+      "idx": 62,
+      "version": "7",
+      "when": 1788242400000,
+      "tag": "0058_cafe_operations",
+      "breakpoints": true
+    },
+    {
+      "idx": 63,
+      "version": "7",
+      "when": 1788246000000,
+      "tag": "0059_cafe_modifier_recipe_replacements",
       "breakpoints": true
     }
   ]

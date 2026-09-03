@@ -1,6 +1,7 @@
 import { categoryLabel } from '../onboarding/config'
 import { isPharmacyBusiness } from '../pharmacy/rules'
 import { getProductTerminology } from '../products/terminology'
+import { isHospitalityBusiness } from '../hospitality/rules'
 
 export type BusinessExperience = {
   kind: 'retail' | 'hospitality' | 'general'
@@ -46,7 +47,7 @@ export function getBusinessExperience(businessFamily: string, businessCategory: 
     }
   }
 
-  if (businessFamily === 'food_hospitality') {
+  if (isHospitalityBusiness(businessFamily, businessCategory)) {
     const foodLabel = category === 'cafe' ? 'Café' : label
     return {
       kind: 'hospitality',

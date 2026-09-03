@@ -31,7 +31,15 @@ export default async function NewProductPage({
         theme="adaptive"
         icon={PackagePlus}
         title={terminology.add}
-        description={`Create a POS-ready ${terminology.singularLower} with pricing, stock, an image and reorder settings.`}
+        description={
+          terminology.title === 'Menu Items'
+            ? 'Create a café menu item with its base price and category, then add optional sizes, modifiers, recipes and preparation routing.'
+            : terminology.title === 'Medicines'
+              ? 'Create a medicine record with dispensing, identification, batch and expiry controls.'
+              : terminology.title === 'Stock Items'
+                ? 'Create a liquor-store item with bottle or pack details, barcode, pricing and stock controls.'
+                : `Create a POS-ready ${terminology.singularLower} with pricing, stock, an image and reorder settings.`
+        }
       />
       <ProductForm
         categories={categories}

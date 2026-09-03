@@ -4,6 +4,7 @@ import { branch, businessSettings, cashMovement, category, customer, customerRew
 import { readThroughRedis } from '@/lib/cache/redis-cache'
 import type { AuthorizationContext } from '@/lib/auth/authorization'
 import { filterPharmacyCatalog } from '@/lib/pharmacy/rules'
+import { getCafePosExperience } from '@/lib/cafe/sale-service'
 
 function receiptSettings(settings: typeof businessSettings.$inferSelect | undefined) {
   const methods = Array.isArray(settings?.paymentMethods) ? settings.paymentMethods as string[] : []
@@ -30,7 +31,7 @@ function receiptSettings(settings: typeof businessSettings.$inferSelect | undefi
 
 /** Complete first-render POS model. Authentication is resolved by the page once;
  * every read below is scoped with that trusted organization context. */
-export async function getPosPageData(authorization: AuthorizationContext, includeCustomers: boolean, pharmacyWorkspace = false) {
+export async function getPosPageData(authorization: AuthorizationContext, includeCustomers: boolean, pharmacyWorkspace = false, cafeWorkspace = false) {
   const orgId = authorization.organizationId
   const terminalId = (authorization as AuthorizationContext & { terminalId?: string }).terminalId
   const today = new Date(); today.setHours(0, 0, 0, 0)
@@ -74,13 +75,22 @@ export async function getPosPageData(authorization: AuthorizationContext, includ
       or(isNull(inventoryLot.expiresAt), gt(inventoryLot.expiresAt, new Date())),
     )).groupBy(inventoryLot.productId)
     : []
+  const cafe = cafeWorkspace && branchRows[0]
+    ? await getCafePosExperience(orgId, branchRows[0].id)
+    : null
   const availableByProduct = new Map(locationBalances.map((item) => [item.productId, Math.max(0, Number(item.onHand) - Number(item.reserved) - Number(item.unavailable))]))
   const validLotsByProduct = new Map(validLotBalances.map((item) => [item.productId, Number(item.quantity)]))
   const packagesByProduct = new Map<string, typeof packages>()
   for (const item of packages) packagesByProduct.set(item.productId, [...(packagesByProduct.get(item.productId) ?? []), item])
   const medicineByProduct = new Map(medicineMetadata.map((item) => [item.productId, item]))
   const eligibleProducts = filterPharmacyCatalog(products, medicineByProduct.keys(), pharmacyWorkspace)
-  const branchProducts = eligibleProducts.map((item) => ({ ...item, stock: item.trackingMode === 'lot' ? validLotsByProduct.get(item.id) ?? 0 : availableByProduct.get(item.id) ?? 0, packages: packagesByProduct.get(item.id) ?? [], pharmacy: medicineByProduct.get(item.id) ?? null }))
+  const cafeByProduct = new Map(cafe?.menuItems.map((item) => [item.productId, item]) ?? [])
+  const branchProducts = eligibleProducts.map((item) => {
+    const cafeItem = cafeByProduct.get(item.id) ?? null
+    const physicalStock = item.trackingMode === 'lot' ? validLotsByProduct.get(item.id) ?? 0 : availableByProduct.get(item.id) ?? 0
+    const stock = cafeItem && cafeItem.inventoryMode !== 'product' ? (cafeItem.available ? 1_000_000 : 0) : physicalStock
+    return { ...item, stock, packages: packagesByProduct.get(item.id) ?? [], pharmacy: medicineByProduct.get(item.id) ?? null, cafe: cafeItem }
+  })
   const eligibleCategoryIds = new Set(branchProducts.map((item) => item.categoryId).filter(Boolean))
   const posCategories = pharmacyWorkspace ? categories.filter((item) => eligibleCategoryIds.has(item.id)) : categories
   const summary = summaryRows[0], refunds = refundRows[0], movements = movementRows[0]
@@ -94,7 +104,7 @@ export async function getPosPageData(authorization: AuthorizationContext, includ
   }
   return {
     products: branchProducts, categories: posCategories, customers, settings: { ...receiptSettings(settingsRows[0]), ...(terminal ? { receiptPrintingMode: terminal.printingMode === 'direct' ? 'direct' as const : 'browser' as const, receiptPrinterName: terminal.printerIdentifier || terminal.printerDisplayName || '', receiptPaperWidth: terminal.paperWidth === 58 ? 58 as const : 80 as const, receiptAutoPrint: terminal.autoPrint, receiptPrintCopies: Math.max(1, Math.min(3, terminal.receiptCopies)), receiptCashDrawerPulse: terminal.cashDrawerPulse } : {}) }, activeBranch: branchRows[0] ?? null,
-    pinSet: Boolean(pinRows[0]?.enabled),
+    pinSet: Boolean(pinRows[0]?.enabled), cafe,
     cashierWorkspace: { session: activeSession, registerName: terminal?.name ?? activeSession?.sessionNo ?? null, cashierName: cashier?.name ?? null, shiftSales: Number(summary?.total ?? 0) - Number(refunds?.total ?? 0), transactionCount: Number(summary?.count ?? 0), cashMovementCount: Number(movements?.count ?? 0), locationName: branchRows[0]?.name ?? 'Assigned location', recentSales, mpesaCounters },
   }
 }

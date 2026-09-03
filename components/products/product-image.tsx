@@ -5,9 +5,12 @@ import Image from 'next/image';
 import { cn } from '@/lib/utils';
 import { useWorkspace } from '@/lib/context/workspace-context';
 import { isPharmacyBusiness } from '@/lib/pharmacy/rules';
+import { isCafeBusiness } from '@/lib/hospitality/rules';
 
-const LIQUOR_FALLBACK_IMAGE = '/images/inventory/liquor-product-placeholder.png';
+const LIQUOR_FALLBACK_IMAGE =
+  '/images/inventory/liquor-product-placeholder.png';
 const PHARMACY_FALLBACK_IMAGE = '/images/industries/pharmacy.png';
+const CAFE_FALLBACK_IMAGE = '/images/industries/restaurant.png';
 
 export function ProductImage({
   src,
@@ -23,9 +26,12 @@ export function ProductImage({
   priority?: boolean;
 }) {
   const { config } = useWorkspace();
-  const fallbackImage = config && isPharmacyBusiness(config.businessType, config.businessCategory)
-    ? PHARMACY_FALLBACK_IMAGE
-    : LIQUOR_FALLBACK_IMAGE;
+  const fallbackImage =
+    config && isPharmacyBusiness(config.businessType, config.businessCategory)
+      ? PHARMACY_FALLBACK_IMAGE
+      : config && isCafeBusiness(config.businessType, config.businessCategory)
+        ? CAFE_FALLBACK_IMAGE
+        : LIQUOR_FALLBACK_IMAGE;
   const [imageSrc, setImageSrc] = useState(src || fallbackImage);
 
   useEffect(() => {

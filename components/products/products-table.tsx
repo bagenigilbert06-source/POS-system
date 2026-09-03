@@ -11,7 +11,6 @@ import { cn } from '@/lib/utils';
 import {
   Archive,
   Eye,
-  Pencil,
   Plus,
   Search,
   Package,
@@ -22,6 +21,7 @@ import {
   ShoppingCart,
   Smartphone,
 } from 'lucide-react';
+import { PaymentSummaryEditIcon } from '@/components/ui/payment-summary-edit-icon';
 import type { Product } from '@/lib/db/schema';
 import { notify } from '@/lib/notify';
 import {
@@ -442,7 +442,7 @@ export function ProductsTable({
         {/* Product cards */}
         {filtered.length > 0 && viewMode === 'grid' && (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-            {filtered.map((p) => {
+            {filtered.map((p, index) => {
               const buying = parseFloat(p.buyingPrice);
               const selling = parseFloat(p.sellingPrice);
               const profit = selling - buying;
@@ -475,6 +475,7 @@ export function ProductsTable({
                           width={320}
                           height={220}
                           unoptimized
+                          loading={index < 5 ? 'eager' : 'lazy'}
                           onClick={(event) => {
                             event.preventDefault();
                             event.stopPropagation();
@@ -565,11 +566,11 @@ export function ProductsTable({
                         <Link
                           href={`/dashboard/products/${p.id}?edit=true`}
                           onClick={(event) => event.stopPropagation()}
-                          className="inline-flex h-8 w-8 items-center justify-center border-l border-slate-200 text-slate-500 transition-colors hover:bg-slate-50 hover:text-slate-900 focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary dark:border-white/10 dark:text-slate-400 dark:hover:bg-white/10 dark:hover:text-white"
+                          className="inline-flex h-6 w-6 items-center justify-center rounded-md border border-[var(--dashboard-border)] bg-[var(--dashboard-surface-subtle)] text-[var(--dashboard-muted)] transition-colors hover:border-[var(--dashboard-accent-soft-border)] hover:bg-[var(--dashboard-accent-soft)] hover:text-[var(--dashboard-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--dashboard-accent)]/30"
                           aria-label={`Edit ${p.name}`}
                           title={`Edit ${terminology.singularLower}`}
                         >
-                          <Pencil className="h-4 w-4" aria-hidden="true" />
+                          <PaymentSummaryEditIcon className="h-3 w-3" />
                         </Link>
                         {p.isActive && (
                           <button
@@ -642,10 +643,10 @@ export function ProductsTable({
                         </div>
                         <Link
                           href={`/dashboard/products/${p.id}?edit=true`}
-                          className="app-icon-button"
+                          className="inline-flex h-6 w-6 items-center justify-center rounded-md border border-[var(--dashboard-border)] bg-[var(--dashboard-surface-subtle)] text-[var(--dashboard-muted)] transition-colors hover:border-[var(--dashboard-accent-soft-border)] hover:bg-[var(--dashboard-accent-soft)] hover:text-[var(--dashboard-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--dashboard-accent)]/30"
                           aria-label={`Edit ${p.name}`}
                         >
-                          <Pencil className="h-4 w-4" />
+                          <PaymentSummaryEditIcon className="h-3 w-3" />
                         </Link>
                       </div>
                       <dl className="mt-4 grid grid-cols-2 gap-3 text-sm">
@@ -807,11 +808,11 @@ export function ProductsTable({
                               </Link>
                               <Link
                                 href={`/dashboard/products/${p.id}?edit=true`}
-                                className="inline-flex h-8 w-8 items-center justify-center border-l border-slate-200 text-slate-500 transition-colors hover:bg-slate-50 hover:text-slate-900 focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary dark:border-white/10 dark:text-slate-400 dark:hover:bg-white/10 dark:hover:text-white"
+                                className="inline-flex h-6 w-6 items-center justify-center rounded-md border border-[var(--dashboard-border)] bg-[var(--dashboard-surface-subtle)] text-[var(--dashboard-muted)] transition-colors hover:border-[var(--dashboard-accent-soft-border)] hover:bg-[var(--dashboard-accent-soft)] hover:text-[var(--dashboard-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--dashboard-accent)]/30"
                                 aria-label={`Edit ${p.name}`}
                                 title={`Edit ${terminology.singularLower}`}
                               >
-                                <Pencil className="h-4 w-4" aria-hidden="true" />
+                                <PaymentSummaryEditIcon className="h-3 w-3" />
                               </Link>
                               {p.isActive && (
                                 <button

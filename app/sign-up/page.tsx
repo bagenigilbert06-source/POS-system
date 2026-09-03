@@ -1,27 +1,27 @@
-import { redirect } from 'next/navigation'
-import { headers } from 'next/headers'
-import Image from 'next/image'
-import Link from 'next/link'
-import type { Metadata } from 'next'
-import { IconUserShield } from '@tabler/icons-react'
-import { auth } from '@/lib/auth'
-import { AuthForm } from '@/components/auth/auth-form'
-import { PesabyLogoMark } from '@/components/brand/pesaby-logo'
+import { redirect } from 'next/navigation';
+import { headers } from 'next/headers';
+import Image from 'next/image';
+import Link from 'next/link';
+import type { Metadata } from 'next';
+import { IconUserShield } from '@tabler/icons-react';
+import { auth } from '@/lib/auth';
+import { AuthForm } from '@/components/auth/auth-form';
+import { PesabyLogoMark } from '@/components/brand/pesaby-logo';
 
-export const metadata: Metadata = { title: 'Sign Up' }
+export const metadata: Metadata = { title: 'Sign Up' };
 
 export default async function SignUpPage() {
-  const session = await auth.api.getSession({ headers: await headers() })
-  if (session?.user) redirect('/dashboard')
+  const session = await auth.api.getSession({ headers: await headers() });
+  if (session?.user) redirect('/dashboard');
 
   return (
-    <main className="auth-workspace relative flex min-h-dvh items-center justify-center overflow-hidden bg-[#15171c] p-3 text-slate-950 sm:p-6 lg:p-8">
-      <div className="pointer-events-none absolute inset-0 opacity-60" aria-hidden="true">
-        <div className="absolute -left-32 -top-40 h-96 w-96 rounded-full bg-[#ffda32]/15 blur-3xl" />
-        <div className="absolute -bottom-48 right-0 h-[30rem] w-[30rem] rounded-full bg-[#e42527]/10 blur-3xl" />
+    <main className="auth-workspace relative flex min-h-dvh items-center justify-center overflow-hidden bg-[#f4f6f8] p-3 text-slate-950 sm:p-6 lg:p-8">
+      <div className="pointer-events-none absolute inset-0" aria-hidden="true">
+        <div className="absolute -left-32 -top-40 h-96 w-96 rounded-full bg-[#ffda32]/10 blur-3xl" />
+        <div className="absolute -bottom-48 right-0 h-[30rem] w-[30rem] rounded-full bg-[#e42527]/5 blur-3xl" />
       </div>
 
-      <div className="relative grid w-full max-w-[1220px] overflow-hidden rounded-[28px] bg-white shadow-[0_34px_100px_rgba(0,0,0,0.42)] xl:min-h-[min(800px,calc(100dvh-48px))] xl:grid-cols-[56%_44%]">
+      <div className="relative grid w-full max-w-[1220px] overflow-hidden rounded-[28px] bg-white shadow-[0_20px_60px_rgba(15,23,42,0.14)] ring-1 ring-slate-200/80 xl:min-h-[min(800px,calc(100dvh-64px))] xl:grid-cols-[56%_44%]">
         <section className="relative hidden bg-[#ffda32] xl:flex xl:flex-col">
           <div className="absolute inset-0" aria-hidden="true">
             <div className="absolute -left-28 top-28 h-[33rem] w-[39rem] rounded-[48%_52%_57%_43%/42%_48%_52%_58%] bg-[#fff8dc]/75" />
@@ -31,11 +31,18 @@ export default async function SignUpPage() {
           </div>
 
           <div className="relative z-10 flex items-center justify-between px-10 pt-9 xl:px-12">
-            <Link href="/" className="flex items-center gap-3 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-950">
+            <Link
+              href="/"
+              className="flex items-center gap-3 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-950"
+            >
               <PesabyLogoMark className="h-11 w-11" />
               <span className="leading-none">
-                <span className="block text-xl font-black tracking-tight text-slate-950">Pesaby</span>
-                <span className="mt-1 block text-[10px] font-bold uppercase tracking-[0.2em] text-slate-600">Business OS</span>
+                <span className="block text-xl font-black tracking-tight text-slate-950">
+                  Pesaby
+                </span>
+                <span className="mt-1 block text-[10px] font-bold uppercase tracking-[0.2em] text-slate-600">
+                  Business OS
+                </span>
               </span>
             </Link>
             <span className="rounded-full border border-black/10 bg-white/55 px-3 py-1.5 text-[11px] font-extrabold uppercase tracking-[0.14em] text-slate-700">
@@ -60,7 +67,8 @@ export default async function SignUpPage() {
               Your business deserves a smarter way to grow.
             </p>
             <p className="mt-2 text-sm font-medium text-slate-700">
-              Create one secure workspace for sales, stock, staff, and reporting.
+              Create one secure workspace for sales, stock, staff, and
+              reporting.
             </p>
           </div>
 
@@ -82,9 +90,14 @@ export default async function SignUpPage() {
             <div className="mb-7 flex items-center justify-between xl:hidden">
               <Link href="/" className="flex items-center gap-3">
                 <PesabyLogoMark className="h-10 w-10" />
-                <span className="text-lg font-black tracking-tight text-slate-950">Pesaby</span>
+                <span className="text-lg font-black tracking-tight text-slate-950">
+                  Pesaby
+                </span>
               </Link>
-              <Link href="/sign-in" className="text-sm font-bold text-[#c91f21] underline-offset-4 hover:underline">
+              <Link
+                href="/sign-in"
+                className="text-sm font-bold text-[#c91f21] underline-offset-4 hover:underline"
+              >
                 Sign in
               </Link>
             </div>
@@ -92,7 +105,11 @@ export default async function SignUpPage() {
             <div className="mb-6">
               <div className="mb-4 flex items-center gap-3">
                 <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#ffda32] text-slate-950 shadow-sm ring-1 ring-black/5">
-                  <IconUserShield className="h-5 w-5" stroke={1.8} aria-hidden="true" />
+                  <IconUserShield
+                    className="h-5 w-5"
+                    stroke={1.8}
+                    aria-hidden="true"
+                  />
                 </span>
                 <span className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-zinc-500">
                   Secure business setup
@@ -102,7 +119,8 @@ export default async function SignUpPage() {
                 Create your account
               </h1>
               <p className="mt-2 text-sm leading-6 text-zinc-600">
-                Start your Pesaby workspace and set up your business in a few guided steps.
+                Start your Pesaby workspace and set up your business in a few
+                guided steps.
               </p>
             </div>
 
@@ -115,5 +133,5 @@ export default async function SignUpPage() {
         </section>
       </div>
     </main>
-  )
+  );
 }

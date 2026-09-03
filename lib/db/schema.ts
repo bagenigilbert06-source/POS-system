@@ -3093,6 +3093,213 @@ export const financeDocument = pgTable('finance_document', {
   id: text('id').primaryKey(), organizationId: text('organizationId').notNull().references(() => organization.id, { onDelete: 'cascade' }), entityType: text('entityType').notNull(), entityId: text('entityId').notNull(), filename: text('filename').notNull(), storageUrl: text('storageUrl').notNull(), contentType: text('contentType').notNull(), sizeBytes: integer('sizeBytes').notNull(), uploadedBy: text('uploadedBy').notNull().references(() => user.id, { onDelete: 'restrict' }), createdAt: timestamp('createdAt').notNull().defaultNow(),
 }, (table) => ({ entityIndex: index('finance_document_org_entity_idx').on(table.organizationId, table.entityType, table.entityId) }));
 
+// --- Café operations ------------------------------------------------------
+// These tables layer hospitality workflows over the shared product, sale,
+// inventory, payment, printing and shift authorities. They are intentionally
+// scoped by organization and branch so café capabilities never leak into
+// unrelated workspaces.
+
+export const cafeConfiguration = pgTable('cafe_configuration', {
+  organizationId: text('organizationId').primaryKey().references(() => organization.id, { onDelete: 'cascade' }),
+  enabledOrderTypes: json('enabledOrderTypes').notNull().default(['takeaway']),
+  defaultOrderType: text('defaultOrderType').notNull().default('takeaway'),
+  tablesEnabled: boolean('tablesEnabled').notNull().default(false),
+  preparationEnabled: boolean('preparationEnabled').notNull().default(false),
+  stationsEnabled: boolean('stationsEnabled').notNull().default(false),
+  tipsEnabled: boolean('tipsEnabled').notNull().default(false),
+  kitchenPrintingEnabled: boolean('kitchenPrintingEnabled').notNull().default(false),
+  updatedBy: text('updatedBy').references(() => user.id, { onDelete: 'set null' }),
+  createdAt: timestamp('createdAt').notNull().defaultNow(),
+  updatedAt: timestamp('updatedAt').notNull().defaultNow(),
+});
+
+export const cafePreparationStation = pgTable('cafe_preparation_station', {
+  id: text('id').primaryKey(),
+  organizationId: text('organizationId').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  branchId: text('branchId').references(() => branch.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  printerIdentifier: text('printerIdentifier'),
+  isActive: boolean('isActive').notNull().default(true),
+  sortOrder: integer('sortOrder').notNull().default(0),
+  createdAt: timestamp('createdAt').notNull().defaultNow(),
+  updatedAt: timestamp('updatedAt').notNull().defaultNow(),
+}, (table) => ({
+  organizationNameUnique: uniqueIndex('cafe_station_org_branch_name_unique').on(table.organizationId, table.branchId, table.name),
+  organizationIndex: index('cafe_station_org_active_idx').on(table.organizationId, table.isActive),
+}));
+
+/** Café-only metadata for a shared product. productPackage rows are the
+ * authoritative sellable sizes/variants for this item. */
+export const cafeMenuItem = pgTable('cafe_menu_item', {
+  productId: text('productId').primaryKey().references(() => product.id, { onDelete: 'cascade' }),
+  organizationId: text('organizationId').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  inventoryMode: text('inventoryMode').notNull().default('product'),
+  preparationRequired: boolean('preparationRequired').notNull().default(false),
+  stationId: text('stationId').references(() => cafePreparationStation.id, { onDelete: 'set null' }),
+  manualAvailability: text('manualAvailability').notNull().default('available'),
+  availabilityReason: text('availabilityReason'),
+  createdAt: timestamp('createdAt').notNull().defaultNow(),
+  updatedAt: timestamp('updatedAt').notNull().defaultNow(),
+}, (table) => ({ organizationIndex: index('cafe_menu_item_org_idx').on(table.organizationId) }));
+
+export const cafeModifierGroup = pgTable('cafe_modifier_group', {
+  id: text('id').primaryKey(),
+  organizationId: text('organizationId').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  selectionType: text('selectionType').notNull().default('single'),
+  minimumSelections: integer('minimumSelections').notNull().default(0),
+  maximumSelections: integer('maximumSelections').notNull().default(1),
+  isActive: boolean('isActive').notNull().default(true),
+  sortOrder: integer('sortOrder').notNull().default(0),
+  createdAt: timestamp('createdAt').notNull().defaultNow(),
+  updatedAt: timestamp('updatedAt').notNull().defaultNow(),
+}, (table) => ({ organizationIndex: index('cafe_modifier_group_org_idx').on(table.organizationId, table.isActive) }));
+
+export const cafeModifierOption = pgTable('cafe_modifier_option', {
+  id: text('id').primaryKey(),
+  organizationId: text('organizationId').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  groupId: text('groupId').notNull().references(() => cafeModifierGroup.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  priceAdjustment: numeric('priceAdjustment', { precision: 12, scale: 2 }).notNull().default('0'),
+  isActive: boolean('isActive').notNull().default(true),
+  sortOrder: integer('sortOrder').notNull().default(0),
+  createdAt: timestamp('createdAt').notNull().defaultNow(),
+  updatedAt: timestamp('updatedAt').notNull().defaultNow(),
+}, (table) => ({ groupIndex: index('cafe_modifier_option_group_idx').on(table.groupId, table.isActive) }));
+
+export const cafeMenuItemModifierGroup = pgTable('cafe_menu_item_modifier_group', {
+  id: text('id').primaryKey(),
+  organizationId: text('organizationId').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  productId: text('productId').notNull().references(() => product.id, { onDelete: 'cascade' }),
+  groupId: text('groupId').notNull().references(() => cafeModifierGroup.id, { onDelete: 'cascade' }),
+  sortOrder: integer('sortOrder').notNull().default(0),
+}, (table) => ({
+  productGroupUnique: uniqueIndex('cafe_menu_item_modifier_unique').on(table.productId, table.groupId),
+  organizationProductIndex: index('cafe_menu_item_modifier_org_product_idx').on(table.organizationId, table.productId),
+}));
+
+/** Quantities are always stored in the ingredient product's base unit. A row
+ * can apply to the base item, one size, or one selected modifier option. */
+export const cafeRecipeComponent = pgTable('cafe_recipe_component', {
+  id: text('id').primaryKey(),
+  organizationId: text('organizationId').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  menuProductId: text('menuProductId').notNull().references(() => product.id, { onDelete: 'cascade' }),
+  packageId: text('packageId').references(() => productPackage.id, { onDelete: 'cascade' }),
+  modifierOptionId: text('modifierOptionId').references(() => cafeModifierOption.id, { onDelete: 'cascade' }),
+  ingredientProductId: text('ingredientProductId').notNull().references(() => product.id, { onDelete: 'restrict' }),
+  quantityBase: numeric('quantityBase', { precision: 16, scale: 3 }).notNull(),
+  createdAt: timestamp('createdAt').notNull().defaultNow(),
+  updatedAt: timestamp('updatedAt').notNull().defaultNow(),
+}, (table) => ({
+  menuIndex: index('cafe_recipe_menu_idx').on(table.organizationId, table.menuProductId),
+  ingredientIndex: index('cafe_recipe_ingredient_idx').on(table.organizationId, table.ingredientProductId),
+}));
+
+export const cafeTable = pgTable('cafe_table', {
+  id: text('id').primaryKey(),
+  organizationId: text('organizationId').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  branchId: text('branchId').notNull().references(() => branch.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  status: text('status').notNull().default('available'),
+  isActive: boolean('isActive').notNull().default(true),
+  sortOrder: integer('sortOrder').notNull().default(0),
+  createdAt: timestamp('createdAt').notNull().defaultNow(),
+  updatedAt: timestamp('updatedAt').notNull().defaultNow(),
+}, (table) => ({
+  branchNameUnique: uniqueIndex('cafe_table_branch_name_unique').on(table.branchId, table.name),
+  branchStatusIndex: index('cafe_table_branch_status_idx').on(table.organizationId, table.branchId, table.status),
+}));
+
+export const cafeOrderSequence = pgTable('cafe_order_sequence', {
+  organizationId: text('organizationId').primaryKey().references(() => organization.id, { onDelete: 'cascade' }),
+  lastNumber: integer('lastNumber').notNull().default(1000),
+  updatedAt: timestamp('updatedAt').notNull().defaultNow(),
+});
+
+export const cafeOrder = pgTable('cafe_order', {
+  id: text('id').primaryKey(),
+  organizationId: text('organizationId').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  branchId: text('branchId').notNull().references(() => branch.id, { onDelete: 'restrict' }),
+  saleId: text('saleId').references(() => sale.id, { onDelete: 'restrict' }),
+  orderNumber: integer('orderNumber').notNull(),
+  orderType: text('orderType').notNull().default('takeaway'),
+  tableId: text('tableId').references(() => cafeTable.id, { onDelete: 'restrict' }),
+  guestId: text('guestId').references(() => customer.id, { onDelete: 'set null' }),
+  status: text('status').notNull().default('paid'),
+  preparationStatus: text('preparationStatus').notNull().default('completed'),
+  notes: text('notes'),
+  idempotencyKey: text('idempotencyKey').notNull(),
+  createdBy: text('createdBy').notNull().references(() => user.id, { onDelete: 'restrict' }),
+  createdAt: timestamp('createdAt').notNull().defaultNow(),
+  updatedAt: timestamp('updatedAt').notNull().defaultNow(),
+  completedAt: timestamp('completedAt'),
+}, (table) => ({
+  organizationNumberUnique: uniqueIndex('cafe_order_org_number_unique').on(table.organizationId, table.orderNumber),
+  saleUnique: uniqueIndex('cafe_order_sale_unique').on(table.saleId),
+  idempotencyUnique: uniqueIndex('cafe_order_org_idempotency_unique').on(table.organizationId, table.idempotencyKey),
+  branchQueueIndex: index('cafe_order_branch_queue_idx').on(table.organizationId, table.branchId, table.preparationStatus, table.createdAt),
+}));
+
+export const cafeOrderLine = pgTable('cafe_order_line', {
+  id: text('id').primaryKey(),
+  organizationId: text('organizationId').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  orderId: text('orderId').notNull().references(() => cafeOrder.id, { onDelete: 'cascade' }),
+  saleItemId: text('saleItemId').references(() => saleItem.id, { onDelete: 'restrict' }),
+  productId: text('productId').notNull().references(() => product.id, { onDelete: 'restrict' }),
+  packageId: text('packageId').references(() => productPackage.id, { onDelete: 'restrict' }),
+  itemName: text('itemName').notNull(),
+  sizeName: text('sizeName'),
+  quantity: integer('quantity').notNull(),
+  unitPrice: numeric('unitPrice', { precision: 12, scale: 2 }).notNull(),
+  totalPrice: numeric('totalPrice', { precision: 12, scale: 2 }).notNull(),
+  preparationRequired: boolean('preparationRequired').notNull().default(false),
+  stationId: text('stationId').references(() => cafePreparationStation.id, { onDelete: 'set null' }),
+  preparationStatus: text('preparationStatus').notNull().default('completed'),
+  notes: text('notes'),
+  createdAt: timestamp('createdAt').notNull().defaultNow(),
+}, (table) => ({ orderIndex: index('cafe_order_line_order_idx').on(table.organizationId, table.orderId) }));
+
+export const cafeOrderLineModifier = pgTable('cafe_order_line_modifier', {
+  id: text('id').primaryKey(),
+  organizationId: text('organizationId').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  orderLineId: text('orderLineId').notNull().references(() => cafeOrderLine.id, { onDelete: 'cascade' }),
+  modifierGroupId: text('modifierGroupId').notNull().references(() => cafeModifierGroup.id, { onDelete: 'restrict' }),
+  modifierOptionId: text('modifierOptionId').notNull().references(() => cafeModifierOption.id, { onDelete: 'restrict' }),
+  groupName: text('groupName').notNull(),
+  optionName: text('optionName').notNull(),
+  priceAdjustment: numeric('priceAdjustment', { precision: 12, scale: 2 }).notNull().default('0'),
+}, (table) => ({ lineIndex: index('cafe_order_line_modifier_line_idx').on(table.organizationId, table.orderLineId) }));
+
+export const cafePreparationEvent = pgTable('cafe_preparation_event', {
+  id: text('id').primaryKey(),
+  organizationId: text('organizationId').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  branchId: text('branchId').notNull().references(() => branch.id, { onDelete: 'restrict' }),
+  orderId: text('orderId').notNull().references(() => cafeOrder.id, { onDelete: 'cascade' }),
+  fromStatus: text('fromStatus'),
+  toStatus: text('toStatus').notNull(),
+  userId: text('userId').notNull().references(() => user.id, { onDelete: 'restrict' }),
+  createdAt: timestamp('createdAt').notNull().defaultNow(),
+}, (table) => ({ orderIndex: index('cafe_preparation_event_order_idx').on(table.organizationId, table.orderId, table.createdAt) }));
+
+export const cafeWastage = pgTable('cafe_wastage', {
+  id: text('id').primaryKey(),
+  organizationId: text('organizationId').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  branchId: text('branchId').notNull().references(() => branch.id, { onDelete: 'restrict' }),
+  inventoryLossId: text('inventoryLossId').notNull().references(() => inventoryLoss.id, { onDelete: 'restrict' }),
+  productId: text('productId').notNull().references(() => product.id, { onDelete: 'restrict' }),
+  quantityBase: numeric('quantityBase', { precision: 16, scale: 3 }).notNull(),
+  enteredQuantity: numeric('enteredQuantity', { precision: 16, scale: 3 }).notNull(),
+  enteredUnit: text('enteredUnit').notNull(),
+  reasonType: text('reasonType').notNull(),
+  notes: text('notes'),
+  recordedBy: text('recordedBy').notNull().references(() => user.id, { onDelete: 'restrict' }),
+  approvedBy: text('approvedBy').references(() => user.id, { onDelete: 'restrict' }),
+  createdAt: timestamp('createdAt').notNull().defaultNow(),
+}, (table) => ({
+  lossUnique: uniqueIndex('cafe_wastage_loss_unique').on(table.inventoryLossId),
+  branchCreatedIndex: index('cafe_wastage_branch_created_idx').on(table.organizationId, table.branchId, table.createdAt),
+}));
+
 // --- Type exports ----------------------------------------------------------
 export type User = typeof user.$inferSelect;
 export type Organization = typeof organization.$inferSelect;
@@ -3160,3 +3367,13 @@ export type PerformanceGoal = typeof performanceGoal.$inferSelect;
 export type FinancialAccount = typeof financialAccount.$inferSelect;
 export type ExternalFinancialTransaction = typeof externalFinancialTransaction.$inferSelect;
 export type FinanceApproval = typeof financeApproval.$inferSelect;
+export type CafeConfiguration = typeof cafeConfiguration.$inferSelect;
+export type CafeMenuItem = typeof cafeMenuItem.$inferSelect;
+export type CafeModifierGroup = typeof cafeModifierGroup.$inferSelect;
+export type CafeModifierOption = typeof cafeModifierOption.$inferSelect;
+export type CafeRecipeComponent = typeof cafeRecipeComponent.$inferSelect;
+export type CafeTable = typeof cafeTable.$inferSelect;
+export type CafeOrder = typeof cafeOrder.$inferSelect;
+export type CafeOrderLine = typeof cafeOrderLine.$inferSelect;
+export type CafePreparationStation = typeof cafePreparationStation.$inferSelect;
+export type CafeWastage = typeof cafeWastage.$inferSelect;

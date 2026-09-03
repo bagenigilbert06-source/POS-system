@@ -637,7 +637,22 @@ export function OnboardingContainer({
             acceptsCash: true,
             acceptsMpesa: true,
           }
-        : { ...current, businessCategory: category }
+        : category === 'cafe'
+          ? {
+              ...current,
+              businessCategory: category,
+              sellsProducts: true,
+              providesServices: true,
+              tracksInventory: true,
+              keepsCustomers: true,
+              usesSuppliers: true,
+              issuesReceipts: true,
+              acceptsCash: true,
+              acceptsMpesa: true,
+              receiptTemplate: 'cafe',
+              receiptFooter: 'Thank you. Please visit us again.',
+            }
+          : { ...current, businessCategory: category }
     );
     setErrors((current) => ({ ...current, businessCategory: undefined }));
     setPageError('');

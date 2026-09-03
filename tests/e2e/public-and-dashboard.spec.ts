@@ -32,10 +32,7 @@ test.describe('public experience', () => {
 
   test('shows clear registration validation without submitting incomplete data', async ({ page }) => {
     await navigate(page, '/sign-up')
-    await page.waitForFunction(() => {
-      const form = document.querySelector('form')
-      return form && Object.keys(form).some((key) => key.startsWith('__reactProps'))
-    })
+    await expect(page.getByRole('button', { name: 'Create account' })).toBeEnabled()
 
     await page.getByRole('button', { name: 'Create account' }).click()
     await expect(page.getByText('Enter your full name.')).toBeVisible()
@@ -70,10 +67,7 @@ test.describe('public experience', () => {
       await route.fulfill({ status: 409, contentType: 'application/json', body: JSON.stringify({ message: 'Account already exists' }) })
     })
     await navigate(page, '/sign-up')
-    await page.waitForFunction(() => {
-      const form = document.querySelector('form')
-      return form && Object.keys(form).some((key) => key.startsWith('__reactProps'))
-    })
+    await expect(page.getByRole('button', { name: 'Create account' })).toBeEnabled()
     await page.getByLabel('Full name').fill('Amina Kamau')
     await page.getByLabel('Work email').fill('amina@example.com')
     await page.getByLabel('Create password').fill('secure-pass')

@@ -77,6 +77,8 @@ export function AppNavbar({
   );
   const saleLabel = config?.businessCategory === 'liquor_shop'
     ? 'New store sale'
+    : config?.businessCategory === 'cafe'
+      ? 'New café order'
     : productTerms.title === 'Medicines'
       ? 'New pharmacy sale'
       : 'Quick sale';

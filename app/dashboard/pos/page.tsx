@@ -10,6 +10,7 @@ import { redirect } from 'next/navigation';
 import { getPosPageData } from '@/lib/services/pos-page-service';
 import { getCurrentSession } from '@/lib/auth';
 import { isPharmacyBusiness } from '@/lib/pharmacy/rules';
+import { isCafeBusiness } from '@/lib/hospitality/rules';
 
 export const metadata: Metadata = { title: 'Point of Sale' };
 export const dynamic = 'force-dynamic';
@@ -39,7 +40,8 @@ export default async function POSPage() {
   const data = await getPosPageData(
     operator,
     config.enabledModules.includes('customers'),
-    isPharmacyBusiness(config.businessType, config.businessCategory)
+    isPharmacyBusiness(config.businessType, config.businessCategory),
+    isCafeBusiness(config.businessType, config.businessCategory)
   );
   const currentSession = await getCurrentSession();
   if (!data.activeBranch)
@@ -70,6 +72,8 @@ export default async function POSPage() {
         settings={data.settings}
         requiresAgeVerification={config.businessCategory === 'liquor_shop'}
         pharmacyMode={isPharmacyBusiness(config.businessType, config.businessCategory)}
+        cafeMode={isCafeBusiness(config.businessType, config.businessCategory)}
+        cafeExperience={data.cafe}
         hasActiveShift={Boolean(data.cashierWorkspace.session)}
         canDiscount={operator.permissions.includes(PermissionEnum.POS_DISCOUNT)}
         canRefund={operator.permissions.includes(PermissionEnum.SALE_REFUND)}

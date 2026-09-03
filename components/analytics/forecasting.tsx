@@ -44,9 +44,11 @@ export function Forecasting({ historical, currency }: ForecastingProps) {
     )
   }
 
+  // Keep the transition point in both series so the forecast starts at the
+  // last observed value instead of dropping to zero for one frame.
   const lastDateWithActual = historical.findIndex((d) => d.actual === undefined)
   const future = historical.filter((d) => d.actual === undefined)
-  const lastActualIndex = lastDateWithActual > 0 ? lastDateWithActual - 1 : -1
+  const lastActualIndex = lastDateWithActual === -1 ? historical.length - 1 : lastDateWithActual - 1
   const chartData = historical.map((row, index) => ({
     ...row,
     forecast: index < lastActualIndex
@@ -95,8 +97,11 @@ export function Forecasting({ historical, currency }: ForecastingProps) {
       </div>
       <div className="h-[235px] px-2 pb-3 pt-4 sm:px-4">
         <ResponsiveContainer width="100%" height="100%">
-          <ComposedChart data={chartData} margin={{ top: 8, right: 8, left: -8, bottom: 0 }}>
-            <defs><linearGradient id="analyticsActualArea" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="var(--dashboard-muted)" stopOpacity={0.14} /><stop offset="100%" stopColor="var(--dashboard-muted)" stopOpacity={0.01} /></linearGradient></defs>
+          <ComposedChart data={chartData} margin={{ top: 8, right: 12, left: -8, bottom: 0 }}>
+            <defs>
+              <linearGradient id="analyticsActualArea" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="var(--dashboard-muted)" stopOpacity={0.14} /><stop offset="100%" stopColor="var(--dashboard-muted)" stopOpacity={0.01} /></linearGradient>
+              <linearGradient id="analyticsForecastArea" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="var(--dashboard-accent-cta)" stopOpacity={0.12} /><stop offset="100%" stopColor="var(--dashboard-accent-cta)" stopOpacity={0.01} /></linearGradient>
+            </defs>
             <CartesianGrid vertical={false} stroke="var(--dashboard-chart-grid)" strokeDasharray="3 5" />
             <XAxis dataKey="date" axisLine={false} tickLine={false} minTickGap={26} tick={{ fill: 'var(--dashboard-chart-tick)', fontSize: 10 }} tickFormatter={(value) => new Date(`${value}T00:00:00Z`).toLocaleDateString('en-KE', { day: 'numeric', month: 'short', timeZone: 'UTC' })} dy={8} />
             <YAxis axisLine={false} tickLine={false} tickCount={4} tick={{ fill: 'var(--dashboard-chart-tick)', fontSize: 10 }} tickFormatter={compact} />
@@ -110,7 +115,8 @@ export function Forecasting({ historical, currency }: ForecastingProps) {
             />
             {lastDateWithActual > 0 && <ReferenceLine x={historical[lastDateWithActual]?.date} stroke="var(--dashboard-chart-grid)" strokeDasharray="5 5" />}
             <Area type="linear" dataKey="actual" name="actual" stroke="var(--dashboard-muted)" strokeWidth={1.5} fill="url(#analyticsActualArea)" dot={false} connectNulls={false} isAnimationActive={false} />
-            <Line type="linear" dataKey="forecast" name="forecast" stroke="var(--dashboard-accent-cta)" strokeWidth={2} dot={false} activeDot={{ r: 3 }} connectNulls={false} isAnimationActive={false} />
+            <Area type="monotone" dataKey="forecast" name="forecast" stroke="none" fill="url(#analyticsForecastArea)" connectNulls={false} isAnimationActive={false} />
+            <Line type="monotone" dataKey="forecast" name="forecast" stroke="var(--dashboard-accent-cta)" strokeWidth={2.25} dot={false} activeDot={{ r: 4, fill: 'var(--dashboard-accent-cta)', stroke: 'var(--dashboard-surface)', strokeWidth: 2 }} connectNulls={false} isAnimationActive={false} />
           </ComposedChart>
         </ResponsiveContainer>
       </div>

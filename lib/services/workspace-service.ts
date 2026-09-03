@@ -11,6 +11,7 @@ import { OrganizationService } from '@/lib/services/organization-service';
 import { getBusinessExperience } from '@/lib/workspace/business-experience';
 import { isPharmacyBusiness } from '@/lib/pharmacy/rules';
 import { getProductTerminology } from '@/lib/products/terminology';
+import { isCafeBusiness } from '@/lib/hospitality/rules';
 
 const workspaceConfigForUser = cache(
   async (
@@ -179,6 +180,12 @@ const MODULE_NAV: Record<string, SidebarNavItem> = {
     icon: 'Users',
     route: '/dashboard/staff-performance',
   },
+  'cafe-preparation': {
+    id: 'cafe-preparation', label: 'Preparation', icon: 'ChefHat', route: '/dashboard/cafe/preparation',
+  },
+  'cafe-wastage': {
+    id: 'cafe-wastage', label: 'Wastage', icon: 'Trash2', route: '/dashboard/cafe/wastage',
+  },
 };
 
 function navigationFor(
@@ -188,6 +195,7 @@ function navigationFor(
 ) {
   const experience = getBusinessExperience(businessFamily, businessCategory);
   const productTerms = getProductTerminology(businessFamily, businessCategory);
+  const cafeWorkspace = isCafeBusiness(businessFamily, businessCategory);
   const labels: Record<string, string> = {
     pos: experience.navigation.pos,
     sales: experience.navigation.sales,
@@ -204,6 +212,7 @@ function navigationFor(
         route: '/dashboard',
       },
       MODULE_NAV.attendance,
+      ...(cafeWorkspace ? [MODULE_NAV['cafe-preparation'], MODULE_NAV['cafe-wastage']] : []),
       ...enabledModules.flatMap((id) => {
         if (!MODULE_NAV[id]) return [];
         const items = [
@@ -243,10 +252,15 @@ function runtimeConfig(input: {
     'analytics',
   ];
   const pharmacyWorkspace = isPharmacyBusiness(input.stored?.businessFamily ?? input.businessType, input.stored?.businessCategory ?? input.businessCategory);
+  const cafeWorkspace = isCafeBusiness(
+    input.stored?.businessFamily ?? input.businessType,
+    input.stored?.businessCategory ?? input.businessCategory
+  );
   const enabledModules = Array.from(
     new Set([
       ...storedModules,
       ...(pharmacyWorkspace ? ['pos', 'sales', 'products', 'inventory', 'customers', 'purchases'] : []),
+      ...(cafeWorkspace ? ['pos', 'sales', 'products', 'inventory', 'customers', 'purchases'] : []),
       'expenses',
       'reports',
       'analytics',

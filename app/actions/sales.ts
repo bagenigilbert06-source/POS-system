@@ -2,7 +2,7 @@
 
 import { auth } from '@/lib/auth'
 import { db } from '@/lib/db'
-import { ageVerification, branch, cardPaymentAttempt, cardTerminal, sale, saleItem, saleItemLotAllocation, salePayment, product, productPackage, pharmacyConfiguration, pharmacyPrescriptionItem, pharmacyProduct, pharmacySaleRecord, restrictedItemAudit, businessSettings, auditEvent, posSession, customer, customerCreditLimit, creditSale, invoice, invoiceItem, invoiceNumberSequence, organization, salesReturn, salesReturnItem, expense, user, category, etimsConfiguration, etimsSubmission, offlineSaleSync } from '@/lib/db/schema'
+import { ageVerification, branch, cardPaymentAttempt, cardTerminal, sale, saleItem, saleItemLotAllocation, salePayment, product, productPackage, pharmacyConfiguration, pharmacyPrescriptionItem, pharmacyProduct, pharmacySaleRecord, restrictedItemAudit, businessSettings, auditEvent, posSession, customer, customerCreditLimit, creditSale, invoice, invoiceItem, invoiceNumberSequence, organization, salesReturn, salesReturnItem, expense, user, category, etimsConfiguration, etimsSubmission, offlineSaleSync, cafeOrder, cafeMenuItem, cafeTable } from '@/lib/db/schema'
 import { and, asc, desc, eq, gte, ilike, inArray, lt, lte, or, sql } from 'drizzle-orm'
 import { headers } from 'next/headers'
 import { revalidatePath } from 'next/cache'
@@ -27,6 +27,8 @@ import { configuredTax, money as financeMoney, paymentStatus } from '@/lib/finan
 import { getFiscalReadiness } from '@/lib/etims/policy'
 import Decimal from 'decimal.js'
 import { maskAgeIdReference } from '@/lib/pos/age-verification'
+import { isCafeBusiness } from '@/lib/hospitality/rules'
+import { createCafeOrderForSale, consumeCafeRecipeInventory, getCafeConfiguration, resolveCafeCheckout, type CafeCheckoutInput } from '@/lib/cafe/sale-service'
 
 async function getUserId() {
   const session = await auth.api.getSession({ headers: await headers() })
@@ -49,6 +51,7 @@ async function syncLinkedInvoiceFiscalStatus(saleId: string, orgId: string) {
 }
 
 export type CartItem = {
+  lineId?: string
   productId: string
   productName: string
   quantity: number
@@ -57,6 +60,9 @@ export type CartItem = {
   packageId?: string
   packageName?: string
   baseUnitQuantity?: number
+  modifierOptionIds?: string[]
+  modifierNames?: string[]
+  lineNotes?: string
 }
 
 const offlineMetadataSchema = z.object({
@@ -106,12 +112,42 @@ export type CreateSaleInput = {
   staffNote?: string
   idempotencyKey?: string
   ageVerified?: boolean
+  /** Server-issued compliance record for this exact checkout. */
+  ageVerificationId?: string
   ageVerification?: z.input<typeof ageVerificationEvidenceSchema>
   pharmacy?: z.input<typeof pharmacyWorkflowSchema>
   offline?: z.input<typeof offlineMetadataSchema>
+  cafe?: CafeCheckoutInput
 }
 
 const cancelAgeVerificationSchema = z.object({ checkoutId: z.string().uuid() })
+
+const startAgeVerificationSchema = z.object({
+  checkoutId: z.string().uuid(),
+  idType: z.enum(['national_id', 'passport', 'driving_licence', 'other']).optional(),
+  idReference: z.string().trim().max(80).optional(),
+})
+
+/** Creates the immutable, server-owned verification fact before checkout finalization. */
+export async function startAgeVerification(input: z.input<typeof startAgeVerificationSchema>) {
+  const data = startAgeVerificationSchema.parse(input)
+  const pos = await getPosAuthorizationContext()
+  const authorization = pos ?? await requireAnyPermission([PermissionEnum.POS_SELL, PermissionEnum.SALE_CREATE])
+  const userId = pos?.userId ?? authorization.userId
+  const organizationId = pos?.organizationId ?? authorization.organizationId
+  const [shift] = await db.select({ branchId: posSession.branchId, terminalId: posSession.terminalId }).from(posSession).where(and(eq(posSession.orgId, organizationId), eq(posSession.openedBy, userId), eq(posSession.status, 'open'), pos?.terminalId ? eq(posSession.terminalId, pos.terminalId) : undefined)).limit(1)
+  if (!shift?.branchId) throw new Error('Start a branch-assigned shift before recording an age check')
+  const recordId = generateId()
+  await db.transaction(async (tx) => {
+    await tx.insert(ageVerification).values({
+      id: recordId, organizationId, branchId: shift.branchId!, terminalId: shift.terminalId ?? undefined,
+      checkoutId: data.checkoutId, cashierId: userId, status: 'VERIFIED', idType: data.idType ?? undefined,
+      idReferenceMasked: maskAgeIdReference(data.idReference) ?? undefined, verifiedAt: new Date(),
+    })
+    await tx.insert(auditEvent).values({ id: generateId(), organizationId, userId, action: 'age_verified', metadata: { checkoutId: data.checkoutId, branchId: shift.branchId, terminalId: shift.terminalId } })
+  })
+  return { id: recordId, status: 'VERIFIED' as const, checkoutId: data.checkoutId }
+}
 
 /** Records a compliance check that the cashier dismissed; it never authorizes payment. */
 export async function cancelAgeVerification(input: z.input<typeof cancelAgeVerificationSchema>) {
@@ -157,9 +193,21 @@ export async function voidSale(input: z.input<typeof voidSaleSchema>) {
     const [existingReturn] = await tx.select({ id: salesReturn.id }).from(salesReturn).where(and(eq(salesReturn.saleId, record.id), eq(salesReturn.orgId, orgId), eq(salesReturn.status, 'completed'))).limit(1)
     if (existingReturn) throw new Error('A refunded sale cannot be voided')
     const lines = await tx.select().from(saleItem).where(and(eq(saleItem.saleId, record.id), eq(saleItem.orgId, orgId)))
-    if (record.status === 'completed') for (const line of lines) await applyInventoryMovement(tx, { productId: line.productId, productName: line.productName, branchId: record.branchId, quantity: line.quantity * line.baseUnitQuantity, type: 'sale_void', referenceType: 'sale_void', referenceId: record.id, reason: data.reason, userId, orgId, unitCost: Number(line.unitCostAtSale) })
+    const cafeMetadata = lines.length ? await tx.select({ productId: cafeMenuItem.productId, inventoryMode: cafeMenuItem.inventoryMode }).from(cafeMenuItem).where(and(eq(cafeMenuItem.organizationId, orgId), inArray(cafeMenuItem.productId, lines.map((line) => line.productId)))) : []
+    const cafeInventoryMode = new Map(cafeMetadata.map((item) => [item.productId, item.inventoryMode]))
+    if (record.status === 'completed') for (const line of lines) {
+      // Prepared recipes consumed physical ingredients. A financial void must
+      // never manufacture those ingredients back into stock.
+      if (cafeInventoryMode.get(line.productId) === 'recipe' || cafeInventoryMode.get(line.productId) === 'none') continue
+      await applyInventoryMovement(tx, { productId: line.productId, productName: line.productName, branchId: record.branchId, quantity: line.quantity * line.baseUnitQuantity, type: 'sale_void', referenceType: 'sale_void', referenceId: record.id, reason: data.reason, userId, orgId, unitCost: Number(line.unitCostAtSale) })
+    }
     if (record.status === 'completed') await reverseRewardsForVoid(tx, { organizationId: orgId, saleId: record.id, branchId: record.branchId, userId })
     await tx.update(sale).set({ status: 'cancelled' }).where(and(eq(sale.id, record.id), eq(sale.orgId, orgId)))
+    const [linkedCafeOrder] = await tx.select({ id: cafeOrder.id, tableId: cafeOrder.tableId }).from(cafeOrder).where(and(eq(cafeOrder.organizationId, orgId), eq(cafeOrder.saleId, record.id))).limit(1)
+    if (linkedCafeOrder) {
+      await tx.update(cafeOrder).set({ status: 'cancelled', preparationStatus: 'completed', completedAt: new Date(), updatedAt: new Date() }).where(eq(cafeOrder.id, linkedCafeOrder.id))
+      if (linkedCafeOrder.tableId) await tx.update(cafeTable).set({ status: 'available', updatedAt: new Date() }).where(eq(cafeTable.id, linkedCafeOrder.tableId))
+    }
     if (fiscal && ['PENDING', 'FAILED'].includes(fiscal.status)) await tx.update(etimsSubmission).set({ status: 'CANCELLED', nextRetryAt: null, errorMessage: 'Sale voided before fiscal acceptance', updatedAt: new Date() }).where(eq(etimsSubmission.id, fiscal.id))
     await tx.insert(auditEvent).values({ id: generateId(), organizationId: orgId, userId, action: 'sale_voided', metadata: { saleId: record.id, receiptNo: record.receiptNo, reason: data.reason, previousStatus: record.status, etimsStatus: fiscal?.status ?? null } })
   })
@@ -219,6 +267,9 @@ export async function createSale(data: CreateSaleInput) {
   const saleAuthorization = posAuthorization ?? await requireAnyPermission([PermissionEnum.POS_SELL, PermissionEnum.SALE_CREATE])
   if (!saleAuthorization.permissions.includes(PermissionEnum.POS_SELL) && !saleAuthorization.permissions.includes(PermissionEnum.SALE_CREATE)) throw new Error('POS sale permission denied')
   const orgId = posAuthorization?.organizationId ?? await getOrgId(userId, 'pos')
+  const workspace = await WorkspaceService.getWorkspaceConfig(orgId, userId)
+  const cafeWorkspace = Boolean(workspace && isCafeBusiness(workspace.businessType, workspace.businessCategory))
+  if (data.cafe && !cafeWorkspace) throw new Error('Café order details are not valid for this workspace')
   const idempotencyKey = data.idempotencyKey
   const offline = data.offline ? offlineMetadataSchema.parse(data.offline) : null
   const pharmacyWorkflow = pharmacyWorkflowSchema.parse(data.pharmacy)
@@ -239,6 +290,7 @@ export async function createSale(data: CreateSaleInput) {
     try { etims = await enqueueEtimsInvoice(existingSale.id) }
     catch { etims = { status: 'PENDING', message: 'Sale completed. eTIMS submission will require reconciliation.' } }
     await syncLinkedInvoiceFiscalStatus(existingSale.id, orgId)
+    const [existingCafeOrder] = cafeWorkspace ? await db.select({ id: cafeOrder.id, orderNumber: cafeOrder.orderNumber, preparationStatus: cafeOrder.preparationStatus }).from(cafeOrder).where(and(eq(cafeOrder.organizationId, orgId), eq(cafeOrder.saleId, existingSale.id))).limit(1) : []
     return { 
       saleId: existingSale.id, 
       receiptNo: existingSale.receiptNo, 
@@ -249,6 +301,7 @@ export async function createSale(data: CreateSaleInput) {
       items: existingItems,
       isDuplicate: true,
       etims,
+      cafeOrder: existingCafeOrder ?? null,
     }
   }
 
@@ -264,9 +317,10 @@ export async function createSale(data: CreateSaleInput) {
   const [fiscalConfiguration] = await db.select({ environment: etimsConfiguration.environment, enabled: etimsConfiguration.enabled, invoiceSubmissionEnabled: etimsConfiguration.invoiceSubmissionEnabled, connectionStatus: etimsConfiguration.connectionStatus }).from(etimsConfiguration).where(and(eq(etimsConfiguration.organizationId, orgId), eq(etimsConfiguration.branchId, saleBranchId))).limit(1)
   const fiscalReadiness = getFiscalReadiness(fiscalConfiguration)
   if (fiscalReadiness !== 'READY' && fiscalReadiness !== 'DEVELOPMENT_SIMULATOR' && fiscalConfiguration?.environment === 'production') throw new Error('eTIMS setup is incomplete for this branch. Complete fiscal setup before processing live sales.')
-  const workspace = await WorkspaceService.getWorkspaceConfig(orgId, userId)
   const liquorWorkspace = workspace?.businessCategory === 'liquor_shop'
   const verificationEvidence = data.ageVerification ? ageVerificationEvidenceSchema.parse(data.ageVerification) : null
+  if (data.ageVerificationId && !z.string().min(1).max(120).safeParse(data.ageVerificationId).success) throw new Error('Invalid age verification record')
+  if (data.ageVerificationId && verificationEvidence) throw new Error('Use either a server-issued verification record or inline verification evidence')
   const pharmacyWorkspace = Boolean(workspace && isPharmacyBusiness(workspace.businessType, workspace.businessCategory))
   if (verificationEvidence?.status === 'OVERRIDDEN') {
     if (!saleAuthorization.permissions.includes(PermissionEnum.AGE_VERIFICATION_OVERRIDE)) throw new Error('Age verification override permission denied')
@@ -275,7 +329,7 @@ export async function createSale(data: CreateSaleInput) {
   
   if (data.discountAmount > 0 && !saleAuthorization.permissions.includes(PermissionEnum.POS_DISCOUNT)) throw new Error('A supervisor or manager must apply this discount')
   const productIds = Array.from(new Set(data.items.map((line) => line.productId)))
-  if (productIds.length !== data.items.length) throw new Error('Duplicate products must be combined into one basket line')
+  if (!cafeWorkspace && productIds.length !== data.items.length) throw new Error('Duplicate products must be combined into one basket line')
   const catalogue = await db.select({ id: product.id, name: product.name, sellingPrice: product.sellingPrice, categoryId: product.categoryId, active: product.isActive, requiresAgeVerification: product.requiresAgeVerification })
     .from(product).where(and(eq(product.orgId, orgId), inArray(product.id, productIds)))
   const catalogueById = new Map(catalogue.map((item) => [item.id, item]))
@@ -283,7 +337,7 @@ export async function createSale(data: CreateSaleInput) {
   const categoryRestrictions = categoryIds.length ? await db.select({ id: category.id, requiresAgeVerification: category.requiresAgeVerification }).from(category).where(and(eq(category.orgId, orgId), inArray(category.id, categoryIds))) : []
   const categoryRestrictionById = new Map(categoryRestrictions.map((item) => [item.id, item.requiresAgeVerification]))
   const requiresAgeVerification = catalogue.some((item) => item.requiresAgeVerification ?? (item.categoryId ? categoryRestrictionById.get(item.categoryId) : null) ?? liquorWorkspace)
-  if (requiresAgeVerification && !verificationEvidence) throw new Error('Age verification is required before completing this restricted sale')
+  if (requiresAgeVerification && !verificationEvidence && !data.ageVerificationId) throw new Error('Age verification is required before completing this restricted sale')
   const medicineRows = pharmacyWorkspace ? await db.select().from(pharmacyProduct).where(and(eq(pharmacyProduct.organizationId, orgId), inArray(pharmacyProduct.productId, productIds))) : []
   const [pharmacyPolicy] = pharmacyWorkspace ? await db.select().from(pharmacyConfiguration).where(eq(pharmacyConfiguration.organizationId, orgId)).limit(1) : []
   const prescriptionItems = medicineRows.filter((item) => item.prescriptionRequired)
@@ -301,17 +355,37 @@ export async function createSale(data: CreateSaleInput) {
   const packageIds = Array.from(new Set(data.items.map((line) => line.packageId).filter((value): value is string => Boolean(value))))
   const packages = packageIds.length ? await db.select().from(productPackage).where(and(eq(productPackage.organizationId, orgId), inArray(productPackage.id, packageIds), eq(productPackage.isActive, true))) : []
   const packagesById = new Map(packages.map((item) => [item.id, item]))
+  const cafeConfiguration = cafeWorkspace ? await getCafeConfiguration(orgId) : null
+  const defaultCafeCheckout: CafeCheckoutInput | null = cafeWorkspace
+    ? {
+        orderType: cafeConfiguration!.defaultOrderType,
+        lines: data.items.map((line) => ({
+          productId: line.productId,
+          packageId: line.packageId,
+          quantity: line.quantity,
+          modifierOptionIds: line.modifierOptionIds,
+          notes: line.lineNotes,
+        })),
+      }
+    : null
+  const resolvedCafe = cafeWorkspace ? await resolveCafeCheckout({
+    organizationId: orgId,
+    branchId: saleBranchId,
+    checkout: data.cafe ?? defaultCafeCheckout!,
+  }) : null
   const normalizedItems: CartItem[] = []
-  for (const line of data.items) {
+  for (const [lineIndex, line] of data.items.entries()) {
     if (!Number.isInteger(line.quantity) || line.quantity <= 0) throw new Error('Invalid sale quantity')
     const catalogueItem = catalogueById.get(line.productId)
     if (!catalogueItem?.active) throw new Error('A selected product is unavailable')
     const selectedPackage = line.packageId ? packagesById.get(line.packageId) : null
     if (line.packageId && (!selectedPackage || selectedPackage.productId !== line.productId)) throw new Error(`The selected package for ${catalogueItem.name} is unavailable`)
-    const unitPrice = Number(selectedPackage?.sellingPrice ?? catalogueItem.sellingPrice)
+    const cafeLine = resolvedCafe?.lines[lineIndex]
+    if (cafeLine && (cafeLine.productId !== line.productId || (cafeLine.packageId ?? null) !== (line.packageId ?? null))) throw new Error('Café selections do not match the basket')
+    const unitPrice = cafeLine?.unitPrice ?? Number(selectedPackage?.sellingPrice ?? catalogueItem.sellingPrice)
     const baseUnitQuantity = selectedPackage?.baseUnitQuantity ?? 1
     if (offline && offlineAmountConflicts(Number(line.unitPrice), unitPrice, 0.001)) throw new Error(`Offline price conflict for ${catalogueItem.name}. Review this sale before synchronizing.`)
-    normalizedItems.push({ productId: catalogueItem.id, productName: selectedPackage ? `${catalogueItem.name} (${selectedPackage.name})` : catalogueItem.name, quantity: line.quantity, unitPrice, totalPrice: unitPrice * line.quantity, packageId: selectedPackage?.id, packageName: selectedPackage?.name, baseUnitQuantity })
+    normalizedItems.push({ productId: catalogueItem.id, productName: cafeLine?.displayName ?? (selectedPackage ? `${catalogueItem.name} (${selectedPackage.name})` : catalogueItem.name), quantity: line.quantity, unitPrice, totalPrice: unitPrice * line.quantity, packageId: selectedPackage?.id, packageName: selectedPackage?.name, baseUnitQuantity, modifierOptionIds: cafeLine?.modifiers.map((modifier) => modifier.optionId), modifierNames: cafeLine?.modifiers.map((modifier) => modifier.optionName), lineNotes: cafeLine?.notes })
   }
   const serverSubtotal = normalizedItems.reduce((sum, line) => sum + line.totalPrice, 0)
 
@@ -372,6 +446,7 @@ export async function createSale(data: CreateSaleInput) {
   const saleId = generateId()
   const receiptNo = generateReceiptNo()
   const saleItems = normalizedItems.map((item) => ({ ...item, saleItemId: generateId() }))
+  let cafeOrderResult: { orderId: string; orderNumber: number; preparationStatus: 'new' | 'completed' } | null = null
 
   try {
     await db.transaction(async (tx) => {
@@ -386,6 +461,17 @@ export async function createSale(data: CreateSaleInput) {
       eq(posSession.status, 'open'),
     )).limit(1).for('update')
     if (!lockedShift) throw new Error('This shift is no longer open. Start a new shift before completing the sale.')
+    let linkedVerification: typeof ageVerification.$inferSelect | null = null
+    if (requiresAgeVerification && data.ageVerificationId) {
+      const [record] = await tx.select().from(ageVerification).where(and(
+        eq(ageVerification.id, data.ageVerificationId), eq(ageVerification.organizationId, orgId),
+        eq(ageVerification.checkoutId, idempotencyKey), eq(ageVerification.cashierId, userId),
+        eq(ageVerification.branchId, saleBranchId), eq(ageVerification.status, 'VERIFIED'),
+        sql`${ageVerification.saleId} is null`,
+      )).limit(1).for('update')
+      if (!record) throw new Error('Age verification does not belong to this checkout')
+      linkedVerification = record
+    }
     if ((data.pointsToRedeem || data.bonusToUse) && !data.customerId) throw new Error('Select a customer before using rewards')
     if ((data.pointsToRedeem || data.bonusToUse) && !saleAuthorization.permissions.includes(PermissionEnum.REWARDS_REDEEM)) throw new Error('Reward redemption permission denied')
     let lockedCreditLimit: typeof customerCreditLimit.$inferSelect | null = null
@@ -429,13 +515,19 @@ export async function createSale(data: CreateSaleInput) {
       paymentReference = attempt.reference || attempt.authorizationCode
     }
     // Verify and deduct branch stock atomically through the inventory ledger.
-    const costByProduct = new Map<string, { unitCost: number; totalCost: number }>()
+    const costBySaleItem = new Map<string, { unitCost: number; totalCost: number }>()
     const lotsBySaleItem = new Map<string, Array<{ lotId: string; lotNumber: string; expiresAt: Date | null; quantity: number }>>()
-    for (const item of saleItems) {
+    for (const [itemIndex, item] of saleItems.entries()) {
+      const cafeLine = resolvedCafe?.lines[itemIndex]
+      if (cafeLine && cafeLine.inventoryMode !== 'product') continue
       const inventoryQuantity = baseUnitsForSale(item.quantity, item.baseUnitQuantity ?? 1)
       const movement = await applyInventoryMovement(tx, { productId: item.productId, productName: item.productName, branchId: saleBranchId, quantity: -inventoryQuantity, type: 'sale', referenceType: 'sale', referenceId: saleId, reason: receiptNo, userId, orgId })
       if (movement.lotAllocations.length) lotsBySaleItem.set(item.saleItemId, movement.lotAllocations)
-      costByProduct.set(item.productId, await consumeInventoryCost(tx, { productId: item.productId, branchId: saleBranchId, orgId, quantity: inventoryQuantity }))
+      costBySaleItem.set(item.saleItemId, await consumeInventoryCost(tx, { productId: item.productId, branchId: saleBranchId, orgId, quantity: inventoryQuantity }))
+    }
+    if (resolvedCafe) {
+      const recipeCosts = await consumeCafeRecipeInventory(tx, { organizationId: orgId, branchId: saleBranchId, userId, saleId, receiptNo, checkout: resolvedCafe, saleItemIds: saleItems.map((item) => item.saleItemId) })
+      for (const [saleItemId, cost] of recipeCosts) costBySaleItem.set(saleItemId, cost)
     }
     
     // Create the sale
@@ -460,9 +552,9 @@ export async function createSale(data: CreateSaleInput) {
       change: data.paymentMethod === 'cash' ? String(changeAmount) : null,
       paymentMethod: data.paymentMethod,
       mpesaRef: data.paymentMethod === 'mpesa' ? paymentReference : null,
-      ageVerified: Boolean(verificationEvidence),
-      ageVerifiedAt: verificationEvidence ? new Date() : null,
-      ageVerifiedBy: verificationEvidence ? userId : null,
+      ageVerified: Boolean(verificationEvidence || linkedVerification),
+      ageVerifiedAt: verificationEvidence || linkedVerification ? new Date() : null,
+      ageVerifiedBy: verificationEvidence || linkedVerification ? userId : null,
       status: 'completed',
       idempotencyKey,
       origin: offline ? 'offline' : 'online',
@@ -476,7 +568,7 @@ export async function createSale(data: CreateSaleInput) {
       terminalId: activeShift.terminalId,
       createdAt: offline?.createdAt,
     })
-    if (requiresAgeVerification && verificationEvidence) {
+    if (requiresAgeVerification && verificationEvidence && !linkedVerification) {
       const now = new Date()
       await tx.insert(ageVerification).values({
         id: generateId(), organizationId: orgId, branchId: saleBranchId,
@@ -491,6 +583,10 @@ export async function createSale(data: CreateSaleInput) {
       })
       await tx.insert(auditEvent).values({ id: generateId(), organizationId: orgId, userId, action: verificationEvidence.status === 'OVERRIDDEN' ? 'age_verification_overridden' : 'age_verified', metadata: { saleId, receiptNo, branchId: saleBranchId, terminalId: activeShift.terminalId, verificationStatus: verificationEvidence.status } })
     }
+    if (linkedVerification) {
+      await tx.update(ageVerification).set({ saleId }).where(and(eq(ageVerification.id, linkedVerification.id), sql`${ageVerification.saleId} is null`))
+      await tx.insert(auditEvent).values({ id: generateId(), organizationId: orgId, userId, action: 'age_verification_linked', metadata: { saleId, checkoutId: idempotencyKey, verificationId: linkedVerification.id } })
+    }
 
     // Process each item to create sale items and stock movements
     await tx.insert(saleItem).values(saleItems.map((item) => ({
@@ -504,8 +600,8 @@ export async function createSale(data: CreateSaleInput) {
         baseUnitQuantity: item.baseUnitQuantity ?? 1,
         unitPrice: String(item.unitPrice),
         totalPrice: String(item.totalPrice),
-        unitCostAtSale: String(costByProduct.get(item.productId)?.unitCost ?? 0),
-        totalCost: String(costByProduct.get(item.productId)?.totalCost ?? 0),
+        unitCostAtSale: String(costBySaleItem.get(item.saleItemId)?.unitCost ?? 0),
+        totalCost: String(costBySaleItem.get(item.saleItemId)?.totalCost ?? 0),
         rewardEligibleAmount: String(rewards?.lineEligibility.get(item.productId) ?? 0),
         userId,
         orgId,
@@ -517,6 +613,12 @@ export async function createSale(data: CreateSaleInput) {
       quantity: String(allocation.quantity),
     })))
     if (allocatedLots.length) await tx.insert(saleItemLotAllocation).values(allocatedLots)
+
+    if (resolvedCafe) cafeOrderResult = await createCafeOrderForSale(tx, {
+      organizationId: orgId, branchId: saleBranchId, userId, saleId,
+      customerId: data.customerId, idempotencyKey, checkout: resolvedCafe,
+      saleItemIds: saleItems.map((item) => item.saleItemId),
+    })
 
     if (pharmacyWorkspace && (prescriptionItems.length || restrictedItems.length)) {
       const prescriptionRecordId = generateId()
@@ -673,7 +775,7 @@ export async function createSale(data: CreateSaleInput) {
   try { etims = await enqueueEtimsInvoice(saleId) }
   catch { etims = { status: 'PENDING', message: 'Sale completed. eTIMS submission will require reconciliation.' } }
   await syncLinkedInvoiceFiscalStatus(saleId, orgId)
-  return { saleId, receiptNo, tax: calculatedTax, rounding: roundingAmount, total: calculatedTotal, idempotencyKey, items: saleItems.map(({ saleItemId, productId }) => ({ saleItemId, productId })), etims }
+  return { saleId, receiptNo, tax: calculatedTax, rounding: roundingAmount, total: calculatedTotal, idempotencyKey, items: saleItems.map(({ saleItemId, productId }) => ({ saleItemId, productId })), etims, cafeOrder: cafeOrderResult }
 }
 
 const offlineSaleSyncSchema = z.object({
