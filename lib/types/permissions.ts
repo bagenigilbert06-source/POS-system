@@ -40,6 +40,13 @@ export enum PermissionEnum {
   ORDER_CREATE = 'order:create',
   ORDER_EDIT = 'order:edit',
   ORDER_DELETE = 'order:delete',
+  QUOTATION_VIEW = 'quotation:view',
+  QUOTATION_CREATE = 'quotation:create',
+  QUOTATION_EDIT = 'quotation:edit',
+  QUOTATION_SEND = 'quotation:send',
+  QUOTATION_ACCEPT = 'quotation:accept',
+  QUOTATION_CANCEL = 'quotation:cancel',
+  QUOTATION_CONVERT = 'quotation:convert',
 
   // Inventory
   INVENTORY_VIEW = 'inventory:view',
@@ -540,6 +547,29 @@ for (const role of [RoleEnum.OWNER, RoleEnum.ADMIN, RoleEnum.MANAGER, RoleEnum.A
 for (const role of [RoleEnum.OWNER, RoleEnum.ADMIN, RoleEnum.MANAGER]) {
   ROLE_PERMISSIONS[role].push(PermissionEnum.INVOICE_CANCEL, PermissionEnum.INVOICE_CREDIT_NOTE)
 }
+
+for (const role of [RoleEnum.OWNER, RoleEnum.ADMIN, RoleEnum.MANAGER]) {
+  ROLE_PERMISSIONS[role].push(
+    PermissionEnum.QUOTATION_VIEW,
+    PermissionEnum.QUOTATION_CREATE,
+    PermissionEnum.QUOTATION_EDIT,
+    PermissionEnum.QUOTATION_SEND,
+    PermissionEnum.QUOTATION_ACCEPT,
+    PermissionEnum.QUOTATION_CANCEL,
+    PermissionEnum.QUOTATION_CONVERT,
+  )
+}
+for (const role of [RoleEnum.SUPERVISOR, RoleEnum.CASHIER]) {
+  ROLE_PERMISSIONS[role].push(
+    PermissionEnum.QUOTATION_VIEW,
+    PermissionEnum.QUOTATION_CREATE,
+    PermissionEnum.QUOTATION_EDIT,
+    PermissionEnum.QUOTATION_SEND,
+    PermissionEnum.QUOTATION_ACCEPT,
+    PermissionEnum.QUOTATION_CONVERT,
+  )
+}
+ROLE_PERMISSIONS[RoleEnum.ACCOUNTANT].push(PermissionEnum.QUOTATION_VIEW)
 
 /**
  * Roles managed through Staff & Access. Admin/owner is deliberately excluded:

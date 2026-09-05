@@ -1,5 +1,10 @@
 import assert from 'node:assert/strict'
-import { DEFAULT_ONBOARDING_DATA, type OnboardingDraft } from '../lib/onboarding/config'
+import {
+  DEFAULT_ONBOARDING_DATA,
+  isBusinessCategoryAvailable,
+  isBusinessFamilyAvailable,
+  type OnboardingDraft,
+} from '../lib/onboarding/config'
 import { onboardingStepSchemas, validateCompleteDraft } from '../lib/onboarding/schemas'
 import { resolveOnboardingTemplateId } from '../lib/templates'
 import { getBusinessExperience } from '../lib/workspace/business-experience'
@@ -10,7 +15,7 @@ function validDraft(overrides: Partial<OnboardingDraft> = {}): OnboardingDraft {
     ...DEFAULT_ONBOARDING_DATA,
     businessName: 'Test Business', region: 'Nairobi', city: 'Nairobi', phone: '+254700000000',
     businessSize: 'small', businessDescription: 'Everyday retail goods',
-    businessFamily: 'retail', businessCategory: 'general_shop', sellsProducts: true, tracksInventory: true,
+    businessFamily: 'retail', businessCategory: 'hardware', sellsProducts: true, tracksInventory: true,
     keepsCustomers: true, usesSuppliers: true, branchName: 'Main location', branchPhone: '+254700000000',
     branchAddress: 'Test Street', branchRegion: 'Nairobi', branchCity: 'Nairobi',
     enabledModules: ['pos', 'sales', 'products', 'inventory', 'customers', 'reports', 'analytics'],
@@ -22,27 +27,36 @@ function validDraft(overrides: Partial<OnboardingDraft> = {}): OnboardingDraft {
 const validate = (draft: OnboardingDraft) => validateCompleteDraft(draft as unknown as Record<string, unknown>)
 
 for (const profile of [
-  { businessFamily: 'retail', businessCategory: 'supermarket', customBusinessCategory: '' },
+  { businessFamily: 'retail', businessCategory: 'hardware', customBusinessCategory: '' },
+  { businessFamily: 'retail', businessCategory: 'liquor_shop', customBusinessCategory: '' },
+  { businessFamily: 'retail', businessCategory: 'retail_pharmacy', customBusinessCategory: '' },
   { businessFamily: 'food_hospitality', businessCategory: 'cafe', customBusinessCategory: '' },
-  { businessFamily: 'health_wellness', businessCategory: 'clinic', customBusinessCategory: '' },
-  { businessFamily: 'professional_services', businessCategory: 'consulting', customBusinessCategory: '' },
-  { businessFamily: 'other', businessCategory: 'custom', customBusinessCategory: 'Equipment hire' },
+  { businessFamily: 'health_wellness', businessCategory: 'health_pharmacy', customBusinessCategory: '' },
 ] as const) {
-  assert.equal(onboardingStepSchemas['business-type'].safeParse(profile).success, true, `${profile.businessFamily} should accept its own category`)
+  assert.equal(onboardingStepSchemas['business-type'].safeParse(profile).success, true, `${profile.businessCategory} should be available`)
 }
 
 assert.equal(onboardingStepSchemas['business-type'].safeParse({ businessFamily: 'retail', businessCategory: 'clinic', customBusinessCategory: '' }).success, false, 'cross-family categories must be rejected')
 assert.equal(onboardingStepSchemas['business-type'].safeParse({ businessFamily: 'other', businessCategory: 'custom', customBusinessCategory: '' }).success, false, 'Other must keep a real description')
+assert.equal(onboardingStepSchemas['business-type'].safeParse({ businessFamily: 'retail', businessCategory: 'supermarket', customBusinessCategory: '' }).success, false, 'coming-soon retail categories must be rejected')
+assert.equal(onboardingStepSchemas['business-type'].safeParse({ businessFamily: 'professional_services', businessCategory: 'consulting', customBusinessCategory: '' }).success, false, 'coming-soon business families must be rejected')
+assert.equal(isBusinessCategoryAvailable('hardware'), true, 'hardware must be available')
+assert.equal(isBusinessCategoryAvailable('supermarket'), false, 'supermarket must remain coming soon')
+assert.equal(isBusinessFamilyAvailable('retail'), true, 'retail must remain selectable')
+assert.equal(isBusinessFamilyAvailable('professional_services'), false, 'unsupported families must remain disabled')
 
 assert.equal(resolveOnboardingTemplateId('retail', 'supermarket'), 'retail.supermarket', 'supermarkets must receive the supermarket template')
 assert.equal(resolveOnboardingTemplateId('retail', 'mini_mart'), 'retail.grocery', 'mini-marts must receive the grocery template')
 assert.equal(resolveOnboardingTemplateId('retail', 'liquor_shop'), 'retail.liquor-shop', 'liquor shops must receive their specialized template')
+assert.equal(resolveOnboardingTemplateId('retail', 'hardware'), 'retail.hardware', 'hardware stores must receive their specialized template')
 assert.equal(resolveOnboardingTemplateId('food_hospitality', 'cafe'), 'restaurant.cafe', 'cafés must receive the café template')
 assert.equal(resolveOnboardingTemplateId('food_hospitality', 'restaurant'), 'restaurant.restaurant', 'restaurants must receive the restaurant template')
 assert.equal(resolveOnboardingTemplateId('professional_services', 'consulting'), 'adaptive.generic', 'unsupported verticals must use the neutral adaptive template')
 assert.equal(getBusinessExperience('retail', 'supermarket').navigation.pos, 'Checkout', 'supermarkets must use retail navigation')
 assert.equal(getBusinessExperience('retail', 'liquor_shop').navigation.overview, 'Liquor Overview', 'liquor shops must receive specialized dashboard navigation')
 assert.equal(getBusinessExperience('retail', 'liquor_shop').stockTitle, 'Drinks to reorder', 'liquor shops must receive drink-specific inventory language')
+assert.equal(getBusinessExperience('retail', 'hardware').navigation.products, 'Hardware catalogue', 'hardware stores must receive specialized catalogue navigation')
+assert.equal(getBusinessExperience('retail', 'hardware').actionLabels.primary, 'Start hardware sale', 'hardware stores must receive a hardware sale action')
 assert.equal(getBusinessExperience('food_hospitality', 'cafe').navigation.products, 'Menu', 'cafés must use menu navigation')
 assert.equal(getBusinessExperience('food_hospitality', 'cafe').actionLabels.primary, 'New order', 'cafés must use order-oriented actions')
 
@@ -52,7 +66,7 @@ assert.equal(validate(validDraft({ enabledModules: ['pos', 'sales', 'products', 
 assert.equal(validate(validDraft({
   businessFamily: 'professional_services', businessCategory: 'consulting', sellsProducts: false, providesServices: true,
   tracksInventory: false, keepsCustomers: true, usesSuppliers: false, enabledModules: ['sales', 'customers', 'reports', 'analytics'],
-})).success, true, 'service workflow should validate without product or inventory modules')
+})).success, false, 'coming-soon service workspaces must not bypass onboarding validation')
 assert.equal(validate(validDraft({ sellsProducts: false, providesServices: true, tracksInventory: false })).success, false, 'disabled product operations must reject product modules')
 assert.equal(validate(validDraft({ acceptsCash: false })).success, false, 'operations and payment settings must agree')
 assert.equal(validate(validDraft({ needsTax: true, taxEnabled: false })).success, false, 'operations and tax settings must agree')

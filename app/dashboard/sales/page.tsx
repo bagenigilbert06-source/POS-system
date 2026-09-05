@@ -28,7 +28,7 @@ export default async function SalesPage({ searchParams }: { searchParams?: Promi
   const params = await searchParams
   const value = (key: string) => { const item = params?.[key]; return Array.isArray(item) ? item[0] : item }
   if (isCafeBusiness(config.businessType, config.businessCategory)) {
-    const cafeFilters = { search: value('search'), status: value('status'), orderType: value('orderType'), payment: value('payment') }
+    const cafeFilters = { search: value('search'), status: value('status'), orderType: value('orderType'), payment: value('payment'), from: value('from'), to: value('to') }
     return <CafeOrdersView rows={await getCafeOrdersData(cafeFilters)} filters={cafeFilters} />
   }
   const filters: SalesPageFilters = { search: value('search'), paymentMethod: value('payment'), status: value('status'), ageVerification: isLiquorWorkspace ? value('age') as SalesPageFilters['ageVerification'] : undefined, customerId: value('customer'), cashierId: value('cashier'), branchId: value('branch'), from: dateValue(value('from')), to: dateValue(value('to')), page: Number(value('page') ?? 1), pageSize: Number(value('pageSize') ?? 50), sort: (value('sort') as SalesPageFilters['sort']) ?? 'date', direction: value('direction') === 'asc' ? 'asc' : 'desc' }

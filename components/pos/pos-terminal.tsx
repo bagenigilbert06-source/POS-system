@@ -30,6 +30,10 @@ import {
 } from '@/app/actions/mpesa';
 import { createCustomer } from '@/app/actions/customers';
 import {
+  authorizeAutomaticCashDrawerOpen,
+  claimAutomaticReceiptPrint,
+} from '@/app/actions/operations';
+import {
   validateCoupon,
   quoteAutomaticDiscount,
 } from '@/app/actions/promotions';
@@ -76,7 +80,6 @@ import {
   Zap,
   Banknote,
   UserRoundPlus,
-  ScanBarcode,
   BadgePercent,
   Pencil,
   ChevronDown,
@@ -143,8 +146,10 @@ import {
   directPrintReceipt,
   getReceiptPrinterErrorCopy,
   hasConfiguredReceiptPrinter,
+  openQzCashDrawer,
   type ReceiptPrinterSettings,
 } from '@/lib/printing/receipt-print-service';
+import { canAutomaticallyOpenCashDrawer } from '@/lib/printing/cash-drawer-policy';
 
 const RefundDialog = dynamic(
   () => import('./refund-dialog').then((module) => module.RefundDialog),
@@ -167,13 +172,6 @@ const ReceiptTemplate = dynamic(
   () =>
     import('@/components/receipt/receipt-template').then(
       (module) => module.ReceiptTemplate
-    ),
-  { ssr: false }
-);
-const WirelessScannerPairing = dynamic(
-  () =>
-    import('@/components/barcode/wireless-scanner-pairing').then(
-      (module) => module.WirelessScannerPairing
     ),
   { ssr: false }
 );
@@ -759,10 +757,6 @@ export function POSTerminal({
     busy: boolean;
   }>({ open: false, destination: '', busy: false });
   const [scanMessage, setScanMessage] = useState('');
-  const [showWirelessScanner, setShowWirelessScanner] = useState(false);
-  const [scannerPurpose, setScannerPurpose] = useState<'product' | 'customer'>(
-    'product'
-  );
   const [receiptPaperWidth, setReceiptPaperWidth] = useState<58 | 80>(
     settings.receiptPaperWidth
   );
@@ -785,6 +779,8 @@ export function POSTerminal({
   const cashReceivedInputRef = useRef<HTMLInputElement>(null);
   const barcodeBufferRef = useRef<string>('');
   const barcodeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const barcodeFirstKeyAtRef = useRef(0);
+  const barcodeLastKeyAtRef = useRef(0);
   const lastScanRef = useRef<{ barcode: string; at: number } | null>(null);
   const checkoutIdempotencyKeyRef = useRef<string>('');
   const mpesaToastIdRef = useRef<string | number | null>(null);
@@ -1826,8 +1822,10 @@ export function POSTerminal({
       if (e.key === 'Enter' && barcodeBufferRef.current) {
         e.preventDefault();
         const barcode = normalizeBarcode(barcodeBufferRef.current);
+        const scanDuration = Date.now() - barcodeFirstKeyAtRef.current;
         barcodeBufferRef.current = '';
-        if (!barcode) return;
+        barcodeFirstKeyAtRef.current = 0;
+        if (!barcode || barcode.length < 5 || scanDuration > 1_500) return;
         const now = Date.now();
         if (
           lastScanRef.current &&
@@ -1849,18 +1847,29 @@ export function POSTerminal({
         !e.metaKey &&
         !e.altKey
       ) {
+        const now = Date.now();
+        if (now - barcodeLastKeyAtRef.current > 120) {
+          barcodeBufferRef.current = '';
+          barcodeFirstKeyAtRef.current = now;
+        }
+        if (!barcodeBufferRef.current) barcodeFirstKeyAtRef.current = now;
+        barcodeLastKeyAtRef.current = now;
         barcodeBufferRef.current += e.key;
 
         // Clear buffer after 2 seconds without input
         if (barcodeTimeoutRef.current) clearTimeout(barcodeTimeoutRef.current);
         barcodeTimeoutRef.current = setTimeout(() => {
           barcodeBufferRef.current = '';
+          barcodeFirstKeyAtRef.current = 0;
         }, SCANNER_INACTIVITY_MS);
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      if (barcodeTimeoutRef.current) clearTimeout(barcodeTimeoutRef.current);
+    };
   }, [receipt, processing, checkoutOpen, handleBarcodeScan]);
 
   const productsById = useMemo(
@@ -2432,7 +2441,7 @@ export function POSTerminal({
       return;
     }
 
-    const saleToastId = notify.loading('Completing sale…', {
+    const saleToastId = paymentMethod === 'cash' ? undefined : notify.loading('Completing sale…', {
       description:
         paymentMethod === 'mpesa'
           ? 'Confirming payment and saving the receipt.'
@@ -2666,23 +2675,24 @@ export function POSTerminal({
       );
       setCart([]);
       if (selectedCustomer) {
-        try {
-          const latestRewards = await refreshCustomerRewards(selectedCustomer);
-          setAvailableCustomers((current) =>
-            current.map((customer) =>
-              customer.id === selectedCustomer
-                ? {
-                    ...customer,
-                    loyaltyPoints: latestRewards.pointsBalance,
-                    pointsBalance: latestRewards.pointsBalance,
-                    bonusBalance: latestRewards.bonusBalance,
-                  }
-                : customer
-            )
-          );
-        } catch {
-          router.refresh();
-        }
+        // The sale has committed at this point. Updating the optional loyalty
+        // display must not leave the cashier on the processing screen.
+        void refreshCustomerRewards(selectedCustomer)
+          .then((latestRewards) => {
+            setAvailableCustomers((current) =>
+              current.map((customer) =>
+                customer.id === selectedCustomer
+                  ? {
+                      ...customer,
+                      loyaltyPoints: latestRewards.pointsBalance,
+                      pointsBalance: latestRewards.pointsBalance,
+                      bonusBalance: latestRewards.bonusBalance,
+                    }
+                  : customer
+              )
+            );
+          })
+          .catch(() => undefined);
       }
       setPointsToRedeem('');
       setBonusToUse('');
@@ -3576,53 +3586,94 @@ export function POSTerminal({
     }
   }, [receiptPaperWidth]);
 
-  const handlePrintReceipt = useCallback(async () => {
-    const paper = document.querySelector<HTMLElement>(
-      '.receipt-preview-origin .receipt-paper'
-    );
-    if (!paper) return notify.error('Receipt preview is unavailable');
-    if (printerSettings.mode === 'browser') return handleBrowserPrintReceipt();
-    if (!hasConfiguredReceiptPrinter(printerSettings)) {
-      notify.info('No receipt printer configured', {
-        description: 'Use browser printing or configure a receipt printer.',
-        action: { label: 'Browser print', onClick: handleBrowserPrintReceipt },
-        cancel: {
-          label: 'Printer settings',
-          onClick: () => {
-            window.location.href = '/dashboard/admin/devices';
+  const handlePrintReceipt = useCallback(
+    async (automatic = false) => {
+      const paper = document.querySelector<HTMLElement>(
+        '.receipt-preview-origin .receipt-paper'
+      );
+      if (!paper) return notify.error('Receipt preview is unavailable');
+      if (printerSettings.mode === 'browser')
+        return handleBrowserPrintReceipt();
+      if (!hasConfiguredReceiptPrinter(printerSettings)) {
+        notify.info('No receipt printer configured', {
+          description:
+            'Configure the receipt printer for this terminal before printing.',
+          cancel: {
+            label: 'Printer settings',
+            onClick: () => {
+              window.location.href = '/dashboard/admin/devices';
+            },
           },
-        },
+        });
+        return;
+      }
+      setReceiptPrinting(true);
+      const toastId = notify.loading('Printing receipt…', {
+        description:
+          printerSettings.printerName ||
+          'Connecting to the configured thermal printer.',
       });
-      return;
-    }
-    setReceiptPrinting(true);
-    const toastId = notify.loading('Printing receipt…', {
-      description:
-        printerSettings.printerName ||
-        'Connecting to the configured thermal printer.',
-    });
-    try {
-      await directPrintReceipt(captureReceiptHtml(paper), printerSettings);
-      setReceiptPrinted(true);
-      notify.success('Receipt printed', {
-        id: toastId,
-        description: `Submitted to ${printerSettings.printerName}.`,
-      });
-    } catch (error) {
-      const copy = getReceiptPrinterErrorCopy(error);
-      notify.error(copy.title, {
-        id: toastId,
-        description: copy.description,
-        action: {
-          label: 'Try again',
-          onClick: () => retryReceiptPrintRef.current(),
-        },
-        cancel: { label: 'Browser print', onClick: handleBrowserPrintReceipt },
-      });
-    } finally {
-      setReceiptPrinting(false);
-    }
-  }, [handleBrowserPrintReceipt, printerSettings]);
+      try {
+        if (automatic && receipt) {
+          const claim = await claimAutomaticReceiptPrint(receipt.saleId);
+          if (!claim.shouldPrint) return;
+        }
+        await directPrintReceipt(captureReceiptHtml(paper), printerSettings);
+        setReceiptPrinted(true);
+        notify.success('Receipt printed', {
+          id: toastId,
+          description: `Submitted to ${printerSettings.printerName}.`,
+        });
+        if (
+          automatic &&
+          receipt &&
+          canAutomaticallyOpenCashDrawer({
+            paymentMethod: receipt.paymentMethod,
+            saleStatus: 'completed',
+            printingMode: printerSettings.mode,
+            cashDrawerPulseEnabled: printerSettings.cashDrawerPulse,
+            isOfflineProvisional: Boolean(receipt.offline),
+            hasActiveRegisteredTerminal: Boolean(offlineContext?.terminalId),
+            hasOpenShift: Boolean(offlineContext?.sessionId),
+          })
+        ) {
+          try {
+            const authorization = await authorizeAutomaticCashDrawerOpen(
+              receipt.saleId
+            );
+            if (!authorization.shouldPulse) return;
+            if (authorization.transport === 'raw-tcp') {
+              const response = await fetch('/api/printing/raw-tcp/drawer', {
+                method: 'POST',
+                headers: { 'content-type': 'application/json' },
+                body: JSON.stringify({ saleId: receipt.saleId }),
+              });
+              if (!response.ok) throw new Error(await response.text());
+            } else if (authorization.printerName)
+              await openQzCashDrawer(authorization.printerName);
+          } catch (drawerError) {
+            const copy = getReceiptPrinterErrorCopy(drawerError);
+            notify.error('Sale completed, but the drawer did not open', {
+              description: `${copy.description} Ask a manager to open it manually.`,
+            });
+          }
+        }
+      } catch (error) {
+        const copy = getReceiptPrinterErrorCopy(error);
+        notify.error(copy.title, {
+          id: toastId,
+          description: copy.description,
+          action: {
+            label: 'Try again',
+            onClick: () => retryReceiptPrintRef.current(),
+          },
+        });
+      } finally {
+        setReceiptPrinting(false);
+      }
+    },
+    [handleBrowserPrintReceipt, offlineContext, printerSettings, receipt]
+  );
 
   useEffect(() => {
     retryReceiptPrintRef.current = () => void handlePrintReceipt();
@@ -3637,7 +3688,7 @@ export function POSTerminal({
     )
       return;
     autoPrintedReceiptRef.current = receipt.saleId;
-    const timer = window.setTimeout(() => void handlePrintReceipt(), 250);
+    const timer = window.setTimeout(() => void handlePrintReceipt(true), 250);
     return () => window.clearTimeout(timer);
   }, [
     handlePrintReceipt,
@@ -3937,24 +3988,6 @@ export function POSTerminal({
     }
   };
 
-  const handleCustomerBarcode = (rawBarcode: string) => {
-    const code = normalizeBarcode(rawBarcode);
-    if (!code) return;
-    const customer = availableCustomers.find((item) =>
-      [item.id, item.phone, item.email, item.kraPin, item.name].some(
-        (value) => normalizeBarcode(value ?? '') === code
-      )
-    );
-    if (!customer) {
-      notify.error('No customer found for that code');
-      return;
-    }
-    setSelectedCustomer(customer.id);
-    setCustomerMenuOpen(false);
-    setShowWirelessScanner(false);
-    notify.success(customer.name + ' selected');
-  };
-
   const inputCls = ui.input;
   const activeCustomer = availableCustomers.find(
     (customer) => customer.id === selectedCustomer
@@ -3992,6 +4025,7 @@ export function POSTerminal({
       branchId: null,
       posSessionId: null,
       terminalId: null,
+      quotationId: null,
       origin: receipt.offline ? 'offline' : 'online',
       provisionalReceiptNo: receipt.offline?.provisionalReceiptNo ?? null,
       offlineCreatedAt: receipt.offline ? receipt.completedAt : null,
@@ -4477,15 +4511,6 @@ export function POSTerminal({
                         <p className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-[#667085] dark:text-[#a8a8a8]">
                           Print options
                         </p>
-                        <button
-                          onClick={() => {
-                            setReceiptOptionsOpen(false);
-                            handleBrowserPrintReceipt();
-                          }}
-                          className="flex w-full rounded-md px-2 py-1.5 text-left text-xs font-medium hover:bg-[#f9fafb] dark:hover:bg-white/5"
-                        >
-                          Browser print
-                        </button>
                         <p className="px-2 pt-2 text-[10px] font-semibold uppercase tracking-wide text-[#667085] dark:text-[#a8a8a8]">
                           Paper width
                         </p>
@@ -5307,19 +5332,6 @@ export function POSTerminal({
                     className="h-[17px] w-[17px]"
                     strokeWidth={2}
                   />
-                </button>
-                <button
-                  type="button"
-                  disabled={mpesaLocksBasket || !isOnline}
-                  onClick={() => {
-                    setScannerPurpose('customer');
-                    setShowWirelessScanner(true);
-                  }}
-                  title="Scan customer barcode"
-                  aria-label="Scan customer barcode"
-                  className="inline-flex h-10 w-[38px] shrink-0 items-center justify-center rounded-[5px] bg-[#155eef] text-white shadow-none transition-colors hover:bg-[#004eeb] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#155eef]/30 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  <ScanBarcode className="h-[17px] w-[17px]" strokeWidth={2} />
                 </button>
               </div>
               {activeCustomer && (
@@ -9099,16 +9111,6 @@ export function POSTerminal({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-      <WirelessScannerPairing
-        open={showWirelessScanner}
-        onClose={() => setShowWirelessScanner(false)}
-        onBarcode={
-          scannerPurpose === 'customer'
-            ? handleCustomerBarcode
-            : handleBarcodeScan
-        }
-        purpose={scannerPurpose}
-      />
     </div>
   );
 }

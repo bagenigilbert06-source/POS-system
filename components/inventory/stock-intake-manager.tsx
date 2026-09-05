@@ -84,6 +84,7 @@ export function StockIntakeManager({
   currency,
   canReceive,
   cafeMode = false,
+  hardwareMode = false,
 }: {
   intakes: Intake[];
   items: IntakeItem[];
@@ -95,6 +96,7 @@ export function StockIntakeManager({
   currency: string;
   canReceive: boolean;
   cafeMode?: boolean;
+  hardwareMode?: boolean;
 }) {
   const router = useRouter();
   const idempotencyKey = useRef('');
@@ -113,6 +115,16 @@ export function StockIntakeManager({
   const [sourceName, setSourceName] = useState('');
   const [sourceType, setSourceType] = useState('new_stock');
   const [notes, setNotes] = useState('');
+  const stockItemLabel = cafeMode
+    ? 'ingredient or supply'
+    : hardwareMode
+      ? 'hardware item'
+      : 'stock item';
+  const intakeTitle = cafeMode
+    ? 'New Ingredient Intake'
+    : hardwareMode
+      ? 'New Hardware Intake'
+      : 'New Stock Intake';
   const [pending, startTransition] = useTransition();
 
   const productsById = useMemo(
@@ -317,9 +329,7 @@ export function StockIntakeManager({
             onChange={(event) => setQuery(event.target.value)}
             className="pl-9"
             placeholder={
-              cafeMode
-                ? 'Search reference or ingredient'
-                : 'Search reference or stock item'
+              `Search reference or ${stockItemLabel}`
             }
           />
         </div>
@@ -383,7 +393,7 @@ export function StockIntakeManager({
               className="gap-2"
             >
               <PackagePlus className="h-4 w-4" />
-              {cafeMode ? 'New Ingredient Intake' : 'New Stock Intake'}
+              {intakeTitle}
             </Button>
           )}
         </div>
@@ -516,7 +526,7 @@ export function StockIntakeManager({
         <DialogContent className="max-w-5xl overflow-y-auto sm:max-h-[90vh]">
           <DialogHeader>
             <DialogTitle>
-              {cafeMode ? 'New Ingredient Intake' : 'New Stock Intake'}
+              {intakeTitle}
             </DialogTitle>
             <p className="text-sm text-muted-foreground">
               {cafeMode
@@ -586,13 +596,15 @@ export function StockIntakeManager({
                   placeholder={
                     cafeMode
                       ? 'Scan barcode or search ingredient...'
-                      : 'Scan barcode or search product...'
+                      : hardwareMode
+                        ? 'Scan barcode or search hardware item...'
+                        : 'Scan barcode or search product...'
                   }
                 />
               </div>
               <p className="mt-2 text-xs text-muted-foreground">
                 Scanner ready — scan a{' '}
-                {cafeMode ? 'supply or ingredient' : 'product'} barcode, then
+                {stockItemLabel} barcode, then
                 press Enter.
               </p>
               {productSearch && (
@@ -621,7 +633,11 @@ export function StockIntakeManager({
                   <thead className="bg-muted/30 uppercase text-muted-foreground">
                     <tr>
                       {[
-                        cafeMode ? 'Ingredient / supply' : 'Product',
+                        cafeMode
+                          ? 'Ingredient / supply'
+                          : hardwareMode
+                            ? 'Hardware item'
+                            : 'Product',
                         'Current stock',
                         'Quantity received',
                         'Unit',

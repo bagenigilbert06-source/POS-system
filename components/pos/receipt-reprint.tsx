@@ -1,127 +1,182 @@
-'use client'
+'use client';
 
-import { useState, useRef } from 'react'
-import { Search, Printer, X, RefreshCw } from 'lucide-react'
-import { LoadingSpinner as Loader2 } from '@/components/ui/page-loader'
-import { notify } from '@/lib/notify'
-import { formatCurrency } from '@/lib/utils'
-import { ReceiptTemplate } from '@/components/receipt/receipt-template'
-import { getSalesByReceiptNo, getSalesByDateRange } from '@/app/actions/pos-queries'
-import type { Sale, SaleItem } from '@/lib/db/schema'
-import { browserPrintReceipt, captureReceiptHtml, directPrintReceipt, getReceiptPrinterErrorCopy, hasConfiguredReceiptPrinter, type ReceiptPrinterSettings } from '@/lib/printing/receipt-print-service'
+import { useState, useRef } from 'react';
+import { Search, Printer, X, RefreshCw } from 'lucide-react';
+import { LoadingSpinner as Loader2 } from '@/components/ui/page-loader';
+import { notify } from '@/lib/notify';
+import { formatCurrency } from '@/lib/utils';
+import { ReceiptTemplate } from '@/components/receipt/receipt-template';
+import {
+  getSalesByReceiptNo,
+  getSalesByDateRange,
+} from '@/app/actions/pos-queries';
+import type { Sale, SaleItem } from '@/lib/db/schema';
+import {
+  browserPrintReceipt,
+  captureReceiptHtml,
+  directPrintReceipt,
+  getReceiptPrinterErrorCopy,
+  hasConfiguredReceiptPrinter,
+  type ReceiptPrinterSettings,
+} from '@/lib/printing/receipt-print-service';
 
-type ReprintSale = Awaited<ReturnType<typeof getSalesByReceiptNo>>[number]
+type ReprintSale = Awaited<ReturnType<typeof getSalesByReceiptNo>>[number];
 
 interface ReceiptReprintProps {
-  onClose: () => void
+  onClose: () => void;
   settings: {
-    receiptBusinessName: string
-    receiptPhone: string
-    receiptAddress: string
-    receiptFooter: string
-    receiptLayout?: 'detailed' | 'thermal'
-    receiptTemplate?: 'classic' | 'logo' | 'cafe'
-    receiptLogoUrl?: string
-    taxName: string
-    receiptShowPhone?: boolean
-    receiptShowAddress?: boolean
-    receiptShowCashier?: boolean
-    receiptShowCustomer?: boolean
-    receiptShowPayment?: boolean
-    receiptShowQrCode?: boolean
-    receiptShowItemSku?: boolean
-    receiptShowShipping?: boolean
-    receiptShowCoupon?: boolean
-    receiptShowBonus?: boolean
-    receiptPrintingMode: 'direct' | 'browser'
-    receiptPrinterName: string
-    receiptPaperWidth: 58 | 80
-    receiptAutoPrint: boolean
-    receiptPrintCustomerCopy: boolean
-    receiptPrintCopies: number
-    receiptCashDrawerPulse: boolean
-  }
-  onRefund?: (sale: Sale & { items: SaleItem[] }) => void
+    receiptBusinessName: string;
+    receiptPhone: string;
+    receiptAddress: string;
+    receiptFooter: string;
+    receiptLayout?: 'detailed' | 'thermal';
+    receiptTemplate?: 'classic' | 'logo' | 'cafe';
+    receiptLogoUrl?: string;
+    taxName: string;
+    receiptShowPhone?: boolean;
+    receiptShowAddress?: boolean;
+    receiptShowCashier?: boolean;
+    receiptShowCustomer?: boolean;
+    receiptShowPayment?: boolean;
+    receiptShowQrCode?: boolean;
+    receiptShowItemSku?: boolean;
+    receiptShowShipping?: boolean;
+    receiptShowCoupon?: boolean;
+    receiptShowBonus?: boolean;
+    receiptPrintingMode: 'direct' | 'browser';
+    receiptPrinterName: string;
+    receiptPaperWidth: 58 | 80;
+    receiptAutoPrint: boolean;
+    receiptPrintCustomerCopy: boolean;
+    receiptPrintCopies: number;
+    receiptCashDrawerPulse: boolean;
+  };
+  onRefund?: (sale: Sale & { items: SaleItem[] }) => void;
 }
 
-export function ReceiptReprint({ onClose, settings, onRefund }: ReceiptReprintProps) {
-  const [searchQuery, setSearchQuery] = useState('')
-  const [searchType, setSearchType] = useState<'receipt' | 'date'>('receipt')
-  const [sales, setSales] = useState<ReprintSale[]>([])
-  const [selectedSale, setSelectedSale] = useState<ReprintSale | null>(null)
-  const [searching, setSearching] = useState(false)
-  const [printing, setPrinting] = useState(false)
-  const printRef = useRef<HTMLDivElement>(null)
+export function ReceiptReprint({
+  onClose,
+  settings,
+  onRefund,
+}: ReceiptReprintProps) {
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchType, setSearchType] = useState<'receipt' | 'date'>('receipt');
+  const [sales, setSales] = useState<ReprintSale[]>([]);
+  const [selectedSale, setSelectedSale] = useState<ReprintSale | null>(null);
+  const [searching, setSearching] = useState(false);
+  const [printing, setPrinting] = useState(false);
+  const printRef = useRef<HTMLDivElement>(null);
 
   const handleSearch = async () => {
     if (!searchQuery.trim()) {
-      notify.error('Enter search criteria')
-      return
+      notify.error('Enter search criteria');
+      return;
     }
 
-    setSearching(true)
+    setSearching(true);
     try {
-      let results: ReprintSale[] = []
-      
+      let results: ReprintSale[] = [];
+
       if (searchType === 'receipt') {
-        results = await getSalesByReceiptNo(searchQuery.trim())
+        results = await getSalesByReceiptNo(searchQuery.trim());
         if (results.length === 0) {
-          notify.error('No receipts found matching that number')
+          notify.error('No receipts found matching that number');
         } else {
-          notify.success(`Found ${results.length} receipt(s)`)
+          notify.success(`Found ${results.length} receipt(s)`);
         }
       } else if (searchType === 'date') {
         // Parse date range (format: YYYY-MM-DD or YYYY-MM-DD to YYYY-MM-DD)
-        const parts = searchQuery.split('to')
-        const startDate = new Date(parts[0].trim())
-        const endDate = parts[1] ? new Date(parts[1].trim()) : new Date(parts[0].trim())
-        
+        const parts = searchQuery.split('to');
+        const startDate = new Date(parts[0].trim());
+        const endDate = parts[1]
+          ? new Date(parts[1].trim())
+          : new Date(parts[0].trim());
+
         if (isNaN(startDate.getTime())) {
-          notify.error('Invalid date format. Use YYYY-MM-DD')
-          setSearching(false)
-          return
+          notify.error('Invalid date format. Use YYYY-MM-DD');
+          setSearching(false);
+          return;
         }
-        
-        endDate.setHours(23, 59, 59, 999)
-        results = await getSalesByDateRange(startDate, endDate)
+
+        endDate.setHours(23, 59, 59, 999);
+        results = await getSalesByDateRange(startDate, endDate);
         if (results.length === 0) {
-          notify.error('No receipts found for that date range')
+          notify.error('No receipts found for that date range');
         } else {
-          notify.success(`Found ${results.length} receipt(s)`)
+          notify.success(`Found ${results.length} receipt(s)`);
         }
       }
-      
-      setSales(results)
-    } catch (error) {
-      notify.error(error instanceof Error ? error.message : 'Failed to search receipts')
-    } finally {
-      setSearching(false)
-    }
-  }
 
-  const printerSettings: ReceiptPrinterSettings = { mode: settings.receiptPrintingMode, printerName: settings.receiptPrinterName, paperWidth: settings.receiptPaperWidth, autoPrint: false, customerCopy: settings.receiptPrintCustomerCopy, copies: settings.receiptPrintCopies, cashDrawerPulse: false }
-  const receiptMarkup = () => { const paper = printRef.current?.querySelector<HTMLElement>('.receipt-paper'); return paper ? captureReceiptHtml(paper) : null }
+      setSales(results);
+    } catch (error) {
+      notify.error(
+        error instanceof Error ? error.message : 'Failed to search receipts'
+      );
+    } finally {
+      setSearching(false);
+    }
+  };
+
+  const printerSettings: ReceiptPrinterSettings = {
+    mode: settings.receiptPrintingMode,
+    printerName: settings.receiptPrinterName,
+    paperWidth: settings.receiptPaperWidth,
+    autoPrint: false,
+    customerCopy: settings.receiptPrintCustomerCopy,
+    copies: settings.receiptPrintCopies,
+    cashDrawerPulse: false,
+  };
+  const receiptMarkup = () => {
+    const paper =
+      printRef.current?.querySelector<HTMLElement>('.receipt-paper');
+    return paper ? captureReceiptHtml(paper) : null;
+  };
   const handleBrowserPrint = () => {
-    const html = receiptMarkup(); if (!html) return notify.error('Receipt preview is unavailable')
-    try { browserPrintReceipt(html, settings.receiptPaperWidth); notify.info('Print dialog opened') } catch { notify.error('Could not open the print dialog') }
-  }
+    const html = receiptMarkup();
+    if (!html) return notify.error('Receipt preview is unavailable');
+    try {
+      browserPrintReceipt(html, settings.receiptPaperWidth);
+      notify.info('Print dialog opened');
+    } catch {
+      notify.error('Could not open the print dialog');
+    }
+  };
   const handlePrint = async () => {
-    const html = receiptMarkup(); if (!html) return notify.error('Receipt preview is unavailable')
-    if (settings.receiptPrintingMode === 'browser') return handleBrowserPrint()
+    const html = receiptMarkup();
+    if (!html) return notify.error('Receipt preview is unavailable');
+    if (settings.receiptPrintingMode === 'browser') return handleBrowserPrint();
     if (!hasConfiguredReceiptPrinter(printerSettings)) {
       notify.info('No receipt printer configured', {
-        description: 'Use browser printing or configure a receipt printer.',
-        action: { label: 'Browser print', onClick: handleBrowserPrint },
-        cancel: { label: 'Printer settings', onClick: () => { window.location.href = '/dashboard/admin/devices' } },
-      })
-      return
+        description:
+          'Configure the receipt printer for this terminal before reprinting.',
+        cancel: {
+          label: 'Printer settings',
+          onClick: () => {
+            window.location.href = '/dashboard/admin/devices';
+          },
+        },
+      });
+      return;
     }
-    setPrinting(true)
-    const toastId = notify.loading('Printing receipt…')
-    try { await directPrintReceipt(html, printerSettings); notify.success('Receipt printed', { id: toastId, description: `Submitted to ${settings.receiptPrinterName}.` }) }
-    catch (error) { const copy = getReceiptPrinterErrorCopy(error); notify.error(copy.title, { id: toastId, description: copy.description, action: { label: 'Try again', onClick: () => void handlePrint() }, cancel: { label: 'Browser print', onClick: handleBrowserPrint } }) }
-    finally { setPrinting(false) }
-  }
+    setPrinting(true);
+    const toastId = notify.loading('Printing receipt…');
+    try {
+      await directPrintReceipt(html, printerSettings);
+      notify.success('Receipt printed', {
+        id: toastId,
+        description: `Submitted to ${settings.receiptPrinterName}.`,
+      });
+    } catch (error) {
+      const copy = getReceiptPrinterErrorCopy(error);
+      notify.error(copy.title, {
+        id: toastId,
+        description: copy.description,
+        action: { label: 'Try again', onClick: () => void handlePrint() },
+      });
+    } finally {
+      setPrinting(false);
+    }
+  };
 
   if (selectedSale) {
     return (
@@ -129,7 +184,10 @@ export function ReceiptReprint({ onClose, settings, onRefund }: ReceiptReprintPr
         <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-xl font-bold">Receipt Preview</h2>
-            <button onClick={() => setSelectedSale(null)} className="p-1 hover:bg-gray-100 rounded">
+            <button
+              onClick={() => setSelectedSale(null)}
+              className="p-1 hover:bg-gray-100 rounded"
+            >
               <X className="h-5 w-5" />
             </button>
           </div>
@@ -168,8 +226,8 @@ export function ReceiptReprint({ onClose, settings, onRefund }: ReceiptReprintPr
             {onRefund && (
               <button
                 onClick={() => {
-                  onRefund(selectedSale)
-                  setSelectedSale(null)
+                  onRefund(selectedSale);
+                  setSelectedSale(null);
                 }}
                 className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center justify-center gap-2 font-medium"
               >
@@ -181,14 +239,17 @@ export function ReceiptReprint({ onClose, settings, onRefund }: ReceiptReprintPr
               disabled={printing}
               className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-[#e42527] px-4 py-2 font-medium text-white hover:bg-[#c91f22]"
             >
-              {printing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Printer className="h-4 w-4" />}
+              {printing ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Printer className="h-4 w-4" />
+              )}
               {printing ? 'Printing…' : 'Print'}
             </button>
-            {settings.receiptPrintingMode === 'direct' && <button onClick={handleBrowserPrint} className="rounded-lg border px-3 py-2 text-sm font-medium">Browser print</button>}
           </div>
         </div>
       </div>
-    )
+    );
   }
 
   return (
@@ -203,13 +264,15 @@ export function ReceiptReprint({ onClose, settings, onRefund }: ReceiptReprintPr
 
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium mb-2">Search Type</label>
+            <label className="block text-sm font-medium mb-2">
+              Search Type
+            </label>
             <select
               value={searchType}
               onChange={(e) => {
-                setSearchType(e.target.value as 'receipt' | 'date')
-                setSales([])
-                setSearchQuery('')
+                setSearchType(e.target.value as 'receipt' | 'date');
+                setSales([]);
+                setSearchQuery('');
               }}
               className="w-full px-3 py-2 border rounded-lg text-sm"
             >
@@ -220,13 +283,19 @@ export function ReceiptReprint({ onClose, settings, onRefund }: ReceiptReprintPr
 
           <div>
             <label className="block text-sm font-medium mb-2">
-              {searchType === 'receipt' ? 'Receipt Number' : 'Date (YYYY-MM-DD)'}
+              {searchType === 'receipt'
+                ? 'Receipt Number'
+                : 'Date (YYYY-MM-DD)'}
             </label>
             <input
               type={searchType === 'date' ? 'text' : 'text'}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder={searchType === 'receipt' ? 'e.g., REC-001' : 'e.g., 2024-01-15 or 2024-01-01 to 2024-01-31'}
+              placeholder={
+                searchType === 'receipt'
+                  ? 'e.g., REC-001'
+                  : 'e.g., 2024-01-15 or 2024-01-01 to 2024-01-31'
+              }
               className="w-full px-3 py-2 border rounded-lg text-sm"
               onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
             />
@@ -256,8 +325,8 @@ export function ReceiptReprint({ onClose, settings, onRefund }: ReceiptReprintPr
                 Search Results ({sales.length})
                 <button
                   onClick={() => {
-                    setSales([])
-                    setSearchQuery('')
+                    setSales([]);
+                    setSearchQuery('');
                   }}
                   className="text-xs text-gray-500 hover:text-gray-700 font-normal flex items-center gap-1"
                 >
@@ -266,7 +335,7 @@ export function ReceiptReprint({ onClose, settings, onRefund }: ReceiptReprintPr
                 </button>
               </h3>
               <div className="space-y-2 max-h-64 overflow-y-auto">
-                {sales.map(s => (
+                {sales.map((s) => (
                   <button
                     key={s.id}
                     onClick={() => setSelectedSale(s)}
@@ -274,9 +343,13 @@ export function ReceiptReprint({ onClose, settings, onRefund }: ReceiptReprintPr
                   >
                     <div>
                       <div className="font-medium text-sm">{s.receiptNo}</div>
-                      <div className="text-xs text-gray-600">{new Date(s.createdAt).toLocaleString()}</div>
+                      <div className="text-xs text-gray-600">
+                        {new Date(s.createdAt).toLocaleString()}
+                      </div>
                     </div>
-                    <div className="font-medium text-sm">{formatCurrency(parseFloat(s.total))}</div>
+                    <div className="font-medium text-sm">
+                      {formatCurrency(parseFloat(s.total))}
+                    </div>
                   </button>
                 ))}
               </div>
@@ -292,5 +365,5 @@ export function ReceiptReprint({ onClose, settings, onRefund }: ReceiptReprintPr
         </div>
       </div>
     </div>
-  )
+  );
 }

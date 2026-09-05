@@ -4,6 +4,7 @@ import {
   ONBOARDING_STEPS,
   WORKING_MODULES,
   isCategoryValidForFamily,
+  isBusinessCategoryAvailable,
   type OnboardingDraft,
 } from './config'
 
@@ -41,6 +42,9 @@ export const onboardingStepSchemas = {
   }).superRefine((value, context) => {
     if (!isCategoryValidForFamily(value.businessFamily, value.businessCategory)) {
       context.addIssue({ code: z.ZodIssueCode.custom, path: ['businessCategory'], message: 'Choose a category that belongs to this business family' })
+    }
+    if (!isBusinessCategoryAvailable(value.businessCategory)) {
+      context.addIssue({ code: z.ZodIssueCode.custom, path: ['businessCategory'], message: 'This workspace is coming soon. Choose an available business category.' })
     }
     if (value.businessFamily === 'other' && value.customBusinessCategory.trim().length < 2) {
       context.addIssue({ code: z.ZodIssueCode.custom, path: ['customBusinessCategory'], message: 'Describe your business' })

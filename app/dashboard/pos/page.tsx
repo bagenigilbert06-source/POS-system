@@ -54,6 +54,10 @@ export default async function POSPage() {
         canManageCash={operator.permissions.includes(
           PermissionEnum.SHIFT_MANAGE
         )}
+        directDrawerConfigured={
+          data.settings.receiptPrintingMode === 'direct' &&
+          Boolean(data.settings.receiptPrinterName)
+        }
         action={
           <div className="flex flex-wrap items-center justify-end gap-2">
             <PosSecurity
@@ -71,16 +75,25 @@ export default async function POSPage() {
         customers={data.customers}
         settings={data.settings}
         requiresAgeVerification={config.businessCategory === 'liquor_shop'}
-        pharmacyMode={isPharmacyBusiness(config.businessType, config.businessCategory)}
+        pharmacyMode={isPharmacyBusiness(
+          config.businessType,
+          config.businessCategory
+        )}
         cafeMode={isCafeBusiness(config.businessType, config.businessCategory)}
         cafeExperience={data.cafe}
         hasActiveShift={Boolean(data.cashierWorkspace.session)}
         canDiscount={operator.permissions.includes(PermissionEnum.POS_DISCOUNT)}
         canRefund={operator.permissions.includes(PermissionEnum.SALE_REFUND)}
         canHold={operator.permissions.includes(PermissionEnum.POS_HOLD)}
-        canRedeemRewards={operator.permissions.includes(PermissionEnum.REWARDS_REDEEM)}
-        canApproveRestricted={operator.permissions.includes(PermissionEnum.PHARMACY_RESTRICTED_APPROVE)}
-        canOverrideAgeVerification={operator.permissions.includes(PermissionEnum.AGE_VERIFICATION_OVERRIDE)}
+        canRedeemRewards={operator.permissions.includes(
+          PermissionEnum.REWARDS_REDEEM
+        )}
+        canApproveRestricted={operator.permissions.includes(
+          PermissionEnum.PHARMACY_RESTRICTED_APPROVE
+        )}
+        canOverrideAgeVerification={operator.permissions.includes(
+          PermissionEnum.AGE_VERIFICATION_OVERRIDE
+        )}
         receiptContext={{
           cashierName: currentSession?.user?.name || undefined,
           registerName: data.cashierWorkspace.registerName,

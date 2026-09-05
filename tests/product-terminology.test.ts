@@ -15,6 +15,13 @@ test('liquor terminology stays scoped to liquor stores', () => {
   assert.equal(terms.title, 'Stock Items');
 });
 
+test('hardware workspace uses stock-item terminology without changing liquor', () => {
+  const terms = getProductTerminology('retail', 'hardware');
+  assert.equal(terms.add, 'Add Hardware Item');
+  assert.equal(terms.title, 'Hardware Items');
+  assert.doesNotMatch(`${terms.add} ${terms.description}`, /liquor|menu|medicine/i);
+});
+
 test('pharmacy workspace keeps medicine terminology', () => {
   const terms = getProductTerminology('health_wellness', 'health_pharmacy');
   assert.equal(terms.add, 'Add Medicine');

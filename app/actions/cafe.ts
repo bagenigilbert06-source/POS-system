@@ -1,7 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { and, asc, desc, eq, gte, ilike, inArray, or, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, ilike, inArray, lte, or, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { requirePermission } from '@/lib/auth/authorization';
 import { invalidateProductReadCache } from '@/lib/cache/redis-cache';
@@ -1169,11 +1169,19 @@ export async function getCafeOrdersData(input?: {
   status?: string;
   orderType?: string;
   payment?: string;
+  from?: string;
+  to?: string;
 }) {
   const authorization = await requireCafe(PermissionEnum.ORDER_VIEW);
   const orgId = authorization.organizationId;
-  const start = new Date();
-  start.setHours(0, 0, 0, 0);
+  const parseDate = (value: string | undefined, endOfDay = false) => {
+    if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return undefined;
+    const date = new Date(`${value}T${endOfDay ? '23:59:59.999' : '00:00:00.000'}`);
+    return Number.isNaN(date.getTime()) ? undefined : date;
+  };
+  const start = parseDate(input?.from) ?? new Date();
+  if (!input?.from) start.setHours(0, 0, 0, 0);
+  const end = parseDate(input?.to, true);
   const search = input?.search?.trim();
   const rows = await db
     .select({
@@ -1199,6 +1207,7 @@ export async function getCafeOrdersData(input?: {
             ? inArray(cafeOrder.branchId, authorization.branchIds)
             : sql`false`,
         gte(cafeOrder.createdAt, start),
+        end ? lte(cafeOrder.createdAt, end) : undefined,
         input?.status ? eq(cafeOrder.status, input.status) : undefined,
         input?.orderType ? eq(cafeOrder.orderType, input.orderType) : undefined,
         input?.payment ? eq(sale.paymentMethod, input.payment) : undefined,

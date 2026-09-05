@@ -10,6 +10,7 @@ import { PermissionEnum } from '@/lib/types/permissions';
 import { isPharmacyBusiness } from '@/lib/pharmacy/rules';
 import { getCurrentProductTerminology } from '@/lib/products/current-terminology';
 import { isCafeBusiness } from '@/lib/hospitality/rules';
+import { isHardwareBusiness } from '@/lib/hardware/rules';
 
 export async function generateMetadata(): Promise<Metadata> {
   const terminology = await getCurrentProductTerminology();
@@ -19,6 +20,8 @@ export async function generateMetadata(): Promise<Metadata> {
         ? 'Medicine Inventory | Pesaby'
         : terminology.title === 'Stock Items'
           ? 'Store Inventory | Pesaby'
+          : terminology.title === 'Hardware Items'
+            ? 'Hardware Stock Yard | Pesaby'
           : terminology.title === 'Menu Items'
             ? 'Café Inventory | Pesaby'
             : 'Inventory control | Pesaby',
@@ -45,6 +48,10 @@ export default async function InventoryPage({
   );
   const liquorStore = config.businessCategory === 'liquor_shop';
   const cafe = isCafeBusiness(config.businessType, config.businessCategory);
+  const hardware = isHardwareBusiness(
+    config.businessType,
+    config.businessCategory
+  );
   const canAdjust = authorization.permissions.includes(
     PermissionEnum.INVENTORY_ADJUST
   );
@@ -78,7 +85,9 @@ export default async function InventoryPage({
               ? 'Liquor store stock control'
               : cafe
                 ? 'Café stock control'
-                : 'Stock control'
+                : hardware
+                  ? 'Hardware stock control'
+                  : 'Stock control'
         }
         title={
           pharmacy
@@ -87,7 +96,9 @@ export default async function InventoryPage({
               ? 'Store Inventory'
               : cafe
                 ? 'Ingredients & Menu Stock'
-                : 'Inventory'
+                : hardware
+                  ? 'Hardware Stock Yard'
+                  : 'Inventory'
         }
         description={
           pharmacy
@@ -96,7 +107,9 @@ export default async function InventoryPage({
               ? 'Count, replenish and audit bottles, packs, cases and other store stock.'
               : cafe
                 ? 'Count, receive and audit ingredients, packaged drinks and ready-to-sell menu items.'
-                : 'Count, replenish, adjust and audit every change to stock on hand.'
+                : hardware
+                  ? 'Count, receive and audit building materials, tools and supplies by their selling unit.'
+                  : 'Count, replenish, adjust and audit every change to stock on hand.'
         }
       />
 

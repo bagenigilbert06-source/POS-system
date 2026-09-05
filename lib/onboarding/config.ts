@@ -119,6 +119,15 @@ export interface BusinessCategoryOption {
   name: string;
 }
 
+/** Workspace types that have completed, production-specific experiences. */
+export const AVAILABLE_BUSINESS_CATEGORIES: ReadonlySet<string> = new Set([
+  'hardware',
+  'liquor_shop',
+  'retail_pharmacy',
+  'cafe',
+  'health_pharmacy',
+]);
+
 export const BUSINESS_FAMILIES: BusinessFamilyProfile[] = [
   {
     id: 'retail',
@@ -194,7 +203,7 @@ export const BUSINESS_CATEGORIES: Record<
     ['electronics', 'Electronics'],
     ['clothing', 'Clothing'],
     ['cosmetics', 'Cosmetics'],
-    ['liquor_shop', 'Liquor shop'],
+    ['liquor_shop', 'Liquor Store'],
     ['bookshop', 'Bookshop'],
     ['spare_parts', 'Spare parts'],
     ['retail_pharmacy', 'Pharmacy'],
@@ -397,6 +406,20 @@ export function familyFor(id: string) {
 
 export function categoriesFor(family: string) {
   return BUSINESS_CATEGORIES[family as BusinessFamilyId] ?? [];
+}
+
+export function isBusinessCategoryAvailable(category: string): boolean {
+  return AVAILABLE_BUSINESS_CATEGORIES.has(category);
+}
+
+export function availableCategoriesFor(family: string) {
+  return categoriesFor(family).filter((category) =>
+    isBusinessCategoryAvailable(category.id)
+  );
+}
+
+export function isBusinessFamilyAvailable(family: string): boolean {
+  return availableCategoriesFor(family).length > 0;
 }
 
 export function isCategoryValidForFamily(family: string, category: string) {

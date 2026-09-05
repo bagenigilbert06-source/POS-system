@@ -449,6 +449,13 @@
       "when": 1788246000000,
       "tag": "0059_cafe_modifier_recipe_replacements",
       "breakpoints": true
+    },
+    {
+      "idx": 64,
+      "version": "7",
+      "when": 1788523200000,
+      "tag": "0060_hardware_quotations",
+      "breakpoints": true
     }
   ]
 }

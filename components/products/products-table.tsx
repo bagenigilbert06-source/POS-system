@@ -19,7 +19,6 @@ import {
   Grid2X2,
   List,
   ShoppingCart,
-  Smartphone,
 } from 'lucide-react';
 import { PaymentSummaryEditIcon } from '@/components/ui/payment-summary-edit-icon';
 import type { Product } from '@/lib/db/schema';
@@ -34,14 +33,15 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { WirelessScannerPairing } from '@/components/barcode/wireless-scanner-pairing';
 import {
   getProductTerminology,
   type ProductTerminology,
 } from '@/lib/products/terminology';
 
 interface ProductsTableProps {
-  initialProducts: Array<Product & { unitsSoldMonth: number; categoryName?: string | null }>;
+  initialProducts: Array<
+    Product & { unitsSoldMonth: number; categoryName?: string | null }
+  >;
   terminology?: ProductTerminology;
 }
 
@@ -69,7 +69,6 @@ export function ProductsTable({
     src: string;
     name: string;
   } | null>(null);
-  const [showPhoneScanner, setShowPhoneScanner] = useState(false);
 
   useEffect(() => {
     setProducts(initialProducts);
@@ -97,7 +96,6 @@ export function ProductsTable({
       (item) =>
         item.isActive && normalizeBarcode(item.barcode ?? '') === barcode
     );
-    setShowPhoneScanner(false);
     if (matches.length === 1) {
       notify.success(`${matches[0].name} found`);
       router.push(`/dashboard/products/${matches[0].id}?edit=true`);
@@ -172,7 +170,6 @@ export function ProductsTable({
       setArchiveTarget(null);
     }
   };
-
 
   const unitLabel = (unit: string, quantity: number) => {
     const normalized = unit === 'pcs' ? 'piece' : unit;
@@ -286,14 +283,19 @@ export function ProductsTable({
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Archive this {terminology.singularLower}?</AlertDialogTitle>
+            <AlertDialogTitle>
+              Archive this {terminology.singularLower}?
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              {archiveTarget?.name} will no longer appear in active {terminology.singularLower} and
-              POS lists. Existing sales records remain unchanged.
+              {archiveTarget?.name} will no longer appear in active{' '}
+              {terminology.singularLower} and POS lists. Existing sales records
+              remain unchanged.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Keep {terminology.singularLower}</AlertDialogCancel>
+            <AlertDialogCancel>
+              Keep {terminology.singularLower}
+            </AlertDialogCancel>
             <AlertDialogAction
               onClick={handleArchive}
               className="bg-primary text-primary-foreground hover:bg-primary/90"
@@ -325,13 +327,6 @@ export function ProductsTable({
             />
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setShowPhoneScanner(true)}
-              className="inline-flex items-center gap-2 rounded-lg border bg-background px-3 py-2 text-sm font-semibold text-foreground hover:border-[#f9b21d] hover:bg-[#fff8e6] dark:hover:bg-[#2a2111]"
-            >
-              <Smartphone className="h-4 w-4" /> Scan to add
-            </button>
             <Link
               href="/dashboard/products/categories"
               className="rounded-lg border bg-background px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-secondary"
@@ -419,19 +414,25 @@ export function ProductsTable({
         {filter === 'low-stock' && (
           <div className="grid gap-3 sm:grid-cols-3">
             <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 dark:border-amber-900/70 dark:bg-amber-950/30">
-              <p className="text-xs font-medium text-amber-800 dark:text-amber-300">Low-stock {terminology.pluralLower}</p>
+              <p className="text-xs font-medium text-amber-800 dark:text-amber-300">
+                Low-stock {terminology.pluralLower}
+              </p>
               <p className="mt-1 text-xl font-semibold text-amber-900 dark:text-amber-200">
                 {lowStockCount}
               </p>
             </div>
             <div className="rounded-lg border border-orange-200 bg-orange-50 px-4 py-3 dark:border-orange-900/70 dark:bg-orange-950/30">
-              <p className="text-xs font-medium text-orange-800 dark:text-orange-300">Critical {terminology.pluralLower}</p>
+              <p className="text-xs font-medium text-orange-800 dark:text-orange-300">
+                Critical {terminology.pluralLower}
+              </p>
               <p className="mt-1 text-xl font-semibold text-orange-900 dark:text-orange-200">
                 {criticalCount}
               </p>
             </div>
             <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 dark:border-red-900/70 dark:bg-red-950/30">
-              <p className="text-xs font-medium text-red-800 dark:text-red-300">Out of stock</p>
+              <p className="text-xs font-medium text-red-800 dark:text-red-300">
+                Out of stock
+              </p>
               <p className="mt-1 text-xl font-semibold text-red-900 dark:text-red-200">
                 {outOfStockCount}
               </p>
@@ -516,8 +517,17 @@ export function ProductsTable({
                       </h3>
                     </div>
                     <div className="flex min-h-5 min-w-0 items-center gap-1.5 overflow-hidden">
-                      {p.categoryName && <span className="truncate text-[10px] font-medium text-[#875b00] dark:text-[#d6aa2d]">{p.categoryName}</span>}
-                      {incompleteData && <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-orange-200 bg-orange-50 px-2 py-0.5 text-[10px] font-medium text-orange-700 dark:border-orange-900/70 dark:bg-orange-950/35 dark:text-orange-300"><AlertTriangle className="h-3 w-3" />Incomplete data</span>}
+                      {p.categoryName && (
+                        <span className="truncate text-[10px] font-medium text-[#875b00] dark:text-[#d6aa2d]">
+                          {p.categoryName}
+                        </span>
+                      )}
+                      {incompleteData && (
+                        <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-orange-200 bg-orange-50 px-2 py-0.5 text-[10px] font-medium text-orange-700 dark:border-orange-900/70 dark:bg-orange-950/35 dark:text-orange-300">
+                          <AlertTriangle className="h-3 w-3" />
+                          Incomplete data
+                        </span>
+                      )}
                     </div>
                     <div className="flex items-center justify-between gap-2 pt-0.5">
                       <p className="text-[15px] font-semibold tabular-nums text-[#8a6200] dark:text-[#e6b832]">
@@ -531,13 +541,16 @@ export function ProductsTable({
                             : 'text-destructive'
                         )}
                       >
-                        {grossMargin.valid ? `${grossMargin.percent.toFixed(1)}% profit` : 'Check cost price'}
+                        {grossMargin.valid
+                          ? `${grossMargin.percent.toFixed(1)}% profit`
+                          : 'Check cost price'}
                       </span>
                     </div>
                   </Link>
                   <div className="flex min-h-10 items-center justify-between gap-2 px-3 pb-2 pt-1">
                     <span className="truncate text-[11px] text-muted-foreground">
-                      {p.stock} {p.unit}{p.stock === 1 ? '' : 's'} available
+                      {p.stock} {p.unit}
+                      {p.stock === 1 ? '' : 's'} available
                     </span>
                     <div className="flex shrink-0 items-center gap-2">
                       {p.isActive && status !== 'ok' && (
@@ -756,7 +769,12 @@ export function ProductsTable({
                                 <p className="text-xs text-muted-foreground">
                                   {p.sku ? `SKU: ${p.sku}` : 'No SKU'}
                                 </p>
-                                {(buying <= 0 || !p.sku) && <span className="mt-1 inline-flex items-center gap-1 rounded-full border border-orange-200 bg-orange-50 px-2 py-0.5 text-[10px] font-medium text-orange-700 dark:border-orange-900/70 dark:bg-orange-950/35 dark:text-orange-300"><AlertTriangle className="h-3 w-3" />Incomplete data</span>}
+                                {(buying <= 0 || !p.sku) && (
+                                  <span className="mt-1 inline-flex items-center gap-1 rounded-full border border-orange-200 bg-orange-50 px-2 py-0.5 text-[10px] font-medium text-orange-700 dark:border-orange-900/70 dark:bg-orange-950/35 dark:text-orange-300">
+                                    <AlertTriangle className="h-3 w-3" />
+                                    Incomplete data
+                                  </span>
+                                )}
                               </div>
                             </div>
                           </td>
@@ -775,7 +793,9 @@ export function ProductsTable({
                                   : 'text-destructive'
                               )}
                             >
-                              {grossMargin.valid ? `${grossMargin.percent.toFixed(1)}%` : 'Check cost price'}
+                              {grossMargin.valid
+                                ? `${grossMargin.percent.toFixed(1)}%`
+                                : 'Check cost price'}
                             </span>
                           </td>
                           <td className="px-4 py-3 text-center">
@@ -822,7 +842,10 @@ export function ProductsTable({
                                   aria-label={`Archive ${p.name}`}
                                   title={`Archive ${terminology.singularLower}`}
                                 >
-                                  <Archive className="h-4 w-4" aria-hidden="true" />
+                                  <Archive
+                                    className="h-4 w-4"
+                                    aria-hidden="true"
+                                  />
                                 </button>
                               )}
                             </div>
@@ -838,14 +861,10 @@ export function ProductsTable({
         </div>
 
         <p className="text-xs text-muted-foreground">
-          Showing {filtered.length} of {products.length} {terminology.pluralLower}
+          Showing {filtered.length} of {products.length}{' '}
+          {terminology.pluralLower}
         </p>
       </div>
-      <WirelessScannerPairing
-        open={showPhoneScanner}
-        onClose={() => setShowPhoneScanner(false)}
-        onBarcode={openScannedProduct}
-      />
     </div>
   );
 }

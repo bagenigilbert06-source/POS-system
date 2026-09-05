@@ -20,6 +20,7 @@ import {
 } from '@/lib/onboarding/config'
 import { onboardingStepSchemas, validateCompleteDraft } from '@/lib/onboarding/schemas'
 import { resolveOnboardingTemplateId } from '@/lib/templates'
+import { initializeHardwareCatalogue } from '@/lib/hardware/catalogue-initializer'
 
 type DraftRow = typeof onboardingState.$inferSelect
 
@@ -247,6 +248,15 @@ export class OnboardingService {
       }
       await tx.insert(workspace).values({ id: generateId(), organizationId, config: workspaceConfig, createdAt: now, updatedAt: now })
         .onConflictDoUpdate({ target: workspace.organizationId, set: { config: workspaceConfig, updatedAt: now } })
+
+      if (!existingOrganization && workspaceConfig.templateId === 'retail.hardware') {
+        await initializeHardwareCatalogue({
+          tx,
+          organizationId,
+          branchId,
+          userId,
+        })
+      }
 
       await tx.insert(auditEvent).values({
         id: generateId(), organizationId, userId, action: 'workspace.created',

@@ -4,12 +4,34 @@ import { formatCurrency, formatDateTime } from '@/lib/utils'
 import type { getCafeOrdersData } from '@/app/actions/cafe'
 
 type Rows = Awaited<ReturnType<typeof getCafeOrdersData>>
-type Filters = { search?: string; status?: string; orderType?: string; payment?: string }
+type Filters = { search?: string; status?: string; orderType?: string; payment?: string; from?: string; to?: string }
 
 const field = 'h-10 rounded-lg border border-[#d0d5dd] bg-white px-3 text-sm text-[#344054] outline-none transition-colors focus:border-[#f9b21d] focus:ring-2 focus:ring-[#f9b21d]/20 dark:border-white/10 dark:bg-[#171717] dark:text-[#f2f4f7]'
 
 function label(value: string) {
   return value.replaceAll('_', ' ').replace(/\b\w/g, (letter) => letter.toUpperCase())
+}
+
+function queryLink(filters: Filters, changes: Partial<Filters>) {
+  const params = new URLSearchParams()
+  for (const [key, value] of Object.entries({ ...filters, ...changes })) {
+    if (value) params.set(key, value)
+  }
+  const query = params.toString()
+  return query ? `/dashboard/sales?${query}` : '/dashboard/sales'
+}
+
+function dateInput(date: Date) {
+  return date.toISOString().slice(0, 10)
+}
+
+function presetRange(kind: 'today' | 'week' | 'month') {
+  const today = new Date()
+  const end = dateInput(today)
+  const start = new Date(today)
+  if (kind === 'week') start.setDate(start.getDate() - 6)
+  if (kind === 'month') start.setDate(start.getDate() - 29)
+  return { from: dateInput(start), to: end }
 }
 
 function StatusBadge({ value, tone = 'slate' }: { value: string; tone?: 'slate' | 'amber' | 'blue' | 'green' }) {
@@ -47,12 +69,14 @@ export function CafeOrdersView({ rows, filters }: { rows: Rows; filters: Filters
   const preparationOrders = rows.filter((row) => ['new', 'preparing', 'ready'].includes(row.order.preparationStatus))
   const collected = paidOrders.reduce((total, row) => total + Number(row.total ?? 0), 0)
   const average = paidOrders.length ? collected / paidOrders.length : 0
-  const filtersApplied = Boolean(filters.search || filters.status || filters.orderType || filters.payment)
+  const filtersApplied = Boolean(filters.search || filters.status || filters.orderType || filters.payment || filters.from || filters.to)
 
   return <div className="mx-auto w-full max-w-[1500px] space-y-5 pb-8">
     <header className="flex flex-wrap items-end justify-between gap-4"><div className="flex items-start gap-3"><span className="grid h-11 w-11 place-items-center rounded-xl border border-[#f1d47d] bg-[#fff5d8] text-[#9a6500] dark:border-[#5b4612] dark:bg-[#2b220c] dark:text-[#f4c64b]"><ReceiptText className="h-5 w-5" /></span><div><p className="text-xs font-bold uppercase tracking-[.14em] text-[#b17b00]">Café operations</p><h1 className="mt-1 text-2xl font-extrabold tracking-[-.025em]">Orders</h1><p className="mt-1 text-sm text-[#667085] dark:text-[#a8a8a8]">Track today’s counter orders, guest service and preparation progress.</p></div></div><div className="flex flex-wrap gap-2"><Link href="/dashboard/cafe/preparation" className="inline-flex h-10 items-center gap-2 rounded-lg border border-[#d0d5dd] bg-white px-3.5 text-sm font-semibold text-[#344054] transition-colors hover:bg-[#f8fafc] dark:border-white/10 dark:bg-[#171717] dark:text-[#f2f4f7] dark:hover:bg-white/10"><ChefHat className="h-4 w-4" />Preparation board</Link><Link href="/dashboard/pos" className="inline-flex h-10 items-center gap-2 rounded-lg bg-[#f9b21d] px-4 text-sm font-extrabold text-[#241d00] transition-colors hover:bg-[#e6a30f]"><Coffee className="h-4 w-4" />New order<ArrowRight className="h-4 w-4" /></Link></div></header>
 
-    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4"><Metric label="Orders today" value={rows.length} detail={filtersApplied ? 'Matching current filters' : 'All recorded today'} icon={ReceiptText} /><Metric label="Open orders" value={activeOrders.length} detail="Need payment or completion" icon={ClipboardList} tone="blue" /><Metric label="In preparation" value={preparationOrders.length} detail="New, preparing or ready" icon={ChefHat} tone="green" /><Metric label="Collected today" value={formatCurrency(collected)} detail={paidOrders.length ? `Average ${formatCurrency(average)} per paid order` : 'No paid orders recorded'} icon={CreditCard} /></div>
+    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4"><Metric label="Orders in view" value={rows.length} detail={filtersApplied ? 'Matching current filters' : 'All recorded today'} icon={ReceiptText} /><Metric label="Open orders" value={activeOrders.length} detail="Need payment or completion" icon={ClipboardList} tone="blue" /><Metric label="In preparation" value={preparationOrders.length} detail="New, preparing or ready" icon={ChefHat} tone="green" /><Metric label="Collected" value={formatCurrency(collected)} detail={paidOrders.length ? `Average ${formatCurrency(average)} per paid order` : 'No paid orders recorded'} icon={CreditCard} /></div>
+
+    <nav aria-label="Order date range" className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#e4e7ec] bg-white px-4 py-3 shadow-sm dark:border-white/10 dark:bg-[#171717]"><div><p className="text-sm font-bold">Order period</p><p className="mt-0.5 text-xs text-[#667085] dark:text-[#a8a8a8]">Review today or a recent operating period.</p></div><div className="flex flex-wrap gap-2"><Link href={queryLink(filters, presetRange('today'))} className="rounded-lg border border-[#d0d5dd] bg-white px-3 py-2 text-xs font-semibold text-[#475467] transition-colors hover:bg-[#fff8e8] dark:border-white/10 dark:bg-[#171717] dark:text-[#d0d5dd] dark:hover:bg-white/10">Today</Link><Link href={queryLink(filters, presetRange('week'))} className="rounded-lg border border-[#d0d5dd] bg-white px-3 py-2 text-xs font-semibold text-[#475467] transition-colors hover:bg-[#fff8e8] dark:border-white/10 dark:bg-[#171717] dark:text-[#d0d5dd] dark:hover:bg-white/10">Last 7 days</Link><Link href={queryLink(filters, presetRange('month'))} className="rounded-lg border border-[#d0d5dd] bg-white px-3 py-2 text-xs font-semibold text-[#475467] transition-colors hover:bg-[#fff8e8] dark:border-white/10 dark:bg-[#171717] dark:text-[#d0d5dd] dark:hover:bg-white/10">Last 30 days</Link></div></nav>
 
     <section className="rounded-xl border border-[#e4e7ec] bg-white p-4 shadow-sm dark:border-white/10 dark:bg-[#171717]"><div className="mb-3 flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-sm font-bold">Find an order</h2><p className="mt-0.5 text-xs text-[#667085] dark:text-[#a8a8a8]">Search by order number or receipt, then narrow the operational view.</p></div>{filtersApplied && <Link href="/dashboard/sales" className="text-xs font-semibold text-[#9a6500] hover:text-[#714b00] dark:text-[#f4c64b]">Clear filters</Link>}</div><form className="flex flex-wrap gap-2"><label className="relative min-w-[220px] flex-1"><Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#98a2b3]" /><input name="search" defaultValue={filters.search} placeholder="Order # or receipt" className={`${field} w-full pl-9`} /></label><select name="status" defaultValue={filters.status ?? ''} className={field}><option value="">All statuses</option><option value="completed">Completed</option><option value="open">Open</option><option value="awaiting_payment">Awaiting payment</option><option value="cancelled">Cancelled</option></select><select name="orderType" defaultValue={filters.orderType ?? ''} className={field}><option value="">All types</option><option value="takeaway">Takeaway</option><option value="dine_in">Dine-in</option><option value="delivery">Delivery</option></select><select name="payment" defaultValue={filters.payment ?? ''} className={field}><option value="">All payments</option><option value="cash">Cash</option><option value="mpesa">M-Pesa</option><option value="card">Card</option></select><button type="submit" className="inline-flex h-10 items-center gap-2 rounded-lg bg-[#f9b21d] px-4 text-sm font-extrabold text-[#241d00] transition-colors hover:bg-[#e6a30f]"><ListFilter className="h-4 w-4" />Apply</button></form></section>
 

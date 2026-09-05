@@ -54,9 +54,13 @@ async function audit(input: { organizationId: string; userId: string; action: st
   await db.insert(auditEvent).values({ id: generateId(), ...input })
 }
 
-/** Creates the durable outbox row and immediately attempts delivery. The sale
- * has already committed, so provider downtime can never erase the payment. */
-export async function enqueueEtimsInvoice(saleId: string) {
+/**
+ * Creates the durable fiscal outbox row without contacting the provider.
+ *
+ * This is deliberately the checkout-safe operation: a completed sale must not
+ * keep a cashier waiting on provider authentication or a network round trip.
+ */
+export async function queueEtimsInvoice(saleId: string) {
   const [record] = await db.select({
     id: sale.id,
     orgId: sale.orgId,
@@ -88,8 +92,23 @@ export async function enqueueEtimsInvoice(saleId: string) {
 
   const [submission] = await db.select().from(etimsSubmission).where(eq(etimsSubmission.saleId, record.id)).limit(1)
   if (!submission) throw new Error('Could not create the eTIMS outbox record')
-  if (submission.status === 'ACCEPTED') return { status: 'ACCEPTED' as const, submission, receiptDetailsEnabled: config.receiptDetailsEnabled }
-  return { ...(await processEtimsSubmission(submission.id, { userId: record.userId, manual: false })), receiptDetailsEnabled: config.receiptDetailsEnabled }
+  return {
+    status: submission.status === 'ACCEPTED' ? 'ACCEPTED' as const : 'PENDING' as const,
+    submission,
+    receiptDetailsEnabled: config.receiptDetailsEnabled,
+  }
+}
+
+/** Creates the durable outbox row and immediately attempts delivery.
+ * Use this only from a worker or an explicit administrative retry, never from
+ * the cashier checkout critical path. */
+export async function enqueueEtimsInvoice(saleId: string) {
+  const queued = await queueEtimsInvoice(saleId)
+  if (queued.status === 'ACCEPTED' || !queued.submission) return queued
+  return {
+    ...(await processEtimsSubmission(queued.submission.id, { manual: false })),
+    receiptDetailsEnabled: queued.receiptDetailsEnabled,
+  }
 }
 
 export async function processEtimsSubmission(submissionId: string, options: { userId?: string; manual: boolean }) {
@@ -189,6 +208,7 @@ export async function processEtimsSubmission(submissionId: string, options: { us
 export async function processDueEtimsRetries(limit = 25) {
   const stale = new Date(Date.now() - 5 * 60_000)
   const due = await db.select({ id: etimsSubmission.id }).from(etimsSubmission).where(or(
+    eq(etimsSubmission.status, 'PENDING'),
     and(eq(etimsSubmission.status, 'RETRYING'), or(isNull(etimsSubmission.nextRetryAt), lte(etimsSubmission.nextRetryAt, new Date()))),
     and(eq(etimsSubmission.status, 'SUBMITTING'), lte(etimsSubmission.lastAttemptAt, stale))
   )).orderBy(asc(etimsSubmission.nextRetryAt)).limit(Math.min(100, Math.max(1, limit)))

@@ -38,6 +38,8 @@ export default async function NewProductPage({
               ? 'Create a medicine record with dispensing, identification, batch and expiry controls.'
               : terminology.title === 'Stock Items'
                 ? 'Create a liquor-store item with bottle or pack details, barcode, pricing and stock controls.'
+                : terminology.title === 'Hardware Items'
+                  ? 'Create a hardware item with its selling unit, SKU or barcode, pricing, stock and reorder controls.'
                 : `Create a POS-ready ${terminology.singularLower} with pricing, stock, an image and reorder settings.`
         }
       />

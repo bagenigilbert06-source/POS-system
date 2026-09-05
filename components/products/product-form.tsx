@@ -18,17 +18,16 @@ import {
   CircleDollarSign,
   ImageIcon,
   Package2,
-  Smartphone,
   Tag,
   Upload,
   X,
 } from 'lucide-react';
 import type { PharmacyProduct, Product } from '@/lib/db/schema';
 import { notify } from '@/lib/notify';
-import { WirelessScannerPairing } from '@/components/barcode/wireless-scanner-pairing';
 import { useWorkspace } from '@/lib/context/workspace-context';
 import { isPharmacyBusiness } from '@/lib/pharmacy/rules';
 import { isCafeBusiness } from '@/lib/hospitality/rules';
+import { isHardwareBusiness } from '@/lib/hardware/rules';
 import { getProductTerminology } from '@/lib/products/terminology';
 import { LoadingSpinner as Loader2 } from '@/components/ui/page-loader';
 
@@ -81,6 +80,22 @@ const CAFE_SELLING_UNITS = [
   'ml',
   'pack',
 ];
+const HARDWARE_SELLING_UNITS = [
+  'piece',
+  'bag',
+  'box',
+  'bundle',
+  'roll',
+  'sheet',
+  'meter',
+  'kg',
+  'litre',
+  'tin',
+  'pair',
+  'set',
+  'pack',
+  'other',
+];
 const VOLUME_UNITS = ['ml', 'litre'];
 
 export function ProductForm({
@@ -99,6 +114,9 @@ export function ProductForm({
     config && isCafeBusiness(config.businessType, config.businessCategory)
   );
   const isLiquor = config?.businessCategory === 'liquor_shop';
+  const isHardware = Boolean(
+    config && isHardwareBusiness(config.businessType, config.businessCategory)
+  );
   const terminology = getProductTerminology(
     config?.businessType,
     config?.businessCategory
@@ -123,7 +141,6 @@ export function ProductForm({
     id: string;
     name: string;
   } | null>(null);
-  const [showPhoneScanner, setShowPhoneScanner] = useState(false);
   const [availableCategories, setAvailableCategories] = useState(categories);
   const [categoryDialogOpen, setCategoryDialogOpen] = useState(false);
   const [newCategory, setNewCategory] = useState({
@@ -617,7 +634,9 @@ export function ProductForm({
                             ? 'e.g. Cappuccino'
                             : isLiquor
                               ? 'e.g. Johnnie Walker Black Label 750ml'
-                              : 'e.g. Premium flour 2 kg'
+                              : isHardware
+                                ? 'e.g. Galvanized Iron Sheet 3 m'
+                                : 'e.g. Premium flour 2 kg'
                       }
                       value={form.name}
                       onChange={(e) => {
@@ -842,7 +861,9 @@ export function ProductForm({
                                 ? 'Optional, e.g. House made'
                                 : isLiquor
                                   ? 'e.g. Johnnie Walker'
-                                  : 'Optional brand'
+                                  : isHardware
+                                    ? 'e.g. Bosch, Crown, Rhino'
+                                    : 'Optional brand'
                             }
                             className={inputCls}
                           />
@@ -859,7 +880,9 @@ export function ProductForm({
                                 ? 'Optional, e.g. Iced'
                                 : isLiquor
                                   ? 'e.g. Black Label'
-                                  : 'Optional variant'
+                                  : isHardware
+                                    ? 'e.g. 13 mm, 50 kg, 3 m'
+                                    : 'Optional variant'
                             }
                             className={inputCls}
                           />
@@ -958,16 +981,23 @@ export function ProductForm({
                           onChange={(e) => set('unit', e.target.value)}
                           className={inputCls}
                         >
-                          {(isCafe ? CAFE_SELLING_UNITS : SELLING_UNITS).map(
-                            (unit) => (
-                              <option key={unit} value={unit}>
-                                {unit[0].toUpperCase() + unit.slice(1)}
-                              </option>
-                            )
-                          )}
+                          {(isCafe
+                            ? CAFE_SELLING_UNITS
+                            : isHardware
+                              ? HARDWARE_SELLING_UNITS
+                              : SELLING_UNITS
+                          ).map((unit) => (
+                            <option key={unit} value={unit}>
+                              {unit[0].toUpperCase() + unit.slice(1)}
+                            </option>
+                          ))}
                           {product &&
                             !(
-                              isCafe ? CAFE_SELLING_UNITS : SELLING_UNITS
+                              isCafe
+                                ? CAFE_SELLING_UNITS
+                                : isHardware
+                                  ? HARDWARE_SELLING_UNITS
+                                  : SELLING_UNITS
                             ).includes(form.unit) && (
                               <option value={form.unit}>{form.unit}</option>
                             )}
@@ -993,7 +1023,9 @@ export function ProductForm({
                               ? 'e.g. CAP-LATTE'
                               : isLiquor
                                 ? 'e.g. JWB-750'
-                                : 'e.g. ITEM-001'
+                                : isHardware
+                                  ? 'e.g. ELC-CBL-25'
+                                  : 'e.g. ITEM-001'
                         }
                         value={form.sku}
                         onChange={(e) => set('sku', e.target.value)}
@@ -1005,10 +1037,10 @@ export function ProductForm({
                       <p className="mb-1 text-xs text-muted-foreground">
                         {isCafe
                           ? 'For packaged retail items, scan the pack barcode or type the number'
-                          : `Scan the barcode on the ${isPharmacy ? 'medicine pack' : isLiquor ? 'bottle' : 'product'} or type the number`}
+                          : `Scan the barcode on the ${isPharmacy ? 'medicine pack' : isLiquor ? 'bottle' : isHardware ? 'hardware item' : 'product'} or type the number`}
                         printed below it.
                       </p>
-                      <div className="flex gap-2">
+                      <div>
                         <input
                           id="product-barcode"
                           type="text"
@@ -1021,24 +1053,23 @@ export function ProductForm({
                             e.preventDefault();
                             void checkBarcode(e.clipboardData.getData('text'));
                           }}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              void checkBarcode(form.barcode);
+                            }
+                          }}
                           aria-invalid={Boolean(errors.barcode)}
                           className={cn(
                             inputCls,
                             errors.barcode && 'border-destructive'
                           )}
                         />
-                        <button
-                          type="button"
-                          onClick={() => setShowPhoneScanner(true)}
-                          className="inline-flex shrink-0 items-center gap-1.5 rounded-md border bg-background px-3 py-2 text-sm font-semibold hover:border-[#f9b21d] hover:bg-[#fff8e6] dark:hover:bg-[#2a2111]"
-                        >
-                          <Smartphone className="h-4 w-4" /> Pair phone
-                        </button>
                       </div>
                       <p className="mt-2 inline-flex items-center gap-1 text-xs text-muted-foreground">
-                        <Barcode className="h-3.5 w-3.5" /> USB scanner ready.
-                        You can also pair your phone or enter the printed
-                        number.
+                        <Barcode className="h-3.5 w-3.5" /> Scanner ready. Scan
+                        with a USB/Bluetooth barcode scanner or enter the
+                        printed number.
                       </p>
                       {errors.barcode && (
                         <p
@@ -1063,38 +1094,46 @@ export function ProductForm({
                       )}
                     </div>
                   </div>
-                  {isLiquor && (
+                  {(isLiquor || isHardware) && (
                     <details className="mt-4 rounded-md border bg-background px-3 py-2">
                       <summary className="cursor-pointer text-sm font-medium">
                         More {terminology.singularLower} details
                       </summary>
                       <div className="mt-3 grid gap-4 sm:grid-cols-3">
+                        {isLiquor && (
+                          <>
+                            <div>
+                              <FieldLabel>Alcohol percentage (ABV)</FieldLabel>
+                              <input
+                                type="number"
+                                min="0"
+                                max="100"
+                                step="0.1"
+                                value={form.abv}
+                                onChange={(e) => set('abv', e.target.value)}
+                                placeholder="40"
+                                className={inputCls}
+                              />
+                            </div>
+                            <div>
+                              <FieldLabel>Country of origin</FieldLabel>
+                              <input
+                                value={form.countryOfOrigin}
+                                onChange={(e) =>
+                                  set('countryOfOrigin', e.target.value)
+                                }
+                                placeholder="e.g. Scotland"
+                                className={inputCls}
+                              />
+                            </div>
+                          </>
+                        )}
                         <div>
-                          <FieldLabel>Alcohol percentage (ABV)</FieldLabel>
-                          <input
-                            type="number"
-                            min="0"
-                            max="100"
-                            step="0.1"
-                            value={form.abv}
-                            onChange={(e) => set('abv', e.target.value)}
-                            placeholder="40"
-                            className={inputCls}
-                          />
-                        </div>
-                        <div>
-                          <FieldLabel>Country of origin</FieldLabel>
-                          <input
-                            value={form.countryOfOrigin}
-                            onChange={(e) =>
-                              set('countryOfOrigin', e.target.value)
-                            }
-                            placeholder="e.g. Scotland"
-                            className={inputCls}
-                          />
-                        </div>
-                        <div>
-                          <FieldLabel>Units per pack/carton</FieldLabel>
+                          <FieldLabel>
+                            {isHardware
+                              ? 'Units per pack or bundle'
+                              : 'Units per pack/carton'}
+                          </FieldLabel>
                           <input
                             type="number"
                             min="1"
@@ -1765,14 +1804,6 @@ export function ProductForm({
           </div>
         </form>
       </div>
-      <WirelessScannerPairing
-        open={showPhoneScanner}
-        onClose={() => setShowPhoneScanner(false)}
-        onBarcode={(barcode) => {
-          setShowPhoneScanner(false);
-          void checkBarcode(barcode);
-        }}
-      />
     </div>
   );
 }

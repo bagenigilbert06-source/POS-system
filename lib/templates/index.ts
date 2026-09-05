@@ -115,6 +115,7 @@ const CATEGORY_MAP: Record<string, CategoryMapEntry> = {
   clothing_store:     { templateId: 'retail.clothing',      businessType: 'retail' },
   boutique:           { templateId: 'retail.clothing',      businessType: 'retail' },
   cosmetics_store:    { templateId: 'retail.cosmetics',     businessType: 'retail' },
+  hardware:           { templateId: 'retail.hardware',      businessType: 'retail' },
   hardware_store:     { templateId: 'retail.hardware',      businessType: 'retail' },
   pet_shop:           { templateId: 'retail.pet-shop',      businessType: 'retail' },
   furniture_store:    { templateId: 'retail.furniture',     businessType: 'retail' },
@@ -209,7 +210,7 @@ export function resolveOnboardingTemplateId(businessFamily: string, businessCate
     if (category === 'supermarket') return 'retail.supermarket'
     if (category === 'liquor_shop') return 'retail.liquor-shop'
     if (['general_shop', 'mini_mart'].includes(category)) return 'retail.grocery'
-    if (category === 'hardware') return 'retail.hardware'
+    if (['hardware', 'hardware_store'].includes(category)) return 'retail.hardware'
     if (category === 'electronics') return 'retail.electronics'
     if (category === 'clothing') return 'retail.clothing'
     if (category === 'cosmetics') return 'retail.cosmetics'

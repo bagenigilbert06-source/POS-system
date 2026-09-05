@@ -11,6 +11,7 @@ import { requireWorkspaceModule } from '@/lib/onboarding/require-module';
 import { PermissionEnum } from '@/lib/types/permissions';
 import { formatCurrency, formatNumber } from '@/lib/utils/format';
 import { isCafeBusiness } from '@/lib/hospitality/rules';
+import { isHardwareBusiness } from '@/lib/hardware/rules';
 
 export const metadata: Metadata = { title: 'Stock Intake | Pesaby' };
 export const dynamic = 'force-dynamic';
@@ -25,17 +26,25 @@ export default async function StockIntakePage() {
     ]);
   const currency = organization.currency || 'KES';
   const cafe = isCafeBusiness(config.businessType, config.businessCategory);
+  const hardware = isHardwareBusiness(
+    config.businessType,
+    config.businessCategory
+  );
   return (
     <div className="mx-auto w-full max-w-[1480px] space-y-5 pb-8">
       <DashboardPageHeading
         theme="adaptive"
         icon={PackagePlus}
         eyebrow={cafe ? 'Café ingredients & supplies' : 'Inventory control'}
-        title={cafe ? 'Ingredient Intake' : 'Stock Intake'}
+        title={
+          cafe ? 'Ingredient Intake' : hardware ? 'Hardware Intake' : 'Stock Intake'
+        }
         description={
           cafe
             ? 'Receive ingredients, packaged drinks and café supplies into their base inventory units.'
-            : 'Record newly received stock and update store inventory.'
+            : hardware
+              ? 'Receive tools, building materials and supplies into your stock yard with their correct units and costs.'
+              : 'Record newly received stock and update store inventory.'
         }
       />
       <section className="grid gap-3 sm:grid-cols-3">
@@ -64,6 +73,7 @@ export default async function StockIntakePage() {
         {...data}
         currency={currency}
         cafeMode={cafe}
+        hardwareMode={hardware}
         canReceive={authorization.permissions.includes(
           PermissionEnum.INVENTORY_RECEIVE
         )}

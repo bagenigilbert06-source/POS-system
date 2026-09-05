@@ -57,7 +57,8 @@ async function posOperator(permission: PermissionEnum) {
   const terminal =
     registeredTerminal &&
     registeredTerminal.organizationId === full.organizationId &&
-    (full.isOrganizationWide || full.branchIds.includes(registeredTerminal.branchId))
+    (full.isOrganizationWide ||
+      full.branchIds.includes(registeredTerminal.branchId))
       ? registeredTerminal
       : null;
   return {
@@ -79,6 +80,371 @@ const refresh = () =>
     '/dashboard/sales',
     '/dashboard/reports',
   ].forEach((path) => revalidatePath(path));
+
+const manualDrawerSchema = z.object({
+  sessionId: z.string().min(1),
+  reason: z
+    .string()
+    .trim()
+    .min(3, 'Enter a reason of at least 3 characters')
+    .max(300)
+    .refine(
+      (value) => /[\p{L}\p{N}]{2}/u.test(value),
+      'Enter a meaningful reason'
+    ),
+  idempotencyKey: z.string().uuid(),
+});
+
+export async function requestManualCashDrawerOpen(
+  input: z.input<typeof manualDrawerSchema>
+) {
+  const data = manualDrawerSchema.parse(input);
+  const authorization = await posOperator(PermissionEnum.SHIFT_MANAGE);
+  const [session] = await db
+    .select({
+      id: posSession.id,
+      terminalId: posSession.terminalId,
+      branchId: posSession.branchId,
+    })
+    .from(posSession)
+    .where(
+      and(
+        eq(posSession.id, data.sessionId),
+        eq(posSession.orgId, authorization.orgId),
+        eq(posSession.status, 'open'),
+        authorization.terminalId
+          ? eq(posSession.terminalId, authorization.terminalId)
+          : undefined
+      )
+    )
+    .limit(1);
+  if (!session?.terminalId)
+    throw new Error('An active shift on a registered terminal is required');
+  const [terminal] = await db
+    .select({
+      id: posTerminal.id,
+      status: posTerminal.status,
+      printingMode: posTerminal.printingMode,
+      printerIdentifier: posTerminal.printerIdentifier,
+      printerDisplayName: posTerminal.printerDisplayName,
+    })
+    .from(posTerminal)
+    .where(
+      and(
+        eq(posTerminal.id, session.terminalId),
+        eq(posTerminal.organizationId, authorization.orgId)
+      )
+    )
+    .limit(1);
+  if (!terminal || terminal.status !== 'active')
+    throw new Error('This POS terminal is inactive');
+  const printerIdentifier =
+    terminal.printerIdentifier?.trim() || terminal.printerDisplayName?.trim();
+  if (terminal.printingMode !== 'direct' || !printerIdentifier)
+    throw new Error('Configure a direct printer/drawer before opening it');
+
+  const [existing] = await db
+    .select({ id: auditEvent.id })
+    .from(auditEvent)
+    .where(
+      and(
+        eq(auditEvent.organizationId, authorization.orgId),
+        eq(auditEvent.action, 'cash_drawer.manual_open_requested'),
+        sql`${auditEvent.metadata}->>'idempotencyKey' = ${data.idempotencyKey}`
+      )
+    )
+    .limit(1);
+  if (existing)
+    return {
+      requestId: existing.id,
+      transport: printerIdentifier.startsWith('tcp://')
+        ? ('raw-tcp' as const)
+        : ('qz' as const),
+      printerName: printerIdentifier.startsWith('tcp://')
+        ? null
+        : printerIdentifier,
+    };
+
+  const requestId = generateId();
+  await db.insert(auditEvent).values({
+    id: requestId,
+    organizationId: authorization.orgId,
+    userId: authorization.userId,
+    action: 'cash_drawer.manual_open_requested',
+    metadata: {
+      terminalId: terminal.id,
+      sessionId: session.id,
+      branchId: session.branchId,
+      cashierId: authorization.userId,
+      reason: data.reason,
+      printerIdentifier: printerIdentifier.startsWith('tcp://')
+        ? 'raw-tcp-configured'
+        : printerIdentifier,
+      idempotencyKey: data.idempotencyKey,
+      requestedAt: new Date().toISOString(),
+    },
+  });
+  return {
+    requestId,
+    transport: printerIdentifier.startsWith('tcp://')
+      ? ('raw-tcp' as const)
+      : ('qz' as const),
+    printerName: printerIdentifier.startsWith('tcp://')
+      ? null
+      : printerIdentifier,
+  };
+}
+
+export async function confirmManualCashDrawerOpen(requestId: string) {
+  const id = z.string().min(1).max(120).parse(requestId);
+  const authorization = await posOperator(PermissionEnum.SHIFT_MANAGE);
+  const [requested] = await db
+    .select({ metadata: auditEvent.metadata })
+    .from(auditEvent)
+    .where(
+      and(
+        eq(auditEvent.id, id),
+        eq(auditEvent.organizationId, authorization.orgId),
+        eq(auditEvent.userId, authorization.userId),
+        eq(auditEvent.action, 'cash_drawer.manual_open_requested')
+      )
+    )
+    .limit(1);
+  if (!requested) throw new Error('Drawer request was not authorized');
+  const [existing] = await db
+    .select({ id: auditEvent.id })
+    .from(auditEvent)
+    .where(
+      and(
+        eq(auditEvent.organizationId, authorization.orgId),
+        eq(auditEvent.action, 'cash_drawer.manual_opened'),
+        sql`${auditEvent.metadata}->>'requestId' = ${id}`
+      )
+    )
+    .limit(1);
+  if (existing) return { audited: true };
+  await db.insert(auditEvent).values({
+    id: generateId(),
+    organizationId: authorization.orgId,
+    userId: authorization.userId,
+    action: 'cash_drawer.manual_opened',
+    metadata: {
+      ...(requested.metadata as Record<string, unknown>),
+      requestId: id,
+      openedAt: new Date().toISOString(),
+    },
+  });
+  return { audited: true };
+}
+
+export async function claimManualCashDrawerPulse(requestId: string) {
+  const id = z.string().min(1).max(120).parse(requestId);
+  const authorization = await posOperator(PermissionEnum.SHIFT_MANAGE);
+  const [requested] = await db
+    .select({ id: auditEvent.id, metadata: auditEvent.metadata })
+    .from(auditEvent)
+    .where(
+      and(
+        eq(auditEvent.id, id),
+        eq(auditEvent.organizationId, authorization.orgId),
+        eq(auditEvent.userId, authorization.userId),
+        eq(auditEvent.action, 'cash_drawer.manual_open_requested')
+      )
+    )
+    .limit(1);
+  if (!requested) throw new Error('Drawer request was not authorized');
+  const metadata = requested.metadata as {
+    sessionId?: unknown;
+    terminalId?: unknown;
+  };
+  const sessionId =
+    typeof metadata.sessionId === 'string' ? metadata.sessionId : '';
+  const terminalId =
+    typeof metadata.terminalId === 'string' ? metadata.terminalId : '';
+  const [openSession] = await db
+    .select({ id: posSession.id })
+    .from(posSession)
+    .innerJoin(posTerminal, eq(posTerminal.id, posSession.terminalId))
+    .where(
+      and(
+        eq(posSession.id, sessionId),
+        eq(posSession.orgId, authorization.orgId),
+        eq(posSession.terminalId, terminalId),
+        eq(posSession.status, 'open'),
+        eq(posTerminal.status, 'active'),
+        eq(posTerminal.printingMode, 'direct')
+      )
+    )
+    .limit(1);
+  if (!openSession)
+    throw new Error('The POS shift or terminal is no longer active');
+  const [existing] = await db
+    .select({ id: auditEvent.id })
+    .from(auditEvent)
+    .where(
+      and(
+        eq(auditEvent.organizationId, authorization.orgId),
+        eq(auditEvent.action, 'cash_drawer.manual_pulse_dispatched'),
+        sql`${auditEvent.metadata}->>'requestId' = ${id}`
+      )
+    )
+    .limit(1);
+  if (existing) return { shouldPulse: false };
+  await db.insert(auditEvent).values({
+    id: generateId(),
+    organizationId: authorization.orgId,
+    userId: authorization.userId,
+    action: 'cash_drawer.manual_pulse_dispatched',
+    metadata: { requestId: id, dispatchedAt: new Date().toISOString() },
+  });
+  return { shouldPulse: true };
+}
+
+export async function authorizeAutomaticCashDrawerOpen(saleId: string) {
+  const selectedSaleId = z.string().min(1).max(120).parse(saleId);
+  const authorization = await posOperator(PermissionEnum.POS_SELL);
+  const [record] = await db
+    .select({
+      terminalId: posSession.terminalId,
+      sessionId: posSession.id,
+      receiptNo: sale.receiptNo,
+      printerIdentifier: posTerminal.printerIdentifier,
+      printerDisplayName: posTerminal.printerDisplayName,
+    })
+    .from(sale)
+    .innerJoin(posSession, eq(posSession.id, sale.posSessionId))
+    .innerJoin(posTerminal, eq(posTerminal.id, posSession.terminalId))
+    .where(
+      and(
+        eq(sale.id, selectedSaleId),
+        eq(sale.orgId, authorization.orgId),
+        eq(sale.status, 'completed'),
+        eq(sale.paymentMethod, 'cash'),
+        eq(posSession.status, 'open'),
+        eq(posTerminal.status, 'active'),
+        eq(posTerminal.printingMode, 'direct'),
+        eq(posTerminal.cashDrawerPulse, true),
+        authorization.terminalId
+          ? eq(posTerminal.id, authorization.terminalId)
+          : undefined
+      )
+    )
+    .limit(1);
+  const printerIdentifier =
+    record?.printerIdentifier?.trim() || record?.printerDisplayName?.trim();
+  if (!record?.terminalId || !printerIdentifier)
+    throw new Error('Automatic drawer opening is not authorized for this sale');
+  const [existing] = await db
+    .select({ id: auditEvent.id })
+    .from(auditEvent)
+    .where(
+      and(
+        eq(auditEvent.organizationId, authorization.orgId),
+        eq(auditEvent.action, 'cash_drawer.automatic_pulse_dispatched'),
+        sql`${auditEvent.metadata}->>'saleId' = ${selectedSaleId}`
+      )
+    )
+    .limit(1);
+  if (existing)
+    return { shouldPulse: false, transport: 'qz' as const, printerName: null };
+  await db.insert(auditEvent).values({
+    id: generateId(),
+    organizationId: authorization.orgId,
+    userId: authorization.userId,
+    action: 'cash_drawer.automatic_pulse_dispatched',
+    metadata: {
+      saleId: selectedSaleId,
+      receiptNo: record.receiptNo,
+      sessionId: record.sessionId,
+      terminalId: record.terminalId,
+      printerIdentifier: printerIdentifier.startsWith('tcp://')
+        ? 'raw-tcp-configured'
+        : printerIdentifier,
+      dispatchedAt: new Date().toISOString(),
+    },
+  });
+  return {
+    shouldPulse: true,
+    transport: printerIdentifier.startsWith('tcp://')
+      ? ('raw-tcp' as const)
+      : ('qz' as const),
+    printerName: printerIdentifier.startsWith('tcp://')
+      ? null
+      : printerIdentifier,
+  };
+}
+
+/** Claims one automatic receipt dispatch for a completed sale. Reprints never use this path. */
+export async function claimAutomaticReceiptPrint(saleId: string) {
+  const selectedSaleId = z.string().min(1).max(120).parse(saleId);
+  const authorization = await posOperator(PermissionEnum.POS_SELL);
+  const [record] = await db
+    .select({
+      saleId: sale.id,
+      receiptNo: sale.receiptNo,
+      terminalId: posTerminal.id,
+      printerIdentifier: posTerminal.printerIdentifier,
+      printerDisplayName: posTerminal.printerDisplayName,
+      sessionId: posSession.id,
+    })
+    .from(sale)
+    .innerJoin(posSession, eq(posSession.id, sale.posSessionId))
+    .innerJoin(posTerminal, eq(posTerminal.id, posSession.terminalId))
+    .where(
+      and(
+        eq(sale.id, selectedSaleId),
+        eq(sale.orgId, authorization.orgId),
+        eq(sale.status, 'completed'),
+        eq(posSession.status, 'open'),
+        eq(posTerminal.status, 'active'),
+        eq(posTerminal.printingMode, 'direct'),
+        eq(posTerminal.autoPrint, true),
+        authorization.terminalId
+          ? eq(posTerminal.id, authorization.terminalId)
+          : undefined
+      )
+    )
+    .limit(1);
+  if (!record)
+    throw new Error(
+      'Automatic receipt printing is not authorized for this sale'
+    );
+  const [existing] = await db
+    .select({ id: auditEvent.id })
+    .from(auditEvent)
+    .where(
+      and(
+        eq(auditEvent.organizationId, authorization.orgId),
+        eq(auditEvent.action, 'receipt.automatic_print_dispatched'),
+        sql`${auditEvent.metadata}->>'saleId' = ${selectedSaleId}`
+      )
+    )
+    .limit(1);
+  if (existing) return { shouldPrint: false };
+  const printerIdentifier =
+    record.printerIdentifier?.trim() ||
+    record.printerDisplayName?.trim() ||
+    'configured-printer';
+  await db
+    .insert(auditEvent)
+    .values({
+      id: generateId(),
+      organizationId: authorization.orgId,
+      userId: authorization.userId,
+      action: 'receipt.automatic_print_dispatched',
+      metadata: {
+        saleId: record.saleId,
+        receiptNo: record.receiptNo,
+        sessionId: record.sessionId,
+        terminalId: record.terminalId,
+        printerIdentifier: printerIdentifier.startsWith('tcp://')
+          ? 'raw-tcp-configured'
+          : printerIdentifier,
+        dispatchedAt: new Date().toISOString(),
+      },
+    });
+  return { shouldPrint: true };
+}
 
 function localDateParts(date: Date, timeZone: string) {
   const values = new Intl.DateTimeFormat('en-CA', {
@@ -833,10 +1199,30 @@ export async function refundSale(input: {
       orgId,
       posSessionId: refundSessionId,
     });
-    const cafeRows = items.length ? await tx.select({ productId: cafeMenuItem.productId, inventoryMode: cafeMenuItem.inventoryMode }).from(cafeMenuItem).where(and(eq(cafeMenuItem.organizationId, orgId), inArray(cafeMenuItem.productId, items.map((line) => line.productId)))) : [];
-    const cafeInventoryMode = new Map(cafeRows.map((row) => [row.productId, row.inventoryMode]));
+    const cafeRows = items.length
+      ? await tx
+          .select({
+            productId: cafeMenuItem.productId,
+            inventoryMode: cafeMenuItem.inventoryMode,
+          })
+          .from(cafeMenuItem)
+          .where(
+            and(
+              eq(cafeMenuItem.organizationId, orgId),
+              inArray(
+                cafeMenuItem.productId,
+                items.map((line) => line.productId)
+              )
+            )
+          )
+      : [];
+    const cafeInventoryMode = new Map(
+      cafeRows.map((row) => [row.productId, row.inventoryMode])
+    );
     for (const line of items) {
-      const consumedRecipe = cafeInventoryMode.get(line.productId) === 'recipe' || cafeInventoryMode.get(line.productId) === 'none';
+      const consumedRecipe =
+        cafeInventoryMode.get(line.productId) === 'recipe' ||
+        cafeInventoryMode.get(line.productId) === 'none';
       await tx.insert(salesReturnItem).values({
         id: generateId(),
         returnId,
@@ -923,7 +1309,9 @@ export async function openPosSession(openingCash: number) {
   const authorization = await posOperator(PermissionEnum.SHIFT_OPEN);
   const { userId, orgId, terminalId } = authorization;
   if (!terminalId)
-    throw new Error('Register this device to a POS terminal before opening a shift');
+    throw new Error(
+      'Register this device to a POS terminal before opening a shift'
+    );
   let branchId = authorization.branchIds[0];
   if (!branchId && authorization.isOrganizationWide) {
     const [mainBranch] = await db
@@ -1092,7 +1480,14 @@ async function findClosableSession(
       and(
         eq(posSession.orgId, orgId),
         eq(posSession.status, status),
-        terminalId ? eq(posSession.terminalId, terminalId) : undefined,
+        // The POS header passes the exact session it is displaying. Do not
+        // reject that session merely because a dashboard user has since been
+        // associated with a different terminal cookie: the user/branch/org
+        // checks below still govern access. Terminal matching remains the
+        // safe default when no specific session has been selected.
+        terminalId && !sessionId
+          ? eq(posSession.terminalId, terminalId)
+          : undefined,
         isOrganizationWide
           ? undefined
           : branchIds.length

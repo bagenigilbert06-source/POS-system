@@ -53,6 +53,19 @@ const CAFE_TERMINOLOGY: ProductTerminology = {
   description: 'Manage your café menu, pricing, categories and availability.',
 };
 
+const HARDWARE_TERMINOLOGY: ProductTerminology = {
+  title: 'Hardware Items',
+  singular: 'Hardware Item',
+  plural: 'Hardware Items',
+  singularLower: 'hardware item',
+  pluralLower: 'hardware items',
+  all: 'All Hardware Items',
+  add: 'Add Hardware Item',
+  searchPlaceholder: 'Search hardware items, SKU, barcode...',
+  importCsv: 'Import Hardware Items CSV',
+  description: 'Manage building supplies, tools, pricing and stock setup.',
+};
+
 const DEFAULT_TERMINOLOGY: ProductTerminology = {
   title: 'Products',
   singular: 'Product',
@@ -76,6 +89,8 @@ export function getProductTerminology(
   if (isPharmacyBusiness(family, category)) return PHARMACY_TERMINOLOGY;
   if (category === 'liquor_shop') return LIQUOR_TERMINOLOGY;
   if (isCafeBusiness(family, category)) return CAFE_TERMINOLOGY;
+  if (category === 'hardware' || category === 'hardware_store')
+    return HARDWARE_TERMINOLOGY;
   return DEFAULT_TERMINOLOGY;
 }
 

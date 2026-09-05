@@ -6,6 +6,7 @@ import { ageVerification, branch, cardPaymentAttempt, cardTerminal, sale, saleIt
 import { and, asc, desc, eq, gte, ilike, inArray, lt, lte, or, sql } from 'drizzle-orm'
 import { headers } from 'next/headers'
 import { revalidatePath } from 'next/cache'
+import { after } from 'next/server'
 import { generateId, generateReceiptNo } from '@/lib/utils'
 import { OrganizationService } from '@/lib/services/organization-service'
 import { WorkspaceService } from '@/lib/services/workspace-service'
@@ -16,7 +17,7 @@ import { getPosAuthorizationContext } from '@/lib/pos/pos-auth'
 import { invalidateProductReadCache } from '@/lib/cache/redis-cache'
 import { calculateMpesaAmount } from '@/lib/mpesa/amount'
 import { applyInventoryMovement, consumeInventoryCost } from '@/lib/inventory/inventory-service'
-import { enqueueEtimsInvoice } from '@/lib/etims/service'
+import { processEtimsSubmission, queueEtimsInvoice } from '@/lib/etims/service'
 import { createHash } from 'node:crypto'
 import { classifyOfflineSyncError, offlineAmountConflicts } from '@/lib/pos/offline-policy'
 import { baseUnitsForSale } from '@/lib/pos/product-packaging'
@@ -48,6 +49,34 @@ async function syncLinkedInvoiceFiscalStatus(saleId: string, orgId: string) {
   const [fiscal] = await db.select({ status: etimsSubmission.status, invoiceNumber: etimsSubmission.invoiceNumber, controlNumber: etimsSubmission.controlNumber }).from(etimsSubmission).where(and(eq(etimsSubmission.saleId, saleId), eq(etimsSubmission.organizationId, orgId))).limit(1)
   if (!fiscal) return
   await db.update(invoice).set({ fiscalStatus: fiscal.status.toLowerCase(), fiscalReference: fiscal.invoiceNumber || fiscal.controlNumber || null, updatedAt: new Date() }).where(and(eq(invoice.saleId, saleId), eq(invoice.orgId, orgId)))
+}
+
+/** Work which is useful after a sale, but must never delay a cashier. */
+function schedulePostSaleWork(input: {
+  saleId: string
+  orgId: string
+  submissionId?: string
+}) {
+  after(async () => {
+    try {
+      await invalidateProductReadCache(input.orgId)
+      revalidatePath('/dashboard')
+      revalidatePath('/dashboard/sales')
+      if (input.submissionId) {
+        const fiscal = await processEtimsSubmission(input.submissionId, {
+          manual: false,
+        })
+        if (fiscal.status === 'ACCEPTED') {
+          await syncLinkedInvoiceFiscalStatus(input.saleId, input.orgId)
+        }
+      }
+    } catch (error) {
+      console.error('[pos] deferred post-sale work failed', {
+        saleId: input.saleId,
+        error: error instanceof Error ? error.message : 'unknown',
+      })
+    }
+  })
 }
 
 export type CartItem = {
@@ -250,11 +279,10 @@ export async function createManualSale(input: z.input<typeof manualSaleSchema>) 
       unitPrice: String(data.amount), totalPrice: String(total), userId, orgId,
     })
   })
-  revalidatePath('/dashboard')
-  revalidatePath('/dashboard/sales')
-  let etims: Awaited<ReturnType<typeof enqueueEtimsInvoice>> | { status: 'PENDING'; message: string }
-  try { etims = await enqueueEtimsInvoice(saleId) }
+  let etims: Awaited<ReturnType<typeof queueEtimsInvoice>> | { status: 'PENDING'; message: string }
+  try { etims = await queueEtimsInvoice(saleId) }
   catch { etims = { status: 'PENDING', message: 'Sale completed. eTIMS submission will require reconciliation.' } }
+  schedulePostSaleWork({ saleId, orgId, submissionId: 'submission' in etims && etims.submission ? etims.submission.id : undefined })
   return { saleId, receiptNo, etims }
 }
 
@@ -286,10 +314,10 @@ export async function createSale(data: CreateSaleInput) {
   if (existingSale) {
     const existingItems = await db.select({ saleItemId: saleItem.id, productId: saleItem.productId })
       .from(saleItem).where(and(eq(saleItem.saleId, existingSale.id), eq(saleItem.orgId, orgId)))
-    let etims: Awaited<ReturnType<typeof enqueueEtimsInvoice>> | { status: 'PENDING'; message: string }
-    try { etims = await enqueueEtimsInvoice(existingSale.id) }
+    let etims: Awaited<ReturnType<typeof queueEtimsInvoice>> | { status: 'PENDING'; message: string }
+    try { etims = await queueEtimsInvoice(existingSale.id) }
     catch { etims = { status: 'PENDING', message: 'Sale completed. eTIMS submission will require reconciliation.' } }
-    await syncLinkedInvoiceFiscalStatus(existingSale.id, orgId)
+    if ('submission' in etims && etims.submission) schedulePostSaleWork({ saleId: existingSale.id, orgId, submissionId: etims.submission.id })
     const [existingCafeOrder] = cafeWorkspace ? await db.select({ id: cafeOrder.id, orderNumber: cafeOrder.orderNumber, preparationStatus: cafeOrder.preparationStatus }).from(cafeOrder).where(and(eq(cafeOrder.organizationId, orgId), eq(cafeOrder.saleId, existingSale.id))).limit(1) : []
     return { 
       saleId: existingSale.id, 
@@ -749,9 +777,10 @@ export async function createSale(data: CreateSaleInput) {
       if (duplicate) {
         const duplicateItems = await db.select({ saleItemId: saleItem.id, productId: saleItem.productId })
           .from(saleItem).where(and(eq(saleItem.saleId, duplicate.id), eq(saleItem.orgId, orgId)))
-        let etims: Awaited<ReturnType<typeof enqueueEtimsInvoice>> | { status: 'PENDING'; message: string }
-        try { etims = await enqueueEtimsInvoice(duplicate.id) }
+        let etims: Awaited<ReturnType<typeof queueEtimsInvoice>> | { status: 'PENDING'; message: string }
+        try { etims = await queueEtimsInvoice(duplicate.id) }
         catch { etims = { status: 'PENDING', message: 'Sale completed. eTIMS submission will require reconciliation.' } }
+        if ('submission' in etims && etims.submission) schedulePostSaleWork({ saleId: duplicate.id, orgId, submissionId: etims.submission.id })
         return {
           saleId: duplicate.id,
           receiptNo: duplicate.receiptNo,
@@ -768,13 +797,14 @@ export async function createSale(data: CreateSaleInput) {
     throw error
   }
 
-  await invalidateProductReadCache(orgId)
-  revalidatePath('/dashboard')
-  revalidatePath('/dashboard/sales')
-  let etims: Awaited<ReturnType<typeof enqueueEtimsInvoice>> | { status: 'PENDING'; message: string }
-  try { etims = await enqueueEtimsInvoice(saleId) }
+  let etims: Awaited<ReturnType<typeof queueEtimsInvoice>> | { status: 'PENDING'; message: string }
+  try { etims = await queueEtimsInvoice(saleId) }
   catch { etims = { status: 'PENDING', message: 'Sale completed. eTIMS submission will require reconciliation.' } }
-  await syncLinkedInvoiceFiscalStatus(saleId, orgId)
+  schedulePostSaleWork({
+    saleId,
+    orgId,
+    submissionId: 'submission' in etims && etims.submission ? etims.submission.id : undefined,
+  })
   return { saleId, receiptNo, tax: calculatedTax, rounding: roundingAmount, total: calculatedTotal, idempotencyKey, items: saleItems.map(({ saleItemId, productId }) => ({ saleItemId, productId })), etims, cafeOrder: cafeOrderResult }
 }
 

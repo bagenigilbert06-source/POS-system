@@ -9,7 +9,7 @@ import {
 import { calculateMpesaAmount } from '@/lib/mpesa/amount'
 import { generateId, generateReceiptNo } from '@/lib/utils'
 import { applyInventoryMovement, consumeInventoryCost } from '@/lib/inventory/inventory-service'
-import { enqueueEtimsInvoice } from '@/lib/etims/service'
+import { queueEtimsInvoice } from '@/lib/etims/service'
 import { applySaleRewards } from '@/lib/services/rewards-service'
 import { preTaxRewardAmount } from '@/lib/rewards/rules'
 import { isCafeBusiness } from '@/lib/hospitality/rules'
@@ -226,7 +226,7 @@ export async function finalizeConfirmedMpesaPayment(requestId: string) {
     return { saleId, alreadyFinalized: false }
   })
   if (!result.alreadyFinalized) {
-    try { await enqueueEtimsInvoice(result.saleId) }
+    try { await queueEtimsInvoice(result.saleId) }
     catch (error) { console.error('[etims] M-Pesa sale queued without immediate fiscal result', { saleId: result.saleId, error: error instanceof Error ? error.message : 'unknown' }) }
   }
   return result

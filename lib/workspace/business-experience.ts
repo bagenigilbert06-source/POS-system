@@ -82,6 +82,22 @@ export function getBusinessExperience(businessFamily: string, businessCategory: 
         stockDescription: 'Beer, wine, spirits and mixers at or below their reorder level.',
       }
     }
+    if (category === 'hardware' || category === 'hardware_store') {
+      return {
+        kind: 'retail',
+        label: 'Hardware store',
+        overviewTitle: 'Hardware store overview',
+        overviewDescription: 'Keep counter sales, building supplies, stock quantities and fast-moving lines in view.',
+        navigation: { overview: 'Hardware overview', pos: 'Hardware POS', sales: 'Store sales', products: 'Hardware catalogue', inventory: 'Stock yard', customers: 'Customers & contractors' },
+        actions: ['primary', 'products', 'inventory'],
+        actionLabels: { primary: 'Start hardware sale', products: 'Manage catalogue', inventory: 'Receive stock' },
+        metricLabels: ['Sales today', 'Completed sales', 'Average transaction', 'Stock alerts'],
+        activityTitle: 'Recent hardware sales',
+        activityDescription: 'Latest completed counter sales and contractor purchases.',
+        stockTitle: 'Hardware stock attention',
+        stockDescription: 'Building materials, tools and supplies at or below their reorder level.',
+      }
+    }
     const storeLabel = category === 'supermarket' ? 'Supermarket' : category === 'mini_mart' ? 'Mini-mart' : category === 'general_shop' ? 'Shop' : label
     return {
       kind: 'retail',

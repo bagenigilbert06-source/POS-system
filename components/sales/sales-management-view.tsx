@@ -248,34 +248,52 @@ export function SalesManagementView({
     }
   };
   const totals = data.totals;
+  const netSales = Number(totals.net ?? 0);
+  const shareOfNetSales = (amount: unknown) =>
+    netSales > 0
+      ? `${((Number(amount ?? 0) / netSales) * 100).toFixed(1)}% of net sales`
+      : 'No sales in this period';
   const primaryCards = [
-    { label: 'Gross sales', value: totals.gross, tone: 'slate' },
-    { label: 'Net sales', value: totals.net, tone: 'gold' },
+    {
+      label: 'Gross sales',
+      value: totals.gross,
+      detail: 'Before discounts and refunds',
+      tone: 'slate',
+    },
+    {
+      label: 'Net sales',
+      value: totals.net,
+      detail: 'After discounts and refunds',
+      tone: 'gold',
+    },
     {
       label: 'Cash sales',
       value: totals.cash,
+      detail: shareOfNetSales(totals.cash),
       logo: '/payment-logos/cash-kes.svg',
       tone: 'cash',
     },
     {
       label: 'M-Pesa sales',
       value: totals.mpesa,
+      detail: shareOfNetSales(totals.mpesa),
       logo: '/payment-logos/mpesa.svg',
       tone: 'mpesa',
     },
     {
       label: 'Card sales',
       value: totals.card,
+      detail: shareOfNetSales(totals.card),
       logo: '/payment-logos/visa.svg',
       tone: 'card',
     },
   ] as const;
   const secondaryCards = [
-    ['Refunds', totals.refunds],
-    ['COGS', totals.cogs],
-    ['Gross profit', totals.grossProfit],
-    ['Expenses', totals.expenses],
-    ['Net profit', totals.netProfit],
+    ['Refunds', totals.refunds, 'Returned to customers'],
+    ['COGS', totals.cogs, 'Cost of sold stock'],
+    ['Gross profit', totals.grossProfit, 'Sales less stock cost'],
+    ['Expenses', totals.expenses, 'Operating costs recorded'],
+    ['Net profit', totals.netProfit, 'After stock cost and expenses'],
   ] as const;
   return (
     <div className="sales-workspace mx-auto w-full max-w-[1440px] space-y-5">
@@ -310,12 +328,13 @@ export function SalesManagementView({
         exporting={exporting}
         showAgeVerification={showAgeVerification}
       />
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
         {primaryCards.map((card) => (
           <MetricCard
             key={card.label}
             label={card.label}
             value={formatCurrency(Number(card.value ?? 0))}
+            detail={card.detail}
             logo={'logo' in card ? card.logo : undefined}
             tone={card.tone}
             primary
@@ -323,11 +342,12 @@ export function SalesManagementView({
         ))}
       </section>
       <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-        {secondaryCards.map(([label, value]) => (
+        {secondaryCards.map(([label, value, detail]) => (
           <MetricCard
             key={label}
             label={label}
             value={formatCurrency(Number(value ?? 0))}
+            detail={detail}
           />
         ))}
       </section>
@@ -335,44 +355,52 @@ export function SalesManagementView({
         <MetricCard
           label={hospitalitySales ? 'Completed orders' : 'Transactions'}
           value={String(totals.transactions ?? 0)}
+          detail="Completed receipts in this period"
           comparison={data.comparison?.transactions}
         />
         <MetricCard
           label={hospitalitySales ? 'Average order' : 'Average sale'}
           value={formatCurrency(Number(totals.average ?? 0))}
+          detail="Net sales per completed receipt"
           comparison={data.comparison?.average}
         />
         <MetricCard
           label="Quantity sold"
           value={String(totals.quantity ?? 0)}
+          detail="Units across completed sales"
         />
         <MetricCard
           label="Gross margin"
           value={`${Number(totals.grossMargin ?? 0).toFixed(1)}%`}
+          detail="Gross profit as a share of sales"
           comparison={data.comparison?.grossProfit}
         />
         <MetricCard
           label="Tax collected"
           value={formatCurrency(Number(totals.tax ?? 0))}
+          detail="Tax recorded on completed sales"
         />
         <MetricCard
           label="Discounts"
           value={formatCurrency(Number(totals.discounts ?? 0))}
+          detail="Price reductions applied"
         />
         <MetricCard
           label="Pending balance"
           value={formatCurrency(Number(totals.pending ?? 0))}
+          detail="Outstanding credit sales"
         />
         <MetricCard
           label="Refund count"
           value={String(totals.refundCount ?? 0)}
+          detail="Completed refund transactions"
         />
       </section>
       <section className="relative overflow-hidden rounded-xl border bg-white shadow-sm dark:border-slate-800 dark:bg-[#111111]">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b p-4 dark:border-slate-800">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3 dark:border-slate-800">
           <div>
-            <h2 className="font-semibold">{hospitalitySales ? 'Orders' : 'Transactions'}</h2>
-            <p className="text-xs text-muted-foreground">
+            <h2 className="text-base font-semibold">{hospitalitySales ? 'Orders' : 'Transactions'}</h2>
+            <p className="text-[11px] text-muted-foreground">
               Showing {data.total ? (data.page - 1) * data.pageSize + 1 : 0}–
               {Math.min(data.page * data.pageSize, data.total)} of{' '}
               {data.total.toLocaleString()} matching {hospitalitySales ? 'orders' : 'sales'}
@@ -381,7 +409,7 @@ export function SalesManagementView({
           <select
             value={String(data.pageSize)}
             onChange={(event) => navigate({ pageSize: event.target.value })}
-            className="rounded-lg border bg-white px-2.5 py-2 text-sm dark:border-slate-700 dark:bg-[#202020] dark:text-slate-100"
+            className="h-9 rounded-lg border bg-white px-2.5 text-xs font-medium dark:border-slate-700 dark:bg-[#202020] dark:text-slate-100"
           >
             <option value="25">25 rows</option>
             <option value="50">50 rows</option>
@@ -413,8 +441,8 @@ export function SalesManagementView({
         )}
         {data.rows.length > 0 && (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[1080px] text-sm">
-              <thead className="bg-[#fafaf8] text-left text-xs text-muted-foreground dark:bg-[#171717]">
+            <table className="w-full min-w-[1020px] text-[13px]">
+              <thead className="bg-[#fafaf8] text-left text-[11px] font-medium text-muted-foreground dark:bg-[#171717]">
                 <tr>
                   <SortHeader label="Receipt" />
                   <SortHeader
@@ -423,7 +451,7 @@ export function SalesManagementView({
                     filters={filters}
                     onNavigate={navigate}
                   />
-                  <th className="px-4 py-3">Customer</th>
+                  <th className="px-3 py-2.5">Customer</th>
                   <SortHeader label="Cashier" />
                   <SortHeader
                     label="Payment"
@@ -444,7 +472,7 @@ export function SalesManagementView({
                     filters={filters}
                     onNavigate={navigate}
                   />
-                  <th className="px-4 py-3" />
+                  <th className="px-3 py-2.5" />
                 </tr>
               </thead>
               <tbody>
@@ -457,9 +485,9 @@ export function SalesManagementView({
                         className="border-t border-[#f3d77a] bg-[#fff9e6] dark:border-amber-900/70 dark:bg-amber-950/25"
                       >
                         <td colSpan={8} className="p-0">
-                          <div className="flex min-h-[62px] items-center justify-center gap-3 px-4 text-sm font-semibold text-[#7a5700] dark:text-amber-200">
+                          <div className="flex min-h-[48px] items-center justify-center gap-2 px-3 text-xs font-semibold text-[#7a5700] dark:text-amber-200">
                             <LoadingSpinner
-                              className="h-8 w-8 text-[#b77900]"
+                              className="h-5 w-5 text-[#b77900]"
                               label="Opening transaction"
                             />
                             <span>Opening transaction details…</span>
@@ -470,39 +498,39 @@ export function SalesManagementView({
                     <tr
                       key={record.id}
                       onClick={() => openDetail(record.id)}
-                      className="cursor-pointer border-t border-slate-200 transition-colors hover:bg-muted/40 dark:border-slate-800 dark:hover:bg-slate-900/70"
+                      className="cursor-pointer border-t border-slate-200 transition-colors hover:bg-[#fff8df] dark:border-slate-800 dark:hover:bg-[#2a240d]"
                     >
-                      <td className="px-4 py-3 font-mono text-xs font-semibold">
+                      <td className="px-3 py-2.5 font-mono text-[11px] font-semibold">
                         {record.receiptNo}
                       </td>
-                      <td className="px-4 py-3 text-muted-foreground">
+                      <td className="px-3 py-2.5 text-[12px] text-muted-foreground">
                         {formatDateTime(record.createdAt)}
                       </td>
-                      <td className="px-4 py-3">
+                      <td className="px-3 py-2.5">
                         {customerName ?? 'Walk-in'}
                         {branchName && (
-                          <span className="block text-xs text-muted-foreground">
+                          <span className="mt-0.5 block text-[10px] leading-none text-muted-foreground">
                             {branchName}
                           </span>
                         )}
                       </td>
-                      <td className="px-4 py-3">{cashierName ?? '—'}</td>
-                      <td className="px-4 py-3">
+                      <td className="px-3 py-2.5 text-[12px] font-medium">{cashierName ?? '—'}</td>
+                      <td className="px-3 py-2.5">
                         <PaymentMark method={record.paymentMethod} reference={record.mpesaRef} />
                       </td>
-                      <td className="px-4 py-3 text-right font-semibold tabular-nums">
+                      <td className="px-3 py-2.5 text-right text-[12px] font-semibold tabular-nums">
                         {formatCurrency(record.total)}
                       </td>
-                      <td className="px-4 py-3">
+                      <td className="px-3 py-2.5">
                         <Status status={record.status} />
                       </td>
-                      <td className="px-4 py-3 text-right">
+                      <td className="px-2 py-2 text-right">
                         <button
                           onClick={(event) => {
                             event.stopPropagation();
                             openDetail(record.id);
                           }}
-                          className="rounded-md p-2 text-muted-foreground hover:bg-muted hover:text-foreground"
+                          className="rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
                           aria-label={`View ${record.receiptNo}`}
                         >
                           <ChevronRight className="h-4 w-4 text-slate-400" />
@@ -817,16 +845,16 @@ function PaymentMark({ method, reference }: { method: string; reference?: string
       className="group relative inline-flex items-center gap-2"
       tabIndex={method === 'mpesa' ? 0 : undefined}
     >
-      <span className={`inline-flex h-7 min-w-14 items-center justify-center gap-1.5 rounded-md border px-2 ${method === 'card' ? 'border-[#9bbcf4] bg-[#ffffff] dark:border-[#78a9ff] dark:bg-[#ffffff]' : method === 'mpesa' ? 'border-[#9cdbb3] bg-white dark:border-[#2f7650] dark:bg-[#202020]' : 'border-[#e1c66e] bg-white dark:border-[#80651d] dark:bg-[#202020]'}`}>
+      <span className={`inline-flex h-6 min-w-12 items-center justify-center gap-1 rounded-md border px-1.5 ${method === 'card' ? 'border-[#9bbcf4] bg-[#ffffff] dark:border-[#78a9ff] dark:bg-[#ffffff]' : method === 'mpesa' ? 'border-[#9cdbb3] bg-white dark:border-[#2f7650] dark:bg-[#202020]' : 'border-[#e1c66e] bg-white dark:border-[#80651d] dark:bg-[#202020]'}`}>
         {method === 'cash' ? (
-          <span className="text-[11px] font-semibold text-[#9a6900] dark:text-[#f5c542]">Cash</span>
+          <span className="text-[10px] font-semibold text-[#9a6900] dark:text-[#f5c542]">Cash</span>
         ) : logos[method] ? (
           <Image
             src={logos[method]}
             alt=""
             width={44}
             height={20}
-            className="h-4 w-auto object-contain"
+            className="h-3.5 w-auto object-contain"
           />
         ) : (
           <Icon className="h-3.5 w-3.5" />
@@ -840,6 +868,7 @@ function PaymentMark({ method, reference }: { method: string; reference?: string
 function MetricCard({
   label,
   value,
+  detail,
   comparison,
   logo,
   tone = 'plain',
@@ -847,6 +876,7 @@ function MetricCard({
 }: {
   label: string;
   value: string;
+  detail?: string;
   comparison?: number | null;
   logo?: string;
   tone?: 'plain' | 'slate' | 'gold' | 'cash' | 'mpesa' | 'card';
@@ -855,41 +885,52 @@ function MetricCard({
   const tones = {
     plain: 'border-[var(--dashboard-border)] bg-[var(--dashboard-surface)]',
     slate: 'border-[var(--dashboard-border)] bg-[var(--dashboard-surface)]',
-    gold: 'border-[var(--dashboard-accent-soft-border)] bg-[var(--dashboard-accent-soft)]',
-    cash: 'border-[var(--dashboard-accent-soft-border)] bg-[var(--dashboard-accent-soft)]',
-    mpesa: 'border-[var(--dashboard-success-soft-border)] bg-[var(--dashboard-success-soft)]',
-    card: 'border-[#9bbcf4] bg-[#f4f8ff] dark:border-[#365b9a] dark:bg-[#111b30]',
+    gold: 'border-[#f2d98a] bg-[#fffaf0] dark:border-[#80651d] dark:bg-[#211d12]',
+    cash: 'border-[#f2d98a] bg-[#fffdf7] dark:border-[#80651d] dark:bg-[#211d12]',
+    mpesa: 'border-[#b7e4c7] bg-[#f5fcf7] dark:border-[#2f7650] dark:bg-[#18251d]',
+    card: 'border-[#b9cff8] bg-[#f8faff] dark:border-[#365b9a] dark:bg-[#111b30]',
   };
   return (
     <div
-      className={`min-w-0 rounded-lg border px-4 ${primary ? 'min-h-[104px] py-5' : 'min-h-[84px] py-[18px]'} ${tones[tone]}`}
+      className={`min-w-0 rounded-lg border px-3.5 shadow-[0_1px_1px_rgba(16,24,40,0.02)] ${
+        primary
+          ? 'min-h-[104px] py-3.5'
+          : comparison !== undefined && comparison !== null
+            ? 'min-h-[104px] py-3'
+            : 'min-h-[86px] py-3'
+      } ${tones[tone]}`}
     >
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-xs font-semibold tracking-wide text-[var(--dashboard-muted)]">
+          <p className="text-[11px] font-medium tracking-[.01em] text-[var(--dashboard-muted)]">
             {label}
           </p>
           <p
-            className={`${primary ? 'mt-1.5 text-[1.25rem]' : 'mt-1 text-[1.125rem]'} whitespace-nowrap font-semibold leading-[1.08] tracking-[-.025em] text-[var(--dashboard-text)] tabular-nums`}
+            className={`${primary ? 'mt-1 text-[1.0625rem]' : 'mt-0.5 text-[.9375rem]'} whitespace-nowrap font-semibold leading-tight tracking-[-.015em] text-[var(--dashboard-text)] tabular-nums`}
           >
             {value}
           </p>
         </div>
         {logo && (
-          <span className={`flex h-10 w-14 shrink-0 items-center justify-center rounded-md border p-1.5 ${logo.includes('visa') ? 'border-[#b8c9ef] bg-white dark:border-[#78a9ff]' : logo.includes('mpesa') ? 'border-[#b8e2c7] bg-white dark:border-[#2f7650] dark:bg-[#18251d]' : 'border-[#ead48d] bg-white dark:border-[#80651d] dark:bg-[#211d12]'}`}>
+          <span className={`flex h-8 w-11 shrink-0 items-center justify-center rounded-md border p-1 ${logo.includes('visa') ? 'border-[#b8c9ef] bg-white dark:border-[#78a9ff]' : logo.includes('mpesa') ? 'border-[#b8e2c7] bg-white dark:border-[#2f7650] dark:bg-[#18251d]' : 'border-[#ead48d] bg-white dark:border-[#80651d] dark:bg-[#211d12]'}`}>
             <Image
               src={logo}
               alt={`${label} payment method`}
               width={52}
-              height={30}
-              className="max-h-7 w-full object-contain"
+              height={22}
+              className="max-h-5 w-full object-contain"
             />
           </span>
         )}
       </div>
+      {detail && (
+        <p className="mt-2 truncate text-[10px] font-medium leading-none text-[var(--dashboard-muted)]">
+          {detail}
+        </p>
+      )}
       {comparison !== undefined && comparison !== null && (
         <p
-          className={`mt-2 text-xs font-medium ${comparison >= 0 ? 'text-emerald-700 dark:text-emerald-300' : 'text-red-700 dark:text-red-300'}`}
+          className={`mt-1.5 text-[10px] font-semibold ${comparison >= 0 ? 'text-emerald-700 dark:text-emerald-300' : 'text-red-700 dark:text-red-300'}`}
         >
           {comparison >= 0 ? '+' : ''}
           {comparison.toFixed(1)}% vs prior period
@@ -913,7 +954,7 @@ function SortHeader({
 }) {
   const active = sort && filters?.sort === sort;
   return (
-    <th className={`px-4 py-3 ${align === 'right' ? 'text-right' : ''}`}>
+    <th className={`px-3 py-2.5 ${align === 'right' ? 'text-right' : ''}`}>
       {sort ? (
         <button
           onClick={() =>
@@ -954,7 +995,7 @@ function Status({ status }: { status: string }) {
   const label = status === 'partially_refunded' ? 'Partial' : status;
   return (
     <span
-      className={`inline-flex rounded-full border border-transparent px-2 py-1 text-xs font-semibold capitalize ${style}`}
+      className={`inline-flex rounded-full border border-transparent px-2 py-0.5 text-[10px] font-semibold capitalize ${style}`}
     >
       {label.replaceAll('_', ' ')}
     </span>
@@ -969,25 +1010,25 @@ function Pagination({
 }) {
   const pages = Math.max(1, Math.ceil(data.total / data.pageSize));
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 border-t bg-slate-50/70 px-4 py-3 dark:border-slate-800 dark:bg-[#151515]">
-      <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
+    <div className="flex flex-wrap items-center justify-between gap-3 border-t bg-slate-50/70 px-4 py-2.5 dark:border-slate-800 dark:bg-[#151515]">
+      <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
         Page {data.page} of {pages}
       </p>
       <div className="flex items-center gap-2">
         <button
           disabled={data.page <= 1}
           onClick={() => onNavigate({ page: String(data.page - 1) })}
-          className="rounded-lg border bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-[#202020] dark:text-slate-200 dark:hover:bg-[#2a2a2a] disabled:cursor-not-allowed disabled:opacity-40"
+          className="rounded-md border bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-[#202020] dark:text-slate-200 dark:hover:bg-[#2a2a2a] disabled:cursor-not-allowed disabled:opacity-40"
         >
           Previous
         </button>
-        <span className="min-w-8 rounded-lg bg-[#050a1f] px-2 py-2 text-center text-sm font-bold text-white dark:bg-[#f5c542] dark:text-[#201800]">
+        <span className="min-w-7 rounded-md bg-[#050a1f] px-2 py-1.5 text-center text-xs font-bold text-white dark:bg-[#f5c542] dark:text-[#201800]">
           {data.page}
         </span>
         <button
           disabled={data.page >= pages}
           onClick={() => onNavigate({ page: String(data.page + 1) })}
-          className="rounded-lg border bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-[#202020] dark:text-slate-200 dark:hover:bg-[#2a2a2a] disabled:cursor-not-allowed disabled:opacity-40"
+          className="rounded-md border bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-[#202020] dark:text-slate-200 dark:hover:bg-[#2a2a2a] disabled:cursor-not-allowed disabled:opacity-40"
         >
           Next
         </button>

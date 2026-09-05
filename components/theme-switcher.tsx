@@ -40,7 +40,7 @@ export function ThemeSwitcher({ circular = false }: { circular?: boolean }) {
           className={cn(
             'inline-flex h-10 w-10 items-center justify-center border-0 !border-transparent bg-transparent text-[#a47700] shadow-none outline-none ring-0 transition-colors hover:bg-[#fff4bf] hover:text-[#795900] focus:!border-transparent focus:!outline-none focus:!ring-0 focus-visible:!outline-none dark:text-[#ffd60a] dark:hover:bg-[#2b240d] dark:hover:text-[#ffe66b]',
             circular
-              ? 'rounded-full bg-[var(--dashboard-surface-subtle)] text-[var(--dashboard-muted)] hover:bg-[var(--dashboard-accent-soft)] hover:text-[var(--dashboard-accent)] focus-visible:!ring-2 focus-visible:!ring-[var(--dashboard-accent)] focus-visible:ring-offset-2'
+              ? 'rounded-full bg-transparent text-[var(--dashboard-muted)] hover:bg-[var(--dashboard-surface-subtle)] hover:text-[var(--dashboard-accent)] focus-visible:bg-[var(--dashboard-surface-subtle)] focus-visible:text-[var(--dashboard-accent)] focus-visible:!ring-0 focus-visible:ring-offset-0'
               : 'rounded-lg focus-visible:!border-transparent focus-visible:!ring-0'
           )}
           aria-label="Toggle theme"

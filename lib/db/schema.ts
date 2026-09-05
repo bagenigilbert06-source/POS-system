@@ -999,6 +999,7 @@ export const sale = pgTable(
     branchId: text('branchId'),
     posSessionId: text('posSessionId'),
     terminalId: text('terminalId').references(() => posTerminal.id, { onDelete: 'restrict' }),
+    quotationId: text('quotationId'),
     createdAt: timestamp('createdAt').notNull().defaultNow(),
   },
   (table) => ({
@@ -1039,6 +1040,7 @@ export const sale = pgTable(
       table.orgId,
       table.receiptNo
     ),
+    quotationUnique: uniqueIndex('sale_quotation_unique').on(table.quotationId),
   })
 );
 
@@ -2838,25 +2840,60 @@ export const quotation = pgTable(
     customerId: text('customerId').references(() => customer.id, {
       onDelete: 'set null',
     }),
+    branchId: text('branchId').references(() => branch.id, { onDelete: 'restrict' }),
+    customerSnapshot: json('customerSnapshot').notNull().default({}),
+    businessSnapshot: json('businessSnapshot').notNull().default({}),
     subtotal: numeric('subtotal', { precision: 12, scale: 2 })
       .notNull()
       .default('0'),
     taxAmount: numeric('taxAmount', { precision: 12, scale: 2 })
       .notNull()
       .default('0'),
+    discountAmount: numeric('discountAmount', { precision: 12, scale: 2 })
+      .notNull()
+      .default('0'),
+    taxableAmount: numeric('taxableAmount', { precision: 12, scale: 2 })
+      .notNull()
+      .default('0'),
+    taxRate: numeric('taxRate', { precision: 7, scale: 4 })
+      .notNull()
+      .default('0'),
     total: numeric('total', { precision: 12, scale: 2 }).notNull(),
     validUntil: timestamp('validUntil'),
     status: text('status').notNull().default('draft'), // draft, sent, accepted, rejected, expired
     notes: text('notes'),
+    terms: text('terms'),
+    internalNote: text('internalNote'),
+    sentAt: timestamp('sentAt'),
+    acceptedAt: timestamp('acceptedAt'),
+    acceptedBy: text('acceptedBy').references(() => user.id, { onDelete: 'restrict' }),
+    declinedAt: timestamp('declinedAt'),
+    cancelledAt: timestamp('cancelledAt'),
+    renewedAt: timestamp('renewedAt'),
+    convertedAt: timestamp('convertedAt'),
+    statusReason: text('statusReason'),
     orgId: text('orgId')
       .notNull()
       .references(() => organization.id, { onDelete: 'cascade' }),
     userId: text('userId').notNull(),
+    updatedBy: text('updatedBy'),
     createdAt: timestamp('createdAt').notNull().defaultNow(),
     updatedAt: timestamp('updatedAt').notNull().defaultNow(),
   },
-  (table) => ({ organizationIndex: index('quotation_org_idx').on(table.orgId) })
+  (table) => ({
+    organizationIndex: index('quotation_org_idx').on(table.orgId),
+    organizationNumberUnique: uniqueIndex('quotation_org_number_unique').on(table.orgId, table.quoteNo),
+    organizationStatusCreatedIndex: index('quotation_org_status_created_idx').on(table.orgId, table.status, table.createdAt),
+    organizationBranchCreatedIndex: index('quotation_org_branch_created_idx').on(table.orgId, table.branchId, table.createdAt),
+  })
 );
+
+export const quotationNumberSequence = pgTable('quotation_number_sequence', {
+  organizationId: text('organizationId').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  year: integer('year').notNull(),
+  lastNumber: integer('lastNumber').notNull().default(0),
+  updatedAt: timestamp('updatedAt').notNull().defaultNow(),
+}, (table) => ({ organizationYearUnique: uniqueIndex('quotation_number_sequence_org_year_unique').on(table.organizationId, table.year) }));
 
 export const quotationItem = pgTable('quotation_item', {
   id: text('id').primaryKey(),
@@ -2864,8 +2901,15 @@ export const quotationItem = pgTable('quotation_item', {
     .notNull()
     .references(() => quotation.id, { onDelete: 'cascade' }),
   description: text('description').notNull(),
+  productId: text('productId').references(() => product.id, { onDelete: 'restrict' }),
+  sku: text('sku'),
+  unit: text('unit').notNull().default('each'),
   quantity: integer('quantity').notNull(),
   unitPrice: numeric('unitPrice', { precision: 12, scale: 2 }).notNull(),
+  subtotal: numeric('subtotal', { precision: 12, scale: 2 }).notNull().default('0'),
+  discountAmount: numeric('discountAmount', { precision: 12, scale: 2 }).notNull().default('0'),
+  taxRate: numeric('taxRate', { precision: 7, scale: 4 }).notNull().default('0'),
+  taxAmount: numeric('taxAmount', { precision: 12, scale: 2 }).notNull().default('0'),
   total: numeric('total', { precision: 12, scale: 2 }).notNull(),
   orgId: text('orgId').notNull(),
 });

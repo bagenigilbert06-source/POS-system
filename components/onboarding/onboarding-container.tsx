@@ -28,8 +28,11 @@ import {
   REQUIRED_MODULES,
   WORKING_MODULES,
   categoriesFor,
+  availableCategoriesFor,
   categoryLabel,
   familyFor,
+  isBusinessCategoryAvailable,
+  isBusinessFamilyAvailable,
   recommendedModules,
   type OnboardingDraft,
   type OnboardingStepId,
@@ -604,7 +607,7 @@ export function OnboardingContainer({
   };
 
   const setBusinessFamily = (id: string) => {
-    const firstCategory = categoriesFor(id)[0]?.id ?? '';
+    const firstCategory = availableCategoriesFor(id)[0]?.id ?? '';
     setData((current) => ({
       ...current,
       businessFamily: id as OnboardingDraft['businessFamily'],
@@ -625,7 +628,7 @@ export function OnboardingContainer({
   ) => {
     const category = String(value);
     setData((current) =>
-      category === 'liquor_shop'
+      category === 'liquor_shop' || category === 'hardware'
         ? {
             ...current,
             businessCategory: category,
@@ -926,36 +929,47 @@ export function OnboardingContainer({
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {BUSINESS_FAMILIES.map(({ id, name, description, icon: Icon }) => {
               const selected = data.businessFamily === id;
+              const available = isBusinessFamilyAvailable(id);
+              const activeSelection = selected && available;
               return (
                 <button
                   type="button"
                   key={id}
-                  aria-pressed={selected}
+                  aria-pressed={activeSelection}
+                  aria-disabled={!available}
+                  disabled={!available}
                   onClick={() => setBusinessFamily(id)}
                   className={cn(
-                    'relative flex min-h-32 gap-4 rounded-xl border p-5 text-left outline-none focus-visible:ring-2 focus-visible:ring-[#e42527]',
-                    selected
+                    'relative flex min-h-32 gap-4 rounded-xl border p-5 text-left outline-none transition-colors focus-visible:ring-2 focus-visible:ring-[#e42527]',
+                    activeSelection
                       ? 'border-slate-950 bg-[#fff4c4]'
-                      : 'border-zinc-200 bg-white'
+                      : 'border-zinc-200 bg-white',
+                    !available &&
+                      'cursor-not-allowed border-zinc-200 bg-zinc-50 opacity-70'
                   )}
                 >
                   <span
                     className={cn(
                       'flex h-11 w-11 shrink-0 items-center justify-center rounded-lg',
-                      selected ? 'bg-[#ffda32]' : 'bg-zinc-100'
+                      activeSelection ? 'bg-[#ffda32]' : 'bg-zinc-100'
                     )}
                   >
                     <Icon className="h-5 w-5" />
                   </span>
                   <span>
-                    <span className="block font-extrabold text-slate-950">
-                      {name}
+                    <span className="flex flex-wrap items-center gap-2 font-extrabold text-slate-950">
+                      <span>{name}</span>
+                      {!available && (
+                        <span className="rounded-full border border-zinc-300 bg-white px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.12em] text-zinc-500">
+                          Coming soon
+                        </span>
+                      )}
                     </span>
                     <span className="mt-1 block text-sm leading-6 text-zinc-600">
                       {description}
                     </span>
                   </span>
-                  {selected && (
+                  {activeSelection && (
                     <Check className="absolute right-4 top-4 h-5 w-5 text-[#e42527]" />
                   )}
                 </button>
@@ -979,11 +993,22 @@ export function OnboardingContainer({
                 >
                   <option value="">Select a category</option>
                   {categoriesFor(data.businessFamily).map((category) => (
-                    <option key={category.id} value={category.id}>
+                    <option
+                      key={category.id}
+                      value={category.id}
+                      disabled={!isBusinessCategoryAvailable(category.id)}
+                    >
                       {category.name}
+                      {!isBusinessCategoryAvailable(category.id)
+                        ? ' — Coming soon'
+                        : ''}
                     </option>
                   ))}
                 </SelectField>
+                <p className="mt-2 text-xs leading-5 text-zinc-500">
+                  Available now: Liquor Store, Café, Pharmacy and Hardware.
+                  More tailored workspaces are being prepared.
+                </p>
                 {data.businessCategory === 'liquor_shop' && (
                   <p className="mt-2 rounded-lg border border-[#e7be16] bg-[#fff8d7] px-3 py-2 text-xs leading-5 text-[#5f4b00]">
                     We’ll prepare a liquor dashboard with checkout, a drinks
