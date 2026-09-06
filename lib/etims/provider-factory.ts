@@ -3,8 +3,9 @@ import { GavaConnectSandboxProvider } from './providers/gavaconnect-sandbox-prov
 import { EtimsValidationError, type EtimsConfigurationSnapshot, type EtimsProvider, type EtimsProviderCapabilities } from './types'
 
 export function getEtimsProviderCapabilities(configuration: Pick<EtimsConfigurationSnapshot, 'providerName'>): EtimsProviderCapabilities {
-  const runtime = configuration.providerName === 'mock'
-  return { supportsIntegrationAuthorizationVerification: false, supportsBranchDiscovery: false, supportsDeviceInitialization: false, supportsConnectionTest: runtime, supportsSalesSubmission: runtime, supportsCreditNotes: runtime }
+  const mock = configuration.providerName === 'mock'
+  const gavaSandbox = configuration.providerName === 'gavaconnect-sandbox'
+  return { supportsIntegrationAuthorizationVerification: false, supportsBranchDiscovery: false, supportsDeviceInitialization: false, supportsConnectionTest: mock || gavaSandbox, supportsSalesSubmission: mock, supportsCreditNotes: mock }
 }
 
 export function isGavaConnectSandboxConfigured() {

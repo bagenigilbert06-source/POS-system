@@ -98,6 +98,7 @@ export function CashierShiftStrip({
     [closingOpen, setClosingOpen] = useState(false);
   const [closeStep, setCloseStep] = useState<'count' | 'result'>('count'),
     [openingFloat, setOpeningFloat] = useState(''),
+    [openingNote, setOpeningNote] = useState(''),
     [countedCash, setCountedCash] = useState(''),
     [varianceReason, setVarianceReason] = useState(''),
     [notes, setNotes] = useState('');
@@ -108,6 +109,7 @@ export function CashierShiftStrip({
     [movementReason, setMovementReason] = useState('');
   const [drawerReason, setDrawerReason] = useState('');
   const drawerRequestRef = useRef<string | null>(null);
+  const openingRequestRef = useRef<string | null>(null);
   const [error, setError] = useState(''),
     [result, setResult] = useState<Reconciliation | null>(null);
   const session = workspace.session;
@@ -118,6 +120,8 @@ export function CashierShiftStrip({
     reconciliationRequired: 0,
   };
   const isClosing = session?.status === 'closing';
+  const terminalConfigured = Boolean(workspace.registerName);
+  const cashierDisplayName = formatPersonName(workspace.cashierName);
   const shiftStartedAt = session
     ? new Intl.DateTimeFormat('en-KE', {
         hour: '2-digit',
@@ -235,20 +239,24 @@ export function CashierShiftStrip({
                   className={`h-2 w-2 shrink-0 rounded-full ${session ? (isClosing ? 'bg-amber-500' : 'bg-emerald-500') : 'bg-slate-400'}`}
                   aria-hidden="true"
                 />
-                {session ? (isClosing ? 'Closing' : 'Open') : 'Closed'}
+                {session
+                  ? isClosing
+                    ? 'Closing'
+                    : `Open · ${workspace.registerName ?? session.sessionNo}`
+                  : 'Closed'}
               </dd>
               <dd
                 className="mt-0.5 truncate text-[11px] text-[var(--dashboard-muted)]"
                 title={
                   session
-                    ? `${workspace.registerName ?? session.sessionNo}${workspace.cashierName ? ` · ${workspace.cashierName}` : ''}`
+                    ? `${workspace.registerName ?? session.sessionNo}${cashierDisplayName ? ` · ${cashierDisplayName}` : ''}`
                     : 'No active register'
                 }
               >
                 {session ? (
                   <>
                     {workspace.registerName ?? session.sessionNo}
-                    {workspace.cashierName ? ` · ${workspace.cashierName}` : ''}
+                    {cashierDisplayName ? ` · ${cashierDisplayName}` : ''}
                   </>
                 ) : (
                   'No active register'
@@ -471,33 +479,48 @@ export function CashierShiftStrip({
       </Dialog>
 
       <Dialog open={openingOpen} onOpenChange={setOpeningOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Open a shift</DialogTitle>
-            <DialogDescription>
-              Confirm the cash you are placing in the drawer at{' '}
-              {workspace.locationName}.
+        <DialogContent className="gap-4 border-border bg-card p-5 text-card-foreground shadow-2xl shadow-slate-950/20 dark:shadow-black/50 sm:max-w-[500px]">
+          <DialogHeader className="space-y-1 border-b border-border pb-4">
+            <DialogTitle className="text-lg font-semibold tracking-tight">Open register</DialogTitle>
+            <DialogDescription className="space-y-0.5 text-sm leading-5 text-[var(--dashboard-muted)]">
+              {cashierDisplayName ? <>Cashier: {cashierDisplayName}</> : null}
             </DialogDescription>
           </DialogHeader>
+          {!terminalConfigured && (
+            <p className="text-sm text-destructive">
+              This device is not assigned to a POS terminal. Configure the terminal before opening a register.
+            </p>
+          )}
           <label className="grid gap-1.5 text-sm font-medium">
-            Opening float{' '}
+            Opening cash
             <CurrencyInput
               value={openingFloat}
               onChange={setOpeningFloat}
               autoFocus
             />
+            <span className="text-xs font-normal leading-4 text-muted-foreground">Cash physically placed in the drawer at the start of the shift.</span>
           </label>
-          <DialogFooter>
+          <label className="grid gap-1.5 text-sm font-medium">
+            <span>Opening note <span className="font-normal text-muted-foreground">(optional)</span></span>
+            <Input value={openingNote} onChange={(event) => setOpeningNote(event.target.value)} maxLength={500} placeholder="e.g. Float received from manager" />
+          </label>
+          <DialogFooter className="border-t border-border pt-3 sm:justify-end">
             <Button variant="outline" onClick={() => setOpeningOpen(false)}>
               Cancel
             </Button>
             <Button
-              disabled={pending || openingFloat === ''}
+              disabled={pending || !terminalConfigured || !isValidMoney(openingFloat || '0')}
               onClick={() =>
                 run(
                   async () => {
-                    await openPosSession(Number(openingFloat));
+                    await openPosSession({
+                      openingCash: openingFloat === '' ? 0 : Number(openingFloat),
+                      openingNote,
+                      idempotencyKey: openingRequestRef.current ?? (openingRequestRef.current = crypto.randomUUID()),
+                    });
                     setOpeningFloat('');
+                    setOpeningNote('');
+                    openingRequestRef.current = null;
                     setOpeningOpen(false);
                     router.refresh();
                   },
@@ -642,7 +665,6 @@ export function CashierShiftStrip({
                         });
                         setResult(submitted);
                         setCloseStep('result');
-                        router.refresh();
                       },
                       {
                         loading: 'Closing shiftâ€¦',
@@ -726,7 +748,10 @@ export function CashierShiftStrip({
                       setCountedCash('');
                       setVarianceReason('');
                       setNotes('');
-                      router.refresh();
+                      // Close the review immediately. Fetch the authoritative
+                      // closed-register model on the next event-loop turn so
+                      // route work never holds the cashier in this dialog.
+                      setTimeout(() => router.refresh(), 0);
                     })
                   }
                 >
@@ -767,12 +792,25 @@ function CurrencyInput({
             event.target.value
               .replace(/[^0-9.]/g, '')
               .replace(/(\..*)\./g, '$1')
+              .replace(/(\.\d{2}).*/, '$1')
           )
         }
         placeholder="0.00"
       />
     </div>
   );
+}
+function isValidMoney(value: string) {
+  return /^(?:0|[1-9]\d*)(?:\.\d{0,2})?$/.test(value);
+}
+
+// Presentation only: account names remain unchanged in the database.
+function formatPersonName(value: string | null) {
+  if (!value) return null;
+  return value
+    .trim()
+    .toLocaleLowerCase()
+    .replace(/(^|[\s'-])[\p{L}]/gu, (letter) => letter.toLocaleUpperCase());
 }
 function ResultCard({
   label,

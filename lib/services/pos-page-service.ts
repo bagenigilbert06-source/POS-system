@@ -51,12 +51,15 @@ export async function getPosPageData(authorization: AuthorizationContext, includ
     db.select({ enabled: posPinCredential.enabled }).from(posPinCredential).where(eq(posPinCredential.userId, authorization.userId)).limit(1),
   ])
   const activeSession = sessionRows[0] ?? null
-  const [[terminal], [cashier]] = activeSession
-    ? await Promise.all([
-      activeSession.terminalId ? db.select({ name: posTerminal.name, printingMode: posTerminal.printingMode, printerDisplayName: posTerminal.printerDisplayName, printerIdentifier: posTerminal.printerIdentifier, paperWidth: posTerminal.paperWidth, autoPrint: posTerminal.autoPrint, receiptCopies: posTerminal.receiptCopies, cashDrawerPulse: posTerminal.cashDrawerPulse }).from(posTerminal).where(eq(posTerminal.id, activeSession.terminalId)).limit(1) : Promise.resolve([]),
-      db.select({ name: user.name }).from(user).where(eq(user.id, activeSession.openedBy)).limit(1),
-    ])
-    : [[], []]
+  // The opening dialog needs trusted terminal and cashier data before a shift
+  // exists, not only after one has been created.
+  const contextTerminalId = activeSession?.terminalId ?? terminalId
+  const [[terminal], [cashier]] = await Promise.all([
+    contextTerminalId
+      ? db.select({ name: posTerminal.name, printingMode: posTerminal.printingMode, printerDisplayName: posTerminal.printerDisplayName, printerIdentifier: posTerminal.printerIdentifier, paperWidth: posTerminal.paperWidth, autoPrint: posTerminal.autoPrint, receiptCopies: posTerminal.receiptCopies, cashDrawerPulse: posTerminal.cashDrawerPulse }).from(posTerminal).where(and(eq(posTerminal.id, contextTerminalId), eq(posTerminal.organizationId, orgId))).limit(1)
+      : Promise.resolve([]),
+    db.select({ name: user.name }).from(user).where(eq(user.id, authorization.userId)).limit(1),
+  ])
   const [summaryRows, refundRows, movementRows, recentSales, mpesaRows] = activeSession
     ? await Promise.all([
       db.select({ total: sql<string>`coalesce(sum(${sale.total}),0)`, count: sql<number>`count(*)` }).from(sale).where(and(eq(sale.orgId, orgId), eq(sale.posSessionId, activeSession.id), inArray(sale.status, ['completed', 'partially_refunded', 'refunded']))),

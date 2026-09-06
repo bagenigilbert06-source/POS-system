@@ -11,6 +11,17 @@ export const ETIMS_STATUSES = [
 
 export type EtimsStatus = (typeof ETIMS_STATUSES)[number]
 export type EtimsEnvironment = 'sandbox' | 'production'
+/** Internal connection lifecycle. Pending/active values are legal only when
+ * returned by a certified provider status operation. */
+export const ETIMS_CONNECTION_STATUSES = ['NOT_CONFIGURED', 'ONBOARDING_REQUIRED', 'AUTHORIZATION_PENDING', 'INITIALIZING', 'ACTIVE', 'ERROR', 'DISABLED'] as const
+export type EtimsConnectionStatus = (typeof ETIMS_CONNECTION_STATUSES)[number]
+export type EtimsConnectionStatusResult = {
+  /** Already normalized by a certified adapter; never infer it from transport success. */
+  status: Exclude<EtimsConnectionStatus, 'NOT_CONFIGURED' | 'ERROR' | 'DISABLED'>
+  providerStatus?: string
+  providerReference?: string
+  message?: string
+}
 export type EtimsProviderCapabilities = {
   supportsIntegrationAuthorizationVerification: boolean
   supportsBranchDiscovery: boolean
@@ -122,6 +133,9 @@ export interface EtimsProvider {
   validateConfiguration(): Promise<{ valid: boolean; message: string }>
   healthCheck(): Promise<{ ok: boolean; message: string; latencyMs: number }>
   initializeDevice?(input: { taxpayerPin: string; branchId: string; deviceSerial: string }): Promise<{ ok: boolean; code?: string; message?: string; identifiers?: Record<string, string> }>
+  /** Obtains an explicitly confirmed authorization/device lifecycle result.
+   * Absent until the provider's certified status contract is implemented. */
+  getConnectionStatus?(): Promise<EtimsConnectionStatusResult>
   /** Verifies OSCU integration authorization without persisting the token. */
   verifyIntegrationAuthorization?(input: { businessKraPin: string; integrationToken: string }): Promise<{ ok: boolean; code?: string; message?: string }>
   submitInvoice(invoice: EtimsInvoice): Promise<EtimsProviderResult>

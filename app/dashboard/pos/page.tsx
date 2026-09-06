@@ -5,7 +5,7 @@ import { requireAnyPermission } from '@/lib/auth/authorization';
 import { PermissionEnum } from '@/lib/types/permissions';
 import { CashierShiftStrip } from '@/components/pos/cashier-shift-strip';
 import { PosSecurity } from '@/components/pos/pos-security';
-import { getPosAuthorizationContext } from '@/lib/pos/pos-auth';
+import { getPosAuthorizationContext, getTerminal } from '@/lib/pos/pos-auth';
 import { redirect } from 'next/navigation';
 import { getPosPageData } from '@/lib/services/pos-page-service';
 import { getCurrentSession } from '@/lib/auth';
@@ -36,7 +36,19 @@ export default async function POSPage() {
   )
     redirect('/restricted');
   const { config } = await requireWorkspaceModule('pos');
-  const operator = pageAuthorization;
+  // Dashboard-mode POS uses the same signed registered-terminal cookie as
+  // shift actions, including before an active shift exists.
+  const registeredTerminal = posAuthorization ? null : await getTerminal();
+  const terminal =
+    registeredTerminal &&
+    registeredTerminal.organizationId === pageAuthorization.organizationId &&
+    (pageAuthorization.isOrganizationWide ||
+      pageAuthorization.branchIds.includes(registeredTerminal.branchId))
+      ? registeredTerminal
+      : null;
+  const operator = posAuthorization ?? (terminal
+    ? { ...pageAuthorization, branchIds: [terminal.branchId], isOrganizationWide: false, terminalId: terminal.id }
+    : pageAuthorization);
   const data = await getPosPageData(
     operator,
     config.enabledModules.includes('customers'),

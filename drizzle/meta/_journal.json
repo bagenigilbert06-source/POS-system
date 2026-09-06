@@ -456,6 +456,34 @@
       "when": 1788523200000,
       "tag": "0060_hardware_quotations",
       "breakpoints": true
+    },
+    {
+      "idx": 65,
+      "version": "7",
+      "when": 1788638400000,
+      "tag": "0061_pos_session_opening_note",
+      "breakpoints": true
+    },
+    {
+      "idx": 66,
+      "version": "7",
+      "when": 1788724800000,
+      "tag": "0062_pos_session_opening_cash_guard",
+      "breakpoints": true
+    },
+    {
+      "idx": 67,
+      "version": "7",
+      "when": 1788811200000,
+      "tag": "0063_etims_connection_status_metadata",
+      "breakpoints": true
+    },
+    {
+      "idx": 68,
+      "version": "7",
+      "when": 1788897600000,
+      "tag": "0064_database_performance_indexes",
+      "breakpoints": true
     }
   ]
 }

@@ -65,21 +65,26 @@ export default async function DashboardRouteLayout({
     WorkspaceService.getAuthorizedWorkspaceConfig(organization),
     posAuthorization ?? getAuthorizationContext(),
   ]);
-  const availableOrganizations = posAuthorization ? [organization] : await OrganizationService.getOrganizationsForUser(userId);
   if (!workspaceConfig) redirect('/onboarding');
-  const [activeBranch] = await db
-    .select({ name: branch.name })
-    .from(branch)
-    .where(
-      and(
-        eq(branch.organizationId, organization.id),
-        authorization.isOrganizationWide
-          ? eq(branch.isMain, true)
-          : eq(branch.id, authorization.branchIds[0] ?? '')
+  const [availableOrganizations, activeBranchRows] = await Promise.all([
+    posAuthorization
+      ? Promise.resolve([organization])
+      : OrganizationService.getOrganizationsForUser(userId),
+    db
+      .select({ name: branch.name })
+      .from(branch)
+      .where(
+        and(
+          eq(branch.organizationId, organization.id),
+          authorization.isOrganizationWide
+            ? eq(branch.isMain, true)
+            : eq(branch.id, authorization.branchIds[0] ?? '')
+        )
       )
-    )
-    .orderBy(desc(branch.updatedAt))
-    .limit(1);
+      .orderBy(desc(branch.updatedAt))
+      .limit(1),
+  ]);
+  const activeBranch = activeBranchRows[0];
 
   return (
     <DashboardLayoutClient

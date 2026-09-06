@@ -24,18 +24,24 @@ export const user = pgTable('user', {
   updatedAt: timestamp('updatedAt').notNull().defaultNow(),
 });
 
-export const session = pgTable('session', {
-  id: text('id').primaryKey(),
-  expiresAt: timestamp('expiresAt').notNull(),
-  token: text('token').notNull().unique(),
-  createdAt: timestamp('createdAt').notNull().defaultNow(),
-  updatedAt: timestamp('updatedAt').notNull().defaultNow(),
-  ipAddress: text('ipAddress'),
-  userAgent: text('userAgent'),
-  userId: text('userId')
-    .notNull()
-    .references(() => user.id, { onDelete: 'cascade' }),
-});
+export const session = pgTable(
+  'session',
+  {
+    id: text('id').primaryKey(),
+    expiresAt: timestamp('expiresAt').notNull(),
+    token: text('token').notNull().unique(),
+    createdAt: timestamp('createdAt').notNull().defaultNow(),
+    updatedAt: timestamp('updatedAt').notNull().defaultNow(),
+    ipAddress: text('ipAddress'),
+    userAgent: text('userAgent'),
+    userId: text('userId')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+  },
+  (table) => ({
+    userIndex: index('session_userId_idx').on(table.userId),
+  })
+);
 
 export const account = pgTable('account', {
   id: text('id').primaryKey(),
@@ -120,6 +126,7 @@ export const organizationMembership = pgTable(
     organizationUserUnique: uniqueIndex(
       'organization_membership_org_user_unique'
     ).on(table.organizationId, table.userId),
+    userIndex: index('organization_membership_user_idx').on(table.userId),
   })
 );
 
@@ -203,6 +210,7 @@ export const branchMembership = pgTable(
       table.branchId,
       table.userId
     ),
+    userIndex: index('branch_membership_user_idx').on(table.userId),
   })
 );
 
@@ -371,6 +379,13 @@ export const etimsConfiguration = pgTable(
     lastConnectionTestAt: timestamp('lastConnectionTestAt'),
     lastConnectionSuccessAt: timestamp('lastConnectionSuccessAt'),
     lastConnectionMessage: text('lastConnectionMessage'),
+    lastStatusCheckAt: timestamp('lastStatusCheckAt'),
+    lastSuccessfulStatusCheckAt: timestamp('lastSuccessfulStatusCheckAt'),
+    activatedAt: timestamp('activatedAt'),
+    providerStatus: text('providerStatus'),
+    providerReference: text('providerReference'),
+    lastProviderErrorCode: text('lastProviderErrorCode'),
+    lastProviderErrorMessage: text('lastProviderErrorMessage'),
     createdAt: timestamp('createdAt').notNull().defaultNow(),
     updatedAt: timestamp('updatedAt').notNull().defaultNow(),
   },
@@ -401,6 +416,10 @@ export const auditEvent = pgTable(
   (table) => ({
     organizationIndex: index('audit_event_organization_idx').on(
       table.organizationId
+    ),
+    organizationCreatedIndex: index('audit_event_org_created_idx').on(
+      table.organizationId,
+      table.createdAt
     ),
   })
 );
@@ -608,21 +627,30 @@ export const wirelessScannerEvent = pgTable(
   })
 );
 
-export const customer = pgTable('customer', {
-  id: text('id').primaryKey(),
-  name: text('name').notNull(),
-  phone: text('phone'),
-  email: text('email'),
-  address: text('address'),
-  kraPin: text('kraPin'),
-  customerType: text('customerType').notNull().default('individual'),
-  vatRegistered: boolean('vatRegistered').notNull().default(false),
-  loyaltyPoints: integer('loyaltyPoints').notNull().default(0),
-  userId: text('userId').notNull(),
-  orgId: text('orgId').notNull(),
-  createdAt: timestamp('createdAt').notNull().defaultNow(),
-  updatedAt: timestamp('updatedAt').notNull().defaultNow(),
-});
+export const customer = pgTable(
+  'customer',
+  {
+    id: text('id').primaryKey(),
+    name: text('name').notNull(),
+    phone: text('phone'),
+    email: text('email'),
+    address: text('address'),
+    kraPin: text('kraPin'),
+    customerType: text('customerType').notNull().default('individual'),
+    vatRegistered: boolean('vatRegistered').notNull().default(false),
+    loyaltyPoints: integer('loyaltyPoints').notNull().default(0),
+    userId: text('userId').notNull(),
+    orgId: text('orgId').notNull(),
+    createdAt: timestamp('createdAt').notNull().defaultNow(),
+    updatedAt: timestamp('updatedAt').notNull().defaultNow(),
+  },
+  (table) => ({
+    organizationCreatedIndex: index('customer_org_created_idx').on(
+      table.orgId,
+      table.createdAt
+    ),
+  })
+);
 
 export const rewardSettings = pgTable(
   'reward_settings',
@@ -1103,6 +1131,10 @@ export const saleItem = pgTable(
       table.saleId,
       table.orgId
     ),
+    organizationProductIndex: index('sale_item_org_product_idx').on(
+      table.orgId,
+      table.productId
+    ),
   })
 );
 
@@ -1217,6 +1249,8 @@ export const expense = pgTable('expense', {
   organizationNumberUnique: uniqueIndex('expense_org_number_unique').on(table.orgId, table.expenseNo),
   organizationIdempotencyUnique: uniqueIndex('expense_org_idempotency_unique').on(table.orgId, table.idempotencyKey),
   statusDateIndex: index('expense_org_status_date_idx').on(table.orgId, table.status, table.expenseDate),
+  organizationCreatedIndex: index('expense_org_created_idx').on(table.orgId, table.createdAt),
+  organizationBranchCreatedIndex: index('expense_org_branch_created_idx').on(table.orgId, table.branchId, table.createdAt),
   accountIndex: index('expense_financial_account_idx').on(table.financialAccountId, table.expenseDate),
 }));
 
@@ -1864,6 +1898,7 @@ export const salesReturn = pgTable(
   },
   (table) => ({
     organizationIndex: index('sales_return_org_idx').on(table.orgId),
+    organizationStatusCreatedIndex: index('sales_return_org_status_created_idx').on(table.orgId, table.status, table.createdAt),
     sessionIndex: index('sales_return_session_idx').on(table.posSessionId),
   })
 );
@@ -1883,7 +1918,10 @@ export const salesReturnItem = pgTable('sales_return_item', {
   total: numeric('total', { precision: 12, scale: 2 }).notNull(),
   disposition: text('disposition').notNull().default('restock'),
   orgId: text('orgId').notNull(),
-});
+}, (table) => ({
+  returnOrganizationIndex: index('sales_return_item_return_org_idx').on(table.returnId, table.orgId),
+  organizationProductIndex: index('sales_return_item_org_product_idx').on(table.orgId, table.productId),
+}));
 
 /** Pharmacy returns stay unavailable until an authorized disposition decision
  * is recorded. The original allocation preserves batch recall traceability. */
@@ -2039,6 +2077,9 @@ export const posSession = pgTable(
     countedCash: numeric('countedCash', { precision: 12, scale: 2 }),
     countedVariance: numeric('countedVariance', { precision: 12, scale: 2 }),
     countedAt: timestamp('countedAt'),
+    // Recorded separately from the handover/closing note for an auditable
+    // register opening record.
+    openingNote: text('openingNote'),
     notes: text('notes'),
     varianceReason: text('varianceReason'),
     reconciliationStartedAt: timestamp('reconciliationStartedAt'),
@@ -2754,7 +2795,7 @@ export const invoice = pgTable(
     createdAt: timestamp('createdAt').notNull().defaultNow(),
     updatedAt: timestamp('updatedAt').notNull().defaultNow(),
   },
-  (table) => ({ organizationIndex: index('invoice_org_idx').on(table.orgId), organizationBranchCreatedIndex: index('invoice_org_branch_created_idx').on(table.orgId, table.branchId, table.createdAt), organizationStatusDueIndex: index('invoice_org_status_due_idx').on(table.orgId, table.status, table.dueDate), organizationNumberUnique: uniqueIndex('invoice_org_number_unique').on(table.orgId, table.invoiceNo), organizationIdempotencyUnique: uniqueIndex('invoice_org_idempotency_unique').on(table.orgId, table.idempotencyKey), saleUnique: uniqueIndex('invoice_sale_unique').on(table.saleId), creditSaleUnique: uniqueIndex('invoice_credit_sale_unique').on(table.creditSaleId) })
+  (table) => ({ organizationIndex: index('invoice_org_idx').on(table.orgId), organizationCreatedIndex: index('invoice_org_created_idx').on(table.orgId, table.createdAt), organizationBranchCreatedIndex: index('invoice_org_branch_created_idx').on(table.orgId, table.branchId, table.createdAt), organizationStatusDueIndex: index('invoice_org_status_due_idx').on(table.orgId, table.status, table.dueDate), organizationNumberUnique: uniqueIndex('invoice_org_number_unique').on(table.orgId, table.invoiceNo), organizationIdempotencyUnique: uniqueIndex('invoice_org_idempotency_unique').on(table.orgId, table.idempotencyKey), saleUnique: uniqueIndex('invoice_sale_unique').on(table.saleId), creditSaleUnique: uniqueIndex('invoice_credit_sale_unique').on(table.creditSaleId) })
 );
 
 export const invoiceNumberSequence = pgTable('invoice_number_sequence', {

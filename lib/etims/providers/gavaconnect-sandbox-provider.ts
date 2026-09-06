@@ -7,8 +7,17 @@ export class GavaConnectSandboxProvider implements EtimsProvider {
   readonly name = 'gavaconnect-sandbox'
   constructor(private readonly configuration: EtimsConfigurationSnapshot) {}
   async authenticate(): Promise<void> { await requestAccessToken() }
-  async validateConfiguration() { return { valid: false, message: 'GavaConnect sandbox adapter is awaiting its certified API specification.' } }
-  async healthCheck() { return { ok: false, message: 'GavaConnect sandbox connection testing is not implemented.', latencyMs: 0 } }
+  async validateConfiguration() {
+    if (!this.configuration.businessKraPin) return { valid: false, message: 'Business KRA PIN is required.' }
+    return { valid: true, message: 'Sandbox credentials are configured. Device activation remains unconfirmed.' }
+  }
+  /** Tests only server-to-provider authentication. It never establishes
+   * authorization, device activation, or fiscal transmission readiness. */
+  async healthCheck() {
+    const started = Date.now()
+    await this.authenticate()
+    return { ok: true, message: 'GavaConnect sandbox authentication succeeded. Device activation is not confirmed.', latencyMs: Date.now() - started }
+  }
   async initializeDevice(input: { taxpayerPin: string; branchId: string; deviceSerial: string }) {
     const body = await initializeGavaDevice({ tin: input.taxpayerPin, bhfId: input.branchId, deviceSerial: input.deviceSerial })
     if (!body || typeof body !== 'object') return { ok: false, code: 'MALFORMED_RESPONSE', message: 'GavaConnect returned an invalid initialization response.' }

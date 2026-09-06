@@ -555,5 +555,23 @@ async function loadDashboardOverview(organizationId: string, timeZone = 'Africa/
 }
 
 export async function getDashboardOverview(organizationId: string, timeZone = 'Africa/Nairobi', branchIds?: readonly string[]) {
-  return readThroughRedis({ namespace: 'dashboard', organizationId, variant: `${timeZone}:${branchIds?.join(',') ?? '*'}`, ttlSeconds: 15, load: () => loadDashboardOverview(organizationId, timeZone, branchIds) })
+  const variant = `${timeZone}:${branchIds?.join(',') ?? '*'}`
+  const cacheKey = `${organizationId}:${variant}`
+  const cached = dashboardOverviewCache.get(cacheKey)
+  if (cached && cached.expiresAt > Date.now()) return cached.value
+
+  const overview = await readThroughRedis({
+    namespace: 'dashboard',
+    organizationId,
+    variant,
+    ttlSeconds: 15,
+    load: () => loadDashboardOverview(organizationId, timeZone, branchIds),
+  })
+  // Populate process memory on Redis hits too. Repeated navigation on the same
+  // warm function then avoids both Redis and PostgreSQL network round trips.
+  dashboardOverviewCache.set(cacheKey, {
+    value: overview,
+    expiresAt: Date.now() + 10_000,
+  })
+  return overview
 }

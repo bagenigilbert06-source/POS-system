@@ -10,8 +10,8 @@ export function getFiscalReadiness(configuration: { environment: string; enabled
   if (!configuration) return 'READY'
   if (configuration.environment !== 'production') return 'DEVELOPMENT_SIMULATOR'
   if (configuration.connectionStatus === 'ERROR') return 'CONNECTION_ERROR'
-  if (configuration.connectionStatus === 'PORTAL_ONBOARDING_REQUIRED') return 'ONBOARDING_REQUIRED'
-  if (!configuration.enabled || configuration.connectionStatus !== 'CONNECTED' || !configuration.invoiceSubmissionEnabled) return 'INITIALIZATION_REQUIRED'
+  if (configuration.connectionStatus === 'ONBOARDING_REQUIRED' || configuration.connectionStatus === 'PORTAL_ONBOARDING_REQUIRED') return 'ONBOARDING_REQUIRED'
+  if (!configuration.enabled || !['CONNECTED', 'ACTIVE'].includes(configuration.connectionStatus) || !configuration.invoiceSubmissionEnabled) return 'INITIALIZATION_REQUIRED'
   return 'READY'
 }
 

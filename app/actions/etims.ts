@@ -5,12 +5,13 @@ import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { db } from '@/lib/db'
 import { auditEvent, branch, customer, etimsConfiguration, etimsCreditNote, etimsSubmission, product, sale, salesReturn } from '@/lib/db/schema'
-import { requireFullAuthentication, requirePermission } from '@/lib/auth/authorization'
+import { requireBranchAccess, requireFullAuthentication, requirePermission } from '@/lib/auth/authorization'
 import { PermissionEnum } from '@/lib/types/permissions'
 import { generateId } from '@/lib/utils'
-import { createEtimsProvider } from '@/lib/etims/provider-factory'
+import { createEtimsProvider, isGavaConnectSandboxConfigured } from '@/lib/etims/provider-factory'
 import { processEtimsCreditNote, processEtimsSubmission } from '@/lib/etims/service'
 import type { EtimsConfigurationSnapshot } from '@/lib/etims/types'
+import { refreshFiscalConnectionStatus } from '@/lib/etims/connection-status'
 
 const reference = z.string().trim().regex(/^[A-Z][A-Z0-9_]{2,127}$/, 'Use a private server environment-variable name').optional().or(z.literal(''))
 const configurationSchema = z.object({
@@ -72,7 +73,7 @@ export async function activateEtimsBranch(input: z.input<typeof merchantSetupSch
   if (!authorization.permissions.includes(PermissionEnum.ETIMS_CONFIGURE)) throw new Error('eTIMS configuration permission denied')
   const [existing] = await db.select().from(etimsConfiguration).where(and(eq(etimsConfiguration.organizationId, authorization.organizationId), eq(etimsConfiguration.branchId, data.branchId))).limit(1)
   // Saving identity is not activation: OSCU approval and device initialization happen externally first.
-  return saveEtimsConfiguration({ ...data, enabled: false, providerName: data.environment === 'sandbox' ? 'mock' : (existing?.providerName || 'kra-provider'),
+  return saveEtimsConfiguration({ ...data, enabled: false, providerName: data.environment === 'sandbox' ? (isGavaConnectSandboxConfigured() ? 'gavaconnect-sandbox' : 'mock') : (existing?.providerName || 'kra-provider'),
     deviceId: existing?.deviceId || `PESABY-${data.branchId}`, apiBaseUrl: existing?.apiBaseUrl || '', credentialReference: existing?.credentialReference || '',
     clientId: existing?.clientId || '', clientSecretReference: existing?.clientSecretReference || '', certificateReference: existing?.certificateReference || '',
     privateKeyReference: existing?.privateKeyReference || '', invoiceSubmissionEnabled: true, automaticRetryEnabled: true, maximumRetryAttempts: 5, receiptDetailsEnabled: true })
@@ -95,7 +96,10 @@ export async function saveEtimsConfiguration(input: EtimsConfigurationInput) {
     await tx.insert(etimsConfiguration).values({
       id, organizationId: authorization.organizationId,
       ...data,
-      connectionStatus: 'PORTAL_ONBOARDING_REQUIRED',
+      // This is an action required from the merchant, not a provider-reported
+      // authorization state. Do not label it "pending" until a certified
+      // provider status operation has actually returned a pending result.
+      connectionStatus: 'ONBOARDING_REQUIRED',
       businessKraPin: data.businessKraPin || null,
       externalBranchId: data.externalBranchId || null,
       deviceId: data.deviceId || null,
@@ -108,8 +112,8 @@ export async function saveEtimsConfiguration(input: EtimsConfigurationInput) {
       tokenConfiguration: {},
     }).onConflictDoUpdate({ target: [etimsConfiguration.organizationId, etimsConfiguration.branchId], set: {
       ...data,
-      connectionStatus: 'PORTAL_ONBOARDING_REQUIRED',
-      lastConnectionMessage: null,
+      connectionStatus: 'ONBOARDING_REQUIRED',
+      lastConnectionMessage: 'Complete external OSCU onboarding. Provider authorization status lookup is not installed.',
       businessKraPin: data.businessKraPin || null,
       externalBranchId: data.externalBranchId || null,
       deviceId: data.deviceId || null,
@@ -139,11 +143,17 @@ export async function testEtimsConnection(branchId: string) {
   if (!authorization.permissions.includes(PermissionEnum.ETIMS_CONFIGURE)) throw new Error('eTIMS configuration permission denied')
   const [config] = await db.select().from(etimsConfiguration).where(and(eq(etimsConfiguration.organizationId, authorization.organizationId), eq(etimsConfiguration.branchId, branchId))).limit(1)
   if (!config) return { ok: false, message: 'Save this branch configuration first', latencyMs: 0 }
+  if (['ONBOARDING_REQUIRED', 'PORTAL_ONBOARDING_REQUIRED', 'AUTHORIZATION_PENDING', 'INITIALIZING'].includes(config.connectionStatus)) {
+    return { ok: false, message: 'Connection testing is unavailable until onboarding and device activation are confirmed.', latencyMs: 0 }
+  }
   try {
     const provider = createEtimsProvider(configSnapshot(config))
     const result = await provider.healthCheck()
-    const publicMessage = result.ok ? 'Connection verified successfully.' : 'Connection could not be verified. Review the secure server logs.'
-    await db.update(etimsConfiguration).set({ connectionStatus: result.ok ? (config.environment === 'production' ? 'CONNECTED' : 'SANDBOX') : 'ERROR',
+    const publicMessage = result.ok ? result.message : 'Connection could not be verified. Review the secure server logs.'
+    // A health check only proves that the adapter can be contacted. It does
+    // not prove KRA authorization or device activation, so it must never
+    // promote a branch to CONNECTED/SANDBOX.
+    await db.update(etimsConfiguration).set({ connectionStatus: result.ok ? config.connectionStatus : 'ERROR',
       lastConnectionTestAt: new Date(), lastConnectionSuccessAt: result.ok ? new Date() : config.lastConnectionSuccessAt,
       lastConnectionMessage: publicMessage, updatedAt: new Date() }).where(eq(etimsConfiguration.id, config.id))
     await db.insert(auditEvent).values({ id: generateId(), organizationId: authorization.organizationId, userId: authorization.userId,
@@ -158,6 +168,18 @@ export async function testEtimsConnection(branchId: string) {
     console.error('[etims] connection test failed', { branchId, provider: config.providerName, environment: config.environment, errorType: error instanceof Error ? error.name : 'UnknownError' })
     return { ok: false, message, latencyMs: 0 }
   }
+}
+
+/** Server-action seam for the future dashboard refresh button. Until a
+ * certified adapter supplies getConnectionStatus this returns an explicit
+ * unavailable result and never changes the connection to active. */
+export async function refreshEtimsConnection(branchId: string) {
+  const authorization = await requireFullAuthentication()
+  if (!authorization.permissions.includes(PermissionEnum.ETIMS_CONFIGURE)) throw new Error('eTIMS configuration permission denied')
+  await requireBranchAccess(branchId)
+  const result = await refreshFiscalConnectionStatus({ organizationId: authorization.organizationId, branchId, userId: authorization.userId, force: true })
+  revalidatePath('/dashboard/etims')
+  return result
 }
 
 export async function retryEtimsSubmission(submissionId: string) {

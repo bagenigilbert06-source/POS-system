@@ -19,7 +19,7 @@ export const dynamic = 'force-dynamic'
 
 const tabs = [['overview', 'Overview'], ['invoices', 'Fiscal invoices'], ['exceptions', 'Exceptions'], ['credits', 'Credit notes'], ['settings', 'Settings']] as const
 type Dashboard = Awaited<ReturnType<typeof getEtimsDashboard>>
-type Configuration = { connectionStatus: string; environment: string; integrationMethod: string; businessKraPin: string | null; externalBranchId: string | null; deviceId: string | null; lastConnectionSuccessAt: Date | null; lastConnectionTestAt: Date | null }
+type Configuration = { connectionStatus: string; environment: string; integrationMethod: string; providerName: string; businessKraPin: string | null; externalBranchId: string | null; deviceId: string | null; lastConnectionSuccessAt: Date | null; lastConnectionTestAt: Date | null; lastConnectionMessage: string | null }
 function one(value: string | string[] | undefined) { return Array.isArray(value) ? value[0] : value }
 function maskPin(value: string | null) { if (!value) return 'Not provided'; if (value.length <= 4) return '••••'; return `${value.slice(0, 3)}${'•'.repeat(Math.max(4, value.length - 5))}${value.slice(-2)}` }
 function shortDevice(value: string | null) { if (!value) return 'Not assigned yet'; return value.length > 24 ? `${value.slice(0, 15)}…${value.slice(-4)}` : value }
@@ -38,7 +38,7 @@ export default async function EtimsPage({ searchParams }: { searchParams: Promis
     externalBranchId: etimsConfiguration.externalBranchId, vatRegistered: etimsConfiguration.vatRegistered,
     providerName: etimsConfiguration.providerName, deviceId: etimsConfiguration.deviceId,
     connectionStatus: etimsConfiguration.connectionStatus, lastConnectionTestAt: etimsConfiguration.lastConnectionTestAt,
-    lastConnectionSuccessAt: etimsConfiguration.lastConnectionSuccessAt }).from(etimsConfiguration)
+    lastConnectionSuccessAt: etimsConfiguration.lastConnectionSuccessAt, lastConnectionMessage: etimsConfiguration.lastConnectionMessage }).from(etimsConfiguration)
     .where(and(eq(etimsConfiguration.organizationId, auth.organizationId), branchId ? eq(etimsConfiguration.branchId, branchId) : undefined))
   const config = configurations[0]
   const dashboard = await getEtimsDashboard({ branchId, status: one(params.status), receipt: one(params.receipt),
@@ -85,7 +85,7 @@ function ConfiguredOverview({ dashboard, config, branchName, branchId, canConfig
     <Connection config={config} branchName={branchName} canConfigure={canConfigure} branchId={branchId}/>
     <div className="grid grid-cols-2 gap-3 md:grid-cols-5"><Metric label="Fiscal invoices today" value={dashboard.summary.submittedToday}/><Metric label="Accepted" value={dashboard.summary.accepted} tone="success"/><Metric label="Pending" value={Number(dashboard.summary.pending) + Number(dashboard.summary.retrying)} tone="warning"/><Metric label="Failed" value={dashboard.summary.failed} tone="error"/><Metric label="Credit notes" value={dashboard.summary.creditNotes}/></div>
     <div className="grid gap-3 md:grid-cols-2"><Money label="Accepted sales value" value={Number(dashboard.summary.acceptedValue)}/><Money label="Accepted tax" value={Number(dashboard.summary.acceptedTax)}/></div>
-    {!['CONNECTED', 'SANDBOX'].includes(config.connectionStatus) && <p className="text-xs text-muted-foreground">Fiscal transmission is not active yet.</p>}
+    {!['CONNECTED', 'ACTIVE', 'SANDBOX'].includes(config.connectionStatus) && <p className="text-xs text-muted-foreground">Fiscal transmission is not active yet.</p>}
     <div className="grid gap-3 lg:grid-cols-2"><FiscalConnectionCard config={config} branchName={branchName} branchId={branchId}/><ProductReadiness readiness={dashboard.readiness}/></div>
     <Attention summary={dashboard.summary} readiness={dashboard.readiness} branchId={branchId} connectionStatus={config.connectionStatus}/>
     <RecentInvoices rows={dashboard.rows.slice(0, 5)} branchId={branchId}/>
@@ -93,20 +93,20 @@ function ConfiguredOverview({ dashboard, config, branchName, branchId, canConfig
 }
 
 function Connection({ config, branchName, canConfigure, branchId }: { config: Configuration; branchName?: string; canConfigure: boolean; branchId?: string }) {
-  const connected = config.connectionStatus === 'CONNECTED'; const sandbox = config.connectionStatus === 'SANDBOX'; const failed = config.connectionStatus === 'ERROR'
-  const onboarding = config.connectionStatus === 'PORTAL_ONBOARDING_REQUIRED'
-  const label = connected ? 'Connected to KRA' : sandbox ? 'Development simulator' : failed ? 'Connection needs attention' : onboarding ? 'OSCU onboarding required' : 'Connection verification pending'
-  const subtitle = onboarding ? 'Complete KRA authorization before connecting this branch.' : `${config.environment === 'production' ? 'Production' : 'Test environment'} · ${config.integrationMethod} · ${branchName}`
+  const connected = ['CONNECTED', 'ACTIVE'].includes(config.connectionStatus); const sandbox = config.connectionStatus === 'SANDBOX'; const failed = config.connectionStatus === 'ERROR'
+  const onboarding = ['ONBOARDING_REQUIRED', 'PORTAL_ONBOARDING_REQUIRED'].includes(config.connectionStatus)
+  const label = connected ? 'Connected to KRA' : sandbox ? 'Development simulator' : failed ? 'Unable to check fiscal connection' : onboarding ? 'Complete eTIMS onboarding' : 'Connection verification pending'
+  const subtitle = onboarding ? 'Action required: complete OSCU onboarding externally. Provider authorization status lookup is not installed.' : `${config.environment === 'production' ? 'Production' : 'Test environment'} · ${config.integrationMethod} · ${branchName}`
   return <section className={`app-panel flex flex-wrap items-center justify-between gap-3 px-4 py-3 ${connected ? 'bg-emerald-500/[0.04]' : failed ? 'border-red-500/30 bg-red-500/[0.04]' : 'border-amber-500/25 bg-amber-500/[0.04]'}`}>
     <div className="flex gap-2.5">{connected ? <CheckCircle2 className="h-4 w-4 text-emerald-600"/> : sandbox ? <Clock3 className="h-4 w-4 text-amber-600"/> : <CircleDot className={`h-4 w-4 ${failed ? 'text-red-600' : 'text-amber-600'}`}/>}<div><p className="text-sm font-semibold">{label}</p><p className="mt-0.5 text-[11px] text-muted-foreground">{subtitle}</p>{config.lastConnectionSuccessAt && <p className="mt-0.5 text-[11px] text-muted-foreground">Last successful verification {formatDateTime(config.lastConnectionSuccessAt)}</p>}</div></div>
-    {canConfigure && <Link href={`?tab=settings&branch=${branchId ?? ''}`} className="rounded-md border px-3 py-1.5 text-xs font-semibold">Manage connection</Link>}
+    <div className="flex items-center gap-2"><button type="button" disabled title="A certified provider authorization-status operation has not been configured." className="rounded-md border px-3 py-1.5 text-xs font-semibold text-muted-foreground disabled:cursor-not-allowed">Refresh status unavailable</button>{canConfigure && <Link href={`?tab=settings&branch=${branchId ?? ''}`} className="rounded-md border px-3 py-1.5 text-xs font-semibold">Manage connection</Link>}</div>
   </section>
 }
 
 function FiscalConnectionCard({ config, branchName, branchId }: { config: Configuration; branchName?: string; branchId?: string }) {
-  const connected = ['CONNECTED', 'SANDBOX'].includes(config.connectionStatus)
+  const connected = ['CONNECTED', 'ACTIVE', 'SANDBOX'].includes(config.connectionStatus)
   return <section className="app-panel p-4"><div className="flex items-start justify-between"><div><h2 className="text-sm font-semibold">Fiscal connection</h2><p className={`mt-1 text-xs font-semibold ${connected ? 'text-emerald-600' : config.connectionStatus === 'ERROR' ? 'text-red-600' : 'text-amber-600'}`}>● {config.connectionStatus.replaceAll('_', ' ')}</p></div><Settings2 className="h-4 w-4 text-muted-foreground"/></div>
-    <dl className="mt-3 grid grid-cols-2 gap-x-5 gap-y-2 text-xs"><div><dt className="text-muted-foreground">Environment</dt><dd className="mt-0.5 font-medium">{config.environment === 'production' ? 'Production' : 'Test'} · {config.integrationMethod}</dd></div><div><dt className="text-muted-foreground">KRA PIN</dt><dd className="mt-0.5 font-medium">{maskPin(config.businessKraPin)}</dd></div><div><dt className="text-muted-foreground">eTIMS branch</dt><dd className="mt-0.5 font-medium">{config.externalBranchId ? `${config.externalBranchId} · ${branchName}` : 'Awaiting KRA authorization'}</dd></div><div><dt className="text-muted-foreground">Device</dt><dd className="mt-0.5 truncate font-medium" title={config.deviceId ?? undefined}>{shortDevice(config.deviceId)}</dd></div></dl>
+    <dl className="mt-3 grid grid-cols-2 gap-x-5 gap-y-2 text-xs"><div><dt className="text-muted-foreground">Environment</dt><dd className="mt-0.5 font-medium">{config.environment === 'production' ? 'Production' : 'Test'} · {config.integrationMethod}</dd></div><div><dt className="text-muted-foreground">KRA PIN</dt><dd className="mt-0.5 font-medium">{maskPin(config.businessKraPin)}</dd></div><div><dt className="text-muted-foreground">eTIMS branch</dt><dd className="mt-0.5 font-medium">{config.externalBranchId ? `${config.externalBranchId} · ${branchName}` : 'Complete onboarding externally'}</dd></div><div><dt className="text-muted-foreground">Device</dt><dd className="mt-0.5 truncate font-medium" title={config.deviceId ?? undefined}>{shortDevice(config.deviceId)}</dd></div></dl>
     <Link href={`?tab=settings&branch=${branchId ?? ''}`} className="mt-4 inline-flex text-xs font-semibold text-primary">Manage connection →</Link>
   </section>
 }
@@ -117,7 +117,7 @@ function ProductReadiness({ readiness, compact = false }: { readiness: Dashboard
 }
 
 function Attention({ summary, readiness, branchId, connectionStatus }: { summary: Dashboard['summary']; readiness: Dashboard['readiness']; branchId?: string; connectionStatus: string }) {
-  const failed = Number(summary.failed); const retrying = Number(summary.retrying); const missing = Math.max(0, readiness.total - readiness.ready); const onboarding = connectionStatus === 'PORTAL_ONBOARDING_REQUIRED'; const total = failed + retrying + missing + (onboarding ? 1 : 0)
+  const failed = Number(summary.failed); const retrying = Number(summary.retrying); const missing = Math.max(0, readiness.total - readiness.ready); const onboarding = ['ONBOARDING_REQUIRED', 'PORTAL_ONBOARDING_REQUIRED'].includes(connectionStatus); const total = failed + retrying + missing + (onboarding ? 1 : 0)
   return <section className="app-panel p-4"><div className="flex items-start justify-between gap-4"><div><h2 className="text-sm font-semibold">Needs attention</h2>{total === 0 ? <><p className="mt-2 text-sm font-medium text-emerald-600">Everything looks good</p><p className="mt-0.5 text-xs text-muted-foreground">No eTIMS issues require attention.</p></> : <div className="mt-2 space-y-1 text-xs">{onboarding && <p className="text-muted-foreground">OSCU onboarding is incomplete</p>}{failed > 0 && <p><span className="font-semibold text-red-600">{failed} failed fiscal {failed === 1 ? 'invoice' : 'invoices'}</span> · <Link href={`?tab=exceptions&branch=${branchId ?? ''}`} className="font-semibold text-primary">View exceptions →</Link></p>}{retrying > 0 && <p><span className="font-semibold text-amber-600">{retrying} pending retry</span> · <Link href={`?tab=exceptions&branch=${branchId ?? ''}`} className="font-semibold text-primary">Review →</Link></p>}{missing > 0 && <p><span className="font-semibold text-amber-600">{missing} products need fiscal configuration</span> · <Link href="/dashboard/products?fiscal=attention" className="font-semibold text-primary">Review products →</Link></p>}</div>}</div>{total > 0 && <span className="rounded-full bg-amber-500/10 px-2.5 py-1 text-xs font-bold text-amber-600">{total} items</span>}</div></section>
 }
 

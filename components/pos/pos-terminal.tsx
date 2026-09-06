@@ -4773,19 +4773,20 @@ export function POSTerminal({
               </button>
               <button
                 type="button"
+                onClick={openHeldOrders}
+                disabled={!canHold || !hasActiveShift}
+                aria-label="Open held sales"
+                className="h-8 shrink-0 rounded-md border border-[#092C4C] bg-[#092C4C] px-3 text-xs font-semibold text-white transition-colors hover:border-[#05192C] hover:bg-[#05192C] disabled:opacity-45"
+              >
+                Held sales{heldSales.length ? ` (${heldSales.length})` : ''}
+              </button>
+              <button
+                type="button"
                 onClick={openVoidDialog}
                 disabled={cart.length === 0}
                 className="h-8 shrink-0 rounded-md border border-[#155EEF] bg-[#155EEF] px-3 text-xs font-semibold text-white transition-colors hover:border-[#0E50D2] hover:bg-[#0E50D2] disabled:opacity-45"
               >
                 Void
-              </button>
-              <button
-                type="button"
-                onClick={openHeldOrders}
-                disabled={!canHold || !hasActiveShift}
-                className="h-8 shrink-0 rounded-md border border-[#092C4C] bg-[#092C4C] px-3 text-xs font-semibold text-white transition-colors hover:border-[#05192C] hover:bg-[#05192C] disabled:opacity-45"
-              >
-                View Orders{heldSales.length ? ` (${heldSales.length})` : ''}
               </button>
               <button
                 type="button"
@@ -7940,6 +7941,21 @@ export function POSTerminal({
             </button>
             <button
               type="button"
+              onClick={openHeldOrders}
+              disabled={!canHold || !hasActiveShift}
+              title="Open and resume held sales"
+              className="relative inline-flex shrink-0 items-center justify-center gap-2 rounded-[5px] border border-[#092C4C] bg-[#092C4C] px-[0.85rem] py-[0.4rem] text-[0.85rem] font-semibold leading-normal text-white shadow-[0_4px_20px_rgba(9,44,76,0.15)] transition-all duration-500 hover:border-[#05192C] hover:bg-[#05192C] hover:shadow-[0_3px_10px_rgba(9,44,76,0.5)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#092C4C]/40 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <ShoppingCart className="h-4 w-4" />
+              Held sales
+              {heldSales.length > 0 && (
+                <span className="inline-flex min-w-5 items-center justify-center rounded-full bg-white px-1.5 text-[10px] font-extrabold text-[#092C4C]">
+                  {heldSales.length}
+                </span>
+              )}
+            </button>
+            <button
+              type="button"
               onClick={openVoidDialog}
               disabled={cart.length === 0}
               className="inline-flex shrink-0 items-center justify-center gap-2 rounded-[5px] border border-[#155EEF] bg-[#155EEF] px-[0.85rem] py-[0.4rem] text-[0.85rem] font-semibold leading-normal text-white shadow-[0_4px_20px_rgba(21,94,239,0.15)] transition-all duration-300 hover:border-[#0E50D2] hover:bg-[#0E50D2] hover:shadow-[0_3px_10px_rgba(21,94,239,0.45)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#155EEF]/40 disabled:cursor-not-allowed disabled:opacity-[0.65]"
@@ -7955,21 +7971,6 @@ export function POSTerminal({
             >
               <WalletCards className="h-4 w-4" />
               Payment
-            </button>
-            <button
-              type="button"
-              onClick={openHeldOrders}
-              disabled={!canHold || !hasActiveShift}
-              title="Open and resume held sales"
-              className="relative inline-flex shrink-0 items-center justify-center gap-2 rounded-[5px] border border-[#092C4C] bg-[#092C4C] px-[0.85rem] py-[0.4rem] text-[0.85rem] font-semibold leading-normal text-white shadow-[0_4px_20px_rgba(9,44,76,0.15)] transition-all duration-500 hover:border-[#05192C] hover:bg-[#05192C] hover:shadow-[0_3px_10px_rgba(9,44,76,0.5)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#092C4C]/40 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              <ShoppingCart className="h-4 w-4" />
-              View Orders
-              {heldSales.length > 0 && (
-                <span className="inline-flex min-w-5 items-center justify-center rounded-full bg-white px-1.5 text-[10px] font-extrabold text-[#092C4C]">
-                  {heldSales.length}
-                </span>
-              )}
             </button>
             <button
               type="button"
@@ -8880,7 +8881,6 @@ export function POSTerminal({
       {showHeldSales && (
         <OrdersModal
           heldSales={heldSales}
-          heldSalesLoading={heldSalesLoading}
           actionId={heldSaleActionId}
           onClose={() => setShowHeldSales(false)}
           onResume={(heldSale) => void resumeHeldSale(heldSale)}

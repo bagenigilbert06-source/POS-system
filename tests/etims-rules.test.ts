@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import { MockEtimsProvider } from '../lib/etims/providers/mock-provider'
 import { createEtimsProvider } from '../lib/etims/provider-factory'
-import { canVoidWithEtimsStatus, cashierEtimsLabel, etimsRequired, retryDisposition } from '../lib/etims/policy'
+import { canVoidWithEtimsStatus, cashierEtimsLabel, etimsRequired, getFiscalReadiness, retryDisposition } from '../lib/etims/policy'
 import type { EtimsConfigurationSnapshot, EtimsCreditNoteRequest, EtimsInvoice } from '../lib/etims/types'
 
 const configuration = (overrides: Partial<EtimsConfigurationSnapshot> = {}): EtimsConfigurationSnapshot => ({
@@ -69,6 +69,8 @@ test('missing branch mapping fails configuration validation', async () => {
 test('disabled integration does not require fiscal submission', () => assert.equal(etimsRequired({ enabled: false, invoiceSubmissionEnabled: true }), false))
 test('disabled invoice submission does not require fiscal submission', () => assert.equal(etimsRequired({ enabled: true, invoiceSubmissionEnabled: false }), false))
 test('enabled integration requires fiscal submission', () => assert.equal(etimsRequired({ enabled: true, invoiceSubmissionEnabled: true }), true))
+test('local onboarding-required status blocks production activation', () => assert.equal(getFiscalReadiness({ environment: 'production', enabled: false, invoiceSubmissionEnabled: true, connectionStatus: 'ONBOARDING_REQUIRED' }), 'ONBOARDING_REQUIRED'))
+test('active production connection is ready only when fiscal submission is enabled', () => assert.equal(getFiscalReadiness({ environment: 'production', enabled: true, invoiceSubmissionEnabled: true, connectionStatus: 'ACTIVE' }), 'READY'))
 
 test('retryable failure schedules another attempt', () => assert.equal(retryDisposition({ retryable: true, automaticRetryEnabled: true, attempt: 1, maximumAttempts: 5 }).status, 'RETRYING'))
 test('non-retryable failure requires review', () => assert.equal(retryDisposition({ retryable: false, automaticRetryEnabled: true, attempt: 1, maximumAttempts: 5 }).status, 'FAILED'))

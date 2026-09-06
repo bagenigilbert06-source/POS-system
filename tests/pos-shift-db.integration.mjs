@@ -41,9 +41,10 @@ let pool = poolFor()
 try {
   const migration = await pool.query(`
     SELECT column_name FROM information_schema.columns
-    WHERE table_name = 'pos_session' AND column_name IN ('varianceReason','reconciliationStartedAt','closingSummary','terminalId')
+    WHERE table_name = 'pos_session' AND column_name IN ('varianceReason','reconciliationStartedAt','closingSummary','terminalId','openingNote')
   `)
-  assert.equal(migration.rowCount, 4, 'reconciliation migration columns are missing')
+  assert.equal(migration.rowCount, 5, 'shift lifecycle migration columns are missing')
+  assert.equal((await pool.query(`SELECT 1 FROM pg_constraint WHERE conname = 'pos_session_opening_cash_nonnegative'`)).rowCount, 1, 'opening cash must have a database non-negative guard')
   const indexes = await pool.query(`SELECT indexname FROM pg_indexes WHERE indexname IN ('pos_session_active_terminal_unique','cash_movement_org_idempotency_idx')`)
   assert.equal(indexes.rowCount, 2, 'reconciliation uniqueness indexes are missing')
 
@@ -55,7 +56,7 @@ try {
 
   // Two different users race to open the same physical register. Exactly one wins.
   const sessionA = `shift-test-session-a-${token}`, sessionB = `shift-test-session-b-${token}`
-  const opening = (sessionId, userId) => pool.query('INSERT INTO "pos_session" (id,"sessionNo",status,"openingCash","openedBy","orgId","branchId","terminalId","openedAt") VALUES ($1,$2,\'open\',30000,$3,$4,$5,$6,now() - interval \'26 hours\') RETURNING id', [sessionId, `REG-${sessionId.slice(-8)}`, userId, ids.org, ids.branch, ids.terminal])
+  const opening = (sessionId, userId) => pool.query('INSERT INTO "pos_session" (id,"sessionNo",status,"openingCash","openingNote","openedBy","orgId","branchId","terminalId","openedAt") VALUES ($1,$2,\'open\',30000,\'Float received from manager\',$3,$4,$5,$6,now() - interval \'26 hours\') RETURNING id', [sessionId, `REG-${sessionId.slice(-8)}`, userId, ids.org, ids.branch, ids.terminal])
   const openResults = await Promise.allSettled([opening(sessionA, ids.cashierA), opening(sessionB, ids.cashierB)])
   assert.equal(openResults.filter((result) => result.status === 'fulfilled').length, 1, 'exactly one terminal shift must open')
   assert.equal(openResults.filter((result) => result.status === 'rejected' && result.reason?.code === '23505').length, 1, 'terminal conflict must be a unique violation')
@@ -67,9 +68,10 @@ try {
 
   // Commit and reconnect: this is the browser refresh/process restart persistence check.
   await pool.end(); pool = poolFor()
-  const resumed = await pool.query('SELECT status,"openingCash","openedAt" FROM "pos_session" WHERE id=$1', [sessionId])
+  const resumed = await pool.query('SELECT status,"openingCash","openingNote","openedAt" FROM "pos_session" WHERE id=$1', [sessionId])
   assert.equal(resumed.rows[0].status, 'open')
   assert.equal(Number(resumed.rows[0].openingCash), 30000)
+  assert.equal(resumed.rows[0].openingNote, 'Float received from manager', 'opening note must persist with the shift')
   assert.ok(new Date(resumed.rows[0].openedAt).getTime() < Date.now() - 24 * 60 * 60 * 1000, 'test shift must cross midnight')
 
   await pool.query(`INSERT INTO "sale" (id,"receiptNo",subtotal,total,"paymentMethod",status,"userId","orgId","branchId","posSessionId","idempotencyKey") VALUES

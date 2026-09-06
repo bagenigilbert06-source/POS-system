@@ -30,6 +30,18 @@ const connectionTimeoutMillis = Number.isFinite(configuredConnectionTimeout) && 
     : configuredConnectionTimeout
   : 12_000
 
+function positiveInteger(value: string | undefined, fallback: number) {
+  const parsed = Number(value)
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback
+}
+
+// Keep each serverless instance within a small, configurable connection budget.
+// The provider pooler handles global concurrency; an oversized local pool would
+// multiply connections across every warm Vercel function instance.
+const poolMax = positiveInteger(process.env.DATABASE_POOL_MAX, 5)
+const idleTimeoutMillis = positiveInteger(process.env.DATABASE_IDLE_TIMEOUT_MS, 30_000)
+const queryTimeoutMillis = positiveInteger(process.env.DATABASE_QUERY_TIMEOUT_MS, 30_000)
+
 let databaseAddressCursor = 0
 
 function createDatabaseStream() {
@@ -64,7 +76,7 @@ if (!connectionString) {
   throw new Error('DATABASE_URL or DIRECT_URL must be configured')
 }
 
-const poolConfigKey = `${connectionString}|${connectionTimeoutMillis}|${databaseDnsServers.join(',')}`
+const poolConfigKey = `${connectionString}|${connectionTimeoutMillis}|${poolMax}|${idleTimeoutMillis}|${queryTimeoutMillis}|${databaseDnsServers.join(',')}`
 const reusablePool = globalForDatabase.__pesabyPostgresPoolConfig === poolConfigKey
   ? globalForDatabase.__pesabyPostgresPool
   : undefined
@@ -79,9 +91,12 @@ if (globalForDatabase.__pesabyPostgresPool && !reusablePool) {
 // prevents abandoned hot-reload pools from exhausting Supabase connections.
 export const pool = reusablePool ?? new Pool({
   connectionString,
-  max: 5,
+  max: poolMax,
   connectionTimeoutMillis,
-  idleTimeoutMillis: 60_000,
+  idleTimeoutMillis,
+  query_timeout: queryTimeoutMillis,
+  statement_timeout: queryTimeoutMillis,
+  application_name: 'pesaby-web',
   keepAlive: true,
   keepAliveInitialDelayMillis: 10_000,
   ...(databaseDnsServers.length > 0 ? { stream: createDatabaseStream } : {}),

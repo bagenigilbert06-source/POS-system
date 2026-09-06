@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { Loader2, Printer, Search, ShoppingBag, Trash2, X } from 'lucide-react';
+import { Printer, Search, ShoppingBag, Trash2, X } from 'lucide-react';
 import { getRecentSales } from '@/app/actions/pos-queries';
 import type { HeldSaleRecord } from '@/app/actions/held-sales';
 import type { Sale, SaleItem } from '@/lib/db/schema';
@@ -13,7 +13,6 @@ type OrderTab = 'onhold' | 'unpaid' | 'paid';
 
 interface OrdersModalProps {
   heldSales: HeldSaleRecord[];
-  heldSalesLoading: boolean;
   actionId: string | null;
   onClose: () => void;
   onResume: (sale: HeldSaleRecord) => void;
@@ -37,7 +36,6 @@ const dateTime = (value: string | Date) =>
 
 export function OrdersModal({
   heldSales,
-  heldSalesLoading,
   actionId,
   onClose,
   onResume,
@@ -46,19 +44,22 @@ export function OrdersModal({
   const [tab, setTab] = useState<OrderTab>('onhold');
   const [query, setQuery] = useState('');
   const [sales, setSales] = useState<SaleRecord[]>([]);
-  const [salesLoading, setSalesLoading] = useState(true);
+  const [salesLoaded, setSalesLoaded] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
   useEffect(() => {
+    // Held sales are already cached by the POS page. Do not block the cashier
+    // with an unrelated sales-history request when opening this tab.
+    if (tab === 'onhold' || salesLoaded) return;
     let active = true;
     getRecentSales(100)
       .then((records) => active && setSales(records))
       .catch(() => notify.error('Could not load orders'))
-      .finally(() => active && setSalesLoading(false));
+      .finally(() => active && setSalesLoaded(true));
     return () => {
       active = false;
     };
-  }, []);
+  }, [salesLoaded, tab]);
 
   useEffect(() => {
     const close = (event: KeyboardEvent) => {
@@ -102,7 +103,6 @@ export function OrdersModal({
     popup.document.close();
   };
 
-  const loading = tab === 'onhold' ? heldSalesLoading : salesLoading;
   const empty = tab === 'onhold' ? visibleHeld.length === 0 : visibleSales.length === 0;
 
   return (
@@ -135,20 +135,25 @@ export function OrdersModal({
           </label>
 
           <div className="min-h-0 flex-1 space-y-4 overflow-y-auto pr-1">
-            {loading ? (
-              <div className="flex min-h-44 items-center justify-center gap-2 text-sm text-[#667085]"><Loader2 className="h-4 w-4 animate-spin" /> Loading orders...</div>
-            ) : empty ? (
-              <div className="grid min-h-44 place-items-center rounded-lg border border-dashed border-[#dfe3e8] text-center dark:border-white/10">
+            {empty ? (
+              <div className="grid min-h-44 place-items-center text-center">
                 <div><ShoppingBag className="mx-auto mb-2 h-8 w-8 text-[#c4cbd4]" /><p className="text-sm font-semibold">No {tabs.find((item) => item.id === tab)?.label.toLowerCase()} orders</p></div>
               </div>
             ) : tab === 'onhold' ? (
               visibleHeld.map((order) => {
                 const total = order.cart.reduce((sum, item) => sum + item.totalPrice, 0);
-                return <article key={order.id} className="rounded-[8px] border border-[#dfe3e8] bg-[#fbfcfd] p-5 dark:border-white/10 dark:bg-white/[.035]">
-                  <span className="inline-flex rounded-[4px] bg-[#101f4c] px-2 py-1 text-xs font-bold text-white">Order ID : #{order.id.slice(-6).toUpperCase()}</span>
-                  <div className="mt-3 grid gap-x-8 gap-y-2 text-sm sm:grid-cols-2"><p><strong>Cashier :</strong> {order.cashierName}</p><p><strong>Customer :</strong> {order.customerId ? 'Registered customer' : 'Walk-in customer'}</p><p><strong>Total :</strong> {formatCurrency(total)}</p><p><strong>Date :</strong> {dateTime(order.createdAt)}</p></div>
-                  {order.note && <p className="mt-4 rounded-[3px] bg-[#dce7fb] px-3 py-2 text-center text-xs text-[#155eef] dark:bg-[#155eef]/15 dark:text-[#80aaff]">{order.note}</p>}
-                  <div className="mt-4 flex flex-wrap justify-center gap-2">
+                return <article key={order.id} className="border-b border-[#e4e7ec] py-5 first:pt-0 last:border-b-0 last:pb-0 dark:border-white/10">
+                  <div className="flex items-start justify-between gap-4">
+                    <div><p className="text-sm font-bold text-[#101f4c] dark:text-white">Order #{order.id.slice(-6).toUpperCase()}</p><p className="mt-1 text-xs text-[#667085] dark:text-[#a8a8a8]">Held sale</p></div>
+                    <p className="shrink-0 text-right text-xs text-[#667085] dark:text-[#a8a8a8]">{dateTime(order.createdAt)}</p>
+                  </div>
+                  <dl className="mt-4 grid grid-cols-2 gap-x-8 gap-y-4 text-sm">
+                    <div><dt className="text-xs text-[#667085] dark:text-[#a8a8a8]">Cashier</dt><dd className="mt-0.5 font-semibold">{order.cashierName}</dd></div>
+                    <div><dt className="text-xs text-[#667085] dark:text-[#a8a8a8]">Customer</dt><dd className="mt-0.5 font-semibold">{order.customerId ? 'Registered customer' : 'Walk-in customer'}</dd></div>
+                    <div><dt className="text-xs text-[#667085] dark:text-[#a8a8a8]">Total</dt><dd className="mt-0.5 font-semibold tabular-nums">{formatCurrency(total)}</dd></div>
+                  </dl>
+                  {order.note && <div className="mt-4 flex items-center gap-3 border-t border-[#e4e7ec] pt-3 text-xs dark:border-white/10"><span className="shrink-0 font-semibold text-[#667085] dark:text-[#a8a8a8]">Reference</span><span className="min-w-0 truncate font-medium text-[#155eef] dark:text-[#80aaff]">{order.note}</span></div>}
+                  <div className="mt-5 flex flex-wrap justify-end gap-2">
                     <button type="button" disabled={actionId === order.id} onClick={() => onResume(order)} className="h-9 rounded-[5px] bg-[#e94e1b] px-4 text-xs font-semibold text-white hover:bg-[#cf4215] disabled:opacity-50">Open Order</button>
                     <button type="button" onClick={() => setExpandedId((id) => id === order.id ? null : order.id)} className="h-9 rounded-[5px] bg-[#09998f] px-4 text-xs font-semibold text-white hover:bg-[#087d75]">View Products</button>
                     <button type="button" disabled={actionId === order.id} onClick={() => onDiscard(order)} className="grid h-9 w-9 place-items-center rounded-[5px] bg-[#092c4c] text-white hover:bg-[#061f36]" aria-label="Discard order"><Trash2 className="h-4 w-4" /></button>
@@ -157,7 +162,7 @@ export function OrdersModal({
                 </article>;
               })
             ) : (
-              visibleSales.map((order) => <article key={order.id} className="rounded-[8px] border border-[#dfe3e8] bg-[#fbfcfd] p-5 dark:border-white/10 dark:bg-white/[.035]">
+              visibleSales.map((order) => <article key={order.id} className="border-b border-[#e4e7ec] py-4 first:pt-0 last:border-b-0 last:pb-0 dark:border-white/10">
                 <span className="inline-flex rounded-[4px] bg-[#101f4c] px-2 py-1 text-xs font-bold text-white">Order ID : #{order.receiptNo}</span>
                 <div className="mt-3 grid gap-x-8 gap-y-2 text-sm sm:grid-cols-2"><p><strong>Payment :</strong> {order.paymentMethod.replaceAll('_', ' ')}</p><p><strong>Customer :</strong> {order.customerId ? 'Registered customer' : 'Walk-in customer'}</p><p><strong>Total :</strong> {formatCurrency(Number(order.total))}</p><p><strong>Date :</strong> {dateTime(order.createdAt)}</p></div>
                 <div className="mt-4 flex flex-wrap justify-center gap-2"><button type="button" onClick={() => setExpandedId((id) => id === order.id ? null : order.id)} className="h-9 rounded-[5px] bg-[#e94e1b] px-4 text-xs font-semibold text-white hover:bg-[#cf4215]">Open Order</button><button type="button" onClick={() => setExpandedId((id) => id === order.id ? null : order.id)} className="h-9 rounded-[5px] bg-[#09998f] px-4 text-xs font-semibold text-white hover:bg-[#087d75]">View Products</button><button type="button" onClick={() => printOrder(order)} className="inline-flex h-9 items-center gap-2 rounded-[5px] bg-[#3538cd] px-4 text-xs font-semibold text-white hover:bg-[#2c2fb2]"><Printer className="h-4 w-4" /> Print</button></div>

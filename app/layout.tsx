@@ -2,7 +2,6 @@ import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import { ThemeProvider } from '@/components/providers/theme-provider';
 import { AppToaster } from '@/components/ui/app-toaster';
-import { PageLoader } from '@/components/ui/page-loader';
 
 export const metadata: Metadata = {
   title: {
@@ -55,7 +54,6 @@ export default function RootLayout({
         className="font-sans text-base antialiased"
         suppressHydrationWarning
       >
-        <PageLoader initial />
         <ThemeProvider
           attribute="class"
           defaultTheme="light"

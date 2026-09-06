@@ -16,7 +16,9 @@ export async function DashboardHome() {
   if (!organization) redirect('/onboarding')
 
   const [workspaceConfig, overview] = await Promise.all([
-    WorkspaceService.getWorkspaceConfig(organization.id, session.user.id),
+    // Authorization and the tenant-scoped organization lookup above have
+    // already established access. Avoid repeating that database lookup.
+    WorkspaceService.getAuthorizedWorkspaceConfig(organization),
     getDashboardOverview(
       organization.id,
       organization.timezone || 'Africa/Nairobi',

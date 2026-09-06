@@ -1,6 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { after } from 'next/server';
 import { and, desc, eq, gte, inArray, isNull, lt, sql } from 'drizzle-orm';
 import Decimal from 'decimal.js';
 import { z } from 'zod';
@@ -1300,12 +1301,15 @@ export async function refundSale(input: {
   refresh();
 }
 
-export async function openPosSession(openingCash: number) {
-  const amount = z.coerce
-    .number()
-    .nonnegative()
-    .max(999999999)
-    .parse(openingCash);
+const openPosSessionSchema = z.object({
+  openingCash: z.coerce.number().finite().nonnegative().max(999999999),
+  openingNote: z.string().trim().max(500).optional(),
+  idempotencyKey: z.string().uuid(),
+});
+
+export async function openPosSession(input: z.input<typeof openPosSessionSchema>) {
+  const data = openPosSessionSchema.parse(input);
+  const amount = new Decimal(data.openingCash).toDecimalPlaces(2);
   const authorization = await posOperator(PermissionEnum.SHIFT_OPEN);
   const { userId, orgId, terminalId } = authorization;
   if (!terminalId)
@@ -1323,47 +1327,78 @@ export async function openPosSession(openingCash: number) {
     branchId = mainBranch?.id;
   }
   if (!branchId) throw new Error('No assigned branch is available');
-  const [existing] = await db
-    .select()
-    .from(posSession)
-    .where(
-      and(
-        eq(posSession.orgId, orgId),
-        inArray(posSession.status, ['open', 'closing']),
-        eq(posSession.terminalId, terminalId)
-      )
-    )
-    .limit(1);
-  if (existing) throw new Error('Close your current register first');
   try {
-    const sessionId = generateId();
-    await db.insert(posSession).values({
-      id: sessionId,
-      sessionNo: `REG-${Date.now().toString().slice(-8)}`,
-      openingCash: new Decimal(amount).toFixed(2),
-      openedBy: userId,
-      orgId,
-      branchId,
-      terminalId,
+    const result = await db.transaction(async (tx) => {
+      // Serializes same-terminal open attempts before the partial unique index
+      // provides the final database guarantee.
+      await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${`${orgId}:terminal:${terminalId}:open`}, 0))`);
+      const [existing] = await tx
+        .select({ id: posSession.id, status: posSession.status, openedBy: posSession.openedBy })
+        .from(posSession)
+        .where(and(eq(posSession.orgId, orgId), eq(posSession.terminalId, terminalId), inArray(posSession.status, ['open', 'closing'])))
+        .limit(1);
+      if (existing) {
+        // A retry of the same cashier's successful click is safe and should
+        // restore the UI rather than produce a misleading duplicate error.
+        if (existing.status === 'open' && existing.openedBy === userId)
+          return { sessionId: existing.id, duplicate: true };
+        throw new Error(existing.status === 'closing'
+          ? 'Previous shift must be reconciled before opening a new register'
+          : 'This register already has an active shift');
+      }
+      const sessionId = generateId();
+      await tx.insert(posSession).values({
+        id: sessionId,
+        sessionNo: `REG-${Date.now().toString().slice(-8)}`,
+        openingCash: amount.toFixed(2),
+        openingNote: data.openingNote || null,
+        openedBy: userId,
+        orgId,
+        branchId,
+        terminalId,
+      });
+      await tx.insert(auditEvent).values({
+        id: generateId(),
+        organizationId: orgId,
+        userId,
+        action: 'shift.opened',
+        metadata: { sessionId, branchId, terminalId, openingCash: amount.toFixed(2), openingNote: data.openingNote || null, idempotencyKey: data.idempotencyKey },
+      });
+      return { sessionId, duplicate: false };
     });
-    await db.insert(auditEvent).values({
-      id: generateId(),
-      organizationId: orgId,
-      userId,
-      action: 'shift.opened',
-      metadata: { sessionId, branchId, terminalId, openingCash: amount },
-    });
+    refresh();
+    return result;
   } catch (error) {
     const databaseError = error as { code?: string; cause?: { code?: string } };
     if (databaseError.code === '23505' || databaseError.cause?.code === '23505')
-      throw new Error('This cashier already has an open register');
+      throw new Error('This register already has an active shift');
     throw error;
   }
-  refresh();
 }
 
 function decimalNumber(value: string | number | null | undefined) {
   return new Decimal(value ?? 0);
+}
+
+function persistedReconciliation(current: typeof posSession.$inferSelect) {
+  if (
+    current.countedCash == null ||
+    current.countedVariance == null ||
+    !current.closingSummary ||
+    typeof current.closingSummary !== 'object' ||
+    Array.isArray(current.closingSummary)
+  )
+    return null;
+  const summary = current.closingSummary as Record<string, unknown>;
+  if (typeof summary.varianceTolerance !== 'string') return null;
+  const counted = decimalNumber(current.countedCash);
+  const variance = decimalNumber(current.countedVariance);
+  return {
+    expected: counted.minus(variance),
+    tolerance: decimalNumber(summary.varianceTolerance),
+    variance,
+    summary,
+  };
 }
 
 async function calculateReconciliation(
@@ -1619,6 +1654,7 @@ export async function cancelPosSessionClose(sessionId?: string) {
         countedCash: null,
         countedVariance: null,
         countedAt: null,
+        closingSummary: null,
       })
       .where(
         and(eq(posSession.id, current.id), eq(posSession.status, 'closing'))
@@ -1675,6 +1711,9 @@ export async function submitPosSessionCount(input: {
       countedCash: counted.toFixed(2),
       countedVariance: calculation.variance.toFixed(2),
       countedAt: new Date(),
+      // Sales and cash movements are paused while closing, so this is the
+      // authoritative server-calculated snapshot used by final confirmation.
+      closingSummary: calculation.summary,
     })
     .where(and(eq(posSession.id, current.id), eq(posSession.status, 'closing')))
     .returning({ id: posSession.id });
@@ -1690,7 +1729,6 @@ export async function submitPosSessionCount(input: {
       variance: calculation.variance.toFixed(2),
     },
   });
-  refresh();
   return {
     expectedCash: calculation.expected.toNumber(),
     countedCash: counted.toNumber(),
@@ -1721,7 +1759,10 @@ export async function getPosSessionReconciliation(sessionId: string) {
   );
   if (!current?.countedCash)
     throw new Error('Submit a physical drawer count first');
-  const calculation = await calculateReconciliation(orgId, current);
+  // Count submission already calculated and persisted a server-side snapshot
+  // after the register entered closing state. Reuse it to make final close
+  // immediate; retain the live calculation fallback for older/incomplete rows.
+  const calculation = persistedReconciliation(current) ?? await calculateReconciliation(orgId, current);
   return {
     expectedCash: calculation.expected.toNumber(),
     countedCash: Number(current.countedCash),
@@ -1788,7 +1829,7 @@ export async function completePosSessionClose(input: {
     throw new Error(
       'Synchronize or resolve all offline sales before closing this shift'
     );
-  const calculation = await calculateReconciliation(orgId, current);
+  const calculation = persistedReconciliation(current) ?? await calculateReconciliation(orgId, current);
   if (
     calculation.variance.abs().greaterThan(calculation.tolerance) &&
     !data.reason
@@ -1830,7 +1871,9 @@ export async function completePosSessionClose(input: {
       summary,
     },
   });
-  refresh();
+  // The cashier has a client-side POS refresh immediately after the response.
+  // Revalidating reports/history should never keep the close confirmation open.
+  after(refresh);
   return {
     expectedCash: calculation.expected.toNumber(),
     countedCash: Number(current.countedCash),
