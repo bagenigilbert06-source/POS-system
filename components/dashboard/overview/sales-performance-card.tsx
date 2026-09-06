@@ -285,10 +285,9 @@ export function SalesPerformanceCard({
                   stroke: 'var(--dashboard-surface)',
                   strokeWidth: 2,
                 }}
-                isAnimationActive
-                animationBegin={0}
-                animationDuration={700}
-                animationEasing="ease-in-out"
+                // Animating an SVG area while the dashboard is scrolling
+                // competes with input/paint work. The data is already final.
+                isAnimationActive={false}
               />
             </AreaChart>
           </ResponsiveContainer>

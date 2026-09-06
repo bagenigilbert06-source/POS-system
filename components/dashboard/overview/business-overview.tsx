@@ -422,7 +422,7 @@ export function BusinessOverview({
       {/* ---------------------------------------------------------------- */}
       {/* Operating performance + month to date                           */}
       {/* ---------------------------------------------------------------- */}
-      <section className="grid items-start gap-4 xl:grid-cols-[minmax(0,1.8fr)_minmax(300px,.72fr)]">
+      <section className="dashboard-deferred-section grid items-start gap-4 xl:grid-cols-[minmax(0,1.8fr)_minmax(300px,.72fr)]">
         <OperatingChart data={overview.revenueSeries} currency={currency} />
 
         <BusiestHoursCard
@@ -435,35 +435,41 @@ export function BusinessOverview({
       {/* ---------------------------------------------------------------- */}
       {/* Product and sales activity                                      */}
       {/* ---------------------------------------------------------------- */}
-      <RetailActivityCards
-        currency={currency}
-        reportDate={overview.reportDate}
-        productSales={overview.productSales}
-        lowStockProducts={overview.lowStockProducts}
-        recentSales={overview.recentSales}
-        terminology={productTerms}
-      />
+      <div className="dashboard-deferred-section">
+        <RetailActivityCards
+          currency={currency}
+          reportDate={overview.reportDate}
+          productSales={overview.productSales}
+          lowStockProducts={overview.lowStockProducts}
+          recentSales={overview.recentSales}
+          terminology={productTerms}
+        />
+      </div>
 
-      <SalesStaticsTransactions
-        currency={currency}
-        revenue={overview.month.revenue}
-        expenses={overview.month.expenses}
-        series={overview.monthlySalesSeries}
-        transactions={overview.recentSales}
-        expensesList={overview.recentExpenses}
-        invoices={overview.recentInvoices}
-      />
+      <div className="dashboard-deferred-section">
+        <SalesStaticsTransactions
+          currency={currency}
+          revenue={overview.month.revenue}
+          expenses={overview.month.expenses}
+          series={overview.monthlySalesSeries}
+          transactions={overview.recentSales}
+          expensesList={overview.recentExpenses}
+          invoices={overview.recentInvoices}
+        />
+      </div>
 
-      <CustomerCategoryOrderCards
-        currency={currency}
-        customers={overview.topCustomers}
-        categories={overview.topCategories}
-        categoriesLast7Days={overview.topCategoriesLast7Days}
-        categoryCount={overview.categoryCount}
-        productCount={overview.records.products}
-        hourlySales={overview.hourlySales}
-        reportDate={overview.reportDate}
-      />
+      <div className="dashboard-deferred-section">
+        <CustomerCategoryOrderCards
+          currency={currency}
+          customers={overview.topCustomers}
+          categories={overview.topCategories}
+          categoriesLast7Days={overview.topCategoriesLast7Days}
+          categoryCount={overview.categoryCount}
+          productCount={overview.records.products}
+          hourlySales={overview.hourlySales}
+          reportDate={overview.reportDate}
+        />
+      </div>
     </div>
   );
 }

@@ -264,7 +264,7 @@ export function CustomerCategoryOrderCards({
                     outerRadius="76%"
                     paddingAngle={3}
                     stroke="none"
-                    animationDuration={450}
+                    isAnimationActive={false}
                   >
                     {categories.map((category, index) => (
                       <Cell

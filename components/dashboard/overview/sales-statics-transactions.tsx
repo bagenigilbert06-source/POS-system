@@ -229,6 +229,7 @@ export function SalesStaticsTransactions({
                   fill="var(--dashboard-accent)"
                   radius={[5, 5, 0, 0]}
                   barSize={12}
+                  isAnimationActive={false}
                 />
                 <Bar
                   dataKey="expense"
@@ -237,6 +238,7 @@ export function SalesStaticsTransactions({
                   fill="var(--dashboard-danger)"
                   radius={[0, 0, 5, 5]}
                   barSize={12}
+                  isAnimationActive={false}
                 />
               </BarChart>
             </ResponsiveContainer>

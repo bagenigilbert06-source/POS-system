@@ -254,6 +254,19 @@ html.dark:has(.pos-workspace)::-webkit-scrollbar-thumb {
   contain-intrinsic-size: auto 700px;
 }
 
+/* The overview contains several independent SVG charts. Containing panels
+   below the first viewport prevents off-screen charts from repainting during
+   scroll, while reserving space so the scroll position remains stable. */
+.dashboard-overview > section,
+.dashboard-deferred-section {
+  contain: layout style paint;
+}
+
+.dashboard-deferred-section {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 620px;
+}
+
 /* Products, categories and product forms share the dashboard type system. */
 .products-workspace {
   font-family: var(--font-dashboard);
