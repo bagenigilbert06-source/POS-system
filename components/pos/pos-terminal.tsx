@@ -2700,6 +2700,13 @@ export function POSTerminal({
       window.localStorage.removeItem(cartStorageKey);
       window.localStorage.removeItem(checkoutStorageKey);
 
+      window.dispatchEvent(new CustomEvent('pesaby:shift-sale-completed', {
+        detail: { saleId, amount: returnedTotal || total },
+      }));
+      // Refresh server-owned shift totals after the committed sale while
+      // preserving this client component's receipt state on screen.
+      router.refresh();
+
       const paymentSuccessTitle =
         paymentMethod === 'cash'
           ? 'Cash payment completed'

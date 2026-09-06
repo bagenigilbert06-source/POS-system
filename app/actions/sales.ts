@@ -13,8 +13,9 @@ import { WorkspaceService } from '@/lib/services/workspace-service'
 import { z } from 'zod'
 import { requireAnyPermission, requirePermission } from '@/lib/auth/authorization'
 import { PermissionEnum, RoleEnum } from '@/lib/types/permissions'
-import { getPosAuthorizationContext } from '@/lib/pos/pos-auth'
+import { getPosAuthorizationContext, getTerminal } from '@/lib/pos/pos-auth'
 import { invalidateProductReadCache } from '@/lib/cache/redis-cache'
+import { clearDashboardOverviewMemoryCache } from '@/lib/services/dashboard-overview-service'
 import { calculateMpesaAmount } from '@/lib/mpesa/amount'
 import { applyInventoryMovement, consumeInventoryCost } from '@/lib/inventory/inventory-service'
 import { processEtimsSubmission, queueEtimsInvoice } from '@/lib/etims/service'
@@ -59,6 +60,7 @@ function schedulePostSaleWork(input: {
 }) {
   after(async () => {
     try {
+      clearDashboardOverviewMemoryCache(input.orgId)
       await invalidateProductReadCache(input.orgId)
       revalidatePath('/dashboard')
       revalidatePath('/dashboard/sales')
@@ -240,6 +242,7 @@ export async function voidSale(input: z.input<typeof voidSaleSchema>) {
     if (fiscal && ['PENDING', 'FAILED'].includes(fiscal.status)) await tx.update(etimsSubmission).set({ status: 'CANCELLED', nextRetryAt: null, errorMessage: 'Sale voided before fiscal acceptance', updatedAt: new Date() }).where(eq(etimsSubmission.id, fiscal.id))
     await tx.insert(auditEvent).values({ id: generateId(), organizationId: orgId, userId, action: 'sale_voided', metadata: { saleId: record.id, receiptNo: record.receiptNo, reason: data.reason, previousStatus: record.status, etimsStatus: fiscal?.status ?? null } })
   })
+  clearDashboardOverviewMemoryCache(orgId)
   await invalidateProductReadCache(orgId)
   revalidatePath('/dashboard/sales'); revalidatePath('/dashboard/pos'); revalidatePath('/dashboard/inventory'); revalidatePath('/dashboard/operations')
   return { success: true }
@@ -295,6 +298,12 @@ export async function createSale(data: CreateSaleInput) {
   const saleAuthorization = posAuthorization ?? await requireAnyPermission([PermissionEnum.POS_SELL, PermissionEnum.SALE_CREATE])
   if (!saleAuthorization.permissions.includes(PermissionEnum.POS_SELL) && !saleAuthorization.permissions.includes(PermissionEnum.SALE_CREATE)) throw new Error('POS sale permission denied')
   const orgId = posAuthorization?.organizationId ?? await getOrgId(userId, 'pos')
+  const registeredTerminal = posAuthorization ? null : await getTerminal()
+  const checkoutTerminal = registeredTerminal?.organizationId === orgId &&
+    (saleAuthorization.isOrganizationWide || saleAuthorization.branchIds.includes(registeredTerminal.branchId))
+    ? registeredTerminal
+    : null
+  const checkoutTerminalId = posAuthorization?.terminalId ?? checkoutTerminal?.id
   const workspace = await WorkspaceService.getWorkspaceConfig(orgId, userId)
   const cafeWorkspace = Boolean(workspace && isCafeBusiness(workspace.businessType, workspace.businessCategory))
   if (data.cafe && !cafeWorkspace) throw new Error('Café order details are not valid for this workspace')
@@ -333,10 +342,10 @@ export async function createSale(data: CreateSaleInput) {
     }
   }
 
-  const [activeShift] = await db.select({ id: posSession.id, branchId: posSession.branchId, terminalId: posSession.terminalId, openedAt: posSession.openedAt }).from(posSession).where(and(eq(posSession.orgId, orgId), eq(posSession.openedBy, userId), offline ? eq(posSession.id, offline.sessionId) : undefined, posAuthorization?.terminalId ? eq(posSession.terminalId, posAuthorization.terminalId) : undefined, eq(posSession.status, 'open'))).limit(1)
+  const [activeShift] = await db.select({ id: posSession.id, branchId: posSession.branchId, terminalId: posSession.terminalId, openedAt: posSession.openedAt }).from(posSession).where(and(eq(posSession.orgId, orgId), eq(posSession.openedBy, userId), offline ? eq(posSession.id, offline.sessionId) : undefined, checkoutTerminalId ? eq(posSession.terminalId, checkoutTerminalId) : undefined, eq(posSession.status, 'open'))).orderBy(desc(posSession.openedAt)).limit(1)
   if (!activeShift) throw new Error(offline ? 'The original shift is closed or unavailable. This offline sale requires manager reconciliation.' : 'Start your shift before completing a sale')
   if (offline && (offline.createdAt.getTime() < activeShift.openedAt.getTime() - 60_000 || offline.createdAt.getTime() > Date.now() + 5 * 60_000)) throw new Error('Offline sale time falls outside the original shift')
-  let saleBranchId = offline ? activeShift.branchId : posAuthorization?.branchId ?? saleAuthorization.branchIds[0]
+  let saleBranchId = activeShift.branchId
   if (!saleBranchId) {
     const [mainBranch] = await db.select({ id: branch.id }).from(branch).where(and(eq(branch.organizationId, orgId), eq(branch.isMain, true))).limit(1)
     saleBranchId = mainBranch?.id

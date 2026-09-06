@@ -34,6 +34,7 @@ import {
 import { PermissionEnum } from '@/lib/types/permissions';
 import { getPosAuthorizationContext, getTerminal } from '@/lib/pos/pos-auth';
 import { invalidateProductReadCache } from '@/lib/cache/redis-cache';
+import { clearDashboardOverviewMemoryCache } from '@/lib/services/dashboard-overview-service';
 import { applyInventoryMovement } from '@/lib/inventory/inventory-service';
 
 async function posOperator(permission: PermissionEnum) {
@@ -962,6 +963,13 @@ export async function updateCashVarianceTolerance(value: number) {
 export async function getCashierWorkspace() {
   const pos = await getPosAuthorizationContext(),
     authorization = pos ?? (await requirePermission(PermissionEnum.POS_VIEW));
+  const registeredTerminal = pos ? null : await getTerminal();
+  const terminalId = pos?.terminalId ?? (
+    registeredTerminal?.organizationId === authorization.organizationId &&
+    (authorization.isOrganizationWide || authorization.branchIds.includes(registeredTerminal.branchId))
+      ? registeredTerminal.id
+      : null
+  );
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const [[session], [summary], [refundSummary], recentSales] =
@@ -973,6 +981,7 @@ export async function getCashierWorkspace() {
           and(
             eq(posSession.orgId, authorization.organizationId),
             eq(posSession.openedBy, authorization.userId),
+            terminalId ? eq(posSession.terminalId, terminalId) : undefined,
             eq(posSession.status, 'open')
           )
         )
@@ -1118,6 +1127,7 @@ export async function recordInventoryLoss(input: {
       unitCost: Number(item.buyingPrice),
     });
   });
+  clearDashboardOverviewMemoryCache(orgId);
   await invalidateProductReadCache(orgId);
   refresh();
 }
@@ -1136,8 +1146,8 @@ export async function refundSale(input: {
       disposition: z.enum(['restock', 'damaged']),
     })
     .parse(input);
-  const authorization = await requirePermission(PermissionEnum.SALE_REFUND);
-  const { userId, organizationId: orgId } = authorization;
+  const authorization = await posOperator(PermissionEnum.SALE_REFUND);
+  const { userId, orgId, terminalId } = authorization;
   await db.transaction(async (tx) => {
     const [[record], prior, items] = await Promise.all([
       tx
@@ -1177,6 +1187,7 @@ export async function refundSale(input: {
             eq(posSession.orgId, orgId),
             eq(posSession.openedBy, userId),
             eq(posSession.branchId, record.branchId),
+            terminalId ? eq(posSession.terminalId, terminalId) : undefined,
             eq(posSession.status, 'open')
           )
         )
@@ -1297,6 +1308,7 @@ export async function refundSale(input: {
       .set({ status: 'refunded' })
       .where(and(eq(sale.id, record.id), eq(sale.orgId, orgId)));
   });
+  clearDashboardOverviewMemoryCache(orgId);
   await invalidateProductReadCache(orgId);
   refresh();
 }
@@ -1332,6 +1344,10 @@ export async function openPosSession(input: z.input<typeof openPosSessionSchema>
       // Serializes same-terminal open attempts before the partial unique index
       // provides the final database guarantee.
       await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${`${orgId}:terminal:${terminalId}:open`}, 0))`);
+      // The legacy database guard for one open shift per cashier is not present
+      // on every installation. Serialize by cashier as well so two tabs cannot
+      // open different terminals for the same operator concurrently.
+      await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${`${orgId}:cashier:${userId}:open`}, 0))`);
       const [existing] = await tx
         .select({ id: posSession.id, status: posSession.status, openedBy: posSession.openedBy })
         .from(posSession)
@@ -1346,6 +1362,17 @@ export async function openPosSession(input: z.input<typeof openPosSessionSchema>
           ? 'Previous shift must be reconciled before opening a new register'
           : 'This register already has an active shift');
       }
+      const [cashierShift] = await tx
+        .select({ id: posSession.id, terminalId: posSession.terminalId })
+        .from(posSession)
+        .where(and(
+          eq(posSession.orgId, orgId),
+          eq(posSession.openedBy, userId),
+          eq(posSession.status, 'open')
+        ))
+        .limit(1);
+      if (cashierShift)
+        throw new Error('End your current shift before opening another register');
       const sessionId = generateId();
       await tx.insert(posSession).values({
         id: sessionId,

@@ -550,7 +550,7 @@ async function loadDashboardOverview(organizationId: string, timeZone = 'Africa/
       valueAtRisk: number(pharmacyInventoryRows?.valueAtRisk),
     },
   }
-  dashboardOverviewCache.set(cacheKey, { value: result, expiresAt: Date.now() + 10_000 })
+  dashboardOverviewCache.set(cacheKey, { value: result, expiresAt: Date.now() + 60_000 })
   return result
 }
 
@@ -564,14 +564,26 @@ export async function getDashboardOverview(organizationId: string, timeZone = 'A
     namespace: 'dashboard',
     organizationId,
     variant,
-    ttlSeconds: 15,
+    // The dashboard read model is expensive to assemble (charts, totals and
+    // activity panels). Mutations explicitly invalidate this cache, so a
+    // longer TTL makes ordinary navigation instant without retaining stale
+    // operational figures.
+    ttlSeconds: 60,
     load: () => loadDashboardOverview(organizationId, timeZone, branchIds),
   })
   // Populate process memory on Redis hits too. Repeated navigation on the same
   // warm function then avoids both Redis and PostgreSQL network round trips.
   dashboardOverviewCache.set(cacheKey, {
     value: overview,
-    expiresAt: Date.now() + 10_000,
+    expiresAt: Date.now() + 60_000,
   })
   return overview
+}
+
+/** Clear every branch/time-zone variant held by this warm server instance. */
+export function clearDashboardOverviewMemoryCache(organizationId: string) {
+  const prefix = `${organizationId}:`
+  for (const key of dashboardOverviewCache.keys()) {
+    if (key.startsWith(prefix)) dashboardOverviewCache.delete(key)
+  }
 }

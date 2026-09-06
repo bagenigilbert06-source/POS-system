@@ -150,18 +150,28 @@ export async function invalidateRedisCache(namespace: 'products' | 'categories' 
   }
 }
 
+/** Dashboard data is a derived read model and must be cleared after writes. */
+export async function invalidateDashboardCache(organizationId: string) {
+  return invalidateRedisCache('dashboard', organizationId)
+}
+
 /** Product writes also affect category product counts, so invalidate both views. */
 export async function invalidateProductCache(organizationId: string) {
   const results = await Promise.all([
     invalidateRedisCache('products', organizationId),
     invalidateRedisCache('categories', organizationId),
+    invalidateDashboardCache(organizationId),
   ])
   return results.every(Boolean)
 }
 
 /** Stock/price mutations do not change category membership counts. */
 export async function invalidateProductReadCache(organizationId: string) {
-  return invalidateRedisCache('products', organizationId)
+  const results = await Promise.all([
+    invalidateRedisCache('products', organizationId),
+    invalidateDashboardCache(organizationId),
+  ])
+  return results.every(Boolean)
 }
 
 export async function invalidateCategoryCache(organizationId: string) {

@@ -46,7 +46,12 @@ export async function getPosPageData(authorization: AuthorizationContext, includ
     readThroughRedis({ namespace: 'categories', organizationId: orgId, variant: 'pos-filter-list', ttlSeconds: 600, load: () => db.select({ id: category.id, name: category.name, parentCategoryId: category.parentCategoryId, isActive: category.isActive }).from(category).where(eq(category.orgId, orgId)).orderBy(category.name) }),
     includeCustomers ? db.select({ customer, pointsBalance: customerRewardAccount.pointsBalance, bonusBalance: customerRewardAccount.bonusBalance }).from(customer).leftJoin(customerRewardAccount, and(eq(customerRewardAccount.customerId, customer.id), eq(customerRewardAccount.organizationId, orgId))).where(eq(customer.orgId, orgId)).orderBy(desc(customer.createdAt)).then(rows => rows.map(({ customer: row, pointsBalance, bonusBalance }) => ({ ...row, loyaltyPoints: pointsBalance ?? row.loyaltyPoints, pointsBalance: pointsBalance ?? row.loyaltyPoints, bonusBalance: Number(bonusBalance ?? 0) }))) : Promise.resolve([]),
     db.select().from(businessSettings).where(eq(businessSettings.organizationId, orgId)).limit(1),
-    db.select().from(posSession).where(and(eq(posSession.orgId, orgId), terminalId ? eq(posSession.terminalId, terminalId) : eq(posSession.openedBy, authorization.userId), inArray(posSession.status, ['open', 'closing']))).orderBy(desc(posSession.openedAt)).limit(1),
+    db.select().from(posSession).where(and(
+      eq(posSession.orgId, orgId),
+      eq(posSession.openedBy, authorization.userId),
+      terminalId ? eq(posSession.terminalId, terminalId) : undefined,
+      inArray(posSession.status, ['open', 'closing']),
+    )).orderBy(desc(posSession.openedAt)).limit(1),
     db.select({ id: branch.id, name: branch.name, code: branch.code }).from(branch).where(and(eq(branch.organizationId, orgId), branchFilter)).limit(1),
     db.select({ enabled: posPinCredential.enabled }).from(posPinCredential).where(eq(posPinCredential.userId, authorization.userId)).limit(1),
   ])

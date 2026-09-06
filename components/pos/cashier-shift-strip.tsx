@@ -108,6 +108,9 @@ export function CashierShiftStrip({
     [movementAmount, setMovementAmount] = useState(''),
     [movementReason, setMovementReason] = useState('');
   const [drawerReason, setDrawerReason] = useState('');
+  const [liveShiftSales, setLiveShiftSales] = useState(workspace.shiftSales);
+  const [liveTransactionCount, setLiveTransactionCount] = useState(workspace.transactionCount);
+  const observedSalesRef = useRef(new Set<string>());
   const drawerRequestRef = useRef<string | null>(null);
   const openingRequestRef = useRef<string | null>(null);
   const [error, setError] = useState(''),
@@ -137,6 +140,21 @@ export function CashierShiftStrip({
     }
     if (session?.countedCash != null) setCloseStep('result');
   }, [isClosing, session?.countedCash]);
+  useEffect(() => {
+    setLiveShiftSales(workspace.shiftSales);
+    setLiveTransactionCount(workspace.transactionCount);
+  }, [workspace.shiftSales, workspace.transactionCount]);
+  useEffect(() => {
+    const update = (event: Event) => {
+      const detail = (event as CustomEvent<{ saleId: string; amount: number }>).detail;
+      if (!detail?.saleId || observedSalesRef.current.has(detail.saleId)) return;
+      observedSalesRef.current.add(detail.saleId);
+      setLiveShiftSales((current) => current + detail.amount);
+      setLiveTransactionCount((current) => current + 1);
+    };
+    window.addEventListener('pesaby:shift-sale-completed', update);
+    return () => window.removeEventListener('pesaby:shift-sale-completed', update);
+  }, []);
   const run = (
     task: () => Promise<void>,
     notice?: { loading: string; success: string; description?: string }
@@ -210,12 +228,12 @@ export function CashierShiftStrip({
             <SummaryMetric
               icon={Banknote}
               label="Shift sales"
-              value={money(workspace.shiftSales)}
+              value={money(liveShiftSales)}
             />
             <SummaryMetric
               icon={ReceiptText}
               label="Transactions"
-              value={String(workspace.transactionCount)}
+              value={String(liveTransactionCount)}
             />
             <div className="flex min-w-0 items-center gap-2.5">
               <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-[#b8e5c8] bg-[#f1fbf4] text-[10px] font-extrabold tracking-[-0.05em] text-[#17883b] dark:border-emerald-800/60 dark:bg-emerald-950/30 dark:text-emerald-300">

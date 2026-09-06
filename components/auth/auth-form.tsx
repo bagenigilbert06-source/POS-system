@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { AlertCircle, Check, Eye, EyeOff, ShieldCheck } from 'lucide-react';
 import { LoadingSpinner as Loader2 } from '@/components/ui/page-loader';
+import { PesabyLogoMark } from '@/components/brand/pesaby-logo';
 import { authClient } from '@/lib/auth-client';
 import { cn } from '@/lib/utils';
 
@@ -167,6 +168,16 @@ export function AuthForm({ mode }: AuthFormProps) {
 
   return (
     <div className="w-full">
+      {loading && !isSignUp && (
+        <div className="fixed inset-0 z-[1000] grid place-items-center bg-[#f4f6f8]/95 p-6 backdrop-blur-sm dark:bg-[#0d0d0d]/95" role="status" aria-live="polite" aria-label="Signing in and opening your workspace">
+          <div className="flex min-w-64 flex-col items-center rounded-2xl border border-slate-200 bg-white px-8 py-7 text-center shadow-xl dark:border-white/10 dark:bg-[#171717]">
+            <PesabyLogoMark className="h-12 w-12" />
+            <Loader2 className="mt-5 h-7 w-7" />
+            <p className="mt-5 text-sm font-bold text-slate-950 dark:text-white">Opening your workspace</p>
+            <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">Your business data is loading securely.</p>
+          </div>
+        </div>
+      )}
       {error && (
         <div
           role="alert"

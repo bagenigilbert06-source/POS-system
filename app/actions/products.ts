@@ -33,7 +33,7 @@ import {
   addCostLayer,
   applyInventoryMovement,
 } from '@/lib/inventory/inventory-service';
-import { requirePermission } from '@/lib/auth/authorization';
+import { getAuthorizationContext, requirePermission } from '@/lib/auth/authorization';
 import { PermissionEnum } from '@/lib/types/permissions';
 import { isPharmacyBusiness } from '@/lib/pharmacy/rules';
 import { isCafeBusiness } from '@/lib/hospitality/rules';
@@ -180,8 +180,11 @@ export async function getProductMonthlySales() {
 export async function getProductsPageData(options?: {
   includeCafeIngredients?: boolean;
 }) {
-  const userId = await getUserId();
-  const orgId = await getOrgId(userId);
+  // Dashboard pages, their layouts, and permission checks all share this
+  // request-scoped React cache. Reusing it avoids a second auth/session and
+  // organization lookup before the catalogue query starts.
+  const authorization = await getAuthorizationContext();
+  const { userId, organizationId: orgId } = authorization;
   const workspaceConfig = await WorkspaceService.getWorkspaceConfig(
     orgId,
     userId
@@ -200,26 +203,41 @@ export async function getProductsPageData(options?: {
   const [allProducts, monthlySales, categories, cafeMenuRows] =
     await Promise.all([
       getProductsForOrg(orgId, undefined, true),
-      db
-        .select({
-          productId: saleItem.productId,
-          unitsSoldMonth: sql<number>`coalesce(sum(${saleItem.quantity}), 0)`,
-        })
-        .from(saleItem)
-        .innerJoin(sale, eq(sale.id, saleItem.saleId))
-        .where(
-          and(
-            eq(saleItem.orgId, orgId),
-            eq(sale.orgId, orgId),
-            eq(sale.status, 'completed'),
-            gte(sale.createdAt, monthStart)
+      // Sales invalidate the products namespace after a completed checkout,
+      // so this avoids an aggregate scan on every navigation without serving
+      // stale monthly figures.
+      readThroughRedis({
+        namespace: 'products',
+        organizationId: orgId,
+        variant: `monthly-sales:${monthStart.toISOString().slice(0, 7)}`,
+        ttlSeconds: 120,
+        load: () => db
+          .select({
+            productId: saleItem.productId,
+            unitsSoldMonth: sql<number>`coalesce(sum(${saleItem.quantity}), 0)`,
+          })
+          .from(saleItem)
+          .innerJoin(sale, eq(sale.id, saleItem.saleId))
+          .where(
+            and(
+              eq(saleItem.orgId, orgId),
+              eq(sale.orgId, orgId),
+              eq(sale.status, 'completed'),
+              gte(sale.createdAt, monthStart)
+            )
           )
-        )
-        .groupBy(saleItem.productId),
-      db
-        .select({ id: category.id, name: category.name })
-        .from(category)
-        .where(eq(category.orgId, orgId)),
+          .groupBy(saleItem.productId),
+      }),
+      readThroughRedis({
+        namespace: 'categories',
+        organizationId: orgId,
+        variant: 'product-list',
+        ttlSeconds: 600,
+        load: () => db
+          .select({ id: category.id, name: category.name })
+          .from(category)
+          .where(eq(category.orgId, orgId)),
+      }),
       cafeWorkspace && cafeMenuSchemaReady && !options?.includeCafeIngredients
         ? db
             .select({ productId: cafeMenuItem.productId })
