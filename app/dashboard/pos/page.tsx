@@ -63,6 +63,7 @@ export default async function POSPage() {
     <div className="pos-workspace flex h-full min-h-0 flex-col gap-3 bg-[#f4f6f8] p-3 pb-[62px] dark:bg-[var(--dashboard-canvas)] sm:p-4 sm:pb-[64px]">
       <CashierShiftStrip
         workspace={data.cashierWorkspace}
+        posUnlocked={Boolean(posAuthorization)}
         canManageCash={operator.permissions.includes(
           PermissionEnum.SHIFT_MANAGE
         )}

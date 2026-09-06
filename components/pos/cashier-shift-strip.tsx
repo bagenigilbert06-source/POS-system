@@ -82,11 +82,14 @@ const compactMoney = (amount: number) =>
 export function CashierShiftStrip({
   workspace,
   action,
+  posUnlocked = false,
   canManageCash = false,
   directDrawerConfigured = false,
 }: {
   workspace: Workspace;
   action?: ReactNode;
+  /** A cashier POS-PIN session, distinct from a normal dashboard login. */
+  posUnlocked?: boolean;
   canManageCash?: boolean;
   directDrawerConfigured?: boolean;
 }) {
@@ -514,6 +517,14 @@ export function CashierShiftStrip({
               This device is not assigned to a POS terminal. Configure the terminal before opening a register.
             </p>
           )}
+          {!posUnlocked && terminalConfigured && (
+            <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-100">
+              <p className="font-medium">Unlock this register with your POS PIN first.</p>
+              <p className="mt-1 text-xs leading-5 opacity-80">
+                Your dashboard password does not open a cashier shift. Use your six-digit staff POS PIN on this registered device.
+              </p>
+            </div>
+          )}
           <label className="grid gap-1.5 text-sm font-medium">
             Opening cash
             <CurrencyInput
@@ -531,6 +542,11 @@ export function CashierShiftStrip({
             <Button variant="outline" onClick={() => setOpeningOpen(false)}>
               Cancel
             </Button>
+            {!posUnlocked && terminalConfigured ? (
+              <Button asChild>
+                <Link href="/sign-in?pos=1">Unlock with POS PIN</Link>
+              </Button>
+            ) : (
             <Button
               disabled={pending || !terminalConfigured || !isValidMoney(openingFloat || '0')}
               onClick={() =>
@@ -542,7 +558,9 @@ export function CashierShiftStrip({
                       idempotencyKey: openingRequestRef.current ?? (openingRequestRef.current = crypto.randomUUID()),
                     }).then((opened) => {
                       if (opened.status === 'cashier_shift_open')
-                        throw new Error('You already have an open shift on another register. Reconcile and end that shift before opening this register.');
+                        throw new Error(`You already have an open shift on ${opened.terminalName ?? 'another register'}. End and reconcile it before opening another register.`);
+                      if (opened.status === 'cashier_shift_closing')
+                        throw new Error(`You already have a shift being reconciled on ${opened.terminalName ?? 'another register'}. Finish or cancel that reconciliation before opening another register.`);
                       if (opened.status === 'terminal_reconciling')
                         throw new Error('This register is being reconciled. Finish that shift before opening a new one.');
                       if (opened.status === 'terminal_active')
@@ -564,6 +582,7 @@ export function CashierShiftStrip({
             >
               Open register
             </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>

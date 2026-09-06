@@ -1,12 +1,11 @@
 import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
 import test from 'node:test'
-import 'dotenv/config'
+import { testDatabaseUrl, testDatabaseSsl } from './test-database-env.mjs'
 import pg from 'pg'
 
 test('product packages enforce barcode uniqueness and valid conversion', async (context) => {
-  if (!process.env.DATABASE_URL) return context.skip('DATABASE_URL is not configured')
-  const client = new pg.Client({ connectionString: process.env.DATABASE_URL })
+  const client = new pg.Client({ connectionString: testDatabaseUrl, ssl: testDatabaseSsl })
   await client.connect()
   try {
     await client.query('begin')

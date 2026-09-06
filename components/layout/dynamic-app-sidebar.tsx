@@ -497,7 +497,7 @@ export function DynamicAppSidebar({
       ? [
           {
             id: 'operations',
-            label: 'Operations',
+            label: 'Shift Control',
             icon: 'ClipboardCheck',
             route: '/dashboard/operations',
           },

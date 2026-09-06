@@ -45,8 +45,8 @@
     "test:cafe": "ts-node --project tsconfig.test.json tests/cafe-rules.test.ts",
     "test:pharmacy-db": "node --test tests/pharmacy-db.integration.mjs",
     "test:product-packaging-db": "node --test tests/product-packaging-db.integration.mjs",
-    "test": "pnpm run test:onboarding-rules && pnpm run test:rbac && pnpm run test:inventory && pnpm run test:reports && pnpm run test:email && pnpm run test:pos-pin && pnpm run test:auth && pnpm run test:onboarding",
-    "test:e2e": "playwright test",
+    "test": "node scripts/run-test-suite.mjs",
+    "test:e2e": "node scripts/run-playwright-suite.mjs",
     "test:e2e:ui": "playwright test --ui",
     "postinstall": "prisma generate"
   },

@@ -1,12 +1,10 @@
 import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
-import dotenv from 'dotenv'
 import pg from 'pg'
+import { testDatabaseUrl, testDatabaseSsl } from './test-database-env.mjs'
 
-dotenv.config()
-const connectionString = process.env.DIRECT_URL || process.env.DATABASE_URL
-if (!connectionString) throw new Error('DATABASE_URL or DIRECT_URL is required')
-const ssl = connectionString.includes('supabase') ? { rejectUnauthorized: false } : undefined
+const connectionString = testDatabaseUrl
+const ssl = testDatabaseSsl
 const poolFor = () => new pg.Pool({ connectionString, ssl, max: 4 })
 const token = randomUUID().replaceAll('-', '')
 const ids = {
@@ -16,12 +14,43 @@ const ids = {
   org: `shift-test-org-${token}`,
   branch: `shift-test-branch-${token}`,
   terminal: `shift-test-terminal-${token}`,
+  terminal2: `shift-test-terminal-2-${token}`,
   saleCash: `shift-test-sale-cash-${token}`,
   saleMpesa: `shift-test-sale-mpesa-${token}`,
   returnCash: `shift-test-return-cash-${token}`,
   returnMpesa: `shift-test-return-mpesa-${token}`,
 }
 const auditId = (name) => `shift-test-audit-${name}-${token}`
+
+// Mirrors the unresolved-shift guard used by openPosSession. Keeping this at
+// the database boundary verifies the two advisory locks also protect two
+// simultaneous browser requests against different terminals.
+async function attemptCrossTerminalOpen(pool, { sessionId, userId, terminalId }) {
+  const client = await pool.connect()
+  try {
+    await client.query('BEGIN')
+    await client.query("SELECT pg_advisory_xact_lock(hashtextextended($1, 0))", [`${ids.org}:terminal:${terminalId}:open`])
+    await client.query("SELECT pg_advisory_xact_lock(hashtextextended($1, 0))", [`${ids.org}:cashier:${userId}:open`])
+    const terminal = await client.query(`SELECT id,status,"openedBy" FROM "pos_session" WHERE "orgId"=$1 AND "terminalId"=$2 AND status = ANY($3) LIMIT 1`, [ids.org, terminalId, ['open', 'closing']])
+    if (terminal.rowCount) {
+      await client.query('COMMIT')
+      return { status: terminal.rows[0].status === 'closing' ? 'terminal_reconciling' : 'terminal_active' }
+    }
+    const cashier = await client.query(`SELECT s.id,s.status,t.name AS "terminalName" FROM "pos_session" s LEFT JOIN "pos_terminal" t ON t.id=s."terminalId" WHERE s."orgId"=$1 AND s."openedBy"=$2 AND s.status = ANY($3) LIMIT 1`, [ids.org, userId, ['open', 'closing']])
+    if (cashier.rowCount) {
+      await client.query('COMMIT')
+      return { status: cashier.rows[0].status === 'closing' ? 'cashier_shift_closing' : 'cashier_shift_open', terminalName: cashier.rows[0].terminalName }
+    }
+    await client.query(`INSERT INTO "pos_session" (id,"sessionNo",status,"openingCash","openedBy","orgId","branchId","terminalId") VALUES ($1,$2,'open',0,$3,$4,$5,$6)`, [sessionId, `REG-${sessionId.slice(-8)}`, userId, ids.org, ids.branch, terminalId])
+    await client.query('COMMIT')
+    return { status: 'opened' }
+  } catch (error) {
+    await client.query('ROLLBACK')
+    throw error
+  } finally {
+    client.release()
+  }
+}
 
 async function cleanup(pool) {
   await pool.query('DELETE FROM "mpesa_payment_request" WHERE "organizationId" = $1', [ids.org])
@@ -53,6 +82,7 @@ try {
   await pool.query('INSERT INTO "business_settings" ("organizationId","cashVarianceTolerance") VALUES ($1,50)', [ids.org])
   await pool.query('INSERT INTO "branch" (id,"organizationId",code,name,"isMain") VALUES ($1,$2,$3,$4,true)', [ids.branch, ids.org, 'TEST', 'Integration test location'])
   await pool.query('INSERT INTO "pos_terminal" (id,"organizationId","branchId","tokenHash",name,"registeredBy") VALUES ($1,$2,$3,$4,$5,$6)', [ids.terminal, ids.org, ids.branch, `hash-${token}`, 'Counter 1', ids.owner])
+  await pool.query('INSERT INTO "pos_terminal" (id,"organizationId","branchId","tokenHash",name,"registeredBy") VALUES ($1,$2,$3,$4,$5,$6)', [ids.terminal2, ids.org, ids.branch, `hash-2-${token}`, 'Counter 2', ids.owner])
 
   // Two different users race to open the same physical register. Exactly one wins.
   const sessionA = `shift-test-session-a-${token}`, sessionB = `shift-test-session-b-${token}`
@@ -148,7 +178,36 @@ try {
   assert.equal(Number((await pool.query('SELECT COALESCE(SUM(amount),0) total FROM "sales_return" WHERE "posSessionId"=$1 AND "refundMethod"=\'mpesa\'', [sessionId])).rows[0].total), 0, 'M-Pesa refund must not reduce the cash drawer')
   assert.equal((await pool.query('SELECT id FROM "cash_movement" WHERE "sessionId"=$1', [sessionId])).rowCount, 2)
   assert.equal((await pool.query('SELECT id FROM "audit_event" WHERE "organizationId"=$1 AND action IN (\'shift.opened\',\'shift.reconciliation_cancelled\',\'shift.reconciliation_started\',\'shift.reconciled\')', [ids.org])).rowCount, 4)
-  console.log(JSON.stringify({ passed: true, scenarios: 21, sessionId, expectedCash: expected, countedCash: counted, variance, persistedAfterReconnect: true, operationsHistoryReadable: true, pendingMpesaGuard: true, reconciliationDraftPersistence: true }, null, 2))
+
+  // Cross-terminal handoff: a cashier may have at most one unresolved shift.
+  const handoffSession = `shift-test-handoff-${token}`
+  await pool.query(`INSERT INTO "pos_session" (id,"sessionNo",status,"openingCash","openedBy","orgId","branchId","terminalId") VALUES ($1,$2,'open',0,$3,$4,$5,$6)`, [handoffSession, `REG-${token.slice(-8)}`, cashierId, ids.org, ids.branch, ids.terminal])
+  const blockedOpen = await attemptCrossTerminalOpen(pool, { sessionId: `shift-test-blocked-open-${token}`, userId: cashierId, terminalId: ids.terminal2 })
+  assert.deepEqual(blockedOpen, { status: 'cashier_shift_open', terminalName: 'Counter 1' }, 'OPEN shift must block the cashier from another terminal')
+  await pool.query(`UPDATE "pos_session" SET status='closing',"reconciliationStartedAt"=now() WHERE id=$1`, [handoffSession])
+  const blockedClosing = await attemptCrossTerminalOpen(pool, { sessionId: `shift-test-blocked-closing-${token}`, userId: cashierId, terminalId: ids.terminal2 })
+  assert.deepEqual(blockedClosing, { status: 'cashier_shift_closing', terminalName: 'Counter 1' }, 'CLOSING shift must block the cashier from another terminal')
+  await pool.query(`UPDATE "pos_session" SET status='open',"reconciliationStartedAt"=NULL WHERE id=$1`, [handoffSession])
+  const blockedAfterCancel = await attemptCrossTerminalOpen(pool, { sessionId: `shift-test-blocked-cancel-${token}`, userId: cashierId, terminalId: ids.terminal2 })
+  assert.equal(blockedAfterCancel.status, 'cashier_shift_open', 'cancelled reconciliation must remain blocked as OPEN')
+  await pool.query(`UPDATE "pos_session" SET status='closed',"closedBy"=$2,"closedAt"=now() WHERE id=$1`, [handoffSession, cashierId])
+  const handoffAllowed = await attemptCrossTerminalOpen(pool, { sessionId: `shift-test-handoff-allowed-${token}`, userId: cashierId, terminalId: ids.terminal2 })
+  assert.equal(handoffAllowed.status, 'opened', 'CLOSED shift must allow a new terminal shift')
+  const handoffTerminal2 = `shift-test-handoff-allowed-${token}`
+  await pool.query(`UPDATE "pos_session" SET status='closing',"reconciliationStartedAt"=now(),"reconciliationStartedBy"=$2,"recoveryReason"='shift_left_open' WHERE id=$1`, [handoffTerminal2, ids.owner])
+  const blockedDuringManagerRecovery = await attemptCrossTerminalOpen(pool, { sessionId: `shift-test-manager-recovery-blocked-${token}`, userId: cashierId, terminalId: ids.terminal })
+  assert.equal(blockedDuringManagerRecovery.status, 'cashier_shift_closing', 'manager recovery must keep the cashier blocked until closure')
+  await pool.query(`UPDATE "pos_session" SET status='closed',"closedBy"=$2,"closedAt"=now() WHERE id=$1`, [handoffTerminal2, ids.owner])
+
+  const concurrentOne = `shift-test-concurrent-one-${token}`, concurrentTwo = `shift-test-concurrent-two-${token}`
+  const concurrent = await Promise.all([
+    attemptCrossTerminalOpen(pool, { sessionId: concurrentOne, userId: cashierId, terminalId: ids.terminal }),
+    attemptCrossTerminalOpen(pool, { sessionId: concurrentTwo, userId: cashierId, terminalId: ids.terminal2 }),
+  ])
+  assert.equal(concurrent.filter((result) => result.status === 'opened').length, 1, 'concurrent cross-terminal opening must permit exactly one shift')
+  assert.equal((await pool.query(`SELECT id FROM "pos_session" WHERE "orgId"=$1 AND "openedBy"=$2 AND status = ANY($3)`, [ids.org, cashierId, ['open', 'closing']])).rowCount, 1, 'cashier must have exactly one unresolved shift after concurrent requests')
+  await pool.query(`UPDATE "pos_session" SET status='closed',"closedBy"=$2,"closedAt"=now() WHERE "orgId"=$1 AND "openedBy"=$2 AND status = ANY($3)`, [ids.org, cashierId, ['open', 'closing']])
+  console.log(JSON.stringify({ passed: true, scenarios: 27, sessionId, expectedCash: expected, countedCash: counted, variance, persistedAfterReconnect: true, operationsHistoryReadable: true, pendingMpesaGuard: true, reconciliationDraftPersistence: true, crossTerminalUnresolvedShiftProtection: true }, null, 2))
 } finally {
   await cleanup(pool)
   const leftovers = await pool.query(`SELECT

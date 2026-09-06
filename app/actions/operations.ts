@@ -1384,12 +1384,15 @@ export async function openPosSession(input: z.input<typeof openPosSessionSchema>
           id: posSession.id,
           terminalId: posSession.terminalId,
           sessionNo: posSession.sessionNo,
+          status: posSession.status,
+          terminalName: posTerminal.name,
         })
         .from(posSession)
+        .leftJoin(posTerminal, eq(posTerminal.id, posSession.terminalId))
         .where(and(
           eq(posSession.orgId, orgId),
           eq(posSession.openedBy, userId),
-          eq(posSession.status, 'open')
+          inArray(posSession.status, ['open', 'closing'])
         ))
         .limit(1);
       // This is an expected operational state, not a server fault. Existing
@@ -1400,7 +1403,10 @@ export async function openPosSession(input: z.input<typeof openPosSessionSchema>
         return {
           sessionId: cashierShift.id,
           duplicate: false,
-          status: 'cashier_shift_open' as const,
+          terminalName: cashierShift.terminalName || 'another register',
+          status: cashierShift.status === 'closing'
+            ? 'cashier_shift_closing' as const
+            : 'cashier_shift_open' as const,
         };
       const sessionId = generateId();
       await tx.insert(posSession).values({

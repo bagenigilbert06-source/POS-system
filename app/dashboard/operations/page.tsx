@@ -242,26 +242,18 @@ export default async function OperationsPage({
       href: '#needs-attention',
     },
     {
-      label: 'Cash variance',
-      value: formatCurrency(varianceTotal, currency),
-      detail: `${varianceReviews.length} above policy tolerance`,
-      icon: CreditCard,
-      tone: varianceReviews.length ? 'warning' : 'positive',
-      href: '#shift-history-title',
-    },
-    {
-      label: 'Stock loss',
-      value: formatCurrency(lossTotal, currency),
-      detail: `${formatNumber(filteredLosses.reduce((sum, item) => sum + item.quantity, 0))} units recorded`,
-      icon: Boxes,
-      tone: filteredLosses.length ? 'warning' : 'neutral',
-      href: '#operational-activity',
+      label: 'Reconciling',
+      value: formatNumber(reconciling.length),
+      detail: reconciling.length ? 'Cashiers counting drawers' : 'No registers reconciling',
+      icon: Clock3,
+      tone: reconciling.length ? 'warning' : 'neutral',
+      href: '#active-shifts',
     },
   ] as const;
 
   return (
-    <div className="dashboard-overview mx-auto w-full max-w-[1480px] space-y-4 pb-8">
-      <header className="dashboard-welcome flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+    <div className="dashboard-overview mx-auto w-full max-w-[1280px] space-y-5 pb-8">
+      <header className="flex flex-col gap-4 px-1 pt-2 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <div className="mb-3 flex flex-wrap items-center gap-3">
             <span className="dashboard-live-status">
@@ -280,11 +272,10 @@ export default async function OperationsPage({
             Manager control center · {organization.name}
           </p>
           <h1 className="mt-2 text-2xl font-bold tracking-tight sm:text-3xl">
-            Operations
+            Shift Control
           </h1>
           <p className="mt-2 text-sm">
-            Monitor active shifts, reconcile exceptions, and manage audited
-            operational actions.
+            See who is on each register, resolve exceptions, and review completed shifts.
           </p>
         </div>
         <div className="flex gap-2">
@@ -325,39 +316,45 @@ export default async function OperationsPage({
         ].map(([id, name]) => ({ id, name }))}
         today={today}
       />
-      <section
-        aria-label="Operations overview"
-        className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4"
-      >
-        {metrics.map((item) => (
-          <MetricCard key={item.label} {...item} />
-        ))}
-      </section>
-
-      <NeedsAttention
+      <section className="overflow-hidden rounded-2xl border bg-card shadow-sm">
+        <div className="flex flex-col gap-4 border-b px-5 py-5 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">Live register status</p>
+            <h2 className="mt-1 text-lg font-bold">Today&apos;s shift control</h2>
+          </div>
+          <div className="flex flex-wrap gap-2 text-xs font-semibold">
+            <span className="rounded-full bg-emerald-50 px-3 py-1.5 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-300">{openCount} open</span>
+            <span className="rounded-full bg-amber-50 px-3 py-1.5 text-amber-700 dark:bg-amber-950/30 dark:text-amber-300">{reconciling.length} reconciling</span>
+            <span className={`rounded-full px-3 py-1.5 ${needsReviewCount ? 'bg-red-50 text-red-700 dark:bg-red-950/30 dark:text-red-300' : 'bg-muted text-muted-foreground'}`}>{needsReviewCount} need review</span>
+          </div>
+        </div>
+        {needsReviewCount > 0 && <NeedsAttention
         variance={varianceReviews}
         reconciling={reconciling}
         payments={pendingPayments}
         losses={filteredLosses}
         currency={currency}
-      />
+        />}
+        <ActiveShifts shifts={activeShifts} currency={currency} canRecover={authorization.permissions.includes(PermissionEnum.SHIFT_MANAGE)} />
+      </section>
+      <div className="hidden">
       {isLiquorStore && (
         <LiquorComplianceSummary
           verified={data.complianceToday.verified}
           needsReview={data.complianceToday.unverified}
         />
       )}
-      <ActiveShifts shifts={activeShifts} currency={currency} canRecover={authorization.permissions.includes(PermissionEnum.SHIFT_MANAGE)} />
       <OperationsControl
         products={data.products}
         sales={data.sales}
         locations={data.locations}
         currency={currency}
       />
+      <OperationalActivity items={activity} />
+      </div>
       <div id="shift-history" className="scroll-mt-24">
         <ShiftHistory shifts={filteredShifts} currency={currency} />
       </div>
-      <OperationalActivity items={activity} />
     </div>
   );
 }
@@ -603,14 +600,10 @@ function NeedsAttention({
   return (
     <section
       id="needs-attention"
-      className="scroll-mt-24 overflow-hidden rounded-2xl border bg-card shadow-sm"
+      className="scroll-mt-24 border-b bg-amber-50/35 dark:bg-amber-950/10"
     >
-      <div className="border-b px-5 py-4">
-        <h2 className="text-lg font-bold">Needs attention</h2>
-        <p className="mt-1 text-xs text-muted-foreground">
-          Exceptions that need a manager to investigate or complete in the
-          source workflow.
-        </p>
+      <div className="px-5 pt-4">
+        <h2 className="text-sm font-bold">Needs attention</h2>
       </div>
       {rows.length ? (
         <div className="divide-y">
@@ -669,11 +662,11 @@ function ActiveShifts({
   return (
     <section
       id="active-shifts"
-      className="scroll-mt-24 overflow-hidden rounded-2xl border bg-card shadow-sm"
+      className="scroll-mt-24 overflow-hidden"
     >
-      <div className="flex items-center justify-between border-b px-5 py-4">
+      <div className="flex items-center justify-between px-5 py-4">
         <div>
-          <h2 className="text-lg font-bold">Active shifts</h2>
+          <h2 className="text-base font-bold">Active registers</h2>
           <p className="mt-1 text-xs text-muted-foreground">
             Live drawer activity. Cashiers close and reconcile from Point of
             Sale.
@@ -790,7 +783,7 @@ function MetricCard({
   return (
     <Link
       href={href}
-      className="dashboard-metric-card group rounded-xl border px-4 py-3.5 focus-visible:ring-2 focus-visible:ring-[#d6a800]"
+      className="group block px-5 py-4 transition-colors hover:bg-muted/40 focus-visible:ring-2 focus-visible:ring-[#d6a800]"
     >
       <div className="flex items-start justify-between gap-3">
         <p className="text-[0.68rem] font-semibold uppercase tracking-[0.08em] text-muted-foreground">

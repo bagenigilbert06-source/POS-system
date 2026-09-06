@@ -1,11 +1,10 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import 'dotenv/config'
+import { testDatabaseUrl, testDatabaseSsl } from './test-database-env.mjs'
 import pg from 'pg'
 
 test('pharmacy schema, FEFO trace and workflow tables are installed', async (context) => {
-  if (!process.env.DATABASE_URL) return context.skip('DATABASE_URL is not configured')
-  const client = new pg.Client({ connectionString: process.env.DATABASE_URL, ssl: process.env.DATABASE_URL.includes('supabase.com') ? { rejectUnauthorized: false } : undefined })
+  const client = new pg.Client({ connectionString: testDatabaseUrl, ssl: testDatabaseSsl })
   await client.connect()
   try {
     const tables = ['pharmacy_configuration', 'pharmacy_product', 'sale_item_lot_allocation', 'pharmacy_sale_record', 'pharmacy_prescription_item', 'pharmacy_medicine_recall', 'restricted_item_audit', 'pharmacy_return_disposition', 'inventory_transfer_lot_allocation']

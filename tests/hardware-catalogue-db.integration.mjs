@@ -1,16 +1,7 @@
 import assert from 'node:assert/strict'
 import { spawn } from 'node:child_process'
-import { readFileSync } from 'node:fs'
 import pg from 'pg'
-
-for (const line of readFileSync('.env', 'utf8').split(/\r?\n/)) {
-  const match = line.match(/^([A-Z0-9_]+)=(.*)$/)
-  if (match) process.env[match[1]] ??= match[2].replace(/^"|"$/g, '')
-}
-
-if (!process.env.TEST_DATABASE_URL) {
-  throw new Error('TEST_DATABASE_URL is required. Hardware catalogue tests never run against the application database.')
-}
+import { testDatabaseUrl, testDatabaseSsl } from './test-database-env.mjs'
 
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 const port = process.env.HARDWARE_CATALOGUE_TEST_PORT ?? '3102'
@@ -18,14 +9,9 @@ const baseURL = process.env.HARDWARE_CATALOGUE_TEST_BASE_URL ?? `http://127.0.0.
 const useExternalServer = Boolean(process.env.HARDWARE_CATALOGUE_TEST_BASE_URL)
 process.env.BETTER_AUTH_URL = baseURL
 process.env.REQUIRE_EMAIL_VERIFICATION = 'false'
-process.env.DATABASE_URL = process.env.TEST_DATABASE_URL
-process.env.DIRECT_URL = process.env.TEST_DATABASE_URL
-
 const pool = new pg.Pool({
-  connectionString: process.env.TEST_DATABASE_URL,
-  ssl: process.env.TEST_DATABASE_URL.includes('supabase.com')
-    ? { rejectUnauthorized: false }
-    : undefined,
+  connectionString: testDatabaseUrl,
+  ssl: testDatabaseSsl,
 })
 const server = useExternalServer
   ? null

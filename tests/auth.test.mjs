@@ -1,18 +1,8 @@
 import assert from 'node:assert/strict'
 import { spawn } from 'node:child_process'
-import { readFileSync } from 'node:fs'
 import { createRemoteJWKSet, jwtVerify } from 'jose'
 import pg from 'pg'
-
-function loadEnv() {
-  const env = readFileSync('.env', 'utf8')
-  for (const line of env.split(/\r?\n/)) {
-    const match = line.match(/^([A-Z0-9_]+)=(.*)$/)
-    if (!match) continue
-    const [, key, rawValue] = match
-    process.env[key] ??= rawValue.replace(/^"|"$/g, '')
-  }
-}
+import { testDatabaseUrl, testDatabaseSsl } from './test-database-env.mjs'
 
 function wait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms))
@@ -71,10 +61,8 @@ async function authFetch(baseURL, path, options = {}) {
 
 async function cleanupTestUser(email) {
   const pool = new pg.Pool({
-    connectionString: process.env.DATABASE_URL,
-    ssl: process.env.DATABASE_URL.includes('supabase.com')
-      ? { rejectUnauthorized: false }
-      : undefined,
+    connectionString: testDatabaseUrl,
+    ssl: testDatabaseSsl,
   })
   try {
     await pool.query('delete from "user" where email = $1', [email])
@@ -82,12 +70,6 @@ async function cleanupTestUser(email) {
     await pool.end()
   }
 }
-
-loadEnv()
-
-if (!process.env.TEST_DATABASE_URL) throw new Error('TEST_DATABASE_URL is required. Authentication tests never run against the application database.')
-process.env.DATABASE_URL = process.env.TEST_DATABASE_URL
-process.env.DIRECT_URL = process.env.TEST_DATABASE_URL
 
 const port = process.env.AUTH_TEST_PORT ?? '3100'
 const baseURL = process.env.AUTH_TEST_BASE_URL ?? `http://127.0.0.1:${port}`

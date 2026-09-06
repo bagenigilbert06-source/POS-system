@@ -6421,8 +6421,7 @@ export function POSTerminal({
                                         KSh
                                       </span>
                                       <input
-                                        ref={cashReceivedInputRef}
-                                        id="cash-received"
+                                        id="cash-received-legacy"
                                         type="number"
                                         min={total}
                                         step="0.01"
@@ -6585,6 +6584,8 @@ export function POSTerminal({
                                         KSh
                                       </span>
                                       <input
+                                        ref={cashReceivedInputRef}
+                                        id="cash-received"
                                         type="number"
                                         min={total}
                                         step="0.01"

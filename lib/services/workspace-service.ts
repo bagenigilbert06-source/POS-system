@@ -128,7 +128,7 @@ const MODULE_NAV: Record<string, SidebarNavItem> = {
   },
   operations: {
     id: 'operations',
-    label: 'Operations',
+    label: 'Shift Control',
     icon: 'ClipboardCheck',
     route: '/dashboard/operations',
   },

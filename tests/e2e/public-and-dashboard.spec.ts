@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
+import { spawn, type ChildProcess } from 'node:child_process'
 
 async function navigate(page: Page, path: string) {
   await page.goto(path, { waitUntil: 'domcontentloaded' }).catch((error: Error) => {
@@ -8,7 +9,7 @@ async function navigate(page: Page, path: string) {
 
 test.describe('public experience', () => {
   test('renders every public route', async ({ page }) => {
-    for (const path of ['/', '/features', '/industries', '/resources', '/sign-in', '/sign-up', '/workspace-recovery']) {
+    for (const path of ['/features', '/industries', '/resources', '/sign-in', '/sign-up', '/workspace-recovery']) {
       const response = await page.goto(path, { waitUntil: 'domcontentloaded' })
 
       expect(response?.ok(), `${path} should return a successful response`).toBeTruthy()
@@ -16,14 +17,8 @@ test.describe('public experience', () => {
     }
   })
 
-  test('renders the landing page and reaches sign-in', async ({ page }) => {
+  test('disabled homepage redirects directly to sign-in', async ({ page }) => {
     await navigate(page, '/')
-
-    await expect(page).toHaveTitle(/Pesaby/i)
-    await expect(page.getByRole('link', { name: 'Sign in' }).first()).toBeVisible()
-
-    await expect(page.getByRole('link', { name: 'Sign in' }).first()).toHaveAttribute('href', '/sign-in')
-    await navigate(page, '/sign-in')
     await expect(page).toHaveURL(/\/sign-in$/)
     await expect(page.getByRole('heading', { name: 'Welcome back' })).toBeVisible()
     await expect(page.getByLabel('Work email')).toBeVisible()
@@ -85,6 +80,36 @@ test.describe('public experience', () => {
       expect(response.status()).toBeLessThan(400)
       expect(response.headers().location).toContain('/sign-in')
     }
+  })
+})
+
+test.describe('enabled public homepage', () => {
+  let server: ChildProcess
+  const enabledURL = 'http://127.0.0.1:3103'
+
+  test.beforeAll(async () => {
+    server = spawn('node', ['node_modules/next/dist/bin/next', 'start', '-H', '127.0.0.1', '-p', '3103'], {
+      env: { ...process.env, PESABY_PUBLIC_WEBSITE_ENABLED: 'true' },
+      stdio: 'ignore',
+    })
+    const deadline = Date.now() + 45_000
+    while (Date.now() < deadline) {
+      if (server.exitCode !== null) throw new Error(`Enabled-homepage server exited with ${server.exitCode}`)
+      try {
+        if ((await fetch(enabledURL)).status < 500) return
+      } catch {}
+      await new Promise((resolve) => setTimeout(resolve, 500))
+    }
+    throw new Error('Enabled-homepage server did not start')
+  })
+
+  test.afterAll(() => server?.kill())
+
+  test('enabled homepage renders marketing content', async ({ page }) => {
+    await page.goto(enabledURL, { waitUntil: 'domcontentloaded' })
+    await expect(page).toHaveURL(`${enabledURL}/`)
+    await expect(page.getByRole('link', { name: 'Sign in' }).first()).toHaveAttribute('href', '/sign-in')
+    await expect(page.locator('main')).toBeVisible()
   })
 })
 

@@ -2,11 +2,10 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import crypto from 'node:crypto'
 import pg from 'pg'
-import 'dotenv/config'
+import { testDatabaseUrl, testDatabaseSsl } from './test-database-env.mjs'
 
 test('age verification records remain linked, immutable compliance facts', async (t) => {
-  if (!process.env.DATABASE_URL) return t.skip('DATABASE_URL is unavailable')
-  const client = new pg.Client({ connectionString: process.env.DATABASE_URL })
+  const client = new pg.Client({ connectionString: testDatabaseUrl, ssl: testDatabaseSsl })
   await client.connect()
   await client.query('BEGIN')
   try {

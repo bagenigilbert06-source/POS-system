@@ -19,12 +19,5 @@ export function DashboardWidget({ widget }: DashboardWidgetProps) {
       return <TableWidget widget={widget} />
     case 'list':
       return <TableWidget widget={widget} />
-    default:
-      return (
-        <div className="rounded-lg border border-border p-4">
-          <p className="text-sm font-medium">{widget.title}</p>
-          <p className="text-xs text-muted-foreground mt-1">Widget type not implemented</p>
-        </div>
-      )
   }
 }

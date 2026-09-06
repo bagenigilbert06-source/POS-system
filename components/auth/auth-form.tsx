@@ -10,13 +10,14 @@ import { cn } from '@/lib/utils';
 
 interface AuthFormProps {
   mode: 'sign-in' | 'sign-up';
+  compact?: boolean;
 }
 
 type FieldName = 'name' | 'email' | 'password' | 'confirmPassword';
 type FieldErrors = Partial<Record<FieldName, string>>;
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-export function AuthForm({ mode }: AuthFormProps) {
+export function AuthForm({ mode, compact = false }: AuthFormProps) {
   const router = useRouter();
   const isSignUp = mode === 'sign-up';
   const [loading, setLoading] = useState(false);
@@ -192,7 +193,7 @@ export function AuthForm({ mode }: AuthFormProps) {
         onSubmit={handleSubmit}
         noValidate
         aria-busy={loading}
-        className="space-y-4"
+        className={cn('space-y-4', compact && 'space-y-3')}
       >
         {isSignUp && (
           <div>
@@ -393,7 +394,7 @@ export function AuthForm({ mode }: AuthFormProps) {
         </button>
       </form>
 
-      <p className="mt-5 text-center text-sm text-zinc-600">
+      <p className={cn('mt-5 text-center text-sm text-zinc-600', compact && 'mt-3')}>
         {isSignUp ? 'Already have an account?' : 'New to Pesaby?'}{' '}
         <Link
           href={isSignUp ? '/sign-in' : '/sign-up'}
@@ -404,7 +405,7 @@ export function AuthForm({ mode }: AuthFormProps) {
       </p>
 
       {!isSignUp && (
-        <div className="mt-5 flex items-center justify-center gap-2 border-t border-zinc-200 pt-5 text-xs text-zinc-500">
+        <div className={cn('mt-5 flex items-center justify-center gap-2 border-t border-zinc-200 pt-5 text-xs text-zinc-500', compact && 'mt-3 pt-3')}>
           <ShieldCheck className="h-4 w-4 text-zinc-600" aria-hidden="true" />
           <span>Secure, encrypted account access.</span>
         </div>

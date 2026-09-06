@@ -1,7 +1,7 @@
 export interface DashboardWidget {
   id: string
   name: string
-  type: 'metric' | 'chart' | 'table' | 'list' | 'card'
+  type: 'metric' | 'chart' | 'table' | 'list'
   title: string
   description?: string
   module: string

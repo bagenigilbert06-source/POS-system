@@ -50,14 +50,29 @@ interface CustomersClientProps {
   cafeMode?: boolean;
 }
 
+type CustomerListItem = Customer | {
+  id: string;
+  name: string;
+  phone: string | null;
+  email: string | null;
+  address: string | null;
+  createdAt: string;
+  optimistic: true;
+  status: OptimisticItem['status'];
+};
+
+function isOptimisticCustomer(customer: CustomerListItem): customer is Extract<CustomerListItem, { optimistic: true }> {
+  return 'optimistic' in customer && customer.optimistic;
+}
+
 export function CustomersClient({
   initialCustomers,
   cafeMode = false,
 }: CustomersClientProps) {
   const router = useRouter();
-  const [customers, setCustomers] = useState<any[]>(initialCustomers);
+  const [customers, setCustomers] = useState<CustomerListItem[]>(initialCustomers);
   const [search, setSearch] = useState('');
-  const [deleteTarget, setDeleteTarget] = useState<any | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<CustomerListItem | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [debouncedSearch] = useDebounce(search, 250);
   const optimistic = useCustomersStore((s) => s.optimistic);
@@ -70,16 +85,14 @@ export function CustomersClient({
 
   // Merge initial server customers with optimistic items (optimistic first)
   useEffect(() => {
-    const mappedOptimistic = optimistic.map((o) => ({
+    const mappedOptimistic: CustomerListItem[] = optimistic.map((o) => ({
       id: o.tempId,
       name: o.name,
       phone: o.phone ?? null,
       email: o.email ?? null,
       address: o.address ?? null,
       createdAt: o.createdAt,
-      // @ts-ignore allow optimistic flag for rendering
       optimistic: true,
-      // @ts-ignore status
       status: o.status,
     }));
     // Filter out any server customers that were replaced (same id)
@@ -221,7 +234,7 @@ export function CustomersClient({
               {filtered.map((c) => (
                 <article
                   key={c.id}
-                  className={`group grid min-h-[68px] grid-cols-[minmax(0,1fr)_104px] items-center gap-3 px-4 py-3 transition-colors hover:bg-secondary/50 dark:hover:bg-white/[0.035] lg:grid-cols-[minmax(220px,1.4fr)_minmax(220px,1.4fr)_minmax(140px,.8fr)_minmax(160px,1fr)_100px_104px] lg:gap-4 lg:px-5 lg:py-3.5 ${(c as any).optimistic ? 'opacity-75' : ''}`}
+                  className={`group grid min-h-[68px] grid-cols-[minmax(0,1fr)_104px] items-center gap-3 px-4 py-3 transition-colors hover:bg-secondary/50 dark:hover:bg-white/[0.035] lg:grid-cols-[minmax(220px,1.4fr)_minmax(220px,1.4fr)_minmax(140px,.8fr)_minmax(160px,1fr)_100px_104px] lg:gap-4 lg:px-5 lg:py-3.5 ${isOptimisticCustomer(c) ? 'opacity-75' : ''}`}
                 >
                   <div className="flex min-w-0 items-center gap-3">
                     <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#fff3bd] text-sm font-bold text-[#765800] dark:bg-[#ffd60a]/15 dark:text-[#ffe35c]">
@@ -305,15 +318,15 @@ export function CustomersClient({
                     {formatDate(c.createdAt)}
                   </span>
                   <div className="flex items-center justify-end">
-                    {(c as any).optimistic &&
-                      (c as any).status === 'pending' && (
+                    {isOptimisticCustomer(c) &&
+                      c.status === 'pending' && (
                         <Loader2
                           className="mr-2 h-4 w-4 animate-spin text-muted-foreground"
                           aria-label="Saving"
                         />
                       )}
-                    {(c as any).optimistic &&
-                      (c as any).status === 'failed' && (
+                    {isOptimisticCustomer(c) &&
+                      c.status === 'failed' && (
                         <span className="mr-2 text-xs text-destructive">
                           Failed
                         </span>
@@ -359,10 +372,9 @@ export function CustomersClient({
                     </div>
                   </div>
                   {/* Retry button for failed optimistic saves */}
-                  {(c as any).optimistic && (c as any).status === 'failed' && (
+                  {isOptimisticCustomer(c) && c.status === 'failed' && (
                     <div className="col-span-full flex items-center gap-2 pb-2 pl-[52px] md:pl-0">
                       <button
-                        disabled={(c as any).status === 'pending'}
                         onClick={async () => {
                           // retry: call server action and update store
                           const opt = optimistic.find(

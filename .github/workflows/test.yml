@@ -1,0 +1,49 @@
+name: Test
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: pesaby_test
+          POSTGRES_PASSWORD: pesaby_test
+          POSTGRES_DB: pesaby_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U pesaby_test -d pesaby_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgresql://pesaby_test:pesaby_test@127.0.0.1:5432/pesaby_test
+      BETTER_AUTH_SECRET: ci-only-secret-with-at-least-thirty-two-characters
+      BETTER_AUTH_URL: http://127.0.0.1:3102
+      CI: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm test
+      - run: pnpm exec tsc --noEmit
+      - run: pnpm lint
+      - name: Production build
+        env:
+          DATABASE_URL: postgresql://pesaby_test:pesaby_test@127.0.0.1:5432/pesaby_test
+          DIRECT_URL: postgresql://pesaby_test:pesaby_test@127.0.0.1:5432/pesaby_test
+        run: pnpm build
+      - run: pnpm test:e2e

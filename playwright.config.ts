@@ -1,4 +1,5 @@
 import { defineConfig, devices } from '@playwright/test'
+import './tests/e2e/test-env'
 
 const baseURL = process.env.E2E_BASE_URL ?? 'http://127.0.0.1:3102'
 
@@ -22,9 +23,15 @@ export default defineConfig({
   webServer: process.env.E2E_BASE_URL
     ? undefined
     : {
-        command: 'pnpm exec next dev --webpack -H 127.0.0.1 -p 3102',
+        command: 'pnpm run build && pnpm exec next start -H 127.0.0.1 -p 3102',
         url: baseURL,
         reuseExistingServer: !process.env.CI,
-        timeout: 120_000,
+        timeout: 300_000,
+        env: {
+          ...process.env,
+          DATABASE_URL: process.env.TEST_DATABASE_URL!,
+          DIRECT_URL: process.env.TEST_DATABASE_URL!,
+          PESABY_PUBLIC_WEBSITE_ENABLED: 'false',
+        },
       },
 })

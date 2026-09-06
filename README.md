@@ -13,7 +13,7 @@ Pesaby is a Business Operating System for modern commerce. It connects sales, in
 ## Tech Stack
 
 - **Next.js 16** and React: Application framework and UI runtime.
-- **Prisma ORM** and PostgreSQL: Database access and persistence.
+- **Drizzle ORM** and PostgreSQL: Current application persistence and migrations.
 - **Better Auth**: Authentication and session management.
 - **Tailwind CSS**: Utility-first styling system.
 
@@ -31,3 +31,39 @@ pnpm dev
 ```
 
 The app is available at `http://localhost:3000`.
+
+### Tests and disposable database
+
+Database-backed tests never use `DATABASE_URL` as a fallback. Create a separate,
+disposable PostgreSQL database and provide it explicitly:
+
+```bash
+TEST_DATABASE_URL='postgresql://pesaby_test:password@localhost:5432/pesaby_test' pnpm test
+```
+
+The runner refuses missing test configuration and refuses a test URL that
+equals `DATABASE_URL` or `DIRECT_URL`. It applies Drizzle migrations first.
+
+For browser coverage, install Chromium once and run:
+
+```bash
+pnpm exec playwright install chromium
+TEST_DATABASE_URL='postgresql://pesaby_test:password@localhost:5432/pesaby_test' pnpm test:e2e
+```
+
+See `tests/e2e/README.md` for the browser-test details.
+
+### POS shift boundary
+
+A registered browser terminal and valid cashier PIN session are required to
+open a register or complete a sale. A cashier may have only one unresolved
+shift (`open` or `closing`) across terminals. Closing uses blind cash counting,
+then revokes the POS session and returns the terminal to PIN entry. Managers can
+recover abandoned shifts through Operations without silently closing them.
+
+### eTIMS status
+
+Pesaby contains branch configuration, validation, an outbox/retry workflow,
+credit-note coordination, and a development simulator. A certified production
+provider adapter is not installed. GavaConnect is sandbox-only and its invoice
+submission, status lookup, and credit-note methods remain unimplemented.

@@ -1,12 +1,7 @@
 import assert from 'node:assert/strict'
 import { spawn } from 'node:child_process'
-import { readFileSync } from 'node:fs'
 import pg from 'pg'
-
-for (const line of readFileSync('.env', 'utf8').split(/\r?\n/)) {
-  const match = line.match(/^([A-Z0-9_]+)=(.*)$/)
-  if (match) process.env[match[1]] ??= match[2].replace(/^"|"$/g, '')
-}
+import { testDatabaseUrl, testDatabaseSsl } from './test-database-env.mjs'
 
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 const port = process.env.ONBOARDING_TEST_PORT ?? '3101'
@@ -14,10 +9,7 @@ const baseURL = process.env.ONBOARDING_TEST_BASE_URL ?? `http://127.0.0.1:${port
 const useExternalServer = Boolean(process.env.ONBOARDING_TEST_BASE_URL)
 process.env.BETTER_AUTH_URL = baseURL
 process.env.REQUIRE_EMAIL_VERIFICATION = 'false'
-if (!process.env.TEST_DATABASE_URL) throw new Error('TEST_DATABASE_URL is required. Onboarding tests never run against the application database.')
-process.env.DATABASE_URL = process.env.TEST_DATABASE_URL
-process.env.DIRECT_URL = process.env.TEST_DATABASE_URL
-const pool = new pg.Pool({ connectionString: process.env.TEST_DATABASE_URL, ssl: process.env.TEST_DATABASE_URL.includes('supabase.com') ? { rejectUnauthorized: false } : undefined })
+const pool = new pg.Pool({ connectionString: testDatabaseUrl, ssl: testDatabaseSsl })
 const server = useExternalServer ? null : spawn('node', ['node_modules/next/dist/bin/next', 'dev', '-H', '127.0.0.1', '-p', port], { env: process.env, detached: true, stdio: ['ignore', 'pipe', 'pipe'] })
 let output = ''
 server?.stdout.on('data', (value) => { output += value })
