@@ -2819,6 +2819,18 @@ html.dark .pesaby-hot-toast-error {
   color: hsl(var(--foreground));
 }
 
+/* Keep Chrome's saved-credential fill aligned with the auth form surface. */
+.auth-workspace input:-webkit-autofill,
+.auth-workspace input:-webkit-autofill:hover,
+.auth-workspace input:-webkit-autofill:focus,
+.auth-workspace input:-webkit-autofill:active {
+  -webkit-text-fill-color: #0f172a;
+  -webkit-box-shadow: 0 0 0 1000px #fffefb inset;
+  box-shadow: 0 0 0 1000px #fffefb inset;
+  caret-color: #0f172a;
+  transition: background-color 9999s ease-out 0s;
+}
+
 /* Full-page loader using the CSS Loaders circle treatment. */
 .pesaby-global-loader {
   position: fixed;
@@ -2841,26 +2853,22 @@ html.dark .pesaby-hot-toast-error {
 }
 
 .pesaby-loader {
-  /* Match the Pesaby gold used by primary actions and the active navigation. */
-  --color-1: #f2b90c;
-  --size: 0.3125px;
+  --color-1: #ff3d00;
+  --size: 1px;
   display: inline-block;
   flex: none;
   position: relative;
   border-radius: 50%;
   width: calc(32 * var(--size)) !important;
   height: calc(32 * var(--size)) !important;
-  margin-inline: calc(48 * var(--size));
   color: var(--color-1);
   vertical-align: -0.125em;
-  /* Keep ring widths fixed; changing inset shadows shimmer under load. */
-  box-shadow: 0 0 0 calc(6 * var(--size)) inset;
-  animation: pesaby-loader-pulse 1.2s ease-in-out infinite;
+  animation: pesaby-loader-fill 1s ease-in infinite alternate;
 }
 
 /* Legacy call sites may still supply Tailwind's animate-spin utility. */
 .pesaby-loader.animate-spin {
-  animation: pesaby-loader-pulse 1.2s ease-in-out infinite;
+  animation: pesaby-loader-fill 1s ease-in infinite alternate;
 }
 
 .pesaby-loader--page {
@@ -2900,14 +2908,13 @@ html.dark .pesaby-hot-toast-error {
   border-radius: 50%;
   left: calc(48 * var(--size));
   top: 0;
-  box-shadow: 0 0 0 calc(6 * var(--size)) inset;
-  animation: pesaby-loader-pulse 1.2s ease-in-out infinite;
+  animation: pesaby-loader-fill 0.9s ease-in infinite alternate;
 }
 
 .pesaby-loader::after {
   left: auto;
   right: calc(48 * var(--size));
-  animation-delay: 0.2s;
+  animation-duration: 1.1s;
 }
 
 .pesaby-inline-loader {
@@ -2928,7 +2935,7 @@ html.dark .pesaby-global-loader {
 }
 
 html.dark .pesaby-loader {
-  --color-1: #ffd60a;
+  --color-1: #ff3d00;
 }
 
 /* Route loaders sit on top of the existing dashboard surface; only the spinner is visible. */
@@ -2957,11 +2964,6 @@ html.dark .pesaby-global-loader.pesaby-inline-loader {
     animation: none;
     box-shadow: 0 0 0 calc(6 * var(--size)) inset;
   }
-}
-
-@keyframes pesaby-loader-pulse {
-  0%, 100% { opacity: 0.42; }
-  50% { opacity: 1; }
 }
 
 @media (max-width: 640px) {

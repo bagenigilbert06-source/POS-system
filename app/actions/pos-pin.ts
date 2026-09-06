@@ -12,6 +12,7 @@ import {
   organizationMembership,
   posAuthSession,
   posPinCredential,
+  posSession,
   posTerminal,
   user,
 } from '@/lib/db/schema';
@@ -162,10 +163,11 @@ export async function resetStaffPosPin(employeeId: string) {
   return { success: true };
 }
 
-export async function registerCurrentPosTerminal(branchId: string) {
-  const context = await getAuthorizationContext();
-  if (!context.permissions.includes(PermissionEnum.POS_VIEW))
-    throw new Error('POS access is required');
+export async function registerCurrentPosTerminal(branchId: string, name: string) {
+  const context = await requirePermission(PermissionEnum.ADMIN_ACCESS);
+  const terminalName = name.trim();
+  if (terminalName.length < 2 || terminalName.length > 80)
+    throw new Error('Enter a terminal name between 2 and 80 characters');
   const [valid] = await db
     .select()
     .from(branch)
@@ -182,7 +184,8 @@ export async function registerCurrentPosTerminal(branchId: string) {
   )
     throw new Error('Branch access denied');
   const existing = await getTerminal();
-  if (existing?.branchId === branchId) return { success: true };
+  if (existing?.branchId === branchId)
+    return { success: true, terminalId: existing.id, existing: true };
   const token = newToken();
   // A browser without a terminal cookie is a new POS device. Never rotate an
   // existing branch terminal's token here: that would make two tills share a
@@ -194,13 +197,18 @@ export async function registerCurrentPosTerminal(branchId: string) {
       organizationId: context.organizationId,
       branchId,
       tokenHash: tokenHash(token),
+      name: terminalName,
       registeredBy: context.userId,
     });
   (await cookies()).set(POS_TERMINAL_COOKIE, token, {
     ...posCookieOptions,
     maxAge: 60 * 60 * 24 * 30,
   });
-  return { success: true };
+  await db.insert(auditEvent).values({
+    id: generateId(), organizationId: context.organizationId, userId: context.userId,
+    action: 'pos_terminal.registered', metadata: { branchId, name: terminalName },
+  });
+  return { success: true, existing: false };
 }
 
 export async function getPosLockData() {
@@ -325,27 +333,33 @@ export async function unlockPosWithPin(userId: string, pin: string) {
     .update(posPinCredential)
     .set({ failedAttempts: 0, lockedUntil: null, updatedAt: new Date() })
     .where(eq(posPinCredential.userId, userId));
-  await db
-    .update(posAuthSession)
-    .set({ status: 'switched' })
-    .where(
-      and(
-        eq(posAuthSession.terminalId, terminal.id),
-        eq(posAuthSession.status, 'active')
-      )
-    );
   const token = newToken();
-  await db
-    .insert(posAuthSession)
-    .values({
-      id: generateId(),
-      tokenHash: tokenHash(token),
-      terminalId: terminal.id,
-      userId,
-      organizationId: terminal.organizationId,
-      branchId: terminal.branchId,
+  await db.transaction(async (tx) => {
+    // Serialize PIN changes per physical terminal. This closes the race where
+    // two cashiers submit valid PINs at the same time.
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${`${terminal.organizationId}:terminal:${terminal.id}:pin`}, 0))`);
+    const [activeShift] = await tx
+      .select({ openedBy: posSession.openedBy, status: posSession.status, cashierName: user.name })
+      .from(posSession)
+      .leftJoin(user, eq(user.id, posSession.openedBy))
+      .where(and(
+        eq(posSession.orgId, terminal.organizationId),
+        eq(posSession.terminalId, terminal.id),
+        sql`${posSession.status} in ('open', 'closing')`
+      ))
+      .limit(1);
+    if (activeShift && activeShift.openedBy !== userId)
+      throw new Error(`${terminal.name} is currently in use by ${activeShift.cashierName || 'another cashier'}. End and reconcile the current shift before another cashier signs in.`);
+    await tx.update(posAuthSession).set({ status: 'switched' }).where(and(
+      eq(posAuthSession.terminalId, terminal.id),
+      eq(posAuthSession.status, 'active')
+    ));
+    await tx.insert(posAuthSession).values({
+      id: generateId(), tokenHash: tokenHash(token), terminalId: terminal.id,
+      userId, organizationId: terminal.organizationId, branchId: terminal.branchId,
       expiresAt: new Date(Date.now() + 12 * 60 * 60 * 1000),
     });
+  });
   (await cookies()).set(POS_AUTH_COOKIE, token, posCookieOptions);
   await db
     .insert(auditEvent)
@@ -633,12 +647,16 @@ export async function unlockPosWithStaffPin(userId: string, pin: string) {
 
 /** PIN-only login identifies the cashier server-side. */
 export async function unlockPosByPin(pin: string) {
-  const terminal = await getTerminal();
-  if (!terminal) return { success: false, error: 'Terminal access not allowed' };
-  const candidates = await db.select({ userId: posPinCredential.userId, pinHash: posPinCredential.pinHash }).from(posPinCredential).innerJoin(employee, eq(employee.userId, posPinCredential.userId)).innerJoin(branchMembership, eq(branchMembership.userId, posPinCredential.userId)).where(and(eq(employee.orgId, terminal.organizationId), eq(employee.status, 'active'), eq(posPinCredential.enabled, true), eq(branchMembership.branchId, terminal.branchId)));
-  const owners = await findPosPinOwners(pin, candidates, ({ pinHash }, value) => verifyPassword({ hash: pinHash, password: value }));
-  if (owners.length === 1) return unlockPosWithPin(owners[0], pin);
-  return { success: false, error: 'Invalid PIN or you are not authorized to use this terminal.' };
+  try {
+    const terminal = await getTerminal();
+    if (!terminal) return { success: false, error: 'Terminal access not allowed' };
+    const candidates = await db.select({ userId: posPinCredential.userId, pinHash: posPinCredential.pinHash }).from(posPinCredential).innerJoin(employee, eq(employee.userId, posPinCredential.userId)).innerJoin(branchMembership, eq(branchMembership.userId, posPinCredential.userId)).where(and(eq(employee.orgId, terminal.organizationId), eq(employee.status, 'active'), eq(posPinCredential.enabled, true), eq(branchMembership.branchId, terminal.branchId)));
+    const owners = await findPosPinOwners(pin, candidates, ({ pinHash }, value) => verifyPassword({ hash: pinHash, password: value }));
+    if (owners.length === 1) return await unlockPosWithPin(owners[0], pin);
+    return { success: false, error: 'Invalid PIN or you are not authorized to use this terminal.' };
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : 'Unable to unlock this terminal' };
+  }
 }
 
 /** Unlocks only the cashier who created the current locked terminal session. */

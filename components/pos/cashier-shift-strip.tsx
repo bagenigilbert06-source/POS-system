@@ -165,7 +165,10 @@ export function CashierShiftStrip({
         if (notice) {
           await notify.track(task, {
             ...notice,
-            error: () => 'Unable to update this shift',
+            error: (cause) =>
+              cause instanceof Error && cause.message
+                ? cause.message
+                : 'Unable to update this shift',
           });
         } else {
           await task();
@@ -501,7 +504,9 @@ export function CashierShiftStrip({
           <DialogHeader className="space-y-1 border-b border-border pb-4">
             <DialogTitle className="text-lg font-semibold tracking-tight">Open register</DialogTitle>
             <DialogDescription className="space-y-0.5 text-sm leading-5 text-[var(--dashboard-muted)]">
-              {cashierDisplayName ? <>Cashier: {cashierDisplayName}</> : null}
+              <span className="block">Cashier: {cashierDisplayName || 'Unavailable'}</span>
+              <span className="block">Register: {workspace.registerName || 'Not registered'}</span>
+              <span className="block">Branch: {workspace.locationName}</span>
             </DialogDescription>
           </DialogHeader>
           {!terminalConfigured && (
@@ -535,6 +540,13 @@ export function CashierShiftStrip({
                       openingCash: openingFloat === '' ? 0 : Number(openingFloat),
                       openingNote,
                       idempotencyKey: openingRequestRef.current ?? (openingRequestRef.current = crypto.randomUUID()),
+                    }).then((opened) => {
+                      if (opened.status === 'cashier_shift_open')
+                        throw new Error('You already have an open shift on another register. Reconcile and end that shift before opening this register.');
+                      if (opened.status === 'terminal_reconciling')
+                        throw new Error('This register is being reconciled. Finish that shift before opening a new one.');
+                      if (opened.status === 'terminal_active')
+                        throw new Error('This register already has an active shift. Ask the current cashier or a manager to close it first.');
                     });
                     setOpeningFloat('');
                     setOpeningNote('');
@@ -755,7 +767,7 @@ export function CashierShiftStrip({
                   onClick={() =>
                     run(async () => {
                       if (!session || !result) return;
-                      await completePosSessionClose({
+                      const closed = await completePosSessionClose({
                         countedCash: result.countedCash,
                         reason: varianceReason || undefined,
                         notes: notes || undefined,
@@ -766,6 +778,11 @@ export function CashierShiftStrip({
                       setCountedCash('');
                       setVarianceReason('');
                       setNotes('');
+                      if (closed.posSessionEnded) {
+                        router.replace('/sign-in?pos=1');
+                        router.refresh();
+                        return;
+                      }
                       // Close the review immediately. Fetch the authoritative
                       // closed-register model on the next event-loop turn so
                       // route work never holds the cashier in this dialog.

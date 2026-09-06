@@ -2083,6 +2083,11 @@ export const posSession = pgTable(
     notes: text('notes'),
     varianceReason: text('varianceReason'),
     reconciliationStartedAt: timestamp('reconciliationStartedAt'),
+    // Recovery is an explicit manager takeover. These fields preserve the
+    // original cashier while documenting who started the recovery and why.
+    reconciliationStartedBy: text('reconciliationStartedBy'),
+    recoveryReason: text('recoveryReason'),
+    recoveryNote: text('recoveryNote'),
     // Immutable closing snapshot for reporting after live sales data changes.
     closingSummary: json('closingSummary'),
     openedBy: text('openedBy').notNull(),

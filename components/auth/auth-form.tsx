@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { AlertCircle, Check, Eye, EyeOff, ShieldCheck } from 'lucide-react';
 import { LoadingSpinner as Loader2 } from '@/components/ui/page-loader';
-import { PesabyLogoMark } from '@/components/brand/pesaby-logo';
 import { authClient } from '@/lib/auth-client';
 import { cn } from '@/lib/utils';
 
@@ -150,9 +149,9 @@ export function AuthForm({ mode }: AuthFormProps) {
 
   const inputClass = (invalid: boolean) =>
     cn(
-      'h-12 w-full rounded-lg border bg-white px-3.5 text-sm text-slate-950 outline-none transition',
-      'placeholder:text-zinc-400 hover:border-zinc-400 focus:border-slate-900 focus:ring-4 focus:ring-[#ffda32]/45',
-      invalid ? 'border-red-500 ring-2 ring-red-100' : 'border-zinc-300',
+      'h-12 w-full rounded-lg border bg-[#fffefb] px-3.5 text-sm text-slate-950 outline-none transition-colors autofill:bg-[#fffefb] autofill:text-slate-950 autofill:shadow-[inset_0_0_0_1000px_#fffefb]',
+      'placeholder:text-zinc-400 hover:border-[#e8bf32] focus:border-[#d9a900] focus:ring-0',
+      invalid ? 'border-red-500 ring-0' : 'border-[#f0d46d]',
       'disabled:cursor-not-allowed disabled:bg-zinc-100 disabled:text-zinc-500'
     );
 
@@ -169,13 +168,13 @@ export function AuthForm({ mode }: AuthFormProps) {
   return (
     <div className="w-full">
       {loading && !isSignUp && (
-        <div className="fixed inset-0 z-[1000] grid place-items-center bg-[#f4f6f8]/95 p-6 backdrop-blur-sm dark:bg-[#0d0d0d]/95" role="status" aria-live="polite" aria-label="Signing in and opening your workspace">
-          <div className="flex min-w-64 flex-col items-center rounded-2xl border border-slate-200 bg-white px-8 py-7 text-center shadow-xl dark:border-white/10 dark:bg-[#171717]">
-            <PesabyLogoMark className="h-12 w-12" />
-            <Loader2 className="mt-5 h-7 w-7" />
-            <p className="mt-5 text-sm font-bold text-slate-950 dark:text-white">Opening your workspace</p>
-            <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">Your business data is loading securely.</p>
-          </div>
+        <div
+          className="fixed inset-0 z-[1000] flex items-center justify-center bg-[#fffdfa]"
+          role="status"
+          aria-live="polite"
+          aria-label="Signing in and opening your workspace"
+        >
+          <Loader2 className="pesaby-loader--page" />
         </div>
       )}
       {error && (

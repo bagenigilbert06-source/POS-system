@@ -22,6 +22,10 @@ type ShiftRecord = {
   openedBy: string;
   closedBy: string | null;
   approvedByName?: string | null;
+  reconciledByName?: string | null;
+  reconciliationStartedBy?: string | null;
+  recoveryReason?: string | null;
+  recoveryNote?: string | null;
   reconciliationNote?: string | null;
   openedAt: Date;
   closedAt: Date | null;
@@ -231,8 +235,8 @@ function ShiftDetail({
           </span>
           {shift.closedAt && (
             <span>
-              Approved by{' '}
-              {shift.approvedByName ?? shift.closedBy ?? 'Not recorded'}
+              Reconciled by{' '}
+              {shift.reconciledByName ?? shift.approvedByName ?? shift.closedBy ?? 'Not recorded'}
             </span>
           )}
         </div>
@@ -298,6 +302,13 @@ function ShiftDetail({
         <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs text-amber-950 dark:border-amber-900/50 dark:bg-amber-950/20 dark:text-amber-100">
           <span className="font-semibold">Reconciliation note:</span>{' '}
           {shift.reconciliationNote}
+        </div>
+      )}
+      {shift.recoveryReason && (
+        <div className="mt-4 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2.5 text-xs text-blue-950 dark:border-blue-900/50 dark:bg-blue-950/20 dark:text-blue-100">
+          <span className="font-semibold">Manager recovery:</span>{' '}
+          {shift.recoveryReason.replaceAll('_', ' ')}
+          {shift.recoveryNote ? ` · ${shift.recoveryNote}` : ''}
         </div>
       )}
       {shift.varianceReason && (

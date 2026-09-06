@@ -294,16 +294,13 @@ export async function createSale(data: CreateSaleInput) {
   if (!Number.isFinite(data.discountAmount) || data.discountAmount < 0) throw new Error('Invalid discount amount')
   if (!data.idempotencyKey || data.idempotencyKey.length > 100) throw new Error('A valid transaction ID is required')
   const posAuthorization = await getPosAuthorizationContext()
-  const userId = posAuthorization?.userId ?? await getUserId()
-  const saleAuthorization = posAuthorization ?? await requireAnyPermission([PermissionEnum.POS_SELL, PermissionEnum.SALE_CREATE])
-  if (!saleAuthorization.permissions.includes(PermissionEnum.POS_SELL) && !saleAuthorization.permissions.includes(PermissionEnum.SALE_CREATE)) throw new Error('POS sale permission denied')
-  const orgId = posAuthorization?.organizationId ?? await getOrgId(userId, 'pos')
-  const registeredTerminal = posAuthorization ? null : await getTerminal()
-  const checkoutTerminal = registeredTerminal?.organizationId === orgId &&
-    (saleAuthorization.isOrganizationWide || saleAuthorization.branchIds.includes(registeredTerminal.branchId))
-    ? registeredTerminal
-    : null
-  const checkoutTerminalId = posAuthorization?.terminalId ?? checkoutTerminal?.id
+  if (!posAuthorization)
+    throw new Error('Unlock this terminal with your POS PIN before completing a sale')
+  const userId = posAuthorization.userId
+  const saleAuthorization = posAuthorization
+  if (!saleAuthorization.permissions.includes(PermissionEnum.POS_SELL)) throw new Error('POS sale permission denied')
+  const orgId = posAuthorization.organizationId
+  const checkoutTerminalId = posAuthorization.terminalId
   const workspace = await WorkspaceService.getWorkspaceConfig(orgId, userId)
   const cafeWorkspace = Boolean(workspace && isCafeBusiness(workspace.businessType, workspace.businessCategory))
   if (data.cafe && !cafeWorkspace) throw new Error('Café order details are not valid for this workspace')

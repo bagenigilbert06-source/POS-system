@@ -21,11 +21,12 @@ import {
 } from '@/components/operations/operational-activity';
 import { OperationsControl } from '@/components/operations/operations-control';
 import { ShiftHistory } from '@/components/operations/shift-history';
+import { ShiftRecovery } from '@/components/operations/shift-recovery';
 import {
   getAuthorizationContext,
   getDefaultWorkspaceRoute,
 } from '@/lib/auth/authorization';
-import { RoleEnum } from '@/lib/types/permissions';
+import { PermissionEnum, RoleEnum } from '@/lib/types/permissions';
 import { requireWorkspaceModule } from '@/lib/onboarding/require-module';
 import { formatCurrency, formatDateTime } from '@/lib/utils';
 import { formatNumber } from '@/lib/utils/format';
@@ -346,7 +347,7 @@ export default async function OperationsPage({
           needsReview={data.complianceToday.unverified}
         />
       )}
-      <ActiveShifts shifts={activeShifts} currency={currency} />
+      <ActiveShifts shifts={activeShifts} currency={currency} canRecover={authorization.permissions.includes(PermissionEnum.SHIFT_MANAGE)} />
       <OperationsControl
         products={data.products}
         sales={data.sales}
@@ -649,6 +650,7 @@ function NeedsAttention({
 function ActiveShifts({
   shifts,
   currency,
+  canRecover,
 }: {
   shifts: Array<{
     id: string;
@@ -662,6 +664,7 @@ function ActiveShifts({
     movements: { type: string; total: number; count: number }[];
   }>;
   currency: string;
+  canRecover: boolean;
 }) {
   return (
     <section
@@ -695,6 +698,7 @@ function ActiveShifts({
                   'Other tenders',
                   'Cash movements',
                   'Status',
+                  ...(canRecover ? ['Recovery'] : []),
                 ].map((item) => (
                   <th key={item} className="px-4 py-3 font-semibold">
                     {item}
@@ -752,6 +756,7 @@ function ActiveShifts({
                           : item.status}
                       </span>
                     </td>
+                    {canRecover && <td className="px-4 py-3"><ShiftRecovery sessionId={item.id} cashierName={item.cashierName} terminalName={item.terminalName} status={item.status} /></td>}
                   </tr>
                 );
               })}

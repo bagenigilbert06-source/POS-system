@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { after } from 'next/server';
+import { cookies } from 'next/headers';
 import { and, desc, eq, gte, inArray, isNull, lt, sql } from 'drizzle-orm';
 import Decimal from 'decimal.js';
 import { z } from 'zod';
@@ -15,6 +16,7 @@ import {
   inventoryLoss,
   mpesaPaymentRequest,
   offlineSaleSync,
+  posAuthSession,
   posSession,
   posTerminal,
   product,
@@ -32,7 +34,7 @@ import {
   requirePermission,
 } from '@/lib/auth/authorization';
 import { PermissionEnum } from '@/lib/types/permissions';
-import { getPosAuthorizationContext, getTerminal } from '@/lib/pos/pos-auth';
+import { getPosAuthorizationContext, getTerminal, POS_AUTH_COOKIE, POS_LOCKED_SESSION_COOKIE } from '@/lib/pos/pos-auth';
 import { invalidateProductReadCache } from '@/lib/cache/redis-cache';
 import { clearDashboardOverviewMemoryCache } from '@/lib/services/dashboard-overview-service';
 import { applyInventoryMovement } from '@/lib/inventory/inventory-service';
@@ -561,7 +563,9 @@ export async function getOperationsData(timeZone = 'Africa/Nairobi') {
       .from(posSession)
       .where(and(eq(posSession.orgId, orgId), sessionBranchScope))
       .orderBy(desc(posSession.openedAt))
-      .limit(30),
+      // Keep every currently actionable shift in the manager view even when
+      // an older abandoned shift falls outside the most recent 30 records.
+      .limit(100),
     db
       .select()
       .from(posSession)
@@ -729,7 +733,7 @@ export async function getOperationsData(timeZone = 'Africa/Nairobi') {
   const actorIds = [
     ...new Set(
       [
-        ...sessions.flatMap((record) => [record.openedBy, record.closedBy]),
+        ...sessions.flatMap((record) => [record.openedBy, record.closedBy, record.reconciliationStartedBy]),
         ...returns.map((record) => record.userId),
         ...losses.map((record) => record.userId),
         ...recentCashMovements.map((record) => record.userId),
@@ -865,6 +869,11 @@ export async function getOperationsData(timeZone = 'Africa/Nairobi') {
   const shiftHistory = sessions.map((record) => ({
     ...record,
     cashierName: cashierNames.get(record.openedBy) ?? record.openedBy,
+    reconciledByName: record.closedBy
+      ? (cashierNames.get(record.closedBy) ?? record.closedBy)
+      : record.reconciliationStartedBy
+        ? (cashierNames.get(record.reconciliationStartedBy) ?? record.reconciliationStartedBy)
+        : null,
     terminalName: record.terminalId
       ? (terminalNames.get(record.terminalId) ??
         `Terminal ${record.terminalId.slice(0, 8)}`)
@@ -1322,8 +1331,12 @@ const openPosSessionSchema = z.object({
 export async function openPosSession(input: z.input<typeof openPosSessionSchema>) {
   const data = openPosSessionSchema.parse(input);
   const amount = new Decimal(data.openingCash).toDecimalPlaces(2);
-  const authorization = await posOperator(PermissionEnum.SHIFT_OPEN);
-  const { userId, orgId, terminalId } = authorization;
+  // A shift is a cashier operation. Dashboard authentication remains valid for
+  // management screens, but never substitutes for the cashier PIN identity.
+  const authorization = await getPosAuthorizationContext();
+  if (!authorization || !authorization.permissions.includes(PermissionEnum.SHIFT_OPEN))
+    throw new Error('Unlock this terminal with your POS PIN before opening a shift');
+  const { userId, organizationId: orgId, terminalId } = authorization;
   if (!terminalId)
     throw new Error(
       'Register this device to a POS terminal before opening a shift'
@@ -1357,13 +1370,21 @@ export async function openPosSession(input: z.input<typeof openPosSessionSchema>
         // A retry of the same cashier's successful click is safe and should
         // restore the UI rather than produce a misleading duplicate error.
         if (existing.status === 'open' && existing.openedBy === userId)
-          return { sessionId: existing.id, duplicate: true };
-        throw new Error(existing.status === 'closing'
-          ? 'Previous shift must be reconciled before opening a new register'
-          : 'This register already has an active shift');
+          return { sessionId: existing.id, duplicate: true, status: 'opened' as const };
+        return {
+          sessionId: existing.id,
+          duplicate: false,
+          status: existing.status === 'closing'
+            ? 'terminal_reconciling' as const
+            : 'terminal_active' as const,
+        };
       }
       const [cashierShift] = await tx
-        .select({ id: posSession.id, terminalId: posSession.terminalId })
+        .select({
+          id: posSession.id,
+          terminalId: posSession.terminalId,
+          sessionNo: posSession.sessionNo,
+        })
         .from(posSession)
         .where(and(
           eq(posSession.orgId, orgId),
@@ -1371,8 +1392,16 @@ export async function openPosSession(input: z.input<typeof openPosSessionSchema>
           eq(posSession.status, 'open')
         ))
         .limit(1);
+      // This is an expected operational state, not a server fault. Existing
+      // shifts must be reconciled on their original register so their cash and
+      // terminal audit trail remain intact. Return a typed result for the POS
+      // UI instead of throwing a Server Action 500.
       if (cashierShift)
-        throw new Error('End your current shift before opening another register');
+        return {
+          sessionId: cashierShift.id,
+          duplicate: false,
+          status: 'cashier_shift_open' as const,
+        };
       const sessionId = generateId();
       await tx.insert(posSession).values({
         id: sessionId,
@@ -1391,7 +1420,7 @@ export async function openPosSession(input: z.input<typeof openPosSessionSchema>
         action: 'shift.opened',
         metadata: { sessionId, branchId, terminalId, openingCash: amount.toFixed(2), openingNote: data.openingNote || null, idempotencyKey: data.idempotencyKey },
       });
-      return { sessionId, duplicate: false };
+      return { sessionId, duplicate: false, status: 'opened' as const };
     });
     refresh();
     return result;
@@ -1567,12 +1596,30 @@ async function findClosableSession(
   return current;
 }
 
-export async function beginPosSessionClose(sessionId?: string) {
+const managerRecoverySchema = z.object({
+  sessionId: z.string().min(1),
+  reason: z.enum([
+    'cashier_unavailable',
+    'terminal_failure',
+    'shift_left_open',
+    'emergency_closure',
+    'other',
+  ]),
+  note: z.string().trim().max(500).optional(),
+}).superRefine((value, context) => {
+  if (value.reason === 'other' && !value.note)
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ['note'], message: 'Enter a recovery note when selecting Other' });
+});
+
+type CloseRequest = string | z.input<typeof managerRecoverySchema> | undefined;
+
+export async function beginPosSessionClose(input?: CloseRequest) {
   const authorization = await posOperator(PermissionEnum.SHIFT_CLOSE);
   const { userId, orgId } = authorization;
-  const selectedSessionId = sessionId
-    ? z.string().min(1).parse(sessionId)
-    : undefined;
+  const recovery = typeof input === 'object' && input !== null
+    ? managerRecoverySchema.parse(input)
+    : null;
+  const selectedSessionId = recovery?.sessionId ?? (input ? z.string().min(1).parse(input) : undefined);
   const canManage = authorization.permissions.includes(
     PermissionEnum.SHIFT_MANAGE
   );
@@ -1586,6 +1633,11 @@ export async function beginPosSessionClose(sessionId?: string) {
     selectedSessionId
   );
   if (!current) throw new Error('No open register');
+  const isManagerRecovery = current.openedBy !== userId;
+  if (isManagerRecovery && !canManage)
+    throw new Error('Only a manager can recover another cashier\'s shift');
+  if (isManagerRecovery && !recovery)
+    throw new Error('Choose a manager recovery reason before reconciling another cashier\'s shift');
   const started = await db.transaction(async (tx) => {
     const [locked] = await tx
       .select({ id: posSession.id })
@@ -1638,7 +1690,13 @@ export async function beginPosSessionClose(sessionId?: string) {
       );
     const [updated] = await tx
       .update(posSession)
-      .set({ status: 'closing', reconciliationStartedAt: new Date() })
+      .set({
+        status: 'closing',
+        reconciliationStartedAt: new Date(),
+        reconciliationStartedBy: userId,
+        recoveryReason: isManagerRecovery ? recovery!.reason : null,
+        recoveryNote: isManagerRecovery ? recovery!.note || null : null,
+      })
       .where(and(eq(posSession.id, current.id), eq(posSession.status, 'open')))
       .returning({ id: posSession.id });
     return updated ?? null;
@@ -1648,11 +1706,17 @@ export async function beginPosSessionClose(sessionId?: string) {
     id: generateId(),
     organizationId: orgId,
     userId,
-    action: 'shift.reconciliation_started',
-    metadata: { sessionId: current.id },
+    action: isManagerRecovery ? 'shift.manager_recovery_started' : 'shift.reconciliation_started',
+    metadata: {
+      sessionId: current.id,
+      originalCashierId: current.openedBy,
+      managerRecovery: isManagerRecovery,
+      recoveryReason: isManagerRecovery ? recovery!.reason : null,
+      recoveryNote: isManagerRecovery ? recovery!.note || null : null,
+    },
   });
   refresh();
-  return { sessionId: current.id };
+  return { sessionId: current.id, managerRecovery: isManagerRecovery };
 }
 
 export async function cancelPosSessionClose(sessionId?: string) {
@@ -1698,6 +1762,52 @@ export async function cancelPosSessionClose(sessionId?: string) {
     });
   });
   refresh();
+}
+
+/** Documents a manager takeover of an already-started reconciliation. */
+export async function takeOverPosSessionReconciliation(
+  input: z.input<typeof managerRecoverySchema>
+) {
+  const recovery = managerRecoverySchema.parse(input);
+  const authorization = await posOperator(PermissionEnum.SHIFT_CLOSE);
+  const { userId, orgId } = authorization;
+  if (!authorization.permissions.includes(PermissionEnum.SHIFT_MANAGE))
+    throw new Error('Only a manager can recover another cashier\'s shift');
+  const current = await findClosableSession(
+    orgId,
+    userId,
+    true,
+    authorization.branchIds,
+    authorization.isOrganizationWide,
+    authorization.terminalId,
+    recovery.sessionId,
+    'closing'
+  );
+  if (!current) throw new Error('This reconciliation is no longer active');
+  const [updated] = await db
+    .update(posSession)
+    .set({
+      reconciliationStartedBy: userId,
+      recoveryReason: recovery.reason,
+      recoveryNote: recovery.note || null,
+    })
+    .where(and(eq(posSession.id, current.id), eq(posSession.status, 'closing')))
+    .returning({ id: posSession.id });
+  if (!updated) throw new Error('This reconciliation has changed state');
+  await db.insert(auditEvent).values({
+    id: generateId(),
+    organizationId: orgId,
+    userId,
+    action: 'shift.manager_recovery_taken_over',
+    metadata: {
+      sessionId: current.id,
+      originalCashierId: current.openedBy,
+      recoveryReason: recovery.reason,
+      recoveryNote: recovery.note || null,
+    },
+  });
+  refresh();
+  return { sessionId: current.id, countedCash: current.countedCash };
 }
 
 export async function submitPosSessionCount(input: {
@@ -1749,10 +1859,14 @@ export async function submitPosSessionCount(input: {
     id: generateId(),
     organizationId: orgId,
     userId,
-    action: 'shift.cash_count_submitted',
-    metadata: {
-      sessionId: current.id,
-      countedCash: counted.toFixed(2),
+      action: 'shift.cash_count_submitted',
+      metadata: {
+        sessionId: current.id,
+        originalCashierId: current.openedBy,
+        reconciledBy: userId,
+        managerRecovery: current.openedBy !== userId,
+        recoveryReason: current.recoveryReason,
+        countedCash: counted.toFixed(2),
       variance: calculation.variance.toFixed(2),
     },
   });
@@ -1889,15 +2003,40 @@ export async function completePosSessionClose(input: {
     id: generateId(),
     organizationId: orgId,
     userId,
-    action: 'shift.reconciled',
+    action: current.openedBy === userId ? 'shift.reconciled' : 'shift.manager_recovery_closed',
     metadata: {
       sessionId: current.id,
+      originalCashierId: current.openedBy,
+      reconciledBy: userId,
+      managerRecovery: current.openedBy !== userId,
+      recoveryReason: current.recoveryReason,
+      recoveryNote: current.recoveryNote,
       expectedCash: calculation.expected.toFixed(2),
       countedCash: current.countedCash,
       variance: calculation.variance.toFixed(2),
       summary,
     },
   });
+  // Only end the POS PIN session that owns this finally closed shift. Normal
+  // dashboard authentication uses a separate cookie and remains untouched.
+  const endedSessions = await db.update(posAuthSession).set({ status: 'closed' })
+    .where(and(
+      eq(posAuthSession.userId, current.openedBy),
+      eq(posAuthSession.organizationId, orgId),
+      eq(posAuthSession.terminalId, current.terminalId!),
+      eq(posAuthSession.status, 'active')
+    )).returning({ id: posAuthSession.id });
+  let posSessionEnded = false;
+  const jar = await cookies();
+  const posToken = jar.get(POS_AUTH_COOKIE)?.value;
+  if (
+    posToken && authorization.terminalId && current.openedBy === userId &&
+    current.terminalId === authorization.terminalId
+  ) {
+    posSessionEnded = endedSessions.length > 0;
+    jar.delete(POS_AUTH_COOKIE);
+    jar.delete(POS_LOCKED_SESSION_COOKIE);
+  }
   // The cashier has a client-side POS refresh immediately after the response.
   // Revalidating reports/history should never keep the close confirmation open.
   after(refresh);
@@ -1906,6 +2045,7 @@ export async function completePosSessionClose(input: {
     countedCash: Number(current.countedCash),
     variance: calculation.variance.toNumber(),
     summary,
+    posSessionEnded,
   };
 }
 

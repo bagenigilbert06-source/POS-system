@@ -75,6 +75,7 @@ export default async function POSPage() {
             <PosSecurity
               branchId={data.activeBranch.id}
               initialPinSet={data.pinSet}
+              terminalRegistered={Boolean(terminal ?? posAuthorization?.terminalId)}
             />
           </div>
         }
@@ -107,7 +108,7 @@ export default async function POSPage() {
           PermissionEnum.AGE_VERIFICATION_OVERRIDE
         )}
         receiptContext={{
-          cashierName: currentSession?.user?.name || undefined,
+          cashierName: data.cashierWorkspace.cashierName || currentSession?.user?.name || undefined,
           registerName: data.cashierWorkspace.registerName,
           locationName: data.cashierWorkspace.locationName,
         }}

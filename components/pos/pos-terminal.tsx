@@ -4669,7 +4669,7 @@ export function POSTerminal({
             </p>
           </div>
           <div className="relative w-full max-w-2xl">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#98a2b3]" />
+            <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#98a2b3] dark:text-[#8a8a95]" />
             <input
               ref={searchInputRef}
               type="text"
@@ -4688,7 +4688,7 @@ export function POSTerminal({
                   handleBarcodeScan(barcode);
                 }
               }}
-              className={cn(inputCls, 'h-10 rounded-lg pl-9 pr-3')}
+              className="h-11 w-full appearance-none rounded-lg border-0 bg-[#f7f7f8] pl-10 pr-4 text-sm text-slate-950 !shadow-none outline-none transition-colors placeholder:text-zinc-400 hover:bg-[#f2f2f3] focus:border-0 focus:bg-white focus:outline-none focus:ring-0 dark:bg-[#18181b] dark:text-white dark:shadow-[inset_0_0_0_1px_rgba(255,255,255,0.05)] dark:placeholder:text-zinc-500 dark:hover:bg-[#1c1c20] dark:focus:bg-[#1e1e22]"
               autoFocus
             />
           </div>

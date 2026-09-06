@@ -484,6 +484,13 @@
       "when": 1788897600000,
       "tag": "0064_database_performance_indexes",
       "breakpoints": true
+    },
+    {
+      "idx": 69,
+      "version": "7",
+      "when": 1788984000000,
+      "tag": "0065_pos_session_manager_recovery",
+      "breakpoints": true
     }
   ]
 }
