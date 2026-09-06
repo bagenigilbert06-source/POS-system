@@ -340,6 +340,10 @@ function ProductMockup() {
 }
 
 export default async function RootPage() {
+  if (process.env.PESABY_PUBLIC_WEBSITE_ENABLED === 'false') {
+    redirect('/sign-in');
+  }
+
   const session = await auth.api.getSession({ headers: await headers() });
   if (session?.user) redirect('/dashboard');
 
