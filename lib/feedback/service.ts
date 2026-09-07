@@ -3,12 +3,9 @@ import { randomBytes } from 'crypto'
 import { db } from '@/lib/db'
 import { branch, businessSettings, customerFeedback, feedbackInvitation, organization, sale } from '@/lib/db/schema'
 import { generateId } from '@/lib/utils'
+import { FEEDBACK_TAGS, feedbackCategory } from './rules'
 
-export const FEEDBACK_TAGS = ['Friendly service', 'Fast checkout', 'Product availability', 'Staff helpfulness', 'Store cleanliness', 'Pricing', 'Waiting time', 'Other'] as const
-
-export function feedbackCategory(score: number) {
-  return score >= 9 ? 'PROMOTER' : score >= 7 ? 'PASSIVE' : 'DETRACTOR'
-}
+export { FEEDBACK_TAGS, feedbackCategory } from './rules'
 
 /** Creates at most one invitation for a completed sale; no browser-provided tenant data. */
 export async function createFeedbackInvitationForSale(saleId: string) {

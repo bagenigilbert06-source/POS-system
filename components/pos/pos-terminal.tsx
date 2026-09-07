@@ -2564,6 +2564,10 @@ export function POSTerminal({
         'mpesaDetails' in completed ? completed.mpesaDetails : undefined;
       const completedCafeOrder =
         'cafeOrder' in completed ? completed.cafeOrder : null;
+      // A receipt must use the sale's single existing invitation. Creating it
+      // before the completed-sale surface also makes auto/direct prints include
+      // the same QR that later downloads and reprints use.
+      const feedbackInvitation = await createSaleFeedbackInvitation(saleId);
       setReceipt({
         saleId,
         receiptNo,
@@ -2655,6 +2659,7 @@ export function POSTerminal({
               }
             : {}),
         },
+        feedbackToken: feedbackInvitation?.token,
       });
       if (paymentMethod === 'mpesa') {
         window.localStorage.removeItem(mpesaStorageKey);

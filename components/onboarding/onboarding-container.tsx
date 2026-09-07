@@ -598,6 +598,7 @@ export function OnboardingContainer({
         productId: 'ITEM-001',
         productName: 'Sample product',
         quantity: 2,
+        unitPrice: '900.00',
         totalPrice: '1800.00',
       },
       {
@@ -605,6 +606,7 @@ export function OnboardingContainer({
         productId: 'ITEM-002',
         productName: 'Another item',
         quantity: 1,
+        unitPrice: '700.00',
         totalPrice: '700.00',
       },
     ],

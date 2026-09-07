@@ -37,7 +37,7 @@ interface ReceiptTemplateProps {
   customerName?: string
   taxName?: string
   taxIncluded?: boolean
-  branchName?: string
+  branchName?: string | null
   showPhone?: boolean
   showAddress?: boolean
   showCashier?: boolean

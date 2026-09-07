@@ -59,6 +59,7 @@ export function EditableSettings({ businessSettings, organization, buttonOnly = 
     receiptPrintCustomerCopy: businessSettings?.receiptPrintCustomerCopy ?? true,
     receiptPrintCopies: businessSettings?.receiptPrintCopies ?? 1,
     receiptCashDrawerPulse: businessSettings?.receiptCashDrawerPulse ?? false,
+    feedbackQrEnabled: businessSettings?.feedbackQrEnabled ?? false,
     defaultPaymentMethod: businessSettings?.defaultPaymentMethod || 'cash',
     paymentMethods: (Array.isArray(businessSettings?.paymentMethods) && businessSettings.paymentMethods.length ? businessSettings.paymentMethods : ['cash']) as string[],
     taxEnabled: businessSettings?.taxEnabled ?? false,
@@ -83,8 +84,8 @@ export function EditableSettings({ businessSettings, organization, buttonOnly = 
     paymentMethod: formData.defaultPaymentMethod,
     mpesaRef: formData.defaultPaymentMethod === 'mpesa' ? 'QWE123ABC' : null,
     items: [
-      { id: 'preview-1', productId: 'ITEM-001', productName: 'Sample product', quantity: 2, totalPrice: '1800.00' },
-      { id: 'preview-2', productId: 'ITEM-002', productName: 'Another item', quantity: 1, totalPrice: '700.00' },
+      { id: 'preview-1', productId: 'ITEM-001', productName: 'Sample product', quantity: 2, unitPrice: '900.00', totalPrice: '1800.00' },
+      { id: 'preview-2', productId: 'ITEM-002', productName: 'Another item', quantity: 1, unitPrice: '700.00', totalPrice: '700.00' },
     ],
   }
 
@@ -128,6 +129,7 @@ export function EditableSettings({ businessSettings, organization, buttonOnly = 
           receiptAutoPrint: formData.receiptAutoPrint,
           receiptPrintCustomerCopy: formData.receiptPrintCustomerCopy,
           receiptPrintCopies: formData.receiptPrintCopies,
+          feedbackQrEnabled: formData.feedbackQrEnabled,
           receiptCashDrawerPulse: formData.receiptCashDrawerPulse,
         }),
         updateOrganizationSettings({
@@ -386,6 +388,7 @@ export function EditableSettings({ businessSettings, organization, buttonOnly = 
               <div className="mb-3"><h5 className="text-sm font-semibold">Receipt appearance</h5><p className="mt-1 text-xs text-muted-foreground">Choose the details customers see on each receipt.</p></div>
               <div className="grid gap-2 sm:grid-cols-2">
                 {([
+                  ['feedbackQrEnabled', 'Customer feedback QR', 'Print a QR on eligible receipts so customers can rate their experience.'],
                   ['receiptShowPhone', 'Business phone', 'Show the business contact number.'],
                   ['receiptShowAddress', 'Business address', 'Show the business location.'],
                   ['receiptShowCashier', 'Cashier name', 'Show who completed the sale.'],

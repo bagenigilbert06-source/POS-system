@@ -1210,6 +1210,7 @@ export const customerFeedback = pgTable(
   (table) => ({
     invitationUnique: uniqueIndex('customer_feedback_invitation_unique').on(table.invitationId),
     organizationBranchIndex: index('customer_feedback_org_branch_idx').on(table.organizationId, table.branchId),
+    organizationSubmittedIndex: index('customer_feedback_org_submitted_idx').on(table.organizationId, table.submittedAt),
   })
 );
 

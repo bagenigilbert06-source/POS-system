@@ -24,7 +24,7 @@ type ReprintSale = Awaited<ReturnType<typeof getSalesByReceiptNo>>[number];
 
 interface ReceiptReprintProps {
   onClose: () => void;
-  branchName?: string;
+  branchName?: string | null;
   settings: {
     receiptBusinessName: string;
     pricesIncludeTax?: boolean;

@@ -31,3 +31,4 @@ CREATE TABLE IF NOT EXISTS "customer_feedback" (
 );
 CREATE UNIQUE INDEX IF NOT EXISTS "customer_feedback_invitation_unique" ON "customer_feedback" ("invitationId");
 CREATE INDEX IF NOT EXISTS "customer_feedback_org_branch_idx" ON "customer_feedback" ("organizationId", "branchId");
+CREATE INDEX IF NOT EXISTS "customer_feedback_org_submitted_idx" ON "customer_feedback" ("organizationId", "submittedAt");

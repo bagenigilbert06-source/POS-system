@@ -298,9 +298,8 @@ export async function initiateMpesaPayment(
       )
     )
     .limit(1);
-  if (!activeShift)
+  if (!activeShift?.branchId)
     throw new Error('Start your shift before requesting payment');
-  const workspace = await WorkspaceService.getWorkspaceConfig(orgId, userId);
   const restrictedBasket = await basketRequiresAgeVerification(orgId, data.items.map((item) => item.productId))
   if (restrictedBasket) {
     if (!data.ageVerificationId)
@@ -575,8 +574,7 @@ export async function initiateMpesaPaybillPayment(
     .limit(1);
   if (!activeShift)
     throw new Error('Start your shift before requesting payment');
-  const workspace = await WorkspaceService.getWorkspaceConfig(orgId, userId);
-  if (await basketRequiresAgeVerification(orgId, data.items.map((item) => item.productId), workspace?.businessCategory === 'liquor_shop') && !data.ageVerified)
+  if (await basketRequiresAgeVerification(orgId, data.items.map((item) => item.productId)) && !data.ageVerified)
     throw new Error('Verify the customer age before requesting M-Pesa payment');
   if (data.ageVerificationStatus === 'OVERRIDDEN' && (!authorization.permissions.includes(PermissionEnum.AGE_VERIFICATION_OVERRIDE) || !data.ageOverrideReason)) throw new Error('An authorized supervisor and reason are required for an age override')
   if (

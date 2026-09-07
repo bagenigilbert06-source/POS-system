@@ -59,6 +59,7 @@ export async function updateBusinessSettings(data: {
   receiptPrintCustomerCopy?: boolean
   receiptPrintCopies?: number
   receiptCashDrawerPulse?: boolean
+  feedbackQrEnabled?: boolean
 }) {
   await requirePermission(PermissionEnum.SETTINGS_EDIT)
   const userId = await getUserId()
@@ -112,6 +113,7 @@ export async function updateBusinessSettings(data: {
         ...(data.receiptPrintCustomerCopy !== undefined && { receiptPrintCustomerCopy: data.receiptPrintCustomerCopy }),
         ...(data.receiptPrintCopies !== undefined && { receiptPrintCopies: data.receiptPrintCopies }),
         ...(data.receiptCashDrawerPulse !== undefined && { receiptCashDrawerPulse: data.receiptCashDrawerPulse }),
+        ...(data.feedbackQrEnabled !== undefined && { feedbackQrEnabled: data.feedbackQrEnabled }),
         updatedAt: new Date(),
       })
       .where(eq(businessSettings.organizationId, orgId))

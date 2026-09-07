@@ -505,6 +505,13 @@
       "when": 1788991200000,
       "tag": "0067_kra_oscu_readiness_state",
       "breakpoints": true
+    },
+    {
+      "idx": 72,
+      "version": "7",
+      "when": 1788994800000,
+      "tag": "0068_customer_feedback",
+      "breakpoints": true
     }
   ]
 }
