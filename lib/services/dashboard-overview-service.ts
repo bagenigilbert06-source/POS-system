@@ -375,47 +375,83 @@ async function loadDashboardOverview(organizationId: string, timeZone = 'Africa/
       .where(and(completedSale, gte(sale.createdAt, today), lt(sale.createdAt, tomorrow))),
   ])
 
-  const recentSaleItems = recentRows.length ? await db
-    .select({
-      saleId: saleItem.saleId,
-      productName: saleItem.productName,
-      imageUrl: product.imageUrl,
-      categoryName: category.name,
-    })
-    .from(saleItem)
-    .leftJoin(product, and(eq(product.id, saleItem.productId), eq(product.orgId, organizationId)))
-    .leftJoin(category, and(eq(category.id, product.categoryId), eq(category.orgId, organizationId)))
-    .where(and(eq(saleItem.orgId, organizationId), inArray(saleItem.saleId, recentRows.map((row) => row.id))))
-    .orderBy(asc(saleItem.id)) : []
+  const recentSaleItemsQuery = recentRows.length
+    ? db
+        .select({
+          saleId: saleItem.saleId,
+          productName: saleItem.productName,
+          imageUrl: product.imageUrl,
+          categoryName: category.name,
+        })
+        .from(saleItem)
+        .leftJoin(product, and(eq(product.id, saleItem.productId), eq(product.orgId, organizationId)))
+        .leftJoin(category, and(eq(category.id, product.categoryId), eq(category.orgId, organizationId)))
+        .where(and(eq(saleItem.orgId, organizationId), inArray(saleItem.saleId, recentRows.map((row) => row.id))))
+        .orderBy(asc(saleItem.id))
+    : Promise.resolve([])
+  const yearStart = zonedMidnight(currentDate.year, 1, 1, safeTimeZone)
+  const expiryLimit = new Date(now.getTime() + 90 * 86_400_000)
+  const lotBranchScope = branchIds === undefined ? undefined : branchIds.length ? inArray(inventoryLot.branchId, [...branchIds]) : sql`false`
+  const branchInventoryQuery = branchIds === undefined || branchIds.length === 0
+    ? Promise.resolve([])
+    : db
+        .select({
+          id: product.id,
+          name: product.name,
+          sku: product.sku,
+          imageUrl: product.imageUrl,
+          stock: sql<string>`coalesce(sum(${inventoryBalance.onHand} - ${inventoryBalance.reserved} - ${inventoryBalance.unavailable}), 0)`,
+          minStock: sql<string>`coalesce(sum(coalesce(${inventoryBalance.reorderPoint}, ${product.minStock})), 0)`,
+          buyingPrice: product.buyingPrice,
+        })
+        .from(inventoryBalance)
+        .innerJoin(product, and(eq(product.id, inventoryBalance.productId), eq(product.orgId, organizationId), eq(product.isActive, true)))
+        .where(and(eq(inventoryBalance.orgId, organizationId), inArray(inventoryBalance.branchId, [...branchIds])))
+        .groupBy(product.id, product.name, product.sku, product.imageUrl, product.buyingPrice)
+
+  const [
+    recentSaleItems,
+    [monthlyRevenueRows, monthlyExpenseRows],
+    [recentExpenseRows, recentInvoiceRows, topCustomerRows, topCategoryRows, topCategoryRowsLast7Days, categoryCountRows],
+    pharmacyInventoryRows,
+    branchInventoryRows,
+  ] = await Promise.all([
+    recentSaleItemsQuery,
+    Promise.all([
+      db.select({ month: sql<number>`extract(month from ${saleLocalTimestamp})::int`, amount: sql<string>`coalesce(sum(${sale.total}), 0)` })
+        .from(sale)
+        .where(and(completedSale, gte(sale.createdAt, yearStart), lt(sale.createdAt, tomorrow)))
+        .groupBy(sql.raw('1')),
+      db.select({ month: sql<number>`extract(month from ((${expense.createdAt} at time zone 'UTC') at time zone ${safeTimeZone}::text))::int`, amount: sql<string>`coalesce(sum(${expense.amount}), 0)` })
+        .from(expense)
+        .where(and(eq(expense.orgId, organizationId), expenseBranchScope, gte(expense.createdAt, yearStart), lt(expense.createdAt, tomorrow)))
+        .groupBy(sql.raw('1')),
+    ]),
+    Promise.all([
+      db.select({ id: expense.id, name: expense.title, reference: expense.reference, date: expense.expenseDate, status: expense.paymentMethod, amount: expense.amount })
+        .from(expense).where(and(eq(expense.orgId, organizationId), expenseBranchScope)).orderBy(desc(expense.expenseDate)).limit(5),
+      db.select({ id: invoice.id, name: customer.name, reference: invoice.invoiceNo, date: invoice.dueDate, createdAt: invoice.createdAt, status: invoice.status, amount: invoice.total })
+        .from(invoice).leftJoin(customer, and(eq(customer.id, invoice.customerId), eq(customer.orgId, organizationId))).where(eq(invoice.orgId, organizationId)).orderBy(desc(invoice.createdAt)).limit(5),
+      db.select({ id: customer.id, name: customer.name, location: customer.address, orders: sql<number>`count(${sale.id})`, total: sql<string>`coalesce(sum(${sale.total}), 0)` })
+        .from(sale).innerJoin(customer, and(eq(customer.id, sale.customerId), eq(customer.orgId, organizationId))).where(paidSale).groupBy(customer.id, customer.name, customer.address).orderBy(desc(sql`sum(${sale.total})`)).limit(5),
+      db.select({ id: category.id, name: category.name, sales: sql<number>`coalesce(sum(${saleItem.quantity}), 0)` })
+        .from(saleItem).innerJoin(sale, and(eq(sale.id, saleItem.saleId), paidSale)).innerJoin(product, and(eq(product.id, saleItem.productId), eq(product.orgId, organizationId))).innerJoin(category, and(eq(category.id, product.categoryId), eq(category.orgId, organizationId))).where(and(eq(saleItem.orgId, organizationId), gte(sale.createdAt, seriesStart))).groupBy(category.id, category.name).orderBy(desc(sql`sum(${saleItem.quantity})`)).limit(3),
+      db.select({ id: category.id, name: category.name, sales: sql<number>`coalesce(sum(${saleItem.quantity}), 0)` })
+        .from(saleItem).innerJoin(sale, and(eq(sale.id, saleItem.saleId), paidSale)).innerJoin(product, and(eq(product.id, saleItem.productId), eq(product.orgId, organizationId))).innerJoin(category, and(eq(category.id, product.categoryId), eq(category.orgId, organizationId))).where(and(eq(saleItem.orgId, organizationId), gte(sale.createdAt, last7DaysStart))).groupBy(category.id, category.name).orderBy(desc(sql`sum(${saleItem.quantity})`)).limit(3),
+      db.select({ count: sql<number>`count(*)` }).from(category).where(and(eq(category.orgId, organizationId), eq(category.isActive, true))),
+    ]),
+    db.select({
+      expiringSoon: sql<number>`count(*) filter (where ${inventoryLot.expiresAt} >= ${now} and ${inventoryLot.expiresAt} <= ${expiryLimit} and ${inventoryLot.quantity} > 0)`,
+      expired: sql<number>`count(*) filter (where ${inventoryLot.expiresAt} < ${now} and ${inventoryLot.quantity} > 0)`,
+      valueAtRisk: sql<string>`coalesce(sum(case when ${inventoryLot.expiresAt} <= ${expiryLimit} and ${inventoryLot.quantity} > 0 then ${inventoryLot.quantity} * ${inventoryLot.unitCost} else 0 end), 0)`,
+    }).from(inventoryLot).where(and(eq(inventoryLot.orgId, organizationId), lotBranchScope)),
+    branchInventoryQuery,
+  ])
   const recentProductBySale = new Map<string, (typeof recentSaleItems)[number]>()
   for (const item of recentSaleItems) if (!recentProductBySale.has(item.saleId)) recentProductBySale.set(item.saleId, item)
 
-  const yearStart = zonedMidnight(currentDate.year, 1, 1, safeTimeZone)
-  const [monthlyRevenueRows, monthlyExpenseRows] = await Promise.all([
-    db.select({ month: sql<number>`extract(month from ${saleLocalTimestamp})::int`, amount: sql<string>`coalesce(sum(${sale.total}), 0)` })
-      .from(sale)
-      .where(and(completedSale, gte(sale.createdAt, yearStart), lt(sale.createdAt, tomorrow)))
-      .groupBy(sql.raw('1')),
-    db.select({ month: sql<number>`extract(month from ((${expense.createdAt} at time zone 'UTC') at time zone ${safeTimeZone}::text))::int`, amount: sql<string>`coalesce(sum(${expense.amount}), 0)` })
-      .from(expense)
-      .where(and(eq(expense.orgId, organizationId), expenseBranchScope, gte(expense.createdAt, yearStart), lt(expense.createdAt, tomorrow)))
-      .groupBy(sql.raw('1')),
-  ])
   const revenueByMonth = new Map(monthlyRevenueRows.map((row) => [number(row.month), number(row.amount)]))
   const expenseByMonth = new Map(monthlyExpenseRows.map((row) => [number(row.month), number(row.amount)]))
-  const [recentExpenseRows, recentInvoiceRows, topCustomerRows, topCategoryRows, topCategoryRowsLast7Days, categoryCountRows] = await Promise.all([
-    db.select({ id: expense.id, name: expense.title, reference: expense.reference, date: expense.expenseDate, status: expense.paymentMethod, amount: expense.amount })
-      .from(expense).where(and(eq(expense.orgId, organizationId), expenseBranchScope)).orderBy(desc(expense.expenseDate)).limit(5),
-    db.select({ id: invoice.id, name: customer.name, reference: invoice.invoiceNo, date: invoice.dueDate, createdAt: invoice.createdAt, status: invoice.status, amount: invoice.total })
-      .from(invoice).leftJoin(customer, and(eq(customer.id, invoice.customerId), eq(customer.orgId, organizationId))).where(eq(invoice.orgId, organizationId)).orderBy(desc(invoice.createdAt)).limit(5),
-    db.select({ id: customer.id, name: customer.name, location: customer.address, orders: sql<number>`count(${sale.id})`, total: sql<string>`coalesce(sum(${sale.total}), 0)` })
-      .from(sale).innerJoin(customer, and(eq(customer.id, sale.customerId), eq(customer.orgId, organizationId))).where(paidSale).groupBy(customer.id, customer.name, customer.address).orderBy(desc(sql`sum(${sale.total})`)).limit(5),
-    db.select({ id: category.id, name: category.name, sales: sql<number>`coalesce(sum(${saleItem.quantity}), 0)` })
-      .from(saleItem).innerJoin(sale, and(eq(sale.id, saleItem.saleId), paidSale)).innerJoin(product, and(eq(product.id, saleItem.productId), eq(product.orgId, organizationId))).innerJoin(category, and(eq(category.id, product.categoryId), eq(category.orgId, organizationId))).where(and(eq(saleItem.orgId, organizationId), gte(sale.createdAt, seriesStart))).groupBy(category.id, category.name).orderBy(desc(sql`sum(${saleItem.quantity})`)).limit(3),
-    db.select({ id: category.id, name: category.name, sales: sql<number>`coalesce(sum(${saleItem.quantity}), 0)` })
-      .from(saleItem).innerJoin(sale, and(eq(sale.id, saleItem.saleId), paidSale)).innerJoin(product, and(eq(product.id, saleItem.productId), eq(product.orgId, organizationId))).innerJoin(category, and(eq(category.id, product.categoryId), eq(category.orgId, organizationId))).where(and(eq(saleItem.orgId, organizationId), gte(sale.createdAt, last7DaysStart))).groupBy(category.id, category.name).orderBy(desc(sql`sum(${saleItem.quantity})`)).limit(3),
-    db.select({ count: sql<number>`count(*)` }).from(category).where(and(eq(category.orgId, organizationId), eq(category.isActive, true))),
-  ])
 
   const todayRevenue = number(todaySalesRows[0]?.revenue)
   const todayExpenses = number(todayExpenseRows[0]?.amount)
@@ -424,27 +460,6 @@ async function loadDashboardOverview(organizationId: string, timeZone = 'Africa/
   const allTimeRevenue = number(allTimeSalesRows[0]?.revenue)
   const allTimeExpenses = number(allTimeExpenseRows[0]?.amount)
   const [products, customers, branches, staff, lowStock, outOfStock, inventoryCost] = recordRows
-  const expiryLimit = new Date(now.getTime() + 90 * 86_400_000)
-  const lotBranchScope = branchIds === undefined ? undefined : branchIds.length ? inArray(inventoryLot.branchId, [...branchIds]) : sql`false`
-  const [pharmacyInventoryRows] = await db.select({
-    expiringSoon: sql<number>`count(*) filter (where ${inventoryLot.expiresAt} >= ${now} and ${inventoryLot.expiresAt} <= ${expiryLimit} and ${inventoryLot.quantity} > 0)`,
-    expired: sql<number>`count(*) filter (where ${inventoryLot.expiresAt} < ${now} and ${inventoryLot.quantity} > 0)`,
-    valueAtRisk: sql<string>`coalesce(sum(case when ${inventoryLot.expiresAt} <= ${expiryLimit} and ${inventoryLot.quantity} > 0 then ${inventoryLot.quantity} * ${inventoryLot.unitCost} else 0 end), 0)`,
-  }).from(inventoryLot).where(and(eq(inventoryLot.orgId, organizationId), lotBranchScope))
-  const branchInventoryRows = branchIds === undefined || branchIds.length === 0 ? [] : await db
-    .select({
-      id: product.id,
-      name: product.name,
-      sku: product.sku,
-      imageUrl: product.imageUrl,
-      stock: sql<string>`coalesce(sum(${inventoryBalance.onHand} - ${inventoryBalance.reserved} - ${inventoryBalance.unavailable}), 0)`,
-      minStock: sql<string>`coalesce(sum(coalesce(${inventoryBalance.reorderPoint}, ${product.minStock})), 0)`,
-      buyingPrice: product.buyingPrice,
-    })
-    .from(inventoryBalance)
-    .innerJoin(product, and(eq(product.id, inventoryBalance.productId), eq(product.orgId, organizationId), eq(product.isActive, true)))
-    .where(and(eq(inventoryBalance.orgId, organizationId), inArray(inventoryBalance.branchId, [...branchIds])))
-    .groupBy(product.id, product.name, product.sku, product.imageUrl, product.buyingPrice)
   const scopedInventory = branchIds === undefined ? null : branchInventoryRows.map((row) => ({
     id: row.id, name: row.name, sku: row.sku, imageUrl: row.imageUrl, stock: number(row.stock), minStock: number(row.minStock), buyingPrice: number(row.buyingPrice),
   }))
