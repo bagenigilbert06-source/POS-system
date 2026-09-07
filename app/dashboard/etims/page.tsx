@@ -260,6 +260,7 @@ export default async function EtimsPage({
           branchName={branches.find((item) => item.id === branchId)?.name}
           branchId={branchId}
           canConfigure={canConfigure}
+          readiness={branchReadiness}
         />
       )}
       {tab === 'onboarding' && (
