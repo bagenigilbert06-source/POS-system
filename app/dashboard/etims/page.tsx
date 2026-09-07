@@ -251,7 +251,6 @@ export default async function EtimsPage({
           branchId={branchId}
           canConfigure={canConfigure}
           readiness={branchReadiness}
-          readiness={branchReadiness}
         />
       )}
       {tab === 'overview' && config && (
