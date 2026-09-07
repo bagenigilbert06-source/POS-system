@@ -43,7 +43,7 @@ export type KraOscuBranchReadiness = {
   nextAction: {
     title: string;
     description: string;
-    tab: 'settings' | 'mapping' | 'invoices';
+    tab: 'settings' | 'onboarding' | 'mapping' | 'invoices';
   };
 };
 

@@ -266,7 +266,7 @@ export default async function EtimsPage({
       {tab === 'onboarding' && (
         <OnboardingWorkspace
           config={config}
-          readiness={dashboard.readiness}
+          readiness={branchReadiness}
           branchId={branchId}
           canConfigure={canConfigure}
         />
@@ -335,7 +335,13 @@ function UnconfiguredOverview({
   canConfigure: boolean;
   readiness: KraOscuBranchReadiness | null;
 }) {
-  const missing = Math.max(0, readiness.total - readiness.ready);
+  const productReadiness = readiness?.products ?? {
+    total: 0,
+    ready: 0,
+    incomplete: 0,
+    registrationErrors: 0,
+  };
+  const missing = productReadiness.incomplete;
   return (
     <div className="space-y-4">
       <section className="app-panel flex flex-wrap items-center justify-between gap-4 border-amber-500/30 bg-amber-500/[0.06] p-5">
@@ -377,7 +383,7 @@ function UnconfiguredOverview({
               </Link>
             )}
           </section>
-          <ProductReadiness readiness={readiness} compact />
+          <ProductReadiness readiness={productReadiness} compact />
         </div>
       </div>
       {missing > 0 && (
@@ -420,7 +426,7 @@ function OnboardingWorkspace({
   canConfigure,
 }: {
   config?: Configuration;
-  readiness: Dashboard['readiness'];
+  readiness: KraOscuBranchReadiness | null;
   branchId?: string;
   canConfigure: boolean;
 }) {
@@ -921,7 +927,7 @@ function FiscalConnectionCard({
         <div>
           <dt className="text-muted-foreground">KRA branch</dt>
           <dd className="mt-0.5 font-medium">
-            {readiness?.configuration.branchConfigured
+            {readiness?.configuration.branchIdConfigured
               ? `${config.externalBranchId} · ${branchName}`
               : 'Not configured'}
           </dd>
