@@ -37,7 +37,7 @@ export async function createFeedbackInvitationForSale(saleId: string) {
 export async function resolveFeedbackInvitation(token: string) {
   if (!/^[A-Za-z0-9_-]{32,}$/.test(token)) return null
   const [invitation] = await db.select().from(feedbackInvitation).where(eq(feedbackInvitation.token, token)).limit(1)
-  if (!invitation || invitation.status !== 'OPEN' || invitation.expiresAt && invitation.expiresAt < new Date()) return null
+  if (!invitation || invitation.status === 'CANCELLED' || invitation.expiresAt && invitation.expiresAt < new Date()) return null
   const [record] = await db.select({ id: sale.id, status: sale.status, organizationId: sale.orgId, branchId: sale.branchId }).from(sale).where(and(eq(sale.id, invitation.saleId), eq(sale.orgId, invitation.organizationId), eq(sale.branchId, invitation.branchId))).limit(1)
   if (!record || record.status !== 'completed') return null
   return invitation

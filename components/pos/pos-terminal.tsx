@@ -19,6 +19,7 @@ import {
   syncOfflineSale,
   type CartItem,
 } from '@/app/actions/sales';
+import { createSaleFeedbackInvitation } from '@/app/actions/feedback';
 import {
   cancelMpesaPayment,
   findManualMpesaPayment,
@@ -333,6 +334,7 @@ interface ReceiptData {
     verificationData?: string | null;
     showOnReceipt?: boolean;
   };
+  feedbackToken?: string;
   offline?: {
     status: 'PENDING' | 'SYNCED';
     provisionalReceiptNo: string;
@@ -777,6 +779,14 @@ export function POSTerminal({
   useEffect(() => {
     document.body.classList.toggle('pos-receipt-active', Boolean(receipt));
     return () => document.body.classList.remove('pos-receipt-active');
+  }, [receipt]);
+  useEffect(() => {
+    if (!receipt || receipt.offline?.status === 'PENDING' || receipt.feedbackToken) return;
+    void createSaleFeedbackInvitation(receipt.saleId)
+      .then((invitation) => {
+        if (invitation) setReceipt((current) => current?.saleId === receipt.saleId ? { ...current, feedbackToken: invitation.token } : current);
+      })
+      .catch(() => undefined);
   }, [receipt]);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const continueToPaymentRef = useRef<HTMLButtonElement>(null);
