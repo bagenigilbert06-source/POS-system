@@ -4178,6 +4178,9 @@ export function POSTerminal({
       })),
       etims: receipt.etims?.showOnReceipt ? receipt.etims : null,
       offline: receipt.offline ?? null,
+      feedbackUrl: receipt.feedbackToken
+        ? `${window.location.origin}/feedback/${receipt.feedbackToken}`
+        : null,
       mpesaDetails:
         receipt.paymentMethod === 'mpesa'
           ? {
