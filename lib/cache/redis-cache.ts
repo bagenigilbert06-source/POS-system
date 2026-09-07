@@ -16,12 +16,14 @@ interface RedisClient {
 
 const CACHE_PREFIX = process.env.REDIS_CACHE_PREFIX?.trim() || 'pesaby'
 const REDIS_RETRY_COOLDOWN_MS = 30_000
+const CACHE_VERSION_TTL_MS = 60_000
 const inFlightLoads = new Map<string, Promise<unknown>>()
 
 declare global {
   var __pesabyRedisClient: RedisClient | undefined
   var __pesabyRedisConnecting: Promise<RedisClient | null> | undefined
   var __pesabyRedisDisabledUntil: number | undefined
+  var __pesabyRedisCacheVersions: Map<string, { value: string; expiresAt: number }> | undefined
 }
 
 function markRedisUnavailable() {
@@ -88,6 +90,17 @@ function versionKey(namespace: string, organizationId: string) {
   return `${CACHE_PREFIX}:cache-version:${namespace}:${safePart(organizationId)}`
 }
 
+async function cachedVersion(client: RedisClient, namespace: 'products' | 'categories' | 'dashboard', organizationId: string) {
+  const key = versionKey(namespace, organizationId)
+  const versions = globalThis.__pesabyRedisCacheVersions ??= new Map()
+  const cached = versions.get(key)
+  if (cached && cached.expiresAt > Date.now()) return cached.value
+
+  const value = await client.get(key) ?? '0'
+  versions.set(key, { value, expiresAt: Date.now() + CACHE_VERSION_TTL_MS })
+  return value
+}
+
 function dataKey(namespace: string, organizationId: string, version: string, variant: string) {
   return `${CACHE_PREFIX}:cache:${namespace}:${safePart(organizationId)}:${version}:${safePart(variant)}`
 }
@@ -116,7 +129,7 @@ export async function readThroughRedis<T>(options: {
   if (!client) return options.load()
 
   try {
-    const version = await client.get(versionKey(options.namespace, options.organizationId)) ?? '0'
+    const version = await cachedVersion(client, options.namespace, options.organizationId)
     const key = dataKey(options.namespace, options.organizationId, version, options.variant)
     const cached = await client.get(key)
     if (cached) return decode<T>(cached)
@@ -142,7 +155,10 @@ export async function invalidateRedisCache(namespace: 'products' | 'categories' 
   const client = await redisClient()
   if (!client) return false
   try {
-    await client.incr(versionKey(namespace, organizationId))
+    const key = versionKey(namespace, organizationId)
+    const version = String(await client.incr(key))
+    const versions = globalThis.__pesabyRedisCacheVersions ??= new Map()
+    versions.set(key, { value: version, expiresAt: Date.now() + CACHE_VERSION_TTL_MS })
     return true
   } catch {
     markRedisUnavailable()

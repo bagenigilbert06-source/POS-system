@@ -3,6 +3,9 @@
  * Keep its fallback to one loader so POS never exposes the dashboard skeleton.
  */
 export default function DashboardLoading() {
-  return <RouteLoaderGate cacheKey="dashboard" />;
+  return (
+    <div className="pesaby-global-loader pesaby-inline-loader dashboard-route-loader" role="status" aria-label="Loading Pesaby">
+      <span className="pesaby-loader pesaby-loader--page" />
+    </div>
+  );
 }
-import { RouteLoaderGate } from '@/components/ui/route-loader-gate';

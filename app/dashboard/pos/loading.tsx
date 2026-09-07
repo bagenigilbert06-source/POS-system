@@ -3,6 +3,9 @@
  * dashboard placeholder content.
  */
 export default function PosLoading() {
-  return <RouteLoaderGate cacheKey="pos" />;
+  return (
+    <div className="pesaby-global-loader pesaby-inline-loader dashboard-route-loader" role="status" aria-label="Opening POS">
+      <span className="pesaby-loader pesaby-loader--page" />
+    </div>
+  );
 }
-import { RouteLoaderGate } from '@/components/ui/route-loader-gate';
