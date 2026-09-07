@@ -1,0 +1,9 @@
+'use client'
+import { useState } from 'react'
+import { submitPublicFeedback } from './actions'
+const FEEDBACK_TAGS = ['Friendly service', 'Fast checkout', 'Product availability', 'Staff helpfulness', 'Store cleanliness', 'Pricing', 'Waiting time', 'Other']
+export function FeedbackForm({ token, businessName }: { token: string; businessName: string }) {
+  const [sent, setSent] = useState(false); const [busy, setBusy] = useState(false)
+  if (sent) return <div className="mt-10 rounded-xl border p-6 text-center"><h2 className="font-bold">Thank you for your feedback.</h2></div>
+  return <form className="mt-9 space-y-6" onSubmit={async e => { e.preventDefault(); setBusy(true); try { await submitPublicFeedback(token, new FormData(e.currentTarget)); setSent(true) } finally { setBusy(false) } }}><h2 className="text-xl font-semibold">How likely are you to recommend {businessName} to a friend or colleague?</h2><div className="grid grid-cols-11 gap-1">{Array.from({ length: 11 }, (_, score) => <label key={score} className="cursor-pointer rounded border p-2 text-center text-sm hover:bg-muted"><input required className="sr-only" type="radio" name="score" value={score} />{score}</label>)}</div><fieldset><legend className="mb-3 text-sm font-medium">What influenced your rating?</legend><div className="flex flex-wrap gap-2">{FEEDBACK_TAGS.map(tag => <label key={tag} className="cursor-pointer rounded-full border px-3 py-1.5 text-xs"><input className="mr-1" type="checkbox" name="tags" value={tag} />{tag}</label>)}</div></fieldset><label className="block text-sm font-medium">Additional comments <span className="font-normal text-muted-foreground">(optional)</span><textarea name="comment" maxLength={1000} className="mt-2 min-h-24 w-full rounded-lg border p-3" /></label><button disabled={busy} className="w-full rounded-lg bg-primary px-4 py-3 font-semibold text-primary-foreground">{busy ? 'Submitting…' : 'Submit feedback'}</button></form>
+}
