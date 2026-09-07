@@ -1,5 +1,5 @@
-import { PageLoader } from '@/components/ui/page-loader'
+import { RouteFallback } from '@/components/ui/route-fallback'
 
 export default function OnboardingLoading() {
-  return <PageLoader label="Preparing your workspace" inline />
+  return <RouteFallback label="Preparing your workspace" />
 }

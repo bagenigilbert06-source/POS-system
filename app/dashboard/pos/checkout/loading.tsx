@@ -1,5 +1,5 @@
-import { PageLoader } from '@/components/ui/page-loader'
+import { RouteFallback } from '@/components/ui/route-fallback'
 
 export default function CheckoutLoading() {
-  return <PageLoader label="Preparing checkout" inline />
+  return <RouteFallback label="Preparing checkout" />
 }
