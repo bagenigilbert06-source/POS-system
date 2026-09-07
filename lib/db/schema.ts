@@ -342,6 +342,7 @@ export const businessSettings = pgTable('business_settings', {
   receiptCashDrawerPulse: boolean('receiptCashDrawerPulse')
     .notNull()
     .default(false),
+  feedbackQrEnabled: boolean('feedbackQrEnabled').notNull().default(false),
   receiptNumbering: text('receiptNumbering').notNull().default('automatic'),
   checklistDismissed: boolean('checklistDismissed').notNull().default(false),
   cashVarianceTolerance: numeric('cashVarianceTolerance', {
@@ -1165,6 +1166,50 @@ export const sale = pgTable(
       table.receiptNo
     ),
     quotationUnique: uniqueIndex('sale_quotation_unique').on(table.quotationId),
+  })
+);
+
+/** Opaque, sale-scoped invitations. Presentation names are snapshots so a
+ * later business or branch rename does not rewrite a historical visit. */
+export const feedbackInvitation = pgTable(
+  'feedback_invitation',
+  {
+    id: text('id').primaryKey(),
+    organizationId: text('organizationId').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+    branchId: text('branchId').notNull().references(() => branch.id, { onDelete: 'restrict' }),
+    saleId: text('saleId').notNull().references(() => sale.id, { onDelete: 'cascade' }),
+    token: text('token').notNull(),
+    businessNameSnapshot: text('businessNameSnapshot').notNull(),
+    branchNameSnapshot: text('branchNameSnapshot').notNull(),
+    status: text('status').notNull().default('OPEN'),
+    respondedAt: timestamp('respondedAt'),
+    expiresAt: timestamp('expiresAt'),
+    createdAt: timestamp('createdAt').notNull().defaultNow(),
+  },
+  (table) => ({
+    tokenUnique: uniqueIndex('feedback_invitation_token_unique').on(table.token),
+    saleUnique: uniqueIndex('feedback_invitation_sale_unique').on(table.saleId),
+    organizationBranchIndex: index('feedback_invitation_org_branch_idx').on(table.organizationId, table.branchId),
+  })
+);
+
+export const customerFeedback = pgTable(
+  'customer_feedback',
+  {
+    id: text('id').primaryKey(),
+    invitationId: text('invitationId').notNull().references(() => feedbackInvitation.id, { onDelete: 'cascade' }),
+    organizationId: text('organizationId').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+    branchId: text('branchId').notNull().references(() => branch.id, { onDelete: 'restrict' }),
+    saleId: text('saleId').notNull().references(() => sale.id, { onDelete: 'cascade' }),
+    score: integer('score').notNull(),
+    category: text('category').notNull(),
+    tags: json('tags').notNull().default([]),
+    comment: text('comment'),
+    submittedAt: timestamp('submittedAt').notNull().defaultNow(),
+  },
+  (table) => ({
+    invitationUnique: uniqueIndex('customer_feedback_invitation_unique').on(table.invitationId),
+    organizationBranchIndex: index('customer_feedback_org_branch_idx').on(table.organizationId, table.branchId),
   })
 );
 

@@ -24,8 +24,10 @@ type ReprintSale = Awaited<ReturnType<typeof getSalesByReceiptNo>>[number];
 
 interface ReceiptReprintProps {
   onClose: () => void;
+  branchName?: string;
   settings: {
     receiptBusinessName: string;
+    pricesIncludeTax?: boolean;
     receiptPhone: string;
     receiptAddress: string;
     receiptFooter: string;
@@ -56,6 +58,7 @@ interface ReceiptReprintProps {
 
 export function ReceiptReprint({
   onClose,
+  branchName,
   settings,
   onRefund,
 }: ReceiptReprintProps) {
@@ -203,6 +206,8 @@ export function ReceiptReprint({
               template={settings.receiptTemplate}
               logoUrl={settings.receiptLogoUrl}
               taxName={settings.taxName}
+              taxIncluded={settings.pricesIncludeTax}
+              branchName={branchName}
               showPhone={settings.receiptShowPhone}
               showAddress={settings.receiptShowAddress}
               showCashier={settings.receiptShowCashier}

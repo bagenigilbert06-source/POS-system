@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { canAutomaticallyOpenCashDrawer } from '../lib/printing/cash-drawer-policy';
+import { automaticHardwareDispatch, canAutomaticallyOpenCashDrawer } from '../lib/printing/cash-drawer-policy';
 
 const base = {
   paymentMethod: 'cash',
@@ -8,6 +8,10 @@ const base = {
   cashDrawerPulseEnabled: true,
 };
 assert.equal(canAutomaticallyOpenCashDrawer(base), true);
+assert.deepEqual(automaticHardwareDispatch({ ...base, autoPrintReceipt: true }), { shouldPrintReceipt: true, shouldOpenDrawer: true });
+assert.deepEqual(automaticHardwareDispatch({ ...base, autoPrintReceipt: false }), { shouldPrintReceipt: false, shouldOpenDrawer: true });
+assert.deepEqual(automaticHardwareDispatch({ ...base, autoPrintReceipt: true, cashDrawerPulseEnabled: false }), { shouldPrintReceipt: true, shouldOpenDrawer: false });
+assert.deepEqual(automaticHardwareDispatch({ ...base, autoPrintReceipt: false, cashDrawerPulseEnabled: false }), { shouldPrintReceipt: false, shouldOpenDrawer: false });
 assert.equal(
   canAutomaticallyOpenCashDrawer({ ...base, cashDrawerPulseEnabled: false }),
   false

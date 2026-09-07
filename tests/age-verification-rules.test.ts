@@ -11,4 +11,7 @@ assert.equal(effectiveAgeRestriction(true, false, false), true)
 assert.equal(effectiveAgeRestriction(false, true, true), false)
 assert.equal(effectiveAgeRestriction(null, true, false), true)
 assert.equal(effectiveAgeRestriction(null, null, true), true)
+// An unrestricted product/category must not become restricted solely because
+// it belongs to a liquor workspace; the server uses the product/category flag.
+assert.equal(effectiveAgeRestriction(null, null, false), false)
 console.log('age-verification rules tests passed')

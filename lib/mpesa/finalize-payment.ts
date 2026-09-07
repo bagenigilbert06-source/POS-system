@@ -21,6 +21,7 @@ export type MpesaCheckoutPayload = {
   shippingAmount?: number
   roundoffEnabled?: boolean
   ageVerified: boolean
+  ageVerificationId?: string
   ageVerificationStatus?: 'VERIFIED' | 'OVERRIDDEN'
   ageOverrideReason?: string
   pointsToRedeem?: number
@@ -68,7 +69,21 @@ export async function finalizeConfirmedMpesaPayment(requestId: string) {
     const restrictedCategories = categoryIds.length ? await tx.select({ id: category.id, requiresAgeVerification: category.requiresAgeVerification }).from(category).where(and(eq(category.orgId, intent.organizationId), inArray(category.id, categoryIds))) : []
     const categoryRestrictions = new Map(restrictedCategories.map((item) => [item.id, item.requiresAgeVerification]))
     const restrictedBasket = catalogue.some((item) => item.requiresAgeVerification === true || (item.requiresAgeVerification == null && item.categoryId && categoryRestrictions.get(item.categoryId) === true))
-    if (restrictedBasket && !checkout.ageVerified) throw new Error('Age verification is required before finalizing this restricted M-Pesa sale')
+    let linkedAgeVerification: typeof ageVerification.$inferSelect | null = null
+    if (restrictedBasket) {
+      if (!checkout.ageVerificationId) throw new Error('Age verification is required before finalizing this restricted M-Pesa sale')
+      const [verification] = await tx.select().from(ageVerification).where(and(
+        eq(ageVerification.id, checkout.ageVerificationId),
+        eq(ageVerification.organizationId, intent.organizationId),
+        eq(ageVerification.branchId, intent.branchId),
+        eq(ageVerification.checkoutId, intent.idempotencyKey),
+        eq(ageVerification.cashierId, intent.userId),
+        inArray(ageVerification.status, ['VERIFIED', 'OVERRIDDEN']),
+        isNull(ageVerification.saleId),
+      )).limit(1).for('update')
+      if (!verification) throw new Error('Age verification does not belong to this M-Pesa checkout')
+      linkedAgeVerification = verification
+    }
     const medicineRows = await tx.select().from(pharmacyProduct).where(and(eq(pharmacyProduct.organizationId, intent.organizationId), inArray(pharmacyProduct.productId, productIds)))
     const packageIds = checkout.items.map((line) => line.packageId).filter((value): value is string => Boolean(value))
     const packages = packageIds.length ? await tx.select().from(productPackage).where(and(eq(productPackage.organizationId, intent.organizationId), inArray(productPackage.id, packageIds), eq(productPackage.isActive, true))) : []
@@ -154,8 +169,8 @@ export async function finalizeConfirmedMpesaPayment(requestId: string) {
     await tx.insert(sale).values({
       id: saleId, receiptNo, customerId: intent.customerId, subtotal: String(subtotal), taxAmount: String(tax),
       discountAmount: String(checkout.discountAmount), shippingAmount: String(shippingAmount), roundingAmount: String(rounded.roundingAmount), total: String(rounded.amount),
-      paymentMethod: 'mpesa', mpesaRef: intent.receiptNumber, ageVerified: checkout.ageVerified,
-      ageVerifiedAt: checkout.ageVerified ? new Date() : null, ageVerifiedBy: checkout.ageVerified ? intent.userId : null,
+      paymentMethod: 'mpesa', mpesaRef: intent.receiptNumber, ageVerified: Boolean(linkedAgeVerification),
+      ageVerifiedAt: linkedAgeVerification ? new Date() : null, ageVerifiedBy: linkedAgeVerification ? intent.userId : null,
       status: 'completed', idempotencyKey: intent.idempotencyKey, userId: intent.userId, orgId: intent.organizationId,
       branchId: intent.branchId, posSessionId: intent.posSessionId,
       loyaltyPointsEarned: rewards?.pointsEarned ?? 0, loyaltyPointsRedeemed: rewards?.pointsRedeemed ?? 0,
@@ -163,11 +178,9 @@ export async function finalizeConfirmedMpesaPayment(requestId: string) {
       rewardEligibleSpend: String(rewards?.loyaltyEligible ?? 0), rewardEarningRateSnapshot: rewards ? String(rewards.settings.spendPerPoint) : null,
       rewardPointValueSnapshot: rewards ? String(rewards.settings.pointValue) : null,
     })
-    if (restrictedBasket) {
-      const now = new Date()
-      const status = checkout.ageVerificationStatus ?? 'VERIFIED'
-      await tx.insert(ageVerification).values({ id: generateId(), organizationId: intent.organizationId, branchId: intent.branchId, terminalId: activeShift.terminalId, saleId, checkoutId: intent.idempotencyKey, cashierId: intent.userId, status, verifiedAt: status === 'VERIFIED' ? now : null, overrideReason: status === 'OVERRIDDEN' ? checkout.ageOverrideReason : null, overrideApprovedBy: status === 'OVERRIDDEN' ? intent.userId : null, overrideApprovedAt: status === 'OVERRIDDEN' ? now : null })
-      await tx.insert(auditEvent).values({ id: generateId(), organizationId: intent.organizationId, userId: intent.userId, action: status === 'OVERRIDDEN' ? 'age_verification_overridden' : 'age_verified', metadata: { saleId, receiptNo, branchId: intent.branchId, terminalId: activeShift.terminalId, verificationStatus: status } })
+    if (linkedAgeVerification) {
+      await tx.update(ageVerification).set({ saleId }).where(and(eq(ageVerification.id, linkedAgeVerification.id), isNull(ageVerification.saleId)))
+      await tx.insert(auditEvent).values({ id: generateId(), organizationId: intent.organizationId, userId: intent.userId, action: 'age_verification_linked', metadata: { saleId, receiptNo, checkoutId: intent.idempotencyKey, verificationId: linkedAgeVerification.id } })
     }
     await tx.insert(saleItem).values(lines.map((line) => ({
       id: line.saleItemId, saleId, productId: line.productId, productName: line.productName, quantity: line.quantity,

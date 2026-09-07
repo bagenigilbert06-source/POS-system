@@ -30,3 +30,14 @@ export function canAutomaticallyOpenCashDrawer(
     context.hasOpenShift !== false
   );
 }
+
+/** Receipt printing and drawer opening are separate post-sale side effects.
+ * Neither result may alter a completed financial sale or suppress the other. */
+export function automaticHardwareDispatch(input: AutomaticDrawerContext & {
+  autoPrintReceipt: boolean;
+}) {
+  return {
+    shouldPrintReceipt: input.autoPrintReceipt && input.printingMode === 'direct',
+    shouldOpenDrawer: canAutomaticallyOpenCashDrawer(input),
+  };
+}

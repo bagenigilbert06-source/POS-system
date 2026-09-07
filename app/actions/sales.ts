@@ -257,10 +257,11 @@ const cancelAgeVerificationSchema = z.object({ checkoutId: z.string().uuid() });
 
 const startAgeVerificationSchema = z.object({
   checkoutId: z.string().uuid(),
+  status: z.enum(['VERIFIED', 'OVERRIDDEN']).default('VERIFIED'),
   idType: z
     .enum(['national_id', 'passport', 'driving_licence', 'other'])
     .optional(),
-  idReference: z.string().trim().max(80).optional(),
+  overrideReason: z.string().trim().min(3).max(500).optional(),
 });
 
 /** Creates the immutable, server-owned verification fact before checkout finalization. */
@@ -277,6 +278,12 @@ export async function startAgeVerification(
     ]));
   const userId = pos?.userId ?? authorization.userId;
   const organizationId = pos?.organizationId ?? authorization.organizationId;
+  if (data.status === 'OVERRIDDEN') {
+    if (!authorization.permissions.includes(PermissionEnum.AGE_VERIFICATION_OVERRIDE))
+      throw new Error('Age verification override permission denied');
+    if (!data.overrideReason)
+      throw new Error('Enter a reason for the supervisor override');
+  }
   const [shift] = await db
     .select({
       branchId: posSession.branchId,
@@ -296,6 +303,22 @@ export async function startAgeVerification(
     throw new Error(
       'Start a branch-assigned shift before recording an age check'
     );
+  const [existing] = await db
+    .select({ id: ageVerification.id, status: ageVerification.status })
+    .from(ageVerification)
+    .where(
+      and(
+        eq(ageVerification.organizationId, organizationId),
+        eq(ageVerification.checkoutId, data.checkoutId),
+        eq(ageVerification.cashierId, userId),
+        eq(ageVerification.branchId, shift.branchId),
+        eq(ageVerification.status, data.status),
+        sql`${ageVerification.saleId} is null`
+      )
+    )
+    .limit(1);
+  if (existing)
+    return { id: existing.id, status: data.status, checkoutId: data.checkoutId };
   const recordId = generateId();
   await db.transaction(async (tx) => {
     await tx.insert(ageVerification).values({
@@ -305,10 +328,12 @@ export async function startAgeVerification(
       terminalId: shift.terminalId ?? undefined,
       checkoutId: data.checkoutId,
       cashierId: userId,
-      status: 'VERIFIED',
+      status: data.status,
       idType: data.idType ?? undefined,
-      idReferenceMasked: maskAgeIdReference(data.idReference) ?? undefined,
-      verifiedAt: new Date(),
+      verifiedAt: data.status === 'VERIFIED' ? new Date() : undefined,
+      overrideReason: data.status === 'OVERRIDDEN' ? data.overrideReason : undefined,
+      overrideApprovedBy: data.status === 'OVERRIDDEN' ? userId : undefined,
+      overrideApprovedAt: data.status === 'OVERRIDDEN' ? new Date() : undefined,
     });
     await tx
       .insert(auditEvent)
@@ -316,11 +341,13 @@ export async function startAgeVerification(
         id: generateId(),
         organizationId,
         userId,
-        action: 'age_verified',
+        action: data.status === 'OVERRIDDEN' ? 'age_verification_overridden' : 'age_verified',
         metadata: {
           checkoutId: data.checkoutId,
           branchId: shift.branchId,
           terminalId: shift.terminalId,
+          verificationMethod: data.idType ?? null,
+          verificationStatus: data.status,
         },
       });
   });
@@ -831,7 +858,6 @@ export async function createSale(data: CreateSaleInput) {
     throw new Error(
       'eTIMS setup is incomplete for this branch. Complete fiscal setup before processing live sales.'
     );
-  const liquorWorkspace = workspace?.businessCategory === 'liquor_shop';
   const verificationEvidence = data.ageVerification
     ? ageVerificationEvidenceSchema.parse(data.ageVerification)
     : null;
@@ -937,13 +963,9 @@ export async function createSale(data: CreateSaleInput) {
     (item) =>
       item.requiresAgeVerification ??
       (item.categoryId ? categoryRestrictionById.get(item.categoryId) : null) ??
-      liquorWorkspace
+      false
   );
-  if (
-    requiresAgeVerification &&
-    !verificationEvidence &&
-    !data.ageVerificationId
-  )
+  if (requiresAgeVerification && !data.ageVerificationId)
     throw new Error(
       'Age verification is required before completing this restricted sale'
     );
@@ -1259,7 +1281,7 @@ export async function createSale(data: CreateSaleInput) {
               eq(ageVerification.checkoutId, idempotencyKey),
               eq(ageVerification.cashierId, userId),
               eq(ageVerification.branchId, saleBranchId),
-              eq(ageVerification.status, 'VERIFIED'),
+              inArray(ageVerification.status, ['VERIFIED', 'OVERRIDDEN']),
               sql`${ageVerification.saleId} is null`
             )
           )

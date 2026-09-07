@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { db } from '@/lib/db';
 import {
   branch,
+  ageVerification,
   businessSettings,
   category,
   cafeOrder,
@@ -76,6 +77,7 @@ const initiateSchema = z.object({
   roundoffEnabled: z.boolean().default(true),
   idempotencyKey: z.string().min(8).max(100),
   ageVerified: z.boolean().optional(),
+  ageVerificationId: z.string().min(1).max(120).optional(),
   ageVerificationStatus: z.enum(['VERIFIED', 'OVERRIDDEN']).optional(),
   ageOverrideReason: z.string().trim().min(3).max(500).optional(),
   customerId: z.string().min(1).optional(),
@@ -268,12 +270,12 @@ async function validatePharmacyPayment(
     throw new Error('Enter the restricted-medicine approval reason');
 }
 
-async function basketRequiresAgeVerification(orgId: string, productIds: string[], legacyLiquorDefault: boolean) {
+async function basketRequiresAgeVerification(orgId: string, productIds: string[]) {
   const rows = await db.select({ categoryId: product.categoryId, restricted: product.requiresAgeVerification }).from(product).where(and(eq(product.orgId, orgId), inArray(product.id, productIds)))
   const categoryIds = Array.from(new Set(rows.map((item) => item.categoryId).filter((value): value is string => Boolean(value))))
   const inherited = categoryIds.length ? await db.select({ id: category.id, restricted: category.requiresAgeVerification }).from(category).where(and(eq(category.orgId, orgId), inArray(category.id, categoryIds))) : []
   const inheritedById = new Map(inherited.map((item) => [item.id, item.restricted]))
-  return rows.some((item) => item.restricted ?? (item.categoryId ? inheritedById.get(item.categoryId) : null) ?? legacyLiquorDefault)
+  return rows.some((item) => item.restricted ?? (item.categoryId ? inheritedById.get(item.categoryId) : null) ?? false)
 }
 
 export async function initiateMpesaPayment(
@@ -283,7 +285,7 @@ export async function initiateMpesaPayment(
   const authorization = await paymentAuthorization();
   const { organizationId: orgId, userId, branchId } = authorization;
   const [activeShift] = await db
-    .select({ id: posSession.id })
+    .select({ id: posSession.id, branchId: posSession.branchId })
     .from(posSession)
     .where(
       and(
@@ -299,8 +301,18 @@ export async function initiateMpesaPayment(
   if (!activeShift)
     throw new Error('Start your shift before requesting payment');
   const workspace = await WorkspaceService.getWorkspaceConfig(orgId, userId);
-  if (await basketRequiresAgeVerification(orgId, data.items.map((item) => item.productId), workspace?.businessCategory === 'liquor_shop') && !data.ageVerified)
-    throw new Error('Verify the customer age before requesting M-Pesa payment');
+  const restrictedBasket = await basketRequiresAgeVerification(orgId, data.items.map((item) => item.productId))
+  if (restrictedBasket) {
+    if (!data.ageVerificationId)
+      throw new Error('Verify the customer age before requesting M-Pesa payment')
+    const [verification] = await db.select({ id: ageVerification.id }).from(ageVerification).where(and(
+      eq(ageVerification.id, data.ageVerificationId), eq(ageVerification.organizationId, orgId),
+      eq(ageVerification.checkoutId, data.idempotencyKey), eq(ageVerification.cashierId, userId),
+      eq(ageVerification.branchId, activeShift.branchId), inArray(ageVerification.status, ['VERIFIED', 'OVERRIDDEN']),
+      isNull(ageVerification.saleId),
+    )).limit(1)
+    if (!verification) throw new Error('Age verification does not belong to this checkout')
+  }
   if (data.ageVerificationStatus === 'OVERRIDDEN' && (!authorization.permissions.includes(PermissionEnum.AGE_VERIFICATION_OVERRIDE) || !data.ageOverrideReason)) throw new Error('An authorized supervisor and reason are required for an age override')
   if (
     data.discountAmount > 0 &&
@@ -486,6 +498,7 @@ export async function initiateMpesaPayment(
         roundoffEnabled: data.roundoffEnabled,
         cafe: data.cafe,
         ageVerified: Boolean(data.ageVerified),
+        ageVerificationId: data.ageVerificationId,
         ageVerificationStatus: data.ageVerificationStatus,
         ageOverrideReason: data.ageOverrideReason,
         pharmacy: data.pharmacy,

@@ -1,6 +1,6 @@
 'use client';
 import { useState } from 'react';
-import { Printer } from 'lucide-react';
+import { Pencil, Printer, ReceiptText, Settings2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { notify } from '@/lib/notify';
 import {
@@ -127,8 +127,8 @@ export function TerminalPrinterSettings({ terminal }: { terminal: Terminal }) {
     }
   };
   return (
-    <div className="space-y-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
+    <div className="max-w-3xl space-y-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <Printer className="h-4 w-4 text-primary" />
           <div>
@@ -146,16 +146,20 @@ export function TerminalPrinterSettings({ terminal }: { terminal: Terminal }) {
           <Button
             type="button"
             variant="outline"
+            className="h-9 border border-slate-200 bg-white px-3 text-slate-700 shadow-sm hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:text-slate-200 dark:hover:bg-white/10"
             onClick={() => setRenameOpen((v) => !v)}
           >
+            <Pencil className="mr-1.5 h-3.5 w-3.5" />
             {renameOpen ? 'Close rename' : 'Rename device'}
           </Button>
           <Button
             type="button"
             variant="outline"
+            className="h-9 border border-slate-200 bg-white px-3 text-slate-700 shadow-sm hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:text-slate-200 dark:hover:bg-white/10"
             disabled={testing || (mode === 'direct' && !identifier.trim())}
             onClick={() => void testPrint()}
           >
+            <ReceiptText className="mr-1.5 h-3.5 w-3.5" />
             {testing
               ? 'Testing…'
               : mode === 'browser'
@@ -165,9 +169,11 @@ export function TerminalPrinterSettings({ terminal }: { terminal: Terminal }) {
           <Button
             type="button"
             variant="outline"
+            className={`h-9 border px-3 shadow-sm ${open ? 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:text-slate-200' : 'border-[#f4512a] bg-[#f4512a] text-white hover:bg-[#dc3f1c]'}`}
             onClick={() => setOpen((v) => !v)}
           >
-            {open ? 'Close' : 'Configure printer'}
+            <Settings2 className="mr-1.5 h-3.5 w-3.5" />
+            {open ? 'Close setup' : 'Configure printer'}
           </Button>
         </div>
       </div>
@@ -176,7 +182,7 @@ export function TerminalPrinterSettings({ terminal }: { terminal: Terminal }) {
           <input
             value={deviceName}
             onChange={(e) => setDeviceName(e.target.value)}
-            className="h-9 min-w-0 flex-1 rounded-md border bg-background px-3 text-sm"
+            className="h-9 min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-3 text-sm shadow-sm outline-none focus:border-[#f4512a] focus:ring-2 focus:ring-[#f4512a]/20 dark:border-white/15 dark:bg-white/10"
           />
           <Button type="button" onClick={() => void rename()}>
             Save name
@@ -184,13 +190,14 @@ export function TerminalPrinterSettings({ terminal }: { terminal: Terminal }) {
         </div>
       )}
       {open && (
-        <div className="grid gap-3 rounded-lg border bg-muted/20 p-4 sm:grid-cols-2">
+        <div className="grid gap-5 rounded-xl border border-slate-100 bg-slate-50/60 p-5 sm:grid-cols-2 dark:border-white/10 dark:bg-white/[0.03]">
+          <div className="sm:col-span-2"><p className="text-sm font-semibold text-slate-900 dark:text-slate-100">Receipt setup</p><p className="mt-0.5 text-xs text-muted-foreground">This configuration applies only to this POS device.</p></div>
           <label className="text-sm font-medium sm:col-span-2">
             Printing mode
             <select
               value={mode}
               onChange={(e) => setMode(e.target.value as 'browser' | 'direct')}
-              className="mt-1 h-10 w-full rounded-md border bg-background px-3 text-sm"
+              className="mt-1 h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm shadow-sm outline-none focus:border-[#f4512a] focus:ring-2 focus:ring-[#f4512a]/20 dark:border-white/15 dark:bg-white/10"
             >
               <option value="browser">Browser print</option>
               <option value="direct">Direct thermal printer</option>
@@ -204,7 +211,7 @@ export function TerminalPrinterSettings({ terminal }: { terminal: Terminal }) {
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="Front Counter Printer"
-                  className="mt-1 h-10 w-full rounded-md border bg-background px-3 text-sm"
+                  className="mt-1 h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm shadow-sm outline-none focus:border-[#f4512a] focus:ring-2 focus:ring-[#f4512a]/20 dark:border-white/15 dark:bg-white/10"
                 />
               </label>
               <label className="text-sm font-medium">
@@ -213,7 +220,7 @@ export function TerminalPrinterSettings({ terminal }: { terminal: Terminal }) {
                   value={identifier}
                   onChange={(e) => setIdentifier(e.target.value)}
                   placeholder="Exact Windows printer name"
-                  className="mt-1 h-10 w-full rounded-md border bg-background px-3 text-sm"
+                  className="mt-1 h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm shadow-sm outline-none focus:border-[#f4512a] focus:ring-2 focus:ring-[#f4512a]/20 dark:border-white/15 dark:bg-white/10"
                 />
                 <span className="mt-1 block text-xs font-normal text-muted-foreground">
                   Enter the exact receipt-printer name installed in Windows/QZ
@@ -227,7 +234,7 @@ export function TerminalPrinterSettings({ terminal }: { terminal: Terminal }) {
             <select
               value={width}
               onChange={(e) => setWidth(Number(e.target.value) as 58 | 80)}
-              className="mt-1 h-10 w-full rounded-md border bg-background px-3 text-sm"
+              className="mt-1 h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm shadow-sm outline-none focus:border-[#f4512a] focus:ring-2 focus:ring-[#f4512a]/20 dark:border-white/15 dark:bg-white/10"
             >
               <option value="58">58 mm</option>
               <option value="80">80 mm</option>
@@ -238,7 +245,7 @@ export function TerminalPrinterSettings({ terminal }: { terminal: Terminal }) {
             <select
               value={copies}
               onChange={(e) => setCopies(e.target.value)}
-              className="mt-1 h-10 w-full rounded-md border bg-background px-3 text-sm"
+              className="mt-1 h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm shadow-sm outline-none focus:border-[#f4512a] focus:ring-2 focus:ring-[#f4512a]/20 dark:border-white/15 dark:bg-white/10"
             >
               <option value="1">1</option>
               <option value="2">2</option>
@@ -260,18 +267,19 @@ export function TerminalPrinterSettings({ terminal }: { terminal: Terminal }) {
                 checked={drawer}
                 onChange={(e) => setDrawer(e.target.checked)}
               />
-              Automatically open drawer after completed cash sales.
+            <span>Automatically open drawer after completed cash sales.<span className="mt-0.5 block text-xs text-muted-foreground">Requires a compatible drawer connected to the configured direct receipt printer.</span></span>
             </label>
           )}
           <div className="flex justify-end gap-2 sm:col-span-2">
             <Button
               type="button"
               variant="outline"
+              className="border-0 bg-white shadow-sm hover:bg-slate-100 dark:bg-white/5 dark:hover:bg-white/10"
               onClick={() => setOpen(false)}
             >
               Cancel
             </Button>
-            <Button type="button" disabled={saving} onClick={() => void save()}>
+            <Button type="button" disabled={saving} className="bg-[#f4512a] text-white shadow-sm hover:bg-[#dc3f1c]" onClick={() => void save()}>
               {saving ? 'Saving…' : 'Save printer settings'}
             </Button>
           </div>

@@ -15,6 +15,7 @@ import dynamic from 'next/dynamic';
 import {
   cancelAgeVerification,
   createSale,
+  startAgeVerification,
   syncOfflineSale,
   type CartItem,
 } from '@/app/actions/sales';
@@ -149,7 +150,7 @@ import {
   openQzCashDrawer,
   type ReceiptPrinterSettings,
 } from '@/lib/printing/receipt-print-service';
-import { canAutomaticallyOpenCashDrawer } from '@/lib/printing/cash-drawer-policy';
+import { automaticHardwareDispatch } from '@/lib/printing/cash-drawer-policy';
 
 const RefundDialog = dynamic(
   () => import('./refund-dialog').then((module) => module.RefundDialog),
@@ -740,7 +741,9 @@ export function POSTerminal({
   const [ageIdType, setAgeIdType] = useState<
     'national_id' | 'passport' | 'driving_licence' | 'other'
   >('national_id');
-  const [ageIdReference, setAgeIdReference] = useState('');
+  // A server-issued record, scoped to this checkout, is the proof used at sale completion.
+  const [ageVerificationId, setAgeVerificationId] = useState<string | null>(null);
+  const [ageVerificationSubmitting, setAgeVerificationSubmitting] = useState(false);
   const [ageConfirmed, setAgeConfirmed] = useState(false);
   const [ageVerificationMode, setAgeVerificationMode] = useState<
     'VERIFIED' | 'OVERRIDDEN'
@@ -764,6 +767,7 @@ export function POSTerminal({
   const [receiptPrinted, setReceiptPrinted] = useState(false);
   const [receiptPrinting, setReceiptPrinting] = useState(false);
   const autoPrintedReceiptRef = useRef('');
+  const autoDrawerPulseRef = useRef('');
   const retryReceiptPrintRef = useRef<() => void>(() => undefined);
   const [offlineSales, setOfflineSales] = useState<OfflineSaleRecord[]>([]);
   const [offlineQueueHydrated, setOfflineQueueHydrated] = useState(false);
@@ -783,6 +787,7 @@ export function POSTerminal({
   const barcodeLastKeyAtRef = useRef(0);
   const lastScanRef = useRef<{ barcode: string; at: number } | null>(null);
   const checkoutIdempotencyKeyRef = useRef<string>('');
+  const ageVerificationIdRef = useRef<string | null>(null);
   const mpesaToastIdRef = useRef<string | number | null>(null);
   const autoFinalizeRef = useRef<() => void>(() => undefined);
   const autoFinalizingRef = useRef(false);
@@ -1895,7 +1900,7 @@ export function POSTerminal({
       (item?.categoryId
         ? categoryRestrictionById.get(item.categoryId)
         : null) ??
-      requiresAgeVerification
+      false
     );
   });
   const prescriptionRequired = cart.some(
@@ -2498,23 +2503,9 @@ export function POSTerminal({
               staffNote: staffNote || undefined,
               idempotencyKey: checkoutIdempotencyKeyRef.current,
               ageVerified: containsAgeRestrictedItem ? verified : undefined,
-              ageVerification:
-                containsAgeRestrictedItem && verified
-                  ? {
-                      status: ageVerificationMode,
-                      idType:
-                        ageVerificationMode === 'VERIFIED'
-                          ? ageIdType
-                          : undefined,
-                      idReference:
-                        ageVerificationMode === 'VERIFIED'
-                          ? ageIdReference.trim() || undefined
-                          : undefined,
-                      overrideReason:
-                        ageVerificationMode === 'OVERRIDDEN'
-                          ? ageOverrideReason.trim()
-                          : undefined,
-                    }
+              ageVerificationId:
+                containsAgeRestrictedItem
+                  ? ageVerificationIdRef.current ?? undefined
                   : undefined,
               pointsToRedeem: appliedPoints || undefined,
               bonusToUse: appliedBonus || undefined,
@@ -2774,7 +2765,7 @@ export function POSTerminal({
     processCheckoutRef.current = processCheckout;
   });
 
-  const confirmAgeVerification = useCallback(() => {
+  const confirmAgeVerification = useCallback(async () => {
     if (
       ageVerificationMode === 'OVERRIDDEN' &&
       ageOverrideReason.trim().length < 3
@@ -2785,6 +2776,39 @@ export function POSTerminal({
     if (!ageConfirmed) {
       notify.error('Confirm that the customer meets the required legal age');
       return;
+    }
+    if (!ageVerificationId) {
+      if (!checkoutIdempotencyKeyRef.current) {
+        checkoutIdempotencyKeyRef.current = createIdempotencyKey();
+        window.localStorage.setItem(
+          checkoutStorageKey,
+          checkoutIdempotencyKeyRef.current
+        );
+      }
+      setAgeVerificationSubmitting(true);
+      try {
+        const record = await startAgeVerification({
+          checkoutId: checkoutIdempotencyKeyRef.current,
+          status: ageVerificationMode,
+          idType: ageVerificationMode === 'VERIFIED' ? ageIdType : undefined,
+          overrideReason:
+            ageVerificationMode === 'OVERRIDDEN'
+              ? ageOverrideReason.trim()
+              : undefined,
+        });
+        ageVerificationIdRef.current = record.id;
+        setAgeVerificationId(record.id);
+      } catch (cause) {
+        notify.error('Age verification could not be recorded', {
+          description:
+            cause instanceof Error
+              ? cause.message
+              : 'Try again before completing this sale.',
+        });
+        return;
+      } finally {
+        setAgeVerificationSubmitting(false);
+      }
     }
     setAgeVerified(true);
     setShowAgeVerification(false);
@@ -2798,11 +2822,14 @@ export function POSTerminal({
     }
   }, [
     ageConfirmed,
+    ageIdType,
     ageOverrideReason,
+    ageVerificationId,
     ageVerificationMode,
     mpesaStatus,
     paymentMethod,
     mpesaFlow,
+    checkoutStorageKey,
   ]);
 
   const dismissAgeVerification = useCallback(async () => {
@@ -2832,7 +2859,7 @@ export function POSTerminal({
 
       if (event.key === 'Enter') {
         event.preventDefault();
-        confirmAgeVerification();
+        void confirmAgeVerification();
       }
     };
 
@@ -2922,6 +2949,10 @@ export function POSTerminal({
         roundoffEnabled,
         idempotencyKey: checkoutIdempotencyKeyRef.current,
         ageVerified,
+        ageVerificationId:
+          containsAgeRestrictedItem
+            ? ageVerificationIdRef.current ?? undefined
+            : undefined,
         ageVerificationStatus: ageVerificationMode,
         ageOverrideReason:
           ageVerificationMode === 'OVERRIDDEN'
@@ -3042,6 +3073,10 @@ export function POSTerminal({
         roundoffEnabled,
         idempotencyKey: checkoutIdempotencyKeyRef.current,
         ageVerified,
+        ageVerificationId:
+          containsAgeRestrictedItem
+            ? ageVerificationIdRef.current ?? undefined
+            : undefined,
         ageVerificationStatus: ageVerificationMode,
         ageOverrideReason:
           ageVerificationMode === 'OVERRIDDEN'
@@ -3488,7 +3523,9 @@ export function POSTerminal({
     setCreditDueDate('');
     setAgeVerified(false);
     setAgeConfirmed(false);
-    setAgeIdReference('');
+    ageVerificationIdRef.current = null;
+    setAgeVerificationId(null);
+    setAgeVerificationSubmitting(false);
     setAgeVerificationMode('VERIFIED');
     setAgeOverrideReason('');
     setReceipt(null);
@@ -3519,6 +3556,12 @@ export function POSTerminal({
     setCouponValue(0);
     setAmountPaid('');
     setMpesaRef('');
+    setAgeVerified(false);
+    setAgeConfirmed(false);
+    ageVerificationIdRef.current = null;
+    setAgeVerificationId(null);
+    setAgeVerificationMode('VERIFIED');
+    setAgeOverrideReason('');
     setCheckoutOpen(false);
     setCheckoutStep('customer');
     checkoutIdempotencyKeyRef.current = '';
@@ -3631,40 +3674,6 @@ export function POSTerminal({
           id: toastId,
           description: `Submitted to ${printerSettings.printerName}.`,
         });
-        if (
-          automatic &&
-          receipt &&
-          canAutomaticallyOpenCashDrawer({
-            paymentMethod: receipt.paymentMethod,
-            saleStatus: 'completed',
-            printingMode: printerSettings.mode,
-            cashDrawerPulseEnabled: printerSettings.cashDrawerPulse,
-            isOfflineProvisional: Boolean(receipt.offline),
-            hasActiveRegisteredTerminal: Boolean(offlineContext?.terminalId),
-            hasOpenShift: Boolean(offlineContext?.sessionId),
-          })
-        ) {
-          try {
-            const authorization = await authorizeAutomaticCashDrawerOpen(
-              receipt.saleId
-            );
-            if (!authorization.shouldPulse) return;
-            if (authorization.transport === 'raw-tcp') {
-              const response = await fetch('/api/printing/raw-tcp/drawer', {
-                method: 'POST',
-                headers: { 'content-type': 'application/json' },
-                body: JSON.stringify({ saleId: receipt.saleId }),
-              });
-              if (!response.ok) throw new Error(await response.text());
-            } else if (authorization.printerName)
-              await openQzCashDrawer(authorization.printerName);
-          } catch (drawerError) {
-            const copy = getReceiptPrinterErrorCopy(drawerError);
-            notify.error('Sale completed, but the drawer did not open', {
-              description: `${copy.description} Ask a manager to open it manually.`,
-            });
-          }
-        }
       } catch (error) {
         const copy = getReceiptPrinterErrorCopy(error);
         notify.error(copy.title, {
@@ -3686,23 +3695,68 @@ export function POSTerminal({
     retryReceiptPrintRef.current = () => void handlePrintReceipt();
   }, [handlePrintReceipt]);
 
+  const dispatchAutomaticDrawerPulse = useCallback(async () => {
+    if (!receipt) return;
+    try {
+      const authorization = await authorizeAutomaticCashDrawerOpen(receipt.saleId);
+      if (!authorization.shouldPulse) return;
+      if (authorization.transport === 'raw-tcp') {
+        const response = await fetch('/api/printing/raw-tcp/drawer', {
+          method: 'POST', headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ saleId: receipt.saleId }),
+        });
+        if (!response.ok) throw new Error(await response.text());
+      } else if (authorization.printerName) {
+        await openQzCashDrawer(authorization.printerName);
+      }
+    } catch {
+      notify.error('Cash drawer could not be opened.', {
+        description: 'The sale is complete. Ask a manager to open the drawer manually.',
+      });
+    }
+  }, [receipt]);
+
   useEffect(() => {
-    if (
-      !receipt ||
-      !settings.receiptAutoPrint ||
-      settings.receiptPrintingMode !== 'direct' ||
-      autoPrintedReceiptRef.current === receipt.saleId
-    )
-      return;
+    if (!receipt) return;
+    const hardware = automaticHardwareDispatch({
+      paymentMethod: receipt.paymentMethod,
+      saleStatus: 'completed',
+      printingMode: printerSettings.mode,
+      cashDrawerPulseEnabled: printerSettings.cashDrawerPulse,
+      autoPrintReceipt: printerSettings.autoPrint,
+      isOfflineProvisional: Boolean(receipt.offline),
+      hasActiveRegisteredTerminal: Boolean(offlineContext?.terminalId),
+      hasOpenShift: Boolean(offlineContext?.sessionId),
+    });
+    if (!hardware.shouldPrintReceipt || autoPrintedReceiptRef.current === receipt.saleId) return;
     autoPrintedReceiptRef.current = receipt.saleId;
     const timer = window.setTimeout(() => void handlePrintReceipt(true), 250);
     return () => window.clearTimeout(timer);
   }, [
     handlePrintReceipt,
+    offlineContext?.sessionId,
+    offlineContext?.terminalId,
+    printerSettings,
     receipt,
-    settings.receiptAutoPrint,
-    settings.receiptPrintingMode,
   ]);
+
+  useEffect(() => {
+    if (!receipt) return;
+    const hardware = automaticHardwareDispatch({
+      paymentMethod: receipt.paymentMethod,
+      saleStatus: 'completed',
+      printingMode: printerSettings.mode,
+      cashDrawerPulseEnabled: printerSettings.cashDrawerPulse,
+      autoPrintReceipt: printerSettings.autoPrint,
+      isOfflineProvisional: Boolean(receipt.offline),
+      hasActiveRegisteredTerminal: Boolean(offlineContext?.terminalId),
+      hasOpenShift: Boolean(offlineContext?.sessionId),
+    });
+    if (!hardware.shouldOpenDrawer || autoDrawerPulseRef.current === receipt.saleId) return;
+    autoDrawerPulseRef.current = receipt.saleId;
+    const timer = window.setTimeout(() => void dispatchAutomaticDrawerPulse(), 250);
+    return () => window.clearTimeout(timer);
+  }, [dispatchAutomaticDrawerPulse, offlineContext?.sessionId, offlineContext?.terminalId, printerSettings, receipt]);
 
   const handleDownloadReceipt = useCallback(async () => {
     if (!receipt) return;
@@ -4107,6 +4161,7 @@ export function POSTerminal({
         productName: item.productName,
         productId: item.productId,
         quantity: item.quantity,
+        unitPrice: item.unitPrice.toFixed(2),
         totalPrice: item.totalPrice.toFixed(2),
         modifierNames: item.modifierNames,
         lineNotes: item.lineNotes,
@@ -4140,6 +4195,9 @@ export function POSTerminal({
       settings.taxEnabled && settings.taxRate > 0
         ? `${settings.taxName} (${settings.taxRate}%)`
         : settings.taxName;
+    const taxPresentationLabel = settings.pricesIncludeTax
+      ? `${taxLabel} included`
+      : taxLabel;
     const discountDetail =
       receipt.discountType === 'percentage' && receipt.discountValue != null
         ? `${receipt.discountValue}% discount`
@@ -4238,6 +4296,8 @@ export function POSTerminal({
                       template={settings.receiptTemplate}
                       logoUrl={settings.receiptLogoUrl}
                       taxName={taxLabel}
+                      taxIncluded={settings.pricesIncludeTax}
+                      branchName={receiptContext?.locationName}
                       showPhone={settings.receiptShowPhone}
                       showAddress={settings.receiptShowAddress}
                       showCashier={settings.receiptShowCashier}
@@ -4363,7 +4423,7 @@ export function POSTerminal({
                         {receipt.taxAmount > 0 && (
                           <div className="flex justify-between gap-3">
                             <span className="text-[#667085] dark:text-[#a8a8a8]">
-                              {taxLabel}
+                              {taxPresentationLabel}
                             </span>
                             <span className="font-semibold text-[#101828] dark:text-white">
                               {formatCurrency(receipt.taxAmount)}
@@ -8294,22 +8354,6 @@ export function POSTerminal({
                       <option value="other">Other</option>
                     </select>
                   </div>
-                  <div>
-                    <label className={ui.label}>
-                      ID/reference{' '}
-                      <span className="font-normal normal-case">
-                        (optional)
-                      </span>
-                    </label>
-                    <input
-                      value={ageIdReference}
-                      onChange={(event) =>
-                        setAgeIdReference(event.target.value.slice(0, 80))
-                      }
-                      className={cn(ui.input, 'h-11')}
-                      placeholder="Reference only — stored masked"
-                    />
-                  </div>
                   <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-[#e4e7ec] bg-[#f9fafb] p-3 text-sm font-medium text-[#344054] dark:border-white/10 dark:bg-white/[.04] dark:text-[#d0d5dd]">
                     <input
                       type="checkbox"
@@ -8320,7 +8364,7 @@ export function POSTerminal({
                       className="mt-0.5 h-4 w-4 accent-[#f2b705]"
                     />
                     <span>
-                      I confirm the customer meets the required legal age.
+                      I confirm the customer is 18 years or older and I checked the selected identification.
                     </span>
                   </label>
                 </>
@@ -8337,14 +8381,17 @@ export function POSTerminal({
               <button
                 ref={ageVerificationConfirmRef}
                 type="button"
-                onClick={confirmAgeVerification}
+                onClick={() => void confirmAgeVerification()}
+                disabled={ageVerificationSubmitting}
                 style={{ backgroundColor: ui.primary, color: ui.primaryInk }}
                 className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg px-4 text-sm font-bold transition-opacity hover:opacity-90"
               >
                 <ShieldCheck className="h-4 w-4" />
                 {ageVerificationMode === 'OVERRIDDEN'
                   ? 'Approve override'
-                  : 'Verify age'}
+                  : ageVerificationSubmitting
+                    ? 'Recording check…'
+                    : 'Verify age'}
               </button>
             </div>
           </div>
@@ -8916,6 +8963,7 @@ export function POSTerminal({
         <ReceiptReprint
           onClose={() => setShowReceiptReprint(false)}
           settings={settings}
+          branchName={receiptContext?.locationName}
           onRefund={
             canRefund
               ? (sale) => {
