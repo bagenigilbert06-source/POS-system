@@ -184,6 +184,10 @@ function getIcon(iconName: string): LucideIcon {
 interface DynamicAppSidebarProps {
   initialPermissions: readonly PermissionEnum[];
   initialRole?: string;
+  /** Server-resolved trading name, with the tenant name as its fallback. */
+  organizationName: string;
+  activeBranchName?: string | null;
+  branchCount?: number;
   mobileOpen?: boolean;
   onMobileClose?: () => void;
 }
@@ -191,6 +195,9 @@ interface DynamicAppSidebarProps {
 export function DynamicAppSidebar({
   initialPermissions: permissions,
   initialRole: role,
+  organizationName,
+  activeBranchName,
+  branchCount = 0,
   mobileOpen = false,
   onMobileClose,
 }: DynamicAppSidebarProps) {
@@ -759,8 +766,13 @@ export function DynamicAppSidebar({
               Pesaby
             </p>
             <p className="max-w-36 truncate text-xs text-[var(--dashboard-muted)]">
-              {config.name}
+              {organizationName || 'Business name not configured'}
             </p>
+            {branchCount > 1 && activeBranchName && (
+              <p className="max-w-36 truncate text-[11px] text-[var(--dashboard-muted)]">
+                {activeBranchName}
+              </p>
+            )}
           </div>
         )}
         <button

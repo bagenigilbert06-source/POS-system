@@ -374,16 +374,15 @@ export function AuthForm({ mode, compact = false }: AuthFormProps) {
         <button
           type="submit"
           disabled={loading}
+          aria-label={loading ? (isSignUp ? 'Creating your account' : 'Signing you in') : undefined}
           className="mt-2 flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-[#ffda32] px-4 text-sm font-extrabold text-slate-950 shadow-sm ring-1 ring-black/5 transition hover:bg-[#f3cd26] hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e42527] focus-visible:ring-offset-2 active:translate-y-px disabled:cursor-not-allowed disabled:opacity-60"
         >
           {loading && (
             <>
-              <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-              <span className="sr-only" role="status" aria-label="Authenticating">
-                Authenticating
-              </span>
+              <Loader2 label={isSignUp ? 'Creating your account' : 'Signing you in'} className="h-8 w-8" />
             </>
           )}
+          <span className={loading ? 'hidden' : undefined}>
           {loading
             ? isSignUp
               ? 'Creating your account…'
@@ -391,6 +390,7 @@ export function AuthForm({ mode, compact = false }: AuthFormProps) {
             : isSignUp
               ? 'Create account'
               : 'Sign in to Pesaby'}
+          </span>
         </button>
       </form>
 

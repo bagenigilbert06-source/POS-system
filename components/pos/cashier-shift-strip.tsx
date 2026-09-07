@@ -19,6 +19,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { notify } from '@/lib/notify';
+import { formatRegisterShiftDuration, registerShiftDurationMinutes } from '@/lib/pos/shift-duration';
 import { openQzCashDrawer } from '@/lib/printing/receipt-print-service';
 import {
   DropdownMenu,
@@ -67,6 +68,7 @@ type Workspace = {
   transactionCount: number;
   cashMovementCount: number;
   locationName: string;
+  timeZone?: string;
   mpesaCounters?: {
     confirmed: number;
     pending: number;
@@ -126,15 +128,26 @@ export function CashierShiftStrip({
     reconciliationRequired: 0,
   };
   const isClosing = session?.status === 'closing';
+  const [now, setNow] = useState(() => Date.now());
+  const sessionOpenedAt = session?.openedAt;
   const terminalConfigured = Boolean(workspace.registerName);
   const cashierDisplayName = formatPersonName(workspace.cashierName);
   const shiftStartedAt = session
     ? new Intl.DateTimeFormat('en-KE', {
         hour: '2-digit',
         minute: '2-digit',
-        timeZone: 'Africa/Nairobi',
+        timeZone: workspace.timeZone ?? 'Africa/Nairobi',
       }).format(new Date(session.openedAt))
     : null;
+  const elapsedShiftDuration = session
+    ? formatRegisterShiftDuration(registerShiftDurationMinutes(session.openedAt, new Date(now)))
+    : null;
+  useEffect(() => {
+    if (!sessionOpenedAt) return;
+    setNow(Date.now());
+    const interval = window.setInterval(() => setNow(Date.now()), 30_000);
+    return () => window.clearInterval(interval);
+  }, [session?.id, sessionOpenedAt]);
   useEffect(() => {
     if (!isClosing) {
       setCloseStep('count');
@@ -289,15 +302,17 @@ export function CashierShiftStrip({
             </div>
           </dl>
           <div className="hidden shrink-0 flex-wrap items-center justify-end gap-2 sm:flex">
-            <Link
-              href="/dashboard"
-              aria-label="Back to dashboard"
-              title="Back to dashboard"
-              className="group inline-flex h-8 items-center gap-1 rounded-md bg-[#b7791f]/10 px-2 text-xs font-semibold text-[#8a6500] transition-colors hover:bg-[#b7791f]/15 dark:bg-[#facc15]/10 dark:text-[#facc15] dark:hover:bg-[#facc15]/15"
-            >
-              <Home className="h-3.5 w-3.5 transition-transform group-hover:-translate-y-0.5" />
-              <span>Home</span>
-            </Link>
+            {!posUnlocked && (
+              <Link
+                href="/dashboard"
+                aria-label="Back to dashboard"
+                title="Back to dashboard"
+                className="group inline-flex h-8 items-center gap-1 rounded-md bg-[#b7791f]/10 px-2 text-xs font-semibold text-[#8a6500] transition-colors hover:bg-[#b7791f]/15 dark:bg-[#facc15]/10 dark:text-[#facc15] dark:hover:bg-[#facc15]/15"
+              >
+                <Home className="h-3.5 w-3.5 transition-transform group-hover:-translate-y-0.5" />
+                <span>Home</span>
+              </Link>
+            )}
             {action}
             {!session ? (
               <Button
@@ -400,6 +415,7 @@ export function CashierShiftStrip({
             {shiftStartedAt && (
               <>
                 <span>Started {shiftStartedAt}</span>
+                {elapsedShiftDuration && <span>Elapsed {elapsedShiftDuration}</span>}
                 <span aria-hidden="true">•</span>
               </>
             )}

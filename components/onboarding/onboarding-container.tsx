@@ -23,6 +23,7 @@ import { cn } from '@/lib/utils';
 import {
   BUSINESS_FAMILIES,
   DEFAULT_ONBOARDING_DATA,
+  KENYAN_COUNTIES,
   FINANCIAL_YEAR_START_OPTIONS,
   ONBOARDING_STEPS,
   REQUIRED_MODULES,
@@ -33,7 +34,10 @@ import {
   familyFor,
   isBusinessCategoryAvailable,
   isBusinessFamilyAvailable,
+  applyOperationsProfile,
+  operationsProfileFor,
   recommendedModules,
+  onboardingProgressPercent,
   type OnboardingDraft,
   type OnboardingStepId,
 } from '@/lib/onboarding/config';
@@ -58,61 +62,67 @@ const OPERATION_OPTIONS: Array<{
   key: keyof OnboardingDraft;
   title: string;
   description: string;
+  group: 'core' | 'payments' | 'features';
 }> = [
   {
     key: 'sellsProducts',
     title: 'Sell products',
     description: 'Products are part of daily sales.',
-  },
-  {
-    key: 'providesServices',
-    title: 'Provide services',
-    description: 'Services are sold or recorded.',
+    group: 'core',
   },
   {
     key: 'tracksInventory',
     title: 'Track inventory',
     description: 'Monitor stock levels and movement.',
+    group: 'core',
   },
   {
     key: 'hasEmployees',
-    title: 'Manage employees',
-    description: 'Staff need controlled access.',
-  },
-  {
-    key: 'multipleLocations',
-    title: 'Multiple locations',
-    description: 'The business operates in more than one place.',
-  },
-  {
-    key: 'keepsCustomers',
-    title: 'Keep customer records',
-    description: 'Save customer details and activity.',
-  },
-  {
-    key: 'acceptsCash',
-    title: 'Accept cash',
-    description: 'Record cash payments.',
-  },
-  {
-    key: 'acceptsMpesa',
-    title: 'Accept M-Pesa',
-    description: 'Record M-Pesa references manually.',
-  },
-  {
-    key: 'acceptsCard',
-    title: 'Accept cards',
-    description: 'Record card payments manually.',
-  },
-  {
-    key: 'needsTax',
-    title: 'Calculate tax',
-    description: 'Apply a configured tax rate.',
+    title: 'Staff & cashier access',
+    description: 'Manage cashiers, permissions and shifts.',
+    group: 'core',
   },
   {
     key: 'issuesReceipts',
     title: 'Issue receipts',
     description: 'Print or share supported receipts.',
+    group: 'core',
+  },
+  {
+    key: 'multipleLocations',
+    title: 'Multiple locations',
+    description: 'The business operates in more than one place.',
+    group: 'features',
+  },
+  {
+    key: 'keepsCustomers',
+    title: 'Keep customer records',
+    description: 'Save customer details and activity.',
+    group: 'features',
+  },
+  {
+    key: 'usesSuppliers',
+    title: 'Manage suppliers & purchasing',
+    description: 'Track suppliers and stock purchasing.',
+    group: 'features',
+  },
+  {
+    key: 'acceptsCash',
+    title: 'Accept cash',
+    description: 'Record cash payments.',
+    group: 'payments',
+  },
+  {
+    key: 'acceptsMpesa',
+    title: 'Accept M-Pesa',
+    description: 'Enable M-Pesa as a checkout payment method.',
+    group: 'payments',
+  },
+  {
+    key: 'acceptsCard',
+    title: 'Accept cards',
+    description: 'Enable card payments at checkout.',
+    group: 'payments',
   },
 ];
 
@@ -331,9 +341,7 @@ export function OnboardingContainer({
   const [logoUploading, setLogoUploading] = useState(false);
   const [workspaceCreated, setWorkspaceCreated] = useState(false);
   const stepId = ONBOARDING_STEPS[stepIndex];
-  const progress = Math.round(
-    (stepIndex / (ONBOARDING_STEPS.length - 1)) * 100
-  );
+  const progress = onboardingProgressPercent(stepIndex);
 
   useEffect(() => {
     const current = ONBOARDING_STEPS[stepIndex];
@@ -387,11 +395,14 @@ export function OnboardingContainer({
     setPageError('');
     setErrors({});
     try {
+      const stepData = stepId === 'main-branch'
+        ? { ...data, branchRegion: data.branchRegion || data.region }
+        : data;
       const synchronizedData =
         stepId === 'operations'
           ? {
-              ...data,
-              enabledModules: recommendedModules(data),
+              ...applyOperationsProfile(data, operationsProfileFor(data.businessFamily, data.businessCategory)),
+              enabledModules: recommendedModules(applyOperationsProfile(data, operationsProfileFor(data.businessFamily, data.businessCategory))),
               paymentMethods: [
                 data.acceptsCash && 'cash',
                 data.acceptsMpesa && 'mpesa',
@@ -402,22 +413,15 @@ export function OnboardingContainer({
                 : data.acceptsMpesa
                   ? 'mpesa'
                   : 'card',
-              taxEnabled: data.needsTax,
-              pricesIncludeTax: data.needsTax ? data.pricesIncludeTax : false,
-              showTaxOnReceipt:
-                data.needsTax && data.issuesReceipts
-                  ? data.showTaxOnReceipt
-                  : false,
             }
-          : data;
+          : stepData;
       const submittedData =
         stepId === 'receipt'
           ? {
               ...synchronizedData,
-              receiptBusinessName:
-                synchronizedData.receiptBusinessName ||
-                synchronizedData.displayName ||
-                synchronizedData.businessName,
+              // Receipt merchant identity follows trading name, then legal name.
+              // receiptBusinessName is retained only as legacy tenant metadata.
+              receiptBusinessName: synchronizedData.receiptBusinessName || '',
               receiptPhone:
                 synchronizedData.receiptPhone || synchronizedData.phone,
               receiptAddress:
@@ -629,17 +633,10 @@ export function OnboardingContainer({
     const category = String(value);
     setData((current) =>
       category === 'liquor_shop' || category === 'hardware'
-        ? {
+        ? applyOperationsProfile({
             ...current,
             businessCategory: category,
-            sellsProducts: true,
-            providesServices: false,
-            tracksInventory: true,
-            usesSuppliers: true,
-            issuesReceipts: true,
-            acceptsCash: true,
-            acceptsMpesa: true,
-          }
+          }, operationsProfileFor(current.businessFamily, category))
         : category === 'cafe'
           ? {
               ...current,
@@ -768,7 +765,7 @@ export function OnboardingContainer({
           <StepTitle
             eyebrow="Business details"
             title="Tell us about your business"
-            description="These details become the defaults for your workspace and main location."
+            description="Set up your business identity and primary operating location."
           />
           <div className="grid gap-5 sm:grid-cols-2">
             <Field
@@ -777,42 +774,36 @@ export function OnboardingContainer({
               value={data.businessName}
               onChange={update}
               error={errors.businessName}
-              placeholder="Acme Traders"
+              placeholder="Gilly Wines & Spirits Limited"
               autoComplete="organization"
             />
             <Field
-              label="Display name"
+              label="Display / trading name"
               name="displayName"
               value={data.displayName}
               onChange={update}
               error={errors.displayName}
               optional
-              placeholder="Name shown to customers"
+              placeholder="Gilly Wines"
             />
-            <div>
-              <SelectField
-                label="Country"
-                name="country"
-                value={data.country}
-                onChange={update}
-                error={errors.country}
-              >
-                <option value="KE">Kenya</option>
-              </SelectField>
-              <p className="mt-1.5 text-xs leading-5 text-zinc-500">
-                This workspace currently supports Kenyan currency, tax and
-                time-zone defaults.
-              </p>
-            </div>
             <Field
-              label="County or region"
+              label="Primary branch name"
+              name="branchName"
+              value={data.branchName}
+              onChange={update}
+              error={errors.branchName}
+              placeholder="Main Branch"
+            />
+            <SelectField
+              label="County"
               name="region"
               value={data.region}
               onChange={update}
               error={errors.region}
-              placeholder="Nairobi"
-              autoComplete="address-level1"
-            />
+            >
+              <option value="">Select county</option>
+              {KENYAN_COUNTIES.map((county) => <option key={county} value={county}>{county}</option>)}
+            </SelectField>
             <Field
               label="City or town"
               name="city"
@@ -843,16 +834,7 @@ export function OnboardingContainer({
               type="email"
               autoComplete="email"
             />
-            <Field
-              label="Website"
-              name="website"
-              value={data.website}
-              onChange={update}
-              error={errors.website}
-              optional
-              placeholder="https://business.com"
-              type="url"
-            />
+            <div className="hidden">
             <SelectField
               label="Business size"
               name="businessSize"
@@ -913,6 +895,12 @@ export function OnboardingContainer({
                 optional
                 placeholder="For example, everyday groceries, household goods and delivery services"
               />
+            </div>
+            </div>
+            <div className="sm:col-span-2">
+              <p className="text-xs font-medium text-zinc-500">
+                Kenya · Kenyan shilling (KES) · Africa/Nairobi
+              </p>
             </div>
           </div>
         </section>
@@ -1032,37 +1020,53 @@ export function OnboardingContainer({
         </section>
       );
 
-    if (stepId === 'operations')
+    if (stepId === 'operations') {
+      const operationsProfile = operationsProfileFor(data.businessFamily, data.businessCategory);
+      const groups: Array<{ id: 'core' | 'payments' | 'features'; label: string }> = [
+        { id: 'core', label: 'Core retail' },
+        { id: 'payments', label: 'Payments' },
+        { id: 'features', label: 'Business features' },
+      ];
       return (
         <section>
           <StepTitle
             eyebrow="Operations profile"
             title="How does your business work?"
-            description="Choose only what applies. These answers shape your modules and settings."
+            description="Core capabilities come from your business template. Choose payment methods and optional features."
           />
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {OPERATION_OPTIONS.map(({ key, title, description }) => {
+          <div className="space-y-5">
+            {groups.map(({ id, label }) => {
+              const options = OPERATION_OPTIONS.filter((option) => option.group === id)
+                .filter((option) => operationsProfile.showServices || option.key !== 'providesServices');
+              if (!options.length) return null;
+              return <section key={id}>
+                <p className="mb-2 text-[11px] font-extrabold uppercase tracking-[0.14em] text-zinc-500">{label}</p>
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {options.map(({ key, title, description }) => {
               const checked = Boolean(data[key]);
+              const required = operationsProfile.required.includes(key as never);
               return (
                 <label
                   key={key}
                   className={cn(
-                    'cursor-pointer rounded-xl border p-4 transition-colors focus-within:ring-2 focus-within:ring-[#e42527]',
+                    'rounded-xl border p-4 transition-colors focus-within:ring-2 focus-within:ring-[#e42527]',
                     checked
                       ? 'border-[#e7be16] bg-[#fff8d7]'
-                      : 'border-zinc-200 bg-white'
+                      : 'border-zinc-200 bg-white',
+                    !required && 'cursor-pointer'
                   )}
                 >
                   <span className="flex items-start gap-3">
                     <input
                       type="checkbox"
                       checked={checked}
+                      disabled={required}
                       onChange={(event) => update(key, event.target.checked)}
                       className="mt-1 h-4 w-4 accent-[#e42527]"
                     />
                     <span>
                       <span className="block text-sm font-extrabold text-slate-950">
-                        {title}
+                        {title} {required && <span className="ml-1 text-[10px] uppercase tracking-wide text-zinc-500">Required</span>}
                       </span>
                       <span className="mt-1 block text-xs leading-5 text-zinc-600">
                         {description}
@@ -1072,27 +1076,27 @@ export function OnboardingContainer({
                 </label>
               );
             })}
+                </div>
+              </section>
+            })}
           </div>
         </section>
       );
+    }
 
     if (stepId === 'main-branch')
       return (
         <section>
           <StepTitle
-            eyebrow="Main branch"
-            title="Set up your first location"
-            description="Pesaby creates this branch once and gives the workspace owner full access."
+            eyebrow="Primary branch details"
+            title="Complete your primary branch details"
+            description="These details apply to the primary branch created from your business identity."
           />
           <div className="grid gap-5 sm:grid-cols-2">
-            <Field
-              label="Branch name"
-              name="branchName"
-              value={data.branchName}
-              onChange={update}
-              error={errors.branchName}
-              placeholder="Main Branch"
-            />
+            <div className="rounded-lg border border-zinc-200 bg-zinc-50 px-4 py-3">
+              <p className="text-xs font-semibold text-zinc-500">Primary branch</p>
+              <p className="mt-1 text-sm font-extrabold text-slate-950">{data.branchName || 'Not configured'}</p>
+            </div>
             <Field
               label="Branch phone"
               name="branchPhone"
@@ -1110,14 +1114,16 @@ export function OnboardingContainer({
               error={errors.branchAddress}
               placeholder="Street and building"
             />
-            <Field
-              label="County or region"
+            <SelectField
+              label="County"
               name="branchRegion"
-              value={data.branchRegion}
+              value={data.branchRegion || data.region}
               onChange={update}
               error={errors.branchRegion}
-              placeholder="Nairobi"
-            />
+            >
+              <option value="">Select county</option>
+              {KENYAN_COUNTIES.map((county) => <option key={county} value={county}>{county}</option>)}
+            </SelectField>
             <Field
               label="City or town"
               name="branchCity"
@@ -1154,8 +1160,8 @@ export function OnboardingContainer({
         <section>
           <StepTitle
             eyebrow="Workspace modules"
-            title="Your recommended workspace"
-            description="Pesaby has matched these working modules to the operations you selected. Required operational modules stay aligned with those answers."
+            title="Review your workspace"
+            description="Application areas are generated from your template and operations. Required modules are locked; safe optional modules remain configurable."
           />
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {WORKING_MODULES.map((module) => {
@@ -1230,8 +1236,8 @@ export function OnboardingContainer({
         <section>
           <StepTitle
             eyebrow="Payments & tax"
-            title="Configure how you record money"
-            description="These methods are available for manual recording. No payment integration is connected by this step."
+            title="Configure payments and tax"
+            description="Choose which payment methods should be available at checkout. Provider integrations can be configured later in Payment Settings."
           />
           <h3 className="mb-3 text-sm font-extrabold">Payment methods</h3>
           <div className="grid gap-3 sm:grid-cols-3">
@@ -1264,7 +1270,8 @@ export function OnboardingContainer({
                     className="h-4 w-4 accent-[#e42527]"
                   />
                   <Icon className="h-5 w-5" />
-                  <span className="text-sm font-bold">{label}</span>
+                  <span><span className="block text-sm font-bold">{label}</span>
+                  {(['cash', 'mpesa', 'card'] as string[]).includes(id) && <span className="mt-0.5 block text-[11px] text-zinc-500">{id === 'mpesa' ? 'Enable M-Pesa at checkout.' : id === 'card' ? 'Enable card payments at checkout.' : 'Accept cash payments.'}</span>}</span>
                 </label>
               );
             })}
@@ -1378,17 +1385,10 @@ export function OnboardingContainer({
           <div className="grid gap-7 lg:grid-cols-[minmax(0,1fr)_360px]">
             <div className="space-y-6">
               <div className="grid gap-4 rounded-xl border border-zinc-200 bg-zinc-50/70 p-4 sm:grid-cols-2">
-                <Field
-                  label="Receipt business name"
-                  name="receiptBusinessName"
-                  value={
-                    data.receiptBusinessName ||
-                    data.displayName ||
-                    data.businessName
-                  }
-                  onChange={update}
-                  error={errors.receiptBusinessName}
-                />
+                <div className="rounded-lg border border-zinc-200 bg-white px-4 py-3">
+                  <p className="text-xs font-semibold text-zinc-500">Receipt merchant</p>
+                  <p className="mt-1 text-sm font-extrabold text-slate-950">{data.displayName || data.businessName || 'Business name not configured'}</p>
+                </div>
                 <Field
                   label="Receipt phone"
                   name="receiptPhone"
@@ -1675,11 +1675,7 @@ export function OnboardingContainer({
                 <div style={{ zoom: 0.78 }}>
                   <ReceiptTemplate
                     sale={receiptPreview}
-                    businessName={
-                      data.receiptBusinessName ||
-                      data.displayName ||
-                      data.businessName
-                    }
+                    businessName={data.displayName || data.businessName}
                     businessPhone={data.receiptPhone || data.phone}
                     businessAddress={
                       data.receiptAddress || data.branchAddress
@@ -1744,7 +1740,7 @@ export function OnboardingContainer({
               'operations',
             ],
             [
-              'Main branch',
+              'Primary branch',
               data.branchName,
               `${data.branchAddress}, ${data.branchCity}`,
               'main-branch',
@@ -1766,7 +1762,7 @@ export function OnboardingContainer({
             [
               'Receipt',
               data.issuesReceipts
-                ? data.receiptBusinessName || data.businessName
+                ? data.displayName || data.businessName
                 : 'Not enabled',
               data.issuesReceipts
                 ? data.receiptFooter || 'No footer message'
@@ -1854,16 +1850,15 @@ export function OnboardingContainer({
           onClick={next}
           disabled={saving}
           aria-busy={saving}
+          aria-label={saving ? 'Saving onboarding progress' : undefined}
           className="relative inline-flex min-h-12 min-w-[190px] items-center justify-center gap-2 overflow-hidden rounded-lg bg-[#e42527] px-6 text-sm font-extrabold text-white shadow-[0_7px_18px_rgba(228,37,39,0.18)] outline-none transition hover:bg-[#cf1f22] hover:shadow-[0_9px_22px_rgba(228,37,39,0.24)] active:translate-y-px focus-visible:ring-2 focus-visible:ring-[#e42527] focus-visible:ring-offset-2 disabled:cursor-wait disabled:bg-[#d92326] disabled:shadow-[0_7px_18px_rgba(228,37,39,0.16)]"
         >
-          {saving && <Loader2 className="h-4 w-4" />}
-          <span aria-live="polite">{submitLabel}</span>
-          {!saving && <ArrowRight className="h-4 w-4" />}
-          {saving && (
-            <span className="absolute inset-x-0 bottom-0 h-0.5 bg-white/20" aria-hidden="true">
-              <span className="onboarding-button-progress block h-full w-1/3 rounded-full bg-white" />
-            </span>
+          {saving ? (
+            <Loader2 label="Saving onboarding progress" className="h-8 w-8" />
+          ) : (
+            <span aria-live="polite">{submitLabel}</span>
           )}
+          {!saving && <ArrowRight className="h-4 w-4" />}
         </button>
       </div>
       <div className="mt-4 flex min-h-5 justify-end" aria-live="polite">

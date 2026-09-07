@@ -27,6 +27,7 @@ import {
 } from 'lucide-react';
 import { notify } from '@/lib/notify';
 import { Button } from '@/components/ui/button';
+import { LoadingSpinner } from '@/components/ui/page-loader';
 import {
   Select,
   SelectContent,
@@ -44,6 +45,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -156,6 +158,10 @@ export function StaffManagementTable({
     description: string;
     action: () => Promise<void>;
   } | null>(null);
+  const [pinResetEmployee, setPinResetEmployee] = useState<EmployeeCardRecord | null>(null);
+  const [newPin, setNewPin] = useState('');
+  const [confirmPin, setConfirmPin] = useState('');
+  const [isResettingPin, setIsResettingPin] = useState(false);
   const pageSize = 12;
 
   const employeeCodes = useMemo(
@@ -271,23 +277,27 @@ export function StaffManagementTable({
     }
   };
 
-  const handlePinReset = (employee: EmployeeCardRecord) =>
-    setConfirmation({
-      title: `Reset ${employee.name}'s POS PIN?`,
-      description:
-        'Their current PIN will stop working. They can create a new one after signing in with their password.',
-      action: async () => {
-        try {
-          await resetStaffPosPin(employee.id);
-          notify.success('POS PIN reset');
-          refresh();
-        } catch (error) {
-          notify.error(
-            error instanceof Error ? error.message : 'Unable to reset POS PIN'
-          );
-        }
-      },
-    });
+  const handlePinReset = (employee: EmployeeCardRecord) => {
+    setNewPin('');
+    setConfirmPin('');
+    setPinResetEmployee(employee);
+  };
+
+  const savePinReset = async () => {
+    if (!pinResetEmployee) return;
+    if (newPin !== confirmPin) return notify.error('PINs do not match');
+    setIsResettingPin(true);
+    try {
+      await resetStaffPosPin(pinResetEmployee.id, newPin);
+      notify.success('POS PIN reset');
+      setPinResetEmployee(null);
+      refresh();
+    } catch (error) {
+      notify.error(error instanceof Error ? error.message : 'Unable to reset POS PIN');
+    } finally {
+      setIsResettingPin(false);
+    }
+  };
 
   const handleStatusToggle = (employee: EmployeeCardRecord) => {
     const nextStatus = employee.status === 'active' ? 'inactive' : 'active';
@@ -629,6 +639,16 @@ export function StaffManagementTable({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      <Dialog open={Boolean(pinResetEmployee)} onOpenChange={(open) => !open && setPinResetEmployee(null)}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Reset POS PIN</DialogTitle><DialogDescription>Set a new six-digit PIN for {pinResetEmployee?.name}. The old PIN is revoked immediately; shifts and cash records are unchanged.</DialogDescription></DialogHeader>
+          <div className="space-y-3">
+            <input disabled={isResettingPin} value={newPin} onChange={(event) => setNewPin(event.target.value.replace(/\D/g, '').slice(0, 6))} inputMode="numeric" maxLength={6} type="password" autoComplete="new-password" placeholder="New six-digit PIN" className="h-10 w-full rounded-md border px-3" />
+            <input disabled={isResettingPin} value={confirmPin} onChange={(event) => setConfirmPin(event.target.value.replace(/\D/g, '').slice(0, 6))} inputMode="numeric" maxLength={6} type="password" autoComplete="new-password" placeholder="Confirm PIN" className="h-10 w-full rounded-md border px-3" />
+          </div>
+          <DialogFooter><Button variant="outline" disabled={isResettingPin} onClick={() => setPinResetEmployee(null)}>Cancel</Button><Button onClick={savePinReset} disabled={isResettingPin || newPin.length !== 6 || confirmPin.length !== 6}>{isResettingPin ? <LoadingSpinner className="h-4 w-4" label="Saving new POS PIN" /> : 'Save new PIN'}</Button></DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

@@ -17,6 +17,7 @@ import {
   type BusinessFamilyId,
   type OnboardingDraft,
   type OnboardingStepId,
+  operationsProfileFor,
 } from '@/lib/onboarding/config'
 import { onboardingStepSchemas, validateCompleteDraft } from '@/lib/onboarding/schemas'
 import { resolveOnboardingTemplateId } from '@/lib/templates'
@@ -115,12 +116,37 @@ export class OnboardingService {
       if (!parsed.success) return { ok: false as const, error: parsed.error }
 
       const currentData = (state.data ?? {}) as Record<string, unknown>
+      const parsedData = stepId === 'operations'
+        ? {
+            ...parsed.data,
+            ...operationsProfileFor(
+              String(currentData.businessFamily ?? ''),
+              String(currentData.businessCategory ?? '')
+            ).defaults,
+            ...Object.fromEntries(
+              operationsProfileFor(
+                String(currentData.businessFamily ?? ''),
+                String(currentData.businessCategory ?? '')
+              ).required.map((key) => [key, true])
+            ),
+          }
+        : stepId === 'payments-tax'
+          ? {
+              ...parsed.data,
+              // Step 7 is the authoritative payment-method selection. Keep
+              // the operational intent flags synchronized server-side so an
+              // earlier Operations snapshot cannot block completion.
+              acceptsCash: parsed.data.paymentMethods.includes('cash'),
+              acceptsMpesa: parsed.data.paymentMethods.includes('mpesa'),
+              acceptsCard: parsed.data.paymentMethods.includes('card'),
+            }
+        : parsed.data
       const completedBeforeStep = ((state.completedSteps as string[] | null) ?? [])
         .filter((completedStep) => ONBOARDING_STEPS.indexOf(completedStep as OnboardingStepId) < requestedIndex)
       const completedSteps = Array.from(new Set([...completedBeforeStep, stepId]))
       const nextStep = ONBOARDING_STEPS[Math.min(requestedIndex + 1, ONBOARDING_STEPS.length - 1)]
       const [updated] = await tx.update(onboardingState).set({
-        data: { ...currentData, ...parsed.data },
+        data: { ...currentData, ...parsedData },
         status: 'in_progress',
         currentStep: nextStep,
         completedSteps,
@@ -152,7 +178,12 @@ export class OnboardingService {
       if (firstIncompleteStep) throw new Error(`INCOMPLETE_STEP:${firstIncompleteStep}`)
 
       const validation = validateCompleteDraft((state.data ?? {}) as Record<string, unknown>)
-      if (!validation.success) throw new Error(`INCOMPLETE_STEP:${validation.step}`)
+      if (!validation.success) {
+        const issue = validation.error.issues[0]
+        throw new Error(
+          `INCOMPLETE_STEP:${validation.step}:${issue?.path.join('.') ?? ''}:${issue?.message ?? 'Check this section'}`
+        )
+      }
       const data = validation.data
       const [existingOrganization] = await tx.select().from(organization).where(eq(organization.userId, userId)).limit(1)
       const organizationId = existingOrganization?.id ?? generateId()

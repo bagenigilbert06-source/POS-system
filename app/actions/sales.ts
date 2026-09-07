@@ -1783,10 +1783,9 @@ export async function createSale(data: CreateSaleInput) {
             kraPin: customerRecord.kraPin,
           },
           businessSnapshot: {
-            name:
-              settings?.receiptBusinessName ||
-              settings?.displayName ||
-              orgRecord.name,
+            // Snapshot the trading identity (or legal tenant-name fallback)
+            // at completion; a template can never become the merchant name.
+            name: settings?.displayName?.trim() || orgRecord.name,
             address: settings?.receiptAddress || settings?.address,
             phone: settings?.receiptPhone || orgRecord.phone,
             email: orgRecord.businessEmail,

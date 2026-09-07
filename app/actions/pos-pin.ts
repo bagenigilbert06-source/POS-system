@@ -28,7 +28,7 @@ import {
 } from '@/lib/types/permissions';
 import { generateId } from '@/lib/utils';
 import {
-  POS_PIN_LOCK_MINUTES,
+  POS_PIN_LOCK_SECONDS,
   POS_PIN_MAX_ATTEMPTS,
   findPosPinOwners,
   validatePosPin,
@@ -110,7 +110,9 @@ export async function getOwnPosPinStatus() {
   };
 }
 
-export async function resetStaffPosPin(employeeId: string) {
+export async function resetStaffPosPin(employeeId: string, pin: string) {
+  const pinError = validatePosPin(pin);
+  if (pinError) throw new Error(pinError);
   const context = await requirePermission(PermissionEnum.POS_PIN_RESET);
   const [record] = await db
     .select()
@@ -123,8 +125,10 @@ export async function resetStaffPosPin(employeeId: string) {
     )
     .limit(1);
   if (!record?.userId) throw new Error('Employee account not found');
+  // An authenticated PIN-reset administrator may recover their own cashier
+  // PIN. Role-hierarchy checks still protect every other staff member.
   if (
-    record.userId === context.userId ||
+    record.userId !== context.userId &&
     !canManageExistingRole(context.role, record.role as RoleEnum)
   )
     throw new Error('You cannot reset this staff member’s PIN');
@@ -139,9 +143,11 @@ export async function resetStaffPosPin(employeeId: string) {
     )
       throw new Error('This staff member is outside your assigned branches');
   }
-  await db
-    .delete(posPinCredential)
-    .where(eq(posPinCredential.userId, record.userId));
+  const activeCredentials = await db.select({ userId: posPinCredential.userId, pinHash: posPinCredential.pinHash }).from(posPinCredential).innerJoin(employee, eq(employee.userId, posPinCredential.userId)).where(and(eq(employee.orgId, context.organizationId), eq(employee.status, 'active'), eq(posPinCredential.enabled, true), ne(posPinCredential.userId, record.userId)));
+  const owners = await findPosPinOwners(pin, activeCredentials, ({ pinHash }, value) => verifyPassword({ hash: pinHash, password: value }));
+  if (owners.length) throw new Error('This PIN is already assigned to another active cashier');
+  const pinHash = await hashPassword(pin);
+  await db.insert(posPinCredential).values({ userId: record.userId, pinHash }).onConflictDoUpdate({ target: posPinCredential.userId, set: { pinHash, enabled: true, failedAttempts: 0, lockedUntil: null, setAt: new Date(), updatedAt: new Date() } });
   await db
     .update(posAuthSession)
     .set({ status: 'revoked' })
@@ -157,7 +163,7 @@ export async function resetStaffPosPin(employeeId: string) {
       id: generateId(),
       organizationId: context.organizationId,
       userId: context.userId,
-      action: 'pos.pin.reset_requested',
+      action: 'staff.pos_pin_reset',
       metadata: { employeeId },
     });
   return { success: true };
@@ -261,7 +267,7 @@ export async function getPosLockData() {
 export async function unlockPosWithPin(userId: string, pin: string) {
   const terminal = await getTerminal();
   if (!terminal) throw new Error('This POS terminal is not registered');
-  const [[member], [staff], [credential]] = await Promise.all([
+  const [[member], [account], [organizationRole], [staff], [credential]] = await Promise.all([
     db
       .select()
       .from(branchMembership)
@@ -272,6 +278,8 @@ export async function unlockPosWithPin(userId: string, pin: string) {
         )
       )
       .limit(1),
+    db.select({ status: user.status }).from(user).where(eq(user.id, userId)).limit(1),
+    db.select({ role: organizationMembership.role }).from(organizationMembership).where(and(eq(organizationMembership.organizationId, terminal.organizationId), eq(organizationMembership.userId, userId))).limit(1),
     db
       .select()
       .from(employee)
@@ -303,7 +311,7 @@ export async function unlockPosWithPin(userId: string, pin: string) {
         .set({
           failedAttempts: attempts,
           lockedUntil: locked
-            ? new Date(Date.now() + POS_PIN_LOCK_MINUTES * 60000)
+            ? new Date(Date.now() + POS_PIN_LOCK_SECONDS * 1000)
             : null,
           updatedAt: new Date(),
         })
@@ -324,6 +332,9 @@ export async function unlockPosWithPin(userId: string, pin: string) {
     !member ||
     !staff ||
     !credential ||
+    account?.status !== 'active' ||
+    !organizationRole ||
+    !ROLE_PERMISSIONS[organizationRole.role as keyof typeof ROLE_PERMISSIONS]?.includes(PermissionEnum.POS_PIN_USE) ||
     (credential.lockedUntil && credential.lockedUntil > new Date())
   )
     return invalid();
@@ -349,7 +360,7 @@ export async function unlockPosWithPin(userId: string, pin: string) {
       ))
       .limit(1);
     if (activeShift && activeShift.openedBy !== userId)
-      throw new Error(`${terminal.name} is currently in use by ${activeShift.cashierName || 'another cashier'}. End and reconcile the current shift before another cashier signs in.`);
+      throw new Error(`${terminal.name} currently has an open shift for ${activeShift.cashierName || 'another cashier'}. End and reconcile the current shift before another cashier signs in.`);
     await tx.update(posAuthSession).set({ status: 'switched' }).where(and(
       eq(posAuthSession.terminalId, terminal.id),
       eq(posAuthSession.status, 'active')
@@ -577,7 +588,7 @@ export async function unlockPosWithStaffPin(userId: string, pin: string) {
         .set({
           failedAttempts: attempts,
           lockedUntil: locked
-            ? new Date(Date.now() + POS_PIN_LOCK_MINUTES * 60000)
+            ? new Date(Date.now() + POS_PIN_LOCK_SECONDS * 1000)
             : null,
           updatedAt: new Date(),
         })
@@ -647,13 +658,15 @@ export async function unlockPosWithStaffPin(userId: string, pin: string) {
 
 /** PIN-only login identifies the cashier server-side. */
 export async function unlockPosByPin(pin: string) {
+  const pinError = validatePosPin(pin);
+  if (pinError) return { success: false, error: 'PIN_INVALID_FORMAT' };
   try {
     const terminal = await getTerminal();
     if (!terminal) return { success: false, error: 'Terminal access not allowed' };
     const candidates = await db.select({ userId: posPinCredential.userId, pinHash: posPinCredential.pinHash }).from(posPinCredential).innerJoin(employee, eq(employee.userId, posPinCredential.userId)).innerJoin(branchMembership, eq(branchMembership.userId, posPinCredential.userId)).where(and(eq(employee.orgId, terminal.organizationId), eq(employee.status, 'active'), eq(posPinCredential.enabled, true), eq(branchMembership.branchId, terminal.branchId)));
     const owners = await findPosPinOwners(pin, candidates, ({ pinHash }, value) => verifyPassword({ hash: pinHash, password: value }));
     if (owners.length === 1) return await unlockPosWithPin(owners[0], pin);
-    return { success: false, error: 'Invalid PIN or you are not authorized to use this terminal.' };
+    return { success: false, error: 'PIN_NOT_FOUND' };
   } catch (error) {
     return { success: false, error: error instanceof Error ? error.message : 'Unable to unlock this terminal' };
   }
@@ -769,7 +782,7 @@ export async function unlockCurrentLockedPos(pin: string) {
         .set({
           failedAttempts: attempts,
           lockedUntil: pinLocked
-            ? new Date(Date.now() + POS_PIN_LOCK_MINUTES * 60000)
+            ? new Date(Date.now() + POS_PIN_LOCK_SECONDS * 1000)
             : null,
           updatedAt: new Date(),
         })

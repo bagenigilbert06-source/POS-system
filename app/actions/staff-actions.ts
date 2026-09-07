@@ -170,15 +170,27 @@ export async function createEmployee(data: {
     }
     const staffUserId = existingUser?.id ?? nanoid()
     const [existingMembership] = await tx.select().from(organizationMembership).where(and(eq(organizationMembership.organizationId, authorization.organizationId), eq(organizationMembership.userId, staffUserId))).limit(1)
-    if (existingMembership) throw new Error('This user already has access to the organization')
+    const [existingEmployee] = await tx.select({ id: employee.id }).from(employee).where(and(eq(employee.orgId, authorization.organizationId), eq(employee.userId, staffUserId))).limit(1)
+    if (existingEmployee) throw new Error('This user is already an employee in this organization')
+    // An organization owner/admin can also be an operational staff member.
+    // Preserve their organization role; this action only creates the employee
+    // profile and a branch assignment required by POS authentication.
+    if (existingMembership && staffUserId !== authorization.userId && !canManageExistingRole(authorization.role, existingMembership.role as RoleEnum)) {
+      throw new Error('You cannot add an employee profile for this organization member')
+    }
     if (!existingUser) await tx.insert(user).values({ id: staffUserId, name: input.name, email: input.email, image: input.image || null, status: 'invited' })
     const employeeId = nanoid()
-    await tx.insert(organizationMembership).values({ id: nanoid(), organizationId: authorization.organizationId, userId: staffUserId, role: input.role })
-    await tx.insert(branchMembership).values({ id: nanoid(), branchId: input.branchId, userId: staffUserId, role: input.role })
+    if (!existingMembership) {
+      await tx.insert(organizationMembership).values({ id: nanoid(), organizationId: authorization.organizationId, userId: staffUserId, role: input.role })
+    }
+    const [existingBranchMembership] = await tx.select({ id: branchMembership.id }).from(branchMembership).where(and(eq(branchMembership.branchId, input.branchId), eq(branchMembership.userId, staffUserId))).limit(1)
+    if (!existingBranchMembership) {
+      await tx.insert(branchMembership).values({ id: nanoid(), branchId: input.branchId, userId: staffUserId, role: existingMembership?.role ?? input.role })
+    }
     const status = existingUser ? 'active' : 'invited'
     const [record] = await tx.insert(employee).values({ id: employeeId, userId: staffUserId, name: input.name, email: input.email, phone: input.phone || null, role: input.role, department: input.department || null, salary: String(input.salary), profile: input.profile ?? {}, joinDate: input.joinDate ?? new Date(), status, orgId: authorization.organizationId }).returning()
     if (input.shiftId) await tx.insert(shiftAssignment).values({ id: nanoid(), employeeId, shiftId: input.shiftId, date: input.joinDate ?? new Date(), orgId: authorization.organizationId })
-    await tx.insert(auditEvent).values({ id: nanoid(), organizationId: authorization.organizationId, userId: authorization.userId, action: 'staff.created', metadata: { employeeId, staffUserId, role: input.role, branchId: input.branchId, shiftId: input.shiftId, existingUser: Boolean(existingUser) } })
+    await tx.insert(auditEvent).values({ id: nanoid(), organizationId: authorization.organizationId, userId: authorization.userId, action: existingMembership ? 'staff.profile_attached' : 'staff.created', metadata: { employeeId, staffUserId, role: input.role, branchId: input.branchId, shiftId: input.shiftId, existingUser: Boolean(existingUser) } })
     return { record, existingUser: Boolean(existingUser) }
   })
   let invitationSent = false

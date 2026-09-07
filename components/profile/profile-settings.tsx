@@ -194,7 +194,8 @@ export function ProfileSettings({ profile }: { profile: ProfileData }) {
                     alt="Profile preview"
                     fill
                     sizes="96px"
-                    unoptimized
+                    quality={75}
+                    priority
                     className="object-cover"
                   />
                 ) : (

@@ -1,15 +1,28 @@
 import { z } from 'zod'
 import {
   BUSINESS_FAMILY_IDS,
+  KENYAN_COUNTIES,
   ONBOARDING_STEPS,
   WORKING_MODULES,
   isCategoryValidForFamily,
   isBusinessCategoryAvailable,
+  operationsProfileFor,
   type OnboardingDraft,
 } from './config'
 
 const optionalText = (max: number) => z.string().trim().max(max).optional().default('')
-const phone = z.string().trim().regex(/^\+?[0-9][0-9\s-]{7,18}$/, 'Enter a valid phone number')
+export function normalizeKenyanPhone(value: string) {
+  const digits = value.trim().replace(/[\s-]/g, '')
+  if (/^0[17]\d{8}$/.test(digits)) return `+254${digits.slice(1)}`
+  if (/^[17]\d{8}$/.test(digits)) return `+254${digits}`
+  if (/^\+254[17]\d{8}$/.test(digits)) return digits
+  if (/^254[17]\d{8}$/.test(digits)) return `+${digits}`
+  return value.trim()
+}
+const phone = z.string().trim().transform(normalizeKenyanPhone).refine(
+  (value) => /^\+254[17]\d{8}$/.test(value),
+  'Enter a Kenyan phone number, for example 0712345678'
+)
 const url = z.union([z.literal(''), z.string().trim().url('Enter a complete website address')])
 const financialYearStart = z.string().regex(/^\d{2}-\d{2}$/, 'Choose a valid financial year start').refine((value) => {
   const [month, day] = value.split('-').map(Number)
@@ -22,8 +35,12 @@ export const onboardingStepSchemas = {
   'business-details': z.object({
     businessName: z.string().trim().min(2, 'Enter your business name').max(120),
     displayName: optionalText(120),
+    branchName: z.string().trim().min(2, 'Enter the primary branch name').max(100),
     country: z.literal('KE'),
-    region: z.string().trim().min(2, 'Enter a county or region').max(80),
+    region: z.string().trim().min(2, 'Choose a Kenyan county').max(80).refine(
+      (value) => KENYAN_COUNTIES.includes(value as typeof KENYAN_COUNTIES[number]),
+      'Choose a Kenyan county'
+    ),
     city: z.string().trim().min(2, 'Enter a city or town').max(80),
     phone,
     businessEmail: z.union([z.literal(''), z.string().trim().email('Enter a valid business email')]),
@@ -67,7 +84,10 @@ export const onboardingStepSchemas = {
     branchName: z.string().trim().min(2, 'Enter the location name').max(100),
     branchPhone: phone,
     branchAddress: z.string().trim().min(3, 'Enter the location address').max(180),
-    branchRegion: z.string().trim().min(2, 'Enter the county or region').max(80),
+    branchRegion: z.string().trim().min(2, 'Choose a Kenyan county').max(80).refine(
+      (value) => KENYAN_COUNTIES.includes(value as typeof KENYAN_COUNTIES[number]),
+      'Choose a Kenyan county'
+    ),
     branchCity: z.string().trim().min(2, 'Enter the city or town').max(80),
     branchTimezone: z.literal('Africa/Nairobi'),
     receiptHeader: optionalText(120),
@@ -87,7 +107,9 @@ export const onboardingStepSchemas = {
     if (value.taxEnabled && !value.taxIdentifier.trim()) context.addIssue({ code: z.ZodIssueCode.custom, path: ['taxIdentifier'], message: 'Enter the KRA PIN used for this tax setup' })
   }),
   receipt: z.object({
-    receiptBusinessName: z.string().trim().min(2).max(120), receiptPhone: phone, receiptAddress: optionalText(180),
+    // Legacy receiptBusinessName remains stored for existing tenants but is no
+    // longer collected or required during new onboarding.
+    receiptBusinessName: optionalText(120), receiptPhone: phone, receiptAddress: optionalText(180),
     receiptFooter: optionalText(160), receiptLayout: z.enum(['detailed', 'thermal']),
     receiptTemplate: z.enum(['classic', 'logo', 'cafe']), receiptLogoUrl: optionalText(500),
     showTaxOnReceipt: z.boolean(), receiptShowPhone: z.boolean(), receiptShowAddress: z.boolean(),
@@ -117,6 +139,10 @@ export function validateCompleteDraft(data: Record<string, unknown>) {
   }
 
   const draft = merged as unknown as OnboardingDraft
+  const operationsProfile = operationsProfileFor(draft.businessFamily, draft.businessCategory)
+  for (const key of operationsProfile.required) {
+    if (!draft[key]) return draftError('operations', key, 'This capability is required for the selected POS template')
+  }
   const modules = new Set(draft.enabledModules)
   if (draft.sellsProducts && !modules.has('products')) return draftError('modules', 'enabledModules', 'Product-selling businesses require Products')
   if (!draft.sellsProducts && !draft.usesSuppliers && modules.has('products')) return draftError('modules', 'enabledModules', 'Products require product sales or supplier purchasing')
@@ -130,7 +156,6 @@ export function validateCompleteDraft(data: Record<string, unknown>) {
   if (draft.acceptsCash !== payments.has('cash')) return draftError('payments-tax', 'paymentMethods', 'Cash settings must match the operations profile')
   if (draft.acceptsMpesa !== payments.has('mpesa')) return draftError('payments-tax', 'paymentMethods', 'M-Pesa settings must match the operations profile')
   if (draft.acceptsCard !== payments.has('card')) return draftError('payments-tax', 'paymentMethods', 'Card settings must match the operations profile')
-  if (draft.needsTax !== draft.taxEnabled) return draftError('payments-tax', 'taxEnabled', 'Tax settings must match the operations profile')
   if (!draft.taxEnabled && (draft.pricesIncludeTax || draft.showTaxOnReceipt)) return draftError('payments-tax', 'taxEnabled', 'Disabled tax cannot be included in prices or receipts')
   if (!draft.issuesReceipts && draft.showTaxOnReceipt) return draftError('receipt', 'showTaxOnReceipt', 'Receipt tax display requires receipts to be enabled')
 

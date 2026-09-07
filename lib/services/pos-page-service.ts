@@ -1,16 +1,18 @@
 import { and, desc, eq, gt, inArray, isNull, or, sql } from 'drizzle-orm'
 import { db } from '@/lib/db'
-import { branch, businessSettings, cashMovement, category, customer, customerRewardAccount, inventoryBalance, inventoryLot, pharmacyProduct, posPinCredential, posSession, posTerminal, product, productPackage, sale, salesReturn, mpesaPaymentRequest, user } from '@/lib/db/schema'
+import { branch, businessSettings, cashMovement, category, customer, customerRewardAccount, inventoryBalance, inventoryLot, organization, pharmacyProduct, posPinCredential, posSession, posTerminal, product, productPackage, sale, salesReturn, mpesaPaymentRequest, user } from '@/lib/db/schema'
 import { readThroughRedis } from '@/lib/cache/redis-cache'
 import type { AuthorizationContext } from '@/lib/auth/authorization'
 import { filterPharmacyCatalog } from '@/lib/pharmacy/rules'
 import { getCafePosExperience } from '@/lib/cafe/sale-service'
 
-function receiptSettings(settings: typeof businessSettings.$inferSelect | undefined) {
+function receiptSettings(settings: typeof businessSettings.$inferSelect | undefined, organizationName: string | null | undefined) {
   const methods = Array.isArray(settings?.paymentMethods) ? settings.paymentMethods as string[] : []
   return {
-    displayName: settings?.displayName || 'Business',
-    receiptBusinessName: settings?.receiptBusinessName || settings?.displayName || 'Business',
+    // The optional trading name is the presentation identity; the persisted
+    // legal tenant name remains the fallback, never the workspace template.
+    displayName: settings?.displayName?.trim() || organizationName || 'Business name not configured',
+    receiptBusinessName: settings?.displayName?.trim() || organizationName || 'Business name not configured',
     receiptPhone: settings?.receiptPhone || '', receiptAddress: settings?.receiptAddress || '',
     receiptFooter: settings?.receiptFooter || 'Thank you for your purchase',
     receiptLayout: settings?.receiptLayout === 'detailed' ? 'detailed' as const : 'thermal' as const,
@@ -39,13 +41,14 @@ export async function getPosPageData(authorization: AuthorizationContext, includ
     ? eq(branch.isMain, true)
     : eq(branch.id, authorization.branchIds[0] ?? '')
 
-  const [products, packages, medicineMetadata, categories, customers, settingsRows, sessionRows, branchRows, pinRows] = await Promise.all([
+  const [products, packages, medicineMetadata, categories, customers, settingsRows, organizationRows, sessionRows, branchRows, pinRows] = await Promise.all([
     readThroughRedis({ namespace: 'products', organizationId: orgId, variant: 'list:active:', ttlSeconds: 120, load: () => db.select().from(product).where(and(eq(product.orgId, orgId), eq(product.isActive, true))).orderBy(desc(product.createdAt)) }),
     db.select().from(productPackage).where(and(eq(productPackage.organizationId, orgId), eq(productPackage.isActive, true))).orderBy(productPackage.baseUnitQuantity),
     db.select().from(pharmacyProduct).where(eq(pharmacyProduct.organizationId, orgId)),
     readThroughRedis({ namespace: 'categories', organizationId: orgId, variant: 'pos-filter-list', ttlSeconds: 600, load: () => db.select({ id: category.id, name: category.name, parentCategoryId: category.parentCategoryId, isActive: category.isActive }).from(category).where(eq(category.orgId, orgId)).orderBy(category.name) }),
     includeCustomers ? db.select({ customer, pointsBalance: customerRewardAccount.pointsBalance, bonusBalance: customerRewardAccount.bonusBalance }).from(customer).leftJoin(customerRewardAccount, and(eq(customerRewardAccount.customerId, customer.id), eq(customerRewardAccount.organizationId, orgId))).where(eq(customer.orgId, orgId)).orderBy(desc(customer.createdAt)).then(rows => rows.map(({ customer: row, pointsBalance, bonusBalance }) => ({ ...row, loyaltyPoints: pointsBalance ?? row.loyaltyPoints, pointsBalance: pointsBalance ?? row.loyaltyPoints, bonusBalance: Number(bonusBalance ?? 0) }))) : Promise.resolve([]),
     db.select().from(businessSettings).where(eq(businessSettings.organizationId, orgId)).limit(1),
+    db.select({ name: organization.name, timezone: organization.timezone }).from(organization).where(eq(organization.id, orgId)).limit(1),
     db.select().from(posSession).where(and(
       eq(posSession.orgId, orgId),
       eq(posSession.openedBy, authorization.userId),
@@ -111,8 +114,8 @@ export async function getPosPageData(authorization: AuthorizationContext, includ
     else if (status === 'reconciliation_required') mpesaCounters.reconciliationRequired += count
   }
   return {
-    products: branchProducts, categories: posCategories, customers, settings: { ...receiptSettings(settingsRows[0]), ...(terminal ? { receiptPrintingMode: terminal.printingMode === 'direct' ? 'direct' as const : 'browser' as const, receiptPrinterName: terminal.printerIdentifier || terminal.printerDisplayName || '', receiptPaperWidth: terminal.paperWidth === 58 ? 58 as const : 80 as const, receiptAutoPrint: terminal.autoPrint, receiptPrintCopies: Math.max(1, Math.min(3, terminal.receiptCopies)), receiptCashDrawerPulse: terminal.cashDrawerPulse } : {}) }, activeBranch: branchRows[0] ?? null,
+    products: branchProducts, categories: posCategories, customers, settings: { ...receiptSettings(settingsRows[0], organizationRows[0]?.name), ...(terminal ? { receiptPrintingMode: terminal.printingMode === 'direct' ? 'direct' as const : 'browser' as const, receiptPrinterName: terminal.printerIdentifier || terminal.printerDisplayName || '', receiptPaperWidth: terminal.paperWidth === 58 ? 58 as const : 80 as const, receiptAutoPrint: terminal.autoPrint, receiptPrintCopies: Math.max(1, Math.min(3, terminal.receiptCopies)), receiptCashDrawerPulse: terminal.cashDrawerPulse } : {}) }, activeBranch: branchRows[0] ?? null,
     pinSet: Boolean(pinRows[0]?.enabled), cafe,
-    cashierWorkspace: { session: activeSession, registerName: terminal?.name ?? activeSession?.sessionNo ?? null, cashierName: cashier?.name ?? null, shiftSales: Number(summary?.total ?? 0) - Number(refunds?.total ?? 0), transactionCount: Number(summary?.count ?? 0), cashMovementCount: Number(movements?.count ?? 0), locationName: branchRows[0]?.name ?? 'Assigned location', recentSales, mpesaCounters },
+    cashierWorkspace: { session: activeSession, registerName: terminal?.name ?? activeSession?.sessionNo ?? null, cashierName: cashier?.name ?? null, shiftSales: Number(summary?.total ?? 0) - Number(refunds?.total ?? 0), transactionCount: Number(summary?.count ?? 0), cashMovementCount: Number(movements?.count ?? 0), locationName: branchRows[0]?.name ?? 'Assigned location', timeZone: organizationRows[0]?.timezone ?? 'Africa/Nairobi', recentSales, mpesaCounters },
   }
 }

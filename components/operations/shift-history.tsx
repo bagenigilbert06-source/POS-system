@@ -9,6 +9,7 @@ import {
   UserRound,
 } from 'lucide-react';
 import { formatCurrency, formatDateTime } from '@/lib/utils';
+import { formatRegisterShiftDuration, registerShiftDurationMinutes } from '@/lib/pos/shift-duration';
 
 type ShiftRecord = {
   id: string;
@@ -86,6 +87,7 @@ export function ShiftHistory({
                 <th className="px-3 py-3 font-semibold">Cashier</th>
                 <th className="px-3 py-3 font-semibold">Register / location</th>
                 <th className="px-3 py-3 font-semibold">Opened / closed</th>
+                <th className="px-3 py-3 text-right font-semibold">Duration</th>
                 <th className="px-3 py-3 text-right font-semibold">Sales</th>
                 <th className="px-3 py-3 text-right font-semibold">Expected</th>
                 <th className="px-3 py-3 text-right font-semibold">Counted</th>
@@ -151,6 +153,11 @@ export function ShiftHistory({
                           ? formatDateTime(shift.closedAt)
                           : 'Still open'}
                       </span>
+                    </td>
+                    <td className="px-3 py-3.5 text-right font-semibold tabular-nums">
+                      {shift.closedAt
+                        ? formatRegisterShiftDuration(registerShiftDurationMinutes(shift.openedAt, shift.closedAt))
+                        : 'Open'}
                     </td>
                     <td className="px-3 py-3.5 text-right font-semibold tabular-nums">
                       {formatCurrency(salesTotal, currency)}
@@ -227,6 +234,11 @@ function ShiftDetail({
             <UserRound className="h-3.5 w-3.5" />
             Opened by {shift.cashierName}
           </span>
+          {shift.closedAt && (
+            <span>
+              Register time {formatRegisterShiftDuration(registerShiftDurationMinutes(shift.openedAt, shift.closedAt))}
+            </span>
+          )}
           <span className="inline-flex items-center gap-1">
             <Clock3 className="h-3.5 w-3.5" />
             {shift.closedAt

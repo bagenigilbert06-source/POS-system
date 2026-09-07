@@ -19,7 +19,13 @@ export async function POST(request: Request) {
     const code = error instanceof Error ? error.message : ''
     if (code === 'EMAIL_NOT_VERIFIED') return NextResponse.json({ message: 'Verify your email before creating a workspace.' }, { status: 403 })
     if (code === 'STALE_REVISION') return NextResponse.json({ code: 'STALE_REVISION', message: 'This setup changed in another tab. Reload to continue with the latest version.' }, { status: 409 })
-    if (code.startsWith('INCOMPLETE_STEP:')) return NextResponse.json({ message: 'Review the incomplete section before creating your workspace.', stepId: code.split(':')[1] }, { status: 422 })
+    if (code.startsWith('INCOMPLETE_STEP:')) {
+      const [, stepId, , ...messageParts] = code.split(':')
+      return NextResponse.json({
+        message: messageParts.join(':') || 'Review the incomplete section before creating your workspace.',
+        stepId,
+      }, { status: 422 })
+    }
     console.error('[onboarding/complete] Workspace transaction failed', {
       code,
       cause: error instanceof Error && error.cause instanceof Error

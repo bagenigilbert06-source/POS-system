@@ -3,9 +3,12 @@ import {
   DEFAULT_ONBOARDING_DATA,
   isBusinessCategoryAvailable,
   isBusinessFamilyAvailable,
+  KENYAN_COUNTIES,
+  onboardingProgressPercent,
+  operationsProfileFor,
   type OnboardingDraft,
 } from '../lib/onboarding/config'
-import { onboardingStepSchemas, validateCompleteDraft } from '../lib/onboarding/schemas'
+import { normalizeKenyanPhone, onboardingStepSchemas, validateCompleteDraft } from '../lib/onboarding/schemas'
 import { resolveOnboardingTemplateId } from '../lib/templates'
 import { getBusinessExperience } from '../lib/workspace/business-experience'
 import { fiscalYearStart } from '../lib/finance/fiscal-year'
@@ -15,7 +18,7 @@ function validDraft(overrides: Partial<OnboardingDraft> = {}): OnboardingDraft {
     ...DEFAULT_ONBOARDING_DATA,
     businessName: 'Test Business', region: 'Nairobi', city: 'Nairobi', phone: '+254700000000',
     businessSize: 'small', businessDescription: 'Everyday retail goods',
-    businessFamily: 'retail', businessCategory: 'hardware', sellsProducts: true, tracksInventory: true,
+    businessFamily: 'retail', businessCategory: 'hardware', sellsProducts: true, tracksInventory: true, hasEmployees: true, issuesReceipts: true,
     keepsCustomers: true, usesSuppliers: true, branchName: 'Main location', branchPhone: '+254700000000',
     branchAddress: 'Test Street', branchRegion: 'Nairobi', branchCity: 'Nairobi',
     enabledModules: ['pos', 'sales', 'products', 'inventory', 'customers', 'reports', 'analytics'],
@@ -44,6 +47,24 @@ assert.equal(isBusinessCategoryAvailable('hardware'), true, 'hardware must be av
 assert.equal(isBusinessCategoryAvailable('supermarket'), false, 'supermarket must remain coming soon')
 assert.equal(isBusinessFamilyAvailable('retail'), true, 'retail must remain selectable')
 assert.equal(isBusinessFamilyAvailable('professional_services'), false, 'unsupported families must remain disabled')
+assert.equal(KENYAN_COUNTIES.length, 47, 'the Kenya county selector must include all 47 counties')
+assert.equal(onboardingStepSchemas['business-details'].safeParse({ ...DEFAULT_ONBOARDING_DATA, businessName: 'Test Business', branchName: 'Main Branch', region: 'Nairobi', city: 'Nairobi', phone: '0712345678' }).success, true, 'a Kenyan county and local phone must validate')
+assert.equal(onboardingStepSchemas['business-details'].safeParse({ ...DEFAULT_ONBOARDING_DATA, businessName: 'Test Business', branchName: 'Main Branch', region: 'Not a county', city: 'Nairobi', phone: '0712345678' }).success, false, 'unknown counties must be rejected')
+assert.equal(onboardingStepSchemas['main-branch'].safeParse({ ...DEFAULT_ONBOARDING_DATA, branchName: 'Main Branch', branchPhone: '0712345678', branchAddress: 'Test Street', branchRegion: 'Nairobi', branchCity: 'Nairobi' }).success, true, 'primary branch county must accept a Kenyan county')
+assert.equal(onboardingStepSchemas['main-branch'].safeParse({ ...DEFAULT_ONBOARDING_DATA, branchName: 'Main Branch', branchPhone: '0712345678', branchAddress: 'Test Street', branchRegion: 'Unknown', branchCity: 'Nairobi' }).success, false, 'primary branch county must validate server-side')
+assert.equal(onboardingStepSchemas.receipt.safeParse({ ...validDraft(), receiptBusinessName: '' }).success, true, 'receipt onboarding must not require duplicate merchant identity')
+assert.equal(normalizeKenyanPhone('0712345678'), '+254712345678', 'local Kenyan phone numbers must normalize')
+assert.equal(normalizeKenyanPhone('712345678'), '+254712345678', 'Kenyan subscriber numbers must normalize')
+assert.equal(normalizeKenyanPhone('+254712345678'), '+254712345678', 'international Kenyan phone numbers must remain normalized')
+assert.equal(onboardingProgressPercent(1), 22, 'Step 2 of 9 must report the same current-step progress')
+const liquorOperations = operationsProfileFor('retail', 'liquor_shop')
+assert.deepEqual(liquorOperations.required, ['sellsProducts', 'tracksInventory', 'hasEmployees', 'issuesReceipts'], 'liquor POS core capabilities must be template-owned')
+assert.equal(liquorOperations.defaults.acceptsCash, true, 'liquor POS must default cash on')
+assert.equal(liquorOperations.defaults.acceptsMpesa, true, 'liquor POS must default M-Pesa on without configuring a provider')
+assert.equal(liquorOperations.defaults.acceptsCard, false, 'card payment intent remains optional')
+assert.equal(liquorOperations.defaults.multipleLocations, false, 'the primary branch remains valid by default')
+assert.equal(liquorOperations.defaults.usesSuppliers, undefined, 'supplier purchasing must remain an explicit business choice')
+assert.equal(operationsProfileFor('food_hospitality', 'cafe').required.length, 0, 'template operational defaults must remain isolated')
 
 assert.equal(resolveOnboardingTemplateId('retail', 'supermarket'), 'retail.supermarket', 'supermarkets must receive the supermarket template')
 assert.equal(resolveOnboardingTemplateId('retail', 'mini_mart'), 'retail.grocery', 'mini-marts must receive the grocery template')
@@ -69,7 +90,7 @@ assert.equal(validate(validDraft({
 })).success, false, 'coming-soon service workspaces must not bypass onboarding validation')
 assert.equal(validate(validDraft({ sellsProducts: false, providesServices: true, tracksInventory: false })).success, false, 'disabled product operations must reject product modules')
 assert.equal(validate(validDraft({ acceptsCash: false })).success, false, 'operations and payment settings must agree')
-assert.equal(validate(validDraft({ needsTax: true, taxEnabled: false })).success, false, 'operations and tax settings must agree')
+assert.equal(validate(validDraft({ needsTax: true, taxEnabled: false })).success, true, 'tax status must be configured independently of operations')
 assert.equal(validate(validDraft({ needsTax: true, taxEnabled: true, taxIdentifier: '' })).success, false, 'enabled Kenyan tax must include a KRA PIN')
 assert.equal(fiscalYearStart(new Date('2026-06-30T12:00:00Z'), '07-01').toISOString(), '2025-07-01T00:00:00.000Z', 'July financial years must include the preceding July through June period')
 assert.equal(fiscalYearStart(new Date('2026-07-01T12:00:00Z'), '07-01').toISOString(), '2026-07-01T00:00:00.000Z', 'a new financial year must begin on its configured date')

@@ -41,6 +41,22 @@ export const FINANCIAL_YEAR_START_OPTIONS = [
   ['12-01', '1 December'],
 ] as const;
 
+/** Kenya is the currently supported operating country. */
+export const KENYAN_COUNTIES = [
+  'Baringo', 'Bomet', 'Bungoma', 'Busia', 'Elgeyo-Marakwet', 'Embu', 'Garissa',
+  'Homa Bay', 'Isiolo', 'Kajiado', 'Kakamega', 'Kericho', 'Kiambu', 'Kilifi',
+  'Kirinyaga', 'Kisii', 'Kisumu', 'Kitui', 'Kwale', 'Laikipia', 'Lamu', 'Machakos',
+  'Makueni', 'Mandera', 'Marsabit', 'Meru', 'Migori', 'Mombasa', 'Murang\'a',
+  'Nairobi', 'Nakuru', 'Nandi', 'Narok', 'Nyamira', 'Nyandarua', 'Nyeri',
+  'Samburu', 'Siaya', 'Taita-Taveta', 'Tana River', 'Tharaka-Nithi', 'Trans Nzoia',
+  'Turkana', 'Uasin Gishu', 'Vihiga', 'Wajir', 'West Pokot',
+] as const;
+
+/** Keep the percentage and the visible step number derived from the same state. */
+export function onboardingProgressPercent(stepIndex: number) {
+  return Math.round(((stepIndex + 1) / ONBOARDING_STEPS.length) * 100);
+}
+
 export const WORKING_MODULES = [
   {
     id: 'pos',
@@ -367,7 +383,7 @@ export const DEFAULT_ONBOARDING_DATA: OnboardingDraft = {
   acceptsCard: false,
   needsTax: false,
   issuesReceipts: true,
-  branchName: 'Main location',
+  branchName: '',
   branchPhone: '',
   branchAddress: '',
   branchRegion: '',
@@ -424,6 +440,52 @@ export function isBusinessFamilyAvailable(family: string): boolean {
 
 export function isCategoryValidForFamily(family: string, category: string) {
   return categoriesFor(family).some((option) => option.id === category);
+}
+
+export type OperationKey =
+  | 'sellsProducts' | 'tracksInventory' | 'hasEmployees' | 'issuesReceipts'
+  | 'acceptsCash' | 'acceptsMpesa' | 'acceptsCard' | 'multipleLocations'
+  | 'keepsCustomers' | 'providesServices' | 'usesSuppliers';
+
+export type OperationsProfile = {
+  required: readonly OperationKey[];
+  defaults: Partial<Pick<OnboardingDraft, OperationKey>>;
+  showServices: boolean;
+};
+
+const RETAIL_POS_OPERATIONS: OperationsProfile = {
+  required: ['sellsProducts', 'tracksInventory', 'hasEmployees', 'issuesReceipts'],
+  defaults: {
+    sellsProducts: true, tracksInventory: true, hasEmployees: true,
+    issuesReceipts: true, acceptsCash: true, acceptsMpesa: true, acceptsCard: false,
+    multipleLocations: false, keepsCustomers: false, providesServices: false,
+  },
+  showServices: false,
+};
+
+const DEFAULT_OPERATIONS: OperationsProfile = {
+  required: [],
+  defaults: {},
+  showServices: true,
+};
+
+/** Template-owned operational constraints; provider setup remains elsewhere. */
+export function operationsProfileFor(
+  businessFamily: string,
+  businessCategory: string
+): OperationsProfile {
+  if (
+    (businessFamily === 'retail' && ['liquor_shop', 'hardware', 'retail_pharmacy'].includes(businessCategory)) ||
+    businessCategory === 'health_pharmacy'
+  ) return RETAIL_POS_OPERATIONS;
+  return DEFAULT_OPERATIONS;
+}
+
+export function applyOperationsProfile<T extends Pick<OnboardingDraft, OperationKey>>(
+  data: T,
+  profile: OperationsProfile
+): T {
+  return { ...data, ...profile.defaults, ...Object.fromEntries(profile.required.map((key) => [key, true])) } as T;
 }
 
 export function categoryLabel(family: string, category: string, custom = '') {

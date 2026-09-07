@@ -177,9 +177,9 @@ export function AppNavbar({
         </button>
         <div className="hidden min-w-0 md:block">
           <div className="flex min-w-0 items-center gap-2.5">
-            <p className="truncate text-sm font-bold text-[var(--dashboard-text)]">
+            <p className="truncate text-sm font-bold uppercase text-[var(--dashboard-text)]">
               {organizationName}
-              {branchName ? ` · ${branchName}` : ''}
+              {branchName && branchName !== organizationName ? ` · ${branchName}` : ''}
             </p>
           </div>
           <p className="mt-0.5 max-w-[620px] truncate text-xs text-[var(--dashboard-muted)]">
@@ -255,8 +255,9 @@ export function AppNavbar({
                     src={userImage}
                     alt=""
                     fill
-                    sizes="40px"
-                    unoptimized
+                    sizes="36px"
+                    quality={50}
+                    priority
                     className="object-cover"
                     onError={() => setAvatarFailed(true)}
                   />

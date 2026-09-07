@@ -18,6 +18,7 @@ interface DashboardLayoutClientProps {
   organizationName: string;
   availableOrganizations: Array<{ id: string; name: string; businessType: string }>;
   branchName?: string | null;
+  branchCount?: number;
   /**
    * Server-resolved WorkspaceConfig passed from the layout Server Component.
    * Providing this avoids a client-side fetch to load the workspace on mount.
@@ -37,6 +38,7 @@ export function DashboardLayoutClient({
   organizationName,
   availableOrganizations,
   branchName,
+  branchCount,
   initialWorkspaceConfig,
   role,
   permissions,
@@ -73,6 +75,9 @@ export function DashboardLayoutClient({
           <DynamicAppSidebar
             initialPermissions={permissions}
             initialRole={role}
+            organizationName={organizationName}
+            activeBranchName={branchName}
+            branchCount={branchCount}
             mobileOpen={mobileSidebarOpen}
             onMobileClose={() => setMobileSidebarOpen(false)}
           />

@@ -6,10 +6,11 @@ import { DashboardLayoutClient } from '@/components/layout/dashboard-layout-clie
 import { db } from '@/lib/db';
 import {
   branch,
+  businessSettings,
   organization as organizationTable,
   user,
 } from '@/lib/db/schema';
-import { and, desc, eq } from 'drizzle-orm';
+import { and, count, desc, eq } from 'drizzle-orm';
 import { getAuthorizationContext } from '@/lib/auth/authorization';
 import { getPosAuthorizationContext } from '@/lib/pos/pos-auth';
 import { withDatabaseRetry } from '@/lib/db/retry';
@@ -66,7 +67,7 @@ export default async function DashboardRouteLayout({
     posAuthorization ?? getAuthorizationContext(),
   ]);
   if (!workspaceConfig) redirect('/onboarding');
-  const [availableOrganizations, activeBranchRows] = await Promise.all([
+  const [availableOrganizations, activeBranchRows, branchCountRows, brandingRows] = await Promise.all([
     posAuthorization
       ? Promise.resolve([organization])
       : OrganizationService.getOrganizationsForUser(userId),
@@ -83,8 +84,18 @@ export default async function DashboardRouteLayout({
       )
       .orderBy(desc(branch.updatedAt))
       .limit(1),
+    db
+      .select({ count: count() })
+      .from(branch)
+      .where(eq(branch.organizationId, organization.id)),
+    db
+      .select({ displayName: businessSettings.displayName })
+      .from(businessSettings)
+      .where(eq(businessSettings.organizationId, organization.id))
+      .limit(1),
   ]);
   const activeBranch = activeBranchRows[0];
+  const displayName = brandingRows[0]?.displayName?.trim() || organization.name;
 
   return (
     <DashboardLayoutClient
@@ -93,9 +104,10 @@ export default async function DashboardRouteLayout({
       userEmail={account?.email ?? session?.user.email ?? ''}
       userImage={account?.image ?? session?.user.image ?? null}
       organizationId={organization.id}
-      organizationName={organization.name}
+      organizationName={displayName}
       availableOrganizations={availableOrganizations.map((item) => ({ id: item.id, name: item.name, businessType: item.businessType }))}
       branchName={activeBranch?.name ?? null}
+      branchCount={Number(branchCountRows[0]?.count ?? 0)}
       initialWorkspaceConfig={workspaceConfig}
       role={authorization.role}
       permissions={authorization.permissions}
