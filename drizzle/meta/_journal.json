@@ -491,6 +491,20 @@
       "when": 1788984000000,
       "tag": "0065_pos_session_manager_recovery",
       "breakpoints": true
+    },
+    {
+      "idx": 70,
+      "version": "7",
+      "when": 1788987600000,
+      "tag": "0066_kra_oscu_application_wiring",
+      "breakpoints": true
+    },
+    {
+      "idx": 71,
+      "version": "7",
+      "when": 1788991200000,
+      "tag": "0067_kra_oscu_readiness_state",
+      "breakpoints": true
     }
   ]
 }

@@ -58,6 +58,7 @@ export type EtimsConfigurationSnapshot = {
 
 export type EtimsInvoiceLine = {
   lineNumber: number
+  saleItemId?: string
   productId: string
   itemCode: string
   name: string
@@ -72,6 +73,10 @@ export type EtimsInvoiceLine = {
   taxCategory: string
   taxRate: number
   vatClassification: string | null
+  classificationCode?: string | null
+  packagingUnitCode?: string | null
+  packageQuantity?: number | null
+  barcode?: string | null
 }
 
 export type EtimsInvoice = {
@@ -96,6 +101,8 @@ export type EtimsInvoice = {
   roundingAmount: number
   totalAmount: number
   lines: EtimsInvoiceLine[]
+  /** Branch-scoped OSCU sequence, allocated durably before delivery. */
+  providerInvoiceNumber?: number
 }
 
 export type EtimsCreditNoteRequest = {
@@ -108,6 +115,10 @@ export type EtimsCreditNoteRequest = {
   amount: number
   issuedAt: string
   lines: Array<{ productId: string; name: string; quantity: number; amount: number }>
+  originalInvoice?: EtimsInvoice
+  originalInvoiceNumber?: number
+  providerInvoiceNumber?: number
+  creditLines?: EtimsInvoiceLine[]
 }
 
 export type EtimsProviderResult = {

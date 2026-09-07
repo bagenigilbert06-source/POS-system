@@ -16,6 +16,7 @@ export function EtimsConfigurationPanel({ branches, configurations, selectedBran
   const [method, setMethod] = useState<'OSCU' | 'VSCU'>(existing?.integrationMethod ?? 'OSCU')
   const [pin, setPin] = useState(existing?.businessKraPin ?? '')
   const [externalBranchId, setExternalBranchId] = useState(existing?.externalBranchId ?? '')
+  const [deviceId, setDeviceId] = useState(existing?.deviceId ?? '')
   const [vatRegistered, setVatRegistered] = useState(existing?.vatRegistered ?? false)
   const [pending, startTransition] = useTransition()
   const [test, setTest] = useState<{ ok: boolean; message: string } | null>(null)
@@ -24,7 +25,7 @@ export function EtimsConfigurationPanel({ branches, configurations, selectedBran
   const ready = Boolean(branchId && pin.trim())
   const save = () => startTransition(async () => {
     try {
-      await activateEtimsBranch({ branchId, environment, integrationMethod: method, businessKraPin: pin, vatRegistered, externalBranchId })
+      await activateEtimsBranch({ branchId, environment, integrationMethod: method, businessKraPin: pin, vatRegistered, externalBranchId, deviceId })
       notify.success('Branch fiscal connection saved securely')
     } catch (error) { notify.error(error instanceof Error ? error.message : 'Could not save connection') }
   })
@@ -35,6 +36,7 @@ export function EtimsConfigurationPanel({ branches, configurations, selectedBran
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         <label className="text-xs font-semibold text-muted-foreground">KRA PIN<input aria-label="KRA PIN" value={pin} onChange={(e) => setPin(e.target.value.toUpperCase())} className={input} placeholder="P000000000A" /></label>
         <label className="text-xs font-semibold text-muted-foreground">eTIMS branch (if issued)<input aria-label="eTIMS Branch ID" value={externalBranchId} onChange={(e) => setExternalBranchId(e.target.value)} className={input} /></label>
+        <label className="text-xs font-semibold text-muted-foreground">Approved device serial<input aria-label="OSCU Device Serial" value={deviceId} onChange={(e) => setDeviceId(e.target.value)} className={input} maxLength={100}/></label>
         <label className="text-xs font-semibold text-muted-foreground">Integration method<select value={method} onChange={(e) => setMethod(e.target.value as 'OSCU'|'VSCU')} className={input}><option value="OSCU">OSCU</option><option value="VSCU">VSCU</option></select></label>
         <label className="text-xs font-semibold text-muted-foreground">Environment<select value={environment} onChange={(e) => setEnvironment(e.target.value as 'sandbox'|'production')} className={input}><option value="sandbox">KRA / provider test</option><option value="production">Production</option></select></label>
         <label className="flex items-center gap-3 self-end rounded-lg border px-3 py-2.5 text-sm"><input type="checkbox" checked={vatRegistered} onChange={(e) => setVatRegistered(e.target.checked)} className="accent-primary" />VAT registered</label>

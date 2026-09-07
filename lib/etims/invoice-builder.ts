@@ -2,10 +2,11 @@ import { and, eq, inArray } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { customer, product, productPackage, sale, saleItem } from '@/lib/db/schema'
 import { EtimsValidationError, type EtimsConfigurationSnapshot, type EtimsInvoice, type EtimsInvoiceLine } from './types'
+import { getProductFiscalReadiness } from './product-readiness'
 
 const money = (value: number) => Math.round((value + Number.EPSILON) * 100) / 100
 
-export async function buildEtimsInvoice(saleId: string, configuration: EtimsConfigurationSnapshot): Promise<EtimsInvoice> {
+export async function buildEtimsInvoice(saleId: string, configuration: EtimsConfigurationSnapshot, providerInvoiceNumber?: number): Promise<EtimsInvoice> {
   const [record] = await db.select().from(sale).where(and(
     eq(sale.id, saleId),
     eq(sale.orgId, configuration.organizationId),
@@ -24,6 +25,13 @@ export async function buildEtimsInvoice(saleId: string, configuration: EtimsConf
     taxCategory: product.etimsTaxCategory,
     taxRate: product.etimsTaxRate,
     vatClassification: product.etimsVatClassification,
+    classificationCode: product.etimsItemClassificationCode,
+    itemTypeCode: product.etimsItemTypeCode,
+    originCountryCode: product.etimsOriginCountryCode,
+    packagingUnitCode: product.etimsPackagingUnitCode,
+    quantityUnitCode: product.etimsQuantityUnitCode,
+    registrationStatus: product.etimsRegistrationStatus,
+    barcode: product.barcode,
   }).from(product).where(and(eq(product.orgId, record.orgId), inArray(product.id, items.map((item) => item.productId))))
   const mappings = new Map(products.map((item) => [item.id, item]))
   const packageIds = items.map((item) => item.packageId).filter((value): value is string => Boolean(value))
@@ -32,11 +40,11 @@ export async function buildEtimsInvoice(saleId: string, configuration: EtimsConf
   const missing = items.filter((item) => {
     const mapping = mappings.get(item.productId)
     const packageMapping = item.packageId ? packageMappings.get(item.packageId) : null
-    return !(packageMapping?.itemCode ?? mapping?.itemCode) || !(packageMapping?.unitCode ?? mapping?.unitCode) || !mapping?.taxCategory || mapping.taxRate == null
+    return !mapping || getProductFiscalReadiness({ etimsItemCode: packageMapping?.itemCode ?? mapping.itemCode, etimsItemClassificationCode: mapping.classificationCode, etimsItemTypeCode: mapping.itemTypeCode, etimsOriginCountryCode: mapping.originCountryCode, etimsPackagingUnitCode: mapping.packagingUnitCode, etimsQuantityUnitCode: packageMapping?.unitCode ?? mapping.quantityUnitCode, etimsTaxCategory: mapping.taxCategory, etimsRegistrationStatus: mapping.registrationStatus }).status !== 'READY' || mapping.taxRate == null
   })
   if (missing.length) throw new EtimsValidationError(
-    `Missing eTIMS tax mapping for: ${missing.map((item) => item.productName).join(', ')}`,
-    'PRODUCT_TAX_MAPPING_MISSING'
+    `${missing.length} ${missing.length === 1 ? 'item requires' : 'items require'} eTIMS configuration before this sale can be fiscalized.`,
+    'PRODUCT_MAPPING_REQUIRED'
   )
 
   const subtotal = Number(record.subtotal)
@@ -57,6 +65,7 @@ export async function buildEtimsInvoice(saleId: string, configuration: EtimsConf
     const packageMapping = item.packageId ? packageMappings.get(item.packageId) : null
     return {
       lineNumber: index + 1,
+      saleItemId: item.id,
       productId: item.productId,
       itemCode: (packageMapping?.itemCode ?? mapping.itemCode)!,
       name: item.productName,
@@ -71,6 +80,10 @@ export async function buildEtimsInvoice(saleId: string, configuration: EtimsConf
       taxCategory: mapping.taxCategory!,
       taxRate: Number(mapping.taxRate),
       vatClassification: mapping.vatClassification,
+      classificationCode: mapping.classificationCode,
+      packagingUnitCode: mapping.packagingUnitCode,
+      packageQuantity: item.quantity,
+      barcode: mapping.barcode,
     }
   })
 
@@ -99,5 +112,6 @@ export async function buildEtimsInvoice(saleId: string, configuration: EtimsConf
     roundingAmount: Number(record.roundingAmount),
     totalAmount: Number(record.total),
     lines,
+    providerInvoiceNumber,
   }
 }

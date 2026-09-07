@@ -12,6 +12,8 @@ import {
 } from '@/lib/db/schema'
 import { generateId } from '@/lib/utils'
 import { buildEtimsInvoice } from './invoice-builder'
+import { allocateEtimsInvoiceNumber } from './invoice-sequence'
+import { readFiscalSnapshot, reconstructCreditLines } from './fiscal-snapshot'
 import { createEtimsProvider } from './provider-factory'
 import {
   EtimsTemporaryError,
@@ -68,29 +70,29 @@ export async function queueEtimsInvoice(saleId: string) {
     userId: sale.userId,
   }).from(sale).where(eq(sale.id, saleId)).limit(1)
   if (!record?.branchId) return { status: 'NOT_REQUIRED' as const, message: 'Sale has no branch eTIMS configuration' }
+  const branchId = record.branchId
 
   const [config] = await db.select().from(etimsConfiguration).where(and(
     eq(etimsConfiguration.organizationId, record.orgId),
-    eq(etimsConfiguration.branchId, record.branchId)
+    eq(etimsConfiguration.branchId, branchId)
   )).limit(1)
   if (!config?.enabled || !config.invoiceSubmissionEnabled) {
     return { status: 'NOT_REQUIRED' as const, message: 'eTIMS submission is disabled for this branch' }
   }
 
   const idempotencyKey = `etims:invoice:${record.orgId}:${record.id}`
-  await db.insert(etimsSubmission).values({
-    id: generateId(),
-    organizationId: record.orgId,
-    branchId: record.branchId,
-    saleId: record.id,
-    configurationId: config.id,
-    status: 'PENDING',
-    provider: config.providerName,
-    environment: config.environment,
-    idempotencyKey,
-  }).onConflictDoNothing({ target: etimsSubmission.saleId })
-
-  const [submission] = await db.select().from(etimsSubmission).where(eq(etimsSubmission.saleId, record.id)).limit(1)
+  const submission = await db.transaction(async (tx) => {
+    await tx.insert(etimsSubmission).values({ id: generateId(), organizationId: record.orgId, branchId,
+      saleId: record.id, configurationId: config.id, status: 'PENDING', provider: config.providerName,
+      environment: config.environment, idempotencyKey }).onConflictDoNothing({ target: etimsSubmission.saleId })
+    await tx.execute(sql`SELECT id FROM etims_submission WHERE "saleId" = ${record.id} FOR UPDATE`)
+    const [locked] = await tx.select().from(etimsSubmission).where(eq(etimsSubmission.saleId, record.id)).limit(1)
+    if (!locked) throw new Error('Could not create the eTIMS outbox record')
+    if (locked.providerInvoiceNumber) return locked
+    const allocated = await allocateEtimsInvoiceNumber(tx, { organizationId: record.orgId, branchId, provider: config.providerName, environment: config.environment })
+    const [numbered] = await tx.update(etimsSubmission).set({ providerInvoiceNumber: allocated, updatedAt: new Date() }).where(and(eq(etimsSubmission.id, locked.id), isNull(etimsSubmission.providerInvoiceNumber))).returning()
+    return numbered ?? locked
+  })
   if (!submission) throw new Error('Could not create the eTIMS outbox record')
   return {
     status: submission.status === 'ACCEPTED' ? 'ACCEPTED' as const : 'PENDING' as const,
@@ -145,12 +147,13 @@ export async function processEtimsSubmission(submissionId: string, options: { us
   try {
     if (!configRow?.enabled || !configRow.invoiceSubmissionEnabled) throw new EtimsValidationError('eTIMS is disabled for this branch', 'CONFIGURATION_DISABLED')
     const configuration = snapshot(configRow)
-    const invoice = await buildEtimsInvoice(claimed.saleId, configuration)
+    if (!claimed.providerInvoiceNumber) throw new EtimsValidationError('Fiscal invoice sequence was not allocated.', 'FISCAL_SEQUENCE_MISSING')
+    const invoice = await buildEtimsInvoice(claimed.saleId, configuration, claimed.providerInvoiceNumber)
     const provider = createEtimsProvider(configuration)
     const validation = await provider.validateConfiguration()
     if (!validation.valid) throw new EtimsValidationError(validation.message, 'INVALID_CONFIGURATION')
     await provider.authenticate()
-    await db.update(etimsSubmission).set({ requestData: invoice, updatedAt: new Date() }).where(eq(etimsSubmission.id, claimed.id))
+    await db.update(etimsSubmission).set({ requestData: invoice, fiscalSnapshot: invoice, updatedAt: new Date() }).where(and(eq(etimsSubmission.id, claimed.id), isNull(etimsSubmission.fiscalSnapshot)))
     const result = await provider.submitInvoice(invoice)
     if (!result.accepted) {
       if (result.retryable) throw new EtimsTemporaryError(result.errorMessage ?? 'Provider temporarily rejected the invoice', result.errorCode)
@@ -230,7 +233,13 @@ export async function enqueueEtimsCreditNote(returnId: string, actorId: string) 
     returnId: record.id, originalSubmissionId: original.id, provider: original.provider,
     environment: original.environment, idempotencyKey, status: 'PENDING',
   }).onConflictDoNothing({ target: etimsCreditNote.returnId })
-  const [note] = await db.select().from(etimsCreditNote).where(eq(etimsCreditNote.returnId, record.id)).limit(1)
+  const note = await db.transaction(async (tx) => {
+    await tx.execute(sql`SELECT id FROM etims_credit_note WHERE "returnId" = ${record.id} FOR UPDATE`)
+    const [locked] = await tx.select().from(etimsCreditNote).where(eq(etimsCreditNote.returnId, record.id)).limit(1)
+    if (!locked || locked.providerInvoiceNumber) return locked
+    const number = await allocateEtimsInvoiceNumber(tx, { organizationId: record.orgId, branchId: original.branchId, provider: original.provider, environment: original.environment })
+    return (await tx.update(etimsCreditNote).set({ providerInvoiceNumber: number, updatedAt: new Date() }).where(and(eq(etimsCreditNote.id, locked.id), isNull(etimsCreditNote.providerInvoiceNumber))).returning())[0] ?? locked
+  })
   if (!note || note.status === 'ACCEPTED') return { status: note?.status ?? 'ACCEPTED' }
   return processEtimsCreditNote(note.id, actorId, true)
 }
@@ -250,12 +259,17 @@ export async function processEtimsCreditNote(noteId: string, actorId?: string, m
   if (!claimed) return { status: note.status }
   try {
     if (!original.providerSubmissionId) throw new EtimsValidationError('Original provider submission reference is missing', 'ORIGINAL_REFERENCE_MISSING')
+    if (!claimed.providerInvoiceNumber) throw new EtimsValidationError('Credit-note fiscal sequence is missing', 'FISCAL_SEQUENCE_MISSING')
+    if (!original.providerInvoiceNumber) throw new EtimsValidationError('Original fiscal invoice number is missing', 'ORIGINAL_REFERENCE_MISSING')
     const lines = await db.select().from(salesReturnItem).where(eq(salesReturnItem.returnId, record.id))
+    const originalInvoice = readFiscalSnapshot(original.fiscalSnapshot)
+    const creditLines = reconstructCreditLines(originalInvoice, lines.map((line) => ({ originalSaleItemId: line.originalSaleItemId, productId: line.productId, quantity: line.quantity })))
     const request: EtimsCreditNoteRequest = {
       idempotencyKey: note.idempotencyKey, returnId: record.id, returnNumber: record.returnNo, originalSaleId: record.saleId,
       originalProviderSubmissionId: original.providerSubmissionId, reason: record.reason, amount: Number(record.amount),
       issuedAt: record.createdAt.toISOString(),
       lines: lines.map((line) => ({ productId: line.productId, name: line.productName, quantity: line.quantity, amount: Number(line.total) })),
+      originalInvoice, originalInvoiceNumber: original.providerInvoiceNumber, providerInvoiceNumber: claimed.providerInvoiceNumber, creditLines,
     }
     const provider = createEtimsProvider(snapshot(config))
     const result: EtimsProviderResult = await provider.submitCreditNote(request)

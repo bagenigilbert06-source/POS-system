@@ -27,12 +27,23 @@ export function PageLoader({
   label = 'Loading Pesaby',
   initial = false,
   inline = false,
+  delayMs = 0,
 }: {
   label?: string;
   initial?: boolean;
   inline?: boolean;
+  /** Avoid flashing a loader during fast, cached route transitions. */
+  delayMs?: number;
 }) {
   const [isDismissed, setIsDismissed] = useState(false);
+  const [isDelayed, setIsDelayed] = useState(delayMs > 0);
+
+  useEffect(() => {
+    if (!delayMs) return;
+
+    const timeout = window.setTimeout(() => setIsDelayed(false), delayMs);
+    return () => window.clearTimeout(timeout);
+  }, [delayMs]);
 
   useEffect(() => {
     if (!initial) return;
@@ -63,7 +74,7 @@ export function PageLoader({
 
   return (
     <div
-      className={`pesaby-global-loader${inline ? ' pesaby-inline-loader' : ''}${isDismissed ? ' pesaby-global-loader--dismissed' : ''}`}
+      className={`pesaby-global-loader${inline ? ' pesaby-inline-loader' : ''}${isDismissed || isDelayed ? ' pesaby-global-loader--dismissed' : ''}`}
       data-pesaby-initial-loader={initial ? '' : undefined}
       role="status"
       aria-live="polite"

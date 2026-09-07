@@ -49,13 +49,15 @@ export default async function POSPage() {
   const operator = posAuthorization ?? (terminal
     ? { ...pageAuthorization, branchIds: [terminal.branchId], isOrganizationWide: false, terminalId: terminal.id }
     : pageAuthorization);
-  const data = await getPosPageData(
-    operator,
-    config.enabledModules.includes('customers'),
-    isPharmacyBusiness(config.businessType, config.businessCategory),
-    isCafeBusiness(config.businessType, config.businessCategory)
-  );
-  const currentSession = await getCurrentSession();
+  const [data, currentSession] = await Promise.all([
+    getPosPageData(
+      operator,
+      config.enabledModules.includes('customers'),
+      isPharmacyBusiness(config.businessType, config.businessCategory),
+      isCafeBusiness(config.businessType, config.businessCategory)
+    ),
+    getCurrentSession(),
+  ]);
   if (!data.activeBranch)
     throw new Error('No authorized POS branch is available');
 
