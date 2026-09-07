@@ -3,6 +3,7 @@ import { db } from '@/lib/db'
 import { readThroughRedis } from '@/lib/cache/redis-cache'
 
 const dashboardOverviewCache = new Map<string, { value: DashboardOverview; expiresAt: number }>()
+const DASHBOARD_CACHE_TTL_MS = 5 * 60_000
 import { branch, category, customer, expense, inventoryBalance, inventoryLot, invoice, organizationMembership, product, sale, saleItem, salesReturn, salesReturnItem } from '@/lib/db/schema'
 
 export interface DashboardOverview {
@@ -413,7 +414,7 @@ async function loadDashboardOverview(organizationId: string, timeZone = 'Africa/
     recentSaleItems,
     [monthlyRevenueRows, monthlyExpenseRows],
     [recentExpenseRows, recentInvoiceRows, topCustomerRows, topCategoryRows, topCategoryRowsLast7Days, categoryCountRows],
-    pharmacyInventoryRows,
+    [pharmacyInventoryRows],
     branchInventoryRows,
   ] = await Promise.all([
     recentSaleItemsQuery,
@@ -565,7 +566,7 @@ async function loadDashboardOverview(organizationId: string, timeZone = 'Africa/
       valueAtRisk: number(pharmacyInventoryRows?.valueAtRisk),
     },
   }
-  dashboardOverviewCache.set(cacheKey, { value: result, expiresAt: Date.now() + 60_000 })
+  dashboardOverviewCache.set(cacheKey, { value: result, expiresAt: Date.now() + DASHBOARD_CACHE_TTL_MS })
   return result
 }
 
@@ -583,14 +584,14 @@ export async function getDashboardOverview(organizationId: string, timeZone = 'A
     // activity panels). Mutations explicitly invalidate this cache, so a
     // longer TTL makes ordinary navigation instant without retaining stale
     // operational figures.
-    ttlSeconds: 60,
+    ttlSeconds: 300,
     load: () => loadDashboardOverview(organizationId, timeZone, branchIds),
   })
   // Populate process memory on Redis hits too. Repeated navigation on the same
   // warm function then avoids both Redis and PostgreSQL network round trips.
   dashboardOverviewCache.set(cacheKey, {
     value: overview,
-    expiresAt: Date.now() + 60_000,
+    expiresAt: Date.now() + DASHBOARD_CACHE_TTL_MS,
   })
   return overview
 }

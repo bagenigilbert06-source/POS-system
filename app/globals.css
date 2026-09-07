@@ -2926,6 +2926,13 @@ html.dark .pesaby-hot-toast-error {
   background: transparent;
 }
 
+/* Route data commonly resolves from the warm dashboard cache. Do not flash a
+   loader for those quick transitions; it only appears for a real wait. */
+.dashboard-route-loader {
+  opacity: 0;
+  animation: dashboard-loader-reveal 120ms ease-out 220ms forwards;
+}
+
 html.dark .pesaby-inline-loader {
   background: transparent;
 }
@@ -2963,6 +2970,12 @@ html.dark .pesaby-global-loader.pesaby-inline-loader {
   .pesaby-loader.animate-spin {
     animation: none;
     box-shadow: 0 0 0 calc(6 * var(--size)) inset;
+  }
+}
+
+@keyframes dashboard-loader-reveal {
+  to {
+    opacity: 1;
   }
 }
 
