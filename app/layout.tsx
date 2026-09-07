@@ -1,5 +1,4 @@
 import type { Metadata, Viewport } from 'next';
-import Script from 'next/script';
 import './globals.css';
 import { ThemeProvider } from '@/components/providers/theme-provider';
 import { AppToaster } from '@/components/ui/app-toaster';
@@ -57,14 +56,10 @@ export default function RootLayout({
       data-scroll-behavior="smooth"
       className="bg-background"
     >
-      <head />
       <body
         className="font-sans text-base antialiased"
         suppressHydrationWarning
       >
-        <Script id="pesaby-theme" strategy="beforeInteractive">
-          {`(function(){try{var k='theme',s=localStorage.getItem(k),d=window.matchMedia('(prefers-color-scheme: dark)').matches,t=s==='dark'||(s!=='light'&&d);document.documentElement.classList.toggle('dark',t);document.documentElement.dataset.pesabyTheme=t?'dark':'light';document.documentElement.style.colorScheme=t?'dark':'light'}catch(e){}})();`}
-        </Script>
         <ThemeProvider
           attribute="class"
           defaultTheme="light"

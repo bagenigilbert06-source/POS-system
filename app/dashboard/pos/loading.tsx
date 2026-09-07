@@ -1,9 +1,15 @@
-import { PageLoader } from '@/components/ui/page-loader';
-
 /**
  * POS owns its loading boundary so a pending POS request never exposes
  * dashboard placeholder content.
  */
 export default function PosLoading() {
-  return <PageLoader label="Opening POS" inline />;
+  return (
+    <div
+      className="pesaby-global-loader pesaby-inline-loader"
+      role="status"
+      aria-label="Opening POS"
+    >
+      <span className="pesaby-loader pesaby-loader--page" />
+    </div>
+  );
 }
