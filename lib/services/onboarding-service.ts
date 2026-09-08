@@ -136,9 +136,9 @@ export class OnboardingService {
               // Step 7 is the authoritative payment-method selection. Keep
               // the operational intent flags synchronized server-side so an
               // earlier Operations snapshot cannot block completion.
-              acceptsCash: parsed.data.paymentMethods.includes('cash'),
-              acceptsMpesa: parsed.data.paymentMethods.includes('mpesa'),
-              acceptsCard: parsed.data.paymentMethods.includes('card'),
+              acceptsCash: ('paymentMethods' in parsed.data && Array.isArray(parsed.data.paymentMethods)) ? parsed.data.paymentMethods.includes('cash') : false,
+              acceptsMpesa: ('paymentMethods' in parsed.data && Array.isArray(parsed.data.paymentMethods)) ? parsed.data.paymentMethods.includes('mpesa') : false,
+              acceptsCard: ('paymentMethods' in parsed.data && Array.isArray(parsed.data.paymentMethods)) ? parsed.data.paymentMethods.includes('card') : false,
             }
         : parsed.data
       const completedBeforeStep = ((state.completedSteps as string[] | null) ?? [])
