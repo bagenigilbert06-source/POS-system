@@ -2340,8 +2340,10 @@ html:not(.dark) .dashboard-shell .shadow-dark-md {
 
   .pos-workspace {
     width: 100%;
-    height: 149.253731%;
-    zoom: 0.67;
+    height: 133.333333%;
+    zoom: 0.75;
+    -webkit-font-smoothing: auto;
+    text-rendering: optimizeLegibility;
   }
 
   .pos-terminal {
@@ -2349,7 +2351,7 @@ html:not(.dark) .dashboard-shell .shadow-dark-md {
   }
 
   .pos-product-grid {
-    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
   }
 }
 
