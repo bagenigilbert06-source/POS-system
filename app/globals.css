@@ -2339,9 +2339,9 @@ html:not(.dark) .dashboard-shell .shadow-dark-md {
   }
 
   .pos-workspace {
-    width: 149.253731%;
-    height: 149.253731%;
-    zoom: 0.67;
+    width: 125%;
+    height: 125%;
+    zoom: 0.8;
   }
 
   .pos-terminal {
