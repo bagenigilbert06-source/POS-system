@@ -2379,7 +2379,15 @@ html:not(.dark) .dashboard-shell .shadow-dark-md {
   }
 
   .pos-terminal {
+    height: 100%;
+    min-height: 0 !important;
     grid-template-columns: minmax(0, 1fr) minmax(340px, 40%) !important;
+  }
+
+  .pos-terminal > section,
+  .pos-terminal > aside {
+    height: 100%;
+    min-height: 0 !important;
   }
 
   .pos-catalog-header input {
