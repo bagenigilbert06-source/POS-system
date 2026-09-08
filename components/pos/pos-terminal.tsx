@@ -4895,6 +4895,14 @@ export function POSTerminal({
         {availableCategories.length > 0 && (
           <nav
             className="pos-category-strip pos-mobile-category-scroll flex gap-2.5 overflow-x-auto border-b border-[#eef0f3] bg-[#f8f9fb] px-4 py-3 dark:border-white/10 dark:bg-[#111] sm:px-5"
+            tabIndex={0}
+            aria-label="Product categories"
+            onWheel={(event) => {
+              if (Math.abs(event.deltaY) > Math.abs(event.deltaX)) {
+                event.currentTarget.scrollLeft += event.deltaY;
+                event.preventDefault();
+              }
+            }}
             aria-label="Product categories"
           >
             <button

@@ -2333,6 +2333,32 @@ html:not(.dark) .dashboard-shell .shadow-dark-md {
    Chrome at 75% zoom. Scale the complete POS workspace as one unit so its
    typography, cards, banner and basket retain the regular desktop design. */
 @media (min-width: 1000px) and (max-width: 1100px) and (max-height: 820px) {
+  .pos-workspace,
+  .pos-workspace * {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(100, 116, 139, 0.5) transparent;
+  }
+
+  .pos-workspace *::-webkit-scrollbar {
+    width: 5px;
+    height: 5px;
+  }
+
+  .pos-workspace *::-webkit-scrollbar-thumb {
+    border-radius: 999px;
+    background: rgba(100, 116, 139, 0.5);
+  }
+
+  .pos-category-strip {
+    cursor: grab;
+    overscroll-behavior-x: contain;
+    scroll-behavior: smooth;
+  }
+
+  .pos-category-strip:active {
+    cursor: grabbing;
+  }
+
   html:has(.pos-workspace),
   body:has(.pos-workspace) {
     overflow: hidden;
