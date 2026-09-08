@@ -77,11 +77,10 @@ export default async function ProductsPage() {
           </p>
         </div>
       )}
-      {pharmacy &&
-        authorization.permissions.includes(PermissionEnum.PRODUCT_CREATE) && (
+      {authorization.permissions.includes(PermissionEnum.PRODUCT_CREATE) && (
           <div className="flex justify-end">
             <Link
-              href="/dashboard/products/import/pharmacy"
+              href={pharmacy ? '/dashboard/products/import/pharmacy' : '/dashboard/products/import'}
               className="rounded-md border px-3 py-2 text-xs font-semibold hover:bg-muted"
             >
               {terminology.importCsv}

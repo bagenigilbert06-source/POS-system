@@ -4726,7 +4726,7 @@ export function POSTerminal({
           checkoutOnly && 'hidden'
         )}
       >
-        <div className="border-b border-[#eef0f3] px-3.5 py-3 dark:border-white/10 sm:px-6">
+        <div className="pos-catalog-header border-b border-[#eef0f3] px-3.5 py-3 dark:border-white/10 sm:px-6">
           <div className="mb-2.5 flex items-center justify-between gap-3">
             <div className="flex items-center gap-2.5">
               <h2 className="text-base font-semibold tracking-tight text-[#101828] dark:text-white">
@@ -4894,7 +4894,7 @@ export function POSTerminal({
         {/* Category selector */}
         {availableCategories.length > 0 && (
           <nav
-            className="pos-mobile-category-scroll flex gap-2.5 overflow-x-auto border-b border-[#eef0f3] bg-[#f8f9fb] px-4 py-3 dark:border-white/10 dark:bg-[#111] sm:px-5"
+            className="pos-category-strip pos-mobile-category-scroll flex gap-2.5 overflow-x-auto border-b border-[#eef0f3] bg-[#f8f9fb] px-4 py-3 dark:border-white/10 dark:bg-[#111] sm:px-5"
             aria-label="Product categories"
           >
             <button
@@ -5006,7 +5006,7 @@ export function POSTerminal({
           ) : (
             <div
               className={cn(
-                'grid grid-cols-1 min-[480px]:grid-cols-2 sm:grid-cols-3',
+                'pos-product-grid grid grid-cols-1 min-[480px]:grid-cols-2 sm:grid-cols-3',
                 standalone
                   ? 'gap-3 lg:grid-cols-[repeat(auto-fill,minmax(220px,1fr))]'
                   : 'gap-3.5 xl:grid-cols-4'
@@ -5249,7 +5249,7 @@ export function POSTerminal({
       <aside
         className={cn(
           ui.card,
-          'flex min-h-[520px] w-full flex-col overflow-hidden lg:max-h-full',
+          'pos-basket flex min-h-[520px] min-w-0 w-full flex-col overflow-hidden lg:max-h-full',
           !checkoutOpen && 'max-lg:hidden lg:h-fit lg:min-h-0 lg:self-start',
           checkoutOpen &&
             !checkoutOnly &&
@@ -5453,7 +5453,7 @@ export function POSTerminal({
         {/* Cart items */}
         <div
           className={cn(
-            'min-h-[180px] flex-1 overflow-y-auto',
+            'pos-cart-items min-h-[180px] flex-1 overflow-y-auto overscroll-contain',
             checkoutOpen && !checkoutOnly && 'hidden',
             checkoutOnly &&
               cn(
@@ -5627,7 +5627,7 @@ export function POSTerminal({
         {cart.length > 0 && !checkoutOpen && (
           <div
             className={cn(
-              'border-t border-[#eef0f3] bg-white p-3.5 dark:border-white/10 dark:bg-[#151515]',
+              'pos-basket-footer shrink-0 border-t border-[#eef0f3] bg-white p-3.5 dark:border-white/10 dark:bg-[#151515]',
               checkoutOnly && 'md:col-start-2 md:row-start-2 md:border-l'
             )}
           >
@@ -5680,7 +5680,7 @@ export function POSTerminal({
         {cart.length > 0 && checkoutOpen && (
           <div
             className={cn(
-              'min-h-0 flex-1 space-y-4 overflow-y-auto border-t border-[#eef0f3] bg-[#fbfbfc] p-3 dark:border-white/10 dark:bg-[#111111] sm:p-4 lg:max-h-[calc(100vh-16rem)]',
+              'pos-checkout-panel min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain border-t border-[#eef0f3] bg-[#fbfbfc] p-3 dark:border-white/10 dark:bg-[#111111] sm:p-4 lg:max-h-[calc(100dvh-16rem)]',
               !checkoutOnly && 'lg:flex-1 lg:max-h-none lg:overscroll-contain',
               checkoutOnly &&
                 cn(

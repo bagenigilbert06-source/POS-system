@@ -101,7 +101,7 @@ export function CategoriesClient({ initialCategories }: { initialCategories: Cat
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search categories" aria-label="Search categories" className="w-full rounded-md border bg-background py-2 pl-9 pr-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20" />
         </div>
-        <button onClick={() => setEditing(emptyCategory())} className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"><Plus className="h-4 w-4" />Create category</button>
+        <div className="flex items-center gap-2"><Link href="/dashboard/products/categories/import" className="inline-flex items-center gap-2 rounded-md border px-4 py-2 text-sm font-semibold hover:bg-muted">Import categories</Link><button onClick={() => setEditing(emptyCategory())} className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"><Plus className="h-4 w-4" />Create category</button></div>
       </div>
 
       <div className="flex items-center justify-end">
