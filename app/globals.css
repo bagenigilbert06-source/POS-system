@@ -2376,6 +2376,25 @@ html:not(.dark) .dashboard-shell .shadow-dark-md {
     grid-template-columns: minmax(0, 1fr) minmax(340px, 40%) !important;
   }
 
+  .pos-catalog-header input {
+    border-color: #f2b90c !important;
+    box-shadow: 0 0 0 1px rgba(242, 185, 12, 0.12);
+  }
+
+  .pos-catalog-header input:focus {
+    border-color: #d99b00 !important;
+    box-shadow: 0 0 0 2px rgba(242, 185, 12, 0.2) !important;
+  }
+
+  .pos-shift-strip > div:first-child {
+    align-items: center;
+  }
+
+  .pos-shift-strip > div:first-child > div:last-child {
+    align-self: center;
+    margin-block: auto;
+  }
+
   .pos-basket {
     height: 100% !important;
     max-height: 100% !important;
