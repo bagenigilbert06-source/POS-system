@@ -26,7 +26,7 @@ function receiptSettings(settings: typeof businessSettings.$inferSelect | undefi
     receiptShowItemSku: settings?.receiptShowItemSku ?? false,
     receiptPrintingMode: settings?.receiptPrintingMode === 'browser' ? 'browser' as const : 'direct' as const,
     receiptPrinterName: settings?.receiptPrinterName || '', receiptPaperWidth: settings?.receiptPaperWidth === 58 ? 58 as const : 80 as const,
-    receiptAutoPrint: settings?.receiptAutoPrint ?? false, receiptPrintCustomerCopy: settings?.receiptPrintCustomerCopy ?? true,
+    receiptAutoPrint: settings?.receiptAutoPrint ?? true, receiptPrintCustomerCopy: settings?.receiptPrintCustomerCopy ?? true,
     receiptPrintCopies: Math.max(1, Math.min(5, settings?.receiptPrintCopies ?? 1)), receiptCashDrawerPulse: settings?.receiptCashDrawerPulse ?? false,
   }
 }

@@ -55,7 +55,7 @@ export function EditableSettings({ businessSettings, organization, buttonOnly = 
     receiptPrintingMode: businessSettings?.receiptPrintingMode === 'browser' ? 'browser' as const : 'direct' as const,
     receiptPrinterName: businessSettings?.receiptPrinterName || '',
     receiptPaperWidth: businessSettings?.receiptPaperWidth === 58 ? 58 as const : 80 as const,
-    receiptAutoPrint: businessSettings?.receiptAutoPrint ?? false,
+    receiptAutoPrint: businessSettings?.receiptAutoPrint ?? true,
     receiptPrintCustomerCopy: businessSettings?.receiptPrintCustomerCopy ?? true,
     receiptPrintCopies: businessSettings?.receiptPrintCopies ?? 1,
     receiptCashDrawerPulse: businessSettings?.receiptCashDrawerPulse ?? false,

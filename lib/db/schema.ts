@@ -334,7 +334,7 @@ export const businessSettings = pgTable('business_settings', {
   receiptPrintingMode: text('receiptPrintingMode').notNull().default('direct'),
   receiptPrinterName: text('receiptPrinterName'),
   receiptPaperWidth: integer('receiptPaperWidth').notNull().default(80),
-  receiptAutoPrint: boolean('receiptAutoPrint').notNull().default(false),
+  receiptAutoPrint: boolean('receiptAutoPrint').notNull().default(true),
   receiptPrintCustomerCopy: boolean('receiptPrintCustomerCopy')
     .notNull()
     .default(true),
@@ -2520,7 +2520,7 @@ export const posTerminal = pgTable(
     printerDisplayName: text('printerDisplayName'),
     printerIdentifier: text('printerIdentifier'),
     paperWidth: integer('paperWidth').notNull().default(80),
-    autoPrint: boolean('autoPrint').notNull().default(false),
+    autoPrint: boolean('autoPrint').notNull().default(true),
     receiptCopies: integer('receiptCopies').notNull().default(1),
     cashDrawerPulse: boolean('cashDrawerPulse').notNull().default(false),
     registeredBy: text('registeredBy')

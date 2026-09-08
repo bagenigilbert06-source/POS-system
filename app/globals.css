@@ -2335,8 +2335,36 @@ html:not(.dark) .dashboard-shell .shadow-dark-md {
     grid-template-columns: minmax(0, 1fr) minmax(390px, 42%) !important;
   }
 
+  .pos-shift-strip > div {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    padding: 0.5rem 0.75rem;
+  }
+
+  .pos-shift-strip dl {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.5rem;
+  }
+
+  .pos-shift-strip dl > div {
+    gap: 0.375rem;
+  }
+
   .pos-product-grid {
-    grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)) !important;
+    /* The catalogue pane is narrower at 1024px because the basket remains
+       visible. Four compact cards preserve scanability without overflowing. */
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    gap: 0.5rem !important;
+  }
+
+  .pos-product-card {
+    min-height: 174px !important;
+  }
+
+  .pos-product-card > .pos-product-image {
+    height: 76px !important;
   }
 }
 
@@ -2391,8 +2419,7 @@ html:not(.dark) .dashboard-shell .shadow-dark-md {
     min-height: 190px !important;
   }
 
-  .pos-product-card > span:first-of-type,
-  .pos-product-card > div:first-of-type {
+  .pos-product-card > .pos-product-image {
     height: clamp(82px, 12dvh, 105px) !important;
   }
 
@@ -2415,6 +2442,23 @@ html:not(.dark) .dashboard-shell .shadow-dark-md {
   }
 }
 
+/* Re-apply the four-column compact catalogue only for the narrow 1024–1100px
+   terminal viewport; larger desktop layouts retain their existing density. */
+@media (min-width: 1024px) and (max-width: 1100px) {
+  .pos-product-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    gap: 0.5rem !important;
+  }
+
+  .pos-product-card {
+    min-height: 174px !important;
+  }
+
+  .pos-product-card > .pos-product-image {
+    height: 76px !important;
+  }
+}
+
 @media (min-width: 1024px) and (max-height: 768px) {
   .pos-workspace {
     padding-top: 0.375rem;
@@ -2424,13 +2468,64 @@ html:not(.dark) .dashboard-shell .shadow-dark-md {
     min-height: 174px !important;
   }
 
-  .pos-product-card > span:first-of-type,
-  .pos-product-card > div:first-of-type {
+  .pos-product-card > .pos-product-image {
     height: clamp(72px, 10dvh, 88px) !important;
   }
 
   .pos-category-strip > button {
     height: 2.5rem;
+  }
+}
+
+/* The 4:3 cashier monitor has very little vertical room. Keep the shift
+   summary dense enough that the catalogue and basket remain usable without
+   changing the normal desktop proportions. */
+@media (min-width: 1024px) and (max-width: 1100px) and (max-height: 820px) {
+  .pos-shift-strip > div {
+    gap: 0.35rem;
+    padding: 0.3rem 0.625rem;
+  }
+
+  .pos-shift-strip dl {
+    column-gap: 0.35rem;
+    row-gap: 0;
+  }
+
+  .pos-shift-strip dl > div {
+    gap: 0.35rem;
+  }
+
+  .pos-shift-strip dt {
+    font-size: 9px;
+    line-height: 1;
+  }
+
+  .pos-shift-strip dd {
+    margin-top: 0.125rem;
+    font-size: 0.75rem;
+    line-height: 1.1;
+  }
+
+  .pos-shift-strip dd:last-child {
+    font-size: 10px;
+  }
+
+  .pos-shift-strip > div > div {
+    gap: 0.35rem;
+  }
+
+  .pos-shift-strip button,
+  .pos-shift-strip a {
+    height: 1.9rem;
+    padding-inline: 0.55rem;
+    font-size: 0.7rem;
+  }
+
+  .pos-shift-strip > div + div {
+    gap: 0.5rem;
+    padding-inline: 0.625rem;
+    padding-bottom: 0.3rem;
+    font-size: 9px;
   }
 }
 

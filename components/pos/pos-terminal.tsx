@@ -5014,6 +5014,14 @@ export function POSTerminal({
             >
               {filteredProducts.map((product, productIndex) => {
                 const inCartQuantity = cartQuantityByProductId.get(product.id);
+                const cardCartLine = cart.find(
+                  (item) => item.productId === product.id
+                );
+                const cardLineKey = cardCartLine?.lineId ?? cardCartLine?.productId;
+                const cardUnitsPerSale = cardCartLine?.baseUnitQuantity ?? 1;
+                const cardMaximumQuantity = Math.floor(
+                  product.stock / cardUnitsPerSale
+                );
                 const outOfStock = product.stock === 0;
                 const remainingStock = Math.max(
                   0,
@@ -5068,7 +5076,7 @@ export function POSTerminal({
                     {product.imageUrl ? (
                       <span
                         className={cn(
-                          'relative block w-full shrink-0 overflow-hidden bg-[#f5f6f8] dark:bg-[#1f1f1f]',
+                          'pos-product-image relative block w-full shrink-0 overflow-hidden bg-[#f5f6f8] dark:bg-[#1f1f1f]',
                           standalone ? 'h-[120px]' : 'h-[112px]',
                           'max-[479px]:h-full max-[479px]:min-h-[132px]'
                         )}
@@ -5087,7 +5095,7 @@ export function POSTerminal({
                     ) : (
                       <div
                         className={cn(
-                          'flex w-full shrink-0 items-center justify-center bg-[#f5f6f8] text-[#98a2b3] dark:bg-[#1f1f1f]',
+                          'pos-product-image flex w-full shrink-0 items-center justify-center bg-[#f5f6f8] text-[#98a2b3] dark:bg-[#1f1f1f]',
                           standalone ? 'h-[120px]' : 'h-[112px]',
                           'max-[479px]:h-full max-[479px]:min-h-[132px]'
                         )}
@@ -5167,7 +5175,9 @@ export function POSTerminal({
                           >
                             <button
                               type="button"
-                              onClick={() => updateQty(product.id, -1)}
+                              onClick={() => {
+                                if (cardLineKey) updateQty(cardLineKey, -1);
+                              }}
                               className="flex h-full w-7 items-center justify-center text-[#101828] transition-colors hover:bg-[#f2f4f7] focus-visible:outline-none dark:text-[#f1f1f1] dark:hover:bg-[#302d28]"
                               aria-label={`Reduce ${product.name} quantity`}
                               title="Reduce quantity"
@@ -5185,12 +5195,18 @@ export function POSTerminal({
                             </span>
                             <button
                               type="button"
-                              onClick={() => updateQty(product.id, 1)}
-                              disabled={inCartQuantity >= product.stock}
+                              onClick={() => {
+                                if (cardLineKey) updateQty(cardLineKey, 1);
+                              }}
+                              disabled={
+                                !cardCartLine ||
+                                cardCartLine.quantity >= cardMaximumQuantity
+                              }
                               className="flex h-full w-7 items-center justify-center text-[#101828] transition-colors hover:bg-[#f2f4f7] focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-35 dark:text-[#f1f1f1] dark:hover:bg-[#302d28]"
                               aria-label={`Increase ${product.name} quantity`}
                               title={
-                                inCartQuantity >= product.stock
+                                cardCartLine &&
+                                cardCartLine.quantity >= cardMaximumQuantity
                                   ? 'Maximum available stock reached'
                                   : 'Increase quantity'
                               }
