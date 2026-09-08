@@ -251,6 +251,7 @@ export function BusinessOverview({
   const updatedAt = generatedAt.toLocaleTimeString('en-KE', {
     hour: '2-digit',
     minute: '2-digit',
+    timeZone: timeZone || 'Africa/Nairobi',
   });
   return (
     <div className="dashboard-overview mx-auto w-full max-w-[1440px] space-y-4 pb-8">
