@@ -2392,12 +2392,18 @@ html:not(.dark) .dashboard-shell .shadow-dark-md {
   }
 
   .pos-shift-strip > div:first-child {
+    flex-direction: row;
     align-items: center;
+    justify-content: space-between;
   }
 
   .pos-shift-strip > div:first-child > div:last-child {
     align-self: center;
     margin-block: auto;
+  }
+
+  .pos-shift-strip dl {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 
   .pos-basket {
