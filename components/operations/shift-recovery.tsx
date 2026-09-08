@@ -77,6 +77,14 @@ export function ShiftRecovery({
       router.refresh()
     } catch (error) { fail(error) }
   })
+  const recount = () => {
+    // Keep the reconciliation open but discard the review state. Submitting the
+    // next blind count replaces the draft count on the server before close.
+    setStep('count')
+    setSummary(null)
+    setCount('')
+    setVarianceReason('')
+  }
 
   return <>
     <Button size="sm" variant="outline" onClick={() => setOpen(true)}>{status === 'closing' ? 'Take over reconciliation' : 'Recover shift'}</Button>
@@ -112,7 +120,10 @@ export function ShiftRecovery({
           <Button variant="outline" disabled={pending} onClick={() => setOpen(false)}>Cancel</Button>
           {step === 'reason' && <Button disabled={pending} onClick={start}>Start reconciliation</Button>}
           {step === 'count' && <Button disabled={pending} onClick={submitCount}>Submit blind count</Button>}
-          {step === 'confirm' && <Button disabled={pending} onClick={close}>Close reconciled shift</Button>}
+          {step === 'confirm' && <>
+            <Button variant="outline" disabled={pending} onClick={recount}>Recount cash</Button>
+            <Button disabled={pending} onClick={close}>Close reconciled shift</Button>
+          </>}
         </DialogFooter>
       </DialogContent>
     </Dialog>
