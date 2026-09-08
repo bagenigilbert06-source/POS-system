@@ -2378,7 +2378,7 @@ html:not(.dark) .dashboard-shell .shadow-dark-md {
   }
 
   .pos-terminal {
-    grid-template-columns: minmax(0, 1fr) minmax(340px, 40%) !important;
+    grid-template-columns: minmax(0, 1fr) minmax(460px, 42%) !important;
   }
 
   .pos-catalog-header input {
