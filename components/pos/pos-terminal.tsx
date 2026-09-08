@@ -4903,7 +4903,6 @@ export function POSTerminal({
                 event.preventDefault();
               }
             }}
-            aria-label="Product categories"
           >
             <button
               type="button"
