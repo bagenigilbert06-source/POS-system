@@ -575,7 +575,15 @@ function NeedsAttention({
   }>;
   currency: string;
 }) {
-  const rows = [
+  const rows: Array<{
+    key: string;
+    icon: ElementType;
+    title: string;
+    detail: string;
+    tone: string;
+    resolveSessionId?: string;
+    sessionNo?: string;
+  }> = [
     ...variance.map((item) => ({
       key: `v-${item.id}`,
       icon: Banknote,

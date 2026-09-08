@@ -26,6 +26,9 @@ import { hasPermission } from '@/lib/auth/authorization';
 const cash = (value: number | string, currency: string) =>
   `${currency} ${Number(value).toLocaleString('en-KE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 export const metadata = { title: 'Financial Overview' };
+// Finance figures must always be a current server-side report snapshot.
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 export default async function FinancialOverview({
   searchParams,
@@ -182,6 +185,15 @@ export default async function FinancialOverview({
         title="Financial Overview"
         description="A source-backed retail finance view. No balance sheet or trial balance is shown without a real double-entry ledger."
       />
+      {!reliable && (
+        <section className="flex flex-col gap-3 rounded-xl border border-amber-300/70 bg-amber-50 px-4 py-3 text-amber-950 dark:border-amber-500/30 dark:bg-amber-950/25 dark:text-amber-100 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-sm font-semibold">Profit figures need cost data</p>
+            <p className="mt-0.5 text-xs opacity-85">Some completed sale items have no recorded buying cost. Net sales, tax, expenses, receivables, and payments remain current; COGS and profit stay unavailable until the missing costs are corrected.</p>
+          </div>
+          <Link href="/dashboard/inventory" className="shrink-0 rounded-md border border-amber-400/70 bg-background px-3 py-2 text-xs font-semibold text-amber-900 hover:bg-amber-100 dark:bg-transparent dark:text-amber-100 dark:hover:bg-amber-950/40">Review stock costs</Link>
+        </section>
+      )}
       {hasPermission(context, PermissionEnum.FINANCE_MANAGE) && pendingApprovalCount > 0 && (
         <Link href="/dashboard/finance/approvals" className="flex items-center justify-between rounded-xl border border-amber-300/60 bg-amber-50 px-4 py-3 text-amber-950 shadow-sm transition-colors hover:bg-amber-100 dark:border-amber-500/30 dark:bg-amber-950/30 dark:text-amber-100 dark:hover:bg-amber-950/50">
           <span>

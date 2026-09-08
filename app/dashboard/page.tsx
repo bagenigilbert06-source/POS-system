@@ -7,6 +7,11 @@ import {
 } from '@/lib/auth/authorization';
 import { EmailVerificationNotice } from '@/components/auth/email-verification-notice';
 
+// This overview is operational data; a browser refresh must render a fresh
+// server snapshot rather than a previously cached route payload.
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export const metadata: Metadata = {
   title: 'Business overview | Pesaby',
   description:

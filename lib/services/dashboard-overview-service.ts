@@ -1,9 +1,5 @@
 import { and, asc, desc, eq, gte, inArray, lt, lte, sql } from 'drizzle-orm'
 import { db } from '@/lib/db'
-import { readThroughRedis } from '@/lib/cache/redis-cache'
-
-const dashboardOverviewCache = new Map<string, { value: DashboardOverview; expiresAt: number }>()
-const DASHBOARD_CACHE_TTL_MS = 5 * 60_000
 import { branch, category, customer, expense, inventoryBalance, inventoryLot, invoice, organizationMembership, product, sale, saleItem, salesReturn, salesReturnItem } from '@/lib/db/schema'
 
 export interface DashboardOverview {
@@ -139,9 +135,6 @@ function calendarKey(parts: { year: number; month: number; day: number }) {
  * never accepted from the browser.
  */
 async function loadDashboardOverview(organizationId: string, timeZone = 'Africa/Nairobi', branchIds?: readonly string[]): Promise<DashboardOverview> {
-  const cacheKey = `${organizationId}:${timeZone}:${branchIds?.join(',') ?? '*'}`
-  const cached = dashboardOverviewCache.get(cacheKey)
-  if (cached && cached.expiresAt > Date.now()) return cached.value
   let safeTimeZone = timeZone
   try {
     new Intl.DateTimeFormat('en', { timeZone: safeTimeZone }).format()
@@ -566,40 +559,12 @@ async function loadDashboardOverview(organizationId: string, timeZone = 'Africa/
       valueAtRisk: number(pharmacyInventoryRows?.valueAtRisk),
     },
   }
-  dashboardOverviewCache.set(cacheKey, { value: result, expiresAt: Date.now() + DASHBOARD_CACHE_TTL_MS })
   return result
 }
 
 export async function getDashboardOverview(organizationId: string, timeZone = 'Africa/Nairobi', branchIds?: readonly string[]) {
-  const variant = `${timeZone}:${branchIds?.join(',') ?? '*'}`
-  const cacheKey = `${organizationId}:${variant}`
-  const cached = dashboardOverviewCache.get(cacheKey)
-  if (cached && cached.expiresAt > Date.now()) return cached.value
-
-  const overview = await readThroughRedis({
-    namespace: 'dashboard',
-    organizationId,
-    variant,
-    // The dashboard read model is expensive to assemble (charts, totals and
-    // activity panels). Mutations explicitly invalidate this cache, so a
-    // longer TTL makes ordinary navigation instant without retaining stale
-    // operational figures.
-    ttlSeconds: 300,
-    load: () => loadDashboardOverview(organizationId, timeZone, branchIds),
-  })
-  // Populate process memory on Redis hits too. Repeated navigation on the same
-  // warm function then avoids both Redis and PostgreSQL network round trips.
-  dashboardOverviewCache.set(cacheKey, {
-    value: overview,
-    expiresAt: Date.now() + DASHBOARD_CACHE_TTL_MS,
-  })
-  return overview
+  return loadDashboardOverview(organizationId, timeZone, branchIds)
 }
 
-/** Clear every branch/time-zone variant held by this warm server instance. */
-export function clearDashboardOverviewMemoryCache(organizationId: string) {
-  const prefix = `${organizationId}:`
-  for (const key of dashboardOverviewCache.keys()) {
-    if (key.startsWith(prefix)) dashboardOverviewCache.delete(key)
-  }
-}
+/** Kept as a no-op for existing mutation callers; dashboard reads are live. */
+export function clearDashboardOverviewMemoryCache(_organizationId: string) {}
