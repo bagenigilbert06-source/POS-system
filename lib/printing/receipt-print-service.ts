@@ -203,7 +203,7 @@ async function qzClient() {
   const { default: qz } = await import('qz-tray');
   if (!securityPromise) {
     securityPromise = withTimeout(
-      fetch('/api/printing/qz/certificate', { cache: 'no-store' }).then(
+      fetch('/api/qz', { cache: 'no-store' }).then(
         async (response) => {
           const unsignedDevelopmentAllowed =
             response.status === 204 &&
@@ -239,15 +239,15 @@ async function qzClient() {
           qz.security.setSignatureAlgorithm('SHA512');
           qz.security.setSignaturePromise((toSign) => (resolve, reject) => {
             withTimeout(
-              fetch('/api/printing/qz/sign', {
+              fetch('/api/qz', {
                 method: 'POST',
-                headers: { 'content-type': 'text/plain' },
-                body: toSign,
+                headers: { 'content-type': 'application/json' },
+                body: JSON.stringify({ request: toSign }),
                 cache: 'no-store',
               }).then(async (signatureResponse) => {
                 if (!signatureResponse.ok)
                   throw new Error('QZ signing request failed');
-                const signature = (await signatureResponse.text()).trim();
+                const signature = String((await signatureResponse.json()).signature || '').trim();
                 if (!signature)
                   throw new Error('QZ signing returned an empty signature');
                 return signature;
@@ -375,25 +375,29 @@ async function nativeReceiptBytes(receiptHtml: string, width: ReceiptPaperWidth)
       image.crossOrigin = 'anonymous';
       image.src = logoUrl;
       await new Promise<void>((resolve, reject) => { image.onload = () => resolve(); image.onerror = () => reject(new Error('logo unavailable')); });
-      const maxWidth = width === 58 ? 240 : 360;
-      const scale = Math.min(1, maxWidth / image.naturalWidth);
-      const rasterWidth = Math.max(8, Math.floor(image.naturalWidth * scale));
+      // GS v 0 images start at the left print margin. Rasterize a transparent
+      // full-width canvas so the logo is physically centred on the paper.
+      const printWidth = width === 58 ? 384 : 576;
+      const maxLogoWidth = width === 58 ? 168 : 240;
+      const maxLogoHeight = width === 58 ? 112 : 160;
+      const scale = Math.min(1, maxLogoWidth / image.naturalWidth, maxLogoHeight / image.naturalHeight);
+      const logoWidth = Math.max(8, Math.floor(image.naturalWidth * scale));
       const rasterHeight = Math.max(1, Math.floor(image.naturalHeight * scale));
       const canvas = document.createElement('canvas');
-      canvas.width = rasterWidth;
+      canvas.width = printWidth;
       canvas.height = rasterHeight;
       const context = canvas.getContext('2d', { willReadFrequently: true });
       if (!context) throw new Error('canvas unavailable');
-      context.drawImage(image, 0, 0, rasterWidth, rasterHeight);
-      const pixels = context.getImageData(0, 0, rasterWidth, rasterHeight).data;
-      const widthBytes = Math.ceil(rasterWidth / 8);
+      context.drawImage(image, Math.floor((printWidth - logoWidth) / 2), 0, logoWidth, rasterHeight);
+      const pixels = context.getImageData(0, 0, printWidth, rasterHeight).data;
+      const widthBytes = Math.ceil(printWidth / 8);
       const rasterBytes = new Uint8Array(widthBytes * rasterHeight);
-      for (let y = 0; y < rasterHeight; y += 1) for (let x = 0; x < rasterWidth; x += 1) {
-        const offset = (y * rasterWidth + x) * 4;
+      for (let y = 0; y < rasterHeight; y += 1) for (let x = 0; x < printWidth; x += 1) {
+        const offset = (y * printWidth + x) * 4;
         const luminance = (pixels[offset] * 299 + pixels[offset + 1] * 587 + pixels[offset + 2] * 114) / 1000;
         if (pixels[offset + 3] > 32 && luminance < 170) rasterBytes[y * widthBytes + (x >> 3)] |= 0x80 >> (x & 7);
       }
-      logo = { width: rasterWidth, height: rasterHeight, bytes: rasterBytes };
+      logo = { width: printWidth, height: rasterHeight, bytes: rasterBytes };
     } catch { /* logos are optional; text receipt remains printable */ }
   }
   return buildEscPosReceipt(model, width, logo);

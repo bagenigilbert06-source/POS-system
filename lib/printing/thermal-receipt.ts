@@ -3,6 +3,7 @@ export type ThermalPaperWidth = 58 | 80;
 export type ThermalReceiptItem = {
   description: string;
   quantity: string;
+  unitPrice?: string;
   amount: string;
   details?: string[];
 };
@@ -12,6 +13,7 @@ export type ThermalReceiptRow = { label: string; amount: string };
 export type ThermalReceiptModel = {
   version: 1;
   businessName: string;
+  kraPin?: string;
   logoUrl?: string;
   contactLines: string[];
   title: string;
@@ -41,6 +43,9 @@ export function decodeThermalReceiptModel(value: string) {
 }
 
 export function thermalColumns(width: ThermalPaperWidth) {
+  // Xprinter 80 mm mechanisms commonly expose 48 Font-A columns (and 32 on
+  // 58 mm rolls). Filling that actual grid prevents the receipt body from
+  // appearing left-weighted when the printer trims trailing spaces.
   return width === 58 ? 32 : 48;
 }
 
@@ -79,16 +84,21 @@ export function receiptItemLines(
   paperWidth: ThermalPaperWidth
 ) {
   const columns = thermalColumns(paperWidth);
-  const quantityWidth = paperWidth === 58 ? 3 : 5;
-  const amountWidth = paperWidth === 58 ? 12 : 14;
-  const descriptionWidth = columns - quantityWidth - amountWidth - 2;
-  const descriptions = wrapThermalText(item.description, descriptionWidth);
-  const lines = descriptions.map((description, index) =>
-    `${description.padEnd(descriptionWidth)} ${index === 0 ? thermalText(item.quantity).slice(0, quantityWidth).padStart(quantityWidth) : ' '.repeat(quantityWidth)} ${index === 0 ? thermalText(item.amount).slice(-amountWidth).padStart(amountWidth) : ' '.repeat(amountWidth)}`
-  );
+  const descriptions = wrapThermalText(item.description, columns);
+  const lines = descriptions.map((description) => description.padEnd(columns));
   for (const detail of item.details ?? [])
     for (const line of wrapThermalText(detail, columns - 2))
-      lines.push(`  ${line}`);
+      lines.push(`  ${line}`.padEnd(columns));
+  const quantity = thermalText(item.quantity) || '0';
+  const unitPrice = thermalText(item.unitPrice ?? item.amount) || item.amount;
+  const amount = thermalText(item.amount);
+  const priceLine = `${quantity} x ${unitPrice}`;
+  const availablePriceWidth = Math.max(1, columns - amount.length - 1);
+  lines.push(
+    `${priceLine.slice(0, availablePriceWidth)}${' '.repeat(Math.max(1, columns - Math.min(priceLine.length, availablePriceWidth) - amount.length))}${amount}`
+      .slice(0, columns)
+      .padEnd(columns)
+  );
   return lines;
 }
 
@@ -145,6 +155,7 @@ export function buildEscPosReceipt(
   const bytes: number[] = [0x1b, 0x40, 0x1b, 0x74, 0x00, 0x1b, 0x4d, 0x00];
   const command = (...values: number[]) => bytes.push(...values);
   const line = (value = '') => bytes.push(...rawAsciiBytes(value), 0x0a);
+  const blockLine = (value = '') => line(value.padEnd(columns).slice(0, columns));
   const centeredLines = (value: string) => {
     for (const wrapped of wrapThermalText(value, columns)) line(center(wrapped, columns));
   };
@@ -162,6 +173,7 @@ export function buildEscPosReceipt(
   centeredLines(model.businessName.toUpperCase());
   bold(false);
   for (const contact of model.contactLines) centeredLines(contact);
+  if (model.kraPin) centeredLines(`KRA PIN: ${model.kraPin}`);
   line();
   divider();
   bold(true);
@@ -170,21 +182,15 @@ export function buildEscPosReceipt(
   for (const metadata of model.metadata) centeredLines(metadata);
   divider();
 
-  command(0x1b, 0x61, 0);
-  bold(true);
-  line(
-    `${'DESCRIPTION'.padEnd(columns - (paperWidth === 58 ? 17 : 21))} ${'QTY'.padStart(paperWidth === 58 ? 3 : 5)} ${'AMOUNT'.padStart(paperWidth === 58 ? 12 : 14)}`
-  );
-  bold(false);
   for (const item of model.items) {
-    for (const itemLine of receiptItemLines(item, paperWidth)) line(itemLine);
+    for (const itemLine of receiptItemLines(item, paperWidth)) blockLine(itemLine);
   }
   divider();
   for (const row of model.totals)
-    for (const valueLine of receiptValueLines(row, paperWidth)) line(valueLine);
+    for (const valueLine of receiptValueLines(row, paperWidth)) blockLine(valueLine);
   bold(true);
   command(0x1b, 0x2d, 1);
-  for (const totalLine of receiptValueLines(model.total, paperWidth)) line(totalLine);
+  for (const totalLine of receiptValueLines(model.total, paperWidth)) blockLine(totalLine);
   command(0x1b, 0x2d, 0);
   bold(false);
   divider();
@@ -218,4 +224,3 @@ export function buildEscPosReceipt(
   command(0x0a, 0x0a, 0x0a, 0x1d, 0x56, 0x41, 0x03);
   return Uint8Array.from(bytes);
 }
-
