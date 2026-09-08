@@ -2,6 +2,7 @@ import { formatCurrency, formatDateTime } from '@/lib/utils'
 import type { Sale, SaleItem } from '@/lib/db/schema'
 import { ReceiptQrCode } from './receipt-qr-code'
 import Image from 'next/image'
+import { encodeThermalReceiptModel, THERMAL_RECEIPT_DATA_ATTRIBUTE } from '@/lib/printing/thermal-receipt'
 
 interface ReceiptTemplateProps {
   sale: Pick<Sale, 'id' | 'receiptNo' | 'createdAt' | 'subtotal' | 'taxAmount' | 'discountAmount' | 'roundingAmount' | 'total' | 'paymentMethod' | 'mpesaRef'> & {
@@ -90,17 +91,55 @@ export function ReceiptTemplate({
   const taxPresentationLabel = taxIncluded ? `${taxName} included` : taxName
   const subtotalPresentationLabel = taxIncluded ? 'Total before VAT' : 'Subtotal'
   const subtotalPresentationAmount = taxIncluded ? total - taxAmount : subtotal
+  const cafe = template === 'cafe'
+  const logo = template === 'logo'
+  const paymentLabel = sale.mpesaDetails?.mode === 'till'
+    ? 'M-Pesa Till'
+    : sale.mpesaDetails?.mode === 'paybill'
+      ? 'M-Pesa PayBill'
+      : sale.paymentMethod.replaceAll('_', ' ')
+  const itemCount = sale.items.reduce((count, item) => count + item.quantity, 0)
+
+  // Keep the semantic data used by native thermal printing beside the UI
+  // receipt. The browser layout remains the source of truth for browser/PDF
+  // output, while QZ/raw TCP can render deterministic ESC/POS columns.
+  const thermalReceiptData = encodeThermalReceiptModel({
+    version: 1,
+    businessName,
+    logoUrl: logo ? logoUrl : undefined,
+    contactLines: [branchName, showAddress ? businessAddress : '', showPhone && businessPhone ? `Tel: ${businessPhone}` : ''].filter(Boolean),
+    title: isProvisional ? 'Provisional receipt' : 'Sales receipt',
+    metadata: [formatDateTime(sale.createdAt), `Receipt: ${sale.receiptNo}`, ...(sale.cafeOrder ? [`Order: #${sale.cafeOrder.orderNumber}`] : []), ...(sale.cafeOrder?.orderType ? [`Order type: ${sale.cafeOrder.orderType.replace('_', '-')}`] : []), ...(sale.cafeOrder?.tableName ? [`Table: ${sale.cafeOrder.tableName}`] : []), ...(showCashier ? [`Cashier: ${cashierName}`] : []), ...(showCustomer ? [`Customer: ${customerName}`] : [])],
+    items: sale.items.map((item) => ({
+      description: item.productName,
+      quantity: String(item.quantity),
+      amount: formatCurrency(parseFloat(item.totalPrice.toString())),
+      details: [...(item.modifierNames?.map((name) => `+ ${name}`) ?? []), ...(item.lineNotes ? [`Note: ${item.lineNotes}`] : []), ...(showItemSku ? [`SKU: ${item.productId.slice(0, 8).toUpperCase()}`] : [])],
+    })),
+    totals: [
+      { label: subtotalPresentationLabel, amount: formatCurrency(subtotalPresentationAmount) },
+      ...(taxAmount > 0 ? [{ label: taxPresentationLabel, amount: formatCurrency(taxAmount) }] : []),
+      ...(showShipping && shippingAmount > 0 ? [{ label: 'Shipping', amount: formatCurrency(shippingAmount) }] : []),
+      ...(showCoupon && couponAmount > 0 ? [{ label: `Coupon${sale.couponCode ? ` (${sale.couponCode})` : ''}`, amount: `-${formatCurrency(couponAmount)}` }] : []),
+      ...(discountAmount > 0 ? [{ label: 'Discount', amount: `-${formatCurrency(Math.max(0, discountAmount - couponAmount))}` }] : []),
+      ...(showBonus && bonusRedeemed > 0 ? [{ label: 'Bonus redeemed', amount: `-${formatCurrency(bonusRedeemed)}` }] : []),
+      ...(roundingAmount !== 0 ? [{ label: 'Rounding', amount: `${roundingAmount > 0 ? '+' : '-'}${formatCurrency(Math.abs(roundingAmount))}` }] : []),
+    ],
+    total: { label: 'TOTAL', amount: formatCurrency(total) },
+    itemCountLabel: `${itemCount} ${itemCount === 1 ? 'item' : 'items'} sold`,
+    paymentLines: showPayment ? [`Paid by: ${paymentLabel}`, `Amount paid: ${formatCurrency(total)}`, ...(sale.mpesaRef ? [`Reference: ${sale.mpesaRef}`] : []), ...(sale.mpesaDetails?.merchant && sale.mpesaDetails.mode !== 'stk' ? [`${sale.mpesaDetails.mode === 'till' ? 'Till' : 'PayBill'}: ${sale.mpesaDetails.merchant}`] : []), ...(sale.mpesaDetails?.accountReference ? [`Account: ${sale.mpesaDetails.accountReference}`] : [])] : [],
+    notices: isProvisional ? ['OFFLINE - SYNC PENDING', 'NOT AN OFFICIAL OR FISCAL RECEIPT'] : [],
+    qrCodes: [
+      ...(showQrCode && !isProvisional ? [{ value: `PESABY RECEIPT\nReceipt: ${sale.receiptNo}\nSale ID: ${sale.id}\nTotal: ${formatCurrency(total)}\nPayment: ${sale.paymentMethod}\nDate: ${new Date(sale.createdAt).toISOString()}`, label: 'Scan for receipt details' }] : []),
+      ...(sale.feedbackUrl ? [{ value: sale.feedbackUrl, label: 'Scan to rate your experience' }] : []),
+      ...(sale.etims?.qrData ? [{ value: sale.etims.qrData, label: 'eTIMS verification' }] : []),
+    ],
+    footer: receiptFooter,
+    transactionId: sale.id.slice(0, 8).toUpperCase(),
+  })
 
   if (layout === 'thermal') {
-    const cafe = template === 'cafe'
-    const logo = template === 'logo'
-    const paymentLabel = sale.mpesaDetails?.mode === 'till'
-      ? 'M-Pesa Till'
-      : sale.mpesaDetails?.mode === 'paybill'
-        ? 'M-Pesa PayBill'
-        : sale.paymentMethod.replaceAll('_', ' ')
-    const itemCount = sale.items.reduce((count, item) => count + item.quantity, 0)
-    return <div className="receipt-paper receipt-thermal receipt-java-style mx-auto w-full max-w-full bg-white px-[3mm] py-[4mm] font-['Courier_New',Courier,monospace] text-[11px] leading-[1.38] text-black print:w-full print:max-w-none print:px-[2mm] print:py-[3mm]">
+    return <div className="receipt-paper receipt-thermal receipt-java-style mx-auto w-full max-w-full bg-white px-[3mm] py-[4mm] font-['Courier_New',Courier,monospace] text-[11px] leading-[1.38] text-black print:w-full print:max-w-none print:px-[2mm] print:py-[3mm]" {...{ [THERMAL_RECEIPT_DATA_ATTRIBUTE]: thermalReceiptData }}>
       <div className="text-center">{logo && logoUrl ? <span className="mb-2 flex h-12 items-center justify-center"><Image src={logoUrl} alt={`${businessName} logo`} width={180} height={48} unoptimized className="h-12 w-auto max-w-[45mm] object-contain grayscale" /></span> : null}<h1 className={`font-bold uppercase ${cafe ? 'text-[15px]' : 'text-[14px]'}`}>{businessName}</h1>{branchName && <p>{branchName}</p>}{showAddress && businessAddress && <p>{businessAddress}</p>}{showPhone && businessPhone && <p>Tel: {businessPhone}</p>}{cafe && <p className="mt-2">Store #{sale.id.slice(0, 5).toUpperCase()} Â· {formatDateTime(sale.createdAt)}</p>}</div>
       <div className="my-[3mm] border-y border-dashed border-black py-[2mm] text-center"><p className="font-bold tracking-wide">{isProvisional ? 'PROVISIONAL RECEIPT' : 'SALES RECEIPT'}</p>{sale.cafeOrder && <p className="text-[13px] font-black">ORDER #{sale.cafeOrder.orderNumber}</p>}<p>{formatDateTime(sale.createdAt)}</p><p>Receipt: {sale.receiptNo}</p>{sale.cafeOrder?.orderType && <p>Order type: {sale.cafeOrder.orderType.replace('_', '-')}</p>}{sale.cafeOrder?.tableName && <p>Table: {sale.cafeOrder.tableName}</p>}{showCashier && <p>Cashier: {cashierName}</p>}{showCustomer && <p>Customer: {customerName}</p>}{isProvisional && <><p className="mt-2 border-y border-black py-1 font-black">OFFLINE Â· SYNC PENDING</p><p className="mt-1 text-[9px] font-bold leading-3">NOT AN OFFICIAL OR FISCAL RECEIPT</p></>}</div>
       <div className="mb-2 grid grid-cols-[minmax(0,1fr)_28px_82px] gap-1 border-b border-dashed border-black pb-1 text-[10px] font-bold uppercase"><span>Description</span><span className="text-center">Qty</span><span className="text-right">Amount</span></div>
@@ -125,7 +164,7 @@ export function ReceiptTemplate({
         }
       `}</style>
       
-      <div className="receipt receipt-paper overflow-hidden rounded-2xl border border-zinc-200 bg-white text-black shadow-[0_12px_32px_rgba(15,23,42,.08)] print:rounded-none print:border-0 print:shadow-none">
+      <div className="receipt receipt-paper overflow-hidden rounded-2xl border border-zinc-200 bg-white text-black shadow-[0_12px_32px_rgba(15,23,42,.08)] print:rounded-none print:border-0 print:shadow-none" {...{ [THERMAL_RECEIPT_DATA_ATTRIBUTE]: thermalReceiptData }}>
         {/* Header */}
         <div className="flex items-start justify-between gap-6 border-b border-zinc-200 px-6 py-5 sm:px-7">
           <div>

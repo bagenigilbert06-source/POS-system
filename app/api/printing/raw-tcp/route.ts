@@ -4,7 +4,7 @@ import { getCurrentSession } from '@/lib/auth';
 export const runtime = 'nodejs';
 
 const CONNECT_TIMEOUT_MS = 4_000;
-const MAX_HTML_LENGTH = 250_000;
+const MAX_PAYLOAD_LENGTH = 1_000_000;
 
 function configuredTarget() {
   const host = process.env.POS_RAW_PRINTER_HOST?.trim();
@@ -103,24 +103,33 @@ export async function POST(request: Request) {
   const body = (await request.json().catch(() => null)) as {
     target?: unknown;
     html?: unknown;
+    payload?: unknown;
     copies?: unknown;
   } | null;
   if (
     !body ||
     body.target !== target.uri ||
-    typeof body.html !== 'string' ||
-    body.html.length > MAX_HTML_LENGTH
+    (typeof body.payload !== 'string' || body.payload.length > MAX_PAYLOAD_LENGTH) &&
+    (typeof body.html !== 'string' || body.html.length > MAX_PAYLOAD_LENGTH)
   )
     return new Response('Invalid or unapproved printer target', {
       status: 400,
     });
-  const text = htmlToReceiptText(body.html);
-  if (!text) return new Response('Receipt is empty', { status: 400 });
+  let payload: Buffer;
+  if (typeof body.payload === 'string') {
+    try { payload = Buffer.from(body.payload, 'base64'); } catch { return new Response('Invalid receipt payload', { status: 400 }); }
+    if (payload.length === 0) return new Response('Receipt is empty', { status: 400 });
+  } else {
+    const text = htmlToReceiptText(body.html as string);
+    if (!text) return new Response('Receipt is empty', { status: 400 });
+    payload = escPosPayload(text, Math.max(1, Math.min(3, Number(body.copies) || 1)));
+  }
   try {
-    await send(
-      target,
-      escPosPayload(text, Math.max(1, Math.min(3, Number(body.copies) || 1)))
-    );
+    if (body.payload) {
+      const copies = Math.max(1, Math.min(3, Number(body.copies) || 1));
+      const chunks = Array.from({ length: copies }, () => payload);
+      await send(target, Buffer.concat(chunks));
+    } else await send(target, payload);
     return Response.json({ submitted: true });
   } catch (error) {
     console.error('RAW TCP receipt print failed', error);

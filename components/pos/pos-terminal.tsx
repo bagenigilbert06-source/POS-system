@@ -8081,7 +8081,7 @@ export function POSTerminal({
             if (event.target === event.currentTarget) setSummaryEditor(null);
           }}
         >
-          <div className="w-full max-w-lg overflow-hidden rounded-[7px] border border-[var(--dashboard-border)] bg-[var(--dashboard-surface)] text-[var(--dashboard-text)] shadow-[0_8px_24px_rgba(16,24,40,.16)]">
+          <div className="flex max-h-[calc(100dvh-2rem)] w-full max-w-lg flex-col overflow-hidden rounded-[7px] border border-[var(--dashboard-border)] bg-[var(--dashboard-surface)] text-[var(--dashboard-text)] shadow-[0_8px_24px_rgba(16,24,40,.16)]">
             <div className="flex h-[58px] items-center justify-between border-b border-[var(--dashboard-border)] px-5">
               <div className="flex min-w-0 items-center gap-3">
                 <div className="min-w-0">
@@ -8109,7 +8109,7 @@ export function POSTerminal({
               </button>
             </div>
 
-            <div className="space-y-4 px-5 py-[23px]">
+            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-5 py-[23px]">
               {summaryEditor === 'tax' ? (
                 <>
                   <div>
@@ -8250,7 +8250,7 @@ export function POSTerminal({
               )}
             </div>
 
-            <div className="flex min-h-[67px] flex-col-reverse items-center gap-2 border-t border-[var(--dashboard-border)] bg-white px-5 py-3 sm:flex-row sm:justify-end dark:bg-[#161616]">
+            <div className="flex min-h-[67px] shrink-0 flex-col-reverse items-center gap-2 border-t border-[var(--dashboard-border)] bg-white px-5 py-3 sm:flex-row sm:justify-end dark:bg-[#161616]">
               <button
                 type="button"
                 onClick={() => setSummaryEditor(null)}

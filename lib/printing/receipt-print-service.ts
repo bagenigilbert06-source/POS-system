@@ -1,5 +1,12 @@
 'use client';
 
+import {
+  buildEscPosReceipt,
+  decodeThermalReceiptModel,
+  THERMAL_RECEIPT_DATA_ATTRIBUTE,
+  type MonochromeRaster,
+} from './thermal-receipt';
+
 export type ReceiptPrintingMode = 'direct' | 'browser';
 export type ReceiptPaperWidth = 58 | 80;
 export type ReceiptPrinterStatus =
@@ -353,6 +360,52 @@ function thermalDocument(receiptHtml: string, width: ReceiptPaperWidth) {
   return `<!doctype html><html><head><meta charset="utf-8"><style>@page{size:${width}mm auto;margin:0}html,body{width:100%;margin:0;padding:0;background:#fff;color:#000}.receipt-print-frame{width:100%;border-collapse:collapse}.receipt-print-frame td{padding:0;text-align:center;vertical-align:top}.receipt-paper{box-sizing:border-box!important;width:${width}mm!important;max-width:${width}mm!important;margin:0 auto!important;text-align:left;border:0!important;border-radius:0!important;box-shadow:none!important;color:#000!important}*{print-color-adjust:exact;-webkit-print-color-adjust:exact}</style></head><body><table class="receipt-print-frame" role="presentation"><tr><td>${receiptHtml}</td></tr></table></body></html>`;
 }
 
+async function nativeReceiptBytes(receiptHtml: string, width: ReceiptPaperWidth) {
+  const parser = new DOMParser();
+  const document = parser.parseFromString(receiptHtml, 'text/html');
+  const paper = document.querySelector<HTMLElement>(`[${THERMAL_RECEIPT_DATA_ATTRIBUTE}]`);
+  const encoded = paper?.getAttribute(THERMAL_RECEIPT_DATA_ATTRIBUTE);
+  if (!encoded) throw new ReceiptPrinterError('PRINT_SUBMISSION_FAILED', 'Receipt does not contain thermal data');
+  const model = decodeThermalReceiptModel(encoded);
+  let logo: MonochromeRaster | undefined;
+  const logoUrl = model.logoUrl;
+  if (logoUrl) {
+    try {
+      const image = new window.Image();
+      image.crossOrigin = 'anonymous';
+      image.src = logoUrl;
+      await new Promise<void>((resolve, reject) => { image.onload = () => resolve(); image.onerror = () => reject(new Error('logo unavailable')); });
+      const maxWidth = width === 58 ? 240 : 360;
+      const scale = Math.min(1, maxWidth / image.naturalWidth);
+      const rasterWidth = Math.max(8, Math.floor(image.naturalWidth * scale));
+      const rasterHeight = Math.max(1, Math.floor(image.naturalHeight * scale));
+      const canvas = document.createElement('canvas');
+      canvas.width = rasterWidth;
+      canvas.height = rasterHeight;
+      const context = canvas.getContext('2d', { willReadFrequently: true });
+      if (!context) throw new Error('canvas unavailable');
+      context.drawImage(image, 0, 0, rasterWidth, rasterHeight);
+      const pixels = context.getImageData(0, 0, rasterWidth, rasterHeight).data;
+      const widthBytes = Math.ceil(rasterWidth / 8);
+      const rasterBytes = new Uint8Array(widthBytes * rasterHeight);
+      for (let y = 0; y < rasterHeight; y += 1) for (let x = 0; x < rasterWidth; x += 1) {
+        const offset = (y * rasterWidth + x) * 4;
+        const luminance = (pixels[offset] * 299 + pixels[offset + 1] * 587 + pixels[offset + 2] * 114) / 1000;
+        if (pixels[offset + 3] > 32 && luminance < 170) rasterBytes[y * widthBytes + (x >> 3)] |= 0x80 >> (x & 7);
+      }
+      logo = { width: rasterWidth, height: rasterHeight, bytes: rasterBytes };
+    } catch { /* logos are optional; text receipt remains printable */ }
+  }
+  return buildEscPosReceipt(model, width, logo);
+}
+
+function bytesToBase64(bytes: Uint8Array) {
+  let binary = '';
+  for (let offset = 0; offset < bytes.length; offset += 0x8000)
+    binary += String.fromCharCode(...bytes.subarray(offset, offset + 0x8000));
+  return btoa(binary);
+}
+
 export async function directPrintReceipt(
   receiptHtml: string,
   settings: ReceiptPrinterSettings
@@ -364,6 +417,8 @@ export async function directPrintReceipt(
       'No thermal printer is configured'
     );
   if (isRawTcpPrinter(printerName)) {
+    const payload = await nativeReceiptBytes(receiptHtml, settings.paperWidth);
+    const encodedPayload = bytesToBase64(payload);
     let response: Response;
     try {
       response = await withTimeout(
@@ -372,7 +427,7 @@ export async function directPrintReceipt(
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({
             target: printerName,
-            html: receiptHtml,
+            payload: encodedPayload,
             copies: Math.max(1, Math.min(3, settings.copies)),
           }),
         }),
@@ -443,14 +498,9 @@ export async function directPrintReceipt(
     copies: Math.max(1, Math.min(3, settings.copies)),
     scaleContent: true,
   });
-  const data: Array<Record<string, unknown>> = [
-    {
-      type: 'pixel',
-      format: 'html',
-      flavor: 'plain',
-      data: thermalDocument(receiptHtml, settings.paperWidth),
-    },
-  ];
+  const payload = await nativeReceiptBytes(receiptHtml, settings.paperWidth);
+  const encodedPayload = bytesToBase64(payload);
+  const data: Array<Record<string, unknown>> = [{ type: 'raw', format: 'command', flavor: 'base64', data: encodedPayload }];
   try {
     await withTimeout(
       qz.print(config, data),

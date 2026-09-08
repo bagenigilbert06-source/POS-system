@@ -1,4 +1,4 @@
-import { expect, test, type Browser, type BrowserContext, type Page } from '@playwright/test'
+import { expect, test, type Browser, type BrowserContext, type Locator, type Page } from '@playwright/test'
 import { randomUUID } from 'node:crypto'
 import { hashPassword } from 'better-auth/crypto'
 import pg from 'pg'
@@ -66,6 +66,15 @@ async function terminalOnlyContext(source: BrowserContext, browser: Browser) {
   return context
 }
 
+async function expectInViewport(locator: Locator, height: number) {
+  await expect(locator).toBeVisible()
+  const box = await locator.boundingBox()
+  expect(box, 'primary action has a layout box').not.toBeNull()
+  expect(box!.y).toBeGreaterThanOrEqual(0)
+  expect(box!.y + box!.height).toBeLessThanOrEqual(height)
+  await locator.click({ trial: true })
+}
+
 test.beforeAll(seedWorkspace)
 test.afterAll(async () => { await pool.end() })
 
@@ -89,6 +98,31 @@ test('cashier journey, unresolved-shift blocks, stale-session protection and Mar
   await page.getByRole('dialog').locator('input').first().fill('100')
   await page.getByRole('button', { name: 'Open register' }).last().click()
   await expect(page.getByText(/Open.*E2E Terminal 1/)).toBeVisible()
+
+  const posViewports = [
+    { width: 1024, height: 650 },
+    { width: 1024, height: 700 },
+    { width: 1024, height: 720 },
+    { width: 1024, height: 768 },
+    { width: 1280, height: 1024 },
+    { width: 1280, height: 800 },
+    { width: 1366, height: 768 },
+    { width: 1440, height: 900 },
+    { width: 1920, height: 1080 },
+  ]
+  for (const viewport of posViewports) {
+    await page.setViewportSize(viewport)
+    await page.goto('/dashboard/pos')
+    await page.getByRole('button', { name: /add e2e test item to basket/i }).click()
+    await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+    await page.getByRole('button', { name: 'Continue to checkout' }).click()
+    await page.getByRole('button', { name: /continue to payment/i }).click()
+    await expectInViewport(page.getByRole('button', { name: /complete cash sale/i }), viewport.height)
+    await page.getByRole('button', { name: 'Back' }).click()
+    await page.getByRole('button', { name: /back to basket/i }).click()
+    await page.getByRole('button', { name: /remove e2e test item from basket/i }).click()
+  }
+  await page.setViewportSize({ width: 1280, height: 800 })
 
   const openBlock = await terminalOnlyContext(context, browser)
   const openBlockPage = await openBlock.newPage()
