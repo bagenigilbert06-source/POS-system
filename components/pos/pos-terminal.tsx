@@ -5110,12 +5110,12 @@ export function POSTerminal({
                         <Package className="h-7 w-7" strokeWidth={1.5} />
                       </div>
                     )}
-                    <div className="flex min-w-0 flex-1 flex-col px-3 pb-3 pt-2.5 sm:px-3.5 sm:pb-3.5 sm:pt-3">
+                    <div className="pos-product-content flex min-w-0 flex-1 flex-col px-3 pb-3 pt-2.5 sm:px-3.5 sm:pb-3.5 sm:pt-3">
                       <p className="mb-0.5 line-clamp-2 text-sm font-semibold leading-snug text-[#101828] dark:text-white">
                         {product.name}
                       </p>
                       {product.pharmacy && (
-                        <p className="line-clamp-1 text-[10px] text-[#667085] dark:text-[#a8a8a8]">
+                        <p className="pos-product-meta line-clamp-1 text-[10px] text-[#667085] dark:text-[#a8a8a8]">
                           {[
                             product.pharmacy.genericName,
                             product.pharmacy.strength,
@@ -5143,7 +5143,7 @@ export function POSTerminal({
                           </div>
                         )}
                       {(product.volume || product.unit) && (
-                        <p className="text-[11px] text-[#667085] dark:text-[#8b8b8b]">
+                        <p className="pos-product-meta text-[11px] text-[#667085] dark:text-[#8b8b8b]">
                           {product.volume
                             ? `${product.volume} ${product.volumeUnit || ''}`
                             : ''}

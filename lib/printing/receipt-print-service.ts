@@ -205,7 +205,11 @@ async function qzClient() {
     securityPromise = withTimeout(
       fetch('/api/qz', { cache: 'no-store' }).then(
         async (response) => {
+          // Defence in depth: the server only emits this response in
+          // development, but a production browser must never accept an
+          // unsigned fallback even if a proxy or stale route returns 204.
           const unsignedDevelopmentAllowed =
+            process.env.NODE_ENV === 'development' &&
             response.status === 204 &&
             response.headers.get('x-qz-unsigned-development') === 'allowed';
           if (unsignedDevelopmentAllowed) {
@@ -223,6 +227,8 @@ async function qzClient() {
             );
             return;
           }
+          if (response.headers.get('x-qz-signing-status') === 'not-configured')
+            throw new ReceiptPrinterError('SECURITY_NOT_CONFIGURED', 'QZ trusted printing is not configured on this server.');
           if (!response.ok)
             throw new ReceiptPrinterError(
               'SECURITY_NOT_CONFIGURED',
@@ -307,6 +313,14 @@ async function qzClient() {
   return qz;
 }
 
+/** Establish (or reuse) the singleton QZ Tray websocket connection. */
+export async function connectQzTray() {
+  const qz = await qzClient();
+  if (process.env.NODE_ENV === 'development')
+    console.debug('[qz] websocket connected');
+  return qz;
+}
+
 export async function getDirectPrinterStatus(
   printerName: string
 ): Promise<ReceiptPrinterStatus> {
@@ -350,7 +364,10 @@ export async function listDirectPrinters(): Promise<string[]> {
       'Printer discovery timed out'
     )
   );
-  return Array.isArray(found) ? found : [found];
+  const printers = (Array.isArray(found) ? found : [found]).filter(Boolean);
+  if (process.env.NODE_ENV === 'development')
+    console.debug('[qz] printer discovery complete', { count: printers.length });
+  return printers;
 }
 
 function thermalDocument(receiptHtml: string, width: ReceiptPaperWidth) {

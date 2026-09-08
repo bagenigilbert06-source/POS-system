@@ -1,6 +1,6 @@
 'use client';
 import { useState } from 'react';
-import { Pencil, Printer, ReceiptText, Settings2 } from 'lucide-react';
+import { CheckCircle2, Pencil, Printer, ReceiptText, RefreshCw, Settings2, Wifi } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { notify } from '@/lib/notify';
 import {
@@ -10,8 +10,12 @@ import {
 import {
   browserPrintReceipt,
   directPrintReceipt,
+  connectQzTray,
   getReceiptPrinterErrorCopy,
+  listDirectPrinters,
+  type ReceiptPrinterStatus,
 } from '@/lib/printing/receipt-print-service';
+import { encodeThermalReceiptModel, THERMAL_RECEIPT_DATA_ATTRIBUTE } from '@/lib/printing/thermal-receipt';
 
 type Terminal = {
   id: string;
@@ -27,11 +31,21 @@ type Terminal = {
   receiptCopies: number;
   cashDrawerPulse: boolean;
 };
+const VIRTUAL_PRINTER_PATTERN = /microsoft\s+print\s+to\s+pdf|onenote|fax|pdf(?:\s|$)|xps/i;
+function physicalPrinterNames(names: string[]) {
+  return Array.from(new Set(names.filter((printer) => printer.trim() && !VIRTUAL_PRINTER_PATTERN.test(printer))));
+}
 export function TerminalPrinterSettings({ terminal }: { terminal: Terminal }) {
   const [open, setOpen] = useState(false),
     [renameOpen, setRenameOpen] = useState(false),
     [saving, setSaving] = useState(false),
-    [testing, setTesting] = useState(false);
+    [testing, setTesting] = useState(false),
+    [discovering, setDiscovering] = useState(false),
+    [printerStatus, setPrinterStatus] = useState<ReceiptPrinterStatus | null>(null),
+    [qzStatus, setQzStatus] = useState<'not-checked' | 'connecting' | 'connected' | 'not-connected'>('not-checked'),
+    [diagnostic, setDiagnostic] = useState(''),
+    [lastTest, setLastTest] = useState<'success' | 'failed' | null>(null),
+    [printers, setPrinters] = useState<string[]>([]);
   const [deviceName, setDeviceName] = useState(terminal.name),
     [mode, setMode] = useState<'browser' | 'direct'>(
       terminal.printingMode === 'direct' ? 'direct' : 'browser'
@@ -45,6 +59,45 @@ export function TerminalPrinterSettings({ terminal }: { terminal: Terminal }) {
     ),
     [drawer, setDrawer] = useState(terminal.cashDrawerPulse);
   const configured = mode === 'direct' && Boolean((name || identifier).trim());
+  const configuredPrinter = (identifier || name).trim();
+  const discoverPrinters = async () => {
+    setDiscovering(true);
+    setQzStatus('connecting'); setDiagnostic('');
+    try {
+      await connectQzTray();
+      setQzStatus('connected');
+      const discovered = physicalPrinterNames(await listDirectPrinters());
+      setPrinters(discovered);
+      const matched = Boolean(configuredPrinter && discovered.includes(configuredPrinter));
+      setPrinterStatus(matched ? 'ready' : configuredPrinter ? 'unavailable' : null);
+      if (configuredPrinter && !matched) setDiagnostic('The previously configured printer is no longer available. Select one of the printers detected on this terminal.');
+      notify.success(`${discovered.length} Windows print queue${discovered.length === 1 ? '' : 's'} found`);
+    } catch (error) {
+      if (!(error instanceof Error && error.message.startsWith('Printer '))) setQzStatus('not-connected'); setPrinterStatus('unavailable');
+      const copy = getReceiptPrinterErrorCopy(error);
+      setDiagnostic(copy.description);
+      notify.error(copy.title, { description: copy.description });
+    } finally { setDiscovering(false); }
+  };
+  const testConnection = async () => {
+    if (!configuredPrinter) return notify.error('Select a receipt printer first');
+    setTesting(true);
+    setQzStatus('connecting'); setDiagnostic('');
+    try {
+      await connectQzTray();
+      setQzStatus('connected');
+      const discovered = physicalPrinterNames(await listDirectPrinters());
+      const status = discovered.some((printer) => printer === configuredPrinter) ? 'ready' : 'unavailable';
+      setPrinterStatus(status);
+      if (status !== 'ready') throw new Error(`Printer ${configuredPrinter} was not found`);
+      notify.success('Printer queue found', { description: `${configuredPrinter} is installed in Windows/QZ. Print a test receipt to verify the physical device.` });
+    } catch (error) {
+      if (!(error instanceof Error && error.message.startsWith('Printer '))) setQzStatus('not-connected'); setPrinterStatus('unavailable');
+      const copy = getReceiptPrinterErrorCopy(error);
+      setDiagnostic(error instanceof Error && error.message.startsWith('Printer ') ? 'The previously configured printer is no longer available. Select one of the printers detected on this terminal.' : copy.description);
+      notify.error(copy.title, { description: copy.description });
+    } finally { setTesting(false); }
+  };
   const save = async () => {
     setSaving(true);
     try {
@@ -92,24 +145,36 @@ export function TerminalPrinterSettings({ terminal }: { terminal: Terminal }) {
     const business = esc(terminal.businessName || 'Pesaby');
     const branch = esc(terminal.branchName || '');
     const terminalName = esc(terminal.name || 'POS terminal');
-    const printer = esc(name || identifier || 'Configured printer');
+    const printer = esc(configuredPrinter || 'Configured printer');
     const date = new Intl.DateTimeFormat('en-KE', {
       dateStyle: 'medium',
       timeStyle: 'short',
     }).format(new Date());
     const html = `<div class="receipt-paper" style="font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;width:100%;box-sizing:border-box;padding:4mm 3mm;color:#000;background:#fff;font-size:12px;line-height:1.45"><style>.receipt-paper *{box-sizing:border-box}.receipt-head{text-align:center}.receipt-head h1{font-size:18px;letter-spacing:.04em;margin:0 0 2px}.receipt-head p{margin:0}.receipt-rule{border:0;border-top:1px dashed #000;margin:10px 0}.receipt-row{display:flex;justify-content:space-between;gap:8px}.receipt-row span:last-child{white-space:nowrap}.receipt-total{font-size:15px;font-weight:700}.receipt-note{text-align:center;margin-top:12px}.receipt-meta{font-size:11px}</style><div class="receipt-head"><h1>${business}</h1>${branch ? `<p>${branch}</p>` : ''}<p>PRINTER TEST RECEIPT</p></div><hr class="receipt-rule"><div class="receipt-meta"><div class="receipt-row"><span>Terminal</span><span>${terminalName}</span></div><div class="receipt-row"><span>Printer</span><span>${printer}</span></div><div class="receipt-row"><span>Paper</span><span>${width} mm</span></div><div class="receipt-row"><span>Mode</span><span>${mode === 'direct' ? 'Direct thermal' : 'Browser print'}</span></div><div class="receipt-row"><span>Date</span><span>${esc(date)}</span></div></div><hr class="receipt-rule"><div class="receipt-row"><span>Test item 1</span><span>KSh 100.00</span></div><div class="receipt-row"><span>Test item 2</span><span>KSh 250.00</span></div><hr class="receipt-rule"><div class="receipt-row"><span>Subtotal</span><span>KSh 350.00</span></div><div class="receipt-row"><span>VAT (16%)</span><span>KSh 0.00</span></div><div class="receipt-row receipt-total"><span>TOTAL</span><span>KSh 350.00</span></div><div class="receipt-note"><p>Printer configured successfully.</p><p>This is a test receipt. No sale was created.</p><p>Thank you.</p></div></div>`;
+    const thermalData = encodeThermalReceiptModel({ version: 1, businessName: terminal.businessName || 'Pesaby', contactLines: branch ? [branch] : [], title: 'PRINTER TEST RECEIPT', metadata: [`Terminal: ${terminal.name}`, `Printer: ${configuredPrinter}`, `Paper: ${width} mm`, `Date: ${date}`], items: [{ description: 'Test item 1', quantity: '1', amount: 'KSh 100.00' }, { description: 'Test item 2', quantity: '1', amount: 'KSh 250.00' }], totals: [{ label: 'Subtotal', amount: 'KSh 350.00' }, { label: 'VAT', amount: 'KSh 0.00' }], total: { label: 'TOTAL', amount: 'KSh 350.00' }, itemCountLabel: '2 items', paymentLines: [], notices: ['Printer connection successful', 'No sale was created'], footer: 'Printer test', transactionId: 'TEST' });
+    const printableHtml = html.replace('<div class="receipt-paper"', `<div ${THERMAL_RECEIPT_DATA_ATTRIBUTE}="${thermalData}" class="receipt-paper"`);
     if (mode === 'browser') {
-      browserPrintReceipt(html, width);
+      browserPrintReceipt(printableHtml, width);
       notify.info('Browser print dialog opened');
       return;
     }
-    if (!identifier.trim())
-      return notify.error('Enter the Windows/QZ printer identifier first');
+    if (!configuredPrinter)
+      return notify.error('Select a Windows/QZ printer first');
     setTesting(true);
+    let queueFound = false;
     try {
-      await directPrintReceipt(html, {
+      await connectQzTray();
+      setQzStatus('connected');
+      const discovered = physicalPrinterNames(await listDirectPrinters());
+      if (!discovered.includes(configuredPrinter)) {
+        setPrinterStatus('unavailable');
+        throw new Error(`Printer ${configuredPrinter} was not found`);
+      }
+      queueFound = true;
+      setPrinterStatus('ready');
+      await directPrintReceipt(printableHtml, {
         mode: 'direct',
-        printerName: identifier.trim(),
+        printerName: configuredPrinter,
         paperWidth: width,
         autoPrint: false,
         customerCopy: false,
@@ -117,9 +182,12 @@ export function TerminalPrinterSettings({ terminal }: { terminal: Terminal }) {
         cashDrawerPulse: false,
       });
       notify.success('Test receipt sent to printer', {
-        description: `Submitted to ${identifier.trim()}.`,
+        description: `Submitted to ${configuredPrinter}.`,
       });
+      setPrinterStatus('ready'); setLastTest('success');
     } catch (error) {
+      setPrinterStatus(queueFound ? 'ready' : 'unavailable'); setLastTest('failed');
+      if (error instanceof Error) setDiagnostic(error.message.startsWith('Printer ') ? 'The previously configured printer is no longer available. Select one of the printers detected on this terminal.' : error.message);
       const copy = getReceiptPrinterErrorCopy(error);
       notify.error(copy.title, { description: copy.description });
     } finally {
@@ -156,7 +224,7 @@ export function TerminalPrinterSettings({ terminal }: { terminal: Terminal }) {
             type="button"
             variant="outline"
             className="h-9 border border-slate-200 bg-white px-3 text-slate-700 shadow-sm hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:text-slate-200 dark:hover:bg-white/10"
-            disabled={testing || (mode === 'direct' && !identifier.trim())}
+            disabled={testing || (mode === 'direct' && !configuredPrinter)}
             onClick={() => void testPrint()}
           >
             <ReceiptText className="mr-1.5 h-3.5 w-3.5" />
@@ -205,28 +273,20 @@ export function TerminalPrinterSettings({ terminal }: { terminal: Terminal }) {
           </label>
           {mode === 'direct' && (
             <>
-              <label className="text-sm font-medium">
-                Receipt printer name
-                <input
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="Front Counter Printer"
-                  className="mt-1 h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm shadow-sm outline-none focus:border-[#f4512a] focus:ring-2 focus:ring-[#f4512a]/20 dark:border-white/15 dark:bg-white/10"
-                />
-              </label>
-              <label className="text-sm font-medium">
-                Printer identifier
-                <input
-                  value={identifier}
-                  onChange={(e) => setIdentifier(e.target.value)}
-                  placeholder="Exact Windows printer name"
-                  className="mt-1 h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm shadow-sm outline-none focus:border-[#f4512a] focus:ring-2 focus:ring-[#f4512a]/20 dark:border-white/15 dark:bg-white/10"
-                />
-                <span className="mt-1 block text-xs font-normal text-muted-foreground">
-                  Enter the exact receipt-printer name installed in Windows/QZ
-                  Tray on this POS computer.
-                </span>
-              </label>
+              <div className="sm:col-span-2">
+                <div className="flex items-end gap-2">
+                  <label className="min-w-0 flex-1 text-sm font-medium">Receipt printer
+                    <select value={configuredPrinter} onChange={(e) => { setName(e.target.value); setIdentifier(e.target.value); setPrinterStatus(null); setDiagnostic(''); }} className="mt-1 h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm shadow-sm outline-none focus:border-[#f4512a] focus:ring-2 focus:ring-[#f4512a]/20 dark:border-white/15 dark:bg-white/10">
+                      <option value="">{printers.length ? 'Select a Windows printer' : 'Find printers first'}</option>
+                      {configuredPrinter && !printers.includes(configuredPrinter) && <option value={configuredPrinter}>{configuredPrinter} (configured)</option>}
+                      {printers.map((printer) => <option key={printer} value={printer}>{printer}</option>)}
+                    </select>
+                  </label>
+                  <Button type="button" variant="outline" disabled={discovering} onClick={() => void discoverPrinters()}><RefreshCw className={`mr-1.5 h-3.5 w-3.5 ${discovering ? 'animate-spin' : ''}`} />{discovering ? 'Finding…' : 'Find printers'}</Button>
+                  <Button type="button" variant="outline" disabled={testing || !configuredPrinter} onClick={() => void testConnection()}><Wifi className="mr-1.5 h-3.5 w-3.5" />Test connection</Button>
+                </div>
+                <p className="mt-1 text-xs font-normal text-muted-foreground">QZ lists print queues installed on this registered Windows terminal. A queue may remain listed while a USB printer is offline. Print a test receipt to verify the physical device.</p>
+              </div>
             </>
           )}
           <label className="text-sm font-medium">
@@ -283,6 +343,18 @@ export function TerminalPrinterSettings({ terminal }: { terminal: Terminal }) {
               {saving ? 'Saving…' : 'Save printer settings'}
             </Button>
           </div>
+        </div>
+      )}
+      {mode === 'direct' && (
+        <div className="grid gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-xs text-slate-600 sm:grid-cols-2 dark:border-white/10 dark:bg-white/[0.03] dark:text-slate-300">
+          <span>Terminal: <b className="text-slate-900 dark:text-white">{terminal.name}</b></span>
+          <span>QZ Tray: <b className={qzStatus === 'connected' ? 'text-emerald-700 dark:text-emerald-400' : 'text-slate-900 dark:text-white'}>{qzStatus === 'connecting' ? 'Connecting…' : qzStatus === 'connected' ? 'Connected' : qzStatus === 'not-connected' ? 'Not connected' : 'Not checked'}</b></span>
+          <span>Configured printer: <b className="text-slate-900 dark:text-white">{configuredPrinter || 'Not selected'}</b></span>
+          <span>Windows queue: <b className="text-slate-900 dark:text-white">{printerStatus === 'ready' ? 'Available' : printerStatus ? 'Not found' : 'Not checked'}</b></span>
+          <span>Paper: <b className="text-slate-900 dark:text-white">{width} mm</b></span>
+          <span>Auto print: <b className="text-slate-900 dark:text-white">{autoPrint ? 'On' : 'Off'}</b></span>
+          <span className="sm:col-span-2 flex items-center gap-1">{lastTest === 'success' && <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />}Last test: <b className="text-slate-900 dark:text-white">{lastTest === 'success' ? 'Success' : lastTest === 'failed' ? 'Failed' : 'Not run this session'}</b></span>
+          {diagnostic && <span className="sm:col-span-2 text-rose-700 dark:text-rose-300">{diagnostic}</span>}
         </div>
       )}
     </div>
