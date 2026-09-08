@@ -2339,13 +2339,17 @@ html:not(.dark) .dashboard-shell .shadow-dark-md {
   }
 
   .pos-workspace {
-    width: 125%;
-    height: 125%;
-    zoom: 0.8;
+    width: 149.253731%;
+    height: 149.253731%;
+    zoom: 0.67;
   }
 
   .pos-terminal {
     grid-template-columns: minmax(0, 1fr) minmax(390px, 42%) !important;
+  }
+
+  .pos-product-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
   }
 }
 
