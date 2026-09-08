@@ -56,22 +56,19 @@ export function ShiftHistory({
   const active = shifts.find((shift) => shift.id === selected) ?? null;
   return (
     <section
-      className="overflow-hidden rounded-2xl border bg-card shadow-sm"
+      className="overflow-hidden rounded-xl border bg-card shadow-sm"
       aria-labelledby="shift-history-title"
     >
       <div className="flex flex-col gap-3 border-b px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <p className="text-[0.68rem] font-bold uppercase tracking-[0.12em] text-[#9a6700] dark:text-[#ffd60a]">
-            Register history
-          </p>
           <h2
             id="shift-history-title"
-            className="mt-1 text-lg font-bold tracking-tight"
+            className="text-lg font-bold tracking-tight"
           >
             Shift history
           </h2>
           <p className="mt-1 text-xs text-muted-foreground">
-            Open, close and variance records from the last 30 shifts.
+            Review opening cash, reconciliations, and completed register shifts.
           </p>
         </div>
         <span className="rounded-full bg-muted px-3 py-1 text-xs font-semibold text-muted-foreground">
@@ -81,7 +78,7 @@ export function ShiftHistory({
       {shifts.length ? (
         <div className="overflow-x-auto">
           <table className="w-full min-w-[980px] text-left text-xs">
-            <thead className="bg-muted/30 text-[10px] uppercase tracking-wider text-muted-foreground">
+            <thead className="bg-muted/30 text-[11px] font-medium text-muted-foreground">
               <tr>
                 <th className="px-5 py-3 font-semibold">Shift</th>
                 <th className="px-3 py-3 font-semibold">Cashier</th>

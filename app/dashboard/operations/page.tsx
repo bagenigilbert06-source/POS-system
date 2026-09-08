@@ -22,6 +22,7 @@ import {
 import { OperationsControl } from '@/components/operations/operations-control';
 import { ShiftHistory } from '@/components/operations/shift-history';
 import { ShiftRecovery } from '@/components/operations/shift-recovery';
+import { VarianceResolution } from '@/components/operations/variance-resolution';
 import {
   getAuthorizationContext,
   getDefaultWorkspaceRoute,
@@ -95,7 +96,8 @@ export default async function OperationsPage({
     (!status ||
       (status === 'needs_review'
         ? shift.status === 'closed' &&
-          Math.abs(Number(shift.variance || 0)) > tolerance
+           Math.abs(Number(shift.variance || 0)) > tolerance &&
+           !shift.auditEvents.some((event) => event.action === 'shift.variance_reviewed')
         : shift.status === status)) &&
     (!query ||
       `${shift.sessionNo} ${shift.id} ${shift.cashierName} ${shift.terminalName} ${shift.locationName}`
@@ -112,7 +114,8 @@ export default async function OperationsPage({
     (shift) =>
       shift.status === 'closed' &&
       inPeriod(shift.closedAt || shift.openedAt) &&
-      Math.abs(Number(shift.variance || 0)) > tolerance &&
+       Math.abs(Number(shift.variance || 0)) > tolerance &&
+       !shift.auditEvents.some((event) => event.action === 'shift.variance_reviewed') &&
       (!location || shift.branchId === location)
   );
   const reconciling = data.shiftHistory.filter(
@@ -253,9 +256,13 @@ export default async function OperationsPage({
 
   return (
     <div className="dashboard-overview mx-auto w-full max-w-[1280px] space-y-5 pb-8">
-      <header className="flex flex-col gap-4 px-1 pt-2 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <div className="mb-3 flex flex-wrap items-center gap-3">
+      <header className="flex flex-col gap-4 border-b px-1 pb-5 pt-2 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-3">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#fff3cf] text-[#a56500] dark:bg-amber-950/40 dark:text-amber-300">
+            <Clock3 className="h-5 w-5" />
+          </span>
+          <div>
+          <div className="mb-1 flex flex-wrap items-center gap-2">
             <span className="dashboard-live-status">
               <i /> Live operations
             </span>
@@ -268,27 +275,28 @@ export default async function OperationsPage({
               })}
             </span>
           </div>
-          <p className="text-[0.7rem] font-bold uppercase tracking-[0.14em] text-[#9a6700] dark:text-[#ffd60a]">
+          <p className="hidden">
             Manager control center · {organization.name}
           </p>
-          <h1 className="mt-2 text-2xl font-bold tracking-tight sm:text-3xl">
-            Shift Control
+          <h1 className="text-xl font-bold tracking-tight">
+            Shifts
           </h1>
-          <p className="mt-2 text-sm">
-            See who is on each register, resolve exceptions, and review completed shifts.
+          <p className="mt-0.5 text-sm text-muted-foreground">
+            Manage register shifts, cash reconciliation, and exceptions.
           </p>
+          </div>
         </div>
         <div className="flex gap-2">
           <Link
             href="/dashboard/pos"
-            className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-[#ffd60a] px-5 text-sm font-semibold text-[#0b0b0d]"
+            className="inline-flex h-10 items-center gap-2 rounded-lg bg-[#ffd60a] px-4 text-sm font-semibold text-[#0b0b0d]"
           >
             <ShoppingBag className="h-4 w-4" />
             Point of sale
           </Link>
           <Link
             href="/dashboard/sales"
-            className="inline-flex min-h-10 items-center gap-2 rounded-lg border px-5 text-sm font-semibold"
+            className="inline-flex h-10 items-center gap-2 rounded-lg border px-4 text-sm font-semibold"
           >
             <ReceiptText className="h-4 w-4" />
             Sales
@@ -316,11 +324,11 @@ export default async function OperationsPage({
         ].map(([id, name]) => ({ id, name }))}
         today={today}
       />
-      <section className="overflow-hidden rounded-2xl border bg-card shadow-sm">
+      <section className="overflow-hidden rounded-xl border bg-card shadow-sm">
         <div className="flex flex-col gap-4 border-b px-5 py-5 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">Live register status</p>
-            <h2 className="mt-1 text-lg font-bold">Today&apos;s shift control</h2>
+          <h2 className="mt-1 text-lg font-bold">Register overview</h2>
           </div>
           <div className="flex flex-wrap gap-2 text-xs font-semibold">
             <span className="rounded-full bg-emerald-50 px-3 py-1.5 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-300">{openCount} open</span>
@@ -428,7 +436,7 @@ function OperationsFilters({
   today: string;
 }) {
   return (
-    <form method="get" className="app-panel flex flex-wrap items-end gap-2 p-3">
+    <form method="get" className="flex flex-wrap items-end gap-2 rounded-xl border bg-card p-4 shadow-sm">
       <Filter label="Period">
         <select name="period" defaultValue={params.preset} className="control">
           <option value="today">Today</option>
@@ -517,7 +525,7 @@ function OperationsFilters({
           className="control w-full pl-9"
         />
       </label>
-      <button className="h-9 rounded-lg bg-[var(--dashboard-accent-cta)] px-4 text-xs font-bold text-[var(--dashboard-accent-cta-ink)]">
+      <button className="h-9 rounded-lg bg-[var(--dashboard-accent-cta)] px-4 text-xs font-bold text-[var(--dashboard-accent-cta-ink)] shadow-sm transition-opacity hover:opacity-90">
         Apply
       </button>
     </form>
@@ -574,6 +582,8 @@ function NeedsAttention({
       title: `Cash variance · ${item.sessionNo}`,
       detail: `${item.cashierName} · ${formatCurrency(Number(item.variance), currency)}`,
       tone: 'warning',
+      resolveSessionId: item.id,
+      sessionNo: item.sessionNo,
     })),
     ...reconciling.map((item) => ({
       key: `r-${item.id}`,
@@ -607,7 +617,7 @@ function NeedsAttention({
       </div>
       {rows.length ? (
         <div className="divide-y">
-          {rows.map(({ key, icon: Icon, title, detail, tone }) => (
+          {rows.map(({ key, icon: Icon, title, detail, tone, resolveSessionId, sessionNo }) => (
             <div key={key} className="flex items-center gap-3 px-5 py-3.5">
               <span
                 className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${tone === 'danger' ? 'bg-red-50 text-red-700 dark:bg-red-950/30' : 'bg-amber-50 text-amber-700 dark:bg-amber-950/30'}`}
@@ -620,7 +630,7 @@ function NeedsAttention({
                   {detail}
                 </p>
               </div>
-              <ArrowRight className="ml-auto h-4 w-4 text-muted-foreground" />
+              {resolveSessionId && sessionNo ? <VarianceResolution sessionId={resolveSessionId} sessionNo={sessionNo} /> : <ArrowRight className="ml-auto h-4 w-4 text-muted-foreground" />}
             </div>
           ))}
         </div>

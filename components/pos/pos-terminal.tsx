@@ -7956,14 +7956,7 @@ export function POSTerminal({
                                   }
                                 >
                                   {processing ? (
-                                    <>
-                                      <Loader2 className="h-4 w-4 animate-spin" />
-                                      {paymentMethod === 'cash'
-                                        ? 'Processing cash sale…'
-                                        : paymentMethod === 'card'
-                                          ? 'Recording card payment…'
-                                          : 'Processing payment…'}
-                                    </>
+                                    <Loader2 className="h-5 w-5 animate-spin" />
                                   ) : (
                                     <>
                                       <CheckCircle2 className="hidden h-4 w-4" />

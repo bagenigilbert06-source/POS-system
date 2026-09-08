@@ -99,6 +99,45 @@ const manualDrawerSchema = z.object({
   idempotencyKey: z.string().uuid(),
 });
 
+const varianceResolutionSchema = z.object({
+  sessionId: z.string().min(1).max(120),
+  note: z.string().trim().min(3, 'Enter a resolution note of at least 3 characters').max(500),
+});
+
+/** Records a manager's review without changing the closed shift or its variance. */
+export async function resolveShiftVariance(input: z.input<typeof varianceResolutionSchema>) {
+  const data = varianceResolutionSchema.parse(input);
+  const authorization = await requirePermission(PermissionEnum.SHIFT_MANAGE);
+  const [session] = await db
+    .select({ id: posSession.id, branchId: posSession.branchId, status: posSession.status, variance: posSession.variance })
+    .from(posSession)
+    .where(and(eq(posSession.id, data.sessionId), eq(posSession.orgId, authorization.organizationId)))
+    .limit(1);
+  if (!session || session.status !== 'closed' || Math.abs(Number(session.variance ?? 0)) === 0)
+    throw new Error('This cash variance is not available for review');
+  if (!authorization.isOrganizationWide && (!session.branchId || !authorization.branchIds.includes(session.branchId)))
+    throw new Error('You do not have access to this register');
+  const [alreadyReviewed] = await db
+    .select({ id: auditEvent.id })
+    .from(auditEvent)
+    .where(and(
+      eq(auditEvent.organizationId, authorization.organizationId),
+      eq(auditEvent.action, 'shift.variance_reviewed'),
+      sql`${auditEvent.metadata}->>'sessionId' = ${session.id}`,
+    ))
+    .limit(1);
+  if (alreadyReviewed) return { success: true, alreadyReviewed: true };
+  await db.insert(auditEvent).values({
+    id: generateId(),
+    organizationId: authorization.organizationId,
+    userId: authorization.userId,
+    action: 'shift.variance_reviewed',
+    metadata: { sessionId: session.id, variance: session.variance, resolutionNote: data.note },
+  });
+  refresh();
+  return { success: true, alreadyReviewed: false };
+}
+
 export async function requestManualCashDrawerOpen(
   input: z.input<typeof manualDrawerSchema>
 ) {

@@ -351,51 +351,6 @@ export function SalesManagementView({
           />
         ))}
       </section>
-      <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <MetricCard
-          label={hospitalitySales ? 'Completed orders' : 'Transactions'}
-          value={String(totals.transactions ?? 0)}
-          detail="Completed receipts in this period"
-          comparison={data.comparison?.transactions}
-        />
-        <MetricCard
-          label={hospitalitySales ? 'Average order' : 'Average sale'}
-          value={formatCurrency(Number(totals.average ?? 0))}
-          detail="Net sales per completed receipt"
-          comparison={data.comparison?.average}
-        />
-        <MetricCard
-          label="Quantity sold"
-          value={String(totals.quantity ?? 0)}
-          detail="Units across completed sales"
-        />
-        <MetricCard
-          label="Gross margin"
-          value={`${Number(totals.grossMargin ?? 0).toFixed(1)}%`}
-          detail="Gross profit as a share of sales"
-          comparison={data.comparison?.grossProfit}
-        />
-        <MetricCard
-          label="Tax collected"
-          value={formatCurrency(Number(totals.tax ?? 0))}
-          detail="Tax recorded on completed sales"
-        />
-        <MetricCard
-          label="Discounts"
-          value={formatCurrency(Number(totals.discounts ?? 0))}
-          detail="Price reductions applied"
-        />
-        <MetricCard
-          label="Pending balance"
-          value={formatCurrency(Number(totals.pending ?? 0))}
-          detail="Outstanding credit sales"
-        />
-        <MetricCard
-          label="Refund count"
-          value={String(totals.refundCount ?? 0)}
-          detail="Completed refund transactions"
-        />
-      </section>
       <section className="relative overflow-hidden rounded-xl border bg-white shadow-sm dark:border-slate-800 dark:bg-[#111111]">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3 dark:border-slate-800">
           <div>
@@ -485,12 +440,10 @@ export function SalesManagementView({
                         className="border-t border-[#f3d77a] bg-[#fff9e6] dark:border-amber-900/70 dark:bg-amber-950/25"
                       >
                         <td colSpan={8} className="p-0">
-                          <div className="flex min-h-[48px] items-center justify-center gap-2 px-3 text-xs font-semibold text-[#7a5700] dark:text-amber-200">
+                          <div className="flex min-h-[48px] items-center justify-center px-3">
                             <LoadingSpinner
                               className="h-5 w-5 text-[#b77900]"
-                              label="Opening transaction"
                             />
-                            <span>Opening transaction details…</span>
                           </div>
                         </td>
                       </tr>
@@ -544,6 +497,57 @@ export function SalesManagementView({
           </div>
         )}
         <Pagination data={data} onNavigate={navigate} />
+      </section>
+      <section aria-labelledby="sales-activity-heading">
+        <div className="mb-3">
+          <h2 id="sales-activity-heading" className="text-base font-semibold">Sales activity</h2>
+          <p className="text-[11px] text-muted-foreground">Operational metrics for the selected period.</p>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <MetricCard
+            label={hospitalitySales ? 'Completed orders' : 'Transactions'}
+            value={String(totals.transactions ?? 0)}
+            detail="Completed receipts in this period"
+            comparison={data.comparison?.transactions}
+          />
+          <MetricCard
+            label={hospitalitySales ? 'Average order' : 'Average sale'}
+            value={formatCurrency(Number(totals.average ?? 0))}
+            detail="Net sales per completed receipt"
+            comparison={data.comparison?.average}
+          />
+          <MetricCard
+            label="Quantity sold"
+            value={String(totals.quantity ?? 0)}
+            detail="Units across completed sales"
+          />
+          <MetricCard
+            label="Gross margin"
+            value={`${Number(totals.grossMargin ?? 0).toFixed(1)}%`}
+            detail="Gross profit as a share of sales"
+            comparison={data.comparison?.grossProfit}
+          />
+          <MetricCard
+            label="Tax collected"
+            value={formatCurrency(Number(totals.tax ?? 0))}
+            detail="Tax recorded on completed sales"
+          />
+          <MetricCard
+            label="Discounts"
+            value={formatCurrency(Number(totals.discounts ?? 0))}
+            detail="Price reductions applied"
+          />
+          <MetricCard
+            label="Pending balance"
+            value={formatCurrency(Number(totals.pending ?? 0))}
+            detail="Outstanding credit sales"
+          />
+          <MetricCard
+            label="Refund count"
+            value={String(totals.refundCount ?? 0)}
+            detail="Completed refund transactions"
+          />
+        </div>
       </section>
       <div className="sales-deferred-section">
         <SalesAnalyticsPanels analytics={analytics} />
