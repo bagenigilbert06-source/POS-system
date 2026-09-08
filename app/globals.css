@@ -2376,6 +2376,17 @@ html:not(.dark) .dashboard-shell .shadow-dark-md {
     grid-template-columns: minmax(0, 1fr) minmax(340px, 40%) !important;
   }
 
+  .pos-basket {
+    height: 100% !important;
+    max-height: 100% !important;
+    min-height: 0 !important;
+  }
+
+  .pos-cart-items {
+    min-height: 0 !important;
+    scrollbar-gutter: stable;
+  }
+
   .pos-product-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
   }
