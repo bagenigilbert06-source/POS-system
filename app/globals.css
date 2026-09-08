@@ -2335,7 +2335,8 @@ html:not(.dark) .dashboard-shell .shadow-dark-md {
 @media (min-width: 1000px) and (max-width: 1100px) and (max-height: 820px) {
   .auth-workspace {
     width: 100%;
-    zoom: 0.67;
+    min-height: 133.333333dvh;
+    zoom: 0.75;
   }
 
   .pos-workspace,
