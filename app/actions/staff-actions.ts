@@ -115,7 +115,7 @@ async function issueStaffInvitation(input: { employeeId: string; employeeUserId:
     like(verification.identifier, 'reset-password:%'),
   ))
   await auth.api.requestPasswordReset({
-    body: { email: input.email, redirectTo: `${invitationRedirectUrl()}?email=${encodeURIComponent(input.email)}` },
+    body: { email: input.email, redirectTo: invitationRedirectUrl() },
     headers: await headers(),
   })
   return { delivered: Boolean(process.env.BREVO_API_KEY && process.env.EMAIL_FROM_ADDRESS), reused: false }
