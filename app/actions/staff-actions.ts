@@ -91,7 +91,8 @@ async function assertCanManageEmployee(
 }
 
 function invitationRedirectUrl() {
-  const base = process.env.NODE_ENV === 'production' ? 'https://pesaby.com' : (process.env.BETTER_AUTH_URL || 'http://localhost:3000')
+  const configured = process.env.BETTER_AUTH_URL || (process.env.NODE_ENV === 'production' ? 'https://pesaby.com' : 'http://localhost:3000')
+  const base = process.env.NODE_ENV === 'production' && /^https?:\/\/(localhost|127\.0\.0\.1)/i.test(configured) ? 'https://pesaby.com' : configured
   return `${base.replace(/\/$/, '')}/setup-account`
 }
 
