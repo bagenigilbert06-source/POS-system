@@ -202,6 +202,7 @@ export function captureReceiptHtml(element: HTMLElement) {
 async function qzClient() {
   const { default: qz } = await import('qz-tray');
   if (!securityPromise) {
+    qz.security.setSignatureAlgorithm('SHA512');
     securityPromise = withTimeout(
       fetch('/api/qz', { cache: 'no-store' }).then(
         async (response) => {
@@ -236,18 +237,17 @@ async function qzClient() {
               'The QZ public certificate is empty'
             );
           qz.security.setCertificatePromise((resolve) => resolve(certificate));
-          qz.security.setSignatureAlgorithm('SHA512');
           qz.security.setSignaturePromise((toSign) => (resolve, reject) => {
             withTimeout(
               fetch('/api/qz', {
                 method: 'POST',
-                headers: { 'content-type': 'application/json' },
-                body: JSON.stringify({ request: toSign }),
+                headers: { 'content-type': 'text/plain; charset=utf-8' },
+                body: toSign,
                 cache: 'no-store',
               }).then(async (signatureResponse) => {
                 if (!signatureResponse.ok)
                   throw new Error('QZ signing request failed');
-                const signature = String((await signatureResponse.json()).signature || '').trim();
+                const signature = await signatureResponse.text();
                 if (!signature)
                   throw new Error('QZ signing returned an empty signature');
                 return signature;

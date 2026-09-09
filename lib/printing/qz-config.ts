@@ -1,5 +1,7 @@
 import 'server-only';
 
+import { createPublicKey, X509Certificate } from 'node:crypto';
+
 type PemKind = 'certificate' | 'privateKey';
 
 /**
@@ -47,7 +49,27 @@ export function normalizedQzPrivateKey() {
 
 /** Server-only status check that deliberately contains no secret material. */
 export function qzSigningConfiguration() {
-  const certificateConfigured = Boolean(normalizedQzCertificate());
-  const privateKeyConfigured = Boolean(normalizedQzPrivateKey());
-  return { certificateConfigured, privateKeyConfigured };
+  const certificate = normalizedQzCertificate();
+  const privateKey = normalizedQzPrivateKey();
+  const certificateConfigured = Boolean(certificate);
+  const privateKeyConfigured = Boolean(privateKey);
+  let keyPairMatches = false;
+
+  if (certificate && privateKey) {
+    try {
+      const certificatePublicKey = new X509Certificate(certificate).publicKey.export({
+        type: 'spki',
+        format: 'der',
+      });
+      const privateKeyPublicKey = createPublicKey(privateKey).export({
+        type: 'spki',
+        format: 'der',
+      });
+      keyPairMatches = certificatePublicKey.equals(privateKeyPublicKey);
+    } catch {
+      keyPairMatches = false;
+    }
+  }
+
+  return { certificateConfigured, privateKeyConfigured, keyPairMatches };
 }
