@@ -9,12 +9,20 @@ import { DEFAULT_ONBOARDING_DATA, ONBOARDING_STEPS, type OnboardingDraft, type O
 import { db } from '@/lib/db'
 import { user } from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
+import { getAuthorizationContext } from '@/lib/auth/authorization'
+import { defaultWorkspaceRouteForRole } from '@/lib/auth/role-routing'
 
 export const metadata: Metadata = { title: 'Set up your business | Pesaby' }
 
 export default async function OnboardingPage() {
   const session = await auth.api.getSession({ headers: await headers() })
   if (!session?.user) redirect('/sign-in')
+  try {
+    const authorization = await getAuthorizationContext()
+    if (authorization.role !== 'owner' && authorization.role !== 'admin') redirect(defaultWorkspaceRouteForRole(authorization.role))
+  } catch {
+    // New owners without an organization continue through onboarding.
+  }
   const [accountRows, state] = await Promise.all([
     db.select({ status: user.status }).from(user).where(eq(user.id, session.user.id)).limit(1),
     OnboardingService.getOrCreate(session.user.id),
