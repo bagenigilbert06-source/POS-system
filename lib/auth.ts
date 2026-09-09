@@ -17,8 +17,8 @@ export const auth = betterAuth({
   database: pool,
   basePath: '/api/auth',
   baseURL:
-    (process.env.NODE_ENV === 'production' && /^https?:\/\/(localhost|127\.0\.0\.1)/i.test(process.env.BETTER_AUTH_URL ?? '')
-      ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL || 'pesaby.com'}`
+    (process.env.NODE_ENV === 'production'
+      ? 'https://pesaby.com'
       : process.env.BETTER_AUTH_URL) ??
     (process.env.VERCEL_PROJECT_PRODUCTION_URL
       ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
@@ -99,6 +99,8 @@ export const auth = betterAuth({
   trustedOrigins: [
     'http://localhost:3000',
     'http://127.0.0.1:3000',
+    'https://pesaby.com',
+    'https://www.pesaby.com',
     ...(process.env.BETTER_AUTH_URL ? [process.env.BETTER_AUTH_URL] : []),
     ...(process.env.V0_RUNTIME_URL ? [process.env.V0_RUNTIME_URL] : []),
     ...(process.env.VERCEL_URL ? [`https://${process.env.VERCEL_URL}`] : []),

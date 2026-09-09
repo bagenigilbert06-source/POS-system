@@ -23,11 +23,7 @@ export function SetupAccountForm({ token, email, invalid }: { token?: string; em
       }
       const signIn = await authClient.signIn.email({ email, password, rememberMe: true })
       if (signIn.error) throw new Error(signIn.error.message || 'Password created. Please sign in.')
-      // Staff accounts should enter the operational POS workspace after the
-      // first password is created. The generic dashboard route may send a
-      // newly activated employee through onboarding when no cached workspace
-      // context exists yet.
-      router.replace('/dashboard/pos')
+      router.replace('/auth/continue')
       return
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Unable to activate account')

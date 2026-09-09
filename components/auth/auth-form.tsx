@@ -132,9 +132,7 @@ export function AuthForm({ mode, compact = false }: AuthFormProps) {
               : result.error.message
           );
         }
-        // Dashboard route guards perform the role-aware destination decision.
-        // Going there directly avoids doing the same authorization queries twice.
-        router.replace('/dashboard');
+        router.replace('/auth/continue');
         return;
       }
     } catch (err: unknown) {
