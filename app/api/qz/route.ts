@@ -1,15 +1,15 @@
 import { createSign } from 'node:crypto'
 import { getCurrentSession } from '@/lib/auth'
-import { qzSigningConfiguration } from '@/lib/printing/qz-config'
+import {
+  normalizedQzCertificate,
+  normalizedQzPrivateKey,
+  qzSigningConfiguration,
+} from '@/lib/printing/qz-config'
 
 export const runtime = 'nodejs'
 
-function envValue(value: string | undefined) {
-  return value?.replace(/\\n/g, '\n').trim() || ''
-}
-
 export async function GET() {
-  const certificate = envValue(process.env.QZ_CERTIFICATE)
+  const certificate = normalizedQzCertificate()
   if (!certificate && process.env.NODE_ENV === 'development' && process.env.QZ_ALLOW_UNSIGNED_DEVELOPMENT === 'true')
     return new Response(null, { status: 204, headers: { 'x-qz-unsigned-development': 'allowed', 'x-qz-signing-status': 'development-unsigned' } })
   if (!certificate) return new Response('QZ trusted printing is not configured on this server.', { status: 503, headers: { 'x-qz-signing-status': 'not-configured' } })
@@ -18,8 +18,9 @@ export async function GET() {
 
 export async function POST(request: Request) {
   if (!(await getCurrentSession())?.user) return Response.json({ error: 'Unauthorized' }, { status: 401 })
-  const privateKey = envValue(process.env.QZ_PRIVATE_KEY)
-  if (!qzSigningConfiguration().privateKeyConfigured) return Response.json({ error: 'QZ trusted printing is not configured on this server.' }, { status: 503 })
+  const privateKey = normalizedQzPrivateKey()
+  if (!privateKey || !qzSigningConfiguration().privateKeyConfigured)
+    return Response.json({ error: 'QZ trusted printing is not configured on this server.' }, { status: 503 })
   const body = (await request.json().catch(() => null)) as { request?: unknown } | null
   if (!body || typeof body.request !== 'string' || body.request.length > 1_000_000)
     return Response.json({ error: 'Invalid signing payload' }, { status: 400 })

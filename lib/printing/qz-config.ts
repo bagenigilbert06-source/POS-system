@@ -1,11 +1,53 @@
-/** Server-only QZ configuration checks. Never return certificate/key material. */
+import 'server-only';
+
+type PemKind = 'certificate' | 'privateKey';
+
+/**
+ * Normalizes a PEM environment variable without ever logging or serializing it.
+ * Vercel may provide a real multiline value while local tooling often uses the
+ * same PEM as one line with literal `\\n` sequences.
+ */
+function normalizePem(value: string | undefined, kind: PemKind) {
+  if (!value) return null;
+
+  let pem = value.trim();
+  if (
+    pem.length >= 2 &&
+    ((pem.startsWith('"') && pem.endsWith('"')) ||
+      (pem.startsWith("'") && pem.endsWith("'")))
+  ) {
+    pem = pem.slice(1, -1).trim();
+  }
+
+  // Preserve actual newlines, while translating escaped newlines from a
+  // single-line environment variable into a normal PEM document.
+  pem = pem.replace(/\\r\\n/g, '\n').replace(/\\n/g, '\n').trim();
+
+  if (kind === 'certificate') {
+    return /^-----BEGIN CERTIFICATE-----\s+[\s\S]+\s+-----END CERTIFICATE-----$/.test(pem)
+      ? pem
+      : null;
+  }
+
+  const match = pem.match(/^-----BEGIN ([A-Z0-9 ]*PRIVATE KEY)-----\s+/);
+  if (!match) return null;
+  const endMarker = `-----END ${match[1]}-----`;
+  return pem.endsWith(endMarker) ? pem : null;
+}
+
+/** Public certificate only. Safe to return to QZ Tray clients when configured. */
+export function normalizedQzCertificate() {
+  return normalizePem(process.env.QZ_CERTIFICATE, 'certificate');
+}
+
+/** Server-only signing material. Never return this value from a route. */
+export function normalizedQzPrivateKey() {
+  return normalizePem(process.env.QZ_PRIVATE_KEY, 'privateKey');
+}
+
+/** Server-only status check that deliberately contains no secret material. */
 export function qzSigningConfiguration() {
-  const certificateConfigured = Boolean(process.env.QZ_CERTIFICATE?.replace(/\\n/g, '\n').trim());
-  const privateKeyConfigured = Boolean(process.env.QZ_PRIVATE_KEY?.replace(/\\n/g, '\n').trim());
-  return {
-    certificateConfigured,
-    privateKeyConfigured,
-    pairReady: certificateConfigured && privateKeyConfigured,
-    unsignedDevelopment: process.env.NODE_ENV === 'development' && process.env.QZ_ALLOW_UNSIGNED_DEVELOPMENT === 'true',
-  };
+  const certificateConfigured = Boolean(normalizedQzCertificate());
+  const privateKeyConfigured = Boolean(normalizedQzPrivateKey());
+  return { certificateConfigured, privateKeyConfigured };
 }
