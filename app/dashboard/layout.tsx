@@ -27,11 +27,6 @@ export default async function DashboardRouteLayout({
   if (!session?.user && !posAuthorization) redirect('/sign-in');
   const userId = posAuthorization?.userId ?? session!.user.id;
 
-  // Resolve access first, then load that exact organization. Loading a
-  // separate "primary" organization can select an old onboarding workspace
-  // for users who were later invited as staff elsewhere.
-  const authorization = posAuthorization ?? await getAuthorizationContext();
-
   const [accountRows, organization] = await Promise.all([
     withDatabaseRetry(() =>
       db
@@ -45,7 +40,14 @@ export default async function DashboardRouteLayout({
         .where(eq(user.id, userId))
         .limit(1)
     ),
-    OrganizationService.getOrganization(authorization.organizationId, userId),
+    posAuthorization
+      ? db
+          .select()
+          .from(organizationTable)
+          .where(eq(organizationTable.id, posAuthorization.organizationId))
+          .limit(1)
+          .then((rows) => rows[0] ?? null)
+      : OrganizationService.getPrimaryOrganization(userId),
   ]);
   const account = accountRows[0];
   if (account?.status && account.status !== 'active') redirect('/restricted');
@@ -60,7 +62,10 @@ export default async function DashboardRouteLayout({
 
   // Build a full WorkspaceConfig from the persisted businessType + businessCategory.
   // This is done once on the server so the client never needs to fetch it separately.
-  const workspaceConfig = await WorkspaceService.getAuthorizedWorkspaceConfig(organization);
+  const [workspaceConfig, authorization] = await Promise.all([
+    WorkspaceService.getAuthorizedWorkspaceConfig(organization),
+    posAuthorization ?? getAuthorizationContext(),
+  ]);
   if (!workspaceConfig) redirect('/onboarding');
   const [availableOrganizations, activeBranchRows, branchCountRows, brandingRows] = await Promise.all([
     posAuthorization
