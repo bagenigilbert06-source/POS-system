@@ -22,7 +22,7 @@ export async function POST(request: Request) {
   if (!(await getCurrentSession())?.user) return Response.json({ error: 'Unauthorized' }, { status: 401, headers: noStoreHeaders })
   const privateKey = normalizedQzPrivateKey()
   const signingConfiguration = qzSigningConfiguration()
-  if (!privateKey || !signingConfiguration.privateKeyConfigured || !signingConfiguration.keyPairMatches)
+  if (!privateKey || !signingConfiguration.privateKeyConfigured)
     return Response.json({ error: 'QZ trusted printing is not configured on this server.' }, { status: 503, headers: noStoreHeaders })
   const toSign = await request.text()
   if (!toSign || toSign.length > 1_000_000)
