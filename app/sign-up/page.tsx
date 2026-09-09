@@ -15,14 +15,14 @@ export default async function SignUpPage() {
   if (session?.user) redirect('/dashboard');
 
   return (
-    <main className="auth-workspace relative flex min-h-dvh items-center justify-center overflow-hidden bg-[#f4f6f8] p-3 text-slate-950 sm:p-6 lg:p-8">
+    <main className="auth-workspace relative flex min-h-dvh items-center justify-center overflow-hidden bg-[#f4f6f8] p-3 text-slate-950 sm:p-6 lg:p-5 xl:p-8">
       <div className="pointer-events-none absolute inset-0" aria-hidden="true">
         <div className="absolute -left-32 -top-40 h-96 w-96 rounded-full bg-[#ffda32]/10 blur-3xl" />
         <div className="absolute -bottom-48 right-0 h-[30rem] w-[30rem] rounded-full bg-[#e42527]/5 blur-3xl" />
       </div>
 
-      <div className="relative grid w-full max-w-[1220px] overflow-hidden rounded-[28px] bg-white shadow-[0_20px_60px_rgba(15,23,42,0.14)] ring-1 ring-slate-200/80 xl:min-h-[min(800px,calc(100dvh-64px))] xl:grid-cols-[56%_44%]">
-        <section className="relative hidden bg-[#ffda32] xl:flex xl:flex-col">
+      <div className="relative grid w-full max-w-[1220px] overflow-hidden rounded-[28px] bg-white shadow-[0_20px_60px_rgba(15,23,42,0.14)] ring-1 ring-slate-200/80 lg:min-h-[min(700px,calc(100dvh-40px))] lg:grid-cols-[56%_44%] xl:min-h-[min(800px,calc(100dvh-64px))]">
+        <section className="relative hidden bg-[#ffda32] lg:flex lg:flex-col">
           <div className="absolute inset-0" aria-hidden="true">
             <div className="absolute -left-28 top-28 h-[33rem] w-[39rem] rounded-[48%_52%_57%_43%/42%_48%_52%_58%] bg-[#fff8dc]/75" />
             <div className="absolute left-20 top-44 h-28 w-28 rounded-full border-[22px] border-white/35" />
@@ -30,7 +30,7 @@ export default async function SignUpPage() {
             <div className="absolute right-28 top-28 h-8 w-8 rounded-full bg-[#e42527]/80" />
           </div>
 
-          <div className="relative z-10 flex items-center justify-between px-10 pt-9 xl:px-12">
+          <div className="relative z-10 flex items-center justify-between px-7 pt-7 xl:px-12 xl:pt-9">
             <Link
               href="/"
               className="flex items-center gap-3 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-950"
@@ -50,23 +50,23 @@ export default async function SignUpPage() {
             </span>
           </div>
 
-          <div className="relative z-10 flex flex-1 items-center justify-center px-8 pt-5">
+          <div className="relative z-10 flex flex-1 items-center justify-center px-5 pt-3 xl:px-8 xl:pt-5">
             <Image
               src="/auth/pesaby-pos-login.png"
               alt="Shop owner using a point-of-sale system to run her business"
               width={1536}
               height={1024}
               priority
-              sizes="(min-width: 1280px) 680px, 0px"
-              className="w-full max-w-[680px] object-contain drop-shadow-[0_24px_28px_rgba(82,59,0,0.18)]"
+              sizes="(min-width: 1280px) 680px, (min-width: 1024px) 530px, 0px"
+              className="w-full max-w-[530px] object-contain drop-shadow-[0_24px_28px_rgba(82,59,0,0.18)] xl:max-w-[680px]"
             />
           </div>
 
-          <div className="relative z-10 px-10 pb-9 xl:px-12">
-            <p className="max-w-lg text-2xl font-black leading-tight tracking-[-0.035em] text-slate-950">
+          <div className="relative z-10 px-7 pb-7 xl:px-12 xl:pb-9">
+            <p className="max-w-lg text-xl font-black leading-tight tracking-[-0.035em] text-slate-950 xl:text-2xl">
               Your business deserves a smarter way to grow.
             </p>
-            <p className="mt-2 text-sm font-medium text-slate-700">
+            <p className="mt-1.5 text-xs font-medium text-slate-700 xl:mt-2 xl:text-sm">
               Create one secure workspace for sales, stock, staff, and
               reporting.
             </p>
@@ -85,9 +85,9 @@ export default async function SignUpPage() {
           </svg>
         </section>
 
-        <section className="relative flex items-center justify-center bg-[#fffdfa] px-5 py-7 sm:px-10 sm:py-10 xl:pl-24 xl:pr-12">
-          <div className="w-full max-w-[410px]">
-            <div className="mb-7 flex items-center justify-between xl:hidden">
+        <section className="relative flex items-center justify-center bg-[#fffdfa] px-5 py-7 sm:px-10 sm:py-10 lg:px-8 lg:py-6 xl:pl-24 xl:pr-12 xl:py-10">
+          <div className="w-full max-w-[410px] lg:max-w-[360px] xl:max-w-[410px]">
+            <div className="mb-7 flex items-center justify-between lg:hidden">
               <Link href="/" className="flex items-center gap-3">
                 <PesabyLogoMark className="h-10 w-10" />
                 <span className="text-lg font-black tracking-tight text-slate-950">
