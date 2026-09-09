@@ -18,21 +18,13 @@ export const revalidate = 0;
 
 export default async function POSPage() {
   const posAuthorization = await getPosAuthorizationContext();
-  let pageAuthorization = posAuthorization as Awaited<ReturnType<typeof requireAnyPermission>> | null;
-  if (!pageAuthorization) {
-    try {
-      pageAuthorization = await requireAnyPermission([
-        PermissionEnum.POS_VIEW,
-        PermissionEnum.POS_SELL,
-        PermissionEnum.SALE_CREATE,
-      ]);
-    } catch {
-      // An expired browser session should be a normal sign-in redirect, not a
-      // server error in deployment logs.
-      redirect('/sign-in?callbackUrl=/dashboard/pos');
-    }
-  }
-  if (!pageAuthorization) redirect('/sign-in?callbackUrl=/dashboard/pos');
+  const pageAuthorization =
+    posAuthorization ??
+    (await requireAnyPermission([
+      PermissionEnum.POS_VIEW,
+      PermissionEnum.POS_SELL,
+      PermissionEnum.SALE_CREATE,
+    ]));
   if (
     !pageAuthorization.permissions.some((permission) =>
       [
