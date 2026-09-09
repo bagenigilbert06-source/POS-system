@@ -34,7 +34,14 @@ export const getAuthorizationContext = cache(async (): Promise<AuthorizationCont
   const memberships = await db.select({ organizationId: organizationMembership.organizationId, role: organizationMembership.role })
     .from(organizationMembership).where(eq(organizationMembership.userId, session.user.id))
   const activeOrganizationId = await getActiveOrganizationId()
-  const membership = memberships.find((item) => item.organizationId === activeOrganizationId) ?? memberships[0]
+  const activeMembership = memberships.find((item) => item.organizationId === activeOrganizationId)
+  const activeStaffRows = await db.select({ organizationId: employee.orgId }).from(employee)
+    .where(and(eq(employee.userId, session.user.id), eq(employee.status, 'active')))
+  const staffOrganizationIds = new Set(activeStaffRows.map((item) => item.organizationId))
+  const staffMembership = memberships.find((item) => staffOrganizationIds.has(item.organizationId))
+  const membership = activeMembership && (staffOrganizationIds.has(activeMembership.organizationId) || !staffMembership)
+    ? activeMembership
+    : staffMembership ?? memberships[0]
   if (!membership) {
     // Older staff records can exist without the corresponding membership row.
     // Treat an active employee record as a scoped recovery path so a valid
