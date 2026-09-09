@@ -3745,7 +3745,10 @@ export function POSTerminal({
     });
     if (!hardware.shouldPrintReceipt || autoPrintedReceiptRef.current === receipt.saleId) return;
     autoPrintedReceiptRef.current = receipt.saleId;
-    const timer = window.setTimeout(() => void handlePrintReceipt(true), 250);
+    // Wait for the completed-sale receipt DOM (including logo/QR assets) to
+    // finish rendering before handing it to QZ Tray. A short delay can race
+    // React's commit and produce an intermittent manual-only print.
+    const timer = window.setTimeout(() => void handlePrintReceipt(true), 900);
     return () => window.clearTimeout(timer);
   }, [
     handlePrintReceipt,
@@ -3769,7 +3772,7 @@ export function POSTerminal({
     });
     if (!hardware.shouldOpenDrawer || autoDrawerPulseRef.current === receipt.saleId) return;
     autoDrawerPulseRef.current = receipt.saleId;
-    const timer = window.setTimeout(() => void dispatchAutomaticDrawerPulse(), 250);
+    const timer = window.setTimeout(() => void dispatchAutomaticDrawerPulse(), 300);
     return () => window.clearTimeout(timer);
   }, [dispatchAutomaticDrawerPulse, offlineContext?.sessionId, offlineContext?.terminalId, printerSettings, receipt]);
 

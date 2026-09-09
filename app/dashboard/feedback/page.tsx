@@ -7,7 +7,7 @@ import { getFeedbackReport } from '@/lib/feedback/reporting'
 
 export default async function FeedbackDashboard({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   const auth = await requireDashboardPermission(PermissionEnum.REPORT_VIEW); const params = await searchParams
-  const allowed = auth.role === RoleEnum.MANAGER ? auth.branchIds : undefined
+  const allowed = auth.role === RoleEnum.MANAGER || auth.role === RoleEnum.STORE_MANAGER ? auth.branchIds : undefined
   const branches = await db.select({ id: branch.id, name: branch.name }).from(branch).where(and(eq(branch.organizationId, auth.organizationId), allowed?.length ? inArray(branch.id, allowed) : undefined))
   const selected = params.branch && branches.some(item => item.id === params.branch) ? [params.branch] : undefined
   const report = await getFeedbackReport({ organizationId: auth.organizationId, branchIds: selected ?? allowed, category: params.category, score: params.score ? Number(params.score) : undefined, tag: params.tag })

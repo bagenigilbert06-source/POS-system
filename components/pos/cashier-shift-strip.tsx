@@ -519,7 +519,11 @@ export function CashierShiftStrip({
       </Dialog>
 
       <Dialog open={openingOpen} onOpenChange={setOpeningOpen}>
-        <DialogContent className="gap-4 border-border bg-card p-5 text-card-foreground shadow-2xl shadow-slate-950/20 dark:shadow-black/50 sm:max-w-[500px]">
+        <DialogContent onKeyDown={(event) => {
+          if (event.key !== 'Enter' || !(event.target instanceof HTMLInputElement)) return;
+          event.preventDefault();
+          document.querySelector<HTMLButtonElement>('[data-open-register-submit]')?.click();
+        }} className="gap-4 border-border bg-card p-5 text-card-foreground shadow-2xl shadow-slate-950/20 dark:shadow-black/50 sm:max-w-[500px]">
           <DialogHeader className="space-y-1 border-b border-border pb-4">
             <DialogTitle className="text-lg font-semibold tracking-tight">Open register</DialogTitle>
             <DialogDescription className="space-y-0.5 text-sm leading-5 text-[var(--dashboard-muted)]">
@@ -564,6 +568,7 @@ export function CashierShiftStrip({
               </Button>
             ) : (
             <Button
+              data-open-register-submit
               disabled={pending || !terminalConfigured || !isValidMoney(openingFloat || '0')}
               onClick={() =>
                 run(
@@ -596,7 +601,7 @@ export function CashierShiftStrip({
                 )
               }
             >
-              Open register
+              <span data-open-register-submit="true">Open register</span>
             </Button>
             )}
           </DialogFooter>

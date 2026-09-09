@@ -563,6 +563,12 @@ export const product = pgTable(
       table.orgId,
       table.isActive
     ),
+    organizationSkuUnique: uniqueIndex('product_org_sku_unique')
+      .on(table.orgId, table.sku)
+      .where(sql`${table.sku} IS NOT NULL AND ${table.isActive} = true`),
+    organizationBarcodeUnique: uniqueIndex('product_org_barcode_unique')
+      .on(table.orgId, table.barcode)
+      .where(sql`${table.barcode} IS NOT NULL AND ${table.isActive} = true`),
   })
 );
 

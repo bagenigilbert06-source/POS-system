@@ -27,6 +27,13 @@ export enum PermissionEnum {
   PRODUCT_EDIT = 'product:edit',
   PRODUCT_DELETE = 'product:delete',
   PRODUCT_EXPORT = 'product:export',
+  // Shared organization catalogue (deliberately separate from branch operations)
+  CATALOG_VIEW = 'catalog:view',
+  CATALOG_CREATE = 'catalog:create',
+  CATALOG_EDIT = 'catalog:edit',
+  CATALOG_IMPORT = 'catalog:import',
+  CATALOG_EXPORT = 'catalog:export',
+  CATALOG_ARCHIVE = 'catalog:archive',
 
   // Sales & Orders
   SALE_VIEW = 'sale:view',
@@ -132,6 +139,8 @@ export enum PermissionEnum {
 export enum RoleEnum {
   OWNER = 'owner',
   ADMIN = 'admin',
+  STORE_MANAGER = 'store_manager',
+  /** Legacy role retained for existing memberships. New branch managers use STORE_MANAGER. */
   MANAGER = 'manager',
   SUPERVISOR = 'supervisor',
   CASHIER = 'cashier',
@@ -151,6 +160,8 @@ export const ROLE_PERMISSIONS: Record<RoleEnum, PermissionEnum[]> = {
     PermissionEnum.PRODUCT_EDIT,
     PermissionEnum.PRODUCT_DELETE,
     PermissionEnum.PRODUCT_EXPORT,
+    PermissionEnum.CATALOG_VIEW, PermissionEnum.CATALOG_CREATE, PermissionEnum.CATALOG_EDIT,
+    PermissionEnum.CATALOG_IMPORT, PermissionEnum.CATALOG_EXPORT, PermissionEnum.CATALOG_ARCHIVE,
     PermissionEnum.SALE_VIEW,
     PermissionEnum.SALE_CREATE,
     PermissionEnum.SALE_EDIT,
@@ -236,6 +247,8 @@ export const ROLE_PERMISSIONS: Record<RoleEnum, PermissionEnum[]> = {
     PermissionEnum.PRODUCT_EDIT,
     PermissionEnum.PRODUCT_DELETE,
     PermissionEnum.PRODUCT_EXPORT,
+    PermissionEnum.CATALOG_VIEW, PermissionEnum.CATALOG_CREATE, PermissionEnum.CATALOG_EDIT,
+    PermissionEnum.CATALOG_IMPORT, PermissionEnum.CATALOG_EXPORT, PermissionEnum.CATALOG_ARCHIVE,
     PermissionEnum.SALE_VIEW,
     PermissionEnum.SALE_CREATE,
     PermissionEnum.SALE_EDIT,
@@ -313,11 +326,66 @@ export const ROLE_PERMISSIONS: Record<RoleEnum, PermissionEnum[]> = {
     PermissionEnum.ETIMS_RETRY,
     PermissionEnum.ETIMS_CONFIGURE,
   ],
+  [RoleEnum.STORE_MANAGER]: [
+    PermissionEnum.PRODUCT_VIEW,
+    PermissionEnum.CATALOG_VIEW,
+    PermissionEnum.SALE_VIEW,
+    PermissionEnum.SALE_CREATE,
+    PermissionEnum.SALE_EDIT,
+    PermissionEnum.SALE_REFUND,
+    PermissionEnum.SALES_VIEW_OWN,
+    PermissionEnum.SALES_VIEW_ALL,
+    PermissionEnum.ORDER_VIEW,
+    PermissionEnum.ORDER_CREATE,
+    PermissionEnum.ORDER_EDIT,
+    PermissionEnum.INVENTORY_VIEW,
+    PermissionEnum.INVENTORY_EDIT,
+    PermissionEnum.INVENTORY_TRANSFER,
+    PermissionEnum.INVENTORY_ADJUST,
+    PermissionEnum.INVENTORY_RECEIVE,
+    PermissionEnum.INVENTORY_EXPORT,
+    PermissionEnum.INVENTORY_ADJUST_SUBMIT,
+    PermissionEnum.INVENTORY_ADJUST_APPROVE,
+    PermissionEnum.INVENTORY_COUNT_START,
+    PermissionEnum.INVENTORY_COUNT_SUBMIT,
+    PermissionEnum.INVENTORY_COUNT_APPROVE,
+    PermissionEnum.CUSTOMER_VIEW,
+    PermissionEnum.CUSTOMER_CREATE,
+    PermissionEnum.CUSTOMER_EDIT,
+    PermissionEnum.REWARDS_VIEW,
+    PermissionEnum.REWARDS_REDEEM,
+    PermissionEnum.REWARDS_ADJUST,
+    PermissionEnum.REWARDS_SETTINGS,
+    PermissionEnum.REWARDS_REPORT,
+    PermissionEnum.REPORT_VIEW,
+    PermissionEnum.REPORT_GENERATE,
+    PermissionEnum.REPORT_EXPORT,
+    PermissionEnum.STAFF_VIEW,
+    PermissionEnum.STAFF_MANAGE,
+    PermissionEnum.POS_VIEW,
+    PermissionEnum.POS_SELL,
+    PermissionEnum.POS_HOLD,
+    PermissionEnum.POS_DISCOUNT,
+    PermissionEnum.POS_VOID,
+    PermissionEnum.AGE_VERIFICATION_OVERRIDE,
+    PermissionEnum.POS_PIN_USE,
+    PermissionEnum.POS_PIN_RESET,
+    PermissionEnum.POS_LOCK,
+    PermissionEnum.POS_SWITCH_USER,
+    PermissionEnum.SHIFT_OPEN,
+    PermissionEnum.SHIFT_CLOSE,
+    PermissionEnum.SHIFT_MANAGE,
+    PermissionEnum.SHIFT_CASH_IN,
+    PermissionEnum.SHIFT_CASH_OUT,
+    PermissionEnum.SHIFT_SAFE_DROP,
+  ],
   [RoleEnum.MANAGER]: [
     PermissionEnum.PRODUCT_VIEW,
     PermissionEnum.PRODUCT_CREATE,
     PermissionEnum.PRODUCT_EDIT,
     PermissionEnum.PRODUCT_EXPORT,
+    PermissionEnum.CATALOG_VIEW, PermissionEnum.CATALOG_CREATE, PermissionEnum.CATALOG_EDIT,
+    PermissionEnum.CATALOG_IMPORT, PermissionEnum.CATALOG_EXPORT, PermissionEnum.CATALOG_ARCHIVE,
     PermissionEnum.SALE_VIEW,
     PermissionEnum.SALE_CREATE,
     PermissionEnum.SALE_EDIT,
@@ -424,8 +492,6 @@ export const ROLE_PERMISSIONS: Record<RoleEnum, PermissionEnum[]> = {
     PermissionEnum.SALE_CREATE,
     PermissionEnum.ORDER_VIEW,
     PermissionEnum.ORDER_CREATE,
-    PermissionEnum.CUSTOMER_VIEW,
-    PermissionEnum.CUSTOMER_CREATE,
     PermissionEnum.REWARDS_VIEW,
     PermissionEnum.REWARDS_REDEEM,
     PermissionEnum.PRESCRIPTION_DISPENSE,
@@ -436,7 +502,6 @@ export const ROLE_PERMISSIONS: Record<RoleEnum, PermissionEnum[]> = {
     PermissionEnum.SHIFT_CLOSE,
     PermissionEnum.POS_PIN_USE,
     PermissionEnum.POS_LOCK,
-    PermissionEnum.SALES_VIEW_OWN,
   ],
   [RoleEnum.INVENTORY]: [
     PermissionEnum.PRODUCT_VIEW,
@@ -524,13 +589,14 @@ export const ROLE_PERMISSIONS: Record<RoleEnum, PermissionEnum[]> = {
 
 // Attendance is available to every signed-in employee. Elevated attendance
 // visibility remains explicitly permission-based, never role-name checks.
-Object.values(ROLE_PERMISSIONS).forEach((permissions) => {
+Object.entries(ROLE_PERMISSIONS).forEach(([role, permissions]) => {
+  if (role === RoleEnum.CASHIER) return
   permissions.push(PermissionEnum.ATTENDANCE_USE, PermissionEnum.ATTENDANCE_VIEW_OWN)
 })
-for (const role of [RoleEnum.OWNER, RoleEnum.ADMIN, RoleEnum.MANAGER, RoleEnum.SUPERVISOR]) {
+for (const role of [RoleEnum.OWNER, RoleEnum.ADMIN, RoleEnum.STORE_MANAGER, RoleEnum.MANAGER, RoleEnum.SUPERVISOR]) {
   ROLE_PERMISSIONS[role].push(PermissionEnum.ATTENDANCE_VIEW_ALL)
 }
-for (const role of [RoleEnum.OWNER, RoleEnum.ADMIN, RoleEnum.MANAGER]) {
+for (const role of [RoleEnum.OWNER, RoleEnum.ADMIN, RoleEnum.STORE_MANAGER, RoleEnum.MANAGER]) {
   ROLE_PERMISSIONS[role].push(PermissionEnum.ATTENDANCE_CORRECT)
 }
 
@@ -559,7 +625,7 @@ for (const role of [RoleEnum.OWNER, RoleEnum.ADMIN, RoleEnum.MANAGER]) {
     PermissionEnum.QUOTATION_CONVERT,
   )
 }
-for (const role of [RoleEnum.SUPERVISOR, RoleEnum.CASHIER]) {
+for (const role of [RoleEnum.SUPERVISOR]) {
   ROLE_PERMISSIONS[role].push(
     PermissionEnum.QUOTATION_VIEW,
     PermissionEnum.QUOTATION_CREATE,
@@ -577,6 +643,7 @@ ROLE_PERMISSIONS[RoleEnum.ACCOUNTANT].push(PermissionEnum.QUOTATION_VIEW)
  * a normal staff role.
  */
 export const STAFF_MANAGED_ROLES = [
+  RoleEnum.STORE_MANAGER,
   RoleEnum.MANAGER,
   RoleEnum.SUPERVISOR,
   RoleEnum.CASHIER,
@@ -589,6 +656,7 @@ export const STAFF_MANAGED_ROLES = [
 export type StaffManagedRole = (typeof STAFF_MANAGED_ROLES)[number];
 
 export const STAFF_ROLE_LABELS: Readonly<Record<StaffManagedRole, string>> = {
+  [RoleEnum.STORE_MANAGER]: 'Store manager',
   [RoleEnum.MANAGER]: 'Manager',
   [RoleEnum.SUPERVISOR]: 'Supervisor',
   [RoleEnum.CASHIER]: 'Cashier',
@@ -607,6 +675,13 @@ export const ASSIGNABLE_ROLES: Readonly<Record<RoleEnum, readonly RoleEnum[]>> =
   {
     [RoleEnum.OWNER]: STAFF_MANAGED_ROLES,
     [RoleEnum.ADMIN]: STAFF_MANAGED_ROLES,
+    [RoleEnum.STORE_MANAGER]: [
+      RoleEnum.SUPERVISOR,
+      RoleEnum.CASHIER,
+      RoleEnum.INVENTORY,
+      RoleEnum.PHARMACIST,
+      RoleEnum.PHARMACY_STAFF,
+    ],
     [RoleEnum.MANAGER]: [
       RoleEnum.SUPERVISOR,
       RoleEnum.CASHIER,
@@ -635,6 +710,8 @@ export function canManageExistingRole(actor: RoleEnum, target: RoleEnum) {
     return target !== RoleEnum.OWNER && target !== RoleEnum.ADMIN;
   if (actor === RoleEnum.ADMIN)
     return target !== RoleEnum.OWNER && target !== RoleEnum.ADMIN;
+  if (actor === RoleEnum.STORE_MANAGER)
+    return ASSIGNABLE_ROLES[RoleEnum.STORE_MANAGER].includes(target);
   if (actor === RoleEnum.MANAGER)
     return ASSIGNABLE_ROLES[RoleEnum.MANAGER].includes(target);
   return false;

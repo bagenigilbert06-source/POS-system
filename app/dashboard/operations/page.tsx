@@ -56,6 +56,7 @@ export default async function OperationsPage({
     ![
       RoleEnum.OWNER,
       RoleEnum.ADMIN,
+      RoleEnum.STORE_MANAGER,
       RoleEnum.MANAGER,
       RoleEnum.SUPERVISOR,
     ].includes(authorization.role)

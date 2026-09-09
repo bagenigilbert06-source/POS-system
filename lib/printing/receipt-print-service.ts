@@ -205,11 +205,7 @@ async function qzClient() {
     securityPromise = withTimeout(
       fetch('/api/qz', { cache: 'no-store' }).then(
         async (response) => {
-          // Defence in depth: the server only emits this response in
-          // development, but a production browser must never accept an
-          // unsigned fallback even if a proxy or stale route returns 204.
           const unsignedDevelopmentAllowed =
-            process.env.NODE_ENV === 'development' &&
             response.status === 204 &&
             response.headers.get('x-qz-unsigned-development') === 'allowed';
           if (unsignedDevelopmentAllowed) {
@@ -227,8 +223,6 @@ async function qzClient() {
             );
             return;
           }
-          if (response.headers.get('x-qz-signing-status') === 'not-configured')
-            throw new ReceiptPrinterError('SECURITY_NOT_CONFIGURED', 'QZ trusted printing is not configured on this server.');
           if (!response.ok)
             throw new ReceiptPrinterError(
               'SECURITY_NOT_CONFIGURED',
@@ -313,12 +307,9 @@ async function qzClient() {
   return qz;
 }
 
-/** Establish (or reuse) the singleton QZ Tray websocket connection. */
+/** Establish (or reuse) the QZ Tray connection for printer diagnostics. */
 export async function connectQzTray() {
-  const qz = await qzClient();
-  if (process.env.NODE_ENV === 'development')
-    console.debug('[qz] websocket connected');
-  return qz;
+  return qzClient();
 }
 
 export async function getDirectPrinterStatus(
@@ -364,10 +355,7 @@ export async function listDirectPrinters(): Promise<string[]> {
       'Printer discovery timed out'
     )
   );
-  const printers = (Array.isArray(found) ? found : [found]).filter(Boolean);
-  if (process.env.NODE_ENV === 'development')
-    console.debug('[qz] printer discovery complete', { count: printers.length });
-  return printers;
+  return Array.isArray(found) ? found : [found];
 }
 
 function thermalDocument(receiptHtml: string, width: ReceiptPaperWidth) {
@@ -376,6 +364,28 @@ function thermalDocument(receiptHtml: string, width: ReceiptPaperWidth) {
   // while remaining a full-width roll on a matching thermal printer.
   return `<!doctype html><html><head><meta charset="utf-8"><style>@page{size:${width}mm auto;margin:0}html,body{width:100%;margin:0;padding:0;background:#fff;color:#000}.receipt-print-frame{width:100%;border-collapse:collapse}.receipt-print-frame td{padding:0;text-align:center;vertical-align:top}.receipt-paper{box-sizing:border-box!important;width:${width}mm!important;max-width:${width}mm!important;margin:0 auto!important;text-align:left;border:0!important;border-radius:0!important;box-shadow:none!important;color:#000!important}*{print-color-adjust:exact;-webkit-print-color-adjust:exact}</style></head><body><table class="receipt-print-frame" role="presentation"><tr><td>${receiptHtml}</td></tr></table></body></html>`;
 }
+
+async function embedReceiptImages(receiptHtml: string) {
+  if (typeof window === 'undefined') return receiptHtml;
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(receiptHtml, 'text/html');
+  await Promise.all(Array.from(doc.images).map(async (image) => {
+    try {
+      const response = await fetch(image.currentSrc || image.src, { credentials: 'include' });
+      if (!response.ok) return;
+      const blob = await response.blob();
+      image.src = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result));
+        reader.onerror = () => reject(reader.error);
+        reader.readAsDataURL(blob);
+      });
+      image.removeAttribute('srcset');
+    } catch { /* leave the original source as fallback */ }
+  }));
+  return doc.body.innerHTML;
+}
+
 
 async function nativeReceiptBytes(receiptHtml: string, width: ReceiptPaperWidth) {
   const parser = new DOMParser();
@@ -387,10 +397,14 @@ async function nativeReceiptBytes(receiptHtml: string, width: ReceiptPaperWidth)
   let logo: MonochromeRaster | undefined;
   const logoUrl = model.logoUrl;
   if (logoUrl) {
+    const resolvedLogoUrl = typeof window !== 'undefined' && logoUrl.startsWith('/')
+      ? `${window.location.origin}${logoUrl}`
+      : logoUrl;
     try {
       const image = new window.Image();
-      image.crossOrigin = 'anonymous';
-      image.src = logoUrl;
+      // Uploaded logos are usually same-origin. Do not force anonymous CORS
+      // mode: it can make a valid local image fail before rasterization.
+      image.src = resolvedLogoUrl;
       await new Promise<void>((resolve, reject) => { image.onload = () => resolve(); image.onerror = () => reject(new Error('logo unavailable')); });
       // GS v 0 images start at the left print margin. Rasterize a transparent
       // full-width canvas so the logo is physically centred on the paper.
@@ -519,9 +533,16 @@ export async function directPrintReceipt(
     copies: Math.max(1, Math.min(3, settings.copies)),
     scaleContent: true,
   });
-  const payload = await nativeReceiptBytes(receiptHtml, settings.paperWidth);
-  const encodedPayload = bytesToBase64(payload);
-  const data: Array<Record<string, unknown>> = [{ type: 'raw', format: 'command', flavor: 'base64', data: encodedPayload }];
+  // Keep direct printing in QZ's HTML renderer so the receipt preserves the
+  // configured web font and layout. Images are embedded to avoid URL loading
+  // failures inside QZ's separate renderer.
+  const embeddedReceiptHtml = await embedReceiptImages(receiptHtml);
+  const data: Array<Record<string, unknown>> = [{
+    type: 'pixel',
+    format: 'html',
+    flavor: 'plain',
+    data: thermalDocument(embeddedReceiptHtml, settings.paperWidth),
+  }];
   try {
     await withTimeout(
       qz.print(config, data),

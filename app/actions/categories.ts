@@ -8,6 +8,8 @@ import { headers } from 'next/headers'
 import { revalidatePath } from 'next/cache'
 import { generateId } from '@/lib/utils'
 import { OrganizationService } from '@/lib/services/organization-service'
+import { getAuthorizationContext } from '@/lib/auth/authorization'
+import { PermissionEnum } from '@/lib/types/permissions'
 import { WorkspaceService } from '@/lib/services/workspace-service'
 import { z } from 'zod'
 import { invalidateCategoryCache, readThroughRedis } from '@/lib/cache/redis-cache'
@@ -21,10 +23,7 @@ async function categoryContext(requireManage = false) {
   if (!organization) throw new Error('No organization available')
   const config = await WorkspaceService.getWorkspaceConfig(organization.id, session.user.id)
   if (!config?.enabledModules.includes('products')) throw new Error('Products are not enabled for this workspace')
-  if (requireManage && organization.userId !== session.user.id) {
-    const [membership] = await db.select({ role: organizationMembership.role }).from(organizationMembership).where(and(eq(organizationMembership.organizationId, organization.id), eq(organizationMembership.userId, session.user.id))).limit(1)
-    if (!membership || !['owner', 'admin', 'manager'].includes(membership.role)) throw new Error('You do not have permission to manage categories')
-  }
+  if (requireManage && !((await getAuthorizationContext()).permissions.includes(PermissionEnum.CATALOG_EDIT))) throw new Error('You do not have permission to manage categories')
   return { userId: session.user.id, orgId: organization.id }
 }
 

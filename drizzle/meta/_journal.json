@@ -519,6 +519,20 @@
       "when": 1788998400000,
       "tag": "0069_production_receipt_defaults",
       "breakpoints": true
+    },
+    {
+      "idx": 74,
+      "version": "7",
+      "when": 1788998400001,
+      "tag": "0070_category_lifecycle_status",
+      "breakpoints": true
+    },
+    {
+      "idx": 75,
+      "version": "7",
+      "when": 1789084800000,
+      "tag": "0071_nullable_unknown_product_cost",
+      "breakpoints": true
     }
   ]
 }

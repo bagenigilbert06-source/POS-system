@@ -9,9 +9,41 @@ import {
   ROLE_PERMISSIONS,
   RoleEnum,
 } from '../lib/types/permissions';
+import { canAccessBranch } from '../lib/auth/branch-access';
 
 const has = (role: RoleEnum, permission: PermissionEnum) =>
   ROLE_PERMISSIONS[role].includes(permission);
+
+for (const permission of [
+  PermissionEnum.INVENTORY_RECEIVE,
+  PermissionEnum.INVENTORY_ADJUST,
+  PermissionEnum.INVENTORY_TRANSFER,
+  PermissionEnum.INVENTORY_ADJUST_APPROVE,
+  PermissionEnum.INVENTORY_COUNT_APPROVE,
+  PermissionEnum.SHIFT_MANAGE,
+  PermissionEnum.SALE_REFUND,
+  PermissionEnum.REPORT_EXPORT,
+]) assert.equal(has(RoleEnum.STORE_MANAGER, permission), true, `store managers require ${permission}`);
+assert.equal(has(RoleEnum.STORE_MANAGER, PermissionEnum.CATALOG_VIEW), true);
+assert.equal(has(RoleEnum.STORE_MANAGER, PermissionEnum.CATALOG_CREATE), false);
+assert.equal(has(RoleEnum.STORE_MANAGER, PermissionEnum.CATALOG_EDIT), false);
+assert.equal(has(RoleEnum.STORE_MANAGER, PermissionEnum.CATALOG_ARCHIVE), false);
+
+for (const permission of [
+  PermissionEnum.ADMIN_ACCESS,
+  PermissionEnum.OWNER_ACCESS,
+  PermissionEnum.SETTINGS_EDIT,
+  PermissionEnum.SETTINGS_MANAGE_USERS,
+  PermissionEnum.FINANCE_MANAGE,
+  PermissionEnum.ETIMS_CONFIGURE,
+  PermissionEnum.ETIMS_MANAGE,
+]) assert.equal(has(RoleEnum.STORE_MANAGER, permission), false, `store managers must not receive ${permission}`);
+
+assert.equal(canAccessBranch({ isOrganizationWide: false, branchIds: ['branch-a'] }, 'branch-a'), true);
+assert.equal(canAccessBranch({ isOrganizationWide: false, branchIds: ['branch-a'] }, 'branch-b'), false);
+assert.equal(canAssignRole(RoleEnum.STORE_MANAGER, RoleEnum.ADMIN), false);
+assert.equal(canAssignRole(RoleEnum.STORE_MANAGER, RoleEnum.STORE_MANAGER), false);
+assert.equal(canAssignRole(RoleEnum.STORE_MANAGER, RoleEnum.CASHIER), true);
 
 assert.equal(
   has(RoleEnum.CASHIER, PermissionEnum.POS_SELL),
@@ -38,6 +70,9 @@ assert.equal(
   false,
   'cashiers must not manage the product catalogue'
 );
+assert.equal(has(RoleEnum.CASHIER, PermissionEnum.CUSTOMER_VIEW), false, 'cashiers must remain inside POS');
+assert.equal(has(RoleEnum.CASHIER, PermissionEnum.ATTENDANCE_USE), false, 'cashiers must not open attendance workspace');
+assert.equal(has(RoleEnum.CASHIER, PermissionEnum.SALES_VIEW_OWN), false, 'cashiers must not open receipt management pages');
 assert.equal(
   has(RoleEnum.CASHIER, PermissionEnum.SALE_REFUND),
   false,

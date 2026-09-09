@@ -27,7 +27,7 @@ function PESABYLogo() {
       className="group flex items-center gap-2.5 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
     >
       <Image
-        src="/pesaby-logo.png"
+        src="/pesaby-logo-v2.png"
         alt="PESABY"
         width={36}
         height={36}

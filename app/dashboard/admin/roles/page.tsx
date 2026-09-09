@@ -17,6 +17,7 @@ export const metadata: Metadata = { title: 'Role permissions | Pesaby' };
 const coreVisibleRoles = [
   RoleEnum.OWNER,
   RoleEnum.ADMIN,
+  RoleEnum.STORE_MANAGER,
   RoleEnum.MANAGER,
   RoleEnum.SUPERVISOR,
   RoleEnum.CASHIER,
@@ -26,6 +27,7 @@ const coreVisibleRoles = [
 const roleSummary: Record<string, string> = {
   owner: 'Owns the business account and retains the highest-risk controls.',
   admin: 'Configures and administers the whole organization.',
+  store_manager: 'Runs explicitly assigned branches without organization administration access.',
   manager: 'Runs assigned branches and their day-to-day operations.',
   supervisor: 'Controls registers, shifts and floor exceptions.',
   cashier: 'Sells, handles customers and views their own receipts.',

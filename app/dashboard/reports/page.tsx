@@ -90,7 +90,7 @@ export default async function ReportsPage({
     today
   );
   const accessibleBranchIds =
-    authorization.role === RoleEnum.MANAGER
+    authorization.role === RoleEnum.MANAGER || authorization.role === RoleEnum.STORE_MANAGER
       ? authorization.branchIds
       : undefined;
   const locations = await db

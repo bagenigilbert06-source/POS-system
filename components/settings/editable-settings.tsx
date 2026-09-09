@@ -39,7 +39,7 @@ export function EditableSettings({ businessSettings, organization, buttonOnly = 
     receiptPhone: businessSettings?.receiptPhone || '',
     receiptAddress: businessSettings?.receiptAddress || '',
     receiptFooter: businessSettings?.receiptFooter || '',
-    receiptLayout: businessSettings?.receiptLayout === 'detailed' ? 'detailed' as const : 'thermal' as const,
+    receiptLayout: 'thermal' as const,
     receiptTemplate: businessSettings?.receiptTemplate === 'logo' || businessSettings?.receiptTemplate === 'cafe' ? businessSettings.receiptTemplate as 'logo' | 'cafe' : 'classic' as const,
     receiptLogoUrl: businessSettings?.receiptLogoUrl || '',
     receiptShowPhone: businessSettings?.receiptShowPhone ?? true,
@@ -82,6 +82,7 @@ export function EditableSettings({ businessSettings, organization, buttonOnly = 
     roundingAmount: '0.00',
     total: '2900.00',
     paymentMethod: formData.defaultPaymentMethod,
+    feedbackUrl: formData.feedbackQrEnabled ? 'https://example.test/feedback/PREVIEW-001' : null,
     mpesaRef: formData.defaultPaymentMethod === 'mpesa' ? 'QWE123ABC' : null,
     items: [
       { id: 'preview-1', productId: 'ITEM-001', productName: 'Sample product', quantity: 2, unitPrice: '900.00', totalPrice: '1800.00' },
@@ -365,7 +366,6 @@ export function EditableSettings({ businessSettings, organization, buttonOnly = 
               <div className="mt-3 grid gap-3 sm:grid-cols-2">
                 {([
                   ['thermal', 'Thermal printer', 'A narrow, compact receipt for 80 mm receipt printers.'],
-                  ['detailed', 'Detailed receipt', 'A full-page confirmation with transaction details.'],
                 ] as const).map(([value, title, description]) => { const selected = formData.receiptLayout === value; return <label key={value} className={`cursor-pointer rounded-lg border p-4 transition-colors ${selected ? 'border-[#e42527] bg-[#fff3f3] dark:bg-[#2a1518]' : 'hover:bg-muted/40'}`}><input type="radio" name="receiptLayout" value={value} checked={selected} onChange={() => setFormData({ ...formData, receiptLayout: value })} className="sr-only" /><span className={`block text-sm font-semibold ${selected ? 'text-[#8f171b] dark:text-[#fff4f4]' : ''}`}>{title}</span><span className={`mt-1 block text-xs leading-4 ${selected ? 'text-[#9f3b3d] dark:text-[#f3b7b9]' : 'text-muted-foreground'}`}>{description}</span></label>})}
               </div>
             </div>
@@ -377,7 +377,7 @@ export function EditableSettings({ businessSettings, organization, buttonOnly = 
                 {([
                   ['classic', 'Classic', 'Clean receipt with business details.'],
                   ['logo', 'Logo', 'Large logo-style heading and QR space.'],
-                  ['cafe', 'Café', 'Store-focused heading with a compact feel.'],
+                  ['cafe', 'Compact store', 'Store-focused heading with a compact, fast-printing feel.'],
                 ] as const).map(([value, title, description]) => { const selected = formData.receiptTemplate === value; return <label key={value} className={`cursor-pointer rounded-xl border p-4 transition-colors ${selected ? 'border-[#e42527] bg-[#fff3f3] dark:bg-[#2a1518]' : 'hover:bg-muted/40'}`}><input type="radio" name="receiptTemplate" value={value} checked={selected} onChange={() => setFormData({ ...formData, receiptTemplate: value })} className="sr-only" /><span className={`block text-sm font-semibold ${selected ? 'text-[#8f171b] dark:text-[#fff4f4]' : ''}`}>{title}</span><span className={`mt-1 block text-xs leading-4 ${selected ? 'text-[#9f3b3d] dark:text-[#f3b7b9]' : 'text-muted-foreground'}`}>{description}</span></label>})}
               </div>
             </div>
@@ -394,7 +394,6 @@ export function EditableSettings({ businessSettings, organization, buttonOnly = 
                   ['receiptShowCashier', 'Cashier name', 'Show who completed the sale.'],
                   ['receiptShowCustomer', 'Customer name', 'Show the selected customer or walk-in.'],
                   ['receiptShowPayment', 'Payment details', 'Show the payment method and reference.'],
-                  ['receiptShowQrCode', 'Receipt QR code', 'Include a scan-friendly receipt reference.'],
                   ['receiptShowItemSku', 'Item codes', 'Show catalogue identifiers under receipt items.'],
                   ['receiptShowShipping', 'Shipping', 'Show delivery or shipping charges.'],
                   ['receiptShowCoupon', 'Coupon discount', 'Show coupon savings and code when applied.'],
@@ -411,7 +410,7 @@ export function EditableSettings({ businessSettings, organization, buttonOnly = 
             </div>
             <div className="overflow-hidden rounded-xl border border-[var(--dashboard-border)] bg-[#181818] shadow-[0_10px_24px_rgba(0,0,0,.16)] lg:sticky lg:top-5">
               <div className="flex items-center justify-between border-b border-white/10 px-4 py-3"><div><h5 className="text-sm font-semibold text-white">Live receipt preview</h5><p className="mt-0.5 text-[11px] text-zinc-400">Updates as you change the settings.</p></div><span className="rounded-full bg-white/10 px-2.5 py-1 text-[10px] font-semibold text-zinc-300">Preview</span></div>
-              <div className="max-h-[560px] overflow-y-auto receipt-settings-preview-scroll bg-zinc-100 p-4"><div style={{ zoom: 0.78 }}><ReceiptTemplate sale={receiptPreview} businessName={formData.receiptBusinessName || formData.displayName} businessPhone={formData.receiptPhone} businessAddress={formData.receiptAddress} receiptFooter={formData.receiptFooter || 'Thank you for your business.'} taxName={formData.taxName} layout={formData.receiptLayout} template={formData.receiptTemplate} logoUrl={formData.receiptLogoUrl} showPhone={formData.receiptShowPhone} showAddress={formData.receiptShowAddress} showCashier={formData.receiptShowCashier} showCustomer={formData.receiptShowCustomer} showPayment={formData.receiptShowPayment} showQrCode={formData.receiptShowQrCode} showItemSku={formData.receiptShowItemSku} showShipping={formData.receiptShowShipping} showCoupon={formData.receiptShowCoupon} showBonus={formData.receiptShowBonus} /></div></div>
+              <div className="max-h-[560px] overflow-y-auto receipt-settings-preview-scroll bg-zinc-100 p-4"><div style={{ zoom: 0.78 }}><ReceiptTemplate sale={receiptPreview} businessName={formData.receiptBusinessName || formData.displayName} businessPhone={formData.receiptPhone} businessAddress={formData.receiptAddress} receiptFooter={formData.receiptFooter || 'Thank you for your business.'} taxName={formData.taxName} showTaxOnReceipt={formData.showTaxOnReceipt} layout={formData.receiptLayout} template={formData.receiptTemplate} logoUrl={formData.receiptLogoUrl} showPhone={formData.receiptShowPhone} showAddress={formData.receiptShowAddress} showCashier={formData.receiptShowCashier} showCustomer={formData.receiptShowCustomer} showPayment={formData.receiptShowPayment} showItemSku={formData.receiptShowItemSku} showShipping={formData.receiptShowShipping} showCoupon={formData.receiptShowCoupon} showBonus={formData.receiptShowBonus} /></div></div>
             </div>
             </div>
           </div>}

@@ -457,35 +457,9 @@ export function DynamicAppSidebar({
         ) && item.id === 'dashboard'
       )
   );
-  // Keep the cashier workspace focused on counter work and their own records.
-  // Management, inventory and business-wide reporting remain unavailable here.
-  const cashierPrimaryNav = [
-    ...(permissions.includes(PermissionEnum.ATTENDANCE_USE)
-      ? [
-          {
-            id: 'attendance',
-            label: 'Attendance',
-            icon: 'Watch',
-            route: '/dashboard/attendance',
-          },
-        ]
-      : []),
-    ...(canView('pos') ? [posNav] : []),
-    ...(permissions.includes(PermissionEnum.SALES_VIEW_OWN)
-      ? [myReceiptsNav]
-      : []),
-    ...(config.enabledModules.includes('customers') &&
-    permissions.includes(PermissionEnum.CUSTOMER_VIEW)
-      ? [
-          {
-            id: 'customers',
-            label: workspaceLabel('customers', 'Customers'),
-            icon: 'Users',
-            route: '/dashboard/customers',
-          },
-        ]
-      : []),
-  ];
+  // Cashiers have one workspace: the POS terminal. Receipts, attendance,
+  // customers and management screens stay in manager/supervisor workspaces.
+  const cashierPrimaryNav = canView('pos') ? [posNav] : [];
   // A supervisor's workspace is deliberately operational: approve and review
   // register activity, sell when needed, and check stock.
   // Configuration, staff administration and financial settings stay hidden.

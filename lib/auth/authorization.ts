@@ -6,13 +6,14 @@ import { branchMembership, employee, organization, organizationMembership } from
 import { PermissionEnum, ROLE_PERMISSIONS, RoleEnum } from '@/lib/types/permissions'
 import { defaultWorkspaceRouteForRole } from './role-routing'
 import { getActiveOrganizationId } from './active-organization'
+import { canAccessBranch } from './branch-access'
 
 export class AuthorizationError extends Error {
   constructor(message = 'Forbidden') { super(message); this.name = 'AuthorizationError' }
 }
 
 const legacyRoleMap: Record<string, RoleEnum> = {
-  owner: RoleEnum.OWNER, admin: RoleEnum.ADMIN, manager: RoleEnum.MANAGER, supervisor: RoleEnum.SUPERVISOR,
+  owner: RoleEnum.OWNER, admin: RoleEnum.ADMIN, store_manager: RoleEnum.STORE_MANAGER, manager: RoleEnum.MANAGER, supervisor: RoleEnum.SUPERVISOR,
   cashier: RoleEnum.CASHIER, inventory: RoleEnum.INVENTORY, storekeeper: RoleEnum.INVENTORY,
   accountant: RoleEnum.ACCOUNTANT, finance: RoleEnum.ACCOUNTANT,
   staff: RoleEnum.STAFF, member: RoleEnum.STAFF, chef: RoleEnum.CHEF, pharmacist: RoleEnum.PHARMACIST,
@@ -89,7 +90,7 @@ export async function requireAnyPermission(permissions: readonly (PermissionEnum
 }
 export async function requireBranchAccess(branchId: string) {
   const context = await getAuthorizationContext()
-  if (!context.isOrganizationWide && !context.branchIds.includes(branchId)) throw new AuthorizationError('No access to this branch')
+  if (!canAccessBranch(context, branchId)) throw new AuthorizationError('No access to this branch')
   return context
 }
 

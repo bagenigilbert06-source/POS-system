@@ -8,7 +8,6 @@ import {
   category,
   cafeMenuItem,
   inventoryLot,
-  organizationMembership,
   pharmacyProduct,
   product,
   productPackage,
@@ -74,19 +73,8 @@ async function getOrgId(userId: string) {
   return organization.id;
 }
 
-async function requireProductManager(userId: string, orgId: string) {
-  const [membership] = await db
-    .select({ role: organizationMembership.role })
-    .from(organizationMembership)
-    .where(
-      and(
-        eq(organizationMembership.organizationId, orgId),
-        eq(organizationMembership.userId, userId)
-      )
-    )
-    .limit(1);
-  if (!membership || !['owner', 'admin', 'manager'].includes(membership.role))
-    throw new Error('You do not have permission to manage products');
+async function requireProductManager(permission: PermissionEnum) {
+  await requirePermission(permission);
 }
 
 export async function getProducts(search?: string, includeInactive = false) {
@@ -271,7 +259,7 @@ export async function updateProductPricesByPercent(
 ) {
   const userId = await getUserId();
   const orgId = await getOrgId(userId);
-  await requireProductManager(userId, orgId);
+  await requireProductManager(PermissionEnum.CATALOG_EDIT);
   if (!Array.isArray(productIds) || productIds.length === 0)
     throw new Error('Select at least one product');
   if (!Number.isFinite(percent) || percent < -100 || percent > 1_000)
@@ -702,6 +690,7 @@ export async function createCategory(name: string) {
     throw new Error('Category name must be between 2 and 80 characters');
   const userId = await getUserId();
   const orgId = await getOrgId(userId);
+  await requireProductManager(PermissionEnum.CATALOG_CREATE);
   const [existing] = await db
     .select({ id: category.id })
     .from(category)
@@ -780,7 +769,7 @@ export async function createProduct(data: {
       workspaceConfig.businessCategory
     )
   );
-  await requireProductManager(userId, orgId);
+  await requireProductManager(PermissionEnum.CATALOG_CREATE);
   const id = generateId();
   if (!data.name.trim()) throw new Error('Product name is required');
   if (!data.categoryId) throw new Error('Choose a category for this product');
@@ -1018,7 +1007,7 @@ export async function updateProduct(
       workspaceConfig.businessCategory
     )
   );
-  await requireProductManager(userId, orgId);
+  await requireProductManager(PermissionEnum.CATALOG_EDIT);
   if ('stock' in data)
     throw new Error(
       'Stock cannot be changed from the product form. Use Adjust stock instead.'
@@ -1206,18 +1195,25 @@ export async function updateProduct(
 }
 
 export async function deleteProduct(id: string) {
-  const userId = await getUserId();
-  const orgId = await getOrgId(userId);
-  await db
-    .delete(product)
+  const authorization = await requirePermission(PermissionEnum.CATALOG_ARCHIVE);
+  const userId = authorization.userId;
+  const orgId = authorization.organizationId;
+  // Products are part of historical sales, inventory and fiscal records. Keep
+  // those references intact: "delete" is deliberately a safe archive.
+  await db.update(product).set({ isActive: false, updatedAt: new Date() })
     .where(and(eq(product.id, id), eq(product.orgId, orgId)));
+  await db.insert(auditEvent).values({
+    id: generateId(), organizationId: orgId, userId,
+    action: 'product.archived', metadata: { productId: id, reason: 'delete request converted to archive' },
+  });
   await invalidateProductCache(orgId);
   revalidatePath('/dashboard/products');
 }
 
 export async function archiveProduct(id: string) {
-  const userId = await getUserId();
-  const orgId = await getOrgId(userId);
+  const authorization = await requirePermission(PermissionEnum.CATALOG_ARCHIVE);
+  const userId = authorization.userId;
+  const orgId = authorization.organizationId;
   await db
     .update(product)
     .set({ isActive: false, updatedAt: new Date() })
@@ -1256,7 +1252,7 @@ export async function saveProductPackage(input: {
 }) {
   const userId = await getUserId();
   const orgId = await getOrgId(userId);
-  await requireProductManager(userId, orgId);
+  await requireProductManager(PermissionEnum.CATALOG_CREATE);
   const name = input.name.trim().slice(0, 80);
   const barcode = normalizeBarcode(input.barcode ?? '') || null;
   if (!name) throw new Error('Package name is required');
@@ -1365,7 +1361,7 @@ export async function saveProductPackage(input: {
 export async function archiveProductPackage(id: string) {
   const userId = await getUserId();
   const orgId = await getOrgId(userId);
-  await requireProductManager(userId, orgId);
+  await requireProductManager(PermissionEnum.CATALOG_ARCHIVE);
   const [record] = await db
     .update(productPackage)
     .set({ isActive: false, updatedAt: new Date() })

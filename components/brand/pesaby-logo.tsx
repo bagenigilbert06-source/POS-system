@@ -1,9 +1,9 @@
 export function PesabyLogoMark({ className = 'h-10 w-10' }: { className?: string }) {
   return (
     <svg viewBox="0 0 44 44" className={className} aria-hidden="true">
-      <rect width="44" height="44" rx="12" fill="#ffda32" />
-      <path d="M11 34V10h12.3c7.1 0 11.7 3.9 11.7 9.8s-4.6 9.8-11.7 9.8h-5.9V34H11Zm6.4-10.2h5.4c3.8 0 5.8-1.3 5.8-4s-2-4-5.8-4h-5.4v8Z" fill="#050a1f" />
-      <path d="M31.8 8.2 35.8 12l-4 3.8-4-3.8 4-3.8Z" fill="#e42527" />
+      <rect width="44" height="44" rx="12" fill="#ffbf00" />
+      <path d="M10 34V10h14c7 0 11 3.8 11 9.4 0 5.8-4.2 9.5-11 9.5h-6V34H10Zm8-11.7h5.4c3.6 0 5.3-1.1 5.3-3.1 0-2.1-1.7-3.2-5.3-3.2H18v6.3Z" fill="#050a1f" />
+      <path d="m11 21 7 4.3-7 4.2v-3.1l2-1.1-2-1.2V21Z" fill="#ff633f" />
     </svg>
   )
 }

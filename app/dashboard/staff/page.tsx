@@ -24,7 +24,7 @@ export default async function StaffPage() {
   const visibleUserIds = authorization.isOrganizationWide ? null : new Set((await db.select({ userId: branchMembership.userId }).from(branchMembership).where(inArray(branchMembership.branchId, authorization.branchIds))).map(({ userId }) => userId))
   const employees = allEmployees.filter(({ employee: record }) =>
     (authorization.isOrganizationWide || Boolean(record.userId && visibleUserIds?.has(record.userId))) &&
-    (authorization.role !== RoleEnum.MANAGER || canManageExistingRole(RoleEnum.MANAGER, record.role as RoleEnum))
+    (![RoleEnum.MANAGER, RoleEnum.STORE_MANAGER].includes(authorization.role) || canManageExistingRole(authorization.role, record.role as RoleEnum))
   )
   const branches = await db.select({ id: branch.id, name: branch.name }).from(branch).where(and(
     eq(branch.organizationId, authorization.organizationId),

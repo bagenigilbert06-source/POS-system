@@ -16,7 +16,7 @@ test('thermal columns and long item names remain aligned', () => {
     assert.equal(thermalColumns(width), width === 58 ? 32 : 48)
     const lines = receiptItemLines({ ...model.items[0], details: ['SKU: LONG-CODE'] }, width)
     assert.ok(lines.every((line) => line.length === thermalColumns(width)))
-    assert.match(lines.at(-1)!, /1 x KSh 10,500\.00\s+KSh 10,500\.00$/)
+    assert.match(lines[0], /Moet .*\s+1\s+KSh 10,500\.00$/)
   }
 })
 
@@ -32,6 +32,7 @@ test('ESC/POS output is native bytes with QR and cut support', () => {
   assert.deepEqual(Array.from(output.slice(2, 5)), [0x1b, 0x74, 0x00])
   assert.ok(output.includes(0x1b) && output.includes(0x4d))
   assert.equal(output.some((byte, index) => byte === 0x01 && output[index - 1] === 0x4d && output[index - 2] === 0x1b), false, 'default receipt must not enable Font B')
+  assert.deepEqual(Array.from(output.slice(0, 31)), [0x1b, 0x40, 0x1b, 0x74, 0x00, 0x1b, 0x4d, 0x00, 0x1b, 0x21, 0x00, 0x1b, 0x45, 0x00, 0x1b, 0x47, 0x00, 0x1b, 0x2d, 0x00, 0x1d, 0x21, 0x00, 0x1d, 0x4c, 0x00, 0x00, 0x1d, 0x57, 0x40, 0x02], 'receipt must reset normal-weight full-width printing before content')
 })
 
 test('80 mm output keeps a large mixed receipt readable', () => {
