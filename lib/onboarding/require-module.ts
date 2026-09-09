@@ -27,8 +27,7 @@ export const requireWorkspaceModule = cache(async (moduleId: string) => {
     authorization.organizationId,
     authorization.userId,
   )
-  const operationalUser = authorization.role !== 'owner' && authorization.role !== 'admin'
-  if (!organization || (!organization.onboardingCompleted && !operationalUser)) redirect('/onboarding')
+  if (!organization?.onboardingCompleted) redirect('/onboarding')
   const config = await WorkspaceService.getAuthorizedWorkspaceConfig(organization)
   if (!config.enabledModules.includes(moduleId)) redirect('/dashboard')
   return { organization, config, authorization }

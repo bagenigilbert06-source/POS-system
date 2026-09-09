@@ -56,11 +56,7 @@ export default async function DashboardRouteLayout({
     if (ownedOrganization) redirect('/workspace-recovery');
     redirect('/onboarding');
   }
-  // Onboarding belongs to the workspace owner. Invited operational users
-  // already have a persisted organization, role and branch assignment and
-  // must never be forced through owner setup screens.
-  const operationalUser = authorization.role !== 'owner' && authorization.role !== 'admin';
-  if (!organization.onboardingCompleted && !operationalUser) redirect('/onboarding');
+  if (!organization.onboardingCompleted) redirect('/onboarding');
 
   // Build a full WorkspaceConfig from the persisted businessType + businessCategory.
   // This is done once on the server so the client never needs to fetch it separately.
