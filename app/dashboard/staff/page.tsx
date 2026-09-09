@@ -30,6 +30,13 @@ export default async function StaffPage() {
     eq(branch.organizationId, authorization.organizationId),
     authorization.isOrganizationWide ? undefined : inArray(branch.id, authorization.branchIds),
   )).orderBy(branch.name)
+  const employeeUserIds = employees.map(({ employee: record }) => record.userId).filter((value): value is string => Boolean(value))
+  const assignments = employeeUserIds.length
+    ? await db.select({ userId: branchMembership.userId, branchId: branchMembership.branchId }).from(branchMembership).where(and(
+        inArray(branchMembership.userId, employeeUserIds),
+        inArray(branchMembership.branchId, branches.map(({ id }) => id)),
+      ))
+    : []
   const [workspace] = await db.select({ businessType: organization.businessType, businessCategory: organization.businessCategory })
     .from(organization).where(eq(organization.id, authorization.organizationId)).limit(1)
   const pharmacyWorkspace = isPharmacyBusiness(workspace?.businessType, workspace?.businessCategory)
@@ -49,7 +56,7 @@ export default async function StaffPage() {
       <StaffManagementTable
         branches={branches}
         description={description}
-        employees={employees.map(row => ({ ...row.employee, image: row.image, posPinSet: row.posPinSet }))}
+        employees={employees.map(row => ({ ...row.employee, image: row.image, posPinSet: row.posPinSet, branchIds: assignments.filter((item) => item.userId === row.employee.userId).map((item) => item.branchId) }))}
         actorRole={authorization.role}
         assignableRoles={assignableRoles}
         summary={{

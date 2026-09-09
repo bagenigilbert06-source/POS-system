@@ -1,6 +1,7 @@
 'use client';
 
 import Image from 'next/image';
+import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
@@ -13,7 +14,9 @@ import {
   Grid2X2,
   KeyRound,
   List,
+  LogOut,
   Mail,
+  MapPin,
   MoreVertical,
   Power,
   Search,
@@ -57,8 +60,10 @@ import {
 import {
   deleteEmployee,
   resendStaffInvitation,
+  updateStaffBranches,
   updateEmployee,
 } from '@/app/actions/staff-actions';
+import { revokeStaffSessions } from '@/app/actions/admin-actions';
 import { resetStaffPosPin } from '@/app/actions/pos-pin';
 import { EditStaffDialog } from './edit-staff-dialog';
 import { AddStaffDialog } from './add-staff-dialog';
@@ -77,6 +82,7 @@ import {
 type EmployeeCardRecord = Employee & {
   image?: string | null;
   posPinSet?: boolean;
+  branchIds?: string[];
 };
 
 interface StaffManagementTableProps {
@@ -162,6 +168,9 @@ export function StaffManagementTable({
   const [newPin, setNewPin] = useState('');
   const [confirmPin, setConfirmPin] = useState('');
   const [isResettingPin, setIsResettingPin] = useState(false);
+  const [branchEmployee, setBranchEmployee] = useState<EmployeeCardRecord | null>(null);
+  const [branchIds, setBranchIds] = useState<Set<string>>(new Set());
+  const [isSavingBranches, setIsSavingBranches] = useState(false);
   const pageSize = 12;
 
   const employeeCodes = useMemo(
@@ -276,6 +285,9 @@ export function StaffManagementTable({
       setResendingEmployeeId(null);
     }
   };
+  const openBranchAccess = (record: EmployeeCardRecord) => { setBranchIds(new Set(record.branchIds ?? [])); setBranchEmployee(record); };
+  const saveBranchAccess = async () => { if (!branchEmployee) return; if (!branchIds.size) return notify.error('Assign at least one branch'); setIsSavingBranches(true); try { await updateStaffBranches(branchEmployee.id, Array.from(branchIds)); notify.success('Branch access updated'); setBranchEmployee(null); refresh(); } catch (error) { notify.error(error instanceof Error ? error.message : 'Unable to update branch access'); } finally { setIsSavingBranches(false); } };
+  const handleRevokeSessions = (record: EmployeeCardRecord) => { if (!record.userId) return notify.error('This employee has no login account'); setConfirmation({ title: `Sign ${record.name} out everywhere?`, description: 'All browser and POS sessions will end immediately.', action: async () => { await revokeStaffSessions(record.userId!); notify.success(`${record.name} signed out of all sessions`); } }); };
 
   const handlePinReset = (employee: EmployeeCardRecord) => {
     setNewPin('');
@@ -347,6 +359,7 @@ export function StaffManagementTable({
           <button type="button" onClick={downloadCsv} aria-label="Export Excel" title="Excel" className="flex h-10 w-10 items-center justify-center rounded-lg border border-[var(--dashboard-border)] bg-[var(--dashboard-surface)] text-[var(--dashboard-success)] transition hover:bg-[var(--dashboard-surface-subtle)]"><FileSpreadsheet className="h-4 w-4" /></button>
           <button type="button" onClick={refresh} aria-label="Refresh employees" className="flex h-10 w-10 items-center justify-center rounded-lg border border-[var(--dashboard-border)] bg-[var(--dashboard-surface)] text-[var(--dashboard-muted)] transition hover:bg-[var(--dashboard-surface-subtle)]"><RefreshCw className="h-4 w-4" /></button>
           <button type="button" onClick={() => setShowFilters((current) => !current)} aria-label={showFilters ? 'Collapse filters' : 'Show filters'} className="flex h-10 w-10 items-center justify-center rounded-lg border border-[var(--dashboard-border)] bg-[var(--dashboard-surface)] text-[var(--dashboard-muted)] transition hover:bg-[var(--dashboard-surface-subtle)]"><ChevronUp className={`h-4 w-4 transition-transform ${showFilters ? '' : 'rotate-180'}`} /></button>
+          {[RoleEnum.OWNER, RoleEnum.ADMIN].includes(actorRole) && <Link href="/dashboard/admin/audit" className="inline-flex h-10 items-center rounded-lg border border-[var(--dashboard-border)] bg-[var(--dashboard-surface)] px-3 text-sm font-semibold">Audit log</Link>}
           <AddStaffDialog branches={branches} assignableRoles={assignableRoles} />
         </div>
       </header>
@@ -511,6 +524,9 @@ export function StaffManagementTable({
                                     : 'Activate'}
                                 </DropdownMenuItem>
                               )}
+                              {employee.status !== 'invited' && employee.status !== 'terminated' && employee.email && <DropdownMenuItem disabled={resendingEmployeeId === employee.id} onSelect={() => void handleResend(employee)} className="gap-2"><Mail className="h-4 w-4" />{resendingEmployeeId === employee.id ? 'Sending…' : 'Send password reset'}</DropdownMenuItem>}
+                              {employee.status !== 'terminated' && <DropdownMenuItem onSelect={() => openBranchAccess(employee)} className="gap-2"><MapPin className="h-4 w-4" />Manage branch access</DropdownMenuItem>}
+                              {[RoleEnum.OWNER, RoleEnum.ADMIN].includes(actorRole) && employee.userId && <DropdownMenuItem onSelect={() => handleRevokeSessions(employee)} className="gap-2"><LogOut className="h-4 w-4" />Sign out all sessions</DropdownMenuItem>}
                               {employee.posPinSet && (
                                 <DropdownMenuItem
                                   onSelect={() => handlePinReset(employee)}
@@ -647,6 +663,13 @@ export function StaffManagementTable({
             <input disabled={isResettingPin} value={confirmPin} onChange={(event) => setConfirmPin(event.target.value.replace(/\D/g, '').slice(0, 6))} inputMode="numeric" maxLength={6} type="password" autoComplete="new-password" placeholder="Confirm PIN" className="h-10 w-full rounded-md border px-3" />
           </div>
           <DialogFooter><Button variant="outline" disabled={isResettingPin} onClick={() => setPinResetEmployee(null)}>Cancel</Button><Button onClick={savePinReset} disabled={isResettingPin || newPin.length !== 6 || confirmPin.length !== 6}>{isResettingPin ? <LoadingSpinner className="h-4 w-4" label="Saving new POS PIN" /> : 'Save new PIN'}</Button></DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={Boolean(branchEmployee)} onOpenChange={(open) => !open && setBranchEmployee(null)}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Branch access</DialogTitle><DialogDescription>Choose every location {branchEmployee?.name} can access.</DialogDescription></DialogHeader>
+          <div className="max-h-72 space-y-2 overflow-y-auto">{branches.map((item) => <label key={item.id} className="flex cursor-pointer items-center gap-3 rounded-lg border border-[var(--dashboard-border)] p-3"><input type="checkbox" checked={branchIds.has(item.id)} onChange={() => setBranchIds((current) => { const next = new Set(current); next.has(item.id) ? next.delete(item.id) : next.add(item.id); return next; })} className="h-4 w-4" /><MapPin className="h-4 w-4" /><span className="text-sm font-medium">{item.name}</span></label>)}</div>
+          <DialogFooter><Button variant="outline" disabled={isSavingBranches} onClick={() => setBranchEmployee(null)}>Cancel</Button><Button disabled={isSavingBranches || !branchIds.size} onClick={() => void saveBranchAccess()}>{isSavingBranches ? <LoadingSpinner className="h-4 w-4" label="Saving branch access" /> : 'Save access'}</Button></DialogFooter>
         </DialogContent>
       </Dialog>
     </>

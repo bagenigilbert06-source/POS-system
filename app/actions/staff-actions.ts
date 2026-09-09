@@ -212,17 +212,45 @@ export async function resendStaffInvitation(employeeId: string) {
   const [record] = await db.select().from(employee).where(and(eq(employee.id, employeeId), eq(employee.orgId, authorization.organizationId))).limit(1)
   if (!record?.userId || !record.email) throw new Error('Staff account was not found')
   await assertCanManageEmployee(authorization, record)
-  if (record.status !== 'invited') throw new Error('Only pending invitations can be resent')
+  if (record.status === 'terminated') throw new Error('Restore this employee before sending an access email')
   try {
     const invitation = await issueStaffInvitation({ employeeId: record.id, employeeUserId: record.userId, email: record.email, organizationId: authorization.organizationId })
     if (invitation.reused) return { success: true, delivered: true, reused: true }
     const delivered = invitation.delivered
-    await db.insert(auditEvent).values({ id: nanoid(), organizationId: authorization.organizationId, userId: authorization.userId, action: delivered ? 'staff.invitation_resent' : 'staff.invitation_failed', metadata: { employeeId } })
+    const action = record.status === 'invited' ? 'staff.invitation_resent' : 'staff.password_reset_sent'
+    await db.insert(auditEvent).values({ id: nanoid(), organizationId: authorization.organizationId, userId: authorization.userId, action: delivered ? action : 'staff.invitation_failed', metadata: { employeeId, staffUserId: record.userId, accountStatus: record.status } })
     return { success: true, delivered }
   } catch {
     await db.insert(auditEvent).values({ id: nanoid(), organizationId: authorization.organizationId, userId: authorization.userId, action: 'staff.invitation_failed', metadata: { employeeId, reason: 'delivery_failed' } })
     return { success: false, delivered: false }
   }
+}
+
+export async function updateStaffBranches(employeeId: string, branchIds: string[]) {
+  const authorization = await requirePermission(PermissionEnum.STAFF_MANAGE)
+  const ids = z.array(z.string().min(1)).min(1, 'Assign at least one branch').max(100).parse(Array.from(new Set(branchIds)))
+  const [record] = await db.select().from(employee).where(and(eq(employee.id, employeeId), eq(employee.orgId, authorization.organizationId))).limit(1)
+  if (!record?.userId) throw new Error('Staff login account was not found')
+  await assertCanManageEmployee(authorization, record)
+  const allowed = await db.select({ id: branch.id }).from(branch).where(and(
+    eq(branch.organizationId, authorization.organizationId),
+    authorization.isOrganizationWide ? inArray(branch.id, ids) : and(inArray(branch.id, ids), inArray(branch.id, authorization.branchIds)),
+  ))
+  if (allowed.length !== ids.length) throw new Error('One or more branches are outside your access')
+  const organizationBranches = await db.select({ id: branch.id }).from(branch).where(eq(branch.organizationId, authorization.organizationId))
+  const organizationBranchIds = organizationBranches.map(({ id }) => id)
+  const managedBranchIds = authorization.isOrganizationWide ? organizationBranchIds : organizationBranchIds.filter((id) => authorization.branchIds.includes(id))
+  const previous = managedBranchIds.length
+    ? await db.select({ branchId: branchMembership.branchId }).from(branchMembership).where(and(eq(branchMembership.userId, record.userId), inArray(branchMembership.branchId, managedBranchIds)))
+    : []
+  await db.transaction(async (tx) => {
+    if (managedBranchIds.length) await tx.delete(branchMembership).where(and(eq(branchMembership.userId, record.userId!), inArray(branchMembership.branchId, managedBranchIds)))
+    await tx.insert(branchMembership).values(ids.map((branchId) => ({ id: nanoid(), branchId, userId: record.userId!, role: record.role })))
+    await tx.insert(auditEvent).values({ id: nanoid(), organizationId: authorization.organizationId, userId: authorization.userId, action: 'staff.branches_updated', metadata: { employeeId, staffUserId: record.userId, previousBranchIds: previous.map(({ branchId }) => branchId), branchIds: ids } })
+  })
+  revalidatePath('/dashboard/staff')
+  revalidatePath('/dashboard/admin/staff')
+  return { success: true }
 }
 
 export async function updateEmployee(employeeId: string, data: {
