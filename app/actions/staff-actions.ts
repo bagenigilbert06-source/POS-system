@@ -54,8 +54,10 @@ const updateStaffSchema = z.object({
   role: staffRoleSchema.optional(),
   department: z.enum(STAFF_DEPARTMENTS).optional(),
   salary: z.coerce.number().nonnegative().max(999_999_999).optional(),
-  status: z.enum(['active', 'inactive', 'invited', 'terminated']).optional(),
+  status: z.enum(['active', 'inactive', 'invited', 'invitation_pending', 'terminated']).optional(),
   joinDate: z.coerce.date().optional(),
+  branchId: z.string().trim().min(1).optional(),
+  shiftId: z.string().trim().optional(),
   profile: staffProfileSchema,
 })
 
@@ -262,6 +264,8 @@ export async function updateEmployee(employeeId: string, data: {
   salary?: number
   status?: string
   joinDate?: string | Date
+  branchId?: string
+  shiftId?: string
   profile?: {
     employeeCode?: string
     dateOfBirth?: string
@@ -291,6 +295,14 @@ export async function updateEmployee(employeeId: string, data: {
   await assertCanManageEmployee(authorization, current)
   if (input.role) assertAssignableRole(authorization.role, input.role)
   if (input.role) await assertRoleMatchesWorkspace(orgId, input.role)
+  if (input.branchId) {
+    const [selectedBranch] = await db.select({ id: branch.id }).from(branch).where(and(eq(branch.id, input.branchId), eq(branch.organizationId, orgId), authorization.isOrganizationWide ? undefined : inArray(branch.id, authorization.branchIds))).limit(1)
+    if (!selectedBranch) throw new Error('Choose a branch in this organization')
+  }
+  if (input.shiftId) {
+    const [selectedShift] = await db.select({ id: shift.id }).from(shift).where(and(eq(shift.id, input.shiftId), eq(shift.orgId, orgId))).limit(1)
+    if (!selectedShift) throw new Error('Choose a shift in this organization')
+  }
 
     const updated = await db.transaction(async (tx) => {
       const emailChanged = Boolean(input.email && input.email !== current.email)
@@ -331,6 +343,14 @@ export async function updateEmployee(employeeId: string, data: {
           eq(branchMembership.userId, current.userId),
           inArray(branchMembership.branchId, organizationBranches.map(({ id }) => id)),
         ))
+      }
+      if (input.branchId && current.userId) {
+        await tx.delete(branchMembership).where(and(eq(branchMembership.userId, current.userId), inArray(branchMembership.branchId, (await tx.select({ id: branch.id }).from(branch).where(eq(branch.organizationId, orgId))).map(({ id }) => id))))
+        await tx.insert(branchMembership).values({ id: nanoid(), branchId: input.branchId, userId: current.userId, role: input.role ?? current.role })
+      }
+      if (input.shiftId !== undefined) {
+        await tx.delete(shiftAssignment).where(and(eq(shiftAssignment.employeeId, current.id), eq(shiftAssignment.orgId, orgId)))
+        if (input.shiftId) await tx.insert(shiftAssignment).values({ id: nanoid(), employeeId: current.id, shiftId: input.shiftId, date: input.joinDate ?? current.joinDate, orgId })
       }
       await tx.insert(auditEvent).values({ id: nanoid(), organizationId: orgId, userId: authorization.userId, action: 'staff_access_updated', metadata: { employeeId, previousRole: current.role, role: input.role ?? current.role, status: input.status ?? current.status, emailChanged, avatarChanged: input.image !== undefined } })
       return rows

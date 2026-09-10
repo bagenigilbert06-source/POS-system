@@ -67,7 +67,6 @@ import {
 } from '@/app/actions/staff-actions';
 import { revokeStaffSessions } from '@/app/actions/admin-actions';
 import { resetStaffPosPin } from '@/app/actions/pos-pin';
-import { EditStaffDialog } from './edit-staff-dialog';
 import { AddStaffDialog } from './add-staff-dialog';
 import type { Employee } from '@/lib/db/schema';
 import {
@@ -154,9 +153,6 @@ export function StaffManagementTable({
   summary,
 }: StaffManagementTableProps) {
   const router = useRouter();
-  const [selectedEmployee, setSelectedEmployee] =
-    useState<EmployeeCardRecord | null>(null);
-  const [showEditDialog, setShowEditDialog] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [resendingEmployeeId, setResendingEmployeeId] = useState<string | null>(
     null
@@ -513,10 +509,7 @@ export function StaffManagementTable({
                                 {employee.name}
                               </DropdownMenuLabel>
                               <DropdownMenuItem
-                                onSelect={() => {
-                                  setSelectedEmployee(employee);
-                                  setShowEditDialog(true);
-                                }}
+                                onSelect={() => router.push(`/dashboard/staff/${employee.id}/edit`)}
                                 className="gap-2"
                               >
                                 <Edit2 className="h-4 w-4" />
@@ -647,14 +640,6 @@ export function StaffManagementTable({
         )}
       </section>
 
-      {selectedEmployee && (
-        <EditStaffDialog
-          employee={selectedEmployee}
-          open={showEditDialog}
-          onOpenChange={setShowEditDialog}
-          assignableRoles={assignableRoles}
-        />
-      )}
       <AlertDialog
         open={Boolean(confirmation)}
         onOpenChange={(open) => !open && setConfirmation(null)}
