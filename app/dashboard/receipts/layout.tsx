@@ -1,4 +1,4 @@
-import { requireAnyPermission } from '@/lib/auth/authorization';
+import { requireDashboardAnyPermission } from '@/lib/auth/dashboard-access';
 import { requireWorkspaceModule } from '@/lib/onboarding/require-module';
 import { PermissionEnum } from '@/lib/types/permissions';
 
@@ -7,7 +7,7 @@ export default async function ReceiptsLayout({
 }: {
   children: React.ReactNode;
 }) {
-  await requireAnyPermission([
+  await requireDashboardAnyPermission([
     PermissionEnum.SALES_VIEW_OWN,
     PermissionEnum.SALES_VIEW_ALL,
     PermissionEnum.SALE_VIEW,

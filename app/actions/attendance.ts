@@ -17,16 +17,17 @@ import {
   user,
 } from '@/lib/db/schema';
 import {
-  getAuthorizationContext,
   AuthorizationError,
+  getAuthorizationContext,
 } from '@/lib/auth/authorization';
+import { getDashboardAuthorization } from '@/lib/auth/dashboard-access';
 import { PermissionEnum } from '@/lib/types/permissions';
 import { localWorkDate } from '@/lib/attendance/calculations';
 
 type Result = { ok: true } | { ok: false; error: string };
 
 async function actor() {
-  const context = await getAuthorizationContext();
+  const context = await getDashboardAuthorization();
   if (!context.permissions.includes(PermissionEnum.ATTENDANCE_USE))
     throw new AuthorizationError('Attendance access is not permitted');
   const [account, org, activeEmployee] = await Promise.all([
@@ -113,7 +114,17 @@ export async function clockIn(): Promise<Result> {
         clockInAt: now,
         status: 'working',
       });
-      await db.insert(auditEvent).values({ id: nanoid(), organizationId: context.organizationId, userId: context.userId, action: 'attendance.clock_in', metadata: { attendanceId, branchId: selectedBranch.id, source: 'web' } });
+      await db.insert(auditEvent).values({
+        id: nanoid(),
+        organizationId: context.organizationId,
+        userId: context.userId,
+        action: 'attendance.clock_in',
+        metadata: {
+          attendanceId,
+          branchId: selectedBranch.id,
+          source: 'web',
+        },
+      });
     } catch {
       return {
         ok: false,
@@ -157,7 +168,13 @@ export async function startBreak(): Promise<Result> {
         .update(staffAttendance)
         .set({ status: 'on_break', updatedAt: new Date() })
         .where(eq(staffAttendance.id, record.id));
-      await tx.insert(auditEvent).values({ id: nanoid(), organizationId: context.organizationId, userId: context.userId, action: 'attendance.break_started', metadata: { attendanceId: record.id, source: 'web' } });
+      await tx.insert(auditEvent).values({
+        id: nanoid(),
+        organizationId: context.organizationId,
+        userId: context.userId,
+        action: 'attendance.break_started',
+        metadata: { attendanceId: record.id, source: 'web' },
+      });
     });
     refresh();
     return { ok: true };
@@ -190,7 +207,13 @@ export async function endBreak(): Promise<Result> {
       .update(staffAttendance)
       .set({ status: 'working', updatedAt: new Date() })
       .where(eq(staffAttendance.id, record.id));
-    await db.insert(auditEvent).values({ id: nanoid(), organizationId: context.organizationId, userId: context.userId, action: 'attendance.break_ended', metadata: { attendanceId: record.id, source: 'web' } });
+    await db.insert(auditEvent).values({
+      id: nanoid(),
+      organizationId: context.organizationId,
+      userId: context.userId,
+      action: 'attendance.break_ended',
+      metadata: { attendanceId: record.id, source: 'web' },
+    });
     refresh();
     return { ok: true };
   } catch (error) {
@@ -255,7 +278,17 @@ export async function clockOut(): Promise<Result> {
         ok: false,
         error: 'This attendance session has already been clocked out.',
       };
-    await db.insert(auditEvent).values({ id: nanoid(), organizationId: context.organizationId, userId: context.userId, action: 'attendance.clock_out', metadata: { attendanceId: record.id, branchId: record.branchId, source: 'web' } });
+    await db.insert(auditEvent).values({
+      id: nanoid(),
+      organizationId: context.organizationId,
+      userId: context.userId,
+      action: 'attendance.clock_out',
+      metadata: {
+        attendanceId: record.id,
+        branchId: record.branchId,
+        source: 'web',
+      },
+    });
     refresh();
     return { ok: true };
   } catch (error) {

@@ -1,14 +1,17 @@
 import type { Metadata } from 'next';
 import { DashboardHome } from '@/components/dashboard/overview/dashboard-home';
 import { redirect } from 'next/navigation';
-import {
-  getAuthorizationContext,
-  getDefaultWorkspaceRoute,
-} from '@/lib/auth/authorization';
+import { getDefaultWorkspaceRoute } from '@/lib/auth/authorization';
+import { getDashboardAuthorization } from '@/lib/auth/dashboard-access';
 import { EmailVerificationNotice } from '@/components/auth/email-verification-notice';
 import { CashierHome } from '@/components/dashboard/cashier-home';
 import { db } from '@/lib/db';
-import { branch, branchMembership, staffAttendance } from '@/lib/db/schema';
+import {
+  branch,
+  branchMembership,
+  staffAttendance,
+  user,
+} from '@/lib/db/schema';
 import { and, eq, isNull } from 'drizzle-orm';
 import { getCurrentSession } from '@/lib/auth';
 import { RoleEnum } from '@/lib/types/permissions';
@@ -29,17 +32,48 @@ export default async function DashboardPage({
 }: {
   searchParams?: Promise<{ verified?: string; error?: string }>;
 }) {
-  const authorization = await getAuthorizationContext();
+  const authorization = await getDashboardAuthorization();
   const destination = getDefaultWorkspaceRoute(authorization);
   if (destination !== '/dashboard') redirect(destination);
   const query = await searchParams;
   if (authorization.role === RoleEnum.CASHIER) {
     const session = await getCurrentSession();
-    const [[attendance], [assignedBranch]] = await Promise.all([
-      db.select({ clockInAt: staffAttendance.clockInAt }).from(staffAttendance).where(and(eq(staffAttendance.organizationId, authorization.organizationId), eq(staffAttendance.userId, authorization.userId), isNull(staffAttendance.clockOutAt))).limit(1),
-      db.select({ name: branch.name }).from(branchMembership).innerJoin(branch, eq(branch.id, branchMembership.branchId)).where(and(eq(branchMembership.userId, authorization.userId), eq(branch.organizationId, authorization.organizationId))).limit(1),
+    const [[attendance], [assignedBranch], [account]] = await Promise.all([
+      db
+        .select({ clockInAt: staffAttendance.clockInAt })
+        .from(staffAttendance)
+        .where(
+          and(
+            eq(staffAttendance.organizationId, authorization.organizationId),
+            eq(staffAttendance.userId, authorization.userId),
+            isNull(staffAttendance.clockOutAt)
+          )
+        )
+        .limit(1),
+      db
+        .select({ name: branch.name })
+        .from(branchMembership)
+        .innerJoin(branch, eq(branch.id, branchMembership.branchId))
+        .where(
+          and(
+            eq(branchMembership.userId, authorization.userId),
+            eq(branch.organizationId, authorization.organizationId)
+          )
+        )
+        .limit(1),
+      db
+        .select({ name: user.name })
+        .from(user)
+        .where(eq(user.id, authorization.userId))
+        .limit(1),
     ]);
-    return <CashierHome name={session?.user.name ?? 'Cashier'} branchName={assignedBranch?.name ?? 'Assigned branch'} activeClockIn={attendance?.clockInAt.toISOString() ?? null} />;
+    return (
+      <CashierHome
+        name={session?.user.name ?? account?.name ?? 'Cashier'}
+        branchName={assignedBranch?.name ?? 'Assigned branch'}
+        activeClockIn={attendance?.clockInAt.toISOString() ?? null}
+      />
+    );
   }
   return (
     <>

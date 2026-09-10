@@ -1,12 +1,10 @@
-import { redirect } from 'next/navigation'
-import { getAuthorizationContext } from '@/lib/auth/authorization'
-import { RoleEnum } from '@/lib/types/permissions'
+import { redirect } from 'next/navigation';
 
-export default async function HistoryLayout({
-  children,
+/** Route old POS history bookmarks to the standalone receipts workspace. */
+export default function LegacyHistoryLayout({
+  children: _children,
 }: {
-  children: React.ReactNode
+  children: React.ReactNode;
 }) {
-  if ((await getAuthorizationContext()).role === RoleEnum.CASHIER) redirect('/dashboard/pos')
-  return children
+  redirect('/dashboard/receipts');
 }
