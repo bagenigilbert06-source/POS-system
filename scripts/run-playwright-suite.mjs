@@ -14,6 +14,7 @@ const migrationEnv = {
 let result = spawnSync(pnpm, ['exec', 'drizzle-kit', 'migrate'], {
   env: migrationEnv,
   stdio: 'inherit',
+  shell: process.platform === 'win32',
 })
 if (result.error) throw result.error
 if (result.status !== 0) process.exit(result.status ?? 1)
@@ -29,7 +30,7 @@ else delete playwrightEnv.DIRECT_URL
 result = spawnSync(
   pnpm,
   ['exec', 'playwright', 'test', ...process.argv.slice(2)],
-  { env: playwrightEnv, stdio: 'inherit' }
+  { env: playwrightEnv, stdio: 'inherit', shell: process.platform === 'win32' }
 )
 if (result.error) throw result.error
 process.exit(result.status ?? 1)

@@ -53,8 +53,8 @@ test.describe('public experience', () => {
     await page.getByLabel('Work email').fill('user@example.com')
     await page.getByRole('textbox', { name: 'Password' }).fill('secure-pass')
     await page.getByRole('button', { name: 'Sign in to Pesaby' }).click()
-    await expect(page.getByRole('status', { name: 'Authenticating' })).toBeVisible()
-    await expect(page.getByRole('status', { name: 'Authenticating' })).toBeHidden()
+    await expect(page.getByRole('status', { name: 'Signing in and opening your workspace' })).toBeVisible()
+    await expect(page.getByRole('status', { name: 'Signing in and opening your workspace' })).toBeHidden()
 
     await page.unroute('**/api/auth/sign-in/email')
     await page.route('**/api/auth/sign-up/email', async (route) => {
@@ -68,8 +68,8 @@ test.describe('public experience', () => {
     await page.getByLabel('Create password').fill('secure-pass')
     await page.getByLabel('Confirm password').fill('secure-pass')
     await page.getByRole('button', { name: 'Create account' }).click()
-    await expect(page.getByRole('status', { name: 'Authenticating' })).toBeVisible()
-    await expect(page.getByRole('status', { name: 'Authenticating' })).toBeHidden()
+    await expect(page.getByRole('status', { name: 'Creating your account' })).toBeVisible()
+    await expect(page.getByRole('status', { name: 'Creating your account' })).toBeHidden()
   })
 
   test('redirects protected routes to sign-in for guests', async ({ request }) => {
@@ -88,7 +88,7 @@ test.describe('enabled public homepage', () => {
   const enabledURL = 'http://127.0.0.1:3103'
 
   test.beforeAll(async () => {
-    server = spawn('node', ['node_modules/next/dist/bin/next', 'start', '-H', '127.0.0.1', '-p', '3103'], {
+    server = spawn('node', ['node_modules/next/dist/bin/next', 'dev', '--webpack', '-H', '127.0.0.1', '-p', '3103'], {
       env: { ...process.env, PESABY_PUBLIC_WEBSITE_ENABLED: 'true' },
       stdio: 'ignore',
     })

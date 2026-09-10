@@ -55,7 +55,6 @@ import {
 } from 'drizzle-orm';
 import { headers } from 'next/headers';
 import { revalidatePath } from 'next/cache';
-import { after } from 'next/server';
 import { generateId, generateReceiptNo } from '@/lib/utils';
 import { OrganizationService } from '@/lib/services/organization-service';
 import { WorkspaceService } from '@/lib/services/workspace-service';
@@ -153,7 +152,10 @@ function schedulePostSaleWork(input: {
   orgId: string;
   submissionId?: string;
 }) {
-  after(async () => {
+  // The fiscal outbox has already been committed before this is called.
+  // Never let cache invalidation or an optional immediate fiscal attempt hold
+  // the server-action response that returns a completed cashier sale.
+  void (async () => {
     try {
       clearDashboardOverviewMemoryCache(input.orgId);
       await invalidateProductReadCache(input.orgId);
@@ -173,7 +175,7 @@ function schedulePostSaleWork(input: {
         error: error instanceof Error ? error.message : 'unknown',
       });
     }
-  });
+  })();
 }
 
 export type CartItem = {

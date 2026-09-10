@@ -25,5 +25,5 @@ pnpm test:e2e
 dashboard navigation check. The cashier journey seeds isolated Mary/Jane test
 records into the disposable database itself.
 
-The default server runs at `http://127.0.0.1:3102`. `E2E_BASE_URL` may point to
+The default server runs at `http://localhost:3102`. `E2E_BASE_URL` may point to
 an already-running test build, but it must use the same disposable database.

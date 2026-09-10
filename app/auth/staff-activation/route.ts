@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
-import { getAuthorizationContext, getDefaultWorkspaceRoute } from '@/lib/auth/authorization'
 import { finalizeStaffInvitationForVerifiedUser } from '@/lib/services/staff-invitation-service'
 
 export async function GET(request: Request) {
@@ -14,9 +13,7 @@ export async function GET(request: Request) {
   } catch {
     return NextResponse.redirect(new URL('/setup-account?error=activation', request.url))
   }
-  try {
-    return NextResponse.redirect(new URL(getDefaultWorkspaceRoute(await getAuthorizationContext()), request.url))
-  } catch {
-    return NextResponse.redirect(new URL('/restricted', request.url))
-  }
+  // The verification link completes security-sensitive activation. Give the
+  // employee an explicit success screen before the normal role-aware redirect.
+  return NextResponse.redirect(new URL('/setup-account?activation=success', request.url))
 }

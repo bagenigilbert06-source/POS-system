@@ -540,6 +540,13 @@
       "when": 1789084800001,
       "tag": "0072_staff_invitations",
       "breakpoints": true
+    },
+    {
+      "idx": 77,
+      "version": "7",
+      "when": 1789084800002,
+      "tag": "0073_receipt_presentation",
+      "breakpoints": true
     }
   ]
 }

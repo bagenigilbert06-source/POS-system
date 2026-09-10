@@ -1,7 +1,7 @@
 import { defineConfig, devices } from '@playwright/test'
 import './tests/e2e/test-env'
 
-const baseURL = process.env.E2E_BASE_URL ?? 'http://127.0.0.1:3102'
+const baseURL = process.env.E2E_BASE_URL ?? 'http://localhost:3102'
 
 export default defineConfig({
   testDir: './tests/e2e',
@@ -31,6 +31,7 @@ export default defineConfig({
           ...process.env,
           DATABASE_URL: process.env.TEST_DATABASE_URL!,
           DIRECT_URL: process.env.TEST_DATABASE_URL!,
+          BETTER_AUTH_URL: baseURL,
           PESABY_PUBLIC_WEBSITE_ENABLED: 'false',
         },
       },
