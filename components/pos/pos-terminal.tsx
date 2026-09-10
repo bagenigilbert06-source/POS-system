@@ -62,6 +62,7 @@ import {
 } from '@/app/actions/held-sales';
 import { formatCurrency, formatDateTime, normalizeBarcode } from '@/lib/utils';
 import { cn } from '@/lib/utils';
+import { getSellableCategoryData } from '@/lib/pos/category-filter';
 import {
   Plus,
   Minus,
@@ -1785,44 +1786,14 @@ export function POSTerminal({
 
   const SCANNER_INACTIVITY_MS = 450;
 
-  const availableCategories = useMemo(() => {
-    const categoryIds = new Set(
-      catalogProducts.map((product) => product.categoryId).filter(Boolean)
-    );
-    return categories.filter(
-      (category) => category.name.trim() && categoryIds.has(category.id)
-    );
-  }, [catalogProducts, categories]);
-
-  const categoryImages = useMemo(() => {
-    const images = new Map<string, string>();
-    for (const product of catalogProducts) {
-      if (
-        product.categoryId &&
-        product.imageUrl &&
-        !images.has(product.categoryId)
-      ) {
-        images.set(product.categoryId, product.imageUrl);
-      }
-    }
-    return images;
-  }, [catalogProducts]);
-
-  const categoryProductCounts = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const product of catalogProducts) {
-      if (product.categoryId)
-        counts.set(
-          product.categoryId,
-          (counts.get(product.categoryId) ?? 0) + 1
-        );
-    }
-    return counts;
-  }, [catalogProducts]);
+  const { sellableProducts, visibleCategories: availableCategories, counts: categoryProductCounts, images: categoryImages } = useMemo(
+    () => getSellableCategoryData(catalogProducts, categories),
+    [catalogProducts, categories]
+  );
 
   const allCategoryImage = useMemo(
-    () => catalogProducts.find((product) => product.imageUrl)?.imageUrl ?? null,
-    [catalogProducts]
+    () => sellableProducts.find((product) => product.imageUrl)?.imageUrl ?? null,
+    [sellableProducts]
   );
 
   // USB scanners type rapidly like a keyboard and normally finish with Enter.
@@ -4947,7 +4918,7 @@ export function POSTerminal({
                   All {productTerms.pluralLower}
                 </span>
                 <span className="mt-0.5 block text-[10px] font-medium text-[#667085] dark:text-[#9ca3af]">
-                  {catalogProducts.length} available
+                  {sellableProducts.length} available
                 </span>
               </span>
             </button>
