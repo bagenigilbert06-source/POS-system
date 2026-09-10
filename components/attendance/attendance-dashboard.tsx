@@ -85,25 +85,27 @@ export function AttendanceDashboard({
     minute: '2-digit',
     second: '2-digit',
   }).format(now);
+  const localHour = Number(new Intl.DateTimeFormat('en-GB', { timeZone: timezone, hour: '2-digit', hourCycle: 'h23' }).format(now));
   const greeting =
-    now.getHours() < 12
+    localHour < 12
       ? 'Good morning'
-      : now.getHours() < 18
+      : localHour < 18
         ? 'Good afternoon'
         : 'Good evening';
   const filtered = useMemo(
-    () =>
-      rows.filter(
+    () => {
+      const localMonth = new Intl.DateTimeFormat('en-CA', { timeZone: timezone, year: 'numeric', month: '2-digit' }).format(now);
+      return rows.filter(
         (row) =>
           (status === 'all' || row.status === status) &&
-          (range === 'month' ||
-            range === 'custom' ||
-            new Date(row.clockInAt).getTime() >= now.getTime() - 7 * 864e5) &&
+          (range === 'custom' ||
+            (range === 'month' ? row.date.startsWith(localMonth) : new Date(row.clockInAt).getTime() >= now.getTime() - 7 * 864e5)) &&
           (!fromDate || row.date >= fromDate) &&
           (!toDate || row.date <= toDate) &&
           `${row.name} ${row.date}`.toLowerCase().includes(query.toLowerCase())
-      ),
-    [rows, status, range, now, query, fromDate, toDate]
+      );
+    },
+    [rows, status, range, now, query, fromDate, toDate, timezone]
   );
   const pages = Math.max(1, Math.ceil(filtered.length / 10));
   const pageRows = filtered.slice((page - 1) * 10, page * 10);
@@ -170,14 +172,14 @@ export function AttendanceDashboard({
         <CalendarDays className="h-5 w-5 text-[#b57900]" />
         <div>
           <p className="!m-0 !text-[11px] font-bold uppercase tracking-[.12em] text-[#b57900]">
-            Staff & access
+            {managerView ? 'Staff & access' : 'My workspace'}
           </p>
           <h1 className="!m-0 !text-[20px] font-bold leading-7 text-[var(--dashboard-text)]">
             Attendance
           </h1>
         </div>
       </div>
-      <section className="grid gap-4 lg:grid-cols-[390px_1fr]">
+      <section className="grid gap-4 lg:grid-cols-[minmax(320px,430px)_1fr]">
         <div className="rounded-xl border bg-white p-5 shadow-sm dark:bg-[#161616]">
           <div className="flex items-center justify-between border-b pb-3">
             <p className="!m-0 !text-[16px] font-bold">
@@ -253,23 +255,18 @@ export function AttendanceDashboard({
           ) : null}
         </div>
         <div className="rounded-xl border bg-white p-5 shadow-sm dark:bg-[#161616]">
-          <p className="!m-0 !text-[16px] font-bold">
-            Days overview this month
-          </p>
-          <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+          <p className="!m-0 !text-[16px] font-bold">Recorded time this month</p>
+          <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
             <Metric
               label="Working days"
               value={String(present)}
               icon={CalendarDays}
             />
             <Metric
-              label="Present days"
-              value={String(present)}
+              label="Attendance entries"
+              value={String(rows.length)}
               icon={Clock3}
             />
-            <Metric label="Absent days" value="—" icon={CalendarDays} />
-            <Metric label="Half days" value="—" icon={Coffee} />
-            <Metric label="Late days" value="—" icon={Clock3} />
             <Metric
               label="Worked hours"
               value={formatDuration(
@@ -279,8 +276,7 @@ export function AttendanceDashboard({
             />
           </div>
           <p className="mt-4 text-xs text-[var(--dashboard-muted)]">
-            Late, absent and half-day figures appear when schedules and
-            work-hour policies are configured.
+            Work time excludes recorded breaks. Managers can review all assigned cashiers from this same attendance system.
           </p>
         </div>
       </section>
@@ -298,6 +294,7 @@ export function AttendanceDashboard({
                   <p className="!m-0 mt-1 text-xs text-[var(--dashboard-muted)]">
                     {person.status} ·{' '}
                     {new Date(person.clockInAt).toLocaleTimeString([], {
+                      timeZone: timezone,
                       hour: '2-digit',
                       minute: '2-digit',
                     })}
@@ -314,7 +311,7 @@ export function AttendanceDashboard({
       ) : null}
       <section className="overflow-hidden rounded-xl border bg-white shadow-sm dark:bg-[#161616]">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b px-5 py-4">
-          <input
+          {managerView ? <input
             value={query}
             onChange={(e) => {
               setQuery(e.target.value);
@@ -322,7 +319,7 @@ export function AttendanceDashboard({
             }}
             placeholder="Search attendance"
             className="h-9 w-52 rounded-lg border px-3 text-xs outline-none focus:border-[#b57900]"
-          />
+          /> : <p className="!m-0 text-sm font-semibold">Attendance history</p>}
           <div className="flex gap-2">
             <select
               value={range}
@@ -376,19 +373,17 @@ export function AttendanceDashboard({
           </div>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[1120px] text-left text-[13px]">
+          <table className="w-full min-w-[760px] text-left text-[13px]">
             <thead className="bg-[var(--dashboard-surface-subtle)] text-[11px] uppercase text-[var(--dashboard-muted)]">
               <tr>
                 {managerView ? <th className="px-5 py-3">Employee</th> : null}
                 <th className="px-5 py-3">Date</th>
+                <th>Branch</th>
                 <th>Status</th>
                 <th>Clock in</th>
                 <th>Clock out</th>
-                <th>Production</th>
                 <th>Break</th>
-                <th>Overtime</th>
-                <th>Progress</th>
-                <th>Total hours</th>
+                <th>Worked</th>
                 {canCorrect ? <th>Action</th> : null}
               </tr>
             </thead>
@@ -404,6 +399,7 @@ export function AttendanceDashboard({
                       { day: '2-digit', month: 'short', year: 'numeric' }
                     )}
                   </td>
+                  <td>{row.branch}</td>
                   <td>
                     <span className="rounded bg-emerald-100 px-2 py-1 text-[11px] font-semibold text-emerald-700">
                       {row.status === 'clocked_out'
@@ -413,6 +409,7 @@ export function AttendanceDashboard({
                   </td>
                   <td>
                     {new Date(row.clockInAt).toLocaleTimeString([], {
+                      timeZone: timezone,
                       hour: '2-digit',
                       minute: '2-digit',
                     })}
@@ -420,20 +417,13 @@ export function AttendanceDashboard({
                   <td>
                     {row.clockOutAt
                       ? new Date(row.clockOutAt).toLocaleTimeString([], {
+                          timeZone: timezone,
                           hour: '2-digit',
                           minute: '2-digit',
                         })
                       : '—'}
                   </td>
-                  <td>{formatDuration(row.workedMs)}</td>
                   <td>{formatDuration(row.breakMs)}</td>
-                  <td>—</td>
-                  <td>
-                    <span
-                      title="Progress requires a configured work-hour policy"
-                      className="block h-1.5 w-28 rounded-full bg-slate-200"
-                    />
-                  </td>
                   <td>{formatDuration(row.workedMs)}</td>
                   {canCorrect ? (
                     <td>
@@ -451,7 +441,7 @@ export function AttendanceDashboard({
                 <tr>
                   <td
                     className="p-8 text-center text-[var(--dashboard-muted)]"
-                    colSpan={(managerView ? 10 : 9) + (canCorrect ? 1 : 0)}
+                    colSpan={(managerView ? 8 : 7) + (canCorrect ? 1 : 0)}
                   >
                     No attendance records in this period.
                   </td>

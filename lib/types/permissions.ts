@@ -156,6 +156,9 @@ export const ROLE_PERMISSIONS: Record<RoleEnum, PermissionEnum[]> = {
   [RoleEnum.OWNER]: [
     // All permissions
     PermissionEnum.PRODUCT_VIEW,
+    PermissionEnum.CUSTOMER_VIEW,
+    PermissionEnum.CUSTOMER_CREATE,
+    PermissionEnum.SALES_VIEW_OWN,
     PermissionEnum.PRODUCT_CREATE,
     PermissionEnum.PRODUCT_EDIT,
     PermissionEnum.PRODUCT_DELETE,
@@ -491,7 +494,10 @@ export const ROLE_PERMISSIONS: Record<RoleEnum, PermissionEnum[]> = {
     PermissionEnum.ATTENDANCE_USE,
     PermissionEnum.ATTENDANCE_VIEW_OWN,
     PermissionEnum.PRODUCT_VIEW,
+    PermissionEnum.CUSTOMER_VIEW,
+    PermissionEnum.CUSTOMER_CREATE,
     PermissionEnum.SALE_CREATE,
+    PermissionEnum.SALES_VIEW_OWN,
     PermissionEnum.ORDER_VIEW,
     PermissionEnum.ORDER_CREATE,
     PermissionEnum.REWARDS_VIEW,

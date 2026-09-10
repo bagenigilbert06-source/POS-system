@@ -70,9 +70,12 @@ assert.equal(
   false,
   'cashiers must not manage the product catalogue'
 );
-assert.equal(has(RoleEnum.CASHIER, PermissionEnum.CUSTOMER_VIEW), false, 'cashiers must remain inside POS');
-assert.equal(has(RoleEnum.CASHIER, PermissionEnum.ATTENDANCE_USE), false, 'cashiers must not open attendance workspace');
-assert.equal(has(RoleEnum.CASHIER, PermissionEnum.SALES_VIEW_OWN), false, 'cashiers must not open receipt management pages');
+assert.equal(has(RoleEnum.CASHIER, PermissionEnum.CUSTOMER_VIEW), true, 'cashiers need customer lookup during checkout');
+assert.equal(has(RoleEnum.CASHIER, PermissionEnum.CUSTOMER_CREATE), true, 'cashiers need to add checkout customers');
+assert.equal(has(RoleEnum.CASHIER, PermissionEnum.ATTENDANCE_USE), true, 'cashiers must record their work time');
+assert.equal(has(RoleEnum.CASHIER, PermissionEnum.ATTENDANCE_VIEW_OWN), true, 'cashiers must review their own attendance');
+assert.equal(has(RoleEnum.CASHIER, PermissionEnum.ATTENDANCE_VIEW_ALL), false, 'cashiers must not see team attendance');
+assert.equal(has(RoleEnum.CASHIER, PermissionEnum.SALES_VIEW_OWN), true, 'cashiers need their own receipt history');
 assert.equal(
   has(RoleEnum.CASHIER, PermissionEnum.SALE_REFUND),
   false,
