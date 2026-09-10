@@ -17,7 +17,7 @@ export async function createStaffInvitation(input: { organizationId: string; emp
 
 export async function validateStaffInvitation(token: string) {
   const [record] = await db.select().from(staffInvitation).where(eq(staffInvitation.tokenHash, hash(token))).limit(1)
-  if (!record || record.status !== 'PENDING') return { valid: false as const, reason: record?.status?.toLowerCase() ?? 'not_found' }
+  if (!record || !['PENDING', 'AWAITING_EMAIL_VERIFICATION'].includes(record.status)) return { valid: false as const, reason: record?.status?.toLowerCase() ?? 'not_found' }
   if (record.expiresAt <= new Date()) {
     await db.update(staffInvitation).set({ status: 'EXPIRED', updatedAt: new Date() }).where(eq(staffInvitation.id, record.id))
     return { valid: false as const, reason: 'expired' }
@@ -48,7 +48,7 @@ export async function acceptStaffInvitation(token: string, userId: string) {
   return db.transaction(async (tx) => {
     const [identity] = await tx.select({ email: user.email, verified: user.emailVerified }).from(user).where(eq(user.id, userId)).limit(1)
     if (!identity?.verified || identity.email.toLowerCase() !== invite.email.toLowerCase()) throw new Error('Verify the invited email before activation')
-    const [locked] = await tx.update(staffInvitation).set({ status: 'ACCEPTED', acceptedAt: now, updatedAt: now }).where(and(eq(staffInvitation.id, invite.id), eq(staffInvitation.status, invite.status))).returning()
+    const [locked] = await tx.update(staffInvitation).set({ status: 'ACCEPTED', acceptedAt: now, updatedAt: now }).where(and(eq(staffInvitation.id, invite.id), eq(staffInvitation.status, invite.status), eq(staffInvitation.userId, userId))).returning()
     if (!locked) throw new Error('This invitation has already been used')
     if (locked.userId && locked.userId !== userId) throw new Error('This invitation belongs to another account')
     const [record] = await tx.update(employee).set({ userId, status: 'active', updatedAt: now }).where(and(eq(employee.id, locked.employeeId), eq(employee.orgId, locked.organizationId), eq(employee.status, 'invitation_pending'))).returning()
@@ -67,7 +67,11 @@ export async function acceptStaffInvitation(token: string, userId: string) {
 export async function awaitStaffInvitationVerification(token: string, userId: string) {
   const tokenHash = hash(token)
   const [row] = await db.update(staffInvitation).set({ userId, status: 'AWAITING_EMAIL_VERIFICATION', updatedAt: new Date() }).where(and(eq(staffInvitation.tokenHash, tokenHash), eq(staffInvitation.status, 'PENDING'))).returning()
-  if (!row) throw new Error('Invitation could not be claimed')
+  if (!row) {
+    const [existing] = await db.select().from(staffInvitation).where(eq(staffInvitation.tokenHash, tokenHash)).limit(1)
+    if (existing?.status === 'AWAITING_EMAIL_VERIFICATION' && existing.userId === userId) return existing
+    throw new Error('Invitation could not be claimed')
+  }
   await db.update(employee).set({ userId, updatedAt: new Date() }).where(and(eq(employee.id, row.employeeId), eq(employee.status, 'invitation_pending')))
   return row
 }
@@ -89,8 +93,12 @@ async function finalizeInvitation(invite: typeof staffInvitation.$inferSelect, u
   return db.transaction(async (tx) => {
     const [identity] = await tx.select({ email: user.email, verified: user.emailVerified }).from(user).where(eq(user.id, userId)).limit(1)
     if (!identity?.verified || identity.email.toLowerCase() !== invite.email.toLowerCase()) throw new Error('Verify the invited email before activation')
-    const [locked] = await tx.update(staffInvitation).set({ status: 'ACCEPTED', acceptedAt: now, updatedAt: now }).where(and(eq(staffInvitation.id, invite.id), eq(staffInvitation.status, invite.status))).returning()
-    if (!locked) throw new Error('This invitation has already been used')
+    const [locked] = await tx.update(staffInvitation).set({ status: 'ACCEPTED', acceptedAt: now, updatedAt: now }).where(and(eq(staffInvitation.id, invite.id), eq(staffInvitation.status, 'AWAITING_EMAIL_VERIFICATION'), eq(staffInvitation.userId, userId))).returning()
+    if (!locked) {
+      const [alreadyAccepted] = await tx.select().from(staffInvitation).where(and(eq(staffInvitation.id, invite.id), eq(staffInvitation.status, 'ACCEPTED'), eq(staffInvitation.userId, userId))).limit(1)
+      if (alreadyAccepted) return null
+      throw new Error('This invitation is no longer eligible for activation')
+    }
     const [record] = await tx.update(employee).set({ userId, status: 'active', updatedAt: now }).where(and(eq(employee.id, locked.employeeId), eq(employee.orgId, locked.organizationId), eq(employee.status, 'invitation_pending'))).returning()
     if (!record) throw new Error('Employee is no longer eligible for activation')
     const [assignedBranch] = await tx.select({ id: branch.id }).from(branch).where(and(eq(branch.id, locked.branchId), eq(branch.organizationId, locked.organizationId))).limit(1)

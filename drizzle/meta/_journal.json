@@ -533,6 +533,13 @@
       "when": 1789084800000,
       "tag": "0071_nullable_unknown_product_cost",
       "breakpoints": true
+    },
+    {
+      "idx": 76,
+      "version": "7",
+      "when": 1789084800001,
+      "tag": "0072_staff_invitations",
+      "breakpoints": true
     }
   ]
 }

@@ -21,8 +21,8 @@ export function emailVerificationEmail(input: {
   const verificationUrl = escapeHtml(input.verificationUrl);
 
   return {
-    subject: 'Verify your Pesaby email address',
-    text: `Hello ${input.name?.trim() || 'there'},\n\nVerify ${input.email} for your Pesaby account:\n${input.verificationUrl}\n\nThis secure link expires in one hour. If you did not request this email, you can safely ignore it.`,
+    subject: 'Verify your email to finish setting up Pesaby',
+    text: `Hello ${input.name?.trim() || 'there'},\n\nVerify your email address to finish activating your Pesaby account:\n${input.verificationUrl}\n\nThis secure link expires in one hour. If you didn't create this account, you can safely ignore this email.`,
     html: `<!doctype html>
 <html lang="en">
   <head>

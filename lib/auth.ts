@@ -4,10 +4,6 @@ import { cache } from 'react';
 import { headers } from 'next/headers';
 import { pool } from '@/lib/db';
 import { db } from '@/lib/db';
-import { auditEvent, employee, user } from '@/lib/db/schema';
-import { eq } from 'drizzle-orm';
-import { generateId } from '@/lib/utils';
-import { sendStaffInvitation } from '@/lib/email/staff-invitation';
 import { emailVerificationEmail } from '@/lib/email/templates/email-verification';
 import { sendEmail } from '@/lib/email/client';
 import { withDatabaseRetry } from '@/lib/db/retry';
@@ -30,51 +26,12 @@ export const auth = betterAuth({
     requireEmailVerification: true,
     resetPasswordTokenExpiresIn: 60 * 60,
     async sendResetPassword({ user: authUser, url }) {
-      const [staff] = await db
-        .select()
-        .from(employee)
-        .where(eq(employee.userId, authUser.id))
-        .limit(1);
-      if (staff?.status === 'invited') {
-        // Better Auth's reset token is single-use. The email is only used after
-        // that token succeeds to establish the member's first signed-in session.
-        const separator = url.includes('?') ? '&' : '?';
-        await sendStaffInvitation({
-          userId: authUser.id,
-          email: authUser.email,
-          setupUrl: `${url}${separator}email=${encodeURIComponent(authUser.email)}`,
-        });
-      } else
-        await sendEmail({
+      await sendEmail({
           to: { email: authUser.email, name: authUser.name },
           subject: 'Reset your Pesaby password',
           text: `Reset your password using this secure one-hour link: ${url}`,
           html: `<p>Hello ${authUser.name},</p><p><a href="${url}">Reset your Pesaby password</a></p><p>This secure link expires in one hour and can only be used once.</p>`,
         });
-    },
-    async onPasswordReset({ user: authUser }) {
-      const [staff] = await db
-        .select()
-        .from(employee)
-        .where(eq(employee.userId, authUser.id))
-        .limit(1);
-      await db
-        .update(user)
-        .set({ status: 'active', emailVerified: true, updatedAt: new Date() })
-        .where(eq(user.id, authUser.id));
-      if (staff?.status === 'invited') {
-        await db
-          .update(employee)
-          .set({ status: 'active', updatedAt: new Date() })
-          .where(eq(employee.id, staff.id));
-        await db.insert(auditEvent).values({
-          id: generateId(),
-          organizationId: staff.orgId,
-          userId: authUser.id,
-          action: 'staff.activated',
-          metadata: { employeeId: staff.id },
-        });
-      }
     },
   },
   emailVerification: {

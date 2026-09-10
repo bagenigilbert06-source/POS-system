@@ -4,7 +4,7 @@ import { getProductsPageData } from '@/app/actions/products';
 import { getInventoryControlData } from '@/app/actions/stock-adjustments';
 import { DashboardPageHeading } from '@/components/dashboard/page-heading';
 import { InventoryManager } from '@/components/inventory/inventory-manager';
-import { getAuthorizationContext } from '@/lib/auth/authorization';
+import { requirePermission } from '@/lib/auth/authorization';
 import { requireWorkspaceModule } from '@/lib/onboarding/require-module';
 import { PermissionEnum } from '@/lib/types/permissions';
 import { isPharmacyBusiness } from '@/lib/pharmacy/rules';
@@ -34,7 +34,7 @@ export default async function InventoryPage({
 }: {
   searchParams?: Promise<{ receive?: string }>;
 }) {
-  const authorization = await getAuthorizationContext();
+  const authorization = await requirePermission(PermissionEnum.INVENTORY_VIEW);
   const initialReceiveProductId = (await searchParams)?.receive;
   const [{ organization, config }, products, control] = await Promise.all([
     requireWorkspaceModule('inventory'),

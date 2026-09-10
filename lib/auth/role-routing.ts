@@ -1,23 +1,21 @@
-import { RoleEnum } from '../types/permissions'
+import { PermissionEnum, RoleEnum } from '../types/permissions'
 
-/** Stable post-login landing page for every operational role. Workspace
- * configuration then supplies pharmacy or retail labels and data. */
-export function defaultWorkspaceRouteForRole(role: RoleEnum) {
-  switch (role) {
-    case RoleEnum.CASHIER:
-    case RoleEnum.PHARMACIST:
-    case RoleEnum.PHARMACY_STAFF:
-      return '/dashboard/pos'
-    case RoleEnum.SUPERVISOR:
-      return '/dashboard/operations'
-    case RoleEnum.INVENTORY:
-      return '/dashboard/inventory'
-    case RoleEnum.ACCOUNTANT:
-      return '/dashboard/financials'
-    case RoleEnum.STAFF:
-    case RoleEnum.CHEF:
-      return '/restricted'
-    default:
-      return '/dashboard'
-  }
+export type LandingAuthorization = { role: RoleEnum; permissions: readonly PermissionEnum[] }
+
+/** The only role/permission-to-landing map. It is pure for focused testing, but
+ * callers must construct its input from trusted server authorization data. */
+export function resolveUserLandingDestination({ role, permissions }: LandingAuthorization): string {
+  if (role === RoleEnum.OWNER || role === RoleEnum.ADMIN || role === RoleEnum.STORE_MANAGER || role === RoleEnum.MANAGER) return '/dashboard'
+  if (role === RoleEnum.SUPERVISOR && permissions.includes(PermissionEnum.SHIFT_MANAGE)) return '/dashboard/operations'
+  if (role === RoleEnum.INVENTORY && permissions.includes(PermissionEnum.INVENTORY_VIEW)) return '/dashboard/inventory'
+  if (role === RoleEnum.ACCOUNTANT && permissions.includes(PermissionEnum.FINANCE_VIEW)) return '/dashboard/financials'
+  if (role === RoleEnum.CHEF && permissions.includes(PermissionEnum.KITCHEN_QUEUE_VIEW)) return '/dashboard/cafe/preparation'
+  if ([RoleEnum.CASHIER, RoleEnum.PHARMACIST, RoleEnum.PHARMACY_STAFF].includes(role) && permissions.includes(PermissionEnum.POS_VIEW)) return '/dashboard/pos'
+  // Safe fallback for legacy/custom role aliases follows actual authority.
+  if (permissions.includes(PermissionEnum.POS_VIEW)) return '/dashboard/pos'
+  if (permissions.includes(PermissionEnum.INVENTORY_VIEW)) return '/dashboard/inventory'
+  if (permissions.includes(PermissionEnum.SHIFT_MANAGE)) return '/dashboard/operations'
+  if (permissions.includes(PermissionEnum.FINANCE_VIEW)) return '/dashboard/financials'
+  if (permissions.includes(PermissionEnum.ADMIN_ACCESS)) return '/dashboard'
+  return '/restricted'
 }

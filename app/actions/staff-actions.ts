@@ -198,6 +198,19 @@ export async function resendStaffInvitation(employeeId: string) {
   }
 }
 
+/** This is intentionally separate from resending a staff invitation token. */
+export async function resendStaffEmailVerification(employeeId: string) {
+  const authorization = await requirePermission(PermissionEnum.STAFF_MANAGE)
+  const [record] = await db.select().from(employee).where(and(eq(employee.id, employeeId), eq(employee.orgId, authorization.organizationId))).limit(1)
+  if (!record?.userId || record.status !== 'invitation_pending') throw new Error('Email verification is not pending for this employee')
+  await assertCanManageEmployee(authorization, record)
+  const [invite] = await db.select().from(staffInvitation).where(and(eq(staffInvitation.employeeId, record.id), eq(staffInvitation.status, 'AWAITING_EMAIL_VERIFICATION'), eq(staffInvitation.userId, record.userId))).orderBy(desc(staffInvitation.updatedAt)).limit(1)
+  if (!invite) throw new Error('Email verification is not pending for this employee')
+  await auth.api.sendVerificationEmail({ body: { email: invite.email }, headers: await headers() })
+  await db.insert(auditEvent).values({ id: nanoid(), organizationId: authorization.organizationId, userId: authorization.userId, action: 'staff.verification_resent', metadata: { employeeId, invitationId: invite.id } })
+  return { success: true }
+}
+
 export async function revokeStaffInvitationAction(employeeId: string) {
   const authorization = await requirePermission(PermissionEnum.STAFF_MANAGE)
   const [record] = await db.select().from(employee).where(and(eq(employee.id, employeeId), eq(employee.orgId, authorization.organizationId))).limit(1)

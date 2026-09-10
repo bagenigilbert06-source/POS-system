@@ -2,9 +2,9 @@ import { cache } from 'react'
 import { and, eq } from 'drizzle-orm'
 import { getCurrentSession } from '@/lib/auth'
 import { db } from '@/lib/db'
-import { branchMembership, employee, organization, organizationMembership } from '@/lib/db/schema'
+import { branch, branchMembership, employee, organization, organizationMembership } from '@/lib/db/schema'
 import { PermissionEnum, ROLE_PERMISSIONS, RoleEnum } from '@/lib/types/permissions'
-import { defaultWorkspaceRouteForRole } from './role-routing'
+import { resolveUserLandingDestination } from './role-routing'
 import { getActiveOrganizationId } from './active-organization'
 import { canAccessBranch } from './branch-access'
 
@@ -46,6 +46,7 @@ export const getAuthorizationContext = cache(async (): Promise<AuthorizationCont
     if (activeEmployee) {
       const role = normalizeRole(activeEmployee.role)
       const branches = await db.select({ branchId: branchMembership.branchId }).from(branchMembership)
+        .innerJoin(branch, and(eq(branch.id, branchMembership.branchId), eq(branch.organizationId, activeEmployee.organizationId)))
         .where(eq(branchMembership.userId, session.user.id))
       return {
         userId: session.user.id,
@@ -62,7 +63,12 @@ export const getAuthorizationContext = cache(async (): Promise<AuthorizationCont
     return { userId: session.user.id, organizationId: owned.id, role: RoleEnum.OWNER, permissions: ROLE_PERMISSIONS[RoleEnum.OWNER], branchIds: [], isOrganizationWide: true, authMethod: 'password' }
   }
   const role = normalizeRole(membership.role)
+  if (role !== RoleEnum.OWNER) {
+    const [activeEmployee] = await db.select({ id: employee.id }).from(employee).where(and(eq(employee.userId, session.user.id), eq(employee.orgId, membership.organizationId), eq(employee.status, 'active'))).limit(1)
+    if (!activeEmployee) throw new AuthorizationError('Employee access is inactive')
+  }
   const branches = await db.select({ branchId: branchMembership.branchId }).from(branchMembership)
+    .innerJoin(branch, and(eq(branch.id, branchMembership.branchId), eq(branch.organizationId, membership.organizationId)))
     .where(eq(branchMembership.userId, session.user.id))
   const isOrganizationWide = role === RoleEnum.OWNER || role === RoleEnum.ADMIN
   const permissions = ROLE_PERMISSIONS[role]
@@ -96,5 +102,5 @@ export async function requireBranchAccess(branchId: string) {
 
 /** The single post-authentication home decision. Route guards still enforce permissions. */
 export function getDefaultWorkspaceRoute(context: AuthorizationContext) {
-  return defaultWorkspaceRouteForRole(context.role)
+  return resolveUserLandingDestination(context)
 }

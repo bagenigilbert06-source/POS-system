@@ -132,9 +132,9 @@ export function AuthForm({ mode, compact = false }: AuthFormProps) {
               : result.error.message
           );
         }
-        // Dashboard route guards perform the role-aware destination decision.
-        // Going there directly avoids doing the same authorization queries twice.
-        router.replace('/dashboard');
+        const landing = await fetch('/api/auth/landing', { cache: 'no-store' });
+        const resolved = landing.ok ? await landing.json() as { destination?: string } : null;
+        router.replace(resolved?.destination || '/restricted');
         return;
       }
     } catch (err: unknown) {

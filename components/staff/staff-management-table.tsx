@@ -59,7 +59,9 @@ import {
 } from '@/components/ui/dropdown-menu';
 import {
   deleteEmployee,
+  resendStaffEmailVerification,
   resendStaffInvitation,
+  revokeStaffInvitationAction,
   updateStaffBranches,
   updateEmployee,
 } from '@/app/actions/staff-actions';
@@ -83,6 +85,7 @@ type EmployeeCardRecord = Employee & {
   image?: string | null;
   posPinSet?: boolean;
   branchIds?: string[];
+  invitationState?: string;
 };
 
 interface StaffManagementTableProps {
@@ -105,6 +108,12 @@ const joinDate = (date: Date) =>
     month: 'short',
     year: 'numeric',
   }).format(new Date(date));
+
+const accessStatus = (employee: EmployeeCardRecord) => {
+  if (employee.status === 'active') return 'Active';
+  if (employee.status !== 'invitation_pending') return 'Inactive';
+  return ({ PENDING: 'Invitation pending', AWAITING_EMAIL_VERIFICATION: 'Awaiting email verification', EXPIRED: 'Invitation expired', REVOKED: 'Invitation revoked' } as Record<string, string>)[employee.invitationState ?? ''] ?? 'Invitation pending';
+};
 
 function StaffAvatar({ employee }: { employee: EmployeeCardRecord }) {
   const initials =
@@ -284,6 +293,17 @@ export function StaffManagementTable({
     } finally {
       setResendingEmployeeId(null);
     }
+  };
+  const handleRevokeInvitation = (employee: EmployeeCardRecord) => setConfirmation({
+    title: `Revoke ${employee.name}'s invitation?`,
+    description: 'Their current invitation link will stop working immediately. The employee record will remain.',
+    action: async () => { await revokeStaffInvitationAction(employee.id); notify.success('Invitation revoked'); refresh(); },
+  });
+  const handleResendVerification = async (employee: EmployeeCardRecord) => {
+    setResendingEmployeeId(employee.id);
+    try { await resendStaffEmailVerification(employee.id); notify.success('Verification email resent'); }
+    catch (error) { notify.error(error instanceof Error ? error.message : 'Unable to resend verification email'); }
+    finally { setResendingEmployeeId(null); }
   };
   const openBranchAccess = (record: EmployeeCardRecord) => { setBranchIds(new Set(record.branchIds ?? [])); setBranchEmployee(record); };
   const saveBranchAccess = async () => { if (!branchEmployee) return; if (!branchIds.size) return notify.error('Assign at least one branch'); setIsSavingBranches(true); try { await updateStaffBranches(branchEmployee.id, Array.from(branchIds)); notify.success('Branch access updated'); setBranchEmployee(null); refresh(); } catch (error) { notify.error(error instanceof Error ? error.message : 'Unable to update branch access'); } finally { setIsSavingBranches(false); } };
@@ -502,18 +522,20 @@ export function StaffManagementTable({
                                 <Edit2 className="h-4 w-4" />
                                 Edit employee
                               </DropdownMenuItem>
-                              {employee.status === 'invited' ? (
+                              {employee.status === 'invitation_pending' ? (<>
                                 <DropdownMenuItem
                                   disabled={resendingEmployeeId === employee.id}
-                                  onSelect={() => void handleResend(employee)}
+                                  onSelect={() => void (employee.invitationState === 'AWAITING_EMAIL_VERIFICATION' ? handleResendVerification(employee) : handleResend(employee))}
                                   className="gap-2"
                                 >
                                   <Mail className="h-4 w-4" />
                                   {resendingEmployeeId === employee.id
                                     ? 'Sending…'
-                                    : 'Resend invitation'}
+                                    : employee.invitationState === 'AWAITING_EMAIL_VERIFICATION' ? 'Resend verification email' : ['EXPIRED', 'REVOKED'].includes(employee.invitationState ?? '') ? 'Send new invitation' : 'Resend invitation'}
                                 </DropdownMenuItem>
-                              ) : (
+                                {['PENDING', 'AWAITING_EMAIL_VERIFICATION'].includes(employee.invitationState ?? '') && <DropdownMenuItem onSelect={() => handleRevokeInvitation(employee)} className="gap-2 text-red-600"><UserX className="h-4 w-4" />Revoke invitation</DropdownMenuItem>}
+                                {['EXPIRED', 'REVOKED'].includes(employee.invitationState ?? '') && <DropdownMenuItem onSelect={() => handleStatusToggle(employee)} className="gap-2"><Power className="h-4 w-4" />Deactivate employee</DropdownMenuItem>}
+                              </>) : (
                                 <DropdownMenuItem
                                   onSelect={() => handleStatusToggle(employee)}
                                   className="gap-2"
@@ -524,7 +546,6 @@ export function StaffManagementTable({
                                     : 'Activate'}
                                 </DropdownMenuItem>
                               )}
-                              {employee.status !== 'invited' && employee.status !== 'terminated' && employee.email && <DropdownMenuItem disabled={resendingEmployeeId === employee.id} onSelect={() => void handleResend(employee)} className="gap-2"><Mail className="h-4 w-4" />{resendingEmployeeId === employee.id ? 'Sending…' : 'Send password reset'}</DropdownMenuItem>}
                               {employee.status !== 'terminated' && <DropdownMenuItem onSelect={() => openBranchAccess(employee)} className="gap-2"><MapPin className="h-4 w-4" />Manage branch access</DropdownMenuItem>}
                               {[RoleEnum.OWNER, RoleEnum.ADMIN].includes(actorRole) && employee.userId && <DropdownMenuItem onSelect={() => handleRevokeSessions(employee)} className="gap-2"><LogOut className="h-4 w-4" />Sign out all sessions</DropdownMenuItem>}
                               {employee.posPinSet && (
@@ -559,6 +580,9 @@ export function StaffManagementTable({
                       </h3>
                       <span className="inline-flex min-h-6 items-center rounded-md border border-[var(--dashboard-accent-soft-border)] bg-[var(--dashboard-accent-soft)] px-2.5 py-1 text-xs font-semibold text-[var(--dashboard-accent-strong)] shadow-sm">
                         {roleLabel(employee.role)}
+                      </span>
+                      <span className="ml-2 inline-flex min-h-6 items-center rounded-md border border-[var(--dashboard-border)] bg-[var(--dashboard-surface-subtle)] px-2 py-1 text-xs font-medium text-[var(--dashboard-muted)]">
+                        {accessStatus(employee)}
                       </span>
                     </div>
 

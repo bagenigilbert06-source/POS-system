@@ -21,6 +21,7 @@
     "test:onboarding": "node tests/onboarding.test.mjs",
     "test:rbac": "ts-node --project tsconfig.test.json tests/rbac-rules.test.ts",
     "test:staff-routing": "ts-node --project tsconfig.test.json tests/staff-role-routing.test.ts",
+    "test:staff-invitations": "ts-node --project tsconfig.test.json tests/staff-invitation-rules.test.ts",
     "test:email": "ts-node --project tsconfig.test.json tests/email-templates.test.ts",
     "test:pos-pin": "ts-node --project tsconfig.test.json tests/pos-pin-policy.test.ts",
     "test:pos-sale": "ts-node --project tsconfig.test.json tests/pos-sale-rules.test.ts && ts-node --project tsconfig.test.json tests/cash-drawer-rules.test.ts",
