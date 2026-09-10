@@ -6,6 +6,7 @@ import { nanoid } from 'nanoid';
 import { revalidatePath } from 'next/cache';
 import { db } from '@/lib/db';
 import {
+  auditEvent,
   branch,
   employee,
   organization,
@@ -102,8 +103,9 @@ export async function clockIn(): Promise<Result> {
     const { context, branch: selectedBranch, timezone } = await actor();
     const now = new Date();
     try {
+      const attendanceId = nanoid();
       await db.insert(staffAttendance).values({
-        id: nanoid(),
+        id: attendanceId,
         organizationId: context.organizationId,
         branchId: selectedBranch.id,
         userId: context.userId,
@@ -111,6 +113,7 @@ export async function clockIn(): Promise<Result> {
         clockInAt: now,
         status: 'working',
       });
+      await db.insert(auditEvent).values({ id: nanoid(), organizationId: context.organizationId, userId: context.userId, action: 'attendance.clock_in', metadata: { attendanceId, branchId: selectedBranch.id, source: 'web' } });
     } catch {
       return {
         ok: false,
@@ -154,6 +157,7 @@ export async function startBreak(): Promise<Result> {
         .update(staffAttendance)
         .set({ status: 'on_break', updatedAt: new Date() })
         .where(eq(staffAttendance.id, record.id));
+      await tx.insert(auditEvent).values({ id: nanoid(), organizationId: context.organizationId, userId: context.userId, action: 'attendance.break_started', metadata: { attendanceId: record.id, source: 'web' } });
     });
     refresh();
     return { ok: true };
@@ -186,6 +190,7 @@ export async function endBreak(): Promise<Result> {
       .update(staffAttendance)
       .set({ status: 'working', updatedAt: new Date() })
       .where(eq(staffAttendance.id, record.id));
+    await db.insert(auditEvent).values({ id: nanoid(), organizationId: context.organizationId, userId: context.userId, action: 'attendance.break_ended', metadata: { attendanceId: record.id, source: 'web' } });
     refresh();
     return { ok: true };
   } catch (error) {
@@ -250,6 +255,7 @@ export async function clockOut(): Promise<Result> {
         ok: false,
         error: 'This attendance session has already been clocked out.',
       };
+    await db.insert(auditEvent).values({ id: nanoid(), organizationId: context.organizationId, userId: context.userId, action: 'attendance.clock_out', metadata: { attendanceId: record.id, branchId: record.branchId, source: 'web' } });
     refresh();
     return { ok: true };
   } catch (error) {

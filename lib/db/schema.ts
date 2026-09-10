@@ -3128,6 +3128,35 @@ export const staffAttendanceAudit = pgTable('staff_attendance_audit', {
   createdAt: timestamp('createdAt').notNull().defaultNow(),
 });
 
+export const attendancePolicy = pgTable('attendance_policy', {
+  id: text('id').primaryKey(),
+  organizationId: text('organizationId').notNull().references(() => organization.id, { onDelete: 'cascade' }).unique(),
+  graceMinutes: integer('graceMinutes').notNull().default(10),
+  overtimeAfterMinutes: integer('overtimeAfterMinutes').notNull().default(0),
+  missingClockOutAfterMinutes: integer('missingClockOutAfterMinutes').notNull().default(180),
+  expectedWorkdays: json('expectedWorkdays').notNull().default([1, 2, 3, 4, 5]),
+  updatedBy: text('updatedBy').references(() => user.id, { onDelete: 'set null' }),
+  createdAt: timestamp('createdAt').notNull().defaultNow(),
+  updatedAt: timestamp('updatedAt').notNull().defaultNow(),
+});
+
+export const staffLeave = pgTable('staff_leave', {
+  id: text('id').primaryKey(), organizationId: text('organizationId').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  employeeId: text('employeeId').notNull().references(() => employee.id, { onDelete: 'cascade' }),
+  type: text('type').notNull(), startDate: text('startDate').notNull(), endDate: text('endDate').notNull(), reason: text('reason').notNull(),
+  documentUrl: text('documentUrl'), status: text('status').notNull().default('pending'), requestedBy: text('requestedBy').notNull().references(() => user.id, { onDelete: 'restrict' }),
+  decidedBy: text('decidedBy').references(() => user.id, { onDelete: 'restrict' }), decidedAt: timestamp('decidedAt'), managerNotes: text('managerNotes'),
+  createdAt: timestamp('createdAt').notNull().defaultNow(), updatedAt: timestamp('updatedAt').notNull().defaultNow(),
+}, (table) => ({ organizationDateIndex: index('staff_leave_org_date_idx').on(table.organizationId, table.startDate, table.endDate), employeeIndex: index('staff_leave_employee_idx').on(table.employeeId) }));
+
+export const attendanceCorrectionRequest = pgTable('attendance_correction_request', {
+  id: text('id').primaryKey(), organizationId: text('organizationId').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  employeeId: text('employeeId').notNull().references(() => employee.id, { onDelete: 'cascade' }), attendanceId: text('attendanceId').references(() => staffAttendance.id, { onDelete: 'cascade' }),
+  type: text('type').notNull(), requestedValue: json('requestedValue').notNull(), reason: text('reason').notNull(), status: text('status').notNull().default('pending'),
+  requestedBy: text('requestedBy').notNull().references(() => user.id, { onDelete: 'restrict' }), decidedBy: text('decidedBy').references(() => user.id, { onDelete: 'restrict' }),
+  decidedAt: timestamp('decidedAt'), decisionNotes: text('decisionNotes'), createdAt: timestamp('createdAt').notNull().defaultNow(), updatedAt: timestamp('updatedAt').notNull().defaultNow(),
+}, (table) => ({ organizationStatusIndex: index('attendance_correction_org_status_idx').on(table.organizationId, table.status), employeeIndex: index('attendance_correction_employee_idx').on(table.employeeId) }));
+
 export const shift = pgTable(
   'shift',
   {

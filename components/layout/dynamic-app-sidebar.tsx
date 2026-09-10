@@ -327,7 +327,7 @@ export function DynamicAppSidebar({
     id: 'my-sales',
     label: 'My receipts',
     icon: 'ReceiptText',
-    route: '/dashboard/pos/history',
+    route: '/dashboard/receipts',
   };
   const adminNav = {
     id: 'admin',
@@ -459,10 +459,33 @@ export function DynamicAppSidebar({
   );
   // Cashiers get a concise operational home: attendance and their POS terminal.
   const cashierPrimaryNav = [
-    { id: 'dashboard', label: 'Home', icon: 'LayoutDashboard', route: '/dashboard' },
-    ...(permissions.includes(PermissionEnum.ATTENDANCE_USE) ? [{ id: 'attendance', label: 'Attendance', icon: 'Watch', route: '/dashboard/attendance' }] : []),
+    {
+      id: 'dashboard',
+      label: 'Home',
+      icon: 'LayoutDashboard',
+      route: '/dashboard',
+    },
+    ...(permissions.includes(PermissionEnum.ATTENDANCE_USE)
+      ? [
+          {
+            id: 'attendance',
+            label: 'Attendance',
+            icon: 'Watch',
+            route: '/dashboard/attendance',
+          },
+        ]
+      : []),
     ...(canView('pos') ? [posNav] : []),
-    ...(permissions.includes(PermissionEnum.CUSTOMER_VIEW) ? [{ id: 'customers', label: 'Customers', icon: 'Users', route: '/dashboard/customers' }] : []),
+    ...(permissions.includes(PermissionEnum.CUSTOMER_VIEW)
+      ? [
+          {
+            id: 'customers',
+            label: 'Customers',
+            icon: 'Users',
+            route: '/dashboard/customers',
+          },
+        ]
+      : []),
     ...(canView('my-sales') ? [myReceiptsNav] : []),
   ];
   // A supervisor's workspace is deliberately operational: approve and review
