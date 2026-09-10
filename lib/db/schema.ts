@@ -3031,7 +3031,7 @@ export const employee = pgTable(
       .default('0'),
     profile: json('profile').notNull().default({}),
     joinDate: timestamp('joinDate').notNull().defaultNow(),
-    status: text('status').notNull().default('active'), // active, inactive, terminated
+    status: text('status').notNull().default('active'), // active, invitation_pending, inactive, terminated
     orgId: text('orgId')
       .notNull()
       .references(() => organization.id, { onDelete: 'cascade' }),
@@ -3040,6 +3040,21 @@ export const employee = pgTable(
   },
   (table) => ({ organizationIndex: index('employee_org_idx').on(table.orgId) })
 );
+
+export const staffInvitation = pgTable('staff_invitation', {
+  id: text('id').primaryKey(),
+  organizationId: text('organizationId').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  employeeId: text('employeeId').notNull().references(() => employee.id, { onDelete: 'cascade' }),
+  branchId: text('branchId').notNull().references(() => branch.id, { onDelete: 'restrict' }),
+  userId: text('userId').references(() => user.id, { onDelete: 'cascade' }),
+  email: text('email').notNull(),
+  tokenHash: text('tokenHash').notNull().unique(),
+  status: text('status').notNull().default('PENDING'),
+  expiresAt: timestamp('expiresAt').notNull(),
+  createdBy: text('createdBy').notNull().references(() => user.id, { onDelete: 'restrict' }),
+  acceptedAt: timestamp('acceptedAt'), revokedAt: timestamp('revokedAt'), supersededAt: timestamp('supersededAt'),
+  createdAt: timestamp('createdAt').notNull().defaultNow(), updatedAt: timestamp('updatedAt').notNull().defaultNow(),
+}, (table) => ({ orgIdx: index('staff_invitation_org_idx').on(table.organizationId), employeeIdx: index('staff_invitation_employee_idx').on(table.employeeId), pendingIdx: index('staff_invitation_pending_idx').on(table.status, table.expiresAt) }));
 
 // Work attendance deliberately remains separate from POS cash sessions. A
 // person can be clocked in without operating a register, and vice versa.

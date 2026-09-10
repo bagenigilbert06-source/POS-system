@@ -1,8 +1,8 @@
 'use server'
 
 import { db } from '@/lib/db'
-import { auditEvent, branch, branchMembership, employee, organization, organizationMembership, shift, shiftAssignment, employeeCommission, user, verification } from '@/lib/db/schema'
-import { eq, and, desc, gte, inArray, like, ne } from 'drizzle-orm'
+import { auditEvent, branch, branchMembership, employee, organization, organizationMembership, shift, shiftAssignment, employeeCommission, user, staffInvitation } from '@/lib/db/schema'
+import { eq, and, desc, inArray, ne } from 'drizzle-orm'
 import { auth } from '@/lib/auth'
 import { headers } from 'next/headers'
 import { OrganizationService } from '@/lib/services/organization-service'
@@ -13,6 +13,8 @@ import { z } from 'zod'
 import { revalidatePath } from 'next/cache'
 import { STAFF_DEPARTMENTS } from '@/lib/types/staff'
 import { isPharmacyBusiness } from '@/lib/pharmacy/rules'
+import { createStaffInvitation, revokeCurrentStaffInvitation } from '@/lib/services/staff-invitation-service'
+import { sendStaffInvitation } from '@/lib/email/staff-invitation'
 
 // Admin is intentionally absent. The primary admin is created with the
 // organization and cannot be created or assigned by Staff & Access actions.
@@ -54,7 +56,6 @@ const updateStaffSchema = z.object({
   salary: z.coerce.number().nonnegative().max(999_999_999).optional(),
   status: z.enum(['active', 'inactive', 'invited', 'terminated']).optional(),
 })
-const INVITATION_COOLDOWN_MS = 60_000
 
 function validStaffImage(value: string | null | undefined) {
   if (!value) return true
@@ -92,31 +93,6 @@ async function assertCanManageEmployee(
 
 function invitationRedirectUrl() {
   return `${(process.env.BETTER_AUTH_URL || 'https://pesaby.vercel.app').replace(/\/$/, '')}/setup-account`
-}
-
-async function invitationWasRecentlySent(organizationId: string, employeeId: string) {
-  const since = new Date(Date.now() - INVITATION_COOLDOWN_MS)
-  const recentEvents = await db.select({ metadata: auditEvent.metadata }).from(auditEvent).where(and(
-    eq(auditEvent.organizationId, organizationId),
-    inArray(auditEvent.action, ['staff.invitation_sent', 'staff.invitation_resent']),
-    gte(auditEvent.createdAt, since),
-  )).orderBy(desc(auditEvent.createdAt)).limit(20)
-  return recentEvents.some(({ metadata }) => (metadata as { employeeId?: string } | null)?.employeeId === employeeId)
-}
-
-async function issueStaffInvitation(input: { employeeId: string; employeeUserId: string; email: string; organizationId: string }) {
-  if (await invitationWasRecentlySent(input.organizationId, input.employeeId)) return { delivered: true, reused: true }
-  // A resend must leave exactly one usable setup link. Better Auth tokens are
-  // intentionally one-use, so revoke every earlier unconsumed invitation first.
-  await db.delete(verification).where(and(
-    eq(verification.value, input.employeeUserId),
-    like(verification.identifier, 'reset-password:%'),
-  ))
-  await auth.api.requestPasswordReset({
-    body: { email: input.email, redirectTo: invitationRedirectUrl() },
-    headers: await headers(),
-  })
-  return { delivered: Boolean(process.env.BREVO_API_KEY && process.env.EMAIL_FROM_ADDRESS), reused: false }
 }
 
 async function getUserId() {
@@ -168,9 +144,9 @@ export async function createEmployee(data: {
     if (existingUser && existingUser.status !== 'active') {
       throw new Error('This email belongs to an inactive Pesaby account. Reactivate that account before assigning pharmacy access.')
     }
-    const staffUserId = existingUser?.id ?? nanoid()
-    const [existingMembership] = await tx.select().from(organizationMembership).where(and(eq(organizationMembership.organizationId, authorization.organizationId), eq(organizationMembership.userId, staffUserId))).limit(1)
-    const [existingEmployee] = await tx.select({ id: employee.id }).from(employee).where(and(eq(employee.orgId, authorization.organizationId), eq(employee.userId, staffUserId))).limit(1)
+    const staffUserId = existingUser?.id ?? null
+    const [existingMembership] = staffUserId ? await tx.select().from(organizationMembership).where(and(eq(organizationMembership.organizationId, authorization.organizationId), eq(organizationMembership.userId, staffUserId))).limit(1) : []
+    const [existingEmployee] = await tx.select({ id: employee.id }).from(employee).where(and(eq(employee.orgId, authorization.organizationId), eq(employee.email, input.email))).limit(1)
     if (existingEmployee) throw new Error('This user is already an employee in this organization')
     // An organization owner/admin can also be an operational staff member.
     // Preserve their organization role; this action only creates the employee
@@ -178,26 +154,20 @@ export async function createEmployee(data: {
     if (existingMembership && staffUserId !== authorization.userId && !canManageExistingRole(authorization.role, existingMembership.role as RoleEnum)) {
       throw new Error('You cannot add an employee profile for this organization member')
     }
-    if (!existingUser) await tx.insert(user).values({ id: staffUserId, name: input.name, email: input.email, image: input.image || null, status: 'invited' })
     const employeeId = nanoid()
-    if (!existingMembership) {
-      await tx.insert(organizationMembership).values({ id: nanoid(), organizationId: authorization.organizationId, userId: staffUserId, role: input.role })
-    }
-    const [existingBranchMembership] = await tx.select({ id: branchMembership.id }).from(branchMembership).where(and(eq(branchMembership.branchId, input.branchId), eq(branchMembership.userId, staffUserId))).limit(1)
-    if (!existingBranchMembership) {
-      await tx.insert(branchMembership).values({ id: nanoid(), branchId: input.branchId, userId: staffUserId, role: existingMembership?.role ?? input.role })
-    }
-    const status = existingUser ? 'active' : 'invited'
+    const status = 'invitation_pending'
     const [record] = await tx.insert(employee).values({ id: employeeId, userId: staffUserId, name: input.name, email: input.email, phone: input.phone || null, role: input.role, department: input.department || null, salary: String(input.salary), profile: input.profile ?? {}, joinDate: input.joinDate ?? new Date(), status, orgId: authorization.organizationId }).returning()
     if (input.shiftId) await tx.insert(shiftAssignment).values({ id: nanoid(), employeeId, shiftId: input.shiftId, date: input.joinDate ?? new Date(), orgId: authorization.organizationId })
     await tx.insert(auditEvent).values({ id: nanoid(), organizationId: authorization.organizationId, userId: authorization.userId, action: existingMembership ? 'staff.profile_attached' : 'staff.created', metadata: { employeeId, staffUserId, role: input.role, branchId: input.branchId, shiftId: input.shiftId, existingUser: Boolean(existingUser) } })
     return { record, existingUser: Boolean(existingUser) }
   })
   let invitationSent = false
-  if (!result.existingUser) {
+  {
     try {
-      const invitation = await issueStaffInvitation({ employeeId: result.record.id, employeeUserId: result.record.userId!, email: input.email, organizationId: authorization.organizationId })
-      invitationSent = invitation.delivered
+      const invitation = await createStaffInvitation({ employeeId: result.record.id, branchId: input.branchId, userId: result.record.userId, email: input.email, organizationId: authorization.organizationId, createdBy: authorization.userId })
+      await db.insert(auditEvent).values({ id: nanoid(), organizationId: authorization.organizationId, userId: authorization.userId, action: 'staff.invitation_created', metadata: { employeeId: result.record.id, invitationId: invitation.record.id, role: input.role, branchId: input.branchId, expiresAt: invitation.record.expiresAt } })
+      await sendStaffInvitation({ employeeId: result.record.id, email: input.email, setupUrl: `${invitationRedirectUrl()}?token=${encodeURIComponent(invitation.token)}`, inviterName: (await auth.api.getSession({ headers: await headers() }))?.user.name })
+      invitationSent = true
       await db.insert(auditEvent).values({ id: nanoid(), organizationId: authorization.organizationId, userId: authorization.userId, action: invitationSent ? 'staff.invitation_sent' : 'staff.invitation_failed', metadata: { employeeId: result.record.id, reason: invitationSent ? undefined : 'email_not_configured' } })
     } catch {
       await db.insert(auditEvent).values({ id: nanoid(), organizationId: authorization.organizationId, userId: authorization.userId, action: 'staff.invitation_failed', metadata: { employeeId: result.record.id, reason: 'delivery_failed' } })
@@ -210,20 +180,34 @@ export async function createEmployee(data: {
 export async function resendStaffInvitation(employeeId: string) {
   const authorization = await requirePermission(PermissionEnum.STAFF_MANAGE)
   const [record] = await db.select().from(employee).where(and(eq(employee.id, employeeId), eq(employee.orgId, authorization.organizationId))).limit(1)
-  if (!record?.userId || !record.email) throw new Error('Staff account was not found')
+  if (!record?.email) throw new Error('Staff account was not found')
   await assertCanManageEmployee(authorization, record)
   if (record.status === 'terminated') throw new Error('Restore this employee before sending an access email')
   try {
-    const invitation = await issueStaffInvitation({ employeeId: record.id, employeeUserId: record.userId, email: record.email, organizationId: authorization.organizationId })
-    if (invitation.reused) return { success: true, delivered: true, reused: true }
-    const delivered = invitation.delivered
-    const action = record.status === 'invited' ? 'staff.invitation_resent' : 'staff.password_reset_sent'
+    const [previous] = await db.select({ branchId: staffInvitation.branchId }).from(staffInvitation).where(eq(staffInvitation.employeeId, record.id)).orderBy(desc(staffInvitation.createdAt)).limit(1)
+    if (!previous) throw new Error('Invitation assignment was not found')
+    const invitation = await createStaffInvitation({ employeeId: record.id, branchId: previous.branchId, userId: record.userId, email: record.email, organizationId: authorization.organizationId, createdBy: authorization.userId })
+    await sendStaffInvitation({ employeeId: record.id, email: record.email, setupUrl: `${invitationRedirectUrl()}?token=${encodeURIComponent(invitation.token)}` })
+    const delivered = true
+    const action = 'staff.invitation_resent'
     await db.insert(auditEvent).values({ id: nanoid(), organizationId: authorization.organizationId, userId: authorization.userId, action: delivered ? action : 'staff.invitation_failed', metadata: { employeeId, staffUserId: record.userId, accountStatus: record.status } })
-    return { success: true, delivered }
+    return { success: true, delivered, reused: false }
   } catch {
     await db.insert(auditEvent).values({ id: nanoid(), organizationId: authorization.organizationId, userId: authorization.userId, action: 'staff.invitation_failed', metadata: { employeeId, reason: 'delivery_failed' } })
     return { success: false, delivered: false }
   }
+}
+
+export async function revokeStaffInvitationAction(employeeId: string) {
+  const authorization = await requirePermission(PermissionEnum.STAFF_MANAGE)
+  const [record] = await db.select().from(employee).where(and(eq(employee.id, employeeId), eq(employee.orgId, authorization.organizationId))).limit(1)
+  if (!record) throw new Error('Employee not found')
+  await assertCanManageEmployee(authorization, record)
+  if (record.status === 'active') throw new Error('Active employees do not have a pending invitation')
+  const invitation = await revokeCurrentStaffInvitation(employeeId, authorization.organizationId)
+  if (invitation) await db.insert(auditEvent).values({ id: nanoid(), organizationId: authorization.organizationId, userId: authorization.userId, action: 'staff.invitation_revoked', metadata: { employeeId, invitationId: invitation.id } })
+  revalidatePath('/dashboard/staff')
+  return { success: true, revoked: Boolean(invitation) }
 }
 
 export async function updateStaffBranches(employeeId: string, branchIds: string[]) {

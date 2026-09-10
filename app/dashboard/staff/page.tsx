@@ -1,8 +1,8 @@
 import type { Metadata } from 'next'
 import { StaffManagementTable } from '@/components/staff/staff-management-table'
 import { db } from '@/lib/db'
-import { branch, branchMembership, employee, organization, posPinCredential, user } from '@/lib/db/schema'
-import { and, eq, inArray, sql } from 'drizzle-orm'
+import { branch, branchMembership, employee, organization, posPinCredential, staffInvitation, user } from '@/lib/db/schema'
+import { and, desc, eq, inArray, sql } from 'drizzle-orm'
 import { requirePermission } from '@/lib/auth/authorization'
 import { ASSIGNABLE_ROLES, PermissionEnum, RoleEnum, canManageExistingRole, isStaffManagedRole } from '@/lib/types/permissions'
 import { isPharmacyBusiness } from '@/lib/pharmacy/rules'
@@ -31,6 +31,9 @@ export default async function StaffPage() {
     authorization.isOrganizationWide ? undefined : inArray(branch.id, authorization.branchIds),
   )).orderBy(branch.name)
   const employeeUserIds = employees.map(({ employee: record }) => record.userId).filter((value): value is string => Boolean(value))
+  const invitationRows = employees.length ? await db.select({ employeeId: staffInvitation.employeeId, status: staffInvitation.status }).from(staffInvitation).where(inArray(staffInvitation.employeeId, employees.map(({ employee: record }) => record.id))).orderBy(desc(staffInvitation.createdAt)) : []
+  const invitationStates = new Map<string, string>()
+  for (const invite of invitationRows) if (!invitationStates.has(invite.employeeId)) invitationStates.set(invite.employeeId, invite.status)
   const assignments = employeeUserIds.length
     ? await db.select({ userId: branchMembership.userId, branchId: branchMembership.branchId }).from(branchMembership).where(and(
         inArray(branchMembership.userId, employeeUserIds),
@@ -56,7 +59,7 @@ export default async function StaffPage() {
       <StaffManagementTable
         branches={branches}
         description={description}
-        employees={employees.map(row => ({ ...row.employee, image: row.image, posPinSet: row.posPinSet, branchIds: assignments.filter((item) => item.userId === row.employee.userId).map((item) => item.branchId) }))}
+        employees={employees.map(row => ({ ...row.employee, image: row.image, posPinSet: row.posPinSet, invitationState: invitationStates.get(row.employee.id), branchIds: assignments.filter((item) => item.userId === row.employee.userId).map((item) => item.branchId) }))}
         actorRole={authorization.role}
         assignableRoles={assignableRoles}
         summary={{

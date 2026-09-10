@@ -12,6 +12,7 @@ import { emailVerificationEmail } from '@/lib/email/templates/email-verification
 import { sendEmail } from '@/lib/email/client';
 import { withDatabaseRetry } from '@/lib/db/retry';
 import { after } from 'next/server';
+import { nextCookies } from 'better-auth/next-js';
 
 export const auth = betterAuth({
   database: pool,
@@ -26,6 +27,7 @@ export const auth = betterAuth({
   emailAndPassword: {
     enabled: true,
     autoSignIn: true,
+    requireEmailVerification: true,
     resetPasswordTokenExpiresIn: 60 * 60,
     async sendResetPassword({ user: authUser, url }) {
       const [staff] = await db
@@ -83,7 +85,7 @@ export const auth = betterAuth({
       // Always return to a long-lived dashboard route. Better Auth appends an
       // error code to this URL when a token is expired or invalid.
       const verificationUrl = new URL(url);
-      verificationUrl.searchParams.set('callbackURL', '/dashboard?verified=1');
+      verificationUrl.searchParams.set('callbackURL', '/auth/staff-activation');
       await sendEmail({
         to: { email: authUser.email, name: authUser.name },
         ...emailVerificationEmail({
@@ -131,6 +133,7 @@ export const auth = betterAuth({
         audience: 'pos-api',
       },
     }),
+    nextCookies(),
   ],
 });
 

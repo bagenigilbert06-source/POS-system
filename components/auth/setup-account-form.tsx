@@ -5,8 +5,9 @@ import { useRouter } from 'next/navigation'
 import { authClient } from '@/lib/auth-client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { acceptStaffInvitationAction } from '@/app/actions/staff-invitation-actions'
 
-export function SetupAccountForm({ token, email, invalid }: { token?: string; email?: string; invalid?: boolean }) {
+export function SetupAccountForm({ token, existingAccount, invalid }: { token?: string; existingAccount?: boolean; invalid?: boolean }) {
   const router = useRouter(); const [password, setPassword] = useState(''); const [confirm, setConfirm] = useState(''); const [error, setError] = useState(''); const [pending, setPending] = useState(false)
   if (invalid || !token) return <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800">This invitation is invalid or has expired. Ask your administrator to resend it.</div>
   const submit = async (event: React.FormEvent) => {
@@ -15,15 +16,9 @@ export function SetupAccountForm({ token, email, invalid }: { token?: string; em
     setPending(true)
     setError('')
     try {
-      const result = await authClient.resetPassword({ newPassword: password, token })
-      if (result.error) throw new Error(result.error.message || 'Unable to activate account')
-      if (!email) {
-        router.replace('/sign-in?activated=1')
-        return
-      }
-      const signIn = await authClient.signIn.email({ email, password, rememberMe: true })
-      if (signIn.error) throw new Error(signIn.error.message || 'Password created. Please sign in.')
-      router.replace('/dashboard')
+      const result = await acceptStaffInvitationAction(token, existingAccount ? undefined : password)
+      if ('awaitingEmailVerification' in result) router.replace('/sign-in?verifyEmail=1')
+      else router.replace('/dashboard')
       return
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Unable to activate account')
