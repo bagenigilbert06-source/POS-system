@@ -488,6 +488,8 @@ export const ROLE_PERMISSIONS: Record<RoleEnum, PermissionEnum[]> = {
     PermissionEnum.BATCH_TRACKING_VIEW,
   ],
   [RoleEnum.CASHIER]: [
+    PermissionEnum.ATTENDANCE_USE,
+    PermissionEnum.ATTENDANCE_VIEW_OWN,
     PermissionEnum.PRODUCT_VIEW,
     PermissionEnum.SALE_CREATE,
     PermissionEnum.ORDER_VIEW,

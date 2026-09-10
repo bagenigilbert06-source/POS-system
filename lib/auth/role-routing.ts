@@ -10,7 +10,8 @@ export function resolveUserLandingDestination({ role, permissions }: LandingAuth
   if (role === RoleEnum.INVENTORY && permissions.includes(PermissionEnum.INVENTORY_VIEW)) return '/dashboard/inventory'
   if (role === RoleEnum.ACCOUNTANT && permissions.includes(PermissionEnum.FINANCE_VIEW)) return '/dashboard/financials'
   if (role === RoleEnum.CHEF && permissions.includes(PermissionEnum.KITCHEN_QUEUE_VIEW)) return '/dashboard/cafe/preparation'
-  if ([RoleEnum.CASHIER, RoleEnum.PHARMACIST, RoleEnum.PHARMACY_STAFF].includes(role) && permissions.includes(PermissionEnum.POS_VIEW)) return '/dashboard/pos'
+  if (role === RoleEnum.CASHIER && permissions.includes(PermissionEnum.POS_VIEW)) return '/dashboard'
+  if ([RoleEnum.PHARMACIST, RoleEnum.PHARMACY_STAFF].includes(role) && permissions.includes(PermissionEnum.POS_VIEW)) return '/dashboard/pos'
   // Safe fallback for legacy/custom role aliases follows actual authority.
   if (permissions.includes(PermissionEnum.POS_VIEW)) return '/dashboard/pos'
   if (permissions.includes(PermissionEnum.INVENTORY_VIEW)) return '/dashboard/inventory'

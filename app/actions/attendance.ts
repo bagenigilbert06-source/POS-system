@@ -94,6 +94,7 @@ async function active(organizationId: string, userId: string) {
 }
 function refresh() {
   revalidatePath('/dashboard/attendance');
+  revalidatePath('/dashboard');
 }
 
 export async function clockIn(): Promise<Result> {

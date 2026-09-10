@@ -457,9 +457,11 @@ export function DynamicAppSidebar({
         ) && item.id === 'dashboard'
       )
   );
-  // Cashiers have one workspace: the POS terminal. Receipts, attendance,
-  // customers and management screens stay in manager/supervisor workspaces.
-  const cashierPrimaryNav = canView('pos') ? [posNav] : [];
+  // Cashiers get a concise operational home: attendance and their POS terminal.
+  const cashierPrimaryNav = [
+    { id: 'dashboard', label: 'Home', icon: 'LayoutDashboard', route: '/dashboard' },
+    ...(canView('pos') ? [posNav] : []),
+  ];
   // A supervisor's workspace is deliberately operational: approve and review
   // register activity, sell when needed, and check stock.
   // Configuration, staff administration and financial settings stay hidden.
