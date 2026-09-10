@@ -11,13 +11,14 @@ import { cn } from '@/lib/utils';
 interface AuthFormProps {
   mode: 'sign-in' | 'sign-up';
   compact?: boolean;
+  callbackURL?: string;
 }
 
 type FieldName = 'name' | 'email' | 'password' | 'confirmPassword';
 type FieldErrors = Partial<Record<FieldName, string>>;
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-export function AuthForm({ mode, compact = false }: AuthFormProps) {
+export function AuthForm({ mode, compact = false, callbackURL }: AuthFormProps) {
   const router = useRouter();
   const isSignUp = mode === 'sign-up';
   const [loading, setLoading] = useState(false);
@@ -132,9 +133,7 @@ export function AuthForm({ mode, compact = false }: AuthFormProps) {
               : result.error.message
           );
         }
-        const landing = await fetch('/api/auth/landing', { cache: 'no-store' });
-        const resolved = landing.ok ? await landing.json() as { destination?: string } : null;
-        router.replace(resolved?.destination || '/restricted');
+        router.replace(callbackURL || '/auth/continue');
         return;
       }
     } catch (err: unknown) {

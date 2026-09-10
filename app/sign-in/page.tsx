@@ -5,17 +5,23 @@ import Link from 'next/link'
 import type { Metadata } from 'next'
 import { IconLockAccess, IconReceipt } from '@tabler/icons-react'
 import { auth } from '@/lib/auth'
+import { getAuthorizationContext, getDefaultWorkspaceRoute } from '@/lib/auth/authorization'
 import { AuthForm } from '@/components/auth/auth-form'
 import { PosAccessForm } from '@/components/auth/pos-access-form'
 import { PesabyLogoMark } from '@/components/brand/pesaby-logo'
 
 export const metadata: Metadata = { title: 'Sign In' }
 
-export default async function SignInPage({ searchParams }: { searchParams: Promise<{ pos?: string }> }) {
-  const { pos } = await searchParams
+function safeInternalPath(value: string | undefined) {
+  return value && value.startsWith('/') && !value.startsWith('//') ? value : undefined
+}
+
+export default async function SignInPage({ searchParams }: { searchParams: Promise<{ pos?: string; callbackURL?: string }> }) {
+  const { pos, callbackURL: rawCallbackURL } = await searchParams
+  const callbackURL = safeInternalPath(rawCallbackURL)
   const isPosLogin = pos === '1'
   const session = await auth.api.getSession({ headers: await headers() })
-  if (session?.user && !isPosLogin) redirect('/dashboard')
+  if (session?.user && !isPosLogin) redirect(callbackURL ?? getDefaultWorkspaceRoute(await getAuthorizationContext()))
 
   return (
     <main className="auth-workspace relative flex min-h-dvh items-center justify-center overflow-hidden bg-[#f4f6f8] p-3 text-slate-950 sm:p-6 lg:p-5 xl:p-8">
@@ -115,7 +121,7 @@ export default async function SignInPage({ searchParams }: { searchParams: Promi
               </p>
             </div>
 
-            {isPosLogin ? <PosAccessForm /> : <AuthForm mode="sign-in" />}
+            {isPosLogin ? <PosAccessForm /> : <AuthForm mode="sign-in" callbackURL={callbackURL} />}
 
             <p className="mt-7 text-center text-[11px] font-medium uppercase tracking-[0.12em] text-zinc-400">
               © {new Date().getFullYear()} Pesaby · Business made simpler

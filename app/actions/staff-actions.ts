@@ -55,6 +55,8 @@ const updateStaffSchema = z.object({
   department: z.enum(STAFF_DEPARTMENTS).optional(),
   salary: z.coerce.number().nonnegative().max(999_999_999).optional(),
   status: z.enum(['active', 'inactive', 'invited', 'terminated']).optional(),
+  joinDate: z.coerce.date().optional(),
+  profile: staffProfileSchema,
 })
 
 function validStaffImage(value: string | null | undefined) {
@@ -259,6 +261,26 @@ export async function updateEmployee(employeeId: string, data: {
   department?: string
   salary?: number
   status?: string
+  joinDate?: string | Date
+  profile?: {
+    employeeCode?: string
+    dateOfBirth?: string
+    gender?: string
+    nationality?: string
+    bloodGroup?: string
+    about?: string
+    address?: string
+    country?: string
+    state?: string
+    city?: string
+    zipcode?: string
+    emergencyContact1?: string
+    emergencyContact2?: string
+    bankName?: string
+    bankAccountNumber?: string
+    bankCode?: string
+    bankBranch?: string
+  }
 }) {
   const input = updateStaffSchema.parse(data)
   if (!validStaffImage(input.image)) throw new Error('Choose a valid employee photo')
@@ -297,6 +319,8 @@ export async function updateEmployee(employeeId: string, data: {
         ...(input.department && { department: input.department }),
         ...(input.salary !== undefined && { salary: input.salary.toString() }),
         ...(input.status && { status: input.status }),
+        ...(input.joinDate && { joinDate: input.joinDate }),
+        ...(input.profile && { profile: input.profile }),
       })
       .where(and(eq(employee.id, employeeId), eq(employee.orgId, orgId)))
       .returning()
