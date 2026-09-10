@@ -5,7 +5,7 @@ import Link from 'next/link'
 import type { Metadata } from 'next'
 import { IconLockAccess, IconReceipt } from '@tabler/icons-react'
 import { auth } from '@/lib/auth'
-import { getAuthorizationContext, getDefaultWorkspaceRoute } from '@/lib/auth/authorization'
+import { AuthorizationError, getAuthorizationContext, getDefaultWorkspaceRoute } from '@/lib/auth/authorization'
 import { AuthForm } from '@/components/auth/auth-form'
 import { PosAccessForm } from '@/components/auth/pos-access-form'
 import { PesabyLogoMark } from '@/components/brand/pesaby-logo'
@@ -21,7 +21,16 @@ export default async function SignInPage({ searchParams }: { searchParams: Promi
   const callbackURL = safeInternalPath(rawCallbackURL)
   const isPosLogin = pos === '1'
   const session = await auth.api.getSession({ headers: await headers() })
-  if (session?.user && !isPosLogin) redirect(callbackURL ?? getDefaultWorkspaceRoute(await getAuthorizationContext()))
+  if (session?.user && !isPosLogin) {
+    try {
+      redirect(callbackURL ?? getDefaultWorkspaceRoute(await getAuthorizationContext()))
+    } catch (error) {
+      // A session can outlive a deleted or not-yet-provisioned workspace. Do
+      // not turn that recoverable account state into a 500 on the sign-in page.
+      if (error instanceof AuthorizationError) redirect('/workspace-recovery')
+      throw error
+    }
+  }
 
   return (
     <main className="auth-workspace relative flex min-h-dvh items-center justify-center overflow-hidden bg-[#f4f6f8] p-3 text-slate-950 sm:p-6 lg:p-5 xl:p-8">

@@ -1,5 +1,4 @@
-import { mkdir, writeFile } from 'node:fs/promises'
-import path from 'node:path'
+import { put } from '@vercel/blob'
 import { headers } from 'next/headers'
 import { NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
@@ -25,10 +24,15 @@ export async function POST(request: Request) {
   }
 
   const extension = isWebp(bytes) ? 'webp' : isPng(bytes) ? 'png' : 'jpg'
-  const directory = path.join(process.cwd(), 'public', 'uploads', 'receipt-logos')
-  await mkdir(directory, { recursive: true })
-  const filename = `${crypto.randomUUID()}.${extension}`
-  await writeFile(path.join(directory, filename), bytes, { flag: 'wx' })
-
-  return NextResponse.json({ url: `/uploads/receipt-logos/${filename}` })
+  try {
+    const blob = await put(`receipt-logos/onboarding.${extension}`, file, {
+      access: 'public',
+      addRandomSuffix: true,
+      contentType: file.type,
+    })
+    return NextResponse.json({ url: blob.url })
+  } catch (error) {
+    console.error('[onboarding/receipt-logo] Upload failed', error)
+    return NextResponse.json({ error: 'Logo storage is unavailable. Configure Vercel Blob and try again.' }, { status: 503 })
+  }
 }

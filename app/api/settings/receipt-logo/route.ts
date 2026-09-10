@@ -1,5 +1,4 @@
-import { mkdir, writeFile } from 'node:fs/promises'
-import path from 'node:path'
+import { put } from '@vercel/blob'
 import { NextResponse } from 'next/server'
 import { AuthorizationError, requirePermission } from '@/lib/auth/authorization'
 import { PermissionEnum } from '@/lib/types/permissions'
@@ -18,9 +17,15 @@ export async function POST(request: Request) {
   const bytes = new Uint8Array(await file.arrayBuffer())
   if (!isJpeg(bytes) && !isPng(bytes) && !isWebp(bytes)) return NextResponse.json({ error: 'Upload a PNG, JPG, or WebP logo' }, { status: 415 })
   const extension = isWebp(bytes) ? 'webp' : isPng(bytes) ? 'png' : 'jpg'
-  const directory = path.join(process.cwd(), 'public', 'uploads', 'receipt-logos')
-  await mkdir(directory, { recursive: true })
-  const filename = `${organizationId}-${crypto.randomUUID()}.${extension}`
-  await writeFile(path.join(directory, filename), bytes, { flag: 'wx' })
-  return NextResponse.json({ url: `/uploads/receipt-logos/${filename}` })
+  try {
+    const blob = await put(`receipt-logos/${organizationId}.${extension}`, file, {
+      access: 'public',
+      addRandomSuffix: true,
+      contentType: file.type,
+    })
+    return NextResponse.json({ url: blob.url })
+  } catch (error) {
+    console.error('[receipt-logo] Upload failed', error)
+    return NextResponse.json({ error: 'Logo storage is unavailable. Configure Vercel Blob and try again.' }, { status: 503 })
+  }
 }
