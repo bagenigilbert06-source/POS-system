@@ -11,7 +11,7 @@ import {
   user,
 } from '@/lib/db/schema';
 import { and, count, desc, eq } from 'drizzle-orm';
-import { getAuthorizationContext } from '@/lib/auth/authorization';
+import { getDashboardAuthorization } from '@/lib/auth/dashboard-access';
 import { getPosAuthorizationContext } from '@/lib/pos/pos-auth';
 import { withDatabaseRetry } from '@/lib/db/retry';
 
@@ -64,7 +64,7 @@ export default async function DashboardRouteLayout({
   // This is done once on the server so the client never needs to fetch it separately.
   const [workspaceConfig, authorization] = await Promise.all([
     WorkspaceService.getAuthorizedWorkspaceConfig(organization),
-    posAuthorization ?? getAuthorizationContext(),
+    posAuthorization ?? getDashboardAuthorization(),
   ]);
   if (!workspaceConfig) redirect('/onboarding');
   const [availableOrganizations, activeBranchRows, branchCountRows, brandingRows] = await Promise.all([

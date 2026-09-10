@@ -37,6 +37,12 @@ export function AuthForm({ mode, compact = false, callbackURL }: AuthFormProps) 
     if (isSignUp && /already|exists|registered|unique/i.test(message)) {
       return 'An account with this email already exists. Sign in instead or reset your password.';
     }
+    // Better Auth rejects an otherwise-valid password until the account email
+    // has been verified. Check this before the broad `email` matcher below so
+    // users are not incorrectly told that their credentials are wrong.
+    if (!isSignUp && /email.*(?:not )?verif|unverified/i.test(message)) {
+      return 'Your email address has not been verified yet. Open the verification email we sent, then sign in again.';
+    }
     if (!isSignUp && /invalid|credential|password|email/i.test(message)) {
       return 'The email or password you entered is incorrect.';
     }

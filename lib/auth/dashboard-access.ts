@@ -36,7 +36,10 @@ export async function getDashboardAuthorization() {
       throw error;
     }
     const pos = await getPosAuthorizationContext();
-    if (!pos) throw error;
+    // An expired or missing Better Auth session is an expected browser state,
+    // not a server-rendering error. Redirect before any dashboard page tries
+    // to resolve data with an unauthenticated identity.
+    if (!pos) redirect('/sign-in');
     return pos;
   }
 }
