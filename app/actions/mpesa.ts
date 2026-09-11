@@ -12,6 +12,7 @@ import {
   customer,
   mpesaBusinessAccount,
   mpesaIncomingPayment,
+  mpesaManualRecoveryAudit,
   mpesaPaymentRequest,
   pharmacyConfiguration,
   pharmacyProduct,
@@ -25,12 +26,7 @@ import { requireAnyPermission } from '@/lib/auth/authorization';
 import { getPosAuthorizationContext } from '@/lib/pos/pos-auth';
 import { PermissionEnum } from '@/lib/types/permissions';
 import { generateId } from '@/lib/utils';
-import {
-  mpesaPaybillDetails,
-  normalizeKenyanPhone,
-  registerC2bUrls,
-  requestStkPush,
-} from '@/lib/mpesa/daraja';
+import { normalizeKenyanPhone, requestStkPush } from '@/lib/mpesa/daraja';
 import { WorkspaceService } from '@/lib/services/workspace-service';
 import { calculateMpesaAmount } from '@/lib/mpesa/amount';
 import { isPharmacyBusiness } from '@/lib/pharmacy/rules';
@@ -39,6 +35,7 @@ import { finalizeConfirmedMpesaPayment } from '@/lib/mpesa/finalize-payment';
 import { normalizeMpesaPhoneForMode } from '@/lib/mpesa/phone-validation';
 import { configuredTax } from '@/lib/finance/money';
 import { preTaxRewardAmount } from '@/lib/rewards/rules';
+import { assertManualTillEnabled, assertStkEnabled, getBranchMpesaMerchant } from '@/lib/mpesa/merchant-configuration';
 
 const itemSchema = z.object({
   productId: z.string().min(1),
@@ -90,7 +87,6 @@ const paybillSchema = initiateSchema.extend({
   phone: z.string().max(30).nullable().optional().default(''),
   manualMode: z.enum(['till', 'paybill']).optional(),
 });
-let c2bRegistrationAttempted = false;
 
 async function paymentAuthorization() {
   const pos = await getPosAuthorizationContext();
@@ -159,17 +155,18 @@ async function manualAccountsForBranch(
       (item): item is { shortcode: string; accountType: 'till' | 'paybill' } =>
         item.accountType === 'till' || item.accountType === 'paybill'
     );
-  const fallback = mpesaPaybillDetails();
-  return [{ shortcode: fallback.shortcode, accountType: fallback.accountType }];
+  const merchant = assertManualTillEnabled(await getBranchMpesaMerchant(organizationId, branchId));
+  return [{ shortcode: merchant.tillNumber, accountType: 'till' as const }];
 }
 
 export async function getManualMpesaOptions() {
   const authorization = await paymentAuthorization();
-  const [accounts, settings] = await Promise.all([
+  const [accounts, settings, merchant] = await Promise.all([
     manualAccountsForBranch(
       authorization.organizationId,
       authorization.branchId
     ),
+    getBranchMpesaMerchant(authorization.organizationId, authorization.branchId),
     db
       .select({
         displayName: businessSettings.displayName,
@@ -182,8 +179,9 @@ export async function getManualMpesaOptions() {
   return {
     accounts,
     defaultMode: accounts[0]?.accountType ?? 'paybill',
-    merchantName:
-      settings[0]?.receiptBusinessName || settings[0]?.displayName || null,
+    merchantName: merchant?.businessName || settings[0]?.receiptBusinessName || settings[0]?.displayName || null,
+    tillNumber: merchant?.tillNumber ?? null,
+    manualTillEnabled: Boolean(merchant?.manualTillEnabled),
   };
 }
 
@@ -414,6 +412,7 @@ export async function initiateMpesaPayment(
     : unroundedTotal;
 
   const phone = normalizeMpesaPhoneForMode('stk', data.phone);
+  const merchant = assertStkEnabled(await getBranchMpesaMerchant(orgId, branchId));
   const [existing] = await db
     .select()
     .from(mpesaPaymentRequest)
@@ -505,6 +504,9 @@ export async function initiateMpesaPayment(
         bonusToUse: data.bonusToUse,
       },
       idempotencyKey: data.idempotencyKey,
+      merchantName: merchant.businessName,
+      tillNumber: merchant.tillNumber,
+      terminalId: authorization.terminalId,
       phone,
       amount: String(exactTotal),
       status: 'SENDING_STK',
@@ -516,6 +518,7 @@ export async function initiateMpesaPayment(
       phone,
       amount: exactTotal,
       accountReference: `POS${id.replace(/-/g, '').slice(0, 9)}`,
+      businessShortCode: merchant.businessShortCode,
     });
     await db
       .update(mpesaPaymentRequest)
@@ -677,6 +680,7 @@ export async function initiateMpesaPaybillPayment(
     ? calculateMpesaAmount(unroundedTotal).amount
     : unroundedTotal;
   const accounts = await manualAccountsForBranch(orgId, branchId);
+  const merchant = assertManualTillEnabled(await getBranchMpesaMerchant(orgId, branchId));
   const selectedAccount =
     accounts.find((account) => account.accountType === data.manualMode) ??
     accounts[0];
@@ -707,26 +711,6 @@ export async function initiateMpesaPaybillPayment(
       accountType: existing.paymentMode as 'till' | 'paybill',
     };
 
-  const environmentAccount = mpesaPaybillDetails();
-  const shouldRegisterC2bUrls = process.env.MPESA_REGISTER_C2B_URLS === 'true';
-  if (
-    shouldRegisterC2bUrls &&
-    !c2bRegistrationAttempted &&
-    selectedAccount.shortcode === environmentAccount.shortcode
-  ) {
-    c2bRegistrationAttempted = true;
-    try {
-      await registerC2bUrls();
-    } catch (error) {
-      // URL registration belongs to environment setup and must not make an
-      // otherwise valid manual Till/PayBill checkout fail. Daraja can reject
-      // this call when the app is not subscribed to C2B or URLs already exist.
-      console.warn(
-        '[M-Pesa] C2B callback registration was skipped:',
-        error instanceof Error ? error.message : 'Daraja registration failed'
-      );
-    }
-  }
   const id = generateId();
   const accountReference =
     `POS-${id.replace(/-/g, '').slice(0, 5)}`.toUpperCase();
@@ -821,6 +805,9 @@ export async function initiateMpesaPaybillPayment(
       },
       idempotencyKey: data.idempotencyKey,
       paymentMode: accountType,
+      merchantName: merchant.businessName,
+      tillNumber: accountType === 'till' ? merchant.tillNumber : null,
+      terminalId: authorization.terminalId,
       accountReference: accountType === 'paybill' ? accountReference : null,
       phone,
       amount: String(exactTotal),
@@ -936,8 +923,10 @@ export async function cancelMpesaPayment(requestId: string) {
   );
 }
 
-export async function findManualMpesaPayment(requestId: string) {
-  const authorization = await paymentAuthorization();
+export async function findManualMpesaPayment(input: { requestId: string; reason: string }) {
+  const data = z.object({ requestId: z.string().min(1), reason: z.string().trim().min(3).max(500) }).parse(input)
+  const authorization = await requireAnyPermission([PermissionEnum.SHIFT_MANAGE, PermissionEnum.AUDIT_LOG_VIEW]);
+  const requestId = data.requestId
   const [intent] = await db
     .select()
     .from(mpesaPaymentRequest)
@@ -1044,6 +1033,13 @@ export async function findManualMpesaPayment(requestId: string) {
       .returning({ id: mpesaPaymentRequest.id });
     if (!claimedIntent)
       throw new Error('This payment request is no longer available');
+    await tx.insert(mpesaManualRecoveryAudit).values({
+      id: generateId(), organizationId: intent.organizationId, branchId: intent.branchId!, terminalId: intent.terminalId,
+      cashierId: intent.userId, managerId: authorization.userId, paymentRequestId: intent.id,
+      receiptNumber: payment.transactionId, reason: data.reason,
+    });
+    await tx.insert(auditEvent).values({ id: generateId(), organizationId: intent.organizationId, userId: authorization.userId,
+      action: 'mpesa_manual_recovery', metadata: { paymentRequestId: intent.id, receiptNumber: payment.transactionId, reason: data.reason, cashierId: intent.userId, terminalId: intent.terminalId, branchId: intent.branchId } });
   });
   await finalizeConfirmedMpesaPayment(intent.id);
   return {
@@ -1076,6 +1072,13 @@ export async function reconcileIncomingMpesaPayment(input: { incomingPaymentId: 
     if (!claimedIncoming) throw new Error('This M-Pesa payment has already been used.')
     const [claimedIntent] = await tx.update(mpesaPaymentRequest).set({ receiptNumber: incoming.transactionId, resultCode: '0', resultDescription: `Reconciled by manager: ${data.reason}`, status: 'CONFIRMED', callbackPayload: incoming.payload, completedAt: new Date(), updatedAt: new Date() }).where(and(eq(mpesaPaymentRequest.id, intent.id), inArray(mpesaPaymentRequest.status, ['AWAITING_CONFIRMATION', 'RECONCILIATION_REQUIRED']))).returning({ id: mpesaPaymentRequest.id })
     if (!claimedIntent) throw new Error('This payment request is no longer available')
+    await tx.insert(mpesaManualRecoveryAudit).values({
+      id: generateId(), organizationId: intent.organizationId, branchId: intent.branchId!, terminalId: intent.terminalId,
+      cashierId: intent.userId, managerId: authorization.userId, paymentRequestId: intent.id,
+      receiptNumber: incoming.transactionId, reason: data.reason,
+    })
+    await tx.insert(auditEvent).values({ id: generateId(), organizationId: intent.organizationId, userId: authorization.userId,
+      action: 'mpesa_manager_reconciliation', metadata: { paymentRequestId: intent.id, receiptNumber: incoming.transactionId, reason: data.reason, cashierId: intent.userId, terminalId: intent.terminalId, branchId: intent.branchId } })
     return intent.id
   })
   return finalizeConfirmedMpesaPayment(requestId)
@@ -1090,6 +1093,8 @@ export async function getFinalizedMpesaSale(requestId: string) {
       paymentMode: mpesaPaymentRequest.paymentMode,
       phone: mpesaPaymentRequest.phone,
       accountReference: mpesaPaymentRequest.accountReference,
+      merchantName: mpesaPaymentRequest.merchantName,
+      tillNumber: mpesaPaymentRequest.tillNumber,
     })
     .from(mpesaPaymentRequest)
     .where(
@@ -1142,6 +1147,7 @@ export async function getFinalizedMpesaSale(requestId: string) {
     mpesaDetails: {
       mode: request.paymentMode,
       phone: request.phone,
+      merchant: request.paymentMode === 'till' ? request.tillNumber : request.merchantName,
       accountReference: request.accountReference,
     },
     etims: {

@@ -2761,6 +2761,9 @@ export const mpesaPaymentRequest = pgTable(
     checkoutPayload: json('checkoutPayload'),
     idempotencyKey: text('idempotencyKey').notNull(),
     paymentMode: text('paymentMode').notNull().default('stk'),
+    merchantName: text('merchantName'),
+    tillNumber: text('tillNumber'),
+    terminalId: text('terminalId'),
     accountReference: text('accountReference'),
     phone: text('phone').notNull(),
     amount: numeric('amount', { precision: 12, scale: 2 }).notNull(),
@@ -2796,6 +2799,47 @@ export const mpesaPaymentRequest = pgTable(
     ).on(table.organizationId, table.idempotencyKey),
   })
 );
+
+/** Non-secret, branch-owned M-Pesa presentation and routing configuration. */
+export const mpesaMerchantConfiguration = pgTable(
+  'mpesa_merchant_configuration',
+  {
+    id: text('id').primaryKey(),
+    organizationId: text('organizationId').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+    branchId: text('branchId').notNull().references(() => branch.id, { onDelete: 'cascade' }),
+    businessName: text('businessName').notNull(),
+    headOfficeNumber: text('headOfficeNumber'),
+    storeNumber: text('storeNumber'),
+    tillNumber: text('tillNumber'),
+    /** Daraja shortcode only; never infer this from a Buy Goods Till. */
+    businessShortCode: text('businessShortCode'),
+    environment: text('environment').notNull().default('sandbox'),
+    stkEnabled: boolean('stkEnabled').notNull().default(false),
+    manualTillEnabled: boolean('manualTillEnabled').notNull().default(false),
+    createdAt: timestamp('createdAt').notNull().defaultNow(),
+    updatedAt: timestamp('updatedAt').notNull().defaultNow(),
+  },
+  (table) => ({
+    branchUnique: uniqueIndex('mpesa_merchant_configuration_branch_unique').on(table.branchId),
+    organizationBranchIndex: index('mpesa_merchant_configuration_org_branch_idx').on(table.organizationId, table.branchId),
+    shortcodeUnique: uniqueIndex('mpesa_merchant_configuration_shortcode_unique').on(table.businessShortCode),
+  })
+);
+
+/** Immutable manager-authorized manual M-Pesa recovery record. */
+export const mpesaManualRecoveryAudit = pgTable('mpesa_manual_recovery_audit', {
+  id: text('id').primaryKey(),
+  organizationId: text('organizationId').notNull(),
+  branchId: text('branchId').notNull(),
+  terminalId: text('terminalId'),
+  cashierId: text('cashierId').notNull(),
+  managerId: text('managerId').notNull(),
+  paymentRequestId: text('paymentRequestId').notNull(),
+  saleId: text('saleId'),
+  receiptNumber: text('receiptNumber').notNull(),
+  reason: text('reason').notNull(),
+  createdAt: timestamp('createdAt').notNull().defaultNow(),
+});
 
 /** Immutable C2B receipts, including payments that need manual reconciliation. */
 export const mpesaIncomingPayment = pgTable(

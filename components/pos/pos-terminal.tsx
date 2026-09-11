@@ -3233,7 +3233,10 @@ export function POSTerminal({
   const findManualPayment = async () => {
     if (!mpesaRequestId) return;
     try {
-      const result = await findManualMpesaPayment(mpesaRequestId);
+      const result = await findManualMpesaPayment({
+        requestId: mpesaRequestId,
+        reason: 'Manager verified provider receipt from POS recovery flow',
+      });
       if (result.status === 'confirmed') {
         setMpesaRef(result.receiptNumber || '');
         setMpesaStatus('success');
@@ -4290,6 +4293,7 @@ export function POSTerminal({
                       businessAddress={settings.receiptAddress}
                       receiptFooter={settings.receiptFooter}
                       cashierName={receiptContext?.cashierName}
+                      terminalName={receiptContext?.registerName ?? ''}
                       customerName={receipt.customerName}
                       layout="thermal"
                       template={settings.receiptTemplate}
@@ -7189,6 +7193,14 @@ export function POSTerminal({
                                                   'col-span-2'
                                               )}
                                             >
+                                              {mpesaAccountType === 'till' && (
+                                                <div className="mb-3 rounded-lg border-2 border-[#11ad2d] bg-[#effcf1] p-3 text-center text-[#176b2c] dark:bg-emerald-950/30 dark:text-emerald-200">
+                                                  <p className="text-xs font-extrabold uppercase tracking-wide">{mpesaMerchantName || 'Branch merchant'}</p>
+                                                  <p className="mt-1 text-[10px] font-bold uppercase tracking-[0.16em]">Buy Goods Till</p>
+                                                  <p className="mt-1 text-3xl font-black tabular-nums">{mpesaShortcode}</p>
+                                                  <p className="mt-2 text-sm font-bold">Exact amount due: {formatMpesaAmount(total)}</p>
+                                                </div>
+                                              )}
                                               <span className="block text-[9px] font-bold uppercase tracking-wider text-[#667085] dark:text-[#a1a1a6]">
                                                 {mpesaAccountType === 'till'
                                                   ? 'Till number'
@@ -7304,15 +7316,9 @@ export function POSTerminal({
                                               >
                                                 Check for payment
                                               </button>
-                                              <button
-                                                type="button"
-                                                onClick={() =>
-                                                  void findManualPayment()
-                                                }
-                                                className="h-9 rounded-md border border-[#b9d9c0] bg-white text-xs font-bold text-[#176b2c] dark:border-emerald-800 dark:bg-transparent dark:text-emerald-300"
-                                              >
-                                                Find payment
-                                              </button>
+                                              <p className="flex items-center justify-center px-2 text-center text-[10px] text-[#667085] dark:text-[#b8b8b8]">
+                                                Unmatched payments require manager recovery in M-Pesa reconciliation.
+                                              </p>
                                             </div>
                                             <div className="col-span-2 border-t border-[#e4ece6] pt-2 dark:border-white/10">
                                               <label className="block text-xs font-semibold text-[#344054] dark:text-[#e4e7ec]">

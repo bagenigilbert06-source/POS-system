@@ -10,7 +10,7 @@ import {
   PackagePlus,
 } from 'lucide-react';
 import type { PharmacyProduct, Product } from '@/lib/db/schema';
-import { formatCurrency } from '@/lib/utils';
+import { cn, formatCurrency } from '@/lib/utils';
 import { getGrossMargin } from '@/lib/pricing/gross-margin';
 import { StockHistoryChart } from './stock-history-chart';
 import { ProductImage } from './product-image';
@@ -62,6 +62,7 @@ export function ProductDetails({ overview }: { overview: ProductOverview }) {
   const selling = Number(product.sellingPrice);
   const profit = selling - buying;
   const grossMargin = getGrossMargin(selling, buying);
+  const hasCostPrice = buying > 0;
   const status = !product.isActive
     ? 'Archived'
     : product.stock === 0
@@ -78,7 +79,7 @@ export function ProductDetails({ overview }: { overview: ProductOverview }) {
   }));
 
   return (
-    <div className="mx-auto max-w-[1100px] space-y-5">
+    <div className="mx-auto max-w-[1180px] space-y-5">
       <Link
         href="/dashboard/products"
         className="inline-flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground"
@@ -86,12 +87,12 @@ export function ProductDetails({ overview }: { overview: ProductOverview }) {
         <ArrowLeft className="h-4 w-4" /> {terminology.title}
       </Link>
       <section className="overflow-hidden rounded-xl border border-[#dfe3ea] bg-white shadow-sm dark:border-slate-800 dark:bg-[#121212] dark:shadow-none">
-        <div className="grid gap-6 p-5 sm:p-7 lg:grid-cols-[300px_1fr]">
-          <div className="relative flex h-[280px] items-center justify-center overflow-hidden rounded-lg bg-[#fff8e8] text-[#8a6500] dark:bg-[#1b180d] dark:text-[#d6aa2d]">
+        <div className="grid gap-6 p-5 sm:p-6 lg:grid-cols-[280px_1fr]">
+          <div className="relative flex h-[240px] items-center justify-center overflow-hidden rounded-lg bg-[#fff8e8] text-[#8a6500] dark:bg-[#1b180d] dark:text-[#d6aa2d] lg:h-[260px]">
             <ProductImage
               src={product.imageUrl}
               alt={product.name}
-              sizes="(max-width: 1024px) 100vw, 300px"
+              sizes="(max-width: 1024px) 100vw, 280px"
               priority
             />
           </div>
@@ -101,9 +102,9 @@ export function ProductDetails({ overview }: { overview: ProductOverview }) {
                 <p className="text-xs font-semibold uppercase tracking-wide text-[#9a6900] dark:text-[#d6aa2d]">
                   {categoryName ?? terminology.singular}
                 </p>
-                <h1 className="mt-1 text-2xl font-semibold tracking-tight text-[#101828] dark:text-slate-100">
+                <h2 className="mt-1 text-2xl font-semibold tracking-tight text-[#101828] dark:text-slate-100">
                   {product.name}
-                </h1>
+                </h2>
                 {(product.brand || product.variant) && (
                   <p className="mt-1 text-sm font-medium text-foreground">
                     {[product.brand, product.variant]
@@ -120,26 +121,32 @@ export function ProductDetails({ overview }: { overview: ProductOverview }) {
                     : ''}
                 </p>
               </div>
-              <span className="rounded-full border border-emerald-200 bg-[#edf7ef] px-3 py-1 text-xs font-medium text-[#28743c] dark:border-emerald-900/70 dark:bg-emerald-950/35 dark:text-emerald-400">
+              <span className={cn(
+                'rounded-full border px-3 py-1 text-xs font-semibold',
+                status === 'In stock'
+                  ? 'border-emerald-200 bg-[#edf7ef] text-[#28743c] dark:border-emerald-900/70 dark:bg-emerald-950/35 dark:text-emerald-400'
+                  : status === 'Low stock'
+                    ? 'border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900/70 dark:bg-amber-950/35 dark:text-amber-400'
+                    : 'border-red-200 bg-red-50 text-red-700 dark:border-red-900/70 dark:bg-red-950/35 dark:text-red-400'
+              )}>
                 {status}
               </span>
             </div>
-            <div className="mt-7 grid gap-4 sm:grid-cols-2">
+            <div className="mt-6 grid gap-3 sm:grid-cols-2">
               <Metric label="Selling price" value={formatCurrency(selling)} />
-              <Metric label="Cost price" value={formatCurrency(buying)} />
-              <Metric label="Profit per unit" value={formatCurrency(profit)} />
+              <Metric label="Cost price" value={hasCostPrice ? formatCurrency(buying) : 'Not set'} />
+              <Metric label="Profit per unit" value={hasCostPrice ? formatCurrency(profit) : 'Add cost price'} />
               <Metric
-                label="Current profit %"
+                label="Gross margin"
                 value={
                   grossMargin.valid
                     ? `${grossMargin.percent.toFixed(1)}%`
-                    : 'Check cost price'
+                    : 'Not available'
                 }
               />
             </div>
-            <p className="mt-3 text-xs text-muted-foreground">
-              Profit % uses today&apos;s cost price. Sales reports show realized
-              profit using the cost captured when each sale was completed.
+            <p className="mt-3 text-xs leading-5 text-muted-foreground">
+              Margin is available once a cost price is recorded. Completed sales retain the cost captured at the time of sale.
             </p>
             <div className="mt-6 flex flex-wrap gap-2">
               <Link
@@ -158,14 +165,10 @@ export function ProductDetails({ overview }: { overview: ProductOverview }) {
           </div>
         </div>
       </section>
-      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4" aria-label="Product performance summary">
         <Metric
           label="Available stock"
           value={`${product.stock} ${product.unit}`}
-        />
-        <Metric
-          label="Units sold today"
-          value={`${metrics.unitsSoldToday} ${product.unit}`}
         />
         <Metric
           label="Units sold this month"
@@ -176,24 +179,8 @@ export function ProductDetails({ overview }: { overview: ProductOverview }) {
           value={formatCurrency(metrics.revenueMonth)}
         />
         <Metric
-          label="Gross profit this month"
-          value={formatCurrency(metrics.grossProfitMonth)}
-        />
-        <Metric
-          label="Average daily sales"
-          value={`${metrics.averageDailySales.toFixed(1)} ${product.unit}`}
-        />
-        <Metric
           label="Stock value"
           value={formatCurrency(metrics.stockValue)}
-        />
-        <Metric
-          label="Estimated stock days"
-          value={
-            metrics.estimatedStockDays === null
-              ? 'Not enough sales data'
-              : `${metrics.estimatedStockDays.toFixed(0)} days`
-          }
         />
       </section>
       <HistoryPanel title="Stock level">

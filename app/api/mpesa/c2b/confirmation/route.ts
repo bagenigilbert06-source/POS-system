@@ -6,6 +6,8 @@ import { normalizeKenyanPhone, validCallbackToken } from '@/lib/mpesa/daraja'
 import { generateId } from '@/lib/utils'
 import { finalizeConfirmedMpesaPayment } from '@/lib/mpesa/finalize-payment'
 import { selectUnambiguousTillCandidate } from '@/lib/mpesa/matching'
+import { getBranchMpesaMerchant } from '@/lib/mpesa/merchant-configuration'
+import { matchesBranchTill } from '@/lib/mpesa/merchant-rules'
 
 type C2bPayload = {
   TransID?: string; TransAmount?: string | number; BusinessShortCode?: string | number; BillRefNumber?: string
@@ -44,6 +46,9 @@ export async function POST(request: NextRequest) {
     eq(mpesaBusinessAccount.shortcode, shortcode), eq(mpesaBusinessAccount.active, true),
   )).limit(1)
   if (!account) return NextResponse.json({ ResultCode: 1, ResultDesc: 'Unregistered business shortcode' }, { status: 400 })
+  const merchant = await getBranchMpesaMerchant(account.organizationId, account.branchId)
+  if (!matchesBranchTill({ configuredTill: merchant?.tillNumber ?? null, callbackShortcode: shortcode, manualTillEnabled: Boolean(merchant?.manualTillEnabled) }))
+    return NextResponse.json({ ResultCode: 1, ResultDesc: 'Merchant Till is not enabled' }, { status: 400 })
   const payerName = [payload.FirstName, payload.MiddleName, payload.LastName].filter(Boolean).join(' ').trim()
   let newlyRecorded = false
   try {

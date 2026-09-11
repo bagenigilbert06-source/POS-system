@@ -12,11 +12,11 @@ type StkPushResponse = {
 
 let accessTokenCache: { token: string; expiresAt: number } | null = null
 
-function configuration(requirePasskey = true) {
+function configuration(requirePasskey = true, businessShortCode?: string) {
   const environment = (process.env.MPESA_ENV || 'sandbox').toLowerCase() as DarajaEnvironment
   const consumerKey = process.env.MPESA_CONSUMER_KEY?.trim()
   const consumerSecret = process.env.MPESA_CONSUMER_SECRET?.trim()
-  const shortcode = process.env.MPESA_SHORTCODE?.trim()
+  const shortcode = businessShortCode?.trim() || process.env.MPESA_SHORTCODE?.trim()
   const passkey = process.env.MPESA_PASSKEY?.trim()
   const explicitCallbackUrl = process.env.MPESA_CALLBACK_URL?.trim()
   const applicationUrl = process.env.BETTER_AUTH_URL?.trim()
@@ -96,22 +96,26 @@ function callbackUrl(configuredUrl: string) {
   return url.toString()
 }
 
-export async function requestStkPush(input: { phone: string; amount: number; accountReference: string }) {
-  const config = configuration()
+export async function requestStkPush(input: { phone: string; amount: number; accountReference: string; businessShortCode: string }) {
+  // The shortcode is non-secret branch configuration. Consumer credentials and
+  // passkey remain server-only environment variables.
+  const shortcode = input.businessShortCode.trim()
+  if (!shortcode) throw new Error('STK Push is not configured for this branch')
+  const config = configuration(true, shortcode)
   const timestamp = darajaTimestamp()
-  const password = Buffer.from(`${config.shortcode}${config.passkey!}${timestamp}`).toString('base64')
+  const password = Buffer.from(`${shortcode}${config.passkey!}${timestamp}`).toString('base64')
   const token = await accessToken()
   const response = await fetchWithTimeout(`${baseUrl(config.environment)}/mpesa/stkpush/v1/processrequest`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', Accept: 'application/json' },
     body: JSON.stringify({
-      BusinessShortCode: config.shortcode,
+      BusinessShortCode: shortcode,
       Password: password,
       Timestamp: timestamp,
       TransactionType: config.transactionType,
       Amount: input.amount,
       PartyA: input.phone,
-      PartyB: config.shortcode,
+      PartyB: shortcode,
       PhoneNumber: input.phone,
       CallBackURL: callbackUrl(config.callbackUrl),
       AccountReference: input.accountReference.slice(0, 12),

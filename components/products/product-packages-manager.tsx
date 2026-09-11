@@ -6,9 +6,8 @@ import {
   saveProductPackage,
 } from '@/app/actions/products';
 import type { ProductPackage } from '@/lib/db/schema';
-import { formatCurrency } from '@/lib/utils';
+import { cn, formatCurrency } from '@/lib/utils';
 import { PackagePlus, Trash2 } from 'lucide-react';
-import { LoadingSpinner as Loader2 } from '@/components/ui/page-loader';
 import { notify } from '@/lib/notify';
 
 export function ProductPackagesManager({
@@ -239,14 +238,23 @@ export function ProductPackagesManager({
           type="button"
           disabled={saving || !form.name || !form.sellingPrice}
           onClick={() => void submit()}
-          className="mt-auto inline-flex h-10 items-center justify-center gap-2 rounded-md bg-primary px-4 text-sm font-bold text-primary-foreground disabled:opacity-50"
+          className={cn(
+            'mt-auto inline-flex h-10 items-center justify-center rounded-md bg-primary text-sm font-bold text-primary-foreground disabled:opacity-50',
+            saving ? 'w-10 p-0' : 'gap-2 px-4'
+          )}
+          aria-label={saving ? 'Adding package' : cafeMode ? 'Add size' : 'Add package'}
         >
           {saving ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
+            <span
+              aria-hidden="true"
+              className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"
+            />
           ) : (
-            <PackagePlus className="h-4 w-4" />
+            <>
+              <PackagePlus className="h-4 w-4" />
+              {cafeMode ? 'Add size' : 'Add package'}
+            </>
           )}
-          {cafeMode ? 'Add size' : 'Add package'}
         </button>
       </div>
     </section>

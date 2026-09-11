@@ -442,7 +442,7 @@ export function ProductsTable({
 
         {/* Product cards */}
         {filtered.length > 0 && viewMode === 'grid' && (
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
             {filtered.map((p, index) => {
               const buying = parseFloat(p.buyingPrice);
               const selling = parseFloat(p.sellingPrice);
@@ -461,7 +461,7 @@ export function ProductsTable({
               return (
                 <article
                   key={`card-${p.id}`}
-                  className="relative flex h-full w-full min-w-0 flex-col overflow-hidden rounded-xl border border-[#e4e7ec] bg-white text-sm shadow-[0_1px_2px_rgba(16,24,40,.04)] dark:border-white/10 dark:bg-[#121212] dark:shadow-none"
+                  className="group relative flex h-full min-w-0 flex-col overflow-hidden rounded-xl border border-[#e4e7ec] bg-white text-sm shadow-[0_1px_2px_rgba(16,24,40,.04)] transition-[border-color,box-shadow] duration-150 hover:border-[#d6dbe3] hover:shadow-[0_4px_12px_rgba(16,24,40,.06)] motion-reduce:transition-none dark:border-white/10 dark:bg-[#121212] dark:shadow-none dark:hover:border-white/20 dark:hover:shadow-none"
                 >
                   <div className="relative overflow-hidden bg-[#fffaf0] dark:bg-[#101010]">
                     <Link
@@ -482,18 +482,18 @@ export function ProductsTable({
                             event.stopPropagation();
                             setZoomedImage({ src: p.imageUrl!, name: p.name });
                           }}
-                          className={`h-36 w-full cursor-zoom-in object-cover sm:h-40 lg:h-44 ${p.stock !== 0 ? '' : 'opacity-50'}`}
+                          className={`h-32 w-full cursor-zoom-in object-cover sm:h-36 ${p.stock !== 0 ? '' : 'opacity-50'}`}
                         />
                       ) : (
-                        <div className="flex h-36 items-center justify-center text-[#8a6500] dark:bg-[#1b180d] dark:text-[#d5aa2e] sm:h-40 lg:h-44">
-                          <Package className="h-12 w-12 stroke-[1.35]" />
+                        <div className="flex h-32 items-center justify-center text-[#8a6500] dark:bg-[#1b180d] dark:text-[#d5aa2e] sm:h-36">
+                          <Package className="h-10 w-10 stroke-[1.35]" />
                         </div>
                       )}
                     </Link>
                     <div className="absolute left-2 top-2 z-10 flex flex-col items-start gap-1.5">
                       <span
                         className={cn(
-                          'inline-flex items-center gap-1 rounded-full bg-white/90 px-2 py-1 text-[11px] font-medium shadow-sm backdrop-blur-sm dark:bg-black/65',
+                          'inline-flex items-center gap-1 rounded-full bg-white/95 px-2 py-1 text-[10px] font-semibold shadow-sm backdrop-blur-sm dark:bg-black/65',
                           status === 'ok'
                             ? 'text-[#28743c] dark:text-emerald-400'
                             : status === 'low'
@@ -508,15 +508,15 @@ export function ProductsTable({
                   </div>
                   <Link
                     href={`/dashboard/products/${p.id}`}
-                    className="flex min-w-0 flex-1 flex-col gap-2 px-3 pb-2 pt-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#e42527]"
+                    className="flex min-w-0 flex-1 flex-col gap-1.5 px-3.5 pb-2 pt-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#e42527]"
                     aria-label={`View ${p.name} details`}
                   >
                     <div className="min-w-0">
-                      <h3 className="line-clamp-1 font-semibold leading-5 text-[#101828] dark:text-slate-100">
+                      <h3 className="line-clamp-2 min-h-10 font-semibold leading-5 text-[#101828] dark:text-slate-100">
                         {p.name}
                       </h3>
                     </div>
-                    <div className="flex min-h-5 min-w-0 items-center gap-1.5 overflow-hidden">
+                    <div className="flex min-h-4 min-w-0 items-center gap-1.5 overflow-hidden">
                       {p.categoryName && (
                         <span className="truncate text-[10px] font-medium text-[#875b00] dark:text-[#d6aa2d]">
                           {p.categoryName}
@@ -529,13 +529,13 @@ export function ProductsTable({
                         </span>
                       )}
                     </div>
-                    <div className="flex items-center justify-between gap-2 pt-0.5">
+                    <div className="flex items-baseline justify-between gap-2 pt-1">
                       <p className="text-[15px] font-semibold tabular-nums text-[#8a6200] dark:text-[#e6b832]">
                         {formatCurrency(selling)}
                       </p>
                       <span
                         className={cn(
-                          'text-[11px] font-medium',
+                          'max-w-[48%] truncate text-[11px] font-medium',
                           profit >= 0
                             ? 'text-emerald-600 dark:text-emerald-400'
                             : 'text-destructive'
@@ -547,12 +547,12 @@ export function ProductsTable({
                       </span>
                     </div>
                   </Link>
-                  <div className="flex min-h-10 items-center justify-between gap-2 px-3 pb-2 pt-1">
-                    <span className="truncate text-[11px] text-muted-foreground">
+                  <div className="grid min-h-10 grid-cols-[minmax(0,1fr)_auto] items-center gap-2 px-3.5 pb-3 pt-1">
+                    <span className="truncate text-[11px] font-medium text-muted-foreground">
                       {p.stock} {p.unit}
                       {p.stock === 1 ? '' : 's'} available
                     </span>
-                    <div className="flex shrink-0 items-center gap-2">
+                    <div className="flex shrink-0 items-center gap-1.5">
                       {p.isActive && status !== 'ok' && (
                         <button
                           type="button"
@@ -560,30 +560,31 @@ export function ProductsTable({
                             event.stopPropagation();
                             window.location.assign('/dashboard/inventory');
                           }}
-                          className="inline-flex items-center gap-1 rounded-md bg-primary px-2 py-1.5 text-xs font-semibold text-primary-foreground hover:bg-primary/90"
+                          className="inline-flex h-7 w-7 items-center justify-center rounded-md text-[#9a6900] transition-colors hover:bg-[#fff4cc] hover:text-[#6f5100] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#fbbc04]/40 dark:text-[#f7c948] dark:hover:bg-[#332600]"
+                          aria-label={`Restock ${p.name}`}
+                          title="Restock product"
                         >
                           <ShoppingCart className="h-3.5 w-3.5" />
-                          Restock
                         </button>
                       )}
-                      <div className="inline-flex items-center overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-[#171717]">
+                      <div className="inline-flex items-center gap-0.5">
                         <Link
                           href={`/dashboard/products/${p.id}`}
                           onClick={(event) => event.stopPropagation()}
-                          className="inline-flex h-8 w-8 items-center justify-center text-slate-500 transition-colors hover:bg-slate-50 hover:text-slate-900 focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary dark:text-slate-400 dark:hover:bg-white/10 dark:hover:text-white"
+                          className="inline-flex h-7 w-7 items-center justify-center rounded-md text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 dark:text-slate-400 dark:hover:bg-white/10 dark:hover:text-white"
                           aria-label={`View ${p.name}`}
                           title={`View ${terminology.singularLower}`}
                         >
-                          <Eye className="h-4 w-4" aria-hidden="true" />
+                          <Eye className="h-3.5 w-3.5" aria-hidden="true" />
                         </Link>
                         <Link
                           href={`/dashboard/products/${p.id}?edit=true`}
                           onClick={(event) => event.stopPropagation()}
-                          className="inline-flex h-6 w-6 items-center justify-center rounded-md border border-[var(--dashboard-border)] bg-[var(--dashboard-surface-subtle)] text-[var(--dashboard-muted)] transition-colors hover:border-[var(--dashboard-accent-soft-border)] hover:bg-[var(--dashboard-accent-soft)] hover:text-[var(--dashboard-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--dashboard-accent)]/30"
+                          className="inline-flex h-7 w-7 items-center justify-center rounded-md text-slate-500 transition-colors hover:bg-[#fff4cc] hover:text-[#9a6900] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#fbbc04]/40 dark:text-slate-400 dark:hover:bg-[#332600] dark:hover:text-[#f7c948]"
                           aria-label={`Edit ${p.name}`}
                           title={`Edit ${terminology.singularLower}`}
                         >
-                          <PaymentSummaryEditIcon className="h-3 w-3" />
+                          <PaymentSummaryEditIcon className="h-3.5 w-3.5" />
                         </Link>
                         {p.isActive && (
                           <button
@@ -593,11 +594,11 @@ export function ProductsTable({
                               setArchiveTarget(p);
                             }}
                             disabled={archiving === p.id}
-                            className="inline-flex h-8 w-8 items-center justify-center border-l border-slate-200 text-slate-500 transition-colors hover:bg-red-50 hover:text-red-600 focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-red-500 disabled:opacity-40 dark:border-white/10 dark:text-slate-400 dark:hover:bg-red-950/35 dark:hover:text-red-400"
+                            className="inline-flex h-7 w-7 items-center justify-center rounded-md text-slate-500 transition-colors hover:bg-red-50 hover:text-red-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/30 disabled:opacity-40 dark:text-slate-400 dark:hover:bg-red-950/35 dark:hover:text-red-400"
                             aria-label={`Archive ${p.name}`}
                             title={`Archive ${terminology.singularLower}`}
                           >
-                            <Archive className="h-4 w-4" aria-hidden="true" />
+                            <Archive className="h-3.5 w-3.5" aria-hidden="true" />
                           </button>
                         )}
                       </div>
@@ -817,10 +818,10 @@ export function ProductsTable({
                             {p.unit}
                           </td>
                           <td className="px-4 py-3 text-right">
-                            <div className="inline-flex items-center overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-[#171717]">
+                            <div className="inline-flex items-center gap-1">
                               <Link
                                 href={`/dashboard/products/${p.id}`}
-                                className="inline-flex h-8 w-8 items-center justify-center text-slate-500 transition-colors hover:bg-slate-50 hover:text-slate-900 focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary dark:text-slate-400 dark:hover:bg-white/10 dark:hover:text-white"
+                                className="inline-flex h-8 w-8 items-center justify-center rounded-md text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 dark:text-slate-400 dark:hover:bg-white/10 dark:hover:text-white"
                                 aria-label={`View ${p.name}`}
                                 title={`View ${terminology.singularLower}`}
                               >
@@ -828,17 +829,17 @@ export function ProductsTable({
                               </Link>
                               <Link
                                 href={`/dashboard/products/${p.id}?edit=true`}
-                                className="inline-flex h-6 w-6 items-center justify-center rounded-md border border-[var(--dashboard-border)] bg-[var(--dashboard-surface-subtle)] text-[var(--dashboard-muted)] transition-colors hover:border-[var(--dashboard-accent-soft-border)] hover:bg-[var(--dashboard-accent-soft)] hover:text-[var(--dashboard-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--dashboard-accent)]/30"
+                                className="inline-flex h-8 w-8 items-center justify-center rounded-md text-slate-500 transition-colors hover:bg-[#fff4cc] hover:text-[#9a6900] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#fbbc04]/40 dark:text-slate-400 dark:hover:bg-[#332600] dark:hover:text-[#f7c948]"
                                 aria-label={`Edit ${p.name}`}
                                 title={`Edit ${terminology.singularLower}`}
                               >
-                                <PaymentSummaryEditIcon className="h-3 w-3" />
+                                <PaymentSummaryEditIcon className="h-3.5 w-3.5" />
                               </Link>
                               {p.isActive && (
                                 <button
                                   onClick={() => setArchiveTarget(p)}
                                   disabled={archiving === p.id}
-                                  className="inline-flex h-8 w-8 items-center justify-center border-l border-slate-200 text-slate-500 transition-colors hover:bg-red-50 hover:text-red-600 focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-red-500 disabled:opacity-40 dark:border-white/10 dark:text-slate-400 dark:hover:bg-red-950/35 dark:hover:text-red-400"
+                                  className="inline-flex h-8 w-8 items-center justify-center rounded-md text-slate-500 transition-colors hover:bg-red-50 hover:text-red-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/30 disabled:opacity-40 dark:text-slate-400 dark:hover:bg-red-950/35 dark:hover:text-red-400"
                                   aria-label={`Archive ${p.name}`}
                                   title={`Archive ${terminology.singularLower}`}
                                 >

@@ -1656,7 +1656,7 @@ export function ProductForm({
                           type="button"
                           onClick={() =>
                             router.push(
-                              `/dashboard/inventory?productId=${product.id}`
+                              `/dashboard/inventory/${product.id}`
                             )
                           }
                           className="mt-2 rounded-md border bg-background px-3 py-2 text-sm font-medium hover:bg-secondary"

@@ -3,6 +3,7 @@ import { friendlyMpesaFailure, normalizeKenyanPhone, validCallbackToken } from '
 import { normalizeMpesaPhoneForMode } from '../lib/mpesa/phone-validation'
 import { calculateMpesaAmount } from '../lib/mpesa/amount'
 import { selectUnambiguousTillCandidate } from '../lib/mpesa/matching'
+import { callbackAmountMatches, matchesBranchTill } from '../lib/mpesa/merchant-rules'
 
 assert.equal(normalizeKenyanPhone('0712 345 678'), '254712345678')
 assert.equal(normalizeKenyanPhone('+254 712 345 678'), '254712345678')
@@ -30,6 +31,12 @@ assert.equal(selectUnambiguousTillCandidate([], 1500), null)
 assert.equal(selectUnambiguousTillCandidate([{ id: 'one', amount: '1500.00' }], 1500)?.id, 'one')
 assert.equal(selectUnambiguousTillCandidate([{ id: 'one', amount: '1500.00' }, { id: 'two', amount: '1500.00' }], 1500), null)
 assert.equal(selectUnambiguousTillCandidate([{ id: 'wrong', amount: '1499.00' }], 1500), null)
+// A Buy Goods Till is branch-bound and is never silently promoted to an STK shortcode.
+assert.equal(matchesBranchTill({ configuredTill: '1704604', callbackShortcode: '1704604', manualTillEnabled: true }), true)
+assert.equal(matchesBranchTill({ configuredTill: '1704604', callbackShortcode: '174379', manualTillEnabled: true }), false)
+assert.equal(matchesBranchTill({ configuredTill: '1704604', callbackShortcode: '1704604', manualTillEnabled: false }), false)
+assert.equal(callbackAmountMatches('1500.00', 1500), true)
+assert.equal(callbackAmountMatches('1500.00', 1499), false)
 
 const previousEnvironment = process.env.MPESA_ENV
 const previousSecret = process.env.MPESA_CALLBACK_SECRET

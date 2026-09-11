@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { and, eq, inArray } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { mpesaIncomingPayment, mpesaPaymentRequest } from '@/lib/db/schema'
-import { friendlyMpesaFailure, mpesaPaybillDetails, normalizeKenyanPhone, validCallbackToken } from '@/lib/mpesa/daraja'
+import { friendlyMpesaFailure, normalizeKenyanPhone, validCallbackToken } from '@/lib/mpesa/daraja'
 import { finalizeConfirmedMpesaPayment } from '@/lib/mpesa/finalize-payment'
 import { generateId } from '@/lib/utils'
 
@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
   await db.transaction(async (tx) => {
     if (receiptNumber) await tx.insert(mpesaIncomingPayment).values({
       id: generateId(), transactionId: receiptNumber, organizationId: payment.organizationId, branchId: payment.branchId,
-      shortcode: mpesaPaybillDetails().shortcode, accountReference: payment.accountReference, phone: paidPhone, amount: String(paidAmount),
+      shortcode: payment.tillNumber || 'stk', accountReference: payment.accountReference, phone: paidPhone, amount: String(paidAmount),
       matchedRequestId: eligibleForAutomaticSale ? payment.id : null, matchedAt: eligibleForAutomaticSale ? new Date() : null,
       matchedBy: eligibleForAutomaticSale ? payment.userId : null, status: eligibleForAutomaticSale ? 'MATCHED_PENDING_FINALIZATION' : 'NEEDS_MATCHING', payload,
     }).onConflictDoNothing({ target: mpesaIncomingPayment.transactionId })
