@@ -95,8 +95,23 @@ async function assertCanManageEmployee(
   }
 }
 
-function invitationRedirectUrl() {
-  return `${(process.env.BETTER_AUTH_URL || 'https://pesaby.vercel.app').replace(/\/$/, '')}/setup-account`
+async function invitationRedirectUrl() {
+  const configuredUrl = process.env.BETTER_AUTH_URL?.trim()
+  if (configuredUrl) {
+    const url = new URL(configuredUrl)
+    if (url.protocol !== 'https:' && url.protocol !== 'http:') throw new Error('BETTER_AUTH_URL must use HTTP or HTTPS')
+    return `${url.origin}/setup-account`
+  }
+
+  // Use the origin that served this authenticated staff action. This prevents
+  // an invitation from being sent to a fallback deployment that uses another
+  // database and therefore cannot validate its token.
+  const requestHeaders = await headers()
+  const forwardedHost = requestHeaders.get('x-forwarded-host')?.split(',')[0]?.trim()
+  const host = forwardedHost || requestHeaders.get('host')
+  if (!host || !/^[a-z0-9.-]+(?::\d+)?$/i.test(host)) throw new Error('Unable to determine the public application URL')
+  const protocol = requestHeaders.get('x-forwarded-proto')?.split(',')[0]?.trim() === 'http' ? 'http' : 'https'
+  return `${protocol}://${host}/setup-account`
 }
 
 async function getUserId() {
@@ -170,7 +185,7 @@ export async function createEmployee(data: {
     try {
       const invitation = await createStaffInvitation({ employeeId: result.record.id, branchId: input.branchId, userId: result.record.userId, email: input.email, organizationId: authorization.organizationId, createdBy: authorization.userId })
       await db.insert(auditEvent).values({ id: nanoid(), organizationId: authorization.organizationId, userId: authorization.userId, action: 'staff.invitation_created', metadata: { employeeId: result.record.id, invitationId: invitation.record.id, role: input.role, branchId: input.branchId, expiresAt: invitation.record.expiresAt } })
-      await sendStaffInvitation({ employeeId: result.record.id, email: input.email, setupUrl: `${invitationRedirectUrl()}?token=${encodeURIComponent(invitation.token)}`, inviterName: (await auth.api.getSession({ headers: await headers() }))?.user.name })
+      await sendStaffInvitation({ employeeId: result.record.id, email: input.email, setupUrl: `${await invitationRedirectUrl()}?token=${encodeURIComponent(invitation.token)}`, inviterName: (await auth.api.getSession({ headers: await headers() }))?.user.name })
       invitationSent = true
       await db.insert(auditEvent).values({ id: nanoid(), organizationId: authorization.organizationId, userId: authorization.userId, action: invitationSent ? 'staff.invitation_sent' : 'staff.invitation_failed', metadata: { employeeId: result.record.id, reason: invitationSent ? undefined : 'email_not_configured' } })
     } catch {
@@ -191,7 +206,7 @@ export async function resendStaffInvitation(employeeId: string) {
     const [previous] = await db.select({ branchId: staffInvitation.branchId }).from(staffInvitation).where(eq(staffInvitation.employeeId, record.id)).orderBy(desc(staffInvitation.createdAt)).limit(1)
     if (!previous) throw new Error('Invitation assignment was not found')
     const invitation = await createStaffInvitation({ employeeId: record.id, branchId: previous.branchId, userId: record.userId, email: record.email, organizationId: authorization.organizationId, createdBy: authorization.userId })
-    await sendStaffInvitation({ employeeId: record.id, email: record.email, setupUrl: `${invitationRedirectUrl()}?token=${encodeURIComponent(invitation.token)}` })
+    await sendStaffInvitation({ employeeId: record.id, email: record.email, setupUrl: `${await invitationRedirectUrl()}?token=${encodeURIComponent(invitation.token)}` })
     const delivered = true
     const action = 'staff.invitation_resent'
     await db.insert(auditEvent).values({ id: nanoid(), organizationId: authorization.organizationId, userId: authorization.userId, action: delivered ? action : 'staff.invitation_failed', metadata: { employeeId, staffUserId: record.userId, accountStatus: record.status } })

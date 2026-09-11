@@ -4,12 +4,12 @@ import { db } from '@/lib/db'
 import { employee, staffInvitation, organizationMembership, branchMembership, branch, organization, auditEvent, user } from '@/lib/db/schema'
 import { nanoid } from 'nanoid'
 
-export const STAFF_INVITATION_EXPIRY_HOURS = 48
+export const STAFF_INVITATION_EXPIRY_MINUTES = 10
 const hash = (token: string) => createHash('sha256').update(token).digest('hex')
 
 export async function createStaffInvitation(input: { organizationId: string; employeeId: string; branchId: string; userId?: string | null; email: string; createdBy: string }) {
   const rawToken = randomBytes(32).toString('base64url')
-  const expiresAt = new Date(Date.now() + STAFF_INVITATION_EXPIRY_HOURS * 3600_000)
+  const expiresAt = new Date(Date.now() + STAFF_INVITATION_EXPIRY_MINUTES * 60_000)
   await db.update(staffInvitation).set({ status: 'SUPERSEDED', supersededAt: new Date(), updatedAt: new Date() }).where(and(eq(staffInvitation.employeeId, input.employeeId), inArray(staffInvitation.status, ['PENDING', 'AWAITING_EMAIL_VERIFICATION'])))
   const [record] = await db.insert(staffInvitation).values({ id: nanoid(), ...input, tokenHash: hash(rawToken), status: 'PENDING', expiresAt }).returning()
   return { record, token: rawToken }
