@@ -19,11 +19,11 @@ export async function getBranchMpesaMerchant(organizationId: string, branchId: s
 export function assertManualTillEnabled(merchant: BranchMpesaMerchant | null): BranchMpesaMerchant & { tillNumber: string } {
   if (!merchant?.manualTillEnabled || !merchant.tillNumber)
     throw new Error('Manual Buy Goods Till is not configured for this branch')
-  return merchant
+  return { ...merchant, tillNumber: merchant.tillNumber }
 }
 
 export function assertStkEnabled(merchant: BranchMpesaMerchant | null): BranchMpesaMerchant & { businessShortCode: string } {
   if (!merchant?.stkEnabled || !merchant.businessShortCode)
     throw new Error('STK Push is not configured for this branch')
-  return merchant
+  return { ...merchant, businessShortCode: merchant.businessShortCode }
 }

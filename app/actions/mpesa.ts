@@ -6,6 +6,7 @@ import { db } from '@/lib/db';
 import {
   branch,
   ageVerification,
+  auditEvent,
   businessSettings,
   category,
   cafeOrder,
@@ -161,7 +162,7 @@ async function manualAccountsForBranch(
 
 export async function getManualMpesaOptions() {
   const authorization = await paymentAuthorization();
-  const [accounts, settings, merchant] = await Promise.all([
+  const [accounts, merchant, settings] = await Promise.all([
     manualAccountsForBranch(
       authorization.organizationId,
       authorization.branchId
