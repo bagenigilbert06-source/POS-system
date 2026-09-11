@@ -13,7 +13,6 @@ import {
   PackagePlus,
   Plus,
   ReceiptText,
-  ShieldCheck,
   ShoppingCart,
   UserPlus,
   Settings,
@@ -275,39 +274,25 @@ export function AppNavbar({
           </DropdownMenuTrigger>
           <DropdownMenuContent
             align="end"
-            className="w-56 rounded-xl border border-[var(--dashboard-border)] bg-[var(--dashboard-surface)] p-2 text-[var(--dashboard-text)] shadow-xl"
+            sideOffset={8}
+            className="z-[100] w-56 overflow-hidden rounded-md border border-[#e3e7ec] !bg-white p-0 text-[#0f172a] shadow-[0_10px_28px_rgba(16,24,40,0.16)] dark:border-[#262626] dark:!bg-[#0d0d0d] dark:text-[#fafafa]"
           >
-            <DropdownMenuLabel className="rounded-lg bg-[var(--dashboard-surface-subtle)] px-3 py-3 font-normal">
-              <p className="truncate text-sm font-semibold text-foreground">
-                {userName || 'Pesaby account'}
-              </p>
-              <p className="mt-1 truncate text-xs text-muted-foreground">
-                {userEmail}
-              </p>
-              <span className="mt-2 inline-flex items-center gap-1.5 rounded-md border border-border bg-muted px-2.5 py-1 text-[0.64rem] font-semibold uppercase tracking-[0.07em] text-foreground">
-                <ShieldCheck className="h-3 w-3 text-muted-foreground" />
-                {roleTitle}
-              </span>
-            </DropdownMenuLabel>
-            <div className="px-1 py-2">
-              <button
-                type="button"
-                onClick={() => router.push('/dashboard/profile')}
-                className="flex h-10 w-full items-center justify-center rounded-md bg-[var(--dashboard-accent-cta)] px-3 text-sm font-semibold text-[var(--dashboard-accent-cta-ink)] transition-colors hover:bg-[var(--dashboard-accent-cta-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--dashboard-accent)]/30"
-              >
-                My profile
-              </button>
-            </div>
-            <DropdownMenuSeparator className="bg-border" />
+            <DropdownMenuItem
+              onSelect={() => router.push('/dashboard/profile')}
+              className="mx-3 mb-3 mt-3 flex h-10 cursor-pointer justify-center rounded-md bg-[#fbbc04] px-3 text-sm font-semibold text-[#201600] focus:bg-[#e9ae00] focus:text-[#201600]"
+            >
+              My profile
+            </DropdownMenuItem>
+            <DropdownMenuSeparator className="bg-[#e3e7ec] dark:bg-[#262626]" />
             {availableOrganizations.length > 1 && <>
-              <DropdownMenuLabel className="px-3 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Workspaces</DropdownMenuLabel>
-              {availableOrganizations.map((item) => <DropdownMenuItem key={item.id} disabled={item.id === organizationId} onSelect={() => { if (item.id !== organizationId) void switchActiveOrganization(item.id) }} className="gap-3 rounded-lg px-3 py-2.5 text-muted-foreground focus:bg-muted focus:text-foreground"><Building2 className="h-4 w-4" /><span className="min-w-0 flex-1 truncate">{item.name}</span>{item.id === organizationId && <span className="text-[10px] font-semibold">Current</span>}</DropdownMenuItem>)}
-              <DropdownMenuSeparator className="bg-border" />
+              <DropdownMenuLabel className="px-4 pb-1 pt-3 text-[10px] font-semibold uppercase tracking-wider text-[#667085] dark:text-[#a3a3a3]">Workspaces</DropdownMenuLabel>
+              {availableOrganizations.map((item) => <DropdownMenuItem key={item.id} disabled={item.id === organizationId} onSelect={() => { if (item.id !== organizationId) void switchActiveOrganization(item.id) }} className="h-10 gap-3 rounded-none px-4 text-[#526078] focus:bg-[#f7f8fa] focus:text-[#0f172a] dark:text-[#a3a3a3] dark:focus:bg-[#1a1a1a] dark:focus:text-[#fafafa]"><Building2 className="h-4 w-4" /><span className="min-w-0 flex-1 truncate">{item.name}</span>{item.id === organizationId && <span className="text-[10px] font-semibold">Current</span>}</DropdownMenuItem>)}
+              <DropdownMenuSeparator className="bg-[#e3e7ec] dark:bg-[#262626]" />
             </>}
             <DropdownMenuItem
               onSelect={() => router.push('/dashboard/settings')}
               disabled={!permissions.includes(PermissionEnum.SETTINGS_VIEW)}
-              className={`${permissions.includes(PermissionEnum.SETTINGS_VIEW) ? '' : 'hidden'} gap-3 rounded-lg px-3 py-2.5 text-muted-foreground focus:bg-muted focus:text-foreground`}
+              className={`${permissions.includes(PermissionEnum.SETTINGS_VIEW) ? '' : 'hidden'} h-11 gap-3 rounded-none px-4 text-[#526078] focus:bg-[#f7f8fa] focus:text-[#0f172a] dark:text-[#a3a3a3] dark:focus:bg-[#1a1a1a] dark:focus:text-[#fafafa]`}
             >
               <Settings className="h-4 w-4" />
               <span>Settings</span>
@@ -315,16 +300,16 @@ export function AppNavbar({
             {permissions.includes(PermissionEnum.STAFF_MANAGE) && (
               <DropdownMenuItem
                 onSelect={() => router.push('/dashboard/staff')}
-                className="gap-3 rounded-lg px-3 py-2.5 text-muted-foreground focus:bg-muted focus:text-foreground"
+                className="h-11 gap-3 rounded-none px-4 text-[#526078] focus:bg-[#f7f8fa] focus:text-[#0f172a] dark:text-[#a3a3a3] dark:focus:bg-[#1a1a1a] dark:focus:text-[#fafafa]"
               >
                 <UserPlus className="h-4 w-4" />
                 <span>Staff &amp; access</span>
               </DropdownMenuItem>
             )}
-            <DropdownMenuSeparator className="bg-border" />
+            <DropdownMenuSeparator className="bg-[#e3e7ec] dark:bg-[#262626]" />
             <DropdownMenuItem
               onSelect={handleSignOut}
-              className="gap-3 rounded-lg px-3 py-2.5 text-muted-foreground focus:bg-red-50 focus:text-red-600 dark:focus:bg-red-950/30 dark:focus:text-red-300"
+              className="h-11 gap-3 rounded-none px-4 text-[#526078] focus:bg-red-50 focus:text-red-600 dark:text-[#a3a3a3] dark:focus:bg-red-950/30 dark:focus:text-red-300"
             >
               <LogOut className="h-4 w-4" />
               Sign out
