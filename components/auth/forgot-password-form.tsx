@@ -11,9 +11,9 @@ export function ForgotPasswordForm({ callbackURL }: { callbackURL?: string }) {
   const [sent, setSent] = useState(false)
   const [pending, setPending] = useState(false)
   const [error, setError] = useState('')
-  const redirectTo = callbackURL?.startsWith('/') && !callbackURL.startsWith('//')
+  const returnTo = callbackURL?.startsWith('/') && !callbackURL.startsWith('//')
     ? callbackURL
-    : '/setup-account'
+    : undefined
 
   const submit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -22,7 +22,10 @@ export function ForgotPasswordForm({ callbackURL }: { callbackURL?: string }) {
     try {
       const result = await authClient.requestPasswordReset({
         email: email.trim().toLowerCase(),
-        redirectTo: `${window.location.origin}${redirectTo}`,
+        // Better Auth appends its password-reset token to this URL. Never send
+        // that token to the employee invitation route: it is a different,
+        // unrelated token type and will always be rejected there.
+        redirectTo: `${window.location.origin}/reset-password${returnTo ? `?returnTo=${encodeURIComponent(returnTo)}` : ''}`,
       })
       if (result.error) throw new Error(result.error.message)
       setSent(true)
