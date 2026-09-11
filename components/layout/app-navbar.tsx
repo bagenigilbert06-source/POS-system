@@ -8,7 +8,6 @@ import { authClient } from '@/lib/auth-client';
 import {
   Building2,
   ChevronDown,
-  LifeBuoy,
   LogOut,
   Menu,
   PackagePlus,
@@ -16,7 +15,6 @@ import {
   ReceiptText,
   ShieldCheck,
   ShoppingCart,
-  UserRound,
   UserPlus,
   Settings,
 } from 'lucide-react';
@@ -246,10 +244,10 @@ export function AppNavbar({
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button
-              className="group flex h-10 items-center gap-2 rounded-lg px-1 py-0.5 text-left text-[var(--dashboard-text)] transition-colors hover:bg-[var(--dashboard-surface-subtle)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--dashboard-accent)] focus-visible:ring-offset-1 sm:pr-2"
+              className="group flex h-12 shrink-0 items-center gap-2 rounded-xl border border-[#c98a00] bg-white px-1.5 text-left text-[var(--dashboard-text)] shadow-sm transition-colors hover:border-[#a66f00] hover:bg-[#fffaf0] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d6a800] focus-visible:ring-offset-2 dark:bg-[var(--dashboard-surface)] dark:hover:bg-white/5 md:w-[218px]"
               aria-label="Open account menu"
             >
-              <div className="relative flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full border border-[var(--dashboard-accent-soft-border)] bg-[var(--dashboard-accent-soft)] text-xs font-extrabold text-[var(--dashboard-accent-strong)]">
+              <div className="relative flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full border border-[#f1cd61] bg-[var(--dashboard-accent-soft)] text-xs font-extrabold text-[var(--dashboard-accent-strong)]">
                 {userImage && !avatarFailed ? (
                   <Image
                     src={userImage}
@@ -265,7 +263,7 @@ export function AppNavbar({
                   <span aria-hidden="true">{initials || 'A'}</span>
                 )}
               </div>
-              <span className="hidden min-w-0 max-w-[150px] leading-tight md:block">
+              <span className="hidden min-w-0 flex-1 leading-tight md:block">
                 <span className="block truncate text-sm font-bold">
                   {userName ?? 'Account'}
                 </span>
@@ -277,9 +275,9 @@ export function AppNavbar({
           </DropdownMenuTrigger>
           <DropdownMenuContent
             align="end"
-            className="w-64 rounded-2xl border border-border bg-popover p-2 text-popover-foreground shadow-lg"
+            className="w-56 rounded-xl border border-[var(--dashboard-border)] bg-[var(--dashboard-surface)] p-2 text-[var(--dashboard-text)] shadow-xl"
           >
-            <DropdownMenuLabel className="px-3 py-3 font-normal">
+            <DropdownMenuLabel className="rounded-lg bg-[var(--dashboard-surface-subtle)] px-3 py-3 font-normal">
               <p className="truncate text-sm font-semibold text-foreground">
                 {userName || 'Pesaby account'}
               </p>
@@ -291,19 +289,21 @@ export function AppNavbar({
                 {roleTitle}
               </span>
             </DropdownMenuLabel>
+            <div className="px-1 py-2">
+              <button
+                type="button"
+                onClick={() => router.push('/dashboard/profile')}
+                className="flex h-10 w-full items-center justify-center rounded-md bg-[var(--dashboard-accent-cta)] px-3 text-sm font-semibold text-[var(--dashboard-accent-cta-ink)] transition-colors hover:bg-[var(--dashboard-accent-cta-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--dashboard-accent)]/30"
+              >
+                My profile
+              </button>
+            </div>
             <DropdownMenuSeparator className="bg-border" />
             {availableOrganizations.length > 1 && <>
               <DropdownMenuLabel className="px-3 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Workspaces</DropdownMenuLabel>
               {availableOrganizations.map((item) => <DropdownMenuItem key={item.id} disabled={item.id === organizationId} onSelect={() => { if (item.id !== organizationId) void switchActiveOrganization(item.id) }} className="gap-3 rounded-lg px-3 py-2.5 text-muted-foreground focus:bg-muted focus:text-foreground"><Building2 className="h-4 w-4" /><span className="min-w-0 flex-1 truncate">{item.name}</span>{item.id === organizationId && <span className="text-[10px] font-semibold">Current</span>}</DropdownMenuItem>)}
               <DropdownMenuSeparator className="bg-border" />
             </>}
-            <DropdownMenuItem
-              onSelect={() => router.push('/dashboard/profile')}
-              className="gap-3 rounded-lg px-3 py-2.5 text-muted-foreground focus:bg-muted focus:text-foreground"
-            >
-              <UserRound className="h-4 w-4" />
-              <span>Profile</span>
-            </DropdownMenuItem>
             <DropdownMenuItem
               onSelect={() => router.push('/dashboard/settings')}
               disabled={!permissions.includes(PermissionEnum.SETTINGS_VIEW)}
@@ -312,15 +312,15 @@ export function AppNavbar({
               <Settings className="h-4 w-4" />
               <span>Settings</span>
             </DropdownMenuItem>
-            <DropdownMenuItem
-              asChild
-              className="gap-3 rounded-lg px-3 py-2.5 text-muted-foreground focus:bg-muted focus:text-foreground"
-            >
-              <a href="mailto:support@pesaby.co.ke?subject=Pesaby%20dashboard%20support">
-                <LifeBuoy className="h-4 w-4" />
-                <span>Help &amp; support</span>
-              </a>
-            </DropdownMenuItem>
+            {permissions.includes(PermissionEnum.STAFF_MANAGE) && (
+              <DropdownMenuItem
+                onSelect={() => router.push('/dashboard/staff')}
+                className="gap-3 rounded-lg px-3 py-2.5 text-muted-foreground focus:bg-muted focus:text-foreground"
+              >
+                <UserPlus className="h-4 w-4" />
+                <span>Staff &amp; access</span>
+              </DropdownMenuItem>
+            )}
             <DropdownMenuSeparator className="bg-border" />
             <DropdownMenuItem
               onSelect={handleSignOut}
