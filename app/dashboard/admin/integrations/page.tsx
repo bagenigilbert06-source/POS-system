@@ -30,7 +30,7 @@ export default async function IntegrationsPage() {
   const mpesaConfigured = Boolean(
     process.env.MPESA_CONSUMER_KEY &&
     process.env.MPESA_CONSUMER_SECRET &&
-    process.env.MPESA_SHORTCODE &&
+    (process.env.MPESA_BUSINESS_SHORTCODE || process.env.MPESA_SHORTCODE) &&
     process.env.MPESA_PASSKEY
   );
   const callbackProtected =
@@ -52,6 +52,7 @@ export default async function IntegrationsPage() {
           configured={mpesaConfigured && callbackProtected}
           details={[
             ['Credentials', mpesaConfigured],
+            ['Sandbox M-Pesa API', process.env.MPESA_ENV !== 'production'],
             ['Callback protection', callbackProtected],
             ['Branch accounts', accounts.some((item) => item.active)],
           ]}

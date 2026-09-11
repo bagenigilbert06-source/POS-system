@@ -1,4 +1,4 @@
-import { createHash, timingSafeEqual } from 'node:crypto'
+import { createHash, createHmac, timingSafeEqual } from 'node:crypto'
 
 type DarajaEnvironment = 'sandbox' | 'production'
 
@@ -11,12 +11,47 @@ type StkPushResponse = {
 }
 
 let accessTokenCache: { token: string; expiresAt: number } | null = null
+let configurationDiagnosticLogged = false
 
-function configuration(requirePasskey = true, businessShortCode?: string) {
-  const environment = (process.env.MPESA_ENV || 'sandbox').toLowerCase() as DarajaEnvironment
+/** Safe for server diagnostics: this intentionally never returns any value. */
+export function mpesaConfigurationDiagnostic() {
+  const callbackUrl = process.env.MPESA_CALLBACK_URL?.trim()
+  let callbackPublicLooking = false
+  try {
+    const callback = callbackUrl ? new URL(callbackUrl) : null
+    callbackPublicLooking = Boolean(callback && callback.protocol === 'https:' && !/^(localhost|127\.0\.0\.1|yourdomain\.com)$/i.test(callback.hostname))
+  } catch { /* reported as not public-looking */ }
+  return {
+    environment: (process.env.MPESA_ENV || 'sandbox').toLowerCase(),
+    consumerKeyConfigured: Boolean(process.env.MPESA_CONSUMER_KEY?.trim()),
+    consumerSecretConfigured: Boolean(process.env.MPESA_CONSUMER_SECRET?.trim()),
+    businessShortCodeConfigured: Boolean((process.env.MPESA_BUSINESS_SHORTCODE || process.env.MPESA_SHORTCODE)?.trim()),
+    passkeyConfigured: Boolean(process.env.MPESA_PASSKEY?.trim()),
+    callbackUrlConfigured: Boolean(callbackUrl),
+    callbackUrlPublicLooking: callbackPublicLooking,
+  }
+}
+
+function mpesaLog(event: string, details: Record<string, string | number | boolean> = {}) {
+  // Deliberately limited to lifecycle state. Do not add tokens, credentials,
+  // phone numbers, receipt numbers, callback payloads, or request bodies.
+  console.info('[mpesa]', JSON.stringify({ event, ...details }))
+}
+
+export function darajaBaseUrl(environment: DarajaEnvironment) {
+  return environment === 'production' ? 'https://api.safaricom.co.ke' : 'https://sandbox.safaricom.co.ke'
+}
+
+function configuration(requirePasskey = true) {
+  const configuredEnvironment = (process.env.MPESA_ENV || 'sandbox').toLowerCase()
+  if (configuredEnvironment !== 'sandbox' && configuredEnvironment !== 'production')
+    throw new Error('MPESA_ENV must be either sandbox or production')
+  const environment = configuredEnvironment as DarajaEnvironment
   const consumerKey = process.env.MPESA_CONSUMER_KEY?.trim()
   const consumerSecret = process.env.MPESA_CONSUMER_SECRET?.trim()
-  const shortcode = businessShortCode?.trim() || process.env.MPESA_SHORTCODE?.trim()
+  // The Daraja shortcode belongs to server configuration. It is deliberately
+  // independent from the customer-facing branch Buy Goods Till.
+  const shortcode = process.env.MPESA_BUSINESS_SHORTCODE?.trim() || process.env.MPESA_SHORTCODE?.trim()
   const passkey = process.env.MPESA_PASSKEY?.trim()
   const explicitCallbackUrl = process.env.MPESA_CALLBACK_URL?.trim()
   const applicationUrl = process.env.BETTER_AUTH_URL?.trim()
@@ -24,19 +59,23 @@ function configuration(requirePasskey = true, businessShortCode?: string) {
     ? new URL('/api/mpesa/callback', applicationUrl).toString()
     : undefined)
   const transactionType = process.env.MPESA_TRANSACTION_TYPE === 'CustomerBuyGoodsOnline' ? 'CustomerBuyGoodsOnline' : 'CustomerPayBillOnline'
+  if (!configurationDiagnosticLogged) {
+    configurationDiagnosticLogged = true
+    mpesaLog('CONFIGURATION', mpesaConfigurationDiagnostic())
+  }
   if (!consumerKey || !consumerSecret || !shortcode || !callbackUrl || (requirePasskey && !passkey)) {
     throw new Error(requirePasskey
       ? 'M-Pesa STK Push is not fully configured. Add the consumer key, secret, shortcode, passkey and public callback URL.'
       : 'M-Pesa PayBill confirmation is not fully configured. Add the consumer key, secret, shortcode and public callback URL.')
   }
-  if (environment === 'production' && !process.env.MPESA_CALLBACK_SECRET?.trim()) {
-    throw new Error('MPESA_CALLBACK_SECRET is required for production callbacks')
+  let callback: URL
+  try { callback = new URL(callbackUrl) } catch { throw new Error('MPESA_CALLBACK_URL must be a valid public HTTPS URL') }
+  if (callback.protocol !== 'https:' || /^(localhost|127\.0\.0\.1|yourdomain\.com)$/i.test(callback.hostname))
+    throw new Error('MPESA_CALLBACK_URL must use the public HTTPS callback domain; placeholder and local URLs are not allowed')
+  if (!process.env.MPESA_CALLBACK_SECRET?.trim()) {
+    throw new Error('MPESA_CALLBACK_SECRET is required for Daraja callbacks')
   }
   return { environment, consumerKey, consumerSecret, shortcode, passkey, callbackUrl, transactionType }
-}
-
-function baseUrl(environment: DarajaEnvironment) {
-  return environment === 'production' ? 'https://api.safaricom.co.ke' : 'https://sandbox.safaricom.co.ke'
 }
 
 async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs = 15_000) {
@@ -53,11 +92,16 @@ async function accessToken() {
   if (accessTokenCache && accessTokenCache.expiresAt > Date.now() + 30_000) return accessTokenCache.token
   const config = configuration(false)
   const credentials = Buffer.from(`${config.consumerKey}:${config.consumerSecret}`).toString('base64')
-  const response = await fetchWithTimeout(`${baseUrl(config.environment)}/oauth/v1/generate?grant_type=client_credentials`, {
+  mpesaLog('OAUTH_REQUEST', { environment: config.environment })
+  const response = await fetchWithTimeout(`${darajaBaseUrl(config.environment)}/oauth/v1/generate?grant_type=client_credentials`, {
     headers: { Authorization: `Basic ${credentials}`, Accept: 'application/json' },
   })
   const body = await response.json() as { access_token?: string; expires_in?: string; errorMessage?: string }
-  if (!response.ok || !body.access_token) throw new Error(body.errorMessage || 'Could not authenticate with Safaricom Daraja')
+  if (!response.ok || !body.access_token) {
+    mpesaLog('OAUTH_FAILURE', { environment: config.environment, httpStatus: response.status })
+    throw new Error(body.errorMessage || 'Could not authenticate with Safaricom Daraja')
+  }
+  mpesaLog('OAUTH_SUCCESS', { environment: config.environment })
   accessTokenCache = { token: body.access_token, expiresAt: Date.now() + (Number(body.expires_in || 3599) * 1000) }
   return body.access_token
 }
@@ -88,24 +132,30 @@ export function friendlyMpesaFailure(resultCode: number, resultDescription?: str
   return 'Payment could not be completed. Please try again or choose another payment method.'
 }
 
-function callbackUrl(configuredUrl: string) {
+export function callbackAuthenticationToken() {
   const secret = process.env.MPESA_CALLBACK_SECRET?.trim()
-  if (!secret) return configuredUrl
+  if (!secret) return null
+  // Daraja can only return the configured URL. Send a purpose-bound derived
+  // bearer token, never the raw server secret itself.
+  return createHmac('sha256', secret).update('pesaby:daraja:stk-callback:v1').digest('base64url')
+}
+
+function callbackUrl(configuredUrl: string) {
+  const token = callbackAuthenticationToken()
+  if (!token) return configuredUrl
   const url = new URL(configuredUrl)
-  url.searchParams.set('token', secret)
+  url.searchParams.set('token', token)
   return url.toString()
 }
 
-export async function requestStkPush(input: { phone: string; amount: number; accountReference: string; businessShortCode: string }) {
-  // The shortcode is non-secret branch configuration. Consumer credentials and
-  // passkey remain server-only environment variables.
-  const shortcode = input.businessShortCode.trim()
-  if (!shortcode) throw new Error('STK Push is not configured for this branch')
-  const config = configuration(true, shortcode)
+export async function requestStkPush(input: { phone: string; amount: number; accountReference: string }) {
+  const config = configuration(true)
+  const shortcode = config.shortcode
   const timestamp = darajaTimestamp()
   const password = Buffer.from(`${shortcode}${config.passkey!}${timestamp}`).toString('base64')
   const token = await accessToken()
-  const response = await fetchWithTimeout(`${baseUrl(config.environment)}/mpesa/stkpush/v1/processrequest`, {
+  mpesaLog('STK_REQUEST', { environment: config.environment, amount: input.amount })
+  const response = await fetchWithTimeout(`${darajaBaseUrl(config.environment)}/mpesa/stkpush/v1/processrequest`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', Accept: 'application/json' },
     body: JSON.stringify({
@@ -124,8 +174,10 @@ export async function requestStkPush(input: { phone: string; amount: number; acc
   })
   const body = await response.json() as Partial<StkPushResponse> & { errorMessage?: string; errorCode?: string }
   if (!response.ok || body.ResponseCode !== '0' || !body.CheckoutRequestID || !body.MerchantRequestID) {
+    mpesaLog('STK_REJECTED', { environment: config.environment, httpStatus: response.status })
     throw new Error(body.errorMessage || body.ResponseDescription || 'Safaricom could not start the M-Pesa prompt')
   }
+  mpesaLog('STK_ACCEPTED', { environment: config.environment })
   return body as StkPushResponse
 }
 
@@ -151,7 +203,7 @@ export function validC2bShortcode(value: string) {
 export async function registerC2bUrls() {
   const config = configuration(false)
   const token = await accessToken()
-  const response = await fetchWithTimeout(`${baseUrl(config.environment)}/mpesa/c2b/v1/registerurl`, {
+  const response = await fetchWithTimeout(`${darajaBaseUrl(config.environment)}/mpesa/c2b/v1/registerurl`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', Accept: 'application/json' },
     body: JSON.stringify({
@@ -167,8 +219,8 @@ export async function registerC2bUrls() {
 }
 
 export function validCallbackToken(value: string | null) {
-  const expected = process.env.MPESA_CALLBACK_SECRET?.trim()
-  if (!expected) return process.env.MPESA_ENV !== 'production'
+  const expected = callbackAuthenticationToken()
+  if (!expected) return false
   if (!value) return false
   const left = createHash('sha256').update(value).digest()
   const right = createHash('sha256').update(expected).digest()

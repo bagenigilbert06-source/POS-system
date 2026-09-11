@@ -519,7 +519,6 @@ export async function initiateMpesaPayment(
       phone,
       amount: exactTotal,
       accountReference: `POS${id.replace(/-/g, '').slice(0, 9)}`,
-      businessShortCode: merchant.businessShortCode,
     });
     await db
       .update(mpesaPaymentRequest)
@@ -716,25 +715,9 @@ export async function initiateMpesaPaybillPayment(
   const accountReference =
     `POS-${id.replace(/-/g, '').slice(0, 5)}`.toUpperCase();
   const { shortcode, accountType } = selectedAccount;
-  await db
-    .insert(mpesaBusinessAccount)
-    .values({
-      id: generateId(),
-      organizationId: orgId,
-      branchId,
-      shortcode,
-      accountType,
-    })
-    .onConflictDoUpdate({
-      target: mpesaBusinessAccount.shortcode,
-      set: {
-        organizationId: orgId,
-        branchId,
-        accountType,
-        active: true,
-        updatedAt: new Date(),
-      },
-    });
+  // Creating a manual intent must never claim a C2B shortcode globally.
+  // Automatic callbacks are enabled only through an explicitly provisioned
+  // branch account after Safaricom has registered and tested the C2B URLs.
   await db.transaction(async (tx) => {
     const [lockedShift] = await tx
       .select({ id: posSession.id })

@@ -22,8 +22,8 @@ export function assertManualTillEnabled(merchant: BranchMpesaMerchant | null): B
   return { ...merchant, tillNumber: merchant.tillNumber }
 }
 
-export function assertStkEnabled(merchant: BranchMpesaMerchant | null): BranchMpesaMerchant & { businessShortCode: string } {
-  if (!merchant?.stkEnabled || !merchant.businessShortCode)
+export function assertStkEnabled(merchant: BranchMpesaMerchant | null): BranchMpesaMerchant {
+  if (!merchant?.stkEnabled)
     throw new Error('STK Push is not configured for this branch')
-  return { ...merchant, businessShortCode: merchant.businessShortCode }
+  return merchant
 }

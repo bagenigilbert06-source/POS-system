@@ -47,6 +47,11 @@ export type HeldSaleRecord = {
   terminalId: string | null
 }
 
+/** A closed register is an expected POS state, not a failed server action. */
+export type HoldSaleResult =
+  | { ok: true; sale: HeldSaleRecord }
+  | { ok: false; message: typeof OPEN_SHIFT_REQUIRED }
+
 async function heldSaleContext() {
   const pos = await getPosAuthorizationContext()
   const authorization = pos ?? await requirePermission(PermissionEnum.POS_HOLD)
@@ -126,7 +131,17 @@ export async function listHeldSales() {
   }
 }
 
-export async function holdSaleOnServer(input: z.input<typeof heldSaleInputSchema>) {
+export async function holdSaleOnServer(input: z.input<typeof heldSaleInputSchema>): Promise<HoldSaleResult> {
+  try {
+    return { ok: true as const, sale: await createHeldSale(input) }
+  } catch (error) {
+    if (error instanceof Error && error.message === OPEN_SHIFT_REQUIRED)
+      return { ok: false as const, message: OPEN_SHIFT_REQUIRED }
+    throw error
+  }
+}
+
+async function createHeldSale(input: z.input<typeof heldSaleInputSchema>): Promise<HeldSaleRecord> {
   const data = heldSaleInputSchema.parse(input)
   const { authorization, session, terminalId } = await heldSaleContext()
   const productIds = Array.from(new Set(data.items.map(({ productId }) => productId)))

@@ -10,11 +10,21 @@ type CallbackItem = { Name?: string; Value?: string | number }
 type CallbackBody = { Body?: { stkCallback?: { MerchantRequestID?: string; CheckoutRequestID?: string; ResultCode?: number; ResultDesc?: string; CallbackMetadata?: { Item?: CallbackItem[] } } } }
 
 export async function POST(request: NextRequest) {
-  if (!validCallbackToken(request.nextUrl.searchParams.get('token'))) return NextResponse.json({ ResultCode: 1, ResultDesc: 'Rejected' }, { status: 401 })
+  if (!validCallbackToken(request.nextUrl.searchParams.get('token'))) {
+    console.info('[mpesa]', JSON.stringify({ event: 'CALLBACK_FAILED', stage: 'authentication' }))
+    return NextResponse.json({ ResultCode: 1, ResultDesc: 'Rejected' }, { status: 401 })
+  }
   let payload: CallbackBody
-  try { payload = await request.json() as CallbackBody } catch { return NextResponse.json({ ResultCode: 1, ResultDesc: 'Invalid JSON' }, { status: 400 }) }
+  try { payload = await request.json() as CallbackBody } catch {
+    console.info('[mpesa]', JSON.stringify({ event: 'CALLBACK_FAILED', stage: 'json' }))
+    return NextResponse.json({ ResultCode: 1, ResultDesc: 'Invalid JSON' }, { status: 400 })
+  }
   const callback = payload.Body?.stkCallback
-  if (!callback?.CheckoutRequestID || typeof callback.ResultCode !== 'number') return NextResponse.json({ ResultCode: 1, ResultDesc: 'Invalid callback' }, { status: 400 })
+  if (!callback?.CheckoutRequestID || typeof callback.ResultCode !== 'number') {
+    console.info('[mpesa]', JSON.stringify({ event: 'CALLBACK_FAILED', stage: 'validation' }))
+    return NextResponse.json({ ResultCode: 1, ResultDesc: 'Invalid callback' }, { status: 400 })
+  }
+  console.info('[mpesa]', JSON.stringify({ event: 'CALLBACK_RECEIVED', resultCode: callback.ResultCode }))
   const resultCode = callback.ResultCode
   const [payment] = await db.select().from(mpesaPaymentRequest).where(eq(mpesaPaymentRequest.checkoutRequestId, callback.CheckoutRequestID)).limit(1)
   if (!payment) return NextResponse.json({ ResultCode: 0, ResultDesc: 'Accepted' })
@@ -49,11 +59,16 @@ export async function POST(request: NextRequest) {
     ))
   })
   if (eligibleForAutomaticSale) {
-    try { await finalizeConfirmedMpesaPayment(payment.id) }
+    try {
+      await finalizeConfirmedMpesaPayment(payment.id)
+      console.info('[mpesa]', JSON.stringify({ event: 'PAYMENT_FINALIZED' }))
+    }
     catch (error) {
+      console.info('[mpesa]', JSON.stringify({ event: 'CALLBACK_FAILED', stage: 'finalization' }))
       await db.update(mpesaIncomingPayment).set({ status: 'NEEDS_MATCHING' }).where(eq(mpesaIncomingPayment.transactionId, receiptNumber))
       await db.update(mpesaPaymentRequest).set({ resultDescription: `Payment received; sale requires reconciliation: ${error instanceof Error ? error.message : 'finalization failed'}` }).where(eq(mpesaPaymentRequest.id, payment.id))
     }
   }
+  console.info('[mpesa]', JSON.stringify({ event: 'CALLBACK_SUCCESS', resultCode }))
   return NextResponse.json({ ResultCode: 0, ResultDesc: 'Accepted' })
 }

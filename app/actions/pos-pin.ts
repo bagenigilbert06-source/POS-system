@@ -17,6 +17,7 @@ import {
   user,
 } from '@/lib/db/schema';
 import {
+  AuthorizationError,
   getAuthorizationContext,
   requirePermission,
 } from '@/lib/auth/authorization';
@@ -663,6 +664,20 @@ export async function unlockPosByPin(pin: string) {
   try {
     const terminal = await getTerminal();
     if (!terminal) return { success: false, error: 'Terminal access not allowed' };
+    // A signed-in dashboard user may have switched workspaces while this
+    // browser still holds a terminal cookie from a previous store. Never use
+    // that stale terminal to search another store's PIN credentials.
+    try {
+      const dashboard = await getAuthorizationContext();
+      if (dashboard.organizationId !== terminal.organizationId)
+        return {
+          success: false,
+          error:
+            'This POS device is registered to a different store. Register this device for the current store before unlocking it.',
+        };
+    } catch (error) {
+      if (!(error instanceof AuthorizationError)) throw error;
+    }
     const candidates = await db.select({ userId: posPinCredential.userId, pinHash: posPinCredential.pinHash }).from(posPinCredential).innerJoin(employee, eq(employee.userId, posPinCredential.userId)).innerJoin(branchMembership, eq(branchMembership.userId, posPinCredential.userId)).where(and(eq(employee.orgId, terminal.organizationId), eq(employee.status, 'active'), eq(posPinCredential.enabled, true), eq(branchMembership.branchId, terminal.branchId)));
     const owners = await findPosPinOwners(pin, candidates, ({ pinHash }, value) => verifyPassword({ hash: pinHash, password: value }));
     if (owners.length === 1) return await unlockPosWithPin(owners[0], pin);

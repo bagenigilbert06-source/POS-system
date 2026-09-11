@@ -1,7 +1,7 @@
 import { POSTerminal } from '@/components/pos/pos-terminal';
 import type { Metadata } from 'next';
 import { requireWorkspaceModule } from '@/lib/onboarding/require-module';
-import { requireAnyPermission } from '@/lib/auth/authorization';
+import { getDashboardAuthorization } from '@/lib/auth/dashboard-access';
 import { PermissionEnum } from '@/lib/types/permissions';
 import { CashierShiftStrip } from '@/components/pos/cashier-shift-strip';
 import { PosSecurity } from '@/components/pos/pos-security';
@@ -17,14 +17,14 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 export default async function POSPage() {
-  const posAuthorization = await getPosAuthorizationContext();
-  const pageAuthorization =
-    posAuthorization ??
-    (await requireAnyPermission([
-      PermissionEnum.POS_VIEW,
-      PermissionEnum.POS_SELL,
-      PermissionEnum.SALE_CREATE,
-    ]));
+  // Full dashboard authentication takes precedence over an old terminal PIN
+  // session, which prevents a previous store's terminal cookie from taking a
+  // newly signed-in owner into the wrong workspace.
+  const pageAuthorization = await getDashboardAuthorization();
+  const posAuthorization =
+    pageAuthorization.authMethod === 'pos_pin'
+      ? await getPosAuthorizationContext()
+      : null;
   if (
     !pageAuthorization.permissions.some((permission) =>
       [

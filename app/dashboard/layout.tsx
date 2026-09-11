@@ -24,8 +24,11 @@ export default async function DashboardRouteLayout({
     getCurrentSession(),
     getPosAuthorizationContext(),
   ]);
-  if (!session?.user && !posAuthorization) redirect('/sign-in');
-  const userId = posAuthorization?.userId ?? session!.user.id;
+  // A browser may retain a POS PIN cookie from a different store. A current
+  // dashboard sign-in is authoritative and must not be shadowed by it.
+  const terminalAuthorization = session?.user ? null : posAuthorization;
+  if (!session?.user && !terminalAuthorization) redirect('/sign-in');
+  const userId = terminalAuthorization?.userId ?? session!.user.id;
 
   const [accountRows, organization] = await Promise.all([
     withDatabaseRetry(() =>
@@ -40,11 +43,11 @@ export default async function DashboardRouteLayout({
         .where(eq(user.id, userId))
         .limit(1)
     ),
-    posAuthorization
+    terminalAuthorization
       ? db
           .select()
           .from(organizationTable)
-          .where(eq(organizationTable.id, posAuthorization.organizationId))
+          .where(eq(organizationTable.id, terminalAuthorization.organizationId))
           .limit(1)
           .then((rows) => rows[0] ?? null)
       : OrganizationService.getPrimaryOrganization(userId),
@@ -64,11 +67,11 @@ export default async function DashboardRouteLayout({
   // This is done once on the server so the client never needs to fetch it separately.
   const [workspaceConfig, authorization] = await Promise.all([
     WorkspaceService.getAuthorizedWorkspaceConfig(organization),
-    posAuthorization ?? getDashboardAuthorization(),
+    terminalAuthorization ?? getDashboardAuthorization(),
   ]);
   if (!workspaceConfig) redirect('/onboarding');
   const [availableOrganizations, activeBranchRows, branchCountRows, brandingRows] = await Promise.all([
-    posAuthorization
+    terminalAuthorization
       ? Promise.resolve([organization])
       : OrganizationService.getOrganizationsForUser(userId),
     db

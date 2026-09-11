@@ -3869,6 +3869,10 @@ export function POSTerminal({
 
   const openHoldDialog = () => {
     if (!canHold || cart.length === 0 || heldSaleActionId) return;
+    if (!hasActiveShift) {
+      notify.error('Start a shift before holding a sale');
+      return;
+    }
     setHoldReference(
       `HLD-${Date.now().toString(36).toUpperCase()}-${crypto.randomUUID().slice(0, 4).toUpperCase()}`
     );
@@ -3894,9 +3898,13 @@ export function POSTerminal({
         customerId: selectedCustomer || undefined,
         note: reference,
       });
+      if (!saved.ok) {
+        notify.error(saved.message);
+        return;
+      }
       setHeldSales((previous) => [
-        saved,
-        ...previous.filter((item) => item.id !== saved.id),
+        saved.sale,
+        ...previous.filter((item) => item.id !== saved.sale.id),
       ]);
       setCart([]);
       setDiscount(0);
@@ -4839,7 +4847,7 @@ export function POSTerminal({
                 type="button"
                 onClick={openHoldDialog}
                 disabled={
-                  !canHold || cart.length === 0 || Boolean(heldSaleActionId)
+                  !canHold || !hasActiveShift || cart.length === 0 || Boolean(heldSaleActionId)
                 }
                 className="h-8 shrink-0 rounded-md border border-[#E04F16] bg-[#E04F16] px-3 text-xs font-semibold text-white transition-colors hover:border-[#BF4313] hover:bg-[#BF4313] disabled:opacity-45"
               >
@@ -8018,7 +8026,7 @@ export function POSTerminal({
               type="button"
               onClick={openHoldDialog}
               disabled={
-                !canHold || cart.length === 0 || Boolean(heldSaleActionId)
+                !canHold || !hasActiveShift || cart.length === 0 || Boolean(heldSaleActionId)
               }
               className="inline-flex shrink-0 items-center justify-center gap-2 rounded-[5px] border border-[#E04F16] bg-[#E04F16] px-4 py-2 text-sm font-semibold leading-normal text-white shadow-[0_4px_20px_rgba(224,79,22,0.15)] transition-all duration-500 hover:border-[#BF4313] hover:bg-[#BF4313] hover:shadow-[0_3px_10px_rgba(224,79,22,0.5)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E04F16]/40 disabled:cursor-not-allowed disabled:opacity-[0.65]"
             >
