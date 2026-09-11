@@ -216,10 +216,10 @@ export function SalesHistoryModal({
           <button
             type="button"
             onClick={onClose}
-            className="grid h-5 w-5 place-items-center rounded-full bg-destructive text-destructive-foreground focus:outline-none focus:ring-2 focus:ring-destructive/40 focus:ring-offset-2"
+            className="grid h-8 w-8 place-items-center rounded-lg border border-[#f1cd61] bg-[#fff5d6] text-[#8a6500] transition-colors hover:border-[#d6a800] hover:bg-[var(--dashboard-accent-cta)] hover:text-[var(--dashboard-accent-cta-ink)] focus:outline-none focus:ring-2 focus:ring-[#d6a800]/30"
             aria-label="Close recent transactions"
           >
-            <X className="h-3 w-3" strokeWidth={3} />
+            <X className="h-4 w-4" strokeWidth={2.5} />
           </button>
         </header>
         <div className="flex min-h-0 flex-1 flex-col px-5 pb-5 pt-5">
@@ -272,10 +272,7 @@ export function SalesHistoryModal({
             <div className="pos-scroll-region min-h-0 flex-1 overflow-auto px-2 py-4 sm:px-5 sm:py-5">
               {loading ? (
                 <div className="grid min-h-64 place-items-center">
-                  <div className="flex flex-col items-center gap-3 text-sm text-muted-foreground">
-                    <LoadingSpinner className="text-primary" />
-                    Loading transactions...
-                  </div>
+                  <LoadingSpinner className="[--color-1:#d92d20]" label="Loading transactions" />
                 </div>
               ) : filtered.length === 0 ? (
                 <div className="grid min-h-64 place-items-center text-center">
@@ -288,9 +285,9 @@ export function SalesHistoryModal({
                   </div>
                 </div>
               ) : (
-                <table className="w-full min-w-[600px] border-collapse text-[13px] sm:min-w-[660px] sm:text-[14px]">
+                <table className="w-full min-w-[600px] overflow-hidden rounded-lg border border-[#e4e7ec] border-separate border-spacing-0 text-[13px] dark:border-white/10 sm:min-w-[660px] sm:text-[14px]">
                   <thead>
-                    <tr className="border border-border bg-muted/50 text-left text-[13px] font-semibold text-foreground">
+                    <tr className="bg-[#f8fafc] text-left text-[12px] font-semibold text-[#475467] dark:bg-white/[.04] dark:text-[#c4c4c4]">
                       <th className="w-12 px-4 py-3">
                         <input
                           type="checkbox"
@@ -405,7 +402,7 @@ function TransactionRow({
 }) {
   return (
     <>
-      <tr className="border-x border-b border-border text-muted-foreground hover:bg-muted/40">
+      <tr className="border-b border-[#e4e7ec] text-muted-foreground transition-colors hover:bg-[#f8fafc] dark:border-white/10 dark:hover:bg-white/[.025]">
         <td className="px-4 py-2.5">
           <input
             type="checkbox"
@@ -463,7 +460,7 @@ function TransactionRow({
         </td>
       </tr>
       {expanded && (
-        <tr className="border-x border-b border-[#dfe3e8] bg-[#f9fafb] dark:border-white/10 dark:bg-white/[.025]">
+        <tr className="border-b border-[#e4e7ec] bg-[#f8fafc] dark:border-white/10 dark:bg-white/[.025]">
           <td colSpan={6} className="px-14 py-3">
             <div className="flex flex-wrap items-center justify-between gap-3 text-xs">
               <div className="flex flex-wrap gap-x-5 gap-y-1 text-muted-foreground">

@@ -5,17 +5,20 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Screen-only POS type system. Inter is already loaded above and is scoped
- * here so dashboard/back-office and receipt/print surfaces are unchanged. */
+/* Screen-only POS type system. Inter stays especially legible on compact
+ * register screens and at reduced browser zoom without affecting print. */
 .pos-workspace,
 .pos-terminal {
   font-family: 'Inter', 'Segoe UI', Arial, sans-serif;
   letter-spacing: normal;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
 .pos-workspace button,
 .pos-terminal button {
   font-weight: 600;
+  letter-spacing: normal;
 }
 
 .pos-workspace input,

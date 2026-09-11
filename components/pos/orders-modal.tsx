@@ -116,8 +116,8 @@ export function OrdersModal({
       <div className="flex max-h-[calc(100dvh-24px)] w-full max-w-[586px] flex-col overflow-hidden rounded-[8px] border border-[#dfe3e8] bg-white text-[#273142] shadow-[0_24px_70px_rgba(16,24,40,.3)] dark:border-white/10 dark:bg-[#1c1c1e] dark:text-white sm:max-h-[78vh]">
         <header className="flex min-h-[59px] items-center justify-between border-b border-[#e4e7ec] px-5 dark:border-white/10">
           <h2 id="orders-modal-title" className="text-[19px] font-bold">Orders</h2>
-          <button type="button" disabled={Boolean(actionId)} onClick={onClose} className="grid h-5 w-5 place-items-center rounded-full bg-[#ef1b24] text-white hover:bg-[#d9151d] disabled:opacity-50" aria-label="Close orders">
-            <X className="h-3 w-3" strokeWidth={3} />
+          <button type="button" disabled={Boolean(actionId)} onClick={onClose} className="grid h-8 w-8 place-items-center rounded-lg border border-[#f1cd61] bg-[#fff5d6] text-[#8a6500] transition-colors hover:border-[#d6a800] hover:bg-[var(--dashboard-accent-cta)] hover:text-[var(--dashboard-accent-cta-ink)] disabled:opacity-50" aria-label="Close orders">
+            <X className="h-4 w-4" strokeWidth={2.5} />
           </button>
         </header>
 

@@ -4727,11 +4727,12 @@ export function POSTerminal({
               {scanMessage || 'Scanner ready'}
             </p>
           </div>
-          <div className="relative w-full max-w-2xl">
-            <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#98a2b3] dark:text-[#8a8a95]" />
+          <div className="relative w-full max-w-3xl">
+            <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#475467] dark:text-[#c4c4c4]" />
             <input
               ref={searchInputRef}
               type="text"
+              aria-label={`Search ${productTerms.pluralLower}`}
               placeholder={
                 pharmacyMode
                   ? 'Search medicine, generic name or barcode…'
@@ -4747,9 +4748,12 @@ export function POSTerminal({
                   handleBarcodeScan(barcode);
                 }
               }}
-              className="h-11 w-full appearance-none rounded-lg border-0 bg-[#f7f7f8] pl-10 pr-4 text-sm text-slate-950 !shadow-none outline-none transition-colors placeholder:text-zinc-400 hover:bg-[#f2f2f3] focus:border-0 focus:bg-white focus:outline-none focus:ring-0 dark:bg-[#18181b] dark:text-white dark:shadow-[inset_0_0_0_1px_rgba(255,255,255,0.05)] dark:placeholder:text-zinc-500 dark:hover:bg-[#1c1c20] dark:focus:bg-[#1e1e22]"
+              className="h-11 w-full appearance-none rounded-md border border-[#d0d5dd] bg-white pl-12 pr-28 text-sm font-medium text-[#101828] outline-none transition-colors placeholder:text-[#98a2b3] hover:border-[#d0d5dd] hover:bg-white focus:border-[#d0d5dd] focus:bg-white focus:ring-0 dark:border-white/15 dark:bg-[#18181b] dark:text-white dark:placeholder:text-zinc-500 dark:hover:border-white/15 dark:hover:bg-[#18181b] dark:focus:border-white/15 dark:focus:bg-[#18181b]"
               autoFocus
             />
+            <span className="pointer-events-none absolute right-4 top-1/2 hidden -translate-y-1/2 text-[10px] font-semibold uppercase tracking-wide text-[#667085] sm:block dark:text-[#a8a8a8]">
+              Scan or type
+            </span>
           </div>
           {cafeMode && cafeExperience && (
             <div
@@ -5157,7 +5161,7 @@ export function POSTerminal({
                         </p>
                         {inCartQuantity ? (
                           <div
-                            className="relative z-20 flex h-8 shrink-0 items-center overflow-hidden rounded-lg border border-[#101828] bg-white dark:border-white/20 dark:bg-[#1c1c1c]"
+                            className="relative z-20 flex h-7 shrink-0 items-center gap-2"
                             onClick={(event) => event.stopPropagation()}
                             title={`${product.stock} ${product.unit} in stock`}
                           >
@@ -5166,7 +5170,7 @@ export function POSTerminal({
                               onClick={() => {
                                 if (cardLineKey) updateQty(cardLineKey, -1);
                               }}
-                              className="flex h-full w-7 items-center justify-center text-[#101828] transition-colors hover:bg-[#f2f4f7] focus-visible:outline-none dark:text-[#f1f1f1] dark:hover:bg-[#302d28]"
+                              className="flex h-7 w-7 items-center justify-center rounded-[4px] bg-[#667085] text-white shadow-sm transition-colors hover:bg-[#475467] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#667085]/35"
                               aria-label={`Reduce ${product.name} quantity`}
                               title="Reduce quantity"
                             >
@@ -5176,7 +5180,7 @@ export function POSTerminal({
                               />
                             </button>
                             <span
-                              className="min-w-6 border-x border-[#101828]/15 px-1 text-center text-xs font-bold tabular-nums text-[#101828] dark:border-[#f2b705] dark:bg-[#f2b705] dark:text-[#241d00]"
+                              className="min-w-3 text-center text-xs font-semibold tabular-nums text-[#273142] dark:text-white"
                               aria-live="polite"
                             >
                               {inCartQuantity}
@@ -5190,7 +5194,7 @@ export function POSTerminal({
                                 !cardCartLine ||
                                 cardCartLine.quantity >= cardMaximumQuantity
                               }
-                              className="flex h-full w-7 items-center justify-center text-[#101828] transition-colors hover:bg-[#f2f4f7] focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-35 dark:text-[#f1f1f1] dark:hover:bg-[#302d28]"
+                              className="flex h-7 w-7 items-center justify-center rounded-[4px] bg-[var(--dashboard-accent-cta)] text-[var(--dashboard-accent-cta-ink)] shadow-sm transition-colors hover:bg-[var(--dashboard-accent-cta-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d6a800]/35 disabled:cursor-not-allowed disabled:opacity-35"
                               aria-label={`Increase ${product.name} quantity`}
                               title={
                                 cardCartLine &&
@@ -5297,8 +5301,9 @@ export function POSTerminal({
               cart.length > 0 && (
                 <button
                   onClick={openVoidDialog}
-                  className="rounded-md px-2 py-1 text-[11px] font-semibold text-[#98a2b3] transition-colors hover:bg-[#fef3f2] hover:text-[#b42318] dark:hover:bg-red-950/30"
+                  className="inline-flex h-8 items-center gap-1.5 rounded-md border border-transparent px-2.5 text-xs font-semibold text-[#667085] transition-colors hover:border-[#fecdca] hover:bg-[#fef3f2] hover:text-[#b42318] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#f04438]/20 dark:text-[#a8b0bd] dark:hover:border-red-900/60 dark:hover:bg-red-950/30 dark:hover:text-red-300"
                 >
+                  <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
                   Clear sale
                 </button>
               )
@@ -5306,17 +5311,17 @@ export function POSTerminal({
           </div>
 
           {!checkoutOpen && (
-            <div className="mt-3 grid grid-cols-2 gap-2 rounded-md border border-[#e7e9ed] bg-[#fafbfc] p-2 dark:border-white/10 dark:bg-[#141414]">
+            <div className="mt-3 flex items-center gap-2">
               <button
                 onClick={() => setShowSalesHistory(true)}
-                className="flex h-9 items-center justify-center gap-2 rounded-[5px] bg-[var(--dashboard-accent-cta)] px-2.5 text-sm font-semibold text-[var(--dashboard-accent-cta-ink)] transition-colors hover:bg-[var(--dashboard-accent-cta-hover)]"
+                className="flex h-9 flex-1 items-center justify-center gap-2 rounded-[5px] bg-[var(--dashboard-accent-cta)] px-2.5 text-sm font-semibold text-[var(--dashboard-accent-cta-ink)] transition-colors hover:bg-[var(--dashboard-accent-cta-hover)]"
               >
                 <History className="h-3.5 w-3.5" />
                 History
               </button>
               <button
                 onClick={() => setShowReceiptReprint(true)}
-                className="flex h-9 items-center justify-center gap-2 rounded-[5px] bg-[var(--dashboard-accent-cta)] px-2.5 text-sm font-semibold text-[var(--dashboard-accent-cta-ink)] transition-colors hover:bg-[var(--dashboard-accent-cta-hover)]"
+                className="flex h-9 flex-1 items-center justify-center gap-2 rounded-[5px] bg-[var(--dashboard-accent-cta)] px-2.5 text-sm font-semibold text-[var(--dashboard-accent-cta-ink)] transition-colors hover:bg-[var(--dashboard-accent-cta-hover)]"
               >
                 <Printer className="h-3.5 w-3.5" />
                 Reprint
@@ -5542,19 +5547,19 @@ export function POSTerminal({
 
                   {/* Quantity, total & remove */}
                   <div className="col-span-2 flex items-center justify-end gap-2 sm:col-span-1">
-                    <div className="flex h-7 shrink-0 items-center overflow-hidden rounded-lg border border-[#e4e7ec] bg-white dark:border-white/15 dark:bg-[#1d1d1d]">
+                    <div className="flex h-7 shrink-0 items-center gap-2">
                       <button
                         onClick={() =>
                           updateQty(item.lineId ?? item.productId, -1)
                         }
-                        className="flex h-full w-7 items-center justify-center text-[#667085] transition-colors duration-75 hover:bg-[#f2f4f7] hover:text-[#101828] focus-visible:outline-none dark:text-[#c4c4c4] dark:hover:bg-white/10"
+                        className="flex h-7 w-7 items-center justify-center rounded-[4px] bg-[#667085] text-white shadow-sm transition-colors duration-75 hover:bg-[#475467] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#667085]/35"
                         title="Decrease quantity"
                         aria-label={`Reduce ${item.productName} quantity`}
                       >
                         <Minus className="h-3.5 w-3.5" strokeWidth={2.5} />
                       </button>
                       <span
-                        className="flex h-full min-w-7 items-center justify-center border-x border-[#e4e7ec] px-1 text-center text-xs font-bold tabular-nums text-[#101828] dark:border-white/10 dark:text-white"
+                        className="flex min-w-3 items-center justify-center text-center text-xs font-semibold tabular-nums text-[#273142] dark:text-white"
                         aria-live="polite"
                       >
                         {item.quantity}
@@ -5568,7 +5573,7 @@ export function POSTerminal({
                           (productsById.get(item.productId)?.stock ??
                             item.quantity)
                         }
-                        className="flex h-full w-7 items-center justify-center text-[#667085] transition-colors duration-75 hover:bg-[#f2f4f7] hover:text-[#101828] focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-35 dark:text-[#c4c4c4] dark:hover:bg-white/10"
+                        className="flex h-7 w-7 items-center justify-center rounded-[4px] bg-[var(--dashboard-accent-cta)] text-[var(--dashboard-accent-cta-ink)] shadow-sm transition-colors duration-75 hover:bg-[var(--dashboard-accent-cta-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d6a800]/35 disabled:cursor-not-allowed disabled:opacity-35"
                         title={
                           item.quantity >=
                           (productsById.get(item.productId)?.stock ??
@@ -7997,7 +8002,7 @@ export function POSTerminal({
       {standalone && !checkoutOnly && (
         <nav
           className={cn(
-            'fixed inset-x-0 bottom-0 z-40 hidden border-t border-[#e6eaed] bg-white p-2 shadow-[0_-4px_18px_rgba(16,24,40,.08)] dark:border-[var(--dashboard-border)] dark:bg-[var(--dashboard-surface)] dark:shadow-none sm:p-3 lg:block',
+            'fixed inset-x-0 bottom-0 z-40 hidden bg-transparent px-3 pb-3 pt-2 shadow-none lg:block',
             checkoutOpen && 'max-lg:hidden'
           )}
           aria-label="POS register actions"
@@ -8009,7 +8014,7 @@ export function POSTerminal({
               disabled={
                 !canHold || cart.length === 0 || Boolean(heldSaleActionId)
               }
-              className="inline-flex shrink-0 items-center justify-center gap-2 rounded-[5px] border border-[#E04F16] bg-[#E04F16] px-[0.85rem] py-[0.4rem] text-[0.85rem] font-semibold leading-normal text-white shadow-[0_4px_20px_rgba(224,79,22,0.15)] transition-all duration-500 hover:border-[#BF4313] hover:bg-[#BF4313] hover:shadow-[0_3px_10px_rgba(224,79,22,0.5)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E04F16]/40 disabled:cursor-not-allowed disabled:opacity-[0.65]"
+              className="inline-flex shrink-0 items-center justify-center gap-2 rounded-[5px] border border-[#E04F16] bg-[#E04F16] px-4 py-2 text-sm font-semibold leading-normal text-white shadow-[0_4px_20px_rgba(224,79,22,0.15)] transition-all duration-500 hover:border-[#BF4313] hover:bg-[#BF4313] hover:shadow-[0_3px_10px_rgba(224,79,22,0.5)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E04F16]/40 disabled:cursor-not-allowed disabled:opacity-[0.65]"
             >
               <PauseCircle className="h-4 w-4" />
               Hold
@@ -8019,7 +8024,7 @@ export function POSTerminal({
               onClick={openHeldOrders}
               disabled={!canHold || !hasActiveShift}
               title="Open and resume held sales"
-              className="relative inline-flex shrink-0 items-center justify-center gap-2 rounded-[5px] border border-[#092C4C] bg-[#092C4C] px-[0.85rem] py-[0.4rem] text-[0.85rem] font-semibold leading-normal text-white shadow-[0_4px_20px_rgba(9,44,76,0.15)] transition-all duration-500 hover:border-[#05192C] hover:bg-[#05192C] hover:shadow-[0_3px_10px_rgba(9,44,76,0.5)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#092C4C]/40 disabled:cursor-not-allowed disabled:opacity-50"
+              className="relative inline-flex shrink-0 items-center justify-center gap-2 rounded-[5px] border border-[#092C4C] bg-[#092C4C] px-4 py-2 text-sm font-semibold leading-normal text-white shadow-[0_4px_20px_rgba(9,44,76,0.15)] transition-all duration-500 hover:border-[#05192C] hover:bg-[#05192C] hover:shadow-[0_3px_10px_rgba(9,44,76,0.5)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#092C4C]/40 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <ShoppingCart className="h-4 w-4" />
               Held sales
@@ -8033,7 +8038,7 @@ export function POSTerminal({
               type="button"
               onClick={openVoidDialog}
               disabled={cart.length === 0}
-              className="inline-flex shrink-0 items-center justify-center gap-2 rounded-[5px] border border-[#155EEF] bg-[#155EEF] px-[0.85rem] py-[0.4rem] text-[0.85rem] font-semibold leading-normal text-white shadow-[0_4px_20px_rgba(21,94,239,0.15)] transition-all duration-300 hover:border-[#0E50D2] hover:bg-[#0E50D2] hover:shadow-[0_3px_10px_rgba(21,94,239,0.45)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#155EEF]/40 disabled:cursor-not-allowed disabled:opacity-[0.65]"
+              className="inline-flex shrink-0 items-center justify-center gap-2 rounded-[5px] border border-[#155EEF] bg-[#155EEF] px-4 py-2 text-sm font-semibold leading-normal text-white shadow-[0_4px_20px_rgba(21,94,239,0.15)] transition-all duration-300 hover:border-[#0E50D2] hover:bg-[#0E50D2] hover:shadow-[0_3px_10px_rgba(21,94,239,0.45)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#155EEF]/40 disabled:cursor-not-allowed disabled:opacity-[0.65]"
             >
               <Trash2 className="h-4 w-4" />
               Void
@@ -8042,7 +8047,7 @@ export function POSTerminal({
               type="button"
               onClick={openCheckout}
               disabled={cart.length === 0 || !hasActiveShift}
-              className="inline-flex shrink-0 items-center justify-center gap-2 rounded-[5px] border border-[#06AED4] bg-[#06AED4] px-[0.85rem] py-[0.4rem] text-[0.85rem] font-semibold leading-normal text-white shadow-[0_4px_20px_rgba(6,174,212,0.15)] transition-all duration-500 hover:border-[#0592B1] hover:bg-[#0592B1] hover:shadow-[0_3px_10px_rgba(6,174,212,0.5)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#06AED4]/40 disabled:cursor-not-allowed disabled:opacity-[0.65]"
+              className="inline-flex shrink-0 items-center justify-center gap-2 rounded-[5px] border border-[#06AED4] bg-[#06AED4] px-4 py-2 text-sm font-semibold leading-normal text-white shadow-[0_4px_20px_rgba(6,174,212,0.15)] transition-all duration-500 hover:border-[#0592B1] hover:bg-[#0592B1] hover:shadow-[0_3px_10px_rgba(6,174,212,0.5)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#06AED4]/40 disabled:cursor-not-allowed disabled:opacity-[0.65]"
             >
               <WalletCards className="h-4 w-4" />
               Payment
@@ -8050,7 +8055,7 @@ export function POSTerminal({
             <button
               type="button"
               onClick={openResetDialog}
-              className="inline-flex shrink-0 items-center justify-center gap-2 rounded-[5px] border border-[#3538CD] bg-[#3538CD] px-[0.85rem] py-[0.4rem] text-[0.85rem] font-semibold leading-normal text-white shadow-[0_4px_20px_rgba(53,56,205,0.15)] transition-all duration-300 hover:border-[#2C2FB2] hover:bg-[#2C2FB2] hover:shadow-[0_3px_10px_rgba(53,56,205,0.45)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3538CD]/40"
+              className="inline-flex shrink-0 items-center justify-center gap-2 rounded-[5px] border border-[#3538CD] bg-[#3538CD] px-4 py-2 text-sm font-semibold leading-normal text-white shadow-[0_4px_20px_rgba(53,56,205,0.15)] transition-all duration-300 hover:border-[#2C2FB2] hover:bg-[#2C2FB2] hover:shadow-[0_3px_10px_rgba(53,56,205,0.45)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3538CD]/40"
             >
               <RefreshCw className="h-4 w-4" />
               Reset
@@ -8058,7 +8063,7 @@ export function POSTerminal({
             <button
               type="button"
               onClick={() => setShowSalesHistory(true)}
-              className="inline-flex shrink-0 items-center justify-center gap-2 rounded-[5px] border border-[#FF0000] bg-[#FF0000] px-[0.85rem] py-[0.4rem] text-[0.85rem] font-semibold leading-normal text-white shadow-[0_4px_20px_rgba(255,0,0,0.15)] transition-all duration-500 hover:border-[#DB0000] hover:bg-[#DB0000] hover:shadow-[0_3px_10px_rgba(255,0,0,0.5)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF0000]/40"
+              className="inline-flex shrink-0 items-center justify-center gap-2 rounded-[5px] border border-[#FF0000] bg-[#FF0000] px-4 py-2 text-sm font-semibold leading-normal text-white shadow-[0_4px_20px_rgba(255,0,0,0.15)] transition-all duration-500 hover:border-[#DB0000] hover:bg-[#DB0000] hover:shadow-[0_3px_10px_rgba(255,0,0,0.5)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF0000]/40"
             >
               <History className="h-4 w-4" />
               Transaction
@@ -8099,9 +8104,9 @@ export function POSTerminal({
                 type="button"
                 onClick={() => setSummaryEditor(null)}
                 aria-label="Close editor"
-                className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#ff0000] text-white transition-colors hover:bg-[#db0000] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d92d20]/30"
+                className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-[#f1cd61] bg-[#fff5d6] text-[#8a6500] transition-colors hover:border-[#d6a800] hover:bg-[var(--dashboard-accent-cta)] hover:text-[var(--dashboard-accent-cta-ink)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d6a800]/30"
               >
-                <X className="h-3 w-3" aria-hidden="true" />
+                <X className="h-4 w-4" strokeWidth={2.5} aria-hidden="true" />
               </button>
             </div>
 
@@ -8427,10 +8432,10 @@ export function POSTerminal({
               <button
                 type="button"
                 onClick={() => setShowResetDialog(false)}
-                className="flex h-6 w-6 items-center justify-center rounded-full bg-[#ef1b24] text-white transition-colors hover:bg-[#d9151d] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ef1b24]/40"
+                className="flex h-8 w-8 items-center justify-center rounded-lg border border-[#f1cd61] bg-[#fff5d6] text-[#8a6500] transition-colors hover:border-[#d6a800] hover:bg-[var(--dashboard-accent-cta)] hover:text-[var(--dashboard-accent-cta-ink)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d6a800]/30"
                 aria-label="Close reset register"
               >
-                <X className="h-3.5 w-3.5" strokeWidth={3} />
+                <X className="h-4 w-4" strokeWidth={2.5} />
               </button>
             </div>
 
@@ -8501,10 +8506,10 @@ export function POSTerminal({
               <button
                 type="button"
                 onClick={() => setShowVoidDialog(false)}
-                className="flex h-6 w-6 items-center justify-center rounded-full bg-[#ef1b24] text-white transition-colors hover:bg-[#d9151d] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ef1b24]/40"
+                className="flex h-8 w-8 items-center justify-center rounded-lg border border-[#f1cd61] bg-[#fff5d6] text-[#8a6500] transition-colors hover:border-[#d6a800] hover:bg-[var(--dashboard-accent-cta)] hover:text-[var(--dashboard-accent-cta-ink)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d6a800]/30"
                 aria-label="Close void order"
               >
-                <X className="h-3.5 w-3.5" strokeWidth={3} />
+                <X className="h-4 w-4" strokeWidth={2.5} />
               </button>
             </div>
 
@@ -8583,10 +8588,10 @@ export function POSTerminal({
                 type="button"
                 disabled={Boolean(heldSaleActionId)}
                 onClick={() => setShowHoldDialog(false)}
-                className="flex h-6 w-6 items-center justify-center rounded-full bg-[#ef1b24] text-white transition-colors hover:bg-[#d9151d] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ef1b24]/40 disabled:opacity-50"
+                className="flex h-8 w-8 items-center justify-center rounded-lg border border-[#f1cd61] bg-[#fff5d6] text-[#8a6500] transition-colors hover:border-[#d6a800] hover:bg-[var(--dashboard-accent-cta)] hover:text-[var(--dashboard-accent-cta-ink)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d6a800]/30 disabled:opacity-50"
                 aria-label="Close hold order"
               >
-                <X className="h-3.5 w-3.5" strokeWidth={3} />
+                <X className="h-4 w-4" strokeWidth={2.5} />
               </button>
             </div>
 
@@ -8662,10 +8667,10 @@ export function POSTerminal({
                 type="button"
                 disabled={Boolean(heldSaleActionId)}
                 onClick={() => setShowHeldSales(false)}
-                className="flex h-6 w-6 items-center justify-center rounded-full bg-[#ef1b24] text-white transition-colors hover:bg-[#d9151d] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ef1b24]/40 disabled:opacity-50"
+                className="flex h-8 w-8 items-center justify-center rounded-lg border border-[#f1cd61] bg-[#fff5d6] text-[#8a6500] transition-colors hover:border-[#d6a800] hover:bg-[var(--dashboard-accent-cta)] hover:text-[var(--dashboard-accent-cta-ink)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d6a800]/30 disabled:opacity-50"
                 aria-label="Close held sales"
               >
-                <X className="h-3.5 w-3.5" strokeWidth={3} />
+                <X className="h-4 w-4" strokeWidth={2.5} />
               </button>
             </div>
             <div className="max-h-[60vh] overflow-y-auto p-4">
@@ -9022,9 +9027,9 @@ export function POSTerminal({
                 type="button"
                 onClick={() => setShowNewCustomer(false)}
                 aria-label="Close"
-                className="flex h-5 w-5 items-center justify-center rounded-full bg-[#ff0000] text-white transition-colors hover:bg-[#db0000] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff0000]/30"
+                className="flex h-8 w-8 items-center justify-center rounded-lg border border-[#f1cd61] bg-[#fff5d6] text-[#8a6500] transition-colors hover:border-[#d6a800] hover:bg-[var(--dashboard-accent-cta)] hover:text-[var(--dashboard-accent-cta-ink)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d6a800]/30"
               >
-                <X className="h-3 w-3" />
+                <X className="h-4 w-4" strokeWidth={2.5} />
               </button>
             </div>
             <div className="grid gap-x-6 gap-y-4 px-5 py-[23px] sm:grid-cols-2">
