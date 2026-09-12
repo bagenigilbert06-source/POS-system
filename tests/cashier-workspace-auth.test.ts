@@ -12,6 +12,9 @@ const posPageService = fs.readFileSync('lib/services/pos-page-service.ts', 'utf8
 const settingsActions = fs.readFileSync('app/actions/settings-actions.ts', 'utf8');
 const dashboardLayoutClient = fs.readFileSync('components/layout/dashboard-layout-client.tsx', 'utf8');
 const editableSettings = fs.readFileSync('components/settings/editable-settings.tsx', 'utf8');
+const qzRoute = fs.readFileSync('app/api/qz/route.ts', 'utf8');
+const rawTcpRoute = fs.readFileSync('app/api/printing/raw-tcp/route.ts', 'utf8');
+const adminActions = fs.readFileSync('app/actions/admin-actions.ts', 'utf8');
 
 assert.match(
   dashboardAccess,
@@ -40,9 +43,12 @@ assert.match(settingsActions, /cashDrawerPulse: data\.receiptCashDrawerPulse/);
 assert.match(dashboardLayoutClient, /\{!isPosWorkspace && \(/);
 assert.match(
   fs.readFileSync('components/layout/dynamic-app-sidebar.tsx', 'utf8'),
-  /if \(adminMode\) setAdminExpanded\(false\)/
+  /if \(adminMode\) setAdminExpanded\(true\)/
 );
 assert.match(editableSettings, /receiptBusinessName: e\.target\.value, displayName: e\.target\.value/);
 assert.match(editableSettings, /await updateBusinessSettings\(\{\s*receiptLogoUrl: result\.url,\s*receiptTemplate: 'logo'/);
 assert.match(editableSettings, /Receipt logo uploaded and saved/);
+assert.match(qzRoute, /!dashboardSession\?\.user && !\(await getPosAuthorizationContext\(\)\)/);
+assert.match(rawTcpRoute, /dashboardSession\?\.user \|\| \(await getPosAuthorizationContext\(\)\)/);
+assert.match(adminActions, /await db\.transaction\(async \(tx\) =>/);
 console.log('Cashier workspace authentication rules passed');

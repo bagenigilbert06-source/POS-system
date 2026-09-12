@@ -163,14 +163,22 @@ export function AdminControlShell({
   return (
     <div className="admin-control-theme -mx-4 -my-4 min-h-[calc(100vh-4rem)] bg-[var(--dashboard-canvas)] sm:-mx-6 sm:-my-5 lg:-mx-7 lg:-my-5">
       <div className="flex min-h-[calc(100vh-4rem)] min-w-0 flex-col lg:flex-row">
-        <aside className="hidden w-64 shrink-0 border-r border-[var(--dashboard-border)] bg-[var(--dashboard-surface)] lg:block">
+        <aside className="hidden w-[248px] shrink-0 border-r border-[var(--dashboard-border)] bg-[var(--dashboard-surface)] shadow-[4px_0_18px_-18px_rgba(15,23,42,.45)] lg:block">
           <div className="sticky top-0 max-h-[calc(100vh-4rem)] overflow-y-auto py-3">
-            <div className="border-b border-[var(--dashboard-border)] px-4 pb-3 pt-1">
-              <p className="text-xs font-semibold text-foreground">
-                Admin settings
-              </p>
-              <p className="mt-0.5 truncate text-[11px] text-muted-foreground">
-                {organizationName}
+            <div className="border-b border-[var(--dashboard-border)] px-4 pb-4 pt-1">
+              <div className="flex items-center gap-3">
+                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[var(--dashboard-accent-soft)] text-[var(--dashboard-accent)]">
+                  <ShieldCheck className="h-[18px] w-[18px]" />
+                </span>
+                <div className="min-w-0">
+                  <p className="text-sm font-bold text-foreground">Admin Panel</p>
+                  <p className="mt-0.5 truncate text-[11px] text-muted-foreground">
+                    {organizationName}
+                  </p>
+                </div>
+              </div>
+              <p className="mt-3 text-[11px] leading-4 text-muted-foreground">
+                Workspace configuration and access controls
               </p>
             </div>
             <nav className="py-2" aria-label="Admin control navigation">
@@ -196,7 +204,7 @@ export function AdminControlShell({
           <div className="border-b border-[var(--dashboard-border)] bg-[var(--dashboard-surface)] p-3 lg:hidden">
             <div className="mb-3 flex items-center gap-2 px-1">
               <ShieldCheck className="h-4 w-4" />
-              <span className="text-sm font-bold">Admin control</span>
+              <span className="text-sm font-bold">Admin Panel</span>
               <span className="truncate text-xs text-muted-foreground">
                 · {organizationName}
               </span>

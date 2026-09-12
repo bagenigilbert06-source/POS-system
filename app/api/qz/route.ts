@@ -1,5 +1,6 @@
 import { createSign } from 'node:crypto'
 import { getCurrentSession } from '@/lib/auth'
+import { getPosAuthorizationContext } from '@/lib/pos/pos-auth'
 import {
   normalizedQzCertificate,
   normalizedQzPrivateKey,
@@ -19,7 +20,9 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  if (!(await getCurrentSession())?.user) return Response.json({ error: 'Unauthorized' }, { status: 401, headers: noStoreHeaders })
+  const dashboardSession = await getCurrentSession()
+  if (!dashboardSession?.user && !(await getPosAuthorizationContext()))
+    return Response.json({ error: 'Unauthorized' }, { status: 401, headers: noStoreHeaders })
   const privateKey = normalizedQzPrivateKey()
   const signingConfiguration = qzSigningConfiguration()
   if (!privateKey || !signingConfiguration.privateKeyConfigured)

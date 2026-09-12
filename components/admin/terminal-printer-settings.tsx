@@ -11,6 +11,7 @@ import {
   browserPrintReceipt,
   directPrintReceipt,
   connectQzTray,
+  getDirectPrinterStatus,
   getReceiptPrinterErrorCopy,
   listDirectPrinters,
   type ReceiptPrinterStatus,
@@ -60,6 +61,7 @@ export function TerminalPrinterSettings({ terminal }: { terminal: Terminal }) {
     [drawer, setDrawer] = useState(terminal.cashDrawerPulse);
   const configured = mode === 'direct' && Boolean((name || identifier).trim());
   const configuredPrinter = (identifier || name).trim();
+  const rawTcpConfigured = /^tcp:\/\/[^/:\s]+:\d{1,5}$/i.test(configuredPrinter);
   const discoverPrinters = async () => {
     setDiscovering(true);
     setQzStatus('connecting'); setDiagnostic('');
@@ -84,6 +86,14 @@ export function TerminalPrinterSettings({ terminal }: { terminal: Terminal }) {
     setTesting(true);
     setQzStatus('connecting'); setDiagnostic('');
     try {
+      if (rawTcpConfigured) {
+        const status = await getDirectPrinterStatus(configuredPrinter);
+        setPrinterStatus(status);
+        setQzStatus(status === 'ready' ? 'connected' : 'not-connected');
+        if (status !== 'ready') throw new Error(`Printer ${configuredPrinter} was not found`);
+        notify.success('Network printer connection ready', { description: configuredPrinter });
+        return;
+      }
       await connectQzTray();
       setQzStatus('connected');
       const discovered = physicalPrinterNames(await listDirectPrinters());
@@ -161,12 +171,14 @@ export function TerminalPrinterSettings({ terminal }: { terminal: Terminal }) {
     setTesting(true);
     let queueFound = false;
     try {
-      await connectQzTray();
-      setQzStatus('connected');
-      const discovered = physicalPrinterNames(await listDirectPrinters());
-      if (!discovered.includes(configuredPrinter)) {
-        setPrinterStatus('unavailable');
-        throw new Error(`Printer ${configuredPrinter} was not found`);
+      if (!rawTcpConfigured) {
+        await connectQzTray();
+        setQzStatus('connected');
+        const discovered = physicalPrinterNames(await listDirectPrinters());
+        if (!discovered.includes(configuredPrinter)) {
+          setPrinterStatus('unavailable');
+          throw new Error(`Printer ${configuredPrinter} was not found`);
+        }
       }
       queueFound = true;
       setPrinterStatus('ready');

@@ -204,7 +204,7 @@ export function DynamicAppSidebar({
   const pathname = usePathname();
   const router = useRouter();
   const [collapsed, setCollapsed] = useState(false);
-  const [adminExpanded, setAdminExpanded] = useState(false);
+  const [adminExpanded, setAdminExpanded] = useState(true);
   const { config } = useWorkspace();
   const adminMode =
     pathname === '/dashboard/admin' || pathname.startsWith('/dashboard/admin/');
@@ -217,9 +217,10 @@ export function DynamicAppSidebar({
   }, []);
 
   useEffect(() => {
-    // Admin has its own navigation panel, so retain the workspace navigation as
-    // a compact icon rail. The logo control can still expand it when needed.
-    if (adminMode) setAdminExpanded(false);
+    // Admin keeps both navigation contexts visible: the expanded workspace
+    // sidebar for switching modules and the dedicated Admin Panel beside it.
+    // The logo control can still collapse the workspace sidebar when desired.
+    if (adminMode) setAdminExpanded(true);
   }, [adminMode]);
 
   // The register is the highest-frequency destination. Warm its RSC request as

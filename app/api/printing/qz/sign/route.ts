@@ -1,9 +1,11 @@
 import { createSign } from 'node:crypto'
 import { getCurrentSession } from '@/lib/auth'
+import { getPosAuthorizationContext } from '@/lib/pos/pos-auth'
 
 export async function POST(request: Request) {
   const session = await getCurrentSession()
-  if (!session?.user) return new Response('Unauthorized', { status: 401 })
+  if (!session?.user && !(await getPosAuthorizationContext()))
+    return new Response('Unauthorized', { status: 401 })
   const privateKey = process.env.QZ_PRIVATE_KEY?.replace(/\\n/g, '\n').trim()
   if (!privateKey) return new Response('QZ signing is not configured', { status: 503 })
   const payload = await request.text()

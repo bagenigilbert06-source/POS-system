@@ -1,5 +1,6 @@
 import net from 'node:net';
 import { getCurrentSession } from '@/lib/auth';
+import { getPosAuthorizationContext } from '@/lib/pos/pos-auth';
 
 export const runtime = 'nodejs';
 
@@ -78,7 +79,8 @@ async function send(target: { host: string; port: number }, payload?: Buffer) {
 }
 
 async function authorize() {
-  return Boolean((await getCurrentSession())?.user);
+  const dashboardSession = await getCurrentSession();
+  return Boolean(dashboardSession?.user || (await getPosAuthorizationContext()));
 }
 
 export async function HEAD(request: Request) {

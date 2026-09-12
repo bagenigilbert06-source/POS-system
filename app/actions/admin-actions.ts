@@ -106,17 +106,19 @@ export async function updatePosTerminalPrinter(id: string, input: z.input<typeof
   const terminalId = z.string().min(1).parse(id)
   const data = printerSchema.parse(input)
   if (data.printingMode === 'direct' && !(data.printerIdentifier?.trim() || data.printerDisplayName?.trim())) throw new Error('Enter a printer name or identifier for direct thermal printing')
-  const [updated] = await db.update(posTerminal).set({
-    printingMode: data.printingMode,
-    printerDisplayName: data.printerDisplayName?.trim() || null,
-    printerIdentifier: data.printerIdentifier?.trim() || null,
-    paperWidth: data.paperWidth,
-    autoPrint: data.autoPrint,
-    receiptCopies: data.receiptCopies,
-    cashDrawerPulse: data.cashDrawerPulse,
-  }).where(and(eq(posTerminal.id, terminalId), eq(posTerminal.organizationId, authorization.organizationId))).returning({ id: posTerminal.id })
-  if (!updated) throw new Error('POS terminal not found')
-  await db.insert(auditEvent).values({ id: generateId(), organizationId: authorization.organizationId, userId: authorization.userId, action: 'pos_terminal.printer_updated', metadata: { terminalId, printingMode: data.printingMode, paperWidth: data.paperWidth, autoPrint: data.autoPrint, receiptCopies: data.receiptCopies } })
+  await db.transaction(async (tx) => {
+    const [updated] = await tx.update(posTerminal).set({
+      printingMode: data.printingMode,
+      printerDisplayName: data.printerDisplayName?.trim() || null,
+      printerIdentifier: data.printerIdentifier?.trim() || null,
+      paperWidth: data.paperWidth,
+      autoPrint: data.autoPrint,
+      receiptCopies: data.receiptCopies,
+      cashDrawerPulse: data.printingMode === 'direct' ? data.cashDrawerPulse : false,
+    }).where(and(eq(posTerminal.id, terminalId), eq(posTerminal.organizationId, authorization.organizationId))).returning({ id: posTerminal.id })
+    if (!updated) throw new Error('POS terminal not found')
+    await tx.insert(auditEvent).values({ id: generateId(), organizationId: authorization.organizationId, userId: authorization.userId, action: 'pos_terminal.printer_updated', metadata: { terminalId, printingMode: data.printingMode, paperWidth: data.paperWidth, autoPrint: data.autoPrint, receiptCopies: data.receiptCopies, cashDrawerPulse: data.printingMode === 'direct' && data.cashDrawerPulse } })
+  })
   refreshAdmin()
   revalidatePath('/dashboard/pos')
   return { success: true }
