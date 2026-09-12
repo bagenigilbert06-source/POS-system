@@ -1,8 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   ChevronUp,
   ClipboardList,
   Clock3,
@@ -53,32 +55,57 @@ export function ShiftHistory({
   currency: string;
 }) {
   const [selected, setSelected] = useState<string | null>(null);
-  const active = shifts.find((shift) => shift.id === selected) ?? null;
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const totalPages = Math.max(1, Math.ceil(shifts.length / pageSize));
+  const currentPage = Math.min(page, totalPages);
+  const firstRecord = shifts.length ? (currentPage - 1) * pageSize + 1 : 0;
+  const lastRecord = Math.min(currentPage * pageSize, shifts.length);
+  const visibleShifts = useMemo(
+    () => shifts.slice(firstRecord - 1, lastRecord),
+    [firstRecord, lastRecord, shifts]
+  );
+  const active = visibleShifts.find((shift) => shift.id === selected) ?? null;
+
+  useEffect(() => {
+    setPage(1);
+    setSelected(null);
+  }, [shifts]);
+
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [page, totalPages]);
+
+  const changePage = (nextPage: number) => {
+    setSelected(null);
+    setPage(Math.max(1, Math.min(nextPage, totalPages)));
+  };
+
   return (
     <section
-      className="overflow-hidden rounded-xl border bg-card shadow-sm"
+      className="overflow-hidden rounded-2xl border border-slate-200/80 bg-card shadow-[0_8px_24px_rgba(15,23,42,0.05)] dark:border-white/10"
       aria-labelledby="shift-history-title"
     >
-      <div className="flex flex-col gap-3 border-b px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-3 border-b border-slate-200/80 px-6 py-5 dark:border-white/10 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2
             id="shift-history-title"
-            className="text-lg font-bold tracking-tight"
+            className="text-xl font-semibold tracking-tight"
           >
             Shift history
           </h2>
-          <p className="mt-1 text-xs text-muted-foreground">
+          <p className="mt-1 text-[13px] text-muted-foreground">
             Review opening cash, reconciliations, and completed register shifts.
           </p>
         </div>
-        <span className="rounded-full bg-muted px-3 py-1 text-xs font-semibold text-muted-foreground">
-          {shifts.length} records
+        <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600 dark:bg-white/10 dark:text-slate-300">
+          {shifts.length} {shifts.length === 1 ? 'record' : 'records'}
         </span>
       </div>
       {shifts.length ? (
         <div className="overflow-x-auto">
           <table className="w-full min-w-[980px] text-left text-xs">
-            <thead className="bg-muted/30 text-[11px] font-medium text-muted-foreground">
+            <thead className="bg-[#f5f5f7] text-[11px] font-medium text-slate-500 dark:bg-white/5 dark:text-slate-400">
               <tr>
                 <th className="px-5 py-3 font-semibold">Shift</th>
                 <th className="px-3 py-3 font-semibold">Cashier</th>
@@ -93,7 +120,7 @@ export function ShiftHistory({
               </tr>
             </thead>
             <tbody className="divide-y">
-              {shifts.map((shift) => {
+              {visibleShifts.map((shift) => {
                 const salesTotal = shift.sales.reduce(
                   (sum, row) => sum + row.total,
                   0
@@ -102,7 +129,7 @@ export function ShiftHistory({
                 return (
                   <tr
                     key={shift.id}
-                    className={`cursor-pointer hover:bg-muted/30 ${open ? 'bg-muted/20' : ''}`}
+                    className={`cursor-pointer transition-colors hover:bg-slate-50 dark:hover:bg-white/[0.03] ${open ? 'bg-amber-50/40 dark:bg-amber-400/5' : ''}`}
                     onClick={() => setSelected(open ? null : shift.id)}
                   >
                     <td className="px-5 py-3.5">
@@ -193,6 +220,59 @@ export function ShiftHistory({
             Completed register reconciliations will appear here.
           </p>
         </div>
+      )}
+      {shifts.length > 0 && (
+        <nav
+          aria-label="Shift history pagination"
+          className="flex flex-col gap-3 border-t border-slate-200/80 bg-[#fafafa] px-6 py-3.5 dark:border-white/10 dark:bg-white/[0.02] sm:flex-row sm:items-center sm:justify-between"
+        >
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <span>
+              Showing {firstRecord}–{lastRecord} of {shifts.length}
+            </span>
+            <label className="flex items-center gap-1.5">
+              <span className="sr-only">Rows per page</span>
+              <select
+                value={pageSize}
+                onChange={(event) => {
+                  setPageSize(Number(event.target.value));
+                  setPage(1);
+                  setSelected(null);
+                }}
+                className="h-8 rounded-md border bg-background px-2 text-xs font-medium text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                {[10, 20, 50].map((size) => (
+                  <option key={size} value={size}>
+                    {size} per page
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="mr-1 text-xs tabular-nums text-muted-foreground">
+              Page {currentPage} of {totalPages}
+            </span>
+            <button
+              type="button"
+              onClick={() => changePage(currentPage - 1)}
+              disabled={currentPage === 1}
+              className="inline-flex h-8 w-8 items-center justify-center rounded-md border bg-background text-foreground transition-colors hover:bg-muted disabled:pointer-events-none disabled:opacity-40"
+              aria-label="Previous page"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              onClick={() => changePage(currentPage + 1)}
+              disabled={currentPage === totalPages}
+              className="inline-flex h-8 w-8 items-center justify-center rounded-md border bg-background text-foreground transition-colors hover:bg-muted disabled:pointer-events-none disabled:opacity-40"
+              aria-label="Next page"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          </div>
+        </nav>
       )}
       {active && <ShiftDetail shift={active} currency={currency} />}
     </section>

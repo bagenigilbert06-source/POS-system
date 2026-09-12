@@ -34,12 +34,13 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ t
   const session = await auth.api.getSession({ headers: await headers() })
   const signedInForInvitation = Boolean(session?.user?.email && context?.email && session.user.email.toLowerCase() === context.email.toLowerCase())
   return <Shell>
-    <div className="mt-8 space-y-7">
+    <div className="mt-8 space-y-6">
       <header>
         <h1 className="text-[25px] font-semibold leading-tight tracking-[-0.02em] text-slate-950">Join {context?.organizationName}</h1>
         <p className="mt-2 text-sm leading-5 text-muted-foreground">You&apos;ve been invited to join the team.</p>
       </header>
-      <div className="border-b border-slate-200 pb-6">
+      <div className="rounded-xl bg-slate-50 p-4">
+        <p className="text-[11px] font-semibold uppercase tracking-[.12em] text-slate-500">Your invitation</p>
         <p className="text-base font-semibold text-slate-950">{context?.employeeName}</p>
         <p className="mt-1 text-sm text-slate-600">{readableRole(context?.roleName)}{context?.branchName ? ` · ${context.branchName}` : ''}</p>
         <p className="mt-2 break-all text-sm text-slate-500">{context?.email}</p>
@@ -50,5 +51,5 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ t
 }
 
 function Shell({ children }: { children: React.ReactNode }) {
-  return <main className="flex min-h-screen items-center justify-center bg-[#f7f7f5] px-4 py-8 sm:px-6"><section className="w-full max-w-[460px] rounded-2xl border border-slate-200 bg-white px-6 py-7 shadow-[0_12px_40px_rgba(15,23,42,0.06)] sm:px-9 sm:py-8"><div className="flex items-center gap-3"><PesabyLogoMark/><div><p className="text-base font-semibold tracking-tight text-slate-950">Pesaby</p><p className="text-[10px] font-semibold tracking-[.14em] text-slate-500">EMPLOYEE INVITATION</p></div></div>{children}</section></main>
+  return <main className="flex min-h-screen items-center justify-center bg-[#f7f7f5] px-4 py-8 sm:px-6"><section role="dialog" aria-modal="true" aria-label="Employee invitation" className="w-full max-w-[460px] rounded-2xl border border-slate-200 bg-white px-6 py-7 shadow-[0_20px_55px_rgba(15,23,42,0.10)] sm:px-9 sm:py-8"><div className="flex items-center gap-3 border-b border-slate-100 pb-5"><PesabyLogoMark/><div><p className="text-base font-semibold tracking-tight text-slate-950">Pesaby</p><p className="text-[10px] font-semibold tracking-[.14em] text-slate-500">EMPLOYEE INVITATION</p></div></div>{children}</section></main>
 }

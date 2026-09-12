@@ -456,7 +456,11 @@ export function DynamicAppSidebar({
         ['cashier', 'supervisor', 'inventory', 'accountant'].includes(
           role ?? ''
         ) && item.id === 'dashboard'
-      )
+      ) &&
+      // Product catalogue management is an administrator workspace control.
+      // Managers retain their operational inventory views, but do not see the
+      // Stock Items entry in the navigation.
+      !(role === 'manager' && item.id === 'products')
   );
   // Cashiers get a concise operational home: attendance and their POS terminal.
   const cashierPrimaryNav = [
