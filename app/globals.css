@@ -3437,11 +3437,29 @@ html.dark .pesaby-global-loader.pesaby-inline-loader {
 /* The shift strip is the POS status banner, not a content card. Keep all of
    its existing information but restore the warm dashboard-banner surface. */
 .pos-workspace .pos-shift-strip {
+  position: relative;
   border-color: #ecd78a !important;
   border-radius: 8px !important;
   background: linear-gradient(105deg, #fff9e7 0%, #fff4cc 52%, #ffedaf 100%) !important;
   color: var(--pos-ink);
   box-shadow: 0 3px 10px rgba(16, 24, 40, 0.05) !important;
+}
+
+/* An open shift adds its float and timing details. On full-width registers
+   those details sit in the unused lower edge of the banner rather than making
+   a second full row, so the strip keeps its original compact height. */
+@media (min-width: 1280px) {
+  .pos-workspace .pos-shift-strip > div:first-child {
+    min-height: 5.25rem;
+    padding-bottom: 1.7rem;
+  }
+
+  .pos-workspace .pos-shift-strip .pos-shift-meta {
+    position: absolute;
+    bottom: 0.45rem;
+    left: 1rem;
+    padding: 0;
+  }
 }
 
 .pos-workspace .pos-card-muted {

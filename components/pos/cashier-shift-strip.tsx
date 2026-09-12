@@ -478,7 +478,7 @@ export function CashierShiftStrip({
           </div>
         </div>
         {session && (
-          <div className="hidden flex-wrap items-center gap-x-4 gap-y-1 px-4 pb-2 text-[10px] text-[var(--dashboard-muted)] sm:flex">
+          <div className="pos-shift-meta hidden flex-wrap items-center gap-x-4 gap-y-1 px-4 pb-2 text-[10px] text-[var(--dashboard-muted)] sm:flex">
             <span>Float {compactMoney(Number(session.openingCash))}</span>
             <span aria-hidden="true">•</span>
             {shiftStartedAt && (
