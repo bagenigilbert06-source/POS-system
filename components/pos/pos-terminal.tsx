@@ -426,6 +426,12 @@ type PosPaymentMethod =
   | 'bank_transfer'
   | 'credit';
 
+// Keep the Airtel Money flow available in the codebase and settings, while it
+// is temporarily hidden from the cashier-facing payment terminal.
+const HIDDEN_TERMINAL_PAYMENT_METHODS = new Set<PosPaymentMethod>([
+  'airtel_money',
+]);
+
 function PaymentBrand({
   method,
   compact = false,
@@ -1469,8 +1475,8 @@ export function POSTerminal({
       }
       if (checkoutOpen && checkoutStep === 'payment' && !receipt) {
         const paymentShortcut = (
-          { F3: 'cash', F4: 'mpesa', F5: 'card', F6: 'airtel_money' } as const
-        )[event.key as 'F3' | 'F4' | 'F5' | 'F6'];
+          { F3: 'cash', F4: 'mpesa', F5: 'card' } as const
+        )[event.key as 'F3' | 'F4' | 'F5'];
         if (
           paymentShortcut &&
           settings.paymentMethods.includes(paymentShortcut) &&
@@ -6405,7 +6411,7 @@ export function POSTerminal({
                       Payment method
                     </p>
                     <span className="rounded-full bg-[#fff9e6] px-2.5 py-1 text-[11px] font-bold text-[#806000] dark:bg-[rgba(255,214,10,.1)] dark:text-[#ffd60a]">
-                      F3–F6 to switch
+                      F3–F5 to switch
                     </span>
                   </div>
                   <div
@@ -6455,7 +6461,7 @@ export function POSTerminal({
                     )
                       .filter(
                         ({ key }) =>
-                          key === 'airtel_money' ||
+                          !HIDDEN_TERMINAL_PAYMENT_METHODS.has(key) &&
                           settings.paymentMethods.includes(key)
                       )
                       .map(({ key, label, detail, shortcut }) => (
