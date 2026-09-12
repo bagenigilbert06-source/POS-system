@@ -1066,25 +1066,10 @@ body:has(.dashboard-shell) {
 }
 
 .dashboard-scroll-region {
-  min-height: 0;
   overscroll-behavior: contain;
   scrollbar-gutter: stable;
   scroll-behavior: auto;
   -webkit-overflow-scrolling: touch;
-}
-
-/* The dashboard has one deliberate scroll owner: its main content region.
-   Without this, the document can grow behind the fixed-height shell and
-   browsers show a second scrollbar plus an empty page extension. */
-html:has(.dashboard-shell),
-body:has(.dashboard-shell) {
-  height: 100%;
-  overflow: hidden;
-}
-
-.dashboard-shell {
-  height: 100dvh;
-  max-height: 100dvh;
 }
 
 .dark .dashboard-shell {
