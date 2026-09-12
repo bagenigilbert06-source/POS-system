@@ -656,8 +656,10 @@ export function CashierShiftStrip({
                   autoComplete="one-time-code"
                   maxLength={6}
                   autoFocus
-                  placeholder="Enter 6-digit PIN"
-                  className="h-12 text-center text-lg tracking-[0.5em]"
+                  placeholder="6-digit PIN"
+                  className={`h-12 text-center text-base placeholder:text-sm placeholder:tracking-normal ${
+                    unlockPin ? 'tracking-[0.32em]' : 'tracking-normal'
+                  }`}
                   aria-invalid={Boolean(unlockError)}
                 />
               </label>

@@ -113,6 +113,15 @@ assert.match(
   fs.readFileSync('components/pos/cashier-shift-strip.tsx', 'utf8'),
   /setUnlockedForOpening\(true\)[\s\S]*startTransition\(\(\) => router\.refresh\(\)\)/
 );
+const cashierShiftStrip = fs.readFileSync(
+  'components/pos/cashier-shift-strip.tsx',
+  'utf8'
+);
+assert.match(cashierShiftStrip, /placeholder="6-digit PIN"/);
+assert.match(
+  cashierShiftStrip,
+  /unlockPin \? 'tracking-\[0\.32em\]' : 'tracking-normal'/
+);
 assert.match(
   posAuth,
   /posTerminalCookieOptions[\s\S]*maxAge: 60 \* 60 \* 24 \* 365/
