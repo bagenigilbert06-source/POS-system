@@ -16,10 +16,14 @@ import {
   requestManualCashDrawerOpen,
   submitPosSessionCount,
 } from '@/app/actions/operations';
+import { unlockPosByPin } from '@/app/actions/pos-pin';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { notify } from '@/lib/notify';
-import { formatRegisterShiftDuration, registerShiftDurationMinutes } from '@/lib/pos/shift-duration';
+import {
+  formatRegisterShiftDuration,
+  registerShiftDurationMinutes,
+} from '@/lib/pos/shift-duration';
 import { openQzCashDrawer } from '@/lib/printing/receipt-print-service';
 import {
   DropdownMenu,
@@ -44,6 +48,7 @@ import {
   ReceiptText,
   ArchiveRestore,
   MoreHorizontal,
+  LockKeyhole,
 } from 'lucide-react';
 
 type Reconciliation = {
@@ -113,8 +118,13 @@ export function CashierShiftStrip({
     [movementAmount, setMovementAmount] = useState(''),
     [movementReason, setMovementReason] = useState('');
   const [drawerReason, setDrawerReason] = useState('');
+  const [unlockPin, setUnlockPin] = useState('');
+  const [unlockError, setUnlockError] = useState('');
+  const [unlocking, setUnlocking] = useState(false);
   const [liveShiftSales, setLiveShiftSales] = useState(workspace.shiftSales);
-  const [liveTransactionCount, setLiveTransactionCount] = useState(workspace.transactionCount);
+  const [liveTransactionCount, setLiveTransactionCount] = useState(
+    workspace.transactionCount
+  );
   const observedSalesRef = useRef(new Set<string>());
   const drawerRequestRef = useRef<string | null>(null);
   const openingRequestRef = useRef<string | null>(null);
@@ -140,7 +150,9 @@ export function CashierShiftStrip({
       }).format(new Date(session.openedAt))
     : null;
   const elapsedShiftDuration = session
-    ? formatRegisterShiftDuration(registerShiftDurationMinutes(session.openedAt, new Date(now)))
+    ? formatRegisterShiftDuration(
+        registerShiftDurationMinutes(session.openedAt, new Date(now))
+      )
     : null;
   useEffect(() => {
     if (!sessionOpenedAt) return;
@@ -162,14 +174,17 @@ export function CashierShiftStrip({
   }, [workspace.shiftSales, workspace.transactionCount]);
   useEffect(() => {
     const update = (event: Event) => {
-      const detail = (event as CustomEvent<{ saleId: string; amount: number }>).detail;
-      if (!detail?.saleId || observedSalesRef.current.has(detail.saleId)) return;
+      const detail = (event as CustomEvent<{ saleId: string; amount: number }>)
+        .detail;
+      if (!detail?.saleId || observedSalesRef.current.has(detail.saleId))
+        return;
       observedSalesRef.current.add(detail.saleId);
       setLiveShiftSales((current) => current + detail.amount);
       setLiveTransactionCount((current) => current + 1);
     };
     window.addEventListener('pesaby:shift-sale-completed', update);
-    return () => window.removeEventListener('pesaby:shift-sale-completed', update);
+    return () =>
+      window.removeEventListener('pesaby:shift-sale-completed', update);
   }, []);
   const run = (
     task: () => Promise<void>,
@@ -238,6 +253,43 @@ export function CashierShiftStrip({
     : '';
   const closeBlocked =
     !result || (result.requiresReason && varianceReason.trim().length < 3);
+
+  const updateUnlockPin = (value: string) => {
+    setUnlockPin(value.replace(/\D/g, '').slice(0, 6));
+    if (unlockError) setUnlockError('');
+  };
+
+  const unlockRegister = async () => {
+    if (unlocking) return;
+    if (unlockPin.length !== 6) {
+      setUnlockError('Enter your six-digit POS PIN.');
+      return;
+    }
+    setUnlocking(true);
+    setUnlockError('');
+    try {
+      const response = await unlockPosByPin(unlockPin);
+      if (!response.success) {
+        const detailedError = 'error' in response ? response.error : '';
+        setUnlockPin('');
+        setUnlockError(
+          detailedError.includes('open shift') ||
+            detailedError.includes('different store')
+            ? detailedError
+            : 'That PIN could not unlock this register. Check it and try again.'
+        );
+        return;
+      }
+      setUnlockPin('');
+      notify.success('Register unlocked');
+      router.refresh();
+    } catch {
+      setUnlockPin('');
+      setUnlockError('Unable to unlock this register. Please try again.');
+    } finally {
+      setUnlocking(false);
+    }
+  };
 
   return (
     <>
@@ -415,7 +467,9 @@ export function CashierShiftStrip({
             {shiftStartedAt && (
               <>
                 <span>Started {shiftStartedAt}</span>
-                {elapsedShiftDuration && <span>Elapsed {elapsedShiftDuration}</span>}
+                {elapsedShiftDuration && (
+                  <span>Elapsed {elapsedShiftDuration}</span>
+                )}
                 <span aria-hidden="true">•</span>
               </>
             )}
@@ -518,93 +572,190 @@ export function CashierShiftStrip({
         </DialogContent>
       </Dialog>
 
-      <Dialog open={openingOpen} onOpenChange={setOpeningOpen}>
-        <DialogContent onKeyDown={(event) => {
-          if (event.key !== 'Enter' || !(event.target instanceof HTMLInputElement)) return;
-          event.preventDefault();
-          document.querySelector<HTMLButtonElement>('[data-open-register-submit]')?.click();
-        }} className="gap-4 border-border bg-card p-5 text-card-foreground shadow-2xl shadow-slate-950/20 dark:shadow-black/50 sm:max-w-[500px]">
+      <Dialog
+        open={openingOpen}
+        onOpenChange={(open) => {
+          setOpeningOpen(open);
+          if (!open) {
+            setUnlockPin('');
+            setUnlockError('');
+          }
+        }}
+      >
+        <DialogContent
+          onKeyDown={(event) => {
+            if (
+              event.key !== 'Enter' ||
+              !(event.target instanceof HTMLInputElement)
+            )
+              return;
+            event.preventDefault();
+            if (!posUnlocked && terminalConfigured) void unlockRegister();
+            else
+              document
+                .querySelector<HTMLButtonElement>('[data-open-register-submit]')
+                ?.click();
+          }}
+          className="gap-4 border-border bg-card p-5 text-card-foreground shadow-2xl shadow-slate-950/20 dark:shadow-black/50 sm:max-w-[500px]"
+        >
           <DialogHeader className="space-y-1 border-b border-border pb-4">
-            <DialogTitle className="text-lg font-semibold tracking-tight">Open register</DialogTitle>
+            <DialogTitle className="text-lg font-semibold tracking-tight">
+              {posUnlocked ? 'Open register' : 'Unlock register'}
+            </DialogTitle>
             <DialogDescription className="space-y-0.5 text-sm leading-5 text-[var(--dashboard-muted)]">
-              <span className="block">Cashier: {cashierDisplayName || 'Unavailable'}</span>
-              <span className="block">Register: {workspace.registerName || 'Not registered'}</span>
+              <span className="block">
+                Cashier: {cashierDisplayName || 'Unavailable'}
+              </span>
+              <span className="block">
+                Register: {workspace.registerName || 'Not registered'}
+              </span>
               <span className="block">Branch: {workspace.locationName}</span>
             </DialogDescription>
           </DialogHeader>
           {!terminalConfigured && (
             <p className="text-sm text-destructive">
-              This device is not assigned to a POS terminal. Configure the terminal before opening a register.
+              This device is not assigned to a POS terminal. Configure the
+              terminal before opening a register.
             </p>
           )}
-          {!posUnlocked && terminalConfigured && (
-            <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-100">
-              <p className="font-medium">Unlock this register with your POS PIN first.</p>
-              <p className="mt-1 text-xs leading-5 opacity-80">
-                Your dashboard password does not open a cashier shift. Use your six-digit staff POS PIN on this registered device.
-              </p>
+          {!posUnlocked && terminalConfigured ? (
+            <div className="grid gap-4 py-1">
+              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300">
+                <LockKeyhole className="h-5 w-5" aria-hidden="true" />
+              </div>
+              <div className="text-center">
+                <p className="font-semibold">Enter your POS PIN</p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Use your six-digit staff PIN to unlock this register.
+                </p>
+              </div>
+              <label className="grid gap-1.5 text-sm font-medium">
+                <span className="sr-only">Six-digit POS PIN</span>
+                <Input
+                  value={unlockPin}
+                  onChange={(event) => updateUnlockPin(event.target.value)}
+                  type="password"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  maxLength={6}
+                  autoFocus
+                  placeholder="Enter 6-digit PIN"
+                  className="h-12 text-center text-lg tracking-[0.5em]"
+                  aria-invalid={Boolean(unlockError)}
+                />
+              </label>
+              {unlockError && (
+                <p
+                  role="alert"
+                  className="text-center text-sm text-destructive"
+                >
+                  {unlockError}
+                </p>
+              )}
+              <DialogFooter className="border-t border-border pt-3 sm:justify-end">
+                <Button variant="outline" onClick={() => setOpeningOpen(false)}>
+                  Cancel
+                </Button>
+                <Button
+                  disabled={unlocking || unlockPin.length !== 6}
+                  onClick={() => void unlockRegister()}
+                >
+                  {unlocking ? 'Unlocking...' : 'Unlock register'}
+                </Button>
+              </DialogFooter>
             </div>
-          )}
-          <label className="grid gap-1.5 text-sm font-medium">
-            Opening cash
-            <CurrencyInput
-              value={openingFloat}
-              onChange={setOpeningFloat}
-              autoFocus
-            />
-            <span className="text-xs font-normal leading-4 text-muted-foreground">Cash physically placed in the drawer at the start of the shift.</span>
-          </label>
-          <label className="grid gap-1.5 text-sm font-medium">
-            <span>Opening note <span className="font-normal text-muted-foreground">(optional)</span></span>
-            <Input value={openingNote} onChange={(event) => setOpeningNote(event.target.value)} maxLength={500} placeholder="e.g. Float received from manager" />
-          </label>
-          <DialogFooter className="border-t border-border pt-3 sm:justify-end">
-            <Button variant="outline" onClick={() => setOpeningOpen(false)}>
-              Cancel
-            </Button>
-            {!posUnlocked && terminalConfigured ? (
-              <Button asChild>
-                <Link href="/sign-in?pos=1">Unlock with POS PIN</Link>
-              </Button>
-            ) : (
-            <Button
-              data-open-register-submit
-              disabled={pending || !terminalConfigured || !isValidMoney(openingFloat || '0')}
-              onClick={() =>
-                run(
-                  async () => {
-                    await openPosSession({
-                      openingCash: openingFloat === '' ? 0 : Number(openingFloat),
-                      openingNote,
-                      idempotencyKey: openingRequestRef.current ?? (openingRequestRef.current = crypto.randomUUID()),
-                    }).then((opened) => {
-                      if (opened.status === 'cashier_shift_open')
-                        throw new Error(`You already have an open shift on ${opened.terminalName ?? 'another register'}. End and reconcile it before opening another register.`);
-                      if (opened.status === 'cashier_shift_closing')
-                        throw new Error(`You already have a shift being reconciled on ${opened.terminalName ?? 'another register'}. Finish or cancel that reconciliation before opening another register.`);
-                      if (opened.status === 'terminal_reconciling')
-                        throw new Error('This register is being reconciled. Finish that shift before opening a new one.');
-                      if (opened.status === 'terminal_active')
-                        throw new Error('This register already has an active shift. Ask the current cashier or a manager to close it first.');
-                    });
-                    setOpeningFloat('');
-                    setOpeningNote('');
-                    openingRequestRef.current = null;
-                    setOpeningOpen(false);
-                    router.refresh();
-                  },
-                  {
-                    loading: 'Opening shiftâ€¦',
-                    success: 'Shift opened',
-                    description: 'Register is ready for sales.',
+          ) : terminalConfigured ? (
+            <>
+              <label className="grid gap-1.5 text-sm font-medium">
+                Opening cash
+                <CurrencyInput
+                  value={openingFloat}
+                  onChange={setOpeningFloat}
+                  autoFocus
+                />
+                <span className="text-xs font-normal leading-4 text-muted-foreground">
+                  Cash physically placed in the drawer at the start of the
+                  shift.
+                </span>
+              </label>
+              <label className="grid gap-1.5 text-sm font-medium">
+                <span>
+                  Opening note{' '}
+                  <span className="font-normal text-muted-foreground">
+                    (optional)
+                  </span>
+                </span>
+                <Input
+                  value={openingNote}
+                  onChange={(event) => setOpeningNote(event.target.value)}
+                  maxLength={500}
+                  placeholder="e.g. Float received from manager"
+                />
+              </label>
+              <DialogFooter className="border-t border-border pt-3 sm:justify-end">
+                <Button variant="outline" onClick={() => setOpeningOpen(false)}>
+                  Cancel
+                </Button>
+                <Button
+                  data-open-register-submit
+                  disabled={
+                    pending ||
+                    !terminalConfigured ||
+                    !isValidMoney(openingFloat || '0')
                   }
-                )
-              }
-            >
-              <span data-open-register-submit="true">Open register</span>
-            </Button>
-            )}
-          </DialogFooter>
+                  onClick={() =>
+                    run(
+                      async () => {
+                        await openPosSession({
+                          openingCash:
+                            openingFloat === '' ? 0 : Number(openingFloat),
+                          openingNote,
+                          idempotencyKey:
+                            openingRequestRef.current ??
+                            (openingRequestRef.current = crypto.randomUUID()),
+                        }).then((opened) => {
+                          if (opened.status === 'cashier_shift_open')
+                            throw new Error(
+                              `You already have an open shift on ${opened.terminalName ?? 'another register'}. End and reconcile it before opening another register.`
+                            );
+                          if (opened.status === 'cashier_shift_closing')
+                            throw new Error(
+                              `You already have a shift being reconciled on ${opened.terminalName ?? 'another register'}. Finish or cancel that reconciliation before opening another register.`
+                            );
+                          if (opened.status === 'terminal_reconciling')
+                            throw new Error(
+                              'This register is being reconciled. Finish that shift before opening a new one.'
+                            );
+                          if (opened.status === 'terminal_active')
+                            throw new Error(
+                              'This register already has an active shift. Ask the current cashier or a manager to close it first.'
+                            );
+                        });
+                        setOpeningFloat('');
+                        setOpeningNote('');
+                        openingRequestRef.current = null;
+                        setOpeningOpen(false);
+                        router.refresh();
+                      },
+                      {
+                        loading: 'Opening shiftâ€¦',
+                        success: 'Shift opened',
+                        description: 'Register is ready for sales.',
+                      }
+                    )
+                  }
+                >
+                  <span data-open-register-submit="true">Open register</span>
+                </Button>
+              </DialogFooter>
+            </>
+          ) : (
+            <DialogFooter className="border-t border-border pt-3 sm:justify-end">
+              <Button variant="outline" onClick={() => setOpeningOpen(false)}>
+                Close
+              </Button>
+            </DialogFooter>
+          )}
         </DialogContent>
       </Dialog>
 
