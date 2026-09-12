@@ -1,6 +1,7 @@
 'use server'
 import { headers } from 'next/headers'
 import { submitFeedback } from '@/lib/feedback/service'
+import { ratingToFeedbackScore } from '@/lib/feedback/rules'
 const attempts = new Map<string, { count: number; resetAt: number }>()
 function allow(key: string) {
   const now = Date.now(); const current = attempts.get(key)
@@ -12,5 +13,8 @@ export async function submitPublicFeedback(token: string, form: FormData) {
   const requestHeaders = await headers()
   const ip = requestHeaders.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
   if (!allow(`${token}:${ip}`)) throw new Error('Please wait a few minutes before trying again.')
-  return submitFeedback(token, { score: Number(form.get('score')), tags: form.getAll('tags').map(String), comment: String(form.get('comment') ?? '') })
+  const rating = Number(form.get('rating'))
+  // Preserve the existing 0–10 reporting model while presenting the simpler
+  // five-star interaction customers expect on a receipt feedback page.
+  return submitFeedback(token, { score: ratingToFeedbackScore(rating), tags: form.getAll('tags').map(String), comment: String(form.get('comment') ?? '') })
 }

@@ -37,7 +37,8 @@ export async function resolveFeedbackInvitation(token: string) {
   if (!invitation || invitation.status === 'CANCELLED' || invitation.expiresAt && invitation.expiresAt < new Date()) return null
   const [record] = await db.select({ id: sale.id, status: sale.status, organizationId: sale.orgId, branchId: sale.branchId }).from(sale).where(and(eq(sale.id, invitation.saleId), eq(sale.orgId, invitation.organizationId), eq(sale.branchId, invitation.branchId))).limit(1)
   if (!record || record.status !== 'completed') return null
-  return invitation
+  const [settings] = await db.select({ logoUrl: businessSettings.receiptLogoUrl }).from(businessSettings).where(eq(businessSettings.organizationId, invitation.organizationId)).limit(1)
+  return { ...invitation, logoUrl: settings?.logoUrl ?? null }
 }
 
 export async function submitFeedback(token: string, input: { score: number; tags?: string[]; comment?: string }) {
