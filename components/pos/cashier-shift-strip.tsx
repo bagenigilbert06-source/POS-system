@@ -615,14 +615,11 @@ export function CashierShiftStrip({
           }}
           className="gap-0 overflow-hidden border-border bg-card p-0 text-card-foreground shadow-2xl shadow-slate-950/20 dark:shadow-black/50 sm:max-w-[440px]"
         >
-          <DialogHeader className="space-y-2 border-b border-border bg-muted/35 px-6 py-5 text-left">
-            <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-primary">
-              POS access
-            </span>
-            <DialogTitle className="text-xl font-semibold tracking-tight">
+          <DialogHeader className="space-y-1 border-b border-border bg-card px-6 py-5 text-left">
+            <DialogTitle className="text-lg font-semibold tracking-tight">
               {registerUnlocked ? 'Open register' : 'Unlock register'}
             </DialogTitle>
-            <DialogDescription className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm leading-5 text-[var(--dashboard-muted)]">
+            <DialogDescription className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm leading-5 text-muted-foreground">
               <span>{workspace.registerName || 'POS register'}</span>
               <span aria-hidden="true">•</span>
               <span>{workspace.locationName}</span>
@@ -698,47 +695,41 @@ export function CashierShiftStrip({
             </div>
           ) : terminalConfigured ? (
             <div className="space-y-5 px-6 py-6">
-              <div className="rounded-xl border border-[#dfe3e8] bg-[#f7f8fa] p-4 dark:border-white/10 dark:bg-white/[0.04]">
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <p className="text-sm font-semibold text-[#273142] dark:text-white">
-                      Opening float
-                    </p>
-                    <p className="mt-1 text-xs leading-5 text-[#667085] dark:text-[#a8a8a8]">
-                      Record the cash physically placed in the drawer.
-                    </p>
-                  </div>
-                  <span className="rounded-md bg-white px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-[#667085] shadow-sm dark:bg-white/10 dark:text-[#c9c9ce]">
-                    KES
-                  </span>
-                </div>
+              <label className="grid gap-1.5 text-sm font-medium text-foreground">
+                <span className="flex items-center justify-between gap-3">
+                  Opening cash
+                  <span className="text-xs font-normal text-muted-foreground">KES</span>
+                </span>
                 <CurrencyInput
                   value={openingFloat}
                   onChange={setOpeningFloat}
                   autoFocus
-                  className="mt-4 h-16 rounded-xl border-[#cfd8e3] bg-white px-4 shadow-sm focus-within:border-[#e94e1b] focus-within:ring-[#e94e1b]/20 dark:border-white/15 dark:bg-[#1c1c1e]"
-                  inputClassName="text-2xl font-bold tabular-nums text-[#273142] dark:text-white"
+                  className="h-12 rounded-lg border-border bg-background px-3 focus-within:border-primary focus-within:ring-primary/20"
+                  inputClassName="text-base font-medium tabular-nums text-foreground"
                 />
-              </div>
-              <label className="grid gap-2 text-sm font-semibold text-[#344054] dark:text-[#e4e7ec]">
+                <span className="text-xs font-normal leading-5 text-muted-foreground">
+                  Record the cash physically placed in the drawer.
+                </span>
+              </label>
+              <label className="grid gap-1.5 text-sm font-medium text-foreground">
                 <span className="flex items-center justify-between gap-3">
                   Opening note
-                  <span className="text-xs font-normal text-[#98a2b3]">Optional</span>
+                  <span className="text-xs font-normal text-muted-foreground">Optional</span>
                 </span>
                 <Input
                   value={openingNote}
                   onChange={(event) => setOpeningNote(event.target.value)}
                   maxLength={500}
                   placeholder="Add a note for this shift"
-                  className="h-11 rounded-lg border-[#dfe3e8] bg-white px-3 text-sm shadow-sm placeholder:text-[#98a2b3] focus-visible:border-[#e94e1b] focus-visible:ring-[#e94e1b]/20 dark:border-white/15 dark:bg-[#1c1c1e]"
+                  className="h-11 rounded-lg border-border bg-background px-3 text-sm placeholder:text-muted-foreground focus-visible:border-primary focus-visible:ring-primary/20"
                 />
               </label>
-              <DialogFooter className="border-t border-[#e4e7ec] pt-4 dark:border-white/10 sm:justify-end">
+              <DialogFooter className="border-t border-border pt-4 sm:justify-end">
                 <Button className="min-w-24" variant="outline" onClick={() => setOpeningOpen(false)}>
                   Cancel
                 </Button>
                 <Button
-                  className="min-w-32 bg-[#e94e1b] text-white hover:bg-[#cf4215]"
+                  className="min-w-32"
                   data-open-register-submit
                   disabled={
                     pending ||

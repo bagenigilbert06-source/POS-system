@@ -131,7 +131,9 @@ assert.match(
   /unlockPin \? 'tracking-\[0\.28em\]' : 'tracking-normal'/
 );
 assert.match(cashierShiftStrip, /id="pos-unlock-pin"/);
-assert.match(cashierShiftStrip, /Opening float/);
+assert.match(cashierShiftStrip, /Opening cash/);
+assert.match(cashierShiftStrip, /Record the cash physically placed in the drawer/);
+assert.doesNotMatch(cashierShiftStrip, /Opening float/);
 assert.match(cashierShiftStrip, /if \(!opened\.success\) throw new Error\(opened\.error\)/);
 assert.match(operations, /async function openPosSessionInternal/);
 assert.match(operations, /POS shift storage needs an update/);
