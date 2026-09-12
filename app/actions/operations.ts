@@ -1365,7 +1365,7 @@ const openPosSessionSchema = z.object({
   idempotencyKey: z.string().uuid(),
 });
 
-export async function openPosSession(input: z.input<typeof openPosSessionSchema>) {
+async function openPosSessionInternal(input: z.input<typeof openPosSessionSchema>) {
   const data = openPosSessionSchema.parse(input);
   const amount = new Decimal(data.openingCash).toDecimalPlaces(2);
   // A shift is a cashier operation. Dashboard authentication remains valid for
@@ -1472,6 +1472,46 @@ export async function openPosSession(input: z.input<typeof openPosSessionSchema>
     if (databaseError.code === '23505' || databaseError.cause?.code === '23505')
       throw new Error('This register already has an active shift');
     throw error;
+  }
+}
+
+/**
+ * Shift opening is a normal cashier workflow. Convert unexpected server/database
+ * failures into a safe, actionable response instead of allowing Next.js to
+ * replace the error with its production Server Components digest.
+ */
+export async function openPosSession(input: z.input<typeof openPosSessionSchema>) {
+  try {
+    return { success: true as const, ...(await openPosSessionInternal(input)) };
+  } catch (error) {
+    const databaseError = error as {
+      code?: string;
+      cause?: { code?: string };
+      message?: string;
+    };
+    const code = databaseError.code ?? databaseError.cause?.code;
+    console.error('[pos] shift opening failed', {
+      code: code ?? 'unknown',
+      message: databaseError.message ?? 'unknown',
+    });
+    if (code === '42703' || code === '42P01' || code === '42883') {
+      return {
+        success: false as const,
+        error: 'POS shift storage needs an update. Run the latest database migrations, then try again.',
+      };
+    }
+    const message = error instanceof Error ? error.message : '';
+    if (
+      /unlock this terminal|register this device|no assigned branch|active shift|permission denied/i.test(
+        message
+      )
+    ) {
+      return { success: false as const, error: message };
+    }
+    return {
+      success: false as const,
+      error: 'Unable to open the register right now. Please try again.',
+    };
   }
 }
 

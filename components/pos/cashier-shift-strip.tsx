@@ -697,38 +697,48 @@ export function CashierShiftStrip({
               </DialogFooter>
             </div>
           ) : terminalConfigured ? (
-            <>
-              <label className="grid gap-1.5 text-sm font-medium">
-                Opening cash
+            <div className="space-y-5 px-6 py-6">
+              <div className="rounded-xl border border-[#dfe3e8] bg-[#f7f8fa] p-4 dark:border-white/10 dark:bg-white/[0.04]">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className="text-sm font-semibold text-[#273142] dark:text-white">
+                      Opening float
+                    </p>
+                    <p className="mt-1 text-xs leading-5 text-[#667085] dark:text-[#a8a8a8]">
+                      Record the cash physically placed in the drawer.
+                    </p>
+                  </div>
+                  <span className="rounded-md bg-white px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-[#667085] shadow-sm dark:bg-white/10 dark:text-[#c9c9ce]">
+                    KES
+                  </span>
+                </div>
                 <CurrencyInput
                   value={openingFloat}
                   onChange={setOpeningFloat}
                   autoFocus
+                  className="mt-4 h-16 rounded-xl border-[#cfd8e3] bg-white px-4 shadow-sm focus-within:border-[#e94e1b] focus-within:ring-[#e94e1b]/20 dark:border-white/15 dark:bg-[#1c1c1e]"
+                  inputClassName="text-2xl font-bold tabular-nums text-[#273142] dark:text-white"
                 />
-                <span className="text-xs font-normal leading-4 text-muted-foreground">
-                  Cash physically placed in the drawer at the start of the
-                  shift.
-                </span>
-              </label>
-              <label className="grid gap-1.5 text-sm font-medium">
-                <span>
-                  Opening note{' '}
-                  <span className="font-normal text-muted-foreground">
-                    (optional)
-                  </span>
+              </div>
+              <label className="grid gap-2 text-sm font-semibold text-[#344054] dark:text-[#e4e7ec]">
+                <span className="flex items-center justify-between gap-3">
+                  Opening note
+                  <span className="text-xs font-normal text-[#98a2b3]">Optional</span>
                 </span>
                 <Input
                   value={openingNote}
                   onChange={(event) => setOpeningNote(event.target.value)}
                   maxLength={500}
-                  placeholder="e.g. Float received from manager"
+                  placeholder="Add a note for this shift"
+                  className="h-11 rounded-lg border-[#dfe3e8] bg-white px-3 text-sm shadow-sm placeholder:text-[#98a2b3] focus-visible:border-[#e94e1b] focus-visible:ring-[#e94e1b]/20 dark:border-white/15 dark:bg-[#1c1c1e]"
                 />
               </label>
-              <DialogFooter className="border-t border-border pt-3 sm:justify-end">
-                <Button variant="outline" onClick={() => setOpeningOpen(false)}>
+              <DialogFooter className="border-t border-[#e4e7ec] pt-4 dark:border-white/10 sm:justify-end">
+                <Button className="min-w-24" variant="outline" onClick={() => setOpeningOpen(false)}>
                   Cancel
                 </Button>
                 <Button
+                  className="min-w-32 bg-[#e94e1b] text-white hover:bg-[#cf4215]"
                   data-open-register-submit
                   disabled={
                     pending ||
@@ -746,6 +756,7 @@ export function CashierShiftStrip({
                             openingRequestRef.current ??
                             (openingRequestRef.current = crypto.randomUUID()),
                         }).then((opened) => {
+                          if (!opened.success) throw new Error(opened.error);
                           if (opened.status === 'cashier_shift_open')
                             throw new Error(
                               `You already have an open shift on ${opened.terminalName ?? 'another register'}. End and reconcile it before opening another register.`
@@ -780,7 +791,7 @@ export function CashierShiftStrip({
                   <span data-open-register-submit="true">Open register</span>
                 </Button>
               </DialogFooter>
-            </>
+            </div>
           ) : (
             <DialogFooter className="border-t border-border pt-3 sm:justify-end">
               <Button variant="outline" onClick={() => setOpeningOpen(false)}>
@@ -1028,20 +1039,24 @@ function CurrencyInput({
   value,
   onChange,
   autoFocus = false,
+  className = '',
+  inputClassName = '',
 }: {
   value: string;
   onChange: (value: string) => void;
   autoFocus?: boolean;
+  className?: string;
+  inputClassName?: string;
 }) {
   return (
-    <div className="flex h-10 items-center rounded-md border bg-background px-3 focus-within:ring-2 focus-within:ring-ring">
+    <div className={`flex h-10 items-center rounded-md border bg-background px-3 focus-within:ring-2 focus-within:ring-ring ${className}`}>
       <span className="mr-2 text-xs font-semibold text-muted-foreground">
         KES
       </span>
       <input
         autoFocus={autoFocus}
         aria-label="KES amount"
-        className="min-w-0 flex-1 bg-transparent text-sm outline-none [appearance:textfield] placeholder:text-muted-foreground [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+        className={`min-w-0 flex-1 bg-transparent text-sm outline-none [appearance:textfield] placeholder:text-muted-foreground [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none ${inputClassName}`}
         inputMode="decimal"
         pattern="[0-9]*[.]?[0-9]*"
         value={value}

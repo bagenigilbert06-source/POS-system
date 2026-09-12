@@ -131,6 +131,10 @@ assert.match(
   /unlockPin \? 'tracking-\[0\.28em\]' : 'tracking-normal'/
 );
 assert.match(cashierShiftStrip, /id="pos-unlock-pin"/);
+assert.match(cashierShiftStrip, /Opening float/);
+assert.match(cashierShiftStrip, /if \(!opened\.success\) throw new Error\(opened\.error\)/);
+assert.match(operations, /async function openPosSessionInternal/);
+assert.match(operations, /POS shift storage needs an update/);
 assert.match(
   posAuth,
   /posTerminalCookieOptions[\s\S]*maxAge: 60 \* 60 \* 24 \* 365/
