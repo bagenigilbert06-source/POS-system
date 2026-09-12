@@ -9,7 +9,8 @@ import { acceptStaffInvitation, awaitStaffInvitationVerification, validateStaffI
 export async function getStaffInvitationContext(token: string) {
   const result = await validateStaffInvitation(token)
   if (!result.valid) return { valid: false, state: result.reason.toUpperCase() }
-  return { valid: true, state: result.invitation.status, email: result.invitation.email, employeeName: result.employee.name, organizationName: result.employee.organizationName, branchName: result.employee.branchName, roleName: result.employee.role, expiresAt: result.invitation.expiresAt, existingAccount: Boolean(result.invitation.userId) }
+  const [existingUser] = await db.select({ id: user.id }).from(user).where(eq(user.email, result.invitation.email)).limit(1)
+  return { valid: true, state: result.invitation.status, email: result.invitation.email, employeeName: result.employee.name, organizationName: result.employee.organizationName, branchName: result.employee.branchName, roleName: result.employee.role, expiresAt: result.invitation.expiresAt, existingAccount: Boolean(existingUser || result.invitation.userId) }
 }
 
 export async function acceptStaffInvitationAction(token: string, password?: string) {
@@ -17,8 +18,12 @@ export async function acceptStaffInvitationAction(token: string, password?: stri
   if (!invitation.valid) throw new Error('This invitation is no longer valid')
   let session = await auth.api.getSession({ headers: await headers() })
   let userId = session?.user.id
+  const invitedEmail = invitation.invitation.email.toLowerCase()
+  if (session?.user?.email?.toLowerCase() === invitedEmail) {
+    return acceptStaffInvitation(token, session.user.id)
+  }
   if (invitation.invitation.userId) {
-    if (!session || session.user.email.toLowerCase() !== invitation.invitation.email.toLowerCase()) throw new Error('Sign in with the invited Pesaby account')
+    throw new Error('Sign in with the invited Pesaby account')
   } else {
     if (!password) throw new Error('Password is required')
     // A prior signup can have succeeded while app-side linking failed. Reuse

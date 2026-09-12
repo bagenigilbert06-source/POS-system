@@ -1,10 +1,54 @@
-/* eslint-disable react/no-unescaped-entities */
 import Link from 'next/link'
 import { headers } from 'next/headers'
 import { auth } from '@/lib/auth'
 import { SetupAccountForm } from '@/components/auth/setup-account-form'
 import { PesabyLogoMark } from '@/components/brand/pesaby-logo'
 import { getStaffInvitationContext } from '@/app/actions/staff-invitation-actions'
-const states:Record<string,[string,string]>= {EXPIRED:['This invitation has expired','Ask your administrator to send you a new invitation.'],REVOKED:['This invitation is no longer available','Contact your administrator if you still need access.'],SUPERSEDED:['A newer invitation was sent','Use the most recent invitation email to continue.'],ACCEPTED:['Your account is already active','This invitation has already been used.'],DEACTIVATED:['Account activation unavailable','Contact your administrator for assistance.'],INVALID:["This invitation isn't valid",'Check that you opened the complete link from your invitation email.']}
-export default async function Page({searchParams}:{searchParams:Promise<{token?:string;error?:string;activation?:string}>}){const q=await searchParams;if(q.activation==='success')return <Shell><div className="py-8 text-center"><p className="mb-3 text-sm font-semibold text-emerald-700">Account activated</p><h1 className="text-2xl font-bold">Your account is ready</h1><p className="mt-3 text-sm text-muted-foreground">Your Pesaby employee account has been activated.</p><Link className="mt-6 inline-flex rounded-md bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground" href="/auth/continue">Continue to Pesaby</Link></div></Shell>;const c=q.token?await getStaffInvitationContext(q.token):null;const state=q.error?'INVALID':c?.valid?undefined:c?.state??'INVALID';if(state){const x=states[state]??states.INVALID;return <Shell><div className="py-8 text-center"><h1 className="text-2xl font-bold">{x[0]}</h1><p className="mt-3 text-sm text-muted-foreground">{x[1]}</p>{state==='ACCEPTED'&&<Link className="mt-6 inline-block underline" href="/sign-in">Sign in</Link>}</div></Shell>}const session=await auth.api.getSession({headers:await headers()});const signedInForInvitation=Boolean(session?.user?.email&&c?.email&&session.user.email.toLowerCase()===c.email.toLowerCase());return <Shell><header className="mt-8"><h1 className="text-2xl font-bold">Welcome to {c?.organizationName}</h1><p className="mt-2 text-sm text-muted-foreground">You've been invited to join the team.</p></header><div className="my-6 rounded-xl border bg-slate-50 p-4"><p className="font-semibold">{c?.employeeName}</p><dl className="mt-3 grid grid-cols-2 gap-3 text-sm"><div><dt className="text-xs text-muted-foreground">Role</dt><dd>{c?.roleName}</dd></div><div><dt className="text-xs text-muted-foreground">Location</dt><dd>{c?.branchName}</dd></div><div><dt className="text-xs text-muted-foreground">Email</dt><dd className="break-all">{c?.email}</dd></div></dl></div><SetupAccountForm token={q.token} existingAccount={Boolean(c?.existingAccount)} signedInForInvitation={signedInForInvitation} awaitingVerification={c?.state==='AWAITING_EMAIL_VERIFICATION'} email={c?.email} businessName={c?.organizationName}/></Shell>}
-function Shell({children}:{children:React.ReactNode}){return <main className="flex min-h-screen items-center justify-center bg-[#f7f7f5] p-4 sm:p-6"><section className="w-full max-w-[500px] rounded-2xl border bg-white p-6 shadow-sm sm:p-9"><div className="flex items-center gap-3"><PesabyLogoMark/><div><p className="text-lg font-bold">Pesaby</p><p className="text-[11px] font-bold tracking-[.12em] text-slate-500">EMPLOYEE INVITATION</p></div></div>{children}</section></main>}
+
+const states: Record<string, [string, string]> = {
+  EXPIRED: ['This invitation has expired.', 'Ask your administrator to send you a new invitation.'],
+  REVOKED: ['This invitation is no longer available.', 'Contact your administrator if you still need access.'],
+  SUPERSEDED: ['A newer invitation was sent.', 'Use the most recent invitation email to continue.'],
+  ACCEPTED: ['Invitation already accepted.', 'This invitation has already been used.'],
+  DEACTIVATED: ['Account activation unavailable.', 'Contact your administrator for assistance.'],
+  INVALID: ["This invitation isn't valid.", 'Check that you opened the complete link from your invitation email.'],
+}
+
+function readableRole(role?: string) {
+  return role?.split('_').map((part) => part.charAt(0).toUpperCase() + part.slice(1)).join(' ') || 'Team member'
+}
+
+export default async function Page({ searchParams }: { searchParams: Promise<{ token?: string; error?: string; activation?: string }> }) {
+  const query = await searchParams
+  if (query.activation === 'success') {
+    return <Shell><div className="py-10 text-center"><p className="text-sm font-semibold text-emerald-700">You&apos;re all set</p><h1 className="mt-2 text-2xl font-semibold tracking-tight">Welcome to Pesaby</h1><p className="mt-2 text-sm text-muted-foreground">Taking you to your workspace…</p><Link className="mt-6 inline-flex text-sm font-medium text-primary underline underline-offset-4" href="/auth/continue">Open Pesaby</Link></div></Shell>
+  }
+
+  const context = query.token ? await getStaffInvitationContext(query.token) : null
+  const state = query.error ? 'INVALID' : context?.valid ? undefined : context?.state ?? 'INVALID'
+  if (state) {
+    const [title, description] = states[state] ?? states.INVALID
+    return <Shell><div className="py-10 text-center"><h1 className="text-2xl font-semibold tracking-tight">{title}</h1><p className="mt-3 text-sm leading-6 text-muted-foreground">{description}</p>{state === 'ACCEPTED' && <Link className="mt-6 inline-flex text-sm font-medium text-primary underline underline-offset-4" href="/auth/continue">Go to Pesaby</Link>}</div></Shell>
+  }
+
+  const session = await auth.api.getSession({ headers: await headers() })
+  const signedInForInvitation = Boolean(session?.user?.email && context?.email && session.user.email.toLowerCase() === context.email.toLowerCase())
+  return <Shell>
+    <div className="mt-8 space-y-7">
+      <header>
+        <h1 className="text-[25px] font-semibold leading-tight tracking-[-0.02em] text-slate-950">Join {context?.organizationName}</h1>
+        <p className="mt-2 text-sm leading-5 text-muted-foreground">You&apos;ve been invited to join the team.</p>
+      </header>
+      <div className="border-b border-slate-200 pb-6">
+        <p className="text-base font-semibold text-slate-950">{context?.employeeName}</p>
+        <p className="mt-1 text-sm text-slate-600">{readableRole(context?.roleName)}{context?.branchName ? ` · ${context.branchName}` : ''}</p>
+        <p className="mt-2 break-all text-sm text-slate-500">{context?.email}</p>
+      </div>
+      <SetupAccountForm token={query.token} existingAccount={context?.existingAccount} signedInForInvitation={signedInForInvitation} awaitingVerification={context?.state === 'AWAITING_EMAIL_VERIFICATION'} email={context?.email} businessName={context?.organizationName} />
+    </div>
+  </Shell>
+}
+
+function Shell({ children }: { children: React.ReactNode }) {
+  return <main className="flex min-h-screen items-center justify-center bg-[#f7f7f5] px-4 py-8 sm:px-6"><section className="w-full max-w-[460px] rounded-2xl border border-slate-200 bg-white px-6 py-7 shadow-[0_12px_40px_rgba(15,23,42,0.06)] sm:px-9 sm:py-8"><div className="flex items-center gap-3"><PesabyLogoMark/><div><p className="text-base font-semibold tracking-tight text-slate-950">Pesaby</p><p className="text-[10px] font-semibold tracking-[.14em] text-slate-500">EMPLOYEE INVITATION</p></div></div>{children}</section></main>
+}
