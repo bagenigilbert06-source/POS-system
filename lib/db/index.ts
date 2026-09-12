@@ -1,26 +1,11 @@
-import { Resolver } from 'node:dns/promises'
-import { Socket } from 'node:net'
 import { drizzle } from 'drizzle-orm/node-postgres'
 import { Pool } from 'pg'
 import * as schema from './schema'
 
-// Application traffic must use the provider's pooled URL. DIRECT_URL is kept
-// for Drizzle migrations, but can be IPv6-only or unavailable from local/WSL
-// networks and should not be selected by the long-running Next.js process.
-// Supabase pooler hostnames occasionally fail through the host/WSL resolver
-// with EAI_AGAIN. Use explicit public resolvers by default for this public
-// endpoint, while still allowing deployments to supply their own DNS servers.
+// Application traffic uses the provider's pooled URL. DIRECT_URL is kept for
+// Drizzle migrations and is only a fallback for local environments without
+// DATABASE_URL.
 const connectionString = process.env.DATABASE_URL ?? process.env.DIRECT_URL
-const configuredDatabaseDnsServers = process.env.DATABASE_DNS_SERVERS
-  ?.split(',')
-  .map((server) => server.trim())
-  .filter(Boolean) ?? []
-const databaseDnsServers = configuredDatabaseDnsServers.length > 0
-  ? configuredDatabaseDnsServers
-  : connectionString?.includes('supabase.com')
-    ? ['1.1.1.1', '8.8.8.8']
-    : []
-
 const configuredConnectionTimeout = Number(
   process.env.DATABASE_CONNECTION_TIMEOUT_MS ?? 12_000,
 )
@@ -42,31 +27,6 @@ const poolMax = positiveInteger(process.env.DATABASE_POOL_MAX, 5)
 const idleTimeoutMillis = positiveInteger(process.env.DATABASE_IDLE_TIMEOUT_MS, 30_000)
 const queryTimeoutMillis = positiveInteger(process.env.DATABASE_QUERY_TIMEOUT_MS, 30_000)
 
-let databaseAddressCursor = 0
-
-function createDatabaseStream() {
-  const socket = new Socket()
-  const connect = socket.connect.bind(socket)
-
-  socket.connect = ((port: number, host: string, listener?: () => void) => {
-    const resolver = new Resolver()
-    resolver.setServers(databaseDnsServers)
-
-    void resolver.resolve4(host).then((addresses) => {
-      const address = addresses[databaseAddressCursor % addresses.length]
-      databaseAddressCursor += 1
-      if (!address) throw new Error(`No IPv4 address found for database host ${host}`)
-      if (!socket.destroyed) connect({ port, host: address }, listener)
-    }).catch((error: unknown) => {
-      socket.destroy(error instanceof Error ? error : new Error('Database DNS lookup failed'))
-    })
-
-    return socket
-  }) as typeof socket.connect
-
-  return socket
-}
-
 const globalForDatabase = globalThis as typeof globalThis & {
   __pesabyPostgresPool?: Pool
   __pesabyPostgresPoolConfig?: string
@@ -76,7 +36,7 @@ if (!connectionString) {
   throw new Error('DATABASE_URL or DIRECT_URL must be configured')
 }
 
-const poolConfigKey = `${connectionString}|${connectionTimeoutMillis}|${poolMax}|${idleTimeoutMillis}|${queryTimeoutMillis}|${databaseDnsServers.join(',')}`
+const poolConfigKey = `${connectionString}|${connectionTimeoutMillis}|${poolMax}|${idleTimeoutMillis}|${queryTimeoutMillis}`
 const reusablePool = globalForDatabase.__pesabyPostgresPoolConfig === poolConfigKey
   ? globalForDatabase.__pesabyPostgresPool
   : undefined
@@ -99,7 +59,6 @@ export const pool = reusablePool ?? new Pool({
   application_name: 'pesaby-web',
   keepAlive: true,
   keepAliveInitialDelayMillis: 10_000,
-  ...(databaseDnsServers.length > 0 ? { stream: createDatabaseStream } : {}),
   ssl: connectionString?.includes('supabase.com')
     ? { rejectUnauthorized: false }
     : undefined,
