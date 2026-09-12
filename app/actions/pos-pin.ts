@@ -91,7 +91,26 @@ export async function setOwnPosPin(pin: string) {
       action: 'pos.pin.created',
       metadata: {},
     });
-  return { success: true };
+
+  // Creating a PIN from the POS workspace is also proof that the signed-in
+  // operator knows that PIN. If this browser is already bound to a terminal,
+  // establish its cashier session now so the user is not immediately asked
+  // to enter the same PIN a second time.
+  const terminal = await getTerminal();
+  if (
+    terminal &&
+    terminal.organizationId === context.organizationId &&
+    (context.isOrganizationWide || context.branchIds.includes(terminal.branchId))
+  ) {
+    const unlocked = await unlockPosWithStaffPin(context.userId, pin);
+    if (!unlocked.success)
+      throw new Error(
+        unlocked.error || 'PIN was saved, but this POS terminal could not be unlocked'
+      );
+    return { success: true, unlocked: true };
+  }
+
+  return { success: true, unlocked: false };
 }
 
 export async function getOwnPosPinStatus() {

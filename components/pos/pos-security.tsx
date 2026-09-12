@@ -21,7 +21,15 @@ export function PosSecurity({ branchId, initialPinSet = false, terminalRegistere
   useEffect(() => { if (!initialPinSet) start(async () => { const status = await getOwnPosPinStatus(); setPinSet(status.isSet) }) }, [initialPinSet])
   const run = (task: () => Promise<void>) => start(async () => { try { setError(''); await task() } catch (cause) { setError(cause instanceof Error ? cause.message : 'Unable to continue') } })
   const lock = () => run(async () => { await lockPos(); router.replace('/sign-in?pos=1') })
-  const savePin = () => run(async () => { if (pin !== confirm) throw new Error('PINs do not match'); await setOwnPosPin(pin); setPinSet(true); setSetup(false); setPin(''); setConfirm('') })
+  const savePin = () => run(async () => {
+    if (pin !== confirm) throw new Error('PINs do not match')
+    const result = await setOwnPosPin(pin)
+    setPinSet(true)
+    setSetup(false)
+    setPin('')
+    setConfirm('')
+    if (result.unlocked) router.refresh()
+  })
 
   return <>
     <div className="flex flex-wrap items-center justify-end gap-2">{!terminalRegistered && <Button size="sm" variant="outline" onClick={() => setRegisterOpen(true)}><MonitorSmartphone className="mr-2 h-4 w-4" />Register this device</Button>}{!pinSet && <Button size="sm" variant="outline" onClick={() => setSetup(true)}>Create POS PIN</Button>}<Button size="sm" variant="secondary" onClick={lock} disabled={!pinSet || pending}><LockKeyhole className="mr-2 h-4 w-4" />Lock POS</Button></div>

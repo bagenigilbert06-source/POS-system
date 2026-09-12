@@ -21,9 +21,14 @@ export default async function POSPage() {
   // session, which prevents a previous store's terminal cookie from taking a
   // newly signed-in owner into the wrong workspace.
   const pageAuthorization = await getDashboardAuthorization();
+  // The POS workspace must observe its terminal PIN session even while the
+  // operator also has a full dashboard session. Dashboard authentication still
+  // controls every other route; here the PIN session is what unlocks cashier
+  // operations such as opening a shift.
+  const candidatePosAuthorization = await getPosAuthorizationContext();
   const posAuthorization =
-    pageAuthorization.authMethod === 'pos_pin'
-      ? await getPosAuthorizationContext()
+    candidatePosAuthorization?.organizationId === pageAuthorization.organizationId
+      ? candidatePosAuthorization
       : null;
   if (
     !pageAuthorization.permissions.some((permission) =>

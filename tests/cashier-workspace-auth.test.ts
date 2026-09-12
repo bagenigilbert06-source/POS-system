@@ -22,9 +22,12 @@ assert.match(
   /redirect\('\/dashboard\/receipts'\)/
 );
 assert.match(posPage, /const pageAuthorization = await getDashboardAuthorization\(\)/);
+assert.match(posPage, /const candidatePosAuthorization = await getPosAuthorizationContext\(\)/);
+assert.match(posPage, /candidatePosAuthorization\?\.organizationId === pageAuthorization\.organizationId/);
 assert.match(
   dashboardLayout,
   /const terminalAuthorization = session\?\.user \? null : posAuthorization/
 );
 assert.match(posPin, /registered to a different store/);
+assert.match(posPin, /const unlocked = await unlockPosWithStaffPin\(context\.userId, pin\)/);
 console.log('Cashier workspace authentication rules passed');
