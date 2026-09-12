@@ -1197,26 +1197,24 @@ export async function refundSale(input: {
   const authorization = await posOperator(PermissionEnum.SALE_REFUND);
   const { userId, orgId, terminalId } = authorization;
   await db.transaction(async (tx) => {
-    const [[record], prior, items] = await Promise.all([
-      tx
-        .select()
-        .from(sale)
-        .where(and(eq(sale.id, data.saleId), eq(sale.orgId, orgId)))
-        .limit(1),
-      tx
-        .select()
-        .from(salesReturn)
-        .where(
-          and(eq(salesReturn.saleId, data.saleId), eq(salesReturn.orgId, orgId))
-        )
-        .limit(1),
-      tx
-        .select()
-        .from(saleItem)
-        .where(
-          and(eq(saleItem.saleId, data.saleId), eq(saleItem.orgId, orgId))
-        ),
-    ]);
+    const [record] = await tx
+      .select()
+      .from(sale)
+      .where(and(eq(sale.id, data.saleId), eq(sale.orgId, orgId)))
+      .limit(1);
+    const prior = await tx
+      .select()
+      .from(salesReturn)
+      .where(
+        and(eq(salesReturn.saleId, data.saleId), eq(salesReturn.orgId, orgId))
+      )
+      .limit(1);
+    const items = await tx
+      .select()
+      .from(saleItem)
+      .where(
+        and(eq(saleItem.saleId, data.saleId), eq(saleItem.orgId, orgId))
+      );
     if (!record?.branchId)
       throw new Error('Sale or inventory location not found');
     if (

@@ -1746,20 +1746,21 @@ export async function createSale(data: CreateSaleInput) {
             userId,
             orgId,
           });
-        const [[orgRecord], [customerRecord]] = await Promise.all([
-          tx
-            .select()
-            .from(organization)
-            .where(eq(organization.id, orgId))
-            .limit(1),
-          tx
-            .select()
-            .from(customer)
-            .where(
-              and(eq(customer.id, data.customerId!), eq(customer.orgId, orgId))
-            )
-            .limit(1),
-        ]);
+        // node-postgres transaction clients execute one query at a time.
+        // Running concurrent queries on the same client emits a pg@9 warning
+        // and can become an error after the driver upgrade.
+        const [orgRecord] = await tx
+          .select()
+          .from(organization)
+          .where(eq(organization.id, orgId))
+          .limit(1);
+        const [customerRecord] = await tx
+          .select()
+          .from(customer)
+          .where(
+            and(eq(customer.id, data.customerId!), eq(customer.orgId, orgId))
+          )
+          .limit(1);
         if (!orgRecord || !customerRecord)
           throw new Error('Invoice snapshot context is unavailable');
         const invoiceYear = Number(

@@ -109,9 +109,14 @@ export function TerminalPrinterSettings({ terminal }: { terminal: Terminal }) {
     } finally { setTesting(false); }
   };
   const save = async () => {
+    if (mode === 'direct' && !configuredPrinter) {
+      setDiagnostic('Enter the exact Windows printer name or use Find printers to select one.');
+      notify.error('Choose a receipt printer before saving direct print mode');
+      return;
+    }
     setSaving(true);
     try {
-      await updatePosTerminalPrinter(terminal.id, {
+      const result = await updatePosTerminalPrinter(terminal.id, {
         printingMode: mode,
         printerDisplayName: name,
         printerIdentifier: identifier,
@@ -120,6 +125,7 @@ export function TerminalPrinterSettings({ terminal }: { terminal: Terminal }) {
         receiptCopies: Number(copies),
         cashDrawerPulse: drawer,
       });
+      if (!result.success) throw new Error(result.error);
       notify.success('Printer settings saved');
       setOpen(false);
     } catch (e) {
@@ -286,16 +292,15 @@ export function TerminalPrinterSettings({ terminal }: { terminal: Terminal }) {
               <div className="sm:col-span-2">
                 <div className="flex items-end gap-2">
                   <label className="min-w-0 flex-1 text-sm font-medium">Receipt printer
-                    <select value={configuredPrinter} onChange={(e) => { setName(e.target.value); setIdentifier(e.target.value); setPrinterStatus(null); setDiagnostic(''); }} className="mt-1 h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm shadow-sm outline-none focus:border-[#f4512a] focus:ring-2 focus:ring-[#f4512a]/20 dark:border-white/15 dark:bg-white/10">
-                      <option value="">{printers.length ? 'Select a Windows printer' : 'Find printers first'}</option>
-                      {configuredPrinter && !printers.includes(configuredPrinter) && <option value={configuredPrinter}>{configuredPrinter} (configured)</option>}
-                      {printers.map((printer) => <option key={printer} value={printer}>{printer}</option>)}
-                    </select>
+                    <input list={`terminal-printers-${terminal.id}`} value={configuredPrinter} onChange={(e) => { setName(e.target.value); setIdentifier(e.target.value); setPrinterStatus(null); setDiagnostic(''); }} placeholder="Exact Windows printer name" autoComplete="off" className="mt-1 h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm shadow-sm outline-none focus:border-[#f4512a] focus:ring-2 focus:ring-[#f4512a]/20 dark:border-white/15 dark:bg-white/10" />
+                    <datalist id={`terminal-printers-${terminal.id}`}>
+                      {printers.map((printer) => <option key={printer} value={printer} />)}
+                    </datalist>
                   </label>
                   <Button type="button" variant="outline" disabled={discovering} onClick={() => void discoverPrinters()}><RefreshCw className={`mr-1.5 h-3.5 w-3.5 ${discovering ? 'animate-spin' : ''}`} />{discovering ? 'Finding…' : 'Find printers'}</Button>
                   <Button type="button" variant="outline" disabled={testing || !configuredPrinter} onClick={() => void testConnection()}><Wifi className="mr-1.5 h-3.5 w-3.5" />Test connection</Button>
                 </div>
-                <p className="mt-1 text-xs font-normal text-muted-foreground">QZ lists print queues installed on this registered Windows terminal. A queue may remain listed while a USB printer is offline. Print a test receipt to verify the physical device.</p>
+                <p className="mt-1 text-xs font-normal text-muted-foreground">Enter the exact Windows printer name, or use Find printers to select a QZ queue. A queue may remain listed while a USB printer is offline, so print a test receipt to verify the physical device.</p>
               </div>
             </>
           )}
@@ -349,7 +354,7 @@ export function TerminalPrinterSettings({ terminal }: { terminal: Terminal }) {
             >
               Cancel
             </Button>
-            <Button type="button" disabled={saving} className="bg-[#f4512a] text-white shadow-sm hover:bg-[#dc3f1c]" onClick={() => void save()}>
+            <Button type="button" disabled={saving || (mode === 'direct' && !configuredPrinter)} className="bg-[#f4512a] text-white shadow-sm hover:bg-[#dc3f1c]" onClick={() => void save()}>
               {saving ? 'Saving…' : 'Save printer settings'}
             </Button>
           </div>

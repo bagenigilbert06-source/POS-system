@@ -103,9 +103,14 @@ export async function deleteUnusedPosTerminal(id: string) {
 
 export async function updatePosTerminalPrinter(id: string, input: z.input<typeof printerSchema>) {
   const authorization = await requirePermission(PermissionEnum.ADMIN_ACCESS)
-  const terminalId = z.string().min(1).parse(id)
-  const data = printerSchema.parse(input)
-  if (data.printingMode === 'direct' && !(data.printerIdentifier?.trim() || data.printerDisplayName?.trim())) throw new Error('Enter a printer name or identifier for direct thermal printing')
+  const terminalResult = z.string().min(1).safeParse(id)
+  const inputResult = printerSchema.safeParse(input)
+  if (!terminalResult.success || !inputResult.success)
+    return { success: false as const, error: 'Check the printer settings and try again' }
+  const terminalId = terminalResult.data
+  const data = inputResult.data
+  if (data.printingMode === 'direct' && !(data.printerIdentifier?.trim() || data.printerDisplayName?.trim()))
+    return { success: false as const, error: 'Enter or select a printer name for direct thermal printing' }
   await db.transaction(async (tx) => {
     const [updated] = await tx.update(posTerminal).set({
       printingMode: data.printingMode,
@@ -121,7 +126,7 @@ export async function updatePosTerminalPrinter(id: string, input: z.input<typeof
   })
   refreshAdmin()
   revalidatePath('/dashboard/pos')
-  return { success: true }
+  return { success: true as const }
 }
 
 function refreshAdmin() {
