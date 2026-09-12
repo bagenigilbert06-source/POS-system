@@ -4256,14 +4256,14 @@ export function POSTerminal({
         className="pos-sale-complete flex min-h-[calc(100vh-8rem)] w-full items-center justify-center bg-[#f5f6f8] px-3 py-6 dark:bg-[var(--dashboard-bg)] sm:px-6 sm:py-8"
       >
         <div className="w-full max-w-[1020px]">
-          <div className="mb-4 flex flex-col gap-4 rounded-[10px] border border-[#b7ebc6] bg-white px-4 py-3.5 shadow-[0_3px_12px_rgba(16,24,40,.07)] dark:border-[#1d6b3b] dark:bg-[var(--dashboard-surface)] sm:px-5 lg:flex-row lg:items-center lg:justify-between">
+          <div className="mb-4 flex flex-col gap-4 rounded-[10px] border border-[#efd276] bg-[#fff3c4] px-4 py-3.5 font-sans shadow-[0_3px_12px_rgba(122,91,0,.10)] dark:border-[#705b19] dark:bg-[#2d2816] sm:px-5 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex min-w-0 items-start gap-3">
               <span
                 className={cn(
-                  'flex h-9 w-9 shrink-0 items-center justify-center rounded-full border',
+                  'flex h-10 w-10 shrink-0 items-center justify-center rounded-full border',
                   receipt.offline?.status === 'PENDING'
                     ? 'border-amber-300 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/30'
-                    : 'border-[#b7ebc6] bg-[#ecfdf3] dark:border-[#1d6b3b] dark:bg-[#102417]'
+                    : 'border-[#b9e7c5] bg-white/80 dark:border-[#1d6b3b] dark:bg-[#102417]'
                 )}
               >
                 {receipt.offline?.status === 'PENDING' ? (
@@ -4279,14 +4279,14 @@ export function POSTerminal({
                 )}
               </span>
               <div>
-                <p className="text-[15px] font-bold text-[#101828] dark:text-white">
+                <p className="text-base font-bold text-[#101828] dark:text-white">
                   {receipt.offline?.status === 'PENDING'
                     ? 'Offline cash sale saved'
                     : receipt.offline?.status === 'SYNCED'
                       ? 'Offline sale synchronized'
                       : 'Sale completed'}
                 </p>
-                <p className="mt-0.5 text-xs text-[#667085] dark:text-[#c7b978]">
+                <p className="mt-0.5 text-sm font-medium text-[#66551d] dark:text-[#eadc9d]">
                   {receipt.offline?.status === 'PENDING'
                     ? `Provisional receipt ${receipt.receiptNo} · sync pending`
                     : `Paid successfully · Receipt #${receipt.receiptNo}`}
@@ -4305,22 +4305,22 @@ export function POSTerminal({
                 )}
               </div>
             </div>
-            <div className="shrink-0 border-t border-[#e4e7ec] pt-3 text-left dark:border-white/10 sm:text-right lg:border-l lg:border-t-0 lg:pl-5 lg:pt-0">
-              <p className="text-xl font-extrabold tracking-tight text-[#101828] dark:text-white">
+            <div className="shrink-0 border-t border-[#e4c967] pt-3 text-left dark:border-white/10 sm:text-right lg:border-l lg:border-t-0 lg:pl-5 lg:pt-0">
+              <p className="text-2xl font-extrabold tracking-tight text-[#101828] dark:text-white">
                 {formatCurrency(receipt.total)}
               </p>
-              <p className="text-xs text-[#667085] dark:text-[#c7b978]">
+              <p className="text-sm font-medium text-[#66551d] dark:text-[#eadc9d]">
                 {formatDateTime(receipt.completedAt)}
               </p>
             </div>
           </div>
 
           <div className="grid overflow-hidden rounded-[10px] border border-[#dfe3ea] bg-white shadow-[0_4px_16px_rgba(16,24,40,.06)] dark:border-white/10 dark:bg-[var(--dashboard-surface)] lg:grid-cols-[minmax(0,1fr)_360px]">
-            <div className="flex min-h-[500px] items-center justify-center bg-[#f7f8fa] p-5 dark:bg-[var(--dashboard-surface-subtle)] sm:p-8">
+            <div className="flex min-h-[500px] items-center justify-center bg-[#eef1f5] p-5 shadow-[inset_-1px_0_0_rgba(16,24,40,.05)] dark:bg-[var(--dashboard-surface-subtle)] sm:p-8">
               <div className="receipt-preview-scroll max-w-full">
                 <div className="receipt-screen-preview w-fit max-w-full">
                   <div
-                    className="receipt-preview-origin mx-auto w-full max-w-[80mm] overflow-hidden rounded-[4px] bg-white shadow-[0_8px_24px_rgba(16,24,40,.12)] ring-1 ring-black/5"
+                    className="receipt-preview-origin mx-auto w-full max-w-[80mm] overflow-hidden rounded-[4px] bg-white shadow-[0_12px_28px_rgba(16,24,40,.16)] ring-1 ring-[#d7dde5]"
                     style={{ width: `${receiptPaperWidth}mm` }}
                   >
                     <ReceiptTemplate
