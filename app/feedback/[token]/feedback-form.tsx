@@ -119,8 +119,8 @@ export function FeedbackForm({ token }: { token: string }) {
                   className={cn(
                     'size-8 transition duration-150 motion-reduce:transition-none peer-focus-visible:scale-110',
                     selected
-                      ? 'fill-blue-600 text-blue-600'
-                      : 'fill-transparent text-slate-300 group-hover:text-blue-400'
+                      ? 'fill-[#f4b41b] text-[#f4b41b]'
+                      : 'fill-transparent text-slate-300 group-hover:text-[#d99a00]'
                   )}
                   strokeWidth={1.75}
                   aria-hidden="true"
@@ -151,7 +151,7 @@ export function FeedbackForm({ token }: { token: string }) {
                     name="tags"
                     value={tag}
                   />
-                  <span className="inline-flex min-h-9 items-center rounded-full border border-slate-200 px-3 text-xs font-medium text-slate-600 transition-colors hover:border-slate-300 peer-checked:border-blue-600 peer-checked:bg-blue-50 peer-checked:text-blue-700 peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-blue-600">
+                  <span className="inline-flex min-h-9 items-center rounded-full border border-slate-200 px-3 text-xs font-medium text-slate-600 transition-colors hover:border-slate-300 peer-checked:border-[#d99a00] peer-checked:bg-[#fff8e8] peer-checked:text-[#805b00] peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-[#d99a00]">
                     {tag}
                   </span>
                 </label>
@@ -167,7 +167,7 @@ export function FeedbackForm({ token }: { token: string }) {
               onChange={(event) =>
                 setCommentLength(event.currentTarget.value.length)
               }
-              className="mt-2 w-full resize-none rounded-xl border border-slate-200 bg-white px-3.5 py-3 text-sm font-normal text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-600 focus:ring-2 focus:ring-blue-600/15"
+              className="mt-2 w-full resize-none rounded-xl border border-slate-200 bg-white px-3.5 py-3 text-sm font-normal text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-[#d99a00] focus:ring-2 focus:ring-[#f4b41b]/20"
               placeholder="Share a short comment (optional)"
             />
             <span className="mt-1.5 block text-right text-[11px] font-normal tabular-nums text-slate-400">
@@ -187,7 +187,7 @@ export function FeedbackForm({ token }: { token: string }) {
             type="submit"
             disabled={busy}
             aria-describedby={error ? 'feedback-error' : undefined}
-            className="mt-4 h-12 w-full rounded-xl bg-blue-600 text-[15px] font-semibold text-white shadow-none hover:bg-blue-700 focus-visible:ring-blue-600 disabled:bg-slate-200 disabled:text-slate-500"
+            className="mt-4 h-12 w-full rounded-xl bg-[#f4b41b] text-[15px] font-semibold text-[#171717] shadow-none hover:bg-[#e2a713] focus-visible:ring-[#d99a00] disabled:bg-slate-200 disabled:text-slate-500"
           >
             {busy ? (
               <>

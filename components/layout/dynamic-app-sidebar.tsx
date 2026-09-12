@@ -278,6 +278,7 @@ export function DynamicAppSidebar({
     customers: PermissionEnum.CUSTOMER_VIEW,
     analytics: PermissionEnum.REPORT_VIEW,
     reports: PermissionEnum.REPORT_VIEW,
+    feedback: PermissionEnum.REPORT_VIEW,
     purchases: PermissionEnum.INVENTORY_RECEIVE,
     expenses: PermissionEnum.EXPENSE_VIEW,
     operations: PermissionEnum.SHIFT_MANAGE,
@@ -341,6 +342,12 @@ export function DynamicAppSidebar({
     label: 'eTIMS',
     icon: 'ReceiptText',
     route: '/dashboard/etims',
+  };
+  const feedbackNav = {
+    id: 'feedback',
+    label: 'Customer feedback',
+    icon: 'Star',
+    route: '/dashboard/feedback',
   };
   const promotionNav = [
     {
@@ -441,6 +448,7 @@ export function DynamicAppSidebar({
     ...workspaceNav,
     ...(permissions.includes(PermissionEnum.REWARDS_VIEW) ? promotionNav : []),
     ...(permissions.includes(PermissionEnum.ETIMS_VIEW) ? [etimsNav] : []),
+    ...(permissions.includes(PermissionEnum.REPORT_VIEW) ? [feedbackNav] : []),
     ...financeNav.filter((item) => canView(item.id)),
     ...(permissions.includes(PermissionEnum.STAFF_MANAGE) ? [staffNav] : []),
     ...(permissions.includes(PermissionEnum.STAFF_VIEW)
@@ -647,6 +655,7 @@ export function DynamicAppSidebar({
               'sales-analytics',
               'customer-analytics',
               'inventory-analytics',
+              'feedback',
             ],
           },
         ]
@@ -705,6 +714,7 @@ export function DynamicAppSidebar({
               'sales-analytics',
               'customer-analytics',
               'inventory-analytics',
+              'feedback',
             ],
           },
         ]
