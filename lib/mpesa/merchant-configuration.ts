@@ -13,7 +13,27 @@ export async function getBranchMpesaMerchant(organizationId: string, branchId: s
     eq(mpesaMerchantConfiguration.organizationId, organizationId),
     eq(mpesaMerchantConfiguration.branchId, branchId),
   )).limit(1)
-  return merchant ?? null
+  if ((process.env.MPESA_ENV || 'sandbox').trim().toLowerCase() !== 'sandbox')
+    return merchant ?? null
+
+  // Daraja's sandbox merchant belongs to the developer application, not to a
+  // real branch. Let the explicit sandbox environment configure that test
+  // merchant while retaining the branch row for receipt/display metadata.
+  const tillNumber = process.env.MPESA_TILL_NUMBER?.trim() || merchant?.tillNumber || null
+  const businessShortCode = (process.env.MPESA_BUSINESS_SHORTCODE || process.env.MPESA_SHORTCODE)?.trim() || merchant?.businessShortCode || null
+  return {
+    id: merchant?.id ?? `sandbox-${branchId}`,
+    organizationId,
+    branchId,
+    businessName: process.env.MPESA_BUSINESS_NAME?.trim() || merchant?.businessName || 'M-Pesa Sandbox',
+    headOfficeNumber: process.env.MPESA_HEAD_OFFICE_NUMBER?.trim() || merchant?.headOfficeNumber || null,
+    storeNumber: process.env.MPESA_STORE_NUMBER?.trim() || merchant?.storeNumber || null,
+    tillNumber,
+    businessShortCode,
+    environment: 'sandbox',
+    stkEnabled: Boolean(businessShortCode),
+    manualTillEnabled: Boolean(tillNumber),
+  }
 }
 
 export function assertManualTillEnabled(merchant: BranchMpesaMerchant | null): BranchMpesaMerchant & { tillNumber: string } {

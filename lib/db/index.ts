@@ -2,10 +2,12 @@ import { drizzle } from 'drizzle-orm/node-postgres'
 import { Pool } from 'pg'
 import * as schema from './schema'
 
-// Application traffic uses the provider's pooled URL. DIRECT_URL is kept for
-// Drizzle migrations and is only a fallback for local environments without
-// DATABASE_URL.
-const connectionString = process.env.DATABASE_URL ?? process.env.DIRECT_URL
+// Serverless production traffic uses the provider pooler. Local development
+// prefers the direct endpoint because some poolers reject or time out desktop
+// connections even though the database itself is reachable.
+const connectionString = process.env.NODE_ENV === 'production'
+  ? process.env.DATABASE_URL ?? process.env.DIRECT_URL
+  : process.env.DIRECT_URL ?? process.env.DATABASE_URL
 const configuredConnectionTimeout = Number(
   process.env.DATABASE_CONNECTION_TIMEOUT_MS ?? 12_000,
 )

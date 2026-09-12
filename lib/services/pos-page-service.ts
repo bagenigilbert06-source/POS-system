@@ -1,121 +1,490 @@
-import { and, desc, eq, gt, inArray, isNull, or, sql } from 'drizzle-orm'
-import { db } from '@/lib/db'
-import { branch, businessSettings, cashMovement, category, customer, customerRewardAccount, inventoryBalance, inventoryLot, organization, pharmacyProduct, posPinCredential, posSession, posTerminal, product, productPackage, sale, salesReturn, mpesaPaymentRequest, user } from '@/lib/db/schema'
-import { readThroughRedis } from '@/lib/cache/redis-cache'
-import type { AuthorizationContext } from '@/lib/auth/authorization'
-import { filterPharmacyCatalog } from '@/lib/pharmacy/rules'
-import { getCafePosExperience } from '@/lib/cafe/sale-service'
+import { and, desc, eq, gt, inArray, isNull, or, sql } from 'drizzle-orm';
+import { db } from '@/lib/db';
+import {
+  branch,
+  businessSettings,
+  cashMovement,
+  category,
+  customer,
+  customerRewardAccount,
+  inventoryBalance,
+  inventoryLot,
+  organization,
+  pharmacyProduct,
+  posPinCredential,
+  posSession,
+  posTerminal,
+  product,
+  productPackage,
+  sale,
+  salesReturn,
+  mpesaPaymentRequest,
+  user,
+} from '@/lib/db/schema';
+import { readThroughRedis } from '@/lib/cache/redis-cache';
+import type { AuthorizationContext } from '@/lib/auth/authorization';
+import { filterPharmacyCatalog } from '@/lib/pharmacy/rules';
+import { getCafePosExperience } from '@/lib/cafe/sale-service';
 
-function receiptSettings(settings: typeof businessSettings.$inferSelect | undefined, organizationName: string | null | undefined) {
-  const methods = Array.isArray(settings?.paymentMethods) ? settings.paymentMethods as string[] : []
+function receiptSettings(
+  settings: typeof businessSettings.$inferSelect | undefined,
+  organizationName: string | null | undefined
+) {
+  const methods = Array.isArray(settings?.paymentMethods)
+    ? (settings.paymentMethods as string[])
+    : [];
   return {
     // The optional trading name is the presentation identity; the persisted
     // legal tenant name remains the fallback, never the workspace template.
-    displayName: settings?.displayName?.trim() || organizationName || 'Business name not configured',
-    receiptBusinessName: settings?.receiptBusinessName?.trim() || settings?.displayName?.trim() || organizationName || 'Business name not configured',
-    receiptPhone: settings?.receiptPhone || '', receiptAddress: settings?.receiptAddress || '',
+    displayName:
+      settings?.displayName?.trim() ||
+      organizationName ||
+      'Business name not configured',
+    receiptBusinessName:
+      settings?.receiptBusinessName?.trim() ||
+      settings?.displayName?.trim() ||
+      organizationName ||
+      'Business name not configured',
+    receiptPhone: settings?.receiptPhone || '',
+    receiptAddress: settings?.receiptAddress || '',
     receiptFooter: settings?.receiptFooter || 'Thank you for your purchase',
-    receiptLayout: settings?.receiptLayout === 'detailed' ? 'detailed' as const : 'thermal' as const,
-    receiptTemplate: settings?.receiptTemplate === 'logo' || settings?.receiptTemplate === 'cafe' ? settings.receiptTemplate as 'logo' | 'cafe' : 'classic' as const,
-    receiptLogoUrl: settings?.receiptLogoUrl || '', taxEnabled: settings?.taxEnabled || false,
-    taxRate: Number(settings?.taxRate || 0), taxName: settings?.taxName || 'VAT', pricesIncludeTax: settings?.pricesIncludeTax || false,
-    paymentMethods: methods.length ? methods : ['cash'], showTaxOnReceipt: settings?.showTaxOnReceipt || false,
-    receiptShowPhone: settings?.receiptShowPhone ?? true, receiptShowAddress: settings?.receiptShowAddress ?? true,
-    receiptShowCashier: settings?.receiptShowCashier ?? true, receiptShowCustomer: settings?.receiptShowCustomer ?? true,
-    receiptShowPayment: settings?.receiptShowPayment ?? true, receiptShowQrCode: settings?.receiptShowQrCode ?? false,
+    receiptLayout:
+      settings?.receiptLayout === 'detailed'
+        ? ('detailed' as const)
+        : ('thermal' as const),
+    receiptTemplate:
+      settings?.receiptTemplate === 'logo' ||
+      settings?.receiptTemplate === 'cafe'
+        ? (settings.receiptTemplate as 'logo' | 'cafe')
+        : ('classic' as const),
+    receiptLogoUrl: settings?.receiptLogoUrl || '',
+    taxEnabled: settings?.taxEnabled || false,
+    taxRate: Number(settings?.taxRate || 0),
+    taxName: settings?.taxName || 'VAT',
+    pricesIncludeTax: settings?.pricesIncludeTax || false,
+    paymentMethods: methods.length ? methods : ['cash'],
+    showTaxOnReceipt: settings?.showTaxOnReceipt || false,
+    receiptShowPhone: settings?.receiptShowPhone ?? true,
+    receiptShowAddress: settings?.receiptShowAddress ?? true,
+    receiptShowCashier: settings?.receiptShowCashier ?? true,
+    receiptShowCustomer: settings?.receiptShowCustomer ?? true,
+    receiptShowPayment: settings?.receiptShowPayment ?? true,
+    receiptShowQrCode: settings?.receiptShowQrCode ?? false,
     receiptShowItemSku: settings?.receiptShowItemSku ?? false,
-    receiptPrintingMode: settings?.receiptPrintingMode === 'browser' ? 'browser' as const : 'direct' as const,
-    receiptPrinterName: settings?.receiptPrinterName || '', receiptPaperWidth: settings?.receiptPaperWidth === 58 ? 58 as const : 80 as const,
-    receiptAutoPrint: settings?.receiptAutoPrint ?? true, receiptPrintCustomerCopy: settings?.receiptPrintCustomerCopy ?? true,
-    receiptPrintCopies: Math.max(1, Math.min(5, settings?.receiptPrintCopies ?? 1)), receiptCashDrawerPulse: settings?.receiptCashDrawerPulse ?? false,
-  }
+    receiptPrintingMode:
+      settings?.receiptPrintingMode === 'browser'
+        ? ('browser' as const)
+        : ('direct' as const),
+    receiptPrinterName: settings?.receiptPrinterName || '',
+    receiptPaperWidth:
+      settings?.receiptPaperWidth === 58 ? (58 as const) : (80 as const),
+    receiptAutoPrint: settings?.receiptAutoPrint ?? true,
+    receiptPrintCustomerCopy: settings?.receiptPrintCustomerCopy ?? true,
+    receiptPrintCopies: Math.max(
+      1,
+      Math.min(5, settings?.receiptPrintCopies ?? 1)
+    ),
+    receiptCashDrawerPulse: settings?.receiptCashDrawerPulse ?? false,
+  };
 }
 
 /** Complete first-render POS model. Authentication is resolved by the page once;
  * every read below is scoped with that trusted organization context. */
-export async function getPosPageData(authorization: AuthorizationContext, includeCustomers: boolean, pharmacyWorkspace = false, cafeWorkspace = false) {
-  const orgId = authorization.organizationId
-  const terminalId = (authorization as AuthorizationContext & { terminalId?: string }).terminalId
-  const today = new Date(); today.setHours(0, 0, 0, 0)
+export async function getPosPageData(
+  authorization: AuthorizationContext,
+  includeCustomers: boolean,
+  pharmacyWorkspace = false,
+  cafeWorkspace = false
+) {
+  const orgId = authorization.organizationId;
+  const terminalId = (
+    authorization as AuthorizationContext & { terminalId?: string }
+  ).terminalId;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
   const branchFilter = authorization.isOrganizationWide
     ? eq(branch.isMain, true)
-    : eq(branch.id, authorization.branchIds[0] ?? '')
+    : eq(branch.id, authorization.branchIds[0] ?? '');
 
-  const [products, packages, medicineMetadata, categories, customers, settingsRows, organizationRows, sessionRows, branchRows, pinRows] = await Promise.all([
-    readThroughRedis({ namespace: 'products', organizationId: orgId, variant: 'list:active:', ttlSeconds: 120, load: () => db.select().from(product).where(and(eq(product.orgId, orgId), eq(product.isActive, true))).orderBy(desc(product.createdAt)) }),
-    db.select().from(productPackage).where(and(eq(productPackage.organizationId, orgId), eq(productPackage.isActive, true))).orderBy(productPackage.baseUnitQuantity),
-    db.select().from(pharmacyProduct).where(eq(pharmacyProduct.organizationId, orgId)),
-    readThroughRedis({ namespace: 'categories', organizationId: orgId, variant: 'pos-filter-list', ttlSeconds: 600, load: () => db.select({ id: category.id, name: category.name, parentCategoryId: category.parentCategoryId, isActive: category.isActive }).from(category).where(eq(category.orgId, orgId)).orderBy(category.name) }),
-    includeCustomers ? db.select({ customer, pointsBalance: customerRewardAccount.pointsBalance, bonusBalance: customerRewardAccount.bonusBalance }).from(customer).leftJoin(customerRewardAccount, and(eq(customerRewardAccount.customerId, customer.id), eq(customerRewardAccount.organizationId, orgId))).where(eq(customer.orgId, orgId)).orderBy(desc(customer.createdAt)).then(rows => rows.map(({ customer: row, pointsBalance, bonusBalance }) => ({ ...row, loyaltyPoints: pointsBalance ?? row.loyaltyPoints, pointsBalance: pointsBalance ?? row.loyaltyPoints, bonusBalance: Number(bonusBalance ?? 0) }))) : Promise.resolve([]),
-    db.select().from(businessSettings).where(eq(businessSettings.organizationId, orgId)).limit(1),
-    db.select({ name: organization.name, timezone: organization.timezone }).from(organization).where(eq(organization.id, orgId)).limit(1),
-    db.select().from(posSession).where(and(
-      eq(posSession.orgId, orgId),
-      eq(posSession.openedBy, authorization.userId),
-      terminalId ? eq(posSession.terminalId, terminalId) : undefined,
-      inArray(posSession.status, ['open', 'closing']),
-    )).orderBy(desc(posSession.openedAt)).limit(1),
-    db.select({ id: branch.id, name: branch.name, code: branch.code }).from(branch).where(and(eq(branch.organizationId, orgId), branchFilter)).limit(1),
-    db.select({ enabled: posPinCredential.enabled }).from(posPinCredential).where(eq(posPinCredential.userId, authorization.userId)).limit(1),
-  ])
-  const activeSession = sessionRows[0] ?? null
+  const [
+    products,
+    packages,
+    medicineMetadata,
+    categories,
+    customers,
+    settingsRows,
+    organizationRows,
+    sessionRows,
+    branchRows,
+    pinRows,
+  ] = await Promise.all([
+    readThroughRedis({
+      namespace: 'products',
+      organizationId: orgId,
+      variant: 'list:active:',
+      ttlSeconds: 120,
+      load: () =>
+        db
+          .select()
+          .from(product)
+          .where(and(eq(product.orgId, orgId), eq(product.isActive, true)))
+          .orderBy(desc(product.createdAt)),
+    }),
+    db
+      .select()
+      .from(productPackage)
+      .where(
+        and(
+          eq(productPackage.organizationId, orgId),
+          eq(productPackage.isActive, true)
+        )
+      )
+      .orderBy(productPackage.baseUnitQuantity),
+    db
+      .select()
+      .from(pharmacyProduct)
+      .where(eq(pharmacyProduct.organizationId, orgId)),
+    readThroughRedis({
+      namespace: 'categories',
+      organizationId: orgId,
+      variant: 'pos-filter-list',
+      ttlSeconds: 600,
+      load: () =>
+        db
+          .select({
+            id: category.id,
+            name: category.name,
+            parentCategoryId: category.parentCategoryId,
+            isActive: category.isActive,
+          })
+          .from(category)
+          .where(eq(category.orgId, orgId))
+          .orderBy(category.name),
+    }),
+    includeCustomers
+      ? db
+          .select({
+            customer,
+            pointsBalance: customerRewardAccount.pointsBalance,
+            bonusBalance: customerRewardAccount.bonusBalance,
+          })
+          .from(customer)
+          .leftJoin(
+            customerRewardAccount,
+            and(
+              eq(customerRewardAccount.customerId, customer.id),
+              eq(customerRewardAccount.organizationId, orgId)
+            )
+          )
+          .where(eq(customer.orgId, orgId))
+          .orderBy(desc(customer.createdAt))
+          .then((rows) =>
+            rows.map(({ customer: row, pointsBalance, bonusBalance }) => ({
+              ...row,
+              loyaltyPoints: pointsBalance ?? row.loyaltyPoints,
+              pointsBalance: pointsBalance ?? row.loyaltyPoints,
+              bonusBalance: Number(bonusBalance ?? 0),
+            }))
+          )
+      : Promise.resolve([]),
+    db
+      .select()
+      .from(businessSettings)
+      .where(eq(businessSettings.organizationId, orgId))
+      .limit(1),
+    db
+      .select({ name: organization.name, timezone: organization.timezone })
+      .from(organization)
+      .where(eq(organization.id, orgId))
+      .limit(1),
+    db
+      .select()
+      .from(posSession)
+      .where(
+        and(
+          eq(posSession.orgId, orgId),
+          eq(posSession.openedBy, authorization.userId),
+          terminalId ? eq(posSession.terminalId, terminalId) : undefined,
+          inArray(posSession.status, ['open', 'closing'])
+        )
+      )
+      .orderBy(desc(posSession.openedAt))
+      .limit(1),
+    db
+      .select({ id: branch.id, name: branch.name, code: branch.code })
+      .from(branch)
+      .where(and(eq(branch.organizationId, orgId), branchFilter))
+      .limit(1),
+    db
+      .select({ enabled: posPinCredential.enabled })
+      .from(posPinCredential)
+      .where(eq(posPinCredential.userId, authorization.userId))
+      .limit(1),
+  ]);
+  const activeSession = sessionRows[0] ?? null;
   // The opening dialog needs trusted terminal and cashier data before a shift
   // exists, not only after one has been created.
-  const contextTerminalId = activeSession?.terminalId ?? terminalId
+  const contextTerminalId = activeSession?.terminalId ?? terminalId;
+  const authorizedTerminalBranchId = authorization.branchIds[0];
   const [[terminal], [cashier]] = await Promise.all([
     contextTerminalId
-      ? db.select({ name: posTerminal.name, printingMode: posTerminal.printingMode, printerDisplayName: posTerminal.printerDisplayName, printerIdentifier: posTerminal.printerIdentifier, paperWidth: posTerminal.paperWidth, autoPrint: posTerminal.autoPrint, receiptCopies: posTerminal.receiptCopies, cashDrawerPulse: posTerminal.cashDrawerPulse }).from(posTerminal).where(and(eq(posTerminal.id, contextTerminalId), eq(posTerminal.organizationId, orgId))).limit(1)
+      ? db
+          .select({
+            name: posTerminal.name,
+            printingMode: posTerminal.printingMode,
+            printerDisplayName: posTerminal.printerDisplayName,
+            printerIdentifier: posTerminal.printerIdentifier,
+            paperWidth: posTerminal.paperWidth,
+            autoPrint: posTerminal.autoPrint,
+            receiptCopies: posTerminal.receiptCopies,
+            cashDrawerPulse: posTerminal.cashDrawerPulse,
+          })
+          .from(posTerminal)
+          .where(
+            and(
+              eq(posTerminal.id, contextTerminalId),
+              eq(posTerminal.organizationId, orgId),
+              authorizedTerminalBranchId
+                ? eq(posTerminal.branchId, authorizedTerminalBranchId)
+                : sql`false`,
+              eq(posTerminal.status, 'active')
+            )
+          )
+          .limit(1)
       : Promise.resolve([]),
-    db.select({ name: user.name }).from(user).where(eq(user.id, authorization.userId)).limit(1),
-  ])
-  const [summaryRows, refundRows, movementRows, recentSales, mpesaRows] = activeSession
-    ? await Promise.all([
-      db.select({ total: sql<string>`coalesce(sum(${sale.total}),0)`, count: sql<number>`count(*)` }).from(sale).where(and(eq(sale.orgId, orgId), eq(sale.posSessionId, activeSession.id), inArray(sale.status, ['completed', 'partially_refunded', 'refunded']))),
-      db.select({ total: sql<string>`coalesce(sum(${salesReturn.amount}),0)` }).from(salesReturn).where(and(eq(salesReturn.orgId, orgId), eq(salesReturn.posSessionId, activeSession.id), eq(salesReturn.status, 'completed'))),
-      db.select({ count: sql<number>`count(*)` }).from(cashMovement).where(and(eq(cashMovement.orgId, orgId), eq(cashMovement.sessionId, activeSession.id))),
-      db.select({ id: sale.id, receiptNo: sale.receiptNo, total: sale.total, createdAt: sale.createdAt }).from(sale).where(and(eq(sale.orgId, orgId), eq(sale.posSessionId, activeSession.id))).orderBy(desc(sale.createdAt)).limit(5),
-      db.select({ status: mpesaPaymentRequest.status, count: sql<number>`count(*)` }).from(mpesaPaymentRequest).where(and(eq(mpesaPaymentRequest.organizationId, orgId), eq(mpesaPaymentRequest.posSessionId, activeSession.id))).groupBy(mpesaPaymentRequest.status),
-    ])
-    : [[], [], [], [], []]
+    db
+      .select({ name: user.name })
+      .from(user)
+      .where(eq(user.id, authorization.userId))
+      .limit(1),
+  ]);
+  const [summaryRows, refundRows, movementRows, recentSales, mpesaRows] =
+    activeSession
+      ? await Promise.all([
+          db
+            .select({
+              total: sql<string>`coalesce(sum(${sale.total}),0)`,
+              count: sql<number>`count(*)`,
+            })
+            .from(sale)
+            .where(
+              and(
+                eq(sale.orgId, orgId),
+                eq(sale.posSessionId, activeSession.id),
+                inArray(sale.status, [
+                  'completed',
+                  'partially_refunded',
+                  'refunded',
+                ])
+              )
+            ),
+          db
+            .select({
+              total: sql<string>`coalesce(sum(${salesReturn.amount}),0)`,
+            })
+            .from(salesReturn)
+            .where(
+              and(
+                eq(salesReturn.orgId, orgId),
+                eq(salesReturn.posSessionId, activeSession.id),
+                eq(salesReturn.status, 'completed')
+              )
+            ),
+          db
+            .select({ count: sql<number>`count(*)` })
+            .from(cashMovement)
+            .where(
+              and(
+                eq(cashMovement.orgId, orgId),
+                eq(cashMovement.sessionId, activeSession.id)
+              )
+            ),
+          db
+            .select({
+              id: sale.id,
+              receiptNo: sale.receiptNo,
+              total: sale.total,
+              createdAt: sale.createdAt,
+            })
+            .from(sale)
+            .where(
+              and(
+                eq(sale.orgId, orgId),
+                eq(sale.posSessionId, activeSession.id)
+              )
+            )
+            .orderBy(desc(sale.createdAt))
+            .limit(5),
+          db
+            .select({
+              status: mpesaPaymentRequest.status,
+              count: sql<number>`count(*)`,
+            })
+            .from(mpesaPaymentRequest)
+            .where(
+              and(
+                eq(mpesaPaymentRequest.organizationId, orgId),
+                eq(mpesaPaymentRequest.posSessionId, activeSession.id)
+              )
+            )
+            .groupBy(mpesaPaymentRequest.status),
+        ])
+      : [[], [], [], [], []];
   const locationBalances = branchRows[0]
-    ? await db.select({ productId: inventoryBalance.productId, onHand: inventoryBalance.onHand, reserved: inventoryBalance.reserved, unavailable: inventoryBalance.unavailable }).from(inventoryBalance).where(and(eq(inventoryBalance.orgId, orgId), eq(inventoryBalance.branchId, branchRows[0].id)))
-    : []
+    ? await db
+        .select({
+          productId: inventoryBalance.productId,
+          onHand: inventoryBalance.onHand,
+          reserved: inventoryBalance.reserved,
+          unavailable: inventoryBalance.unavailable,
+        })
+        .from(inventoryBalance)
+        .where(
+          and(
+            eq(inventoryBalance.orgId, orgId),
+            eq(inventoryBalance.branchId, branchRows[0].id)
+          )
+        )
+    : [];
   const validLotBalances = branchRows[0]
-    ? await db.select({ productId: inventoryLot.productId, quantity: sql<string>`coalesce(sum(${inventoryLot.quantity}), 0)` }).from(inventoryLot).where(and(
-      eq(inventoryLot.orgId, orgId), eq(inventoryLot.branchId, branchRows[0].id), eq(inventoryLot.status, 'available'), gt(inventoryLot.quantity, '0'),
-      or(isNull(inventoryLot.expiresAt), gt(inventoryLot.expiresAt, new Date())),
-    )).groupBy(inventoryLot.productId)
-    : []
-  const cafe = cafeWorkspace && branchRows[0]
-    ? await getCafePosExperience(orgId, branchRows[0].id)
-    : null
-  const availableByProduct = new Map(locationBalances.map((item) => [item.productId, Math.max(0, Number(item.onHand) - Number(item.reserved) - Number(item.unavailable))]))
-  const validLotsByProduct = new Map(validLotBalances.map((item) => [item.productId, Number(item.quantity)]))
-  const packagesByProduct = new Map<string, typeof packages>()
-  for (const item of packages) packagesByProduct.set(item.productId, [...(packagesByProduct.get(item.productId) ?? []), item])
-  const medicineByProduct = new Map(medicineMetadata.map((item) => [item.productId, item]))
-  const eligibleProducts = filterPharmacyCatalog(products, medicineByProduct.keys(), pharmacyWorkspace)
-  const cafeByProduct = new Map(cafe?.menuItems.map((item) => [item.productId, item]) ?? [])
+    ? await db
+        .select({
+          productId: inventoryLot.productId,
+          quantity: sql<string>`coalesce(sum(${inventoryLot.quantity}), 0)`,
+        })
+        .from(inventoryLot)
+        .where(
+          and(
+            eq(inventoryLot.orgId, orgId),
+            eq(inventoryLot.branchId, branchRows[0].id),
+            eq(inventoryLot.status, 'available'),
+            gt(inventoryLot.quantity, '0'),
+            or(
+              isNull(inventoryLot.expiresAt),
+              gt(inventoryLot.expiresAt, new Date())
+            )
+          )
+        )
+        .groupBy(inventoryLot.productId)
+    : [];
+  const cafe =
+    cafeWorkspace && branchRows[0]
+      ? await getCafePosExperience(orgId, branchRows[0].id)
+      : null;
+  const availableByProduct = new Map(
+    locationBalances.map((item) => [
+      item.productId,
+      Math.max(
+        0,
+        Number(item.onHand) - Number(item.reserved) - Number(item.unavailable)
+      ),
+    ])
+  );
+  const validLotsByProduct = new Map(
+    validLotBalances.map((item) => [item.productId, Number(item.quantity)])
+  );
+  const packagesByProduct = new Map<string, typeof packages>();
+  for (const item of packages)
+    packagesByProduct.set(item.productId, [
+      ...(packagesByProduct.get(item.productId) ?? []),
+      item,
+    ]);
+  const medicineByProduct = new Map(
+    medicineMetadata.map((item) => [item.productId, item])
+  );
+  const eligibleProducts = filterPharmacyCatalog(
+    products,
+    medicineByProduct.keys(),
+    pharmacyWorkspace
+  );
+  const cafeByProduct = new Map(
+    cafe?.menuItems.map((item) => [item.productId, item]) ?? []
+  );
   const branchProducts = eligibleProducts.map((item) => {
-    const cafeItem = cafeByProduct.get(item.id) ?? null
-    const physicalStock = item.trackingMode === 'lot' ? validLotsByProduct.get(item.id) ?? 0 : availableByProduct.get(item.id) ?? 0
-    const stock = cafeItem && cafeItem.inventoryMode !== 'product' ? (cafeItem.available ? 1_000_000 : 0) : physicalStock
-    return { ...item, stock, packages: packagesByProduct.get(item.id) ?? [], pharmacy: medicineByProduct.get(item.id) ?? null, cafe: cafeItem }
-  })
-  const eligibleCategoryIds = new Set(branchProducts.map((item) => item.categoryId).filter(Boolean))
-  const posCategories = pharmacyWorkspace ? categories.filter((item) => eligibleCategoryIds.has(item.id)) : categories
-  const summary = summaryRows[0], refunds = refundRows[0], movements = movementRows[0]
-  const mpesaCounters = { confirmed: 0, pending: 0, failed: 0, reconciliationRequired: 0 }
+    const cafeItem = cafeByProduct.get(item.id) ?? null;
+    const physicalStock =
+      item.trackingMode === 'lot'
+        ? (validLotsByProduct.get(item.id) ?? 0)
+        : (availableByProduct.get(item.id) ?? 0);
+    const stock =
+      cafeItem && cafeItem.inventoryMode !== 'product'
+        ? cafeItem.available
+          ? 1_000_000
+          : 0
+        : physicalStock;
+    return {
+      ...item,
+      stock,
+      packages: packagesByProduct.get(item.id) ?? [],
+      pharmacy: medicineByProduct.get(item.id) ?? null,
+      cafe: cafeItem,
+    };
+  });
+  const eligibleCategoryIds = new Set(
+    branchProducts.map((item) => item.categoryId).filter(Boolean)
+  );
+  const posCategories = pharmacyWorkspace
+    ? categories.filter((item) => eligibleCategoryIds.has(item.id))
+    : categories;
+  const summary = summaryRows[0],
+    refunds = refundRows[0],
+    movements = movementRows[0];
+  const mpesaCounters = {
+    confirmed: 0,
+    pending: 0,
+    failed: 0,
+    reconciliationRequired: 0,
+  };
   for (const row of mpesaRows as Array<{ status: string; count: number }>) {
-    const status = row.status.toLowerCase(); const count = Number(row.count)
-    if (['confirmed', 'completed', 'paid'].includes(status)) mpesaCounters.confirmed += count
-    else if (['pending', 'awaiting_confirmation'].includes(status)) mpesaCounters.pending += count
-    else if (['failed', 'expired', 'cancelled'].includes(status)) mpesaCounters.failed += count
-    else if (status === 'reconciliation_required') mpesaCounters.reconciliationRequired += count
+    const status = row.status.toLowerCase();
+    const count = Number(row.count);
+    if (['confirmed', 'completed', 'paid'].includes(status))
+      mpesaCounters.confirmed += count;
+    else if (['pending', 'awaiting_confirmation'].includes(status))
+      mpesaCounters.pending += count;
+    else if (['failed', 'expired', 'cancelled'].includes(status))
+      mpesaCounters.failed += count;
+    else if (status === 'reconciliation_required')
+      mpesaCounters.reconciliationRequired += count;
   }
   return {
-    products: branchProducts, categories: posCategories, customers, settings: { ...receiptSettings(settingsRows[0], organizationRows[0]?.name), ...(terminal ? { receiptPrintingMode: terminal.printingMode === 'direct' ? 'direct' as const : 'browser' as const, receiptPrinterName: terminal.printerIdentifier || terminal.printerDisplayName || '', receiptPaperWidth: terminal.paperWidth === 58 ? 58 as const : 80 as const, receiptAutoPrint: terminal.autoPrint, receiptPrintCopies: Math.max(1, Math.min(3, terminal.receiptCopies)), receiptCashDrawerPulse: terminal.cashDrawerPulse } : {}) }, activeBranch: branchRows[0] ?? null,
-    pinSet: Boolean(pinRows[0]?.enabled), cafe,
-    cashierWorkspace: { session: activeSession, registerName: terminal?.name ?? activeSession?.sessionNo ?? null, cashierName: cashier?.name ?? null, shiftSales: Number(summary?.total ?? 0) - Number(refunds?.total ?? 0), transactionCount: Number(summary?.count ?? 0), cashMovementCount: Number(movements?.count ?? 0), locationName: branchRows[0]?.name ?? 'Assigned location', timeZone: organizationRows[0]?.timezone ?? 'Africa/Nairobi', recentSales, mpesaCounters },
-  }
+    products: branchProducts,
+    categories: posCategories,
+    customers,
+    settings: {
+      ...receiptSettings(settingsRows[0], organizationRows[0]?.name),
+      // Hardware is always terminal-owned. An unregistered/unresolved browser
+      // must never inherit a tenant-wide printer name as an implicit device.
+      receiptPrintingMode:
+        terminal?.printingMode === 'direct'
+          ? ('direct' as const)
+          : ('browser' as const),
+      receiptPrinterName: terminal
+        ? terminal.printerIdentifier || terminal.printerDisplayName || ''
+        : '',
+      receiptPaperWidth:
+        terminal?.paperWidth === 58 ? (58 as const) : (80 as const),
+      receiptAutoPrint: terminal?.autoPrint ?? false,
+      receiptPrintCopies: terminal
+        ? Math.max(1, Math.min(3, terminal.receiptCopies))
+        : 1,
+      receiptCashDrawerPulse: terminal?.cashDrawerPulse ?? false,
+    },
+    activeBranch: branchRows[0] ?? null,
+    pinSet: Boolean(pinRows[0]?.enabled),
+    cafe,
+    cashierWorkspace: {
+      session: activeSession,
+      terminalId: terminal ? (contextTerminalId ?? null) : null,
+      registerName: terminal?.name ?? activeSession?.sessionNo ?? null,
+      cashierName: cashier?.name ?? null,
+      shiftSales: Number(summary?.total ?? 0) - Number(refunds?.total ?? 0),
+      transactionCount: Number(summary?.count ?? 0),
+      cashMovementCount: Number(movements?.count ?? 0),
+      locationName: branchRows[0]?.name ?? 'Assigned location',
+      timeZone: organizationRows[0]?.timezone ?? 'Africa/Nairobi',
+      recentSales,
+      mpesaCounters,
+    },
+  };
 }

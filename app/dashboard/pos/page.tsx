@@ -27,7 +27,8 @@ export default async function POSPage() {
   // operations such as opening a shift.
   const candidatePosAuthorization = await getPosAuthorizationContext();
   const posAuthorization =
-    candidatePosAuthorization?.organizationId === pageAuthorization.organizationId
+    candidatePosAuthorization?.organizationId ===
+    pageAuthorization.organizationId
       ? candidatePosAuthorization
       : null;
   if (
@@ -51,9 +52,16 @@ export default async function POSPage() {
       pageAuthorization.branchIds.includes(registeredTerminal.branchId))
       ? registeredTerminal
       : null;
-  const operator = posAuthorization ?? (terminal
-    ? { ...pageAuthorization, branchIds: [terminal.branchId], isOrganizationWide: false, terminalId: terminal.id }
-    : pageAuthorization);
+  const operator =
+    posAuthorization ??
+    (terminal
+      ? {
+          ...pageAuthorization,
+          branchIds: [terminal.branchId],
+          isOrganizationWide: false,
+          terminalId: terminal.id,
+        }
+      : pageAuthorization);
   const [data, currentSession] = await Promise.all([
     getPosPageData(
       operator,
@@ -78,12 +86,16 @@ export default async function POSPage() {
           data.settings.receiptPrintingMode === 'direct' &&
           Boolean(data.settings.receiptPrinterName)
         }
+        printerMode={data.settings.receiptPrintingMode}
+        printerName={data.settings.receiptPrinterName}
         action={
           <div className="flex flex-wrap items-center justify-end gap-2">
             <PosSecurity
               branchId={data.activeBranch.id}
               initialPinSet={data.pinSet}
-              terminalRegistered={Boolean(terminal ?? posAuthorization?.terminalId)}
+              terminalRegistered={Boolean(
+                terminal ?? posAuthorization?.terminalId
+              )}
             />
           </div>
         }
@@ -116,14 +128,17 @@ export default async function POSPage() {
           PermissionEnum.AGE_VERIFICATION_OVERRIDE
         )}
         receiptContext={{
-          cashierName: data.cashierWorkspace.cashierName || currentSession?.user?.name || undefined,
+          cashierName:
+            data.cashierWorkspace.cashierName ||
+            currentSession?.user?.name ||
+            undefined,
           registerName: data.cashierWorkspace.registerName,
           locationName: data.cashierWorkspace.locationName,
         }}
         offlineContext={{
           sessionId: data.cashierWorkspace.session?.id ?? null,
           branchId: data.activeBranch.id,
-          terminalId: data.cashierWorkspace.session?.terminalId ?? null,
+          terminalId: data.cashierWorkspace.terminalId,
         }}
       />
     </div>

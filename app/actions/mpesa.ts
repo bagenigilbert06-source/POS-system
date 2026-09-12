@@ -277,7 +277,7 @@ async function basketRequiresAgeVerification(orgId: string, productIds: string[]
   return rows.some((item) => item.restricted ?? (item.categoryId ? inheritedById.get(item.categoryId) : null) ?? false)
 }
 
-export async function initiateMpesaPayment(
+async function initiateMpesaPaymentInternal(
   input: z.input<typeof initiateSchema>
 ) {
   const data = initiateSchema.parse(input);
@@ -552,8 +552,31 @@ export async function initiateMpesaPayment(
   }
 }
 
+function safeMpesaActionError(error: unknown) {
+  if (error instanceof z.ZodError)
+    return error.issues[0]?.message || 'Check the M-Pesa payment details';
+  const message = error instanceof Error ? error.message : '';
+  if (/failed query|connection.*(timeout|terminated)|fetch failed/i.test(message))
+    return 'M-Pesa could not reach the payment service. Check the connection and try again.';
+  return message || 'Could not start the M-Pesa payment';
+}
+
+/** Server actions return expected provider/configuration failures as data.
+ * Next.js redacts thrown production errors, which previously left cashiers with
+ * only a generic Server Components message and no actionable retry guidance. */
+export async function initiateMpesaPayment(
+  input: z.input<typeof initiateSchema>
+) {
+  try {
+    const result = await initiateMpesaPaymentInternal(input);
+    return { success: true as const, ...result };
+  } catch (error) {
+    return { success: false as const, error: safeMpesaActionError(error) };
+  }
+}
+
 /** Creates a basket-specific PayBill reference and waits for a C2B confirmation. */
-export async function initiateMpesaPaybillPayment(
+async function initiateMpesaPaybillPaymentInternal(
   input: z.input<typeof paybillSchema>
 ) {
   const data = paybillSchema.parse(input);
@@ -810,6 +833,17 @@ export async function initiateMpesaPaybillPayment(
     shortcode,
     accountType,
   };
+}
+
+export async function initiateMpesaPaybillPayment(
+  input: z.input<typeof paybillSchema>
+) {
+  try {
+    const result = await initiateMpesaPaybillPaymentInternal(input);
+    return { success: true as const, ...result };
+  } catch (error) {
+    return { success: false as const, error: safeMpesaActionError(error) };
+  }
 }
 
 export async function getMpesaPaymentStatus(requestId: string) {

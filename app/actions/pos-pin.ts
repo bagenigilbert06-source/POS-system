@@ -40,16 +40,26 @@ import {
   POS_AUTH_COOKIE,
   POS_LOCKED_SESSION_COOKIE,
   POS_TERMINAL_COOKIE,
-  posCookieOptions,
+  posCashierCookieOptions,
+  posTerminalCookieOptions,
   tokenHash,
 } from '@/lib/pos/pos-auth';
+
+async function renewRegisteredTerminalIdentity() {
+  const jar = await cookies();
+  const token = jar.get(POS_TERMINAL_COOKIE)?.value;
+  if (token) jar.set(POS_TERMINAL_COOKIE, token, posTerminalCookieOptions);
+}
 
 export async function setOwnPosPin(pin: string) {
   const error = validatePosPin(pin);
   if (error) throw new Error(error);
   const context = await requirePermission(PermissionEnum.POS_PIN_USE);
   const activeCredentials = await db
-    .select({ userId: posPinCredential.userId, pinHash: posPinCredential.pinHash })
+    .select({
+      userId: posPinCredential.userId,
+      pinHash: posPinCredential.pinHash,
+    })
     .from(posPinCredential)
     .innerJoin(employee, eq(employee.userId, posPinCredential.userId))
     .where(
@@ -82,15 +92,13 @@ export async function setOwnPosPin(pin: string) {
         updatedAt: new Date(),
       },
     });
-  await db
-    .insert(auditEvent)
-    .values({
-      id: generateId(),
-      organizationId: context.organizationId,
-      userId: context.userId,
-      action: 'pos.pin.created',
-      metadata: {},
-    });
+  await db.insert(auditEvent).values({
+    id: generateId(),
+    organizationId: context.organizationId,
+    userId: context.userId,
+    action: 'pos.pin.created',
+    metadata: {},
+  });
 
   // Creating a PIN from the POS workspace is also proof that the signed-in
   // operator knows that PIN. If this browser is already bound to a terminal,
@@ -100,12 +108,14 @@ export async function setOwnPosPin(pin: string) {
   if (
     terminal &&
     terminal.organizationId === context.organizationId &&
-    (context.isOrganizationWide || context.branchIds.includes(terminal.branchId))
+    (context.isOrganizationWide ||
+      context.branchIds.includes(terminal.branchId))
   ) {
     const unlocked = await unlockPosWithStaffPin(context.userId, pin);
     if (!unlocked.success)
       throw new Error(
-        unlocked.error || 'PIN was saved, but this POS terminal could not be unlocked'
+        unlocked.error ||
+          'PIN was saved, but this POS terminal could not be unlocked'
       );
     return { success: true, unlocked: true };
   }
@@ -163,11 +173,43 @@ export async function resetStaffPosPin(employeeId: string, pin: string) {
     )
       throw new Error('This staff member is outside your assigned branches');
   }
-  const activeCredentials = await db.select({ userId: posPinCredential.userId, pinHash: posPinCredential.pinHash }).from(posPinCredential).innerJoin(employee, eq(employee.userId, posPinCredential.userId)).where(and(eq(employee.orgId, context.organizationId), eq(employee.status, 'active'), eq(posPinCredential.enabled, true), ne(posPinCredential.userId, record.userId)));
-  const owners = await findPosPinOwners(pin, activeCredentials, ({ pinHash }, value) => verifyPassword({ hash: pinHash, password: value }));
-  if (owners.length) throw new Error('This PIN is already assigned to another active cashier');
+  const activeCredentials = await db
+    .select({
+      userId: posPinCredential.userId,
+      pinHash: posPinCredential.pinHash,
+    })
+    .from(posPinCredential)
+    .innerJoin(employee, eq(employee.userId, posPinCredential.userId))
+    .where(
+      and(
+        eq(employee.orgId, context.organizationId),
+        eq(employee.status, 'active'),
+        eq(posPinCredential.enabled, true),
+        ne(posPinCredential.userId, record.userId)
+      )
+    );
+  const owners = await findPosPinOwners(
+    pin,
+    activeCredentials,
+    ({ pinHash }, value) => verifyPassword({ hash: pinHash, password: value })
+  );
+  if (owners.length)
+    throw new Error('This PIN is already assigned to another active cashier');
   const pinHash = await hashPassword(pin);
-  await db.insert(posPinCredential).values({ userId: record.userId, pinHash }).onConflictDoUpdate({ target: posPinCredential.userId, set: { pinHash, enabled: true, failedAttempts: 0, lockedUntil: null, setAt: new Date(), updatedAt: new Date() } });
+  await db
+    .insert(posPinCredential)
+    .values({ userId: record.userId, pinHash })
+    .onConflictDoUpdate({
+      target: posPinCredential.userId,
+      set: {
+        pinHash,
+        enabled: true,
+        failedAttempts: 0,
+        lockedUntil: null,
+        setAt: new Date(),
+        updatedAt: new Date(),
+      },
+    });
   await db
     .update(posAuthSession)
     .set({ status: 'revoked' })
@@ -177,19 +219,20 @@ export async function resetStaffPosPin(employeeId: string, pin: string) {
         eq(posAuthSession.organizationId, context.organizationId)
       )
     );
-  await db
-    .insert(auditEvent)
-    .values({
-      id: generateId(),
-      organizationId: context.organizationId,
-      userId: context.userId,
-      action: 'staff.pos_pin_reset',
-      metadata: { employeeId },
-    });
+  await db.insert(auditEvent).values({
+    id: generateId(),
+    organizationId: context.organizationId,
+    userId: context.userId,
+    action: 'staff.pos_pin_reset',
+    metadata: { employeeId },
+  });
   return { success: true };
 }
 
-export async function registerCurrentPosTerminal(branchId: string, name: string) {
+export async function registerCurrentPosTerminal(
+  branchId: string,
+  name: string
+) {
   const context = await requirePermission(PermissionEnum.ADMIN_ACCESS);
   const terminalName = name.trim();
   if (terminalName.length < 2 || terminalName.length > 80)
@@ -210,29 +253,31 @@ export async function registerCurrentPosTerminal(branchId: string, name: string)
   )
     throw new Error('Branch access denied');
   const existing = await getTerminal();
-  if (existing?.branchId === branchId)
+  if (existing?.branchId === branchId) {
+    await renewRegisteredTerminalIdentity();
     return { success: true, terminalId: existing.id, existing: true };
+  }
   const token = newToken();
   // A browser without a terminal cookie is a new POS device. Never rotate an
   // existing branch terminal's token here: that would make two tills share a
   // terminal identity and allow one cashier switch to affect the other till.
-  await db
-    .insert(posTerminal)
-    .values({
-      id: generateId(),
-      organizationId: context.organizationId,
-      branchId,
-      tokenHash: tokenHash(token),
-      name: terminalName,
-      registeredBy: context.userId,
-    });
+  await db.insert(posTerminal).values({
+    id: generateId(),
+    organizationId: context.organizationId,
+    branchId,
+    tokenHash: tokenHash(token),
+    name: terminalName,
+    registeredBy: context.userId,
+  });
   (await cookies()).set(POS_TERMINAL_COOKIE, token, {
-    ...posCookieOptions,
-    maxAge: 60 * 60 * 24 * 30,
+    ...posTerminalCookieOptions,
   });
   await db.insert(auditEvent).values({
-    id: generateId(), organizationId: context.organizationId, userId: context.userId,
-    action: 'pos_terminal.registered', metadata: { branchId, name: terminalName },
+    id: generateId(),
+    organizationId: context.organizationId,
+    userId: context.userId,
+    action: 'pos_terminal.registered',
+    metadata: { branchId, name: terminalName },
   });
   return { success: true, existing: false };
 }
@@ -287,41 +332,55 @@ export async function getPosLockData() {
 export async function unlockPosWithPin(userId: string, pin: string) {
   const terminal = await getTerminal();
   if (!terminal) throw new Error('This POS terminal is not registered');
-  const [[member], [account], [organizationRole], [staff], [credential]] = await Promise.all([
-    db
-      .select()
-      .from(branchMembership)
-      .where(
-        and(
-          eq(branchMembership.branchId, terminal.branchId),
-          eq(branchMembership.userId, userId)
+  const [[member], [account], [organizationRole], [staff], [credential]] =
+    await Promise.all([
+      db
+        .select()
+        .from(branchMembership)
+        .where(
+          and(
+            eq(branchMembership.branchId, terminal.branchId),
+            eq(branchMembership.userId, userId)
+          )
         )
-      )
-      .limit(1),
-    db.select({ status: user.status }).from(user).where(eq(user.id, userId)).limit(1),
-    db.select({ role: organizationMembership.role }).from(organizationMembership).where(and(eq(organizationMembership.organizationId, terminal.organizationId), eq(organizationMembership.userId, userId))).limit(1),
-    db
-      .select()
-      .from(employee)
-      .where(
-        and(
-          eq(employee.orgId, terminal.organizationId),
-          eq(employee.userId, userId),
-          eq(employee.status, 'active')
+        .limit(1),
+      db
+        .select({ status: user.status })
+        .from(user)
+        .where(eq(user.id, userId))
+        .limit(1),
+      db
+        .select({ role: organizationMembership.role })
+        .from(organizationMembership)
+        .where(
+          and(
+            eq(organizationMembership.organizationId, terminal.organizationId),
+            eq(organizationMembership.userId, userId)
+          )
         )
-      )
-      .limit(1),
-    db
-      .select()
-      .from(posPinCredential)
-      .where(
-        and(
-          eq(posPinCredential.userId, userId),
-          eq(posPinCredential.enabled, true)
+        .limit(1),
+      db
+        .select()
+        .from(employee)
+        .where(
+          and(
+            eq(employee.orgId, terminal.organizationId),
+            eq(employee.userId, userId),
+            eq(employee.status, 'active')
+          )
         )
-      )
-      .limit(1),
-  ]);
+        .limit(1),
+      db
+        .select()
+        .from(posPinCredential)
+        .where(
+          and(
+            eq(posPinCredential.userId, userId),
+            eq(posPinCredential.enabled, true)
+          )
+        )
+        .limit(1),
+    ]);
   const invalid = async () => {
     if (credential) {
       const attempts = credential.failedAttempts + 1,
@@ -336,15 +395,13 @@ export async function unlockPosWithPin(userId: string, pin: string) {
           updatedAt: new Date(),
         })
         .where(eq(posPinCredential.userId, userId));
-      await db
-        .insert(auditEvent)
-        .values({
-          id: generateId(),
-          organizationId: terminal.organizationId,
-          userId,
-          action: locked ? 'pos.pin.locked' : 'pos.pin.login_failed',
-          metadata: { terminalId: terminal.id, attempts },
-        });
+      await db.insert(auditEvent).values({
+        id: generateId(),
+        organizationId: terminal.organizationId,
+        userId,
+        action: locked ? 'pos.pin.locked' : 'pos.pin.login_failed',
+        metadata: { terminalId: terminal.id, attempts },
+      });
     }
     throw new Error('Invalid PIN');
   };
@@ -354,7 +411,9 @@ export async function unlockPosWithPin(userId: string, pin: string) {
     !credential ||
     account?.status !== 'active' ||
     !organizationRole ||
-    !ROLE_PERMISSIONS[organizationRole.role as keyof typeof ROLE_PERMISSIONS]?.includes(PermissionEnum.POS_PIN_USE) ||
+    !ROLE_PERMISSIONS[
+      organizationRole.role as keyof typeof ROLE_PERMISSIONS
+    ]?.includes(PermissionEnum.POS_PIN_USE) ||
     (credential.lockedUntil && credential.lockedUntil > new Date())
   )
     return invalid();
@@ -368,39 +427,57 @@ export async function unlockPosWithPin(userId: string, pin: string) {
   await db.transaction(async (tx) => {
     // Serialize PIN changes per physical terminal. This closes the race where
     // two cashiers submit valid PINs at the same time.
-    await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${`${terminal.organizationId}:terminal:${terminal.id}:pin`}, 0))`);
+    await tx.execute(
+      sql`select pg_advisory_xact_lock(hashtextextended(${`${terminal.organizationId}:terminal:${terminal.id}:pin`}, 0))`
+    );
     const [activeShift] = await tx
-      .select({ openedBy: posSession.openedBy, status: posSession.status, cashierName: user.name })
+      .select({
+        openedBy: posSession.openedBy,
+        status: posSession.status,
+        cashierName: user.name,
+      })
       .from(posSession)
       .leftJoin(user, eq(user.id, posSession.openedBy))
-      .where(and(
-        eq(posSession.orgId, terminal.organizationId),
-        eq(posSession.terminalId, terminal.id),
-        sql`${posSession.status} in ('open', 'closing')`
-      ))
+      .where(
+        and(
+          eq(posSession.orgId, terminal.organizationId),
+          eq(posSession.terminalId, terminal.id),
+          sql`${posSession.status} in ('open', 'closing')`
+        )
+      )
       .limit(1);
     if (activeShift && activeShift.openedBy !== userId)
-      throw new Error(`${terminal.name} currently has an open shift for ${activeShift.cashierName || 'another cashier'}. End and reconcile the current shift before another cashier signs in.`);
-    await tx.update(posAuthSession).set({ status: 'switched' }).where(and(
-      eq(posAuthSession.terminalId, terminal.id),
-      eq(posAuthSession.status, 'active')
-    ));
+      throw new Error(
+        `${terminal.name} currently has an open shift for ${activeShift.cashierName || 'another cashier'}. End and reconcile the current shift before another cashier signs in.`
+      );
+    await tx
+      .update(posAuthSession)
+      .set({ status: 'switched' })
+      .where(
+        and(
+          eq(posAuthSession.terminalId, terminal.id),
+          eq(posAuthSession.status, 'active')
+        )
+      );
     await tx.insert(posAuthSession).values({
-      id: generateId(), tokenHash: tokenHash(token), terminalId: terminal.id,
-      userId, organizationId: terminal.organizationId, branchId: terminal.branchId,
+      id: generateId(),
+      tokenHash: tokenHash(token),
+      terminalId: terminal.id,
+      userId,
+      organizationId: terminal.organizationId,
+      branchId: terminal.branchId,
       expiresAt: new Date(Date.now() + 12 * 60 * 60 * 1000),
     });
   });
-  (await cookies()).set(POS_AUTH_COOKIE, token, posCookieOptions);
-  await db
-    .insert(auditEvent)
-    .values({
-      id: generateId(),
-      organizationId: terminal.organizationId,
-      userId,
-      action: 'pos.pin.login_success',
-      metadata: { terminalId: terminal.id, branchId: terminal.branchId },
-    });
+  (await cookies()).set(POS_AUTH_COOKIE, token, posCashierCookieOptions);
+  await renewRegisteredTerminalIdentity();
+  await db.insert(auditEvent).values({
+    id: generateId(),
+    organizationId: terminal.organizationId,
+    userId,
+    action: 'pos.pin.login_success',
+    metadata: { terminalId: terminal.id, branchId: terminal.branchId },
+  });
   return { success: true };
 }
 
@@ -408,8 +485,15 @@ export async function unlockPosWithPin(userId: string, pin: string) {
 export async function getPosTerminalContext() {
   const terminal = await getTerminal();
   if (!terminal) return { terminalName: null, branchName: null };
-  const [location] = await db.select({ name: branch.name }).from(branch).where(eq(branch.id, terminal.branchId)).limit(1);
-  return { terminalName: terminal.name || null, branchName: location?.name || null };
+  const [location] = await db
+    .select({ name: branch.name })
+    .from(branch)
+    .where(eq(branch.id, terminal.branchId))
+    .limit(1);
+  return {
+    terminalName: terminal.name || null,
+    branchName: location?.name || null,
+  };
 }
 
 export async function getPosTerminalStaff() {
@@ -613,15 +697,13 @@ export async function unlockPosWithStaffPin(userId: string, pin: string) {
           updatedAt: new Date(),
         })
         .where(eq(posPinCredential.userId, userId));
-      await db
-        .insert(auditEvent)
-        .values({
-          id: generateId(),
-          organizationId: terminal.organizationId,
-          userId,
-          action: locked ? 'pos.pin.locked' : 'pos.pin.login_failed',
-          metadata: { terminalId: terminal.id, attempts },
-        });
+      await db.insert(auditEvent).values({
+        id: generateId(),
+        organizationId: terminal.organizationId,
+        userId,
+        action: locked ? 'pos.pin.locked' : 'pos.pin.login_failed',
+        metadata: { terminalId: terminal.id, attempts },
+      });
       return {
         success: false,
         error: locked
@@ -644,28 +726,25 @@ export async function unlockPosWithStaffPin(userId: string, pin: string) {
         )
       );
     const token = newToken();
-    await db
-      .insert(posAuthSession)
-      .values({
-        id: generateId(),
-        tokenHash: tokenHash(token),
-        terminalId: terminal.id,
-        userId,
-        organizationId: terminal.organizationId,
-        branchId: terminal.branchId,
-        expiresAt: new Date(Date.now() + 12 * 60 * 60 * 1000),
-      });
-    (await cookies()).set(POS_AUTH_COOKIE, token, posCookieOptions);
+    await db.insert(posAuthSession).values({
+      id: generateId(),
+      tokenHash: tokenHash(token),
+      terminalId: terminal.id,
+      userId,
+      organizationId: terminal.organizationId,
+      branchId: terminal.branchId,
+      expiresAt: new Date(Date.now() + 12 * 60 * 60 * 1000),
+    });
+    (await cookies()).set(POS_AUTH_COOKIE, token, posCashierCookieOptions);
     (await cookies()).delete(POS_LOCKED_SESSION_COOKIE);
-    await db
-      .insert(auditEvent)
-      .values({
-        id: generateId(),
-        organizationId: terminal.organizationId,
-        userId,
-        action: 'pos.pin.login_success',
-        metadata: { terminalId: terminal.id, branchId: terminal.branchId },
-      });
+    await renewRegisteredTerminalIdentity();
+    await db.insert(auditEvent).values({
+      id: generateId(),
+      organizationId: terminal.organizationId,
+      userId,
+      action: 'pos.pin.login_success',
+      metadata: { terminalId: terminal.id, branchId: terminal.branchId },
+    });
     return { success: true };
   } catch (error) {
     console.error('POS PIN unlock failed', error);
@@ -682,7 +761,8 @@ export async function unlockPosByPin(pin: string) {
   if (pinError) return { success: false, error: 'PIN_INVALID_FORMAT' };
   try {
     const terminal = await getTerminal();
-    if (!terminal) return { success: false, error: 'Terminal access not allowed' };
+    if (!terminal)
+      return { success: false, error: 'Terminal access not allowed' };
     // A signed-in dashboard user may have switched workspaces while this
     // browser still holds a terminal cookie from a previous store. Never use
     // that stale terminal to search another store's PIN credentials.
@@ -697,12 +777,40 @@ export async function unlockPosByPin(pin: string) {
     } catch (error) {
       if (!(error instanceof AuthorizationError)) throw error;
     }
-    const candidates = await db.select({ userId: posPinCredential.userId, pinHash: posPinCredential.pinHash }).from(posPinCredential).innerJoin(employee, eq(employee.userId, posPinCredential.userId)).innerJoin(branchMembership, eq(branchMembership.userId, posPinCredential.userId)).where(and(eq(employee.orgId, terminal.organizationId), eq(employee.status, 'active'), eq(posPinCredential.enabled, true), eq(branchMembership.branchId, terminal.branchId)));
-    const owners = await findPosPinOwners(pin, candidates, ({ pinHash }, value) => verifyPassword({ hash: pinHash, password: value }));
+    const candidates = await db
+      .select({
+        userId: posPinCredential.userId,
+        pinHash: posPinCredential.pinHash,
+      })
+      .from(posPinCredential)
+      .innerJoin(employee, eq(employee.userId, posPinCredential.userId))
+      .innerJoin(
+        branchMembership,
+        eq(branchMembership.userId, posPinCredential.userId)
+      )
+      .where(
+        and(
+          eq(employee.orgId, terminal.organizationId),
+          eq(employee.status, 'active'),
+          eq(posPinCredential.enabled, true),
+          eq(branchMembership.branchId, terminal.branchId)
+        )
+      );
+    const owners = await findPosPinOwners(
+      pin,
+      candidates,
+      ({ pinHash }, value) => verifyPassword({ hash: pinHash, password: value })
+    );
     if (owners.length === 1) return await unlockPosWithPin(owners[0], pin);
     return { success: false, error: 'PIN_NOT_FOUND' };
   } catch (error) {
-    return { success: false, error: error instanceof Error ? error.message : 'Unable to unlock this terminal' };
+    return {
+      success: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : 'Unable to unlock this terminal',
+    };
   }
 }
 
@@ -821,19 +929,17 @@ export async function unlockCurrentLockedPos(pin: string) {
           updatedAt: new Date(),
         })
         .where(eq(posPinCredential.userId, locked.userId));
-      await db
-        .insert(auditEvent)
-        .values({
-          id: generateId(),
-          organizationId: locked.organizationId,
-          userId: locked.userId,
-          action: pinLocked ? 'pos.pin.locked' : 'pos.pin.login_failed',
-          metadata: {
-            terminalId: locked.terminalId,
-            attempts,
-            unlockExistingSession: true,
-          },
-        });
+      await db.insert(auditEvent).values({
+        id: generateId(),
+        organizationId: locked.organizationId,
+        userId: locked.userId,
+        action: pinLocked ? 'pos.pin.locked' : 'pos.pin.login_failed',
+        metadata: {
+          terminalId: locked.terminalId,
+          attempts,
+          unlockExistingSession: true,
+        },
+      });
       return {
         success: false,
         error: pinLocked
@@ -856,22 +962,23 @@ export async function unlockCurrentLockedPos(pin: string) {
             eq(posAuthSession.status, 'locked')
           )
         );
-      await tx
-        .insert(auditEvent)
-        .values({
-          id: generateId(),
-          organizationId: locked.organizationId,
-          userId: locked.userId,
-          action: 'pos.pin.unlock_success',
-          metadata: {
-            terminalId: locked.terminalId,
-            branchId: locked.branchId,
-            restoredSessionId: locked.id,
-          },
-        });
+      await tx.insert(auditEvent).values({
+        id: generateId(),
+        organizationId: locked.organizationId,
+        userId: locked.userId,
+        action: 'pos.pin.unlock_success',
+        metadata: {
+          terminalId: locked.terminalId,
+          branchId: locked.branchId,
+          restoredSessionId: locked.id,
+        },
+      });
     });
-    jar.set(POS_AUTH_COOKIE, token, posCookieOptions);
+    jar.set(POS_AUTH_COOKIE, token, posCashierCookieOptions);
     jar.delete(POS_LOCKED_SESSION_COOKIE);
+    const terminalToken = jar.get(POS_TERMINAL_COOKIE)?.value;
+    if (terminalToken)
+      jar.set(POS_TERMINAL_COOKIE, terminalToken, posTerminalCookieOptions);
     return { success: true };
   } catch (error) {
     console.error('Unable to unlock locked POS session', error);
@@ -933,21 +1040,19 @@ export async function lockPos() {
       .update(posAuthSession)
       .set({ status: 'locked' })
       .where(eq(posAuthSession.tokenHash, tokenHash(token)));
-    jar.set(POS_LOCKED_SESSION_COOKIE, token, posCookieOptions);
+    jar.set(POS_LOCKED_SESSION_COOKIE, token, posCashierCookieOptions);
   }
   jar.delete(POS_AUTH_COOKIE);
   if (terminal) {
     const session = await auth.api.getSession({ headers: await headers() });
     if (session?.user)
-      await db
-        .insert(auditEvent)
-        .values({
-          id: generateId(),
-          organizationId: terminal.organizationId,
-          userId: session.user.id,
-          action: 'pos.session.locked',
-          metadata: { terminalId: terminal.id },
-        });
+      await db.insert(auditEvent).values({
+        id: generateId(),
+        organizationId: terminal.organizationId,
+        userId: session.user.id,
+        action: 'pos.session.locked',
+        metadata: { terminalId: terminal.id },
+      });
   }
   return { success: true };
 }

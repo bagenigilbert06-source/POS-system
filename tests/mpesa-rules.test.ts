@@ -45,8 +45,12 @@ const manualUi = require('node:fs').readFileSync('components/pos/pos-terminal.ts
 assert.match(manualUi, /Buy Goods Till/)
 assert.match(manualUi, /Exact amount due/)
 const callbackRoute = require('node:fs').readFileSync('app/api/mpesa/callback/route.ts', 'utf8')
+const mpesaActions = require('node:fs').readFileSync('app/actions/mpesa.ts', 'utf8')
+const merchantConfiguration = require('node:fs').readFileSync('lib/mpesa/merchant-configuration.ts', 'utf8')
 const proxy = require('node:fs').readFileSync('proxy.ts', 'utf8')
 assert.match(callbackRoute, /export async function POST/)
+assert.match(mpesaActions, /return \{ success: false as const, error: safeMpesaActionError\(error\) \}/)
+assert.match(merchantConfiguration, /MPESA_ENV[\s\S]*MPESA_TILL_NUMBER[\s\S]*MPESA_BUSINESS_SHORTCODE/)
 assert.doesNotMatch(callbackRoute, /getAuthorizationContext|requirePermission|cookies\(/)
 assert.match(proxy, /matcher: \['\/dashboard\/:path\*'\]/)
 

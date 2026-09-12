@@ -25,6 +25,7 @@ import {
   registerShiftDurationMinutes,
 } from '@/lib/pos/shift-duration';
 import { openQzCashDrawer } from '@/lib/printing/receipt-print-service';
+import { TerminalPrinterStatus } from '@/components/pos/terminal-printer-status';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -92,6 +93,8 @@ export function CashierShiftStrip({
   posUnlocked = false,
   canManageCash = false,
   directDrawerConfigured = false,
+  printerMode = 'browser',
+  printerName = '',
 }: {
   workspace: Workspace;
   action?: ReactNode;
@@ -99,6 +102,8 @@ export function CashierShiftStrip({
   posUnlocked?: boolean;
   canManageCash?: boolean;
   directDrawerConfigured?: boolean;
+  printerMode?: 'direct' | 'browser';
+  printerName?: string;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -351,6 +356,10 @@ export function CashierShiftStrip({
                   'No active register'
                 )}
               </dd>
+              <TerminalPrinterStatus
+                mode={printerMode}
+                printerName={printerName}
+              />
             </div>
           </dl>
           <div className="hidden shrink-0 flex-wrap items-center justify-end gap-2 sm:flex">

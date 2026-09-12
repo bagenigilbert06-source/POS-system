@@ -2985,6 +2985,7 @@ export function POSTerminal({
             }
           : undefined,
       });
+      if (!response.success) throw new Error(response.error);
       setMpesaRequestId(response.id);
       window.localStorage.setItem(
         mpesaStorageKey,
@@ -3109,6 +3110,7 @@ export function POSTerminal({
             }
           : undefined,
       });
+      if (!response.success) throw new Error(response.error);
       setMpesaRequestId(response.id);
       window.localStorage.setItem(
         mpesaStorageKey,

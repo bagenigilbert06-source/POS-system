@@ -110,10 +110,10 @@ export async function getRewardCheckoutQuote(input: { organizationId: string; cu
 async function eligibleLines(tx: RewardTransaction | typeof db, settings: RewardSettingsModel, branchId: string, kind: 'loyalty' | 'bonus', lines: RewardSaleLine[]) {
   const branches = await tx.select({ branchId: rewardBranchEligibility.branchId }).from(rewardBranchEligibility).where(and(eq(rewardBranchEligibility.rewardSettingsId, settings.id), eq(rewardBranchEligibility.rewardKind, kind)))
   if (branches.length && !branches.some((row) => row.branchId === branchId)) throw new Error(`${kind === 'loyalty' ? 'Loyalty' : 'Bonus'} rewards are unavailable at this branch`)
-  const [productScopes, categoryScopes] = await Promise.all([
-    tx.select().from(rewardProductEligibility).where(and(eq(rewardProductEligibility.rewardSettingsId, settings.id), eq(rewardProductEligibility.rewardKind, kind))),
-    tx.select().from(rewardCategoryEligibility).where(and(eq(rewardCategoryEligibility.rewardSettingsId, settings.id), eq(rewardCategoryEligibility.rewardKind, kind))),
-  ])
+  // A Drizzle transaction owns one pg client; run its queries sequentially.
+  // Concurrent client.query calls are deprecated and can fail under pg@9.
+  const productScopes = await tx.select().from(rewardProductEligibility).where(and(eq(rewardProductEligibility.rewardSettingsId, settings.id), eq(rewardProductEligibility.rewardKind, kind)))
+  const categoryScopes = await tx.select().from(rewardCategoryEligibility).where(and(eq(rewardCategoryEligibility.rewardSettingsId, settings.id), eq(rewardCategoryEligibility.rewardKind, kind)))
   const includedProducts = new Set(productScopes.filter((row) => row.mode === 'include').map((row) => row.productId))
   const excludedProducts = new Set(productScopes.filter((row) => row.mode === 'exclude').map((row) => row.productId))
   const includedCategories = new Set(categoryScopes.filter((row) => row.mode === 'include').map((row) => row.categoryId))
