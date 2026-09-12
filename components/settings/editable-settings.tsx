@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
+import { cleanBusinessDisplayName } from '@/lib/business/display-name'
 import { Save, X } from 'lucide-react'
 import { LoadingSpinner as Loader2 } from '@/components/ui/page-loader'
 import { notify } from '@/lib/notify'
@@ -22,20 +23,24 @@ interface EditableSettingsProps {
 
 export function EditableSettings({ businessSettings, organization, buttonOnly = false, section, accountName = '' }: EditableSettingsProps) {
   const router = useRouter()
+  const initialBusinessName = cleanBusinessDisplayName(
+    businessSettings?.receiptBusinessName || businessSettings?.displayName,
+    organization.name
+  )
   const [isEditing, setIsEditing] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [logoUploading, setLogoUploading] = useState(false)
   const [printerStatus, setPrinterStatus] = useState<ReceiptPrinterStatus | null>(null)
   const [availablePrinters, setAvailablePrinters] = useState<string[]>([])
   const [formData, setFormData] = useState({
-    displayName: businessSettings?.displayName || organization.name,
+    displayName: initialBusinessName,
     accountName,
     address: businessSettings?.address || '',
     city: businessSettings?.city || '',
     region: businessSettings?.region || '',
     taxRate: businessSettings?.taxRate?.toString() || '16',
     taxName: businessSettings?.taxName || 'VAT',
-    receiptBusinessName: businessSettings?.receiptBusinessName || '',
+    receiptBusinessName: initialBusinessName,
     receiptPhone: businessSettings?.receiptPhone || '',
     receiptAddress: businessSettings?.receiptAddress || '',
     receiptFooter: businessSettings?.receiptFooter || '',
@@ -93,15 +98,19 @@ export function EditableSettings({ businessSettings, organization, buttonOnly = 
   const handleSave = async () => {
     setIsSaving(true)
     try {
+      const businessName = cleanBusinessDisplayName(
+        formData.receiptBusinessName || formData.displayName,
+        organization.name
+      )
       await Promise.all([
         updateBusinessSettings({
-          displayName: formData.displayName,
+          displayName: businessName,
           address: formData.address,
           city: formData.city,
           region: formData.region,
           taxRate: parseFloat(formData.taxRate),
           taxName: formData.taxName,
-          receiptBusinessName: formData.receiptBusinessName,
+          receiptBusinessName: businessName,
           receiptPhone: formData.receiptPhone,
           receiptAddress: formData.receiptAddress,
           receiptFooter: formData.receiptFooter,
@@ -134,7 +143,7 @@ export function EditableSettings({ businessSettings, organization, buttonOnly = 
           receiptCashDrawerPulse: formData.receiptCashDrawerPulse,
         }),
         updateOrganizationSettings({
-          name: formData.displayName,
+          name: businessName,
           currency: formData.currency,
           timezone: formData.timezone,
           taxRate: parseFloat(formData.taxRate),
@@ -200,7 +209,7 @@ export function EditableSettings({ businessSettings, organization, buttonOnly = 
                 <input
                   type="text"
                   value={formData.displayName}
-                  onChange={(e) => setFormData({ ...formData, displayName: e.target.value })}
+                  onChange={(e) => setFormData({ ...formData, displayName: e.target.value, receiptBusinessName: e.target.value })}
                   className="mt-1 w-full rounded-lg border px-3 py-2 text-sm"
                 />
               </div>
@@ -311,7 +320,7 @@ export function EditableSettings({ businessSettings, organization, buttonOnly = 
               <input
                 type="text"
                 value={formData.receiptBusinessName}
-                onChange={(e) => setFormData({ ...formData, receiptBusinessName: e.target.value })}
+                onChange={(e) => setFormData({ ...formData, receiptBusinessName: e.target.value, displayName: e.target.value })}
                 className="mt-1 w-full rounded-lg border px-3 py-2 text-sm"
               />
             </div>

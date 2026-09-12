@@ -1,7 +1,7 @@
 'use server'
 
 import { db } from '@/lib/db'
-import { businessSettings, organization, user } from '@/lib/db/schema'
+import { businessSettings, organization, posTerminal, user } from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
 import { auth } from '@/lib/auth'
 import { headers } from 'next/headers'
@@ -9,6 +9,7 @@ import { revalidatePath } from 'next/cache'
 import { OrganizationService } from '@/lib/services/organization-service'
 import { requirePermission } from '@/lib/auth/authorization'
 import { PermissionEnum } from '@/lib/types/permissions'
+import { getTerminal } from '@/lib/pos/pos-auth'
 
 async function getUserId() {
   const session = await auth.api.getSession({ headers: await headers() })
@@ -119,6 +120,40 @@ export async function updateBusinessSettings(data: {
       .where(eq(businessSettings.organizationId, orgId))
       .returning()
 
+    // Receipt hardware is terminal-scoped at checkout. Keep the currently
+    // registered device in sync when its operator saves the hardware controls
+    // from workspace receipt settings; otherwise those switches appear saved
+    // but are silently replaced by the terminal defaults on the POS page.
+    const terminal = await getTerminal()
+    const hasPrinterUpdate =
+      data.receiptPrintingMode !== undefined ||
+      data.receiptPrinterName !== undefined ||
+      data.receiptPaperWidth !== undefined ||
+      data.receiptAutoPrint !== undefined ||
+      data.receiptPrintCopies !== undefined ||
+      data.receiptCashDrawerPulse !== undefined
+    if (terminal?.organizationId === orgId && hasPrinterUpdate) {
+      const printerName = data.receiptPrinterName?.trim()
+      await db
+        .update(posTerminal)
+        .set({
+          ...(data.receiptPrintingMode !== undefined && { printingMode: data.receiptPrintingMode }),
+          ...(data.receiptPrinterName !== undefined && {
+            printerIdentifier: printerName || null,
+            printerDisplayName: printerName || null,
+          }),
+          ...(data.receiptPaperWidth !== undefined && { paperWidth: data.receiptPaperWidth }),
+          ...(data.receiptAutoPrint !== undefined && { autoPrint: data.receiptAutoPrint }),
+          ...(data.receiptPrintCopies !== undefined && {
+            receiptCopies: Math.max(1, Math.min(3, data.receiptPrintCopies)),
+          }),
+          ...(data.receiptCashDrawerPulse !== undefined && { cashDrawerPulse: data.receiptCashDrawerPulse }),
+        })
+        .where(eq(posTerminal.id, terminal.id))
+    }
+
+    revalidatePath('/dashboard/pos')
+    revalidatePath('/dashboard/admin/devices')
     return { success: true, settings: updated[0] }
   } catch (error) {
     console.error('[v0] Error updating business settings:', error)

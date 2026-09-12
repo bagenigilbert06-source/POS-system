@@ -8,6 +8,10 @@ const receipts = fs.readFileSync('app/dashboard/receipts/layout.tsx', 'utf8');
 const posPage = fs.readFileSync('app/dashboard/pos/page.tsx', 'utf8');
 const dashboardLayout = fs.readFileSync('app/dashboard/layout.tsx', 'utf8');
 const posPin = fs.readFileSync('app/actions/pos-pin.ts', 'utf8');
+const posPageService = fs.readFileSync('lib/services/pos-page-service.ts', 'utf8');
+const settingsActions = fs.readFileSync('app/actions/settings-actions.ts', 'utf8');
+const dashboardLayoutClient = fs.readFileSync('components/layout/dashboard-layout-client.tsx', 'utf8');
+const editableSettings = fs.readFileSync('components/settings/editable-settings.tsx', 'utf8');
 
 assert.match(
   dashboardAccess,
@@ -30,4 +34,9 @@ assert.match(
 );
 assert.match(posPin, /registered to a different store/);
 assert.match(posPin, /const unlocked = await unlockPosWithStaffPin\(context\.userId, pin\)/);
+assert.match(posPageService, /settings\?\.receiptBusinessName\?\.trim\(\) \|\| settings\?\.displayName\?\.trim\(\)/);
+assert.match(settingsActions, /terminal\?\.organizationId === orgId && hasPrinterUpdate/);
+assert.match(settingsActions, /cashDrawerPulse: data\.receiptCashDrawerPulse/);
+assert.match(dashboardLayoutClient, /!isPosWorkspace && !adminMode/);
+assert.match(editableSettings, /receiptBusinessName: e\.target\.value, displayName: e\.target\.value/);
 console.log('Cashier workspace authentication rules passed');

@@ -12,7 +12,7 @@ function receiptSettings(settings: typeof businessSettings.$inferSelect | undefi
     // The optional trading name is the presentation identity; the persisted
     // legal tenant name remains the fallback, never the workspace template.
     displayName: settings?.displayName?.trim() || organizationName || 'Business name not configured',
-    receiptBusinessName: settings?.displayName?.trim() || organizationName || 'Business name not configured',
+    receiptBusinessName: settings?.receiptBusinessName?.trim() || settings?.displayName?.trim() || organizationName || 'Business name not configured',
     receiptPhone: settings?.receiptPhone || '', receiptAddress: settings?.receiptAddress || '',
     receiptFooter: settings?.receiptFooter || 'Thank you for your purchase',
     receiptLayout: settings?.receiptLayout === 'detailed' ? 'detailed' as const : 'thermal' as const,

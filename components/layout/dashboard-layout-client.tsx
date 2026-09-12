@@ -71,7 +71,7 @@ export function DashboardLayoutClient({
         <a href="#dashboard-content" className="skip-link">
           Skip to main content
         </a>
-        {!isPosWorkspace && (
+        {!isPosWorkspace && !adminMode && (
           <DynamicAppSidebar
             initialPermissions={permissions}
             initialRole={role}

@@ -18,6 +18,7 @@ import { requireDashboardPermission } from '@/lib/auth/dashboard-access'
 import { PermissionEnum } from '@/lib/types/permissions'
 import { AdminPageHeader } from '@/components/admin/admin-page-header'
 import { EditableSettings } from '@/components/settings/editable-settings'
+import { cleanBusinessDisplayName } from '@/lib/business/display-name'
 
 function label(value: string | null | undefined) {
   if (!value) return 'Not configured'
@@ -84,7 +85,7 @@ export default async function AdminProfilePage() {
             />
           }
         >
-          <Value label="Business name" value={settings?.displayName || record.name} />
+          <Value label="Business name" value={cleanBusinessDisplayName(settings?.receiptBusinessName || settings?.displayName, record.name)} />
           <Value label="Business family" value={label(record.businessType)} />
           <Value
             label="Category"

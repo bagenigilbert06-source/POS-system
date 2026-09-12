@@ -14,6 +14,7 @@ import { and, count, desc, eq } from 'drizzle-orm';
 import { getDashboardAuthorization } from '@/lib/auth/dashboard-access';
 import { getPosAuthorizationContext } from '@/lib/pos/pos-auth';
 import { withDatabaseRetry } from '@/lib/db/retry';
+import { cleanBusinessDisplayName } from '@/lib/business/display-name';
 
 export default async function DashboardRouteLayout({
   children,
@@ -92,13 +93,19 @@ export default async function DashboardRouteLayout({
       .from(branch)
       .where(eq(branch.organizationId, organization.id)),
     db
-      .select({ displayName: businessSettings.displayName })
+      .select({
+        displayName: businessSettings.displayName,
+        receiptBusinessName: businessSettings.receiptBusinessName,
+      })
       .from(businessSettings)
       .where(eq(businessSettings.organizationId, organization.id))
       .limit(1),
   ]);
   const activeBranch = activeBranchRows[0];
-  const displayName = brandingRows[0]?.displayName?.trim() || organization.name;
+  const displayName = cleanBusinessDisplayName(
+    brandingRows[0]?.receiptBusinessName || brandingRows[0]?.displayName,
+    organization.name
+  );
 
   return (
     <DashboardLayoutClient
