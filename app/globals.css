@@ -1072,6 +1072,14 @@ body:has(.dashboard-shell) {
   -webkit-overflow-scrolling: touch;
 }
 
+/* Shift Control already scrolls inside the dashboard content region. Prevent
+   the browser document from becoming a second scroll container on this route;
+   other dashboard pages keep their existing behavior. */
+html:has(.operations-workspace),
+body:has(.operations-workspace) {
+  overflow: hidden;
+}
+
 .dark .dashboard-shell {
   --background: 0 0% 5%;
   --foreground: 0 0% 98%;

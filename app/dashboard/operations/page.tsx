@@ -256,7 +256,7 @@ export default async function OperationsPage({
   ] as const;
 
   return (
-    <div className="dashboard-overview mx-auto w-full max-w-[1280px] space-y-5 pb-8">
+    <div className="operations-workspace dashboard-overview mx-auto w-full max-w-[1280px] space-y-5 pb-8">
       <header className="flex flex-col gap-4 border-b px-1 pb-5 pt-2 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
           <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#fff3cf] text-[#a56500] dark:bg-amber-950/40 dark:text-amber-300">
