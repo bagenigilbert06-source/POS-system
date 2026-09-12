@@ -329,8 +329,14 @@ export async function getPosLockData() {
   };
 }
 
-export async function unlockPosWithPin(userId: string, pin: string) {
-  const terminal = await getTerminal();
+type RegisteredPosTerminal = NonNullable<Awaited<ReturnType<typeof getTerminal>>>;
+
+async function unlockPosWithPinInternal(
+  userId: string,
+  pin: string,
+  verified?: { terminal: RegisteredPosTerminal; pinAlreadyVerified: true }
+) {
+  const terminal = verified?.terminal ?? (await getTerminal());
   if (!terminal) throw new Error('This POS terminal is not registered');
   const [[member], [account], [organizationRole], [staff], [credential]] =
     await Promise.all([
@@ -417,7 +423,10 @@ export async function unlockPosWithPin(userId: string, pin: string) {
     (credential.lockedUntil && credential.lockedUntil > new Date())
   )
     return invalid();
-  if (!(await verifyPassword({ hash: credential.pinHash, password: pin })))
+  if (
+    !verified?.pinAlreadyVerified &&
+    !(await verifyPassword({ hash: credential.pinHash, password: pin }))
+  )
     return invalid();
   await db
     .update(posPinCredential)
@@ -479,6 +488,10 @@ export async function unlockPosWithPin(userId: string, pin: string) {
     metadata: { terminalId: terminal.id, branchId: terminal.branchId },
   });
   return { success: true };
+}
+
+export async function unlockPosWithPin(userId: string, pin: string) {
+  return unlockPosWithPinInternal(userId, pin);
 }
 
 /** Staff eligible to unlock the registered terminal. No contact data is exposed. */
@@ -801,7 +814,11 @@ export async function unlockPosByPin(pin: string) {
       candidates,
       ({ pinHash }, value) => verifyPassword({ hash: pinHash, password: value })
     );
-    if (owners.length === 1) return await unlockPosWithPin(owners[0], pin);
+    if (owners.length === 1)
+      return await unlockPosWithPinInternal(owners[0], pin, {
+        terminal,
+        pinAlreadyVerified: true,
+      });
     return { success: false, error: 'PIN_NOT_FOUND' };
   } catch (error) {
     return {

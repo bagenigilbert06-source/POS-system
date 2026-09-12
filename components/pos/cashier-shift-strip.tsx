@@ -126,6 +126,7 @@ export function CashierShiftStrip({
   const [unlockPin, setUnlockPin] = useState('');
   const [unlockError, setUnlockError] = useState('');
   const [unlocking, setUnlocking] = useState(false);
+  const [unlockedForOpening, setUnlockedForOpening] = useState(false);
   const [liveShiftSales, setLiveShiftSales] = useState(workspace.shiftSales);
   const [liveTransactionCount, setLiveTransactionCount] = useState(
     workspace.transactionCount
@@ -146,6 +147,7 @@ export function CashierShiftStrip({
   const [now, setNow] = useState(() => Date.now());
   const sessionOpenedAt = session?.openedAt;
   const terminalConfigured = Boolean(workspace.registerName);
+  const registerUnlocked = posUnlocked || unlockedForOpening;
   const cashierDisplayName = formatPersonName(workspace.cashierName);
   const shiftStartedAt = session
     ? new Intl.DateTimeFormat('en-KE', {
@@ -159,6 +161,11 @@ export function CashierShiftStrip({
         registerShiftDurationMinutes(session.openedAt, new Date(now))
       )
     : null;
+  useEffect(() => {
+    // Once the refreshed server model confirms the secure POS session, clear
+    // the temporary bridge so a later explicit lock cannot retain stale UI.
+    if (posUnlocked) setUnlockedForOpening(false);
+  }, [posUnlocked]);
   useEffect(() => {
     if (!sessionOpenedAt) return;
     setNow(Date.now());
@@ -286,8 +293,9 @@ export function CashierShiftStrip({
         return;
       }
       setUnlockPin('');
+      setUnlockedForOpening(true);
       notify.success('Register unlocked');
-      router.refresh();
+      startTransition(() => router.refresh());
     } catch {
       setUnlockPin('');
       setUnlockError('Unable to unlock this register. Please try again.');
@@ -298,7 +306,7 @@ export function CashierShiftStrip({
 
   return (
     <>
-      <section className="pos-shift-strip hidden overflow-hidden rounded-2xl border border-[#ead28a] bg-gradient-to-r from-[#fffdf7] via-[#fff9e5] to-[#fff1b8] font-sans shadow-[0_2px_8px_rgba(151,112,0,.08)] dark:border-[rgba(255,214,10,.22)] dark:from-[#15130c] dark:via-[#201b0d] dark:to-[#30270f] dark:shadow-[0_2px_8px_rgba(0,0,0,.18)] lg:block">
+      <section className="pos-shift-strip hidden overflow-hidden rounded-[8px] border border-[#dfe3e8] bg-white font-sans shadow-[0_3px_10px_rgba(16,24,40,.05)] dark:border-white/10 dark:bg-[#161616] dark:shadow-[0_3px_10px_rgba(0,0,0,.18)] lg:block">
         <div className="flex flex-col gap-2 px-3 py-2 sm:px-4 sm:py-2.5 xl:flex-row xl:items-center xl:justify-between">
           <dl className="grid min-w-0 flex-1 grid-cols-2 gap-x-4 gap-y-2 sm:grid-cols-4 lg:max-w-4xl">
             <SummaryMetric
@@ -363,7 +371,7 @@ export function CashierShiftStrip({
             </div>
           </dl>
           <div className="hidden shrink-0 flex-wrap items-center justify-end gap-2 sm:flex">
-            {!posUnlocked && (
+            {!registerUnlocked && (
               <Link
                 href="/dashboard"
                 aria-label="Back to dashboard"
@@ -599,7 +607,7 @@ export function CashierShiftStrip({
             )
               return;
             event.preventDefault();
-            if (!posUnlocked && terminalConfigured) void unlockRegister();
+            if (!registerUnlocked && terminalConfigured) void unlockRegister();
             else
               document
                 .querySelector<HTMLButtonElement>('[data-open-register-submit]')
@@ -609,7 +617,7 @@ export function CashierShiftStrip({
         >
           <DialogHeader className="space-y-1 border-b border-border pb-4">
             <DialogTitle className="text-lg font-semibold tracking-tight">
-              {posUnlocked ? 'Open register' : 'Unlock register'}
+              {registerUnlocked ? 'Open register' : 'Unlock register'}
             </DialogTitle>
             <DialogDescription className="space-y-0.5 text-sm leading-5 text-[var(--dashboard-muted)]">
               <span className="block">
@@ -627,7 +635,7 @@ export function CashierShiftStrip({
               terminal before opening a register.
             </p>
           )}
-          {!posUnlocked && terminalConfigured ? (
+          {!registerUnlocked && terminalConfigured ? (
             <div className="grid gap-4 py-1">
               <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300">
                 <LockKeyhole className="h-5 w-5" aria-hidden="true" />

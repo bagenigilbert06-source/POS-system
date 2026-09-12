@@ -3414,6 +3414,69 @@ html.dark .pesaby-global-loader.pesaby-inline-loader {
   box-shadow: 0 2px 8px rgba(15, 27, 61, 0.04);
 }
 
+/* POS surfaces follow one compact retail register language. The visual contract
+   mirrors the action dock: crisp square cards, navy copy, orange emphasis and
+   restrained shadows. These selectors are scoped to an active POS workspace so
+   dashboard and public dialogs keep their own design language. */
+.pos-workspace {
+  --pos-ink: #273142;
+  --pos-navy: #092c4c;
+  --pos-orange: #e94e1b;
+  --pos-border: #dfe3e8;
+  --pos-muted-surface: #f7f8fa;
+}
+
+.pos-workspace .pos-card,
+.pos-workspace .pos-shift-strip {
+  border-color: var(--pos-border) !important;
+  border-radius: 8px !important;
+  background: #fff !important;
+  color: var(--pos-ink);
+  box-shadow: 0 3px 10px rgba(16, 24, 40, 0.05) !important;
+}
+
+.pos-workspace .pos-card-muted {
+  background: var(--pos-muted-surface) !important;
+}
+
+body:has(.pos-workspace) [role='dialog'][class*='max-w'],
+body:has(.pos-workspace) [role='alertdialog'][class*='max-w'],
+body:has(.pos-workspace) [role='dialog'] > [class*='max-w'],
+body:has(.pos-workspace) [role='alertdialog'] > [class*='max-w'] {
+  border: 1px solid var(--pos-border, #dfe3e8) !important;
+  border-radius: 8px !important;
+  background: #fff !important;
+  color: var(--pos-ink) !important;
+  box-shadow: 0 24px 70px rgba(16, 24, 40, 0.3) !important;
+}
+
+body:has(.pos-workspace) [role='dialog'] [class*='rounded-xl'][class*='border'],
+body:has(.pos-workspace) [role='alertdialog'] [class*='rounded-xl'][class*='border'] {
+  border-color: var(--pos-border, #dfe3e8) !important;
+  border-radius: 6px !important;
+  box-shadow: none !important;
+}
+
+body:has(.pos-workspace) [role='dialog'] input,
+body:has(.pos-workspace) [role='dialog'] textarea,
+body:has(.pos-workspace) [role='dialog'] select,
+body:has(.pos-workspace) [role='alertdialog'] input,
+body:has(.pos-workspace) [role='alertdialog'] textarea,
+body:has(.pos-workspace) [role='alertdialog'] select {
+  border-radius: 5px !important;
+}
+
+.dark .pos-workspace .pos-card,
+.dark .pos-workspace .pos-shift-strip,
+.dark body:has(.pos-workspace) [role='dialog'][class*='max-w'],
+.dark body:has(.pos-workspace) [role='alertdialog'][class*='max-w'],
+.dark body:has(.pos-workspace) [role='dialog'] > [class*='max-w'],
+.dark body:has(.pos-workspace) [role='alertdialog'] > [class*='max-w'] {
+  border-color: rgba(255, 255, 255, 0.1) !important;
+  background: #1c1c1e !important;
+  color: #f5f5f5 !important;
+}
+
 /* Administration lives inside the dashboard shell, so its cards and type
    must follow the active dashboard theme. The light admin overrides above are
    intentionally scoped to light mode; these values keep dark mode on the same

@@ -403,9 +403,9 @@ function formatKenyanPhoneInput(value: string) {
  * through the JSX.
  */
 const ui = {
-  card: 'rounded-2xl border border-[#e4e7ec] bg-white shadow-[0_8px_30px_-18px_rgba(16,24,40,.35)] dark:border-white/10 dark:bg-[#161616]',
+  card: 'pos-card rounded-[8px] border border-[#dfe3e8] bg-white shadow-[0_3px_10px_rgba(16,24,40,.05)] dark:border-white/10 dark:bg-[#161616]',
   panel:
-    'rounded-2xl border border-[#e4e7ec] bg-[#fbfbfc] shadow-sm dark:border-white/10 dark:bg-[#131313]',
+    'pos-card pos-card-muted rounded-[8px] border border-[#dfe3e8] bg-[#fbfbfc] shadow-[0_3px_10px_rgba(16,24,40,.04)] dark:border-white/10 dark:bg-[#131313]',
   subtleBtn:
     'rounded-lg border border-[#d8dce3] bg-white px-3 py-2 text-xs font-medium text-[#344054] transition-colors hover:bg-[#f9fafb] disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/10 dark:bg-transparent dark:text-[#d0d5dd] dark:hover:bg-white/5',
   input:

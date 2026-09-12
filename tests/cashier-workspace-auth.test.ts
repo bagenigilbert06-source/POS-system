@@ -107,6 +107,12 @@ assert.match(
   posTerminal,
   /setTimeout\(\(\) => \{\s*autoPrintedReceiptRef\.current = receipt\.saleId;\s*void handlePrintReceipt\(true\);/
 );
+assert.match(posPin, /pinAlreadyVerified: true/);
+assert.match(posPin, /!verified\?\.pinAlreadyVerified/);
+assert.match(
+  fs.readFileSync('components/pos/cashier-shift-strip.tsx', 'utf8'),
+  /setUnlockedForOpening\(true\)[\s\S]*startTransition\(\(\) => router\.refresh\(\)\)/
+);
 assert.match(
   posAuth,
   /posTerminalCookieOptions[\s\S]*maxAge: 60 \* 60 \* 24 \* 365/
