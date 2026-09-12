@@ -805,6 +805,7 @@ export function POSTerminal({
   const barcodeLastKeyAtRef = useRef(0);
   const lastScanRef = useRef<{ barcode: string; at: number } | null>(null);
   const checkoutIdempotencyKeyRef = useRef<string>('');
+  const checkoutProcessingRef = useRef(false);
   const ageVerificationIdRef = useRef<string | null>(null);
   const mpesaToastIdRef = useRef<string | number | null>(null);
   const autoFinalizeRef = useRef<() => void>(() => undefined);
@@ -2389,6 +2390,13 @@ export function POSTerminal({
       });
     }
 
+    // State updates are scheduled, so use a synchronous lock as well. This
+    // prevents fast double-clicks or repeated Enter presses from starting a
+    // second sale before React has rendered the disabled button.
+    if (checkoutProcessingRef.current) return;
+    checkoutProcessingRef.current = true;
+    setProcessing(true);
+
     // Check for low stock items
     const lowStockItems = cart.filter((item) => {
       const product = catalogProducts.find((p) => p.id === item.productId);
@@ -2405,15 +2413,18 @@ export function POSTerminal({
       );
     }
 
-    setProcessing(true);
-
     // Generate idempotency key on first attempt
     if (!checkoutIdempotencyKeyRef.current) {
       checkoutIdempotencyKeyRef.current = createIdempotencyKey();
-      window.localStorage.setItem(
-        checkoutStorageKey,
-        checkoutIdempotencyKeyRef.current
-      );
+      try {
+        window.localStorage.setItem(
+          checkoutStorageKey,
+          checkoutIdempotencyKeyRef.current
+        );
+      } catch {
+        // The in-memory key still protects this checkout when browser storage
+        // is unavailable, so the cashier can complete the sale immediately.
+      }
     }
 
     if (!isOnline) {
@@ -2429,6 +2440,7 @@ export function POSTerminal({
             : 'Could not save this offline sale'
         );
       } finally {
+        checkoutProcessingRef.current = false;
         setProcessing(false);
       }
       return;
@@ -2757,6 +2769,7 @@ export function POSTerminal({
             : 'The sale could not be processed.',
       });
     } finally {
+      checkoutProcessingRef.current = false;
       setProcessing(false);
     }
   };
@@ -7910,7 +7923,8 @@ export function POSTerminal({
                               <button
                                 type="button"
                                 onClick={() => setCheckoutStep('customer')}
-                                className="h-[50px] rounded-lg border border-[#d0d5dd] bg-white px-5 text-sm font-semibold text-[#344054] shadow-none transition-colors hover:bg-[#f9fafb]"
+                                disabled={processing}
+                                className="h-[50px] rounded-lg border border-[#d0d5dd] bg-white px-5 text-sm font-semibold text-[#344054] shadow-none transition-colors hover:bg-[#f9fafb] disabled:cursor-not-allowed disabled:opacity-50"
                               >
                                 Back
                               </button>
@@ -7919,6 +7933,12 @@ export function POSTerminal({
                                 <button
                                   type="button"
                                   onClick={() => handleCheckout()}
+                                  aria-busy={processing}
+                                  aria-label={
+                                    processing
+                                      ? 'Completing sale'
+                                      : undefined
+                                  }
                                   disabled={
                                     processing ||
                                     cart.length === 0 ||
@@ -7945,8 +7965,9 @@ export function POSTerminal({
                                   }
                                   className={cn(
                                     'flex min-h-[50px] flex-1 touch-manipulation items-center justify-center gap-2 rounded-lg px-3 text-center text-sm font-bold leading-tight shadow-none transition-colors sm:px-4',
-                                    processing ||
-                                      cart.length === 0 ||
+                                    processing
+                                      ? 'cursor-wait !bg-[#f5b800] !text-[#241d00] shadow-none'
+                                      : cart.length === 0 ||
                                       !hasActiveShift ||
                                       (paymentMethod === 'cash' &&
                                         parseFloat(amountPaid || '0') <
@@ -7972,7 +7993,6 @@ export function POSTerminal({
                                       : 'hover:bg-[#e2a900]'
                                   )}
                                   style={
-                                    processing ||
                                     cart.length === 0 ||
                                     !hasActiveShift
                                       ? undefined
@@ -7983,7 +8003,7 @@ export function POSTerminal({
                                   }
                                 >
                                   {processing ? (
-                                    <Loader2 className="h-5 w-5 animate-spin" />
+                                    <Loader2 className="h-5 w-5 animate-spin text-[#241d00]" />
                                   ) : (
                                     <>
                                       <CheckCircle2 className="hidden h-4 w-4" />
