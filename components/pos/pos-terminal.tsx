@@ -6746,15 +6746,17 @@ export function POSTerminal({
                                     <div className="grid grid-cols-3 gap-2">
                                       {[
                                         total,
-                                        ...[
-                                          1000, 2000, 5000, 10000, 20000, 50000,
-                                        ].filter((amount) => amount >= total),
+                                        1000,
+                                        2000,
+                                        5000,
+                                        10000,
+                                        20000,
                                       ]
                                         .filter(
                                           (amount, index, values) =>
                                             values.indexOf(amount) === index
                                         )
-                                        .slice(0, 5)
+                                        .slice(0, 6)
                                         .map((amount) => (
                                           <button
                                             key={amount}
