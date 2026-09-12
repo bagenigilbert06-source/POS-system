@@ -7227,43 +7227,51 @@ export function POSTerminal({
                                               )}
                                             >
                                               {mpesaAccountType === 'till' && (
-                                                <div className="mb-3 rounded-lg border-2 border-[#11ad2d] bg-[#effcf1] p-3 text-center text-[#176b2c] dark:bg-emerald-950/30 dark:text-emerald-200">
+                                                <div className="relative rounded-lg border-2 border-[#11ad2d] bg-[#effcf1] p-3 text-center text-[#176b2c] dark:bg-emerald-950/30 dark:text-emerald-200">
+                                                  <button
+                                                    type="button"
+                                                    onClick={() =>
+                                                      void copyManualPaymentValue(
+                                                        mpesaShortcode,
+                                                        'Till number'
+                                                      )
+                                                    }
+                                                    className="absolute right-2 top-2 inline-flex h-7 w-7 items-center justify-center rounded-md text-[#176b2c] transition-colors hover:bg-[#d8f5df] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#11ad2d]/40 dark:text-emerald-200 dark:hover:bg-emerald-900/50"
+                                                    aria-label="Copy Till number"
+                                                    title="Copy Till number"
+                                                  >
+                                                    <Copy className="h-3.5 w-3.5" />
+                                                  </button>
                                                   <p className="text-xs font-extrabold uppercase tracking-wide">{mpesaMerchantName || 'Branch merchant'}</p>
                                                   <p className="mt-1 text-[10px] font-bold uppercase tracking-[0.16em]">Buy Goods Till</p>
                                                   <p className="mt-1 text-3xl font-black tabular-nums">{mpesaShortcode}</p>
                                                   <p className="mt-2 text-sm font-bold">Exact amount due: {formatMpesaAmount(total)}</p>
                                                 </div>
                                               )}
-                                              <span className="block text-[9px] font-bold uppercase tracking-wider text-[#667085] dark:text-[#a1a1a6]">
-                                                {mpesaAccountType === 'till'
-                                                  ? 'Till number'
-                                                  : 'PayBill number'}
-                                              </span>
-                                              <span className="mt-1 flex items-center justify-between gap-3">
-                                                <strong className="text-xl tabular-nums text-[#273142] dark:text-white">
-                                                  {mpesaShortcode}
-                                                </strong>
-                                                <button
-                                                  type="button"
-                                                  onClick={() =>
-                                                    void copyManualPaymentValue(
-                                                      mpesaShortcode,
-                                                      mpesaAccountType ===
-                                                        'till'
-                                                        ? 'Till number'
-                                                        : 'PayBill number'
-                                                    )
-                                                  }
-                                                  className="inline-flex h-7 items-center gap-1 rounded px-2 text-[10px] font-semibold text-[#43784f] hover:bg-[#effcf1] dark:text-emerald-300"
-                                                >
-                                                  <Copy className="h-3 w-3" />
-                                                  Copy
-                                                </button>
-                                              </span>
-                                              {mpesaMerchantName && (
-                                                <span className="mt-1 block text-[10px] text-[#667085] dark:text-[#b8b8b8]">
-                                                  Pay to {mpesaMerchantName}
-                                                </span>
+                                              {mpesaAccountType === 'paybill' && (
+                                                <>
+                                                  <span className="block text-[9px] font-bold uppercase tracking-wider text-[#667085] dark:text-[#a1a1a6]">
+                                                    PayBill number
+                                                  </span>
+                                                  <span className="mt-1 flex items-center justify-between gap-3">
+                                                    <strong className="text-xl tabular-nums text-[#273142] dark:text-white">
+                                                      {mpesaShortcode}
+                                                    </strong>
+                                                    <button
+                                                      type="button"
+                                                      onClick={() =>
+                                                        void copyManualPaymentValue(
+                                                          mpesaShortcode,
+                                                          'PayBill number'
+                                                        )
+                                                      }
+                                                      className="inline-flex h-7 items-center gap-1 rounded px-2 text-[10px] font-semibold text-[#43784f] hover:bg-[#effcf1] dark:text-emerald-300"
+                                                    >
+                                                      <Copy className="h-3 w-3" />
+                                                      Copy
+                                                    </button>
+                                                  </span>
+                                                </>
                                               )}
                                             </div>
                                             {mpesaAccountType === 'paybill' && (
@@ -7291,15 +7299,7 @@ export function POSTerminal({
                                                 </span>
                                               </div>
                                             )}
-                                            <div className="col-span-2 rounded-[7px] border border-[#e4e7ec] bg-white px-3 py-2.5 shadow-sm dark:border-[#3a3a3c] dark:bg-[#1c1c1e]">
-                                              <span className="block text-[9px] font-bold uppercase tracking-wider text-[#667085] dark:text-[#a1a1a6]">
-                                                Amount
-                                              </span>
-                                              <strong className="mt-1 block text-lg tabular-nums text-[#273142] dark:text-white">
-                                                {formatMpesaAmount(total)}
-                                              </strong>
-                                            </div>
-                                            <details className="group col-span-2 rounded-[7px] border border-[#e4e7ec] bg-white px-3 py-2.5 text-[11px] leading-5 text-[#475467] shadow-sm dark:border-[#3a3a3c] dark:bg-[#1c1c1e] dark:text-[#d0d5dd]">
+                                            <details open className="group col-span-2 rounded-[7px] border border-[#e4e7ec] bg-white px-3 py-2.5 text-[11px] leading-5 text-[#475467] shadow-sm dark:border-[#3a3a3c] dark:bg-[#1c1c1e] dark:text-[#d0d5dd]">
                                               <summary className="flex cursor-pointer list-none items-center justify-between font-bold text-[#273142] dark:text-white">
                                                 How to pay{' '}
                                                 <ChevronDown className="h-4 w-4 text-[#667085] transition-transform group-open:rotate-180" />
