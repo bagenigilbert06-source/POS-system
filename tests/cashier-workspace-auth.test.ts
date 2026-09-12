@@ -37,6 +37,14 @@ const printerStatus = fs.readFileSync(
   'components/pos/terminal-printer-status.tsx',
   'utf8'
 );
+const terminalPrinterSettings = fs.readFileSync(
+  'components/admin/terminal-printer-settings.tsx',
+  'utf8'
+);
+const devicesPage = fs.readFileSync(
+  'app/dashboard/admin/devices/page.tsx',
+  'utf8'
+);
 
 assert.match(
   dashboardAccess,
@@ -117,11 +125,12 @@ const cashierShiftStrip = fs.readFileSync(
   'components/pos/cashier-shift-strip.tsx',
   'utf8'
 );
-assert.match(cashierShiftStrip, /placeholder="6-digit PIN"/);
+assert.match(cashierShiftStrip, /placeholder="Enter PIN"/);
 assert.match(
   cashierShiftStrip,
-  /unlockPin \? 'tracking-\[0\.32em\]' : 'tracking-normal'/
+  /unlockPin \? 'tracking-\[0\.28em\]' : 'tracking-normal'/
 );
+assert.match(cashierShiftStrip, /id="pos-unlock-pin"/);
 assert.match(
   posAuth,
   /posTerminalCookieOptions[\s\S]*maxAge: 60 \* 60 \* 24 \* 365/
@@ -138,6 +147,11 @@ assert.doesNotMatch(
   printerStatus,
   /updatePosTerminalPrinter|localStorage|sessionStorage/
 );
+assert.match(terminalPrinterSettings, /void checkSavedPrinter\(\)/);
+assert.match(terminalPrinterSettings, /visibilitychange/);
+assert.match(terminalPrinterSettings, /window\.addEventListener\('online', reconnect\)/);
+assert.match(terminalPrinterSettings, /window\.setInterval[\s\S]*30_000/);
+assert.match(devicesPage, /currentDevice=\{currentDevice\}/);
 assert.match(posPageService, /eq\(posTerminal\.organizationId, orgId\)/);
 assert.match(
   posPageService,

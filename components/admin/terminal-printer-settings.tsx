@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { CheckCircle2, Pencil, Printer, ReceiptText, RefreshCw, Settings2, Wifi } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { notify } from '@/lib/notify';
@@ -36,14 +36,20 @@ const VIRTUAL_PRINTER_PATTERN = /microsoft\s+print\s+to\s+pdf|onenote|fax|pdf(?:
 function physicalPrinterNames(names: string[]) {
   return Array.from(new Set(names.filter((printer) => printer.trim() && !VIRTUAL_PRINTER_PATTERN.test(printer))));
 }
-export function TerminalPrinterSettings({ terminal }: { terminal: Terminal }) {
+export function TerminalPrinterSettings({
+  terminal,
+  currentDevice,
+}: {
+  terminal: Terminal;
+  currentDevice: boolean;
+}) {
   const [open, setOpen] = useState(false),
     [renameOpen, setRenameOpen] = useState(false),
     [saving, setSaving] = useState(false),
     [testing, setTesting] = useState(false),
     [discovering, setDiscovering] = useState(false),
     [printerStatus, setPrinterStatus] = useState<ReceiptPrinterStatus | null>(null),
-    [qzStatus, setQzStatus] = useState<'not-checked' | 'connecting' | 'connected' | 'not-connected'>('not-checked'),
+    [qzStatus, setQzStatus] = useState<'not-checked' | 'connecting' | 'connected' | 'not-connected' | 'not-required'>('not-checked'),
     [diagnostic, setDiagnostic] = useState(''),
     [lastTest, setLastTest] = useState<'success' | 'failed' | null>(null),
     [printers, setPrinters] = useState<string[]>([]);
@@ -62,6 +68,49 @@ export function TerminalPrinterSettings({ terminal }: { terminal: Terminal }) {
   const configured = mode === 'direct' && Boolean((name || identifier).trim());
   const configuredPrinter = (identifier || name).trim();
   const rawTcpConfigured = /^tcp:\/\/[^/:\s]+:\d{1,5}$/i.test(configuredPrinter);
+  const checkSavedPrinter = useCallback(async () => {
+    if (!currentDevice || mode !== 'direct' || !configuredPrinter) return;
+
+    setDiagnostic('');
+    setQzStatus(rawTcpConfigured ? 'not-required' : 'connecting');
+    try {
+      if (!rawTcpConfigured) {
+        await connectQzTray();
+        setQzStatus('connected');
+      }
+      const status = await getDirectPrinterStatus(configuredPrinter);
+      setPrinterStatus(status);
+      if (status !== 'ready') {
+        setDiagnostic(
+          rawTcpConfigured
+            ? 'The configured network printer is not reachable from this terminal.'
+            : 'The saved printer is not available in Windows/QZ Tray on this terminal.'
+        );
+      }
+    } catch (error) {
+      setQzStatus('not-connected');
+      setPrinterStatus('unavailable');
+      setDiagnostic(getReceiptPrinterErrorCopy(error).description);
+    }
+  }, [configuredPrinter, currentDevice, mode, rawTcpConfigured]);
+
+  useEffect(() => {
+    void checkSavedPrinter();
+    const reconnect = () => void checkSavedPrinter();
+    const reconnectWhenVisible = () => {
+      if (document.visibilityState === 'visible') void checkSavedPrinter();
+    };
+    window.addEventListener('online', reconnect);
+    document.addEventListener('visibilitychange', reconnectWhenVisible);
+    const heartbeat = window.setInterval(() => {
+      if (document.visibilityState === 'visible') void checkSavedPrinter();
+    }, 30_000);
+    return () => {
+      window.removeEventListener('online', reconnect);
+      document.removeEventListener('visibilitychange', reconnectWhenVisible);
+      window.clearInterval(heartbeat);
+    };
+  }, [checkSavedPrinter]);
   const discoverPrinters = async () => {
     setDiscovering(true);
     setQzStatus('connecting'); setDiagnostic('');
@@ -240,7 +289,10 @@ export function TerminalPrinterSettings({ terminal }: { terminal: Terminal }) {
             type="button"
             variant="outline"
             className="h-9 border border-slate-200 bg-white px-3 text-slate-700 shadow-sm hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:text-slate-200 dark:hover:bg-white/10"
-            disabled={testing || (mode === 'direct' && !configuredPrinter)}
+            disabled={
+              testing ||
+              (mode === 'direct' && (!configuredPrinter || !currentDevice))
+            }
             onClick={() => void testPrint()}
           >
             <ReceiptText className="mr-1.5 h-3.5 w-3.5" />
@@ -363,9 +415,9 @@ export function TerminalPrinterSettings({ terminal }: { terminal: Terminal }) {
       {mode === 'direct' && (
         <div className="grid gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-xs text-slate-600 sm:grid-cols-2 dark:border-white/10 dark:bg-white/[0.03] dark:text-slate-300">
           <span>Terminal: <b className="text-slate-900 dark:text-white">{terminal.name}</b></span>
-          <span>QZ Tray: <b className={qzStatus === 'connected' ? 'text-emerald-700 dark:text-emerald-400' : 'text-slate-900 dark:text-white'}>{qzStatus === 'connecting' ? 'Connecting…' : qzStatus === 'connected' ? 'Connected' : qzStatus === 'not-connected' ? 'Not connected' : 'Not checked'}</b></span>
+          <span>QZ Tray: <b className={qzStatus === 'connected' ? 'text-emerald-700 dark:text-emerald-400' : 'text-slate-900 dark:text-white'}>{!currentDevice ? 'Check on that device' : qzStatus === 'not-required' ? 'Not required (network)' : qzStatus === 'connecting' ? 'Connecting…' : qzStatus === 'connected' ? 'Connected' : qzStatus === 'not-connected' ? 'Not connected' : 'Checking…'}</b></span>
           <span>Configured printer: <b className="text-slate-900 dark:text-white">{configuredPrinter || 'Not selected'}</b></span>
-          <span>Windows queue: <b className="text-slate-900 dark:text-white">{printerStatus === 'ready' ? 'Available' : printerStatus ? 'Not found' : 'Not checked'}</b></span>
+          <span>Windows queue: <b className="text-slate-900 dark:text-white">{!currentDevice ? 'Check on that device' : rawTcpConfigured ? 'Direct network target' : printerStatus === 'ready' ? 'Available' : printerStatus ? 'Not found' : 'Checking…'}</b></span>
           <span>Paper: <b className="text-slate-900 dark:text-white">{width} mm</b></span>
           <span>Auto print: <b className="text-slate-900 dark:text-white">{autoPrint ? 'On' : 'Off'}</b></span>
           <span className="sm:col-span-2 flex items-center gap-1">{lastTest === 'success' && <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />}Last test: <b className="text-slate-900 dark:text-white">{lastTest === 'success' ? 'Success' : lastTest === 'failed' ? 'Failed' : 'Not run this session'}</b></span>

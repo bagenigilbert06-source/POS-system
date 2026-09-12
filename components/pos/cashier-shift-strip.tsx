@@ -613,42 +613,50 @@ export function CashierShiftStrip({
                 .querySelector<HTMLButtonElement>('[data-open-register-submit]')
                 ?.click();
           }}
-          className="gap-4 border-border bg-card p-5 text-card-foreground shadow-2xl shadow-slate-950/20 dark:shadow-black/50 sm:max-w-[500px]"
+          className="gap-0 overflow-hidden border-border bg-card p-0 text-card-foreground shadow-2xl shadow-slate-950/20 dark:shadow-black/50 sm:max-w-[440px]"
         >
-          <DialogHeader className="space-y-1 border-b border-border pb-4">
-            <DialogTitle className="text-lg font-semibold tracking-tight">
+          <DialogHeader className="space-y-2 border-b border-border bg-muted/35 px-6 py-5 text-left">
+            <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-primary">
+              POS access
+            </span>
+            <DialogTitle className="text-xl font-semibold tracking-tight">
               {registerUnlocked ? 'Open register' : 'Unlock register'}
             </DialogTitle>
-            <DialogDescription className="space-y-0.5 text-sm leading-5 text-[var(--dashboard-muted)]">
-              <span className="block">
-                Cashier: {cashierDisplayName || 'Unavailable'}
-              </span>
-              <span className="block">
-                Register: {workspace.registerName || 'Not registered'}
-              </span>
-              <span className="block">Branch: {workspace.locationName}</span>
+            <DialogDescription className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm leading-5 text-[var(--dashboard-muted)]">
+              <span>{workspace.registerName || 'POS register'}</span>
+              <span aria-hidden="true">•</span>
+              <span>{workspace.locationName}</span>
             </DialogDescription>
           </DialogHeader>
           {!terminalConfigured && (
-            <p className="text-sm text-destructive">
-              This device is not assigned to a POS terminal. Configure the
-              terminal before opening a register.
+            <p className="m-6 rounded-xl border border-destructive/20 bg-destructive/5 p-3 text-sm text-destructive">
+              This device is not assigned to a POS terminal. Configure the terminal before opening a register.
             </p>
           )}
           {!registerUnlocked && terminalConfigured ? (
-            <div className="grid gap-4 py-1">
-              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300">
-                <LockKeyhole className="h-5 w-5" aria-hidden="true" />
+            <div className="grid gap-5 px-6 py-6">
+              <div className="flex items-center gap-3 rounded-xl border border-border bg-background p-3.5">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                  <LockKeyhole className="h-5 w-5" aria-hidden="true" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-foreground">
+                    {cashierDisplayName || 'Cashier'}
+                  </p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    Enter your staff PIN to continue
+                  </p>
+                </div>
               </div>
-              <div className="text-center">
-                <p className="font-semibold">Enter your POS PIN</p>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  Use your six-digit staff PIN to unlock this register.
-                </p>
-              </div>
-              <label className="grid gap-1.5 text-sm font-medium">
-                <span className="sr-only">Six-digit POS PIN</span>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label htmlFor="pos-unlock-pin" className="text-sm font-semibold text-foreground">
+                    POS PIN
+                  </label>
+                  <span className="text-xs text-muted-foreground">6 digits</span>
+                </div>
                 <Input
+                  id="pos-unlock-pin"
                   value={unlockPin}
                   onChange={(event) => updateUnlockPin(event.target.value)}
                   type="password"
@@ -656,26 +664,31 @@ export function CashierShiftStrip({
                   autoComplete="one-time-code"
                   maxLength={6}
                   autoFocus
-                  placeholder="6-digit PIN"
-                  className={`h-12 text-center text-base placeholder:text-sm placeholder:tracking-normal ${
-                    unlockPin ? 'tracking-[0.32em]' : 'tracking-normal'
+                  placeholder="Enter PIN"
+                  className={`h-14 rounded-xl border-border bg-muted/30 px-4 text-center text-xl font-semibold placeholder:text-sm placeholder:font-normal placeholder:tracking-normal focus-visible:border-primary focus-visible:ring-primary/20 ${
+                    unlockPin ? 'tracking-[0.28em]' : 'tracking-normal'
                   }`}
                   aria-invalid={Boolean(unlockError)}
+                  aria-describedby="pos-unlock-pin-help"
                 />
-              </label>
+                <p id="pos-unlock-pin-help" className="text-xs leading-5 text-muted-foreground">
+                  Your PIN is private and is not shared with your dashboard password.
+                </p>
+              </div>
               {unlockError && (
                 <p
                   role="alert"
-                  className="text-center text-sm text-destructive"
+                  className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive"
                 >
                   {unlockError}
                 </p>
               )}
-              <DialogFooter className="border-t border-border pt-3 sm:justify-end">
+              <DialogFooter className="mt-1 border-t border-border pt-4 sm:justify-end">
                 <Button variant="outline" onClick={() => setOpeningOpen(false)}>
                   Cancel
                 </Button>
                 <Button
+                  className="min-w-32"
                   disabled={unlocking || unlockPin.length !== 6}
                   onClick={() => void unlockRegister()}
                 >
