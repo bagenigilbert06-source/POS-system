@@ -15,6 +15,7 @@ const editableSettings = fs.readFileSync('components/settings/editable-settings.
 const qzRoute = fs.readFileSync('app/api/qz/route.ts', 'utf8');
 const rawTcpRoute = fs.readFileSync('app/api/printing/raw-tcp/route.ts', 'utf8');
 const adminActions = fs.readFileSync('app/actions/admin-actions.ts', 'utf8');
+const posTerminal = fs.readFileSync('components/pos/pos-terminal.tsx', 'utf8');
 
 assert.match(
   dashboardAccess,
@@ -51,4 +52,8 @@ assert.match(editableSettings, /Receipt logo uploaded and saved/);
 assert.match(qzRoute, /!dashboardSession\?\.user && !\(await getPosAuthorizationContext\(\)\)/);
 assert.match(rawTcpRoute, /dashboardSession\?\.user \|\| \(await getPosAuthorizationContext\(\)\)/);
 assert.match(adminActions, /await db\.transaction\(async \(tx\) =>/);
+assert.match(
+  posTerminal,
+  /setTimeout\(\(\) => \{\s*autoPrintedReceiptRef\.current = receipt\.saleId;\s*void handlePrintReceipt\(true\);/
+);
 console.log('Cashier workspace authentication rules passed');

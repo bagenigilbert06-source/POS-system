@@ -769,6 +769,7 @@ export function POSTerminal({
   const [receiptOptionsOpen, setReceiptOptionsOpen] = useState(false);
   const [receiptPrinted, setReceiptPrinted] = useState(false);
   const [receiptPrinting, setReceiptPrinting] = useState(false);
+  const receiptPrintInFlightRef = useRef(false);
   const autoPrintedReceiptRef = useRef('');
   const autoDrawerPulseRef = useRef('');
   const retryReceiptPrintRef = useRef<() => void>(() => undefined);
@@ -3634,6 +3635,7 @@ export function POSTerminal({
 
   const handlePrintReceipt = useCallback(
     async (automatic = false) => {
+      if (receiptPrintInFlightRef.current) return;
       const paper = document.querySelector<HTMLElement>(
         '.receipt-preview-origin .receipt-paper'
       );
@@ -3653,7 +3655,8 @@ export function POSTerminal({
         });
         return;
       }
-      setReceiptPrinting(true);
+      receiptPrintInFlightRef.current = true;
+      if (!automatic) setReceiptPrinting(true);
       const toastId = notify.loading('Printing receipt…', {
         description:
           printerSettings.printerName ||
@@ -3681,10 +3684,11 @@ export function POSTerminal({
           },
         });
       } finally {
-        setReceiptPrinting(false);
+        receiptPrintInFlightRef.current = false;
+        if (!automatic) setReceiptPrinting(false);
       }
     },
-    [handleBrowserPrintReceipt, offlineContext, printerSettings, receipt]
+    [handleBrowserPrintReceipt, printerSettings, receipt]
   );
 
   useEffect(() => {
@@ -3725,11 +3729,15 @@ export function POSTerminal({
       hasOpenShift: Boolean(offlineContext?.sessionId),
     });
     if (!hardware.shouldPrintReceipt || autoPrintedReceiptRef.current === receipt.saleId) return;
-    autoPrintedReceiptRef.current = receipt.saleId;
     // Wait for the completed-sale receipt DOM (including logo/QR assets) to
     // finish rendering before handing it to QZ Tray. A short delay can race
     // React's commit and produce an intermittent manual-only print.
-    const timer = window.setTimeout(() => void handlePrintReceipt(true), 900);
+    // Mark it dispatched only when this timer actually fires. Receipt updates
+    // can cancel and replace the delay; marking it earlier prevented retries.
+    const timer = window.setTimeout(() => {
+      autoPrintedReceiptRef.current = receipt.saleId;
+      void handlePrintReceipt(true);
+    }, 900);
     return () => window.clearTimeout(timer);
   }, [
     handlePrintReceipt,
@@ -4547,11 +4555,7 @@ export function POSTerminal({
                     ) : (
                       <Printer className="h-4 w-4" />
                     )}
-                    {receiptPrinting
-                      ? 'Printing…'
-                      : receiptPrinted
-                        ? 'Reprint receipt'
-                        : 'Print receipt'}
+                    {receiptPrinted ? 'Reprint receipt' : 'Print receipt'}
                   </button>
                   <button
                     onClick={handleDownloadReceipt}
