@@ -37,6 +37,12 @@ assert.match(posPin, /const unlocked = await unlockPosWithStaffPin\(context\.use
 assert.match(posPageService, /settings\?\.receiptBusinessName\?\.trim\(\) \|\| settings\?\.displayName\?\.trim\(\)/);
 assert.match(settingsActions, /terminal\?\.organizationId === orgId && hasPrinterUpdate/);
 assert.match(settingsActions, /cashDrawerPulse: data\.receiptCashDrawerPulse/);
-assert.match(dashboardLayoutClient, /!isPosWorkspace && !adminMode/);
+assert.match(dashboardLayoutClient, /\{!isPosWorkspace && \(/);
+assert.match(
+  fs.readFileSync('components/layout/dynamic-app-sidebar.tsx', 'utf8'),
+  /if \(adminMode\) setAdminExpanded\(false\)/
+);
 assert.match(editableSettings, /receiptBusinessName: e\.target\.value, displayName: e\.target\.value/);
+assert.match(editableSettings, /await updateBusinessSettings\(\{\s*receiptLogoUrl: result\.url,\s*receiptTemplate: 'logo'/);
+assert.match(editableSettings, /Receipt logo uploaded and saved/);
 console.log('Cashier workspace authentication rules passed');

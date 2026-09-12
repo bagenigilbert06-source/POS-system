@@ -169,8 +169,20 @@ export function EditableSettings({ businessSettings, organization, buttonOnly = 
       const response = await fetch('/api/settings/receipt-logo', { method: 'POST', body })
       const result = await response.json() as { url?: string; error?: string }
       if (!response.ok || !result.url) throw new Error(result.error || 'Could not upload logo')
-      setFormData({ ...formData, receiptLogoUrl: result.url })
-      notify.success('Logo added to the receipt preview')
+      // Persist the uploaded asset immediately. Previously it existed only in
+      // this dialog's local state until the separate Save button was pressed,
+      // so closing or refreshing the screen made a successful upload vanish.
+      await updateBusinessSettings({
+        receiptLogoUrl: result.url,
+        receiptTemplate: 'logo',
+      })
+      setFormData((current) => ({
+        ...current,
+        receiptLogoUrl: result.url!,
+        receiptTemplate: 'logo',
+      }))
+      router.refresh()
+      notify.success('Receipt logo uploaded and saved')
     } catch (error) { notify.error(error instanceof Error ? error.message : 'Could not upload logo') } finally { setLogoUploading(false) }
   }
 

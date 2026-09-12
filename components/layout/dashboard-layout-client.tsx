@@ -46,8 +46,6 @@ export function DashboardLayoutClient({
 }: DashboardLayoutClientProps) {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const pathname = usePathname();
-  const adminMode =
-    pathname === '/dashboard/admin' || pathname.startsWith('/dashboard/admin/');
   const isEmployeesPage =
     pathname === '/dashboard/staff' || pathname.startsWith('/dashboard/staff/');
   // Keep the immersive terminal chrome only on the main POS screen. Supporting
@@ -71,7 +69,7 @@ export function DashboardLayoutClient({
         <a href="#dashboard-content" className="skip-link">
           Skip to main content
         </a>
-        {!isPosWorkspace && !adminMode && (
+        {!isPosWorkspace && (
           <DynamicAppSidebar
             initialPermissions={permissions}
             initialRole={role}

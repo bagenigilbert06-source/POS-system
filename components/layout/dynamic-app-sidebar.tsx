@@ -217,9 +217,9 @@ export function DynamicAppSidebar({
   }, []);
 
   useEffect(() => {
-    // Admin pages need the primary navigation context to remain available.
-    // Keep it expanded when entering Admin instead of switching to an icon rail.
-    if (adminMode) setAdminExpanded(true);
+    // Admin has its own navigation panel, so retain the workspace navigation as
+    // a compact icon rail. The logo control can still expand it when needed.
+    if (adminMode) setAdminExpanded(false);
   }, [adminMode]);
 
   // The register is the highest-frequency destination. Warm its RSC request as
