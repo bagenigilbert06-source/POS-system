@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from 'node:crypto'
-import { and, desc, eq, inArray } from 'drizzle-orm'
+import { and, desc, eq, inArray, isNull, or } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { employee, staffInvitation, organizationMembership, branchMembership, branch, organization, auditEvent, user } from '@/lib/db/schema'
 import { nanoid } from 'nanoid'
@@ -45,10 +45,14 @@ export async function acceptStaffInvitation(token: string, userId: string) {
   const [invite] = await db.select().from(staffInvitation).where(eq(staffInvitation.tokenHash, hash(token))).limit(1)
   if (!invite || !['PENDING', 'AWAITING_EMAIL_VERIFICATION'].includes(invite.status)) throw new Error('This invitation is no longer valid')
   const now = new Date()
+  if (invite.expiresAt <= now) {
+    await db.update(staffInvitation).set({ status: 'EXPIRED', updatedAt: now }).where(and(eq(staffInvitation.id, invite.id), inArray(staffInvitation.status, ['PENDING', 'AWAITING_EMAIL_VERIFICATION'])))
+    throw new Error('This invitation has expired')
+  }
   return db.transaction(async (tx) => {
     const [identity] = await tx.select({ email: user.email, verified: user.emailVerified }).from(user).where(eq(user.id, userId)).limit(1)
     if (!identity?.verified || identity.email.toLowerCase() !== invite.email.toLowerCase()) throw new Error('Verify the invited email before activation')
-    const [locked] = await tx.update(staffInvitation).set({ status: 'ACCEPTED', acceptedAt: now, updatedAt: now }).where(and(eq(staffInvitation.id, invite.id), eq(staffInvitation.status, invite.status), eq(staffInvitation.userId, userId))).returning()
+    const [locked] = await tx.update(staffInvitation).set({ status: 'ACCEPTED', acceptedAt: now, updatedAt: now }).where(and(eq(staffInvitation.id, invite.id), eq(staffInvitation.status, invite.status), or(eq(staffInvitation.userId, userId), isNull(staffInvitation.userId)))).returning()
     if (!locked) throw new Error('This invitation has already been used')
     if (locked.userId && locked.userId !== userId) throw new Error('This invitation belongs to another account')
     const [record] = await tx.update(employee).set({ userId, status: 'active', updatedAt: now }).where(and(eq(employee.id, locked.employeeId), eq(employee.orgId, locked.organizationId), eq(employee.status, 'invitation_pending'))).returning()
@@ -85,6 +89,7 @@ export async function finalizeStaffInvitationForVerifiedUser(userId: string) {
 async function acceptStaffInvitationById(invitationId: string, userId: string) {
   const [invite] = await db.select().from(staffInvitation).where(eq(staffInvitation.id, invitationId)).limit(1)
   if (!invite || invite.status !== 'AWAITING_EMAIL_VERIFICATION') throw new Error('This invitation is no longer valid')
+  if (invite.expiresAt <= new Date()) throw new Error('This invitation has expired')
   return finalizeInvitation(invite, userId)
 }
 
