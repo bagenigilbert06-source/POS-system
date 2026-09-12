@@ -4569,14 +4569,23 @@ export function POSTerminal({
                   <button
                     onClick={() => void handlePrintReceipt()}
                     disabled={receiptPrinting}
-                    className="flex h-11 items-center justify-center gap-2 rounded-[6px] border border-[#092c4c] bg-[#092c4c] px-3 text-sm font-semibold text-white shadow-[0_3px_10px_rgba(9,44,76,.14)] transition-all duration-300 hover:border-[#061f36] hover:bg-[#061f36] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#092c4c]/35 disabled:cursor-not-allowed disabled:opacity-55"
+                    aria-label={
+                      receiptPrinting
+                        ? 'Printing receipt'
+                        : receiptPrinted
+                          ? 'Reprint receipt'
+                          : 'Print receipt'
+                    }
+                    className="flex h-11 items-center justify-center gap-2 rounded-[6px] border border-[#092c4c] bg-[#092c4c] px-3 text-sm font-semibold text-white shadow-[0_3px_10px_rgba(9,44,76,.14)] transition-all duration-300 hover:border-[#061f36] hover:bg-[#061f36] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#092c4c]/35 disabled:cursor-wait disabled:opacity-100"
                   >
                     {receiptPrinting ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
                     ) : (
-                      <Printer className="h-4 w-4" />
+                      <>
+                        <Printer className="h-4 w-4" />
+                        {receiptPrinted ? 'Reprint receipt' : 'Print receipt'}
+                      </>
                     )}
-                    {receiptPrinted ? 'Reprint receipt' : 'Print receipt'}
                   </button>
                   <button
                     onClick={handleDownloadReceipt}
