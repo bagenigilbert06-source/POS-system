@@ -26,12 +26,15 @@ export default async function StaffPage() {
     (authorization.isOrganizationWide || Boolean(record.userId && visibleUserIds?.has(record.userId))) &&
     (![RoleEnum.MANAGER, RoleEnum.STORE_MANAGER].includes(authorization.role) || canManageExistingRole(authorization.role, record.role as RoleEnum))
   )
+  // Deactivated staff are retained for audit history, but are not active team
+  // members and should not remain as cards in the default Employees view.
+  const displayedEmployees = employees.filter(({ employee: record }) => record.status !== 'inactive' && record.status !== 'terminated')
   const branches = await db.select({ id: branch.id, name: branch.name }).from(branch).where(and(
     eq(branch.organizationId, authorization.organizationId),
     authorization.isOrganizationWide ? undefined : inArray(branch.id, authorization.branchIds),
   )).orderBy(branch.name)
-  const employeeUserIds = employees.map(({ employee: record }) => record.userId).filter((value): value is string => Boolean(value))
-  const invitationRows = employees.length ? await db.select({ employeeId: staffInvitation.employeeId, status: staffInvitation.status }).from(staffInvitation).where(inArray(staffInvitation.employeeId, employees.map(({ employee: record }) => record.id))).orderBy(desc(staffInvitation.createdAt)) : []
+  const employeeUserIds = displayedEmployees.map(({ employee: record }) => record.userId).filter((value): value is string => Boolean(value))
+  const invitationRows = displayedEmployees.length ? await db.select({ employeeId: staffInvitation.employeeId, status: staffInvitation.status }).from(staffInvitation).where(inArray(staffInvitation.employeeId, displayedEmployees.map(({ employee: record }) => record.id))).orderBy(desc(staffInvitation.createdAt)) : []
   const invitationStates = new Map<string, string>()
   for (const invite of invitationRows) if (!invitationStates.has(invite.employeeId)) invitationStates.set(invite.employeeId, invite.status)
   const assignments = employeeUserIds.length
@@ -59,7 +62,7 @@ export default async function StaffPage() {
       <StaffManagementTable
         branches={branches}
         description={description}
-        employees={employees.map(row => ({ ...row.employee, image: row.image, posPinSet: row.posPinSet, invitationState: invitationStates.get(row.employee.id), branchIds: assignments.filter((item) => item.userId === row.employee.userId).map((item) => item.branchId) }))}
+        employees={displayedEmployees.map(row => ({ ...row.employee, image: row.image, posPinSet: row.posPinSet, invitationState: invitationStates.get(row.employee.id), branchIds: assignments.filter((item) => item.userId === row.employee.userId).map((item) => item.branchId) }))}
         actorRole={authorization.role}
         assignableRoles={assignableRoles}
         summary={{

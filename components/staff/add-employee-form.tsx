@@ -165,7 +165,7 @@ export function AddEmployeeForm({ branches, shifts, assignableRoles }: Props) {
 
       <div className="flex justify-end gap-3 border-t border-[var(--dashboard-border)] pt-5">
         <Link href="/dashboard/staff" className="inline-flex h-10 items-center rounded-lg border border-[var(--dashboard-border)] bg-[var(--dashboard-surface)] px-4 text-sm font-semibold text-[var(--dashboard-text)]">Cancel</Link>
-        <button disabled={saving} className="inline-flex h-10 items-center gap-2 rounded-lg bg-[var(--dashboard-accent-cta)] px-5 text-sm font-semibold text-[var(--dashboard-accent-cta-ink)] hover:bg-[var(--dashboard-accent-cta-hover)] disabled:opacity-60">{saving && <Loader2 className="h-4 w-4 animate-spin" />}Add Employee</button>
+        <button disabled={saving} aria-label={saving ? 'Adding employee' : undefined} className={`inline-flex h-10 items-center justify-center rounded-lg bg-[var(--dashboard-accent-cta)] text-sm font-semibold text-[var(--dashboard-accent-cta-ink)] hover:bg-[var(--dashboard-accent-cta-hover)] disabled:opacity-60 ${saving ? 'w-10 px-0' : 'px-5'}`}>{saving ? <Loader2 className="h-4 w-4" label="Adding employee" /> : 'Add Employee'}</button>
       </div>
     </form>
   )

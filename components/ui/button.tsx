@@ -38,17 +38,25 @@ export interface ButtonProps
   extends React.ButtonHTMLAttributes<HTMLButtonElement>,
     VariantProps<typeof buttonVariants> {
   asChild?: boolean
+  /** Replaces the button label with the standard spinner while work is running. */
+  loading?: boolean
+  loadingLabel?: string
 }
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant, size, asChild = false, ...props }, ref) => {
+  ({ className, variant, size, asChild = false, loading = false, loadingLabel = 'Loading', children, disabled, ...props }, ref) => {
     const Comp = asChild ? Slot : "button"
     return (
       <Comp
         className={cn(buttonVariants({ variant, size, className }))}
         ref={ref}
+        aria-busy={loading || undefined}
+        aria-label={loading ? loadingLabel : props['aria-label']}
+        disabled={loading || disabled}
         {...props}
-      />
+      >
+        {loading ? <span className="pesaby-loader h-4 w-4" role="status" aria-label={loadingLabel} /> : children}
+      </Comp>
     )
   }
 )

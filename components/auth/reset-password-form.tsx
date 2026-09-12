@@ -69,7 +69,7 @@ export function ResetPasswordForm({ token, returnTo }: { token?: string; returnT
         <Input id="confirm-password" type={showPassword ? 'text' : 'password'} autoComplete="new-password" className="mt-2 h-11 border-slate-300 bg-white shadow-sm focus-visible:ring-[#ffbf00]" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} required />
       </label>
       {error && <p role="alert" className="rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-sm leading-5 text-red-700">{error}</p>}
-      <Button className="h-11 w-full bg-[#e42527] text-white shadow-sm hover:bg-[#c91f21]" disabled={pending || !token}>{pending ? 'Updating password…' : 'Update password'}</Button>
+      <Button className="h-11 w-full bg-[#e42527] text-white shadow-sm hover:bg-[#c91f21]" loading={pending} loadingLabel="Updating password" disabled={pending || !token}>Update password</Button>
       <p className="text-center text-xs leading-5 text-slate-500">Use at least 8 characters. This reset link can only be used once.</p>
     </form>
   )

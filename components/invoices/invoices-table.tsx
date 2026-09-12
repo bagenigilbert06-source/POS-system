@@ -10,7 +10,6 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { LoadingSpinner } from '@/components/ui/page-loader'
 import type { Invoice } from '@/lib/db/schema'
 import { notify } from '@/lib/notify'
 
@@ -80,7 +79,7 @@ export function InvoicesTable({ invoices, permissions }: { invoices: Invoice[]; 
       {modal?.type === 'payment' && <div className="space-y-4"><AmountField id="payment-amount" label="Amount" value={paymentAmount} max={modal.invoice.balanceDue} onChange={setPaymentAmount} /><div className="space-y-2"><Label htmlFor="payment-method">Payment method</Label><select id="payment-method" value={method} onChange={(event) => setMethod(event.target.value)} className="h-9 w-full rounded-md border bg-background px-3 text-sm"><option value="cash">Cash</option><option value="mpesa">M-Pesa</option><option value="card">Card</option><option value="bank_transfer">Bank transfer</option><option value="other">Other</option></select></div><div className="space-y-2"><Label htmlFor="payment-reference">Reference</Label><Input id="payment-reference" value={reference} onChange={(event) => setReference(event.target.value)} placeholder="Required for non-cash payments" /></div></div>}
       {modal?.type === 'credit' && <div className="space-y-4"><AmountField id="credit-amount" label="Credit amount" value={paymentAmount} max={modal.invoice.balanceDue} onChange={setPaymentAmount} /><ReasonField id="credit-reason" value={reason} onChange={setReason} /></div>}
       {modal?.type === 'cancel' && <ReasonField id="cancel-reason" value={reason} onChange={setReason} />}
-      <div className="flex justify-end gap-2"><Button variant="outline" disabled={busy} onClick={resetModal}>Keep invoice</Button><Button variant={modal?.type === 'payment' ? 'default' : 'destructive'} disabled={busy || ((modal?.type === 'payment' || modal?.type === 'credit') && Number(paymentAmount) <= 0) || ((modal?.type === 'credit' || modal?.type === 'cancel') && reason.trim().length < 3)} onClick={runAction}>{busy && <LoadingSpinner className="mr-2 h-4 w-4" />}{modal?.type === 'payment' ? 'Record payment' : modal?.type === 'credit' ? 'Issue credit note' : modal?.type === 'cancel' ? 'Cancel invoice' : 'Delete draft'}</Button></div>
+      <div className="flex justify-end gap-2"><Button variant="outline" disabled={busy} onClick={resetModal}>Keep invoice</Button><Button variant={modal?.type === 'payment' ? 'default' : 'destructive'} loading={busy} loadingLabel="Updating invoice" disabled={busy || ((modal?.type === 'payment' || modal?.type === 'credit') && Number(paymentAmount) <= 0) || ((modal?.type === 'credit' || modal?.type === 'cancel') && reason.trim().length < 3)} onClick={runAction}>{modal?.type === 'payment' ? 'Record payment' : modal?.type === 'credit' ? 'Issue credit note' : modal?.type === 'cancel' ? 'Cancel invoice' : 'Delete draft'}</Button></div>
     </DialogContent></Dialog>
   </>
 }

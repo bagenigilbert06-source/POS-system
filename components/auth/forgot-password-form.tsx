@@ -74,8 +74,8 @@ export function ForgotPasswordForm({ callbackURL }: { callbackURL?: string }) {
         </div>
       </label>
       {error && <p role="alert" className="rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-sm text-red-700">{error}</p>}
-      <Button className="h-11 w-full bg-[#e42527] text-white shadow-sm hover:bg-[#c91f21]" disabled={pending}>
-        {pending ? 'Sending reset link…' : <>Send reset link <Send className="ml-2 h-4 w-4" /></>}
+      <Button className="h-11 w-full bg-[#e42527] text-white shadow-sm hover:bg-[#c91f21]" loading={pending} loadingLabel="Sending reset link" disabled={pending}>
+        <>Send reset link <Send className="ml-2 h-4 w-4" /></>
       </Button>
       <p className="text-center text-xs leading-5 text-slate-500">For your security, we only send a link if the email has a Pesaby account.</p>
     </form>
