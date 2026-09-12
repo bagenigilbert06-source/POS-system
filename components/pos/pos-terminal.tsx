@@ -7414,14 +7414,14 @@ export function POSTerminal({
                                   mpesaStatus !== 'idle' && (
                                     <div
                                       className={cn(
-                                        'flex min-h-11 items-center gap-2.5 rounded-[7px] px-3 py-2.5 text-xs font-semibold',
+                                        'min-h-11 items-center gap-2.5 rounded-[7px] px-3 py-2.5 text-xs font-semibold',
                                         mpesaStatus === 'success'
-                                          ? 'bg-[#effcf1] text-[#0c4a26] dark:bg-emerald-950/30 dark:text-emerald-300'
+                                          ? 'flex bg-[#effcf1] text-[#0c4a26] dark:bg-emerald-950/30 dark:text-emerald-300'
                                           : mpesaStatus === 'failed' ||
                                               mpesaStatus === 'timeout' ||
                                               mpesaStatus === 'cancelled'
-                                            ? 'bg-[#fef3f2] text-[#b42318] dark:bg-red-950/30 dark:text-red-300'
-                                            : 'bg-[#f3fbf5] text-[#246e36] dark:bg-[#12351c] dark:text-emerald-300'
+                                            ? 'flex bg-[#fef3f2] text-[#b42318] dark:bg-red-950/30 dark:text-red-300'
+                                            : 'inline-flex self-start border border-[#b9e5c2] bg-[#f3fbf5] text-[#176b2c] shadow-sm dark:border-emerald-800 dark:bg-[#12351c] dark:text-emerald-300'
                                       )}
                                       role="status"
                                       aria-live="polite"
@@ -7433,7 +7433,14 @@ export function POSTerminal({
                                         mpesaStatus === 'cancelled' ? (
                                         <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                                       ) : (
-                                        <Loader2 className="h-4 shrink-0 [--color-1:#00a651]" />
+                                        <span
+                                          className="flex shrink-0 items-center gap-1"
+                                          aria-hidden="true"
+                                        >
+                                          <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[#11ad2d] [animation-delay:-200ms] motion-reduce:animate-none" />
+                                          <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[#11ad2d] [animation-delay:-100ms] motion-reduce:animate-none" />
+                                          <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[#11ad2d] motion-reduce:animate-none" />
+                                        </span>
                                       )}
                                       <span>
                                         {mpesaStatus === 'success'
