@@ -12,6 +12,8 @@ const mailer = read('lib/email/staff-invitation.ts')
 // These contract checks deliberately protect the security boundaries that do
 // not need a live Better Auth/isolated PostgreSQL fixture to exercise.
 assert.match(creation, /const staffUserId = existingUser\?\.id \?\? null/)
+assert.match(creation, /reason: 'duplicate_employee'/)
+assert.match(creation, /duplicateEmployeeId/)
 assert.match(creation, /status = 'invitation_pending'/)
 assert.doesNotMatch(creation, /auth\.api\.signUpEmail/)
 assert.match(service, /AWAITING_EMAIL_VERIFICATION/)

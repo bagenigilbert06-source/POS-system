@@ -166,7 +166,9 @@ export async function createEmployee(data: {
     const staffUserId = existingUser?.id ?? null
     const [existingMembership] = staffUserId ? await tx.select().from(organizationMembership).where(and(eq(organizationMembership.organizationId, authorization.organizationId), eq(organizationMembership.userId, staffUserId))).limit(1) : []
     const [existingEmployee] = await tx.select({ id: employee.id }).from(employee).where(and(eq(employee.orgId, authorization.organizationId), eq(employee.email, input.email))).limit(1)
-    if (existingEmployee) throw new Error('This user is already an employee in this organization')
+    // This is an expected user-facing condition, not a server failure. Return
+    // the existing record so the client can take the manager to its edit page.
+    if (existingEmployee) return { duplicateEmployeeId: existingEmployee.id } as const
     // An organization owner/admin can also be an operational staff member.
     // Preserve their organization role; this action only creates the employee
     // profile and a branch assignment required by POS authentication.
@@ -180,6 +182,15 @@ export async function createEmployee(data: {
     await tx.insert(auditEvent).values({ id: nanoid(), organizationId: authorization.organizationId, userId: authorization.userId, action: existingMembership ? 'staff.profile_attached' : 'staff.created', metadata: { employeeId, staffUserId, role: input.role, branchId: input.branchId, shiftId: input.shiftId, existingUser: Boolean(existingUser) } })
     return { record, existingUser: Boolean(existingUser) }
   })
+  if ('duplicateEmployeeId' in result) {
+    return {
+      success: false as const,
+      reason: 'duplicate_employee' as const,
+      employeeId: result.duplicateEmployeeId,
+      message: 'This employee already exists in this organization. Open their profile to update it.',
+    }
+  }
+
   let invitationSent = false
   {
     try {

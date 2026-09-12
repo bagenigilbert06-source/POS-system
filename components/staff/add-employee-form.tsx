@@ -82,6 +82,11 @@ export function AddEmployeeForm({ branches, shifts, assignableRoles }: Props) {
           bankBranch: form.bankBranch,
         },
       })
+      if (!result.success) {
+        notify.warning(result.message)
+        router.push(`/dashboard/staff/${result.employeeId}/edit`)
+        return
+      }
       if (result.existingUser) notify.success('Existing Pesaby user added as an employee')
       else if (result.invitationSent) notify.success('Employee created and invitation sent')
       else notify.warning('Employee created. Configure transactional email to deliver the setup invitation.')
