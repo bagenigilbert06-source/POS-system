@@ -3427,7 +3427,7 @@ html.dark .pesaby-global-loader.pesaby-inline-loader {
 }
 
 .pos-workspace .pos-card {
-  border-color: var(--pos-border) !important;
+  border: 0 !important;
   border-radius: 8px !important;
   background: #fff !important;
   color: var(--pos-ink);
@@ -3438,7 +3438,7 @@ html.dark .pesaby-global-loader.pesaby-inline-loader {
    its existing information but restore the warm dashboard-banner surface. */
 .pos-workspace .pos-shift-strip {
   position: relative;
-  border-color: #ecd78a !important;
+  border: 0 !important;
   border-radius: 8px !important;
   background: linear-gradient(105deg, #fff9e7 0%, #fff4cc 52%, #ffedaf 100%) !important;
   color: var(--pos-ink);
@@ -3470,7 +3470,7 @@ body:has(.pos-workspace) [role='dialog'][class*='max-w'],
 body:has(.pos-workspace) [role='alertdialog'][class*='max-w'],
 body:has(.pos-workspace) [role='dialog'] > [class*='max-w'],
 body:has(.pos-workspace) [role='alertdialog'] > [class*='max-w'] {
-  border: 1px solid var(--pos-border, #dfe3e8) !important;
+  border: 0 !important;
   border-radius: 8px !important;
   background: #fff !important;
   color: var(--pos-ink) !important;
@@ -3498,13 +3498,13 @@ body:has(.pos-workspace) [role='alertdialog'] select {
 .dark body:has(.pos-workspace) [role='alertdialog'][class*='max-w'],
 .dark body:has(.pos-workspace) [role='dialog'] > [class*='max-w'],
 .dark body:has(.pos-workspace) [role='alertdialog'] > [class*='max-w'] {
-  border-color: rgba(255, 255, 255, 0.1) !important;
+  border: 0 !important;
   background: #1c1c1e !important;
   color: #f5f5f5 !important;
 }
 
 .dark .pos-workspace .pos-shift-strip {
-  border-color: rgba(250, 204, 21, 0.24) !important;
+  border: 0 !important;
   background: linear-gradient(105deg, #2b2410 0%, #332910 52%, #3a2c0b 100%) !important;
   color: #f5f5f5;
 }

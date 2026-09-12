@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, useTransition } from 'react';
-import type { ReactNode } from 'react';
+import type { KeyboardEvent, ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
@@ -271,6 +271,24 @@ export function CashierShiftStrip({
     if (unlockError) setUnlockError('');
   };
 
+  const submitModalOnEnter = (
+    event: KeyboardEvent<HTMLElement>,
+    selector: string
+  ) => {
+    if (
+      event.key !== 'Enter' ||
+      event.nativeEvent.isComposing ||
+      event.shiftKey ||
+      !(event.target instanceof HTMLInputElement ||
+        event.target instanceof HTMLSelectElement)
+    )
+      return;
+    event.preventDefault();
+    event.currentTarget
+      .querySelector<HTMLButtonElement>(selector)
+      ?.click();
+  };
+
   const unlockRegister = async () => {
     if (unlocking) return;
     if (unlockPin.length !== 6) {
@@ -520,7 +538,9 @@ export function CashierShiftStrip({
       </section>
 
       <Dialog open={drawerOpen} onOpenChange={setDrawerOpen}>
-        <DialogContent>
+        <DialogContent
+          onKeyDown={(event) => submitModalOnEnter(event, '[data-drawer-submit]')}
+        >
           <DialogHeader>
             <DialogTitle>Open cash drawer</DialogTitle>
             <DialogDescription>
@@ -543,6 +563,7 @@ export function CashierShiftStrip({
               Cancel
             </Button>
             <Button
+              data-drawer-submit
               disabled={pending || drawerReason.trim().length < 3}
               onClick={() => {
                 const idempotencyKey =
@@ -794,7 +815,9 @@ export function CashierShiftStrip({
       </Dialog>
 
       <Dialog open={movementOpen} onOpenChange={setMovementOpen}>
-        <DialogContent>
+        <DialogContent
+          onKeyDown={(event) => submitModalOnEnter(event, '[data-movement-submit]')}
+        >
           <DialogHeader>
             <DialogTitle>Record cash movement</DialogTitle>
             <DialogDescription>
@@ -839,6 +862,7 @@ export function CashierShiftStrip({
               Cancel
             </Button>
             <Button
+              data-movement-submit
               disabled={
                 pending || !movementAmount || movementReason.trim().length < 3
               }
@@ -877,7 +901,9 @@ export function CashierShiftStrip({
           else setClosingOpen(open);
         }}
       >
-        <DialogContent>
+        <DialogContent
+          onKeyDown={(event) => submitModalOnEnter(event, '[data-count-submit]')}
+        >
           {closeStep === 'count' ? (
             <>
               <DialogHeader>
@@ -909,6 +935,7 @@ export function CashierShiftStrip({
                   Cancel reconciliation
                 </Button>
                 <Button
+                  data-count-submit
                   disabled={pending || countedCash === ''}
                   onClick={() =>
                     run(
