@@ -325,7 +325,7 @@ export function CashierShiftStrip({
   return (
     <>
       <section className="pos-shift-strip hidden overflow-hidden rounded-[8px] border border-[#dfe3e8] bg-white font-sans shadow-[0_3px_10px_rgba(16,24,40,.05)] dark:border-white/10 dark:bg-[#161616] dark:shadow-[0_3px_10px_rgba(0,0,0,.18)] lg:block">
-        <div className="flex flex-col gap-2 px-3 py-2 sm:px-4 sm:py-2.5 xl:flex-row xl:items-center xl:justify-between">
+        <div className="flex flex-col gap-2 px-3 py-2 sm:px-4 sm:py-2 xl:flex-row xl:items-center xl:justify-between">
           <dl className="grid min-w-0 flex-1 grid-cols-2 gap-x-4 gap-y-2 sm:grid-cols-4 lg:max-w-4xl">
             <SummaryMetric
               icon={Banknote}
