@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { callbackAuthenticationToken, darajaBaseUrl, friendlyMpesaFailure, mpesaConfigurationDiagnostic, normalizeKenyanPhone, requestStkPush, validCallbackToken } from '../lib/mpesa/daraja'
+import { callbackAuthenticationToken, darajaBaseUrl, friendlyMpesaFailure, mpesaCallbackUrls, mpesaConfigurationDiagnostic, normalizeKenyanPhone, requestStkPush, validCallbackToken } from '../lib/mpesa/daraja'
 import { normalizeMpesaPhoneForMode } from '../lib/mpesa/phone-validation'
 import { calculateMpesaAmount } from '../lib/mpesa/amount'
 import { selectUnambiguousTillCandidate } from '../lib/mpesa/matching'
@@ -72,6 +72,14 @@ assert.notEqual(validationToken, confirmationToken)
 assert.equal(validCallbackToken(validationToken, 'c2b-validation'), true)
 assert.equal(validCallbackToken(validationToken, 'c2b-confirmation'), false)
 assert.equal(validCallbackToken(confirmationToken, 'c2b-confirmation'), true)
+assert.equal(validCallbackToken(confirmationToken, 'c2b-validation'), false)
+const callbackUrls = mpesaCallbackUrls('https://sandbox-test.example/base/path?stale=value')
+assert.equal(new URL(callbackUrls.stk).pathname, '/api/mpesa/callback')
+assert.equal(new URL(callbackUrls.c2bValidation).pathname, '/api/c2b/validation')
+assert.equal(new URL(callbackUrls.c2bConfirmation).pathname, '/api/c2b/confirmation')
+assert.equal(new URL(callbackUrls.c2bValidation).searchParams.get('token'), validationToken)
+assert.equal(new URL(callbackUrls.c2bConfirmation).searchParams.get('token'), confirmationToken)
+assert.doesNotMatch(new URL(callbackUrls.c2bValidation).pathname, /mpesa/i)
 process.env.MPESA_ENV = previousEnvironment
 process.env.MPESA_CALLBACK_SECRET = previousSecret
 

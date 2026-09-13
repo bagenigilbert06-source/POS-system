@@ -33,7 +33,7 @@
     "test:inventory": "ts-node --project tsconfig.test.json tests/inventory-rules.test.ts",
     "test:reports": "ts-node --project tsconfig.test.json tests/report-rules.test.ts",
     "test:finance": "ts-node --project tsconfig.test.json tests/invoice-rules.test.ts && ts-node --project tsconfig.test.json tests/receivable-rules.test.ts && ts-node --project tsconfig.test.json tests/finance-operations.test.ts",
-    "test:mpesa": "ts-node --project tsconfig.test.json tests/mpesa-rules.test.ts && ts-node --project tsconfig.test.json tests/mpesa-c2b-simulated.test.ts",
+    "test:mpesa": "ts-node --project tsconfig.test.json tests/mpesa-rules.test.ts && tsx --env-file=.env tests/mpesa-c2b-routes.test.ts && ts-node --project tsconfig.test.json tests/mpesa-c2b-simulated.test.ts",
     "test:mpesa-db": "node --env-file=.env --test tests/mpesa-concurrency.integration.mjs tests/mpesa-reconciliation.integration.mjs && tsx tests/mpesa-provider-processor.integration.ts",
     "test:rewards": "ts-node --project tsconfig.test.json tests/reward-rules.test.ts && node tests/reward-migration.test.mjs",
     "test:etims": "ts-node --project tsconfig.test.json tests/etims-rules.test.ts && ts-node --project tsconfig.test.json tests/kra-oscu-provider.test.ts && ts-node --project tsconfig.test.json tests/etims-wiring.test.ts",

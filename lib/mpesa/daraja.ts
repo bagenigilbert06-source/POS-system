@@ -110,6 +110,23 @@ function callbackUrl(configuredUrl: string, purpose: MpesaCallbackPurpose = 'stk
   return url.toString()
 }
 
+/** Authoritative construction for every public Daraja callback URL. */
+export function mpesaCallbackUrls(configuredUrl?: string) {
+  const baseUrl = configuredUrl ?? configuration(false).callbackUrl
+  const urlFor = (pathname: string, purpose: MpesaCallbackPurpose) => {
+    const url = new URL(baseUrl)
+    url.pathname = pathname
+    url.search = ''
+    url.hash = ''
+    return callbackUrl(url.toString(), purpose)
+  }
+  return {
+    stk: urlFor('/api/mpesa/callback', 'stk'),
+    c2bValidation: urlFor('/api/c2b/validation', 'c2b-validation'),
+    c2bConfirmation: urlFor('/api/c2b/confirmation', 'c2b-confirmation'),
+  }
+}
+
 export async function requestStkPush(input: { phone: string; amount: number; accountReference: string }) {
   const config = configuration(true)
   const shortcode = config.shortcode
@@ -129,7 +146,7 @@ export async function requestStkPush(input: { phone: string; amount: number; acc
       PartyA: input.phone,
       PartyB: shortcode,
       PhoneNumber: input.phone,
-      CallBackURL: callbackUrl(config.callbackUrl),
+      CallBackURL: mpesaCallbackUrls(config.callbackUrl).stk,
       AccountReference: input.accountReference.slice(0, 12),
       TransactionDesc: 'POS purchase',
     }),
@@ -141,14 +158,6 @@ export async function requestStkPush(input: { phone: string; amount: number; acc
   }
   mpesaLog('STK_ACCEPTED', { environment: config.environment })
   return body as StkPushResponse
-}
-
-function c2bCallbackUrl(pathname: string, purpose: Extract<MpesaCallbackPurpose, `c2b-${string}`>) {
-  const config = configuration(false)
-  const url = new URL(config.callbackUrl)
-  url.pathname = pathname
-  url.search = ''
-  return callbackUrl(url.toString(), purpose)
 }
 
 export function mpesaPaybillDetails() {
@@ -165,14 +174,15 @@ export function validC2bShortcode(value: string) {
 export async function registerC2bUrls() {
   const config = configuration(false)
   const token = await accessToken()
+  const callbacks = mpesaCallbackUrls(config.callbackUrl)
   const response = await fetchWithTimeout(`${darajaBaseUrl(config.environment)}/mpesa/c2b/v1/registerurl`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', Accept: 'application/json' },
     body: JSON.stringify({
       ShortCode: config.shortcode,
       ResponseType: 'Completed',
-      ConfirmationURL: c2bCallbackUrl('/api/mpesa/c2b/confirmation', 'c2b-confirmation'),
-      ValidationURL: c2bCallbackUrl('/api/mpesa/c2b/validation', 'c2b-validation'),
+      ConfirmationURL: callbacks.c2bConfirmation,
+      ValidationURL: callbacks.c2bValidation,
     }),
   })
   const body = await response.json() as { ResponseCode?: string; ResponseDescription?: string; errorMessage?: string }
