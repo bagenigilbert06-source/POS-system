@@ -7,7 +7,6 @@ import { db } from '@/lib/db';
 import { emailVerificationEmail } from '@/lib/email/templates/email-verification';
 import { sendEmail } from '@/lib/email/client';
 import { withDatabaseRetry } from '@/lib/db/retry';
-import { after } from 'next/server';
 import { nextCookies } from 'better-auth/next-js';
 
 export const auth = betterAuth({
@@ -72,13 +71,6 @@ export const auth = betterAuth({
       enabled: true,
       maxAge: 60,
       strategy: 'compact',
-    },
-  },
-  advanced: {
-    backgroundTasks: {
-      // Better Auth uses this for non-critical work such as verification
-      // email delivery, allowing the auth response to return immediately.
-      handler: (promise) => after(() => promise),
     },
   },
   plugins: [
