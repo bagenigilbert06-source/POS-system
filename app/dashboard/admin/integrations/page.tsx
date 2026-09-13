@@ -1,9 +1,10 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { eq } from 'drizzle-orm';
+import { desc, eq, sql } from 'drizzle-orm';
 import { CircleCheck, CircleDashed, Mail, Smartphone } from 'lucide-react';
 import { db } from '@/lib/db';
-import { branch, mpesaBusinessAccount } from '@/lib/db/schema';
+import { branch, mpesaBusinessAccount, mpesaIncomingPayment, mpesaMerchantConfiguration } from '@/lib/db/schema';
+import { mpesaConfigurationStatus } from '@/lib/mpesa/configuration';
 import { requireDashboardPermission } from '@/lib/auth/dashboard-access';
 import { PermissionEnum } from '@/lib/types/permissions';
 import { AdminPageHeader } from '@/components/admin/admin-page-header';
@@ -27,12 +28,13 @@ export default async function IntegrationsPage() {
     .where(
       eq(mpesaBusinessAccount.organizationId, authorization.organizationId)
     );
-  const mpesaConfigured = Boolean(
-    process.env.MPESA_CONSUMER_KEY &&
-    process.env.MPESA_CONSUMER_SECRET &&
-    (process.env.MPESA_BUSINESS_SHORTCODE || process.env.MPESA_SHORTCODE) &&
-    process.env.MPESA_PASSKEY
-  );
+  const [merchants, [providerSummary], [lastProviderEvent]] = await Promise.all([
+    db.select().from(mpesaMerchantConfiguration).where(eq(mpesaMerchantConfiguration.organizationId, authorization.organizationId)),
+    db.select({ unmatched: sql<number>`count(*) filter (where ${mpesaIncomingPayment.reconciliationStatus} in ('PENDING','NEEDS_REVIEW','AMBIGUOUS'))`, retryable: sql<number>`count(*) filter (where ${mpesaIncomingPayment.processingStatus} = 'RETRYABLE_FAILURE')` }).from(mpesaIncomingPayment).where(eq(mpesaIncomingPayment.organizationId, authorization.organizationId)),
+    db.select({ at: mpesaIncomingPayment.createdAt, status: mpesaIncomingPayment.processingStatus }).from(mpesaIncomingPayment).where(eq(mpesaIncomingPayment.organizationId, authorization.organizationId)).orderBy(desc(mpesaIncomingPayment.createdAt)).limit(1),
+  ]);
+  const mpesaStatus = mpesaConfigurationStatus();
+  const mpesaConfigured = mpesaStatus.consumerKeyConfigured && mpesaStatus.consumerSecretConfigured && mpesaStatus.shortcodeConfigured && mpesaStatus.passkeyConfigured;
   const callbackProtected =
     process.env.MPESA_ENV !== 'production' ||
     Boolean(process.env.MPESA_CALLBACK_SECRET);
@@ -51,10 +53,22 @@ export default async function IntegrationsPage() {
           title="Safaricom M-Pesa / Daraja"
           configured={mpesaConfigured && callbackProtected}
           details={[
-            ['Credentials', mpesaConfigured],
-            ['Sandbox M-Pesa API', process.env.MPESA_ENV !== 'production'],
+            ['Environment', mpesaStatus.environment === 'production' ? 'Production' : 'Sandbox'],
+            ['STK Push', mpesaConfigured ? 'Ready' : 'Missing'],
+            ['Manual Till', merchants.some((item) => item.manualTillEnabled && item.tillNumber) ? 'Ready' : 'Missing'],
+            ['C2B Provider Events', 'Ready'],
+            ['C2B Validation Route', 'Ready'],
+            ['C2B Confirmation Route', 'Ready'],
+            ['Customer-facing Till', mpesaStatus.tillConfigured || merchants.some((item) => item.tillNumber) ? 'Configured' : 'Missing'],
+            ['API Shortcode', mpesaStatus.shortcodeConfigured ? 'Configured' : 'Missing'],
+            ['Production Credentials', mpesaStatus.environment === 'production' && mpesaConfigured ? 'Configured' : 'Not configured'],
+            ['Production Activation', mpesaStatus.productionEnabled ? 'Enabled' : 'Disabled'],
+            ['Production Connectivity', 'Not verified'],
             ['Callback protection', callbackProtected],
             ['Branch accounts', accounts.some((item) => item.active)],
+            ['Unmatched provider events', String(Number(providerSummary?.unmatched ?? 0))],
+            ['Retryable provider events', String(Number(providerSummary?.retryable ?? 0))],
+            ['Last provider event', lastProviderEvent ? `${lastProviderEvent.status} · ${lastProviderEvent.at.toISOString()}` : 'None'],
           ]}
         >
           <div className="mt-4 space-y-2">
@@ -115,7 +129,7 @@ function IntegrationCard({
   icon: typeof Mail;
   title: string;
   configured: boolean;
-  details: Array<[string, boolean]>;
+  details: Array<[string, boolean | string]>;
   children: React.ReactNode;
 }) {
   return (
@@ -131,13 +145,13 @@ function IntegrationCard({
       </div>
       <h2 className="mt-4 text-lg font-bold">{title}</h2>
       <div className="mt-4 divide-y rounded-lg border">
-        {details.map(([label, ready]) => (
+        {details.map(([label, value]) => (
           <div
             key={label}
             className="flex items-center justify-between px-3 py-2.5 text-sm"
           >
             <span>{label}</span>
-            <Status ready={ready} text={ready ? 'Configured' : 'Missing'} />
+            {typeof value === 'boolean' ? <Status ready={value} text={value ? 'Configured' : 'Missing'} /> : <span className="text-right text-xs font-semibold">{value}</span>}
           </div>
         ))}
       </div>

@@ -2858,6 +2858,17 @@ export const mpesaIncomingPayment = pgTable(
     matchedAt: timestamp('matchedAt'),
     matchedBy: text('matchedBy'),
     status: text('status').notNull().default('unmatched'),
+    provider: text('provider').notNull().default('SAFARICOM_DARAJA'),
+    eventType: text('eventType').notNull().default('C2B_CONFIRMATION'),
+    processingStatus: text('processingStatus').notNull().default('RECEIVED'),
+    reconciliationStatus: text('reconciliationStatus').notNull().default('PENDING'),
+    reconciliationReason: text('reconciliationReason'),
+    processedAt: timestamp('processedAt'),
+    processingStartedAt: timestamp('processingStartedAt'),
+    nextRetryAt: timestamp('nextRetryAt'),
+    processingAttempts: integer('processingAttempts').notNull().default(0),
+    failureCode: text('failureCode'),
+    failureMessage: text('failureMessage'),
     payload: json('payload'),
     transactionAt: timestamp('transactionAt'),
     createdAt: timestamp('createdAt').notNull().defaultNow(),
@@ -2869,6 +2880,7 @@ export const mpesaIncomingPayment = pgTable(
     referenceIndex: index('mpesa_incoming_payment_reference_idx').on(
       table.accountReference
     ),
+    processingIndex: index('mpesa_incoming_payment_processing_idx').on(table.processingStatus, table.nextRetryAt, table.createdAt),
   })
 );
 

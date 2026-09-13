@@ -1,20 +1,21 @@
 import { spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
-import '../tests/test-database-env.mjs'
+import { applicationDatabaseUrl, applicationDirectUrl, testDatabaseUrl } from '../tests/test-database-env.mjs'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const pnpm = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm'
-const env = { ...process.env, DATABASE_URL: process.env.TEST_DATABASE_URL, DIRECT_URL: process.env.TEST_DATABASE_URL }
+const env = { ...process.env, DATABASE_URL: applicationDatabaseUrl, DIRECT_URL: applicationDirectUrl }
+const migrationEnv = { ...process.env, DATABASE_URL: testDatabaseUrl, DIRECT_URL: testDatabaseUrl }
 
-function run(args) {
-  const result = spawnSync(pnpm, args, { cwd: root, env, stdio: 'inherit' })
+function run(args, commandEnv = env) {
+  const result = spawnSync(pnpm, args, { cwd: root, env: commandEnv, stdio: 'inherit', shell: process.platform === 'win32' })
   if (result.error) throw result.error
   if (result.status !== 0) process.exit(result.status ?? 1)
 }
 
 // Migrations are always applied to the guarded disposable URL before tests.
-run(['exec', 'drizzle-kit', 'migrate'])
+run(['exec', 'drizzle-kit', 'migrate'], migrationEnv)
 
 for (const script of [
   'test:onboarding-rules',

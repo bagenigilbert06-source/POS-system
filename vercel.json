@@ -1,5 +1,8 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "regions": ["fra1"],
-  "buildCommand": "if [ \"$VERCEL_ENV\" = \"production\" ]; then pnpm exec drizzle-kit migrate; fi && next build"
+  "buildCommand": "if [ \"$VERCEL_ENV\" = \"production\" ]; then pnpm exec drizzle-kit migrate; fi && next build",
+  "crons": [
+    { "path": "/api/mpesa/c2b/process", "schedule": "* * * * *" }
+  ]
 }

@@ -27,8 +27,11 @@ export default async function CustomerReceivableStatementPage({ params }: { para
     ...payments.map((item) => ({ id: `payment:${item.id}`, at: item.at, type: 'Payment', reference: item.reference || item.receiptNo, debit: 0, credit: Number(item.amount), note: item.method.replaceAll('_', ' ') })),
     ...refunds.map((item) => ({ id: `refund:${item.id}`, at: item.at, type: 'Credit note / return', reference: item.returnNo, debit: 0, credit: Number(item.amount), note: `${item.receiptNo} · ${item.reason}` })),
   ].sort((a, b) => a.at.getTime() - b.at.getTime() || a.id.localeCompare(b.id))
-  let running = 0
-  const statement = events.map((event) => { running = Math.max(0, Math.round((running + event.debit - event.credit) * 100) / 100); return { ...event, running } })
+  const statement = events.reduce<Array<Event & { running: number }>>((rows, event) => {
+    const previous = rows.at(-1)?.running ?? 0
+    const running = Math.max(0, Math.round((previous + event.debit - event.credit) * 100) / 100)
+    return [...rows, { ...event, running }]
+  }, [])
   const authoritativeBalance = credits.reduce((sum, item) => sum + Number(item.amount) - Number(item.paid) - Number(item.credited), 0)
 
   return <div className="mx-auto max-w-6xl space-y-5 pb-8">

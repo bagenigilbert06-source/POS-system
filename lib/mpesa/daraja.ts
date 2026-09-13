@@ -1,6 +1,7 @@
 import { createHash, createHmac, timingSafeEqual } from 'node:crypto'
+import { loadMpesaConfiguration, mpesaConfigurationStatus, type MpesaEnvironment } from './configuration'
 
-type DarajaEnvironment = 'sandbox' | 'production'
+type DarajaEnvironment = MpesaEnvironment
 
 type StkPushResponse = {
   MerchantRequestID: string
@@ -15,21 +16,7 @@ let configurationDiagnosticLogged = false
 
 /** Safe for server diagnostics: this intentionally never returns any value. */
 export function mpesaConfigurationDiagnostic() {
-  const callbackUrl = process.env.MPESA_CALLBACK_URL?.trim()
-  let callbackPublicLooking = false
-  try {
-    const callback = callbackUrl ? new URL(callbackUrl) : null
-    callbackPublicLooking = Boolean(callback && callback.protocol === 'https:' && !/^(localhost|127\.0\.0\.1|yourdomain\.com)$/i.test(callback.hostname))
-  } catch { /* reported as not public-looking */ }
-  return {
-    environment: (process.env.MPESA_ENV || 'sandbox').toLowerCase(),
-    consumerKeyConfigured: Boolean(process.env.MPESA_CONSUMER_KEY?.trim()),
-    consumerSecretConfigured: Boolean(process.env.MPESA_CONSUMER_SECRET?.trim()),
-    businessShortCodeConfigured: Boolean((process.env.MPESA_BUSINESS_SHORTCODE || process.env.MPESA_SHORTCODE)?.trim()),
-    passkeyConfigured: Boolean(process.env.MPESA_PASSKEY?.trim()),
-    callbackUrlConfigured: Boolean(callbackUrl),
-    callbackUrlPublicLooking: callbackPublicLooking,
-  }
+  return mpesaConfigurationStatus()
 }
 
 function mpesaLog(event: string, details: Record<string, string | number | boolean> = {}) {
@@ -43,39 +30,12 @@ export function darajaBaseUrl(environment: DarajaEnvironment) {
 }
 
 function configuration(requirePasskey = true) {
-  const configuredEnvironment = (process.env.MPESA_ENV || 'sandbox').toLowerCase()
-  if (configuredEnvironment !== 'sandbox' && configuredEnvironment !== 'production')
-    throw new Error('MPESA_ENV must be either sandbox or production')
-  const environment = configuredEnvironment as DarajaEnvironment
-  const consumerKey = process.env.MPESA_CONSUMER_KEY?.trim()
-  const consumerSecret = process.env.MPESA_CONSUMER_SECRET?.trim()
-  // The Daraja shortcode belongs to server configuration. It is deliberately
-  // independent from the customer-facing branch Buy Goods Till.
-  const shortcode = process.env.MPESA_BUSINESS_SHORTCODE?.trim() || process.env.MPESA_SHORTCODE?.trim()
-  const passkey = process.env.MPESA_PASSKEY?.trim()
-  const explicitCallbackUrl = process.env.MPESA_CALLBACK_URL?.trim()
-  const applicationUrl = process.env.BETTER_AUTH_URL?.trim()
-  const callbackUrl = explicitCallbackUrl || (applicationUrl && !/localhost|127\.0\.0\.1/i.test(applicationUrl)
-    ? new URL('/api/mpesa/callback', applicationUrl).toString()
-    : undefined)
-  const transactionType = process.env.MPESA_TRANSACTION_TYPE === 'CustomerBuyGoodsOnline' ? 'CustomerBuyGoodsOnline' : 'CustomerPayBillOnline'
+  const config = loadMpesaConfiguration({ requirePasskey, liveTransaction: true })
   if (!configurationDiagnosticLogged) {
     configurationDiagnosticLogged = true
     mpesaLog('CONFIGURATION', mpesaConfigurationDiagnostic())
   }
-  if (!consumerKey || !consumerSecret || !shortcode || !callbackUrl || (requirePasskey && !passkey)) {
-    throw new Error(requirePasskey
-      ? 'M-Pesa STK Push is not fully configured. Add the consumer key, secret, shortcode, passkey and public callback URL.'
-      : 'M-Pesa PayBill confirmation is not fully configured. Add the consumer key, secret, shortcode and public callback URL.')
-  }
-  let callback: URL
-  try { callback = new URL(callbackUrl) } catch { throw new Error('MPESA_CALLBACK_URL must be a valid public HTTPS URL') }
-  if (callback.protocol !== 'https:' || /^(localhost|127\.0\.0\.1|yourdomain\.com)$/i.test(callback.hostname))
-    throw new Error('MPESA_CALLBACK_URL must use the public HTTPS callback domain; placeholder and local URLs are not allowed')
-  if (!process.env.MPESA_CALLBACK_SECRET?.trim()) {
-    throw new Error('MPESA_CALLBACK_SECRET is required for Daraja callbacks')
-  }
-  return { environment, consumerKey, consumerSecret, shortcode, passkey, callbackUrl, transactionType }
+  return config
 }
 
 async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs = 15_000) {

@@ -3,7 +3,7 @@ import { callbackAuthenticationToken, darajaBaseUrl, friendlyMpesaFailure, mpesa
 import { normalizeMpesaPhoneForMode } from '../lib/mpesa/phone-validation'
 import { calculateMpesaAmount } from '../lib/mpesa/amount'
 import { selectUnambiguousTillCandidate } from '../lib/mpesa/matching'
-import { callbackAmountMatches, matchesBranchTill } from '../lib/mpesa/merchant-rules'
+import { acceptsBranchC2b, callbackAmountMatches } from '../lib/mpesa/merchant-rules'
 
 assert.equal(normalizeKenyanPhone('0712 345 678'), '254712345678')
 assert.equal(normalizeKenyanPhone('+254 712 345 678'), '254712345678')
@@ -32,9 +32,9 @@ assert.equal(selectUnambiguousTillCandidate([{ id: 'one', amount: '1500.00' }], 
 assert.equal(selectUnambiguousTillCandidate([{ id: 'one', amount: '1500.00' }, { id: 'two', amount: '1500.00' }], 1500), null)
 assert.equal(selectUnambiguousTillCandidate([{ id: 'wrong', amount: '1499.00' }], 1500), null)
 // A Buy Goods Till is branch-bound and is never silently promoted to an STK shortcode.
-assert.equal(matchesBranchTill({ configuredTill: '1704604', callbackShortcode: '1704604', manualTillEnabled: true }), true)
-assert.equal(matchesBranchTill({ configuredTill: '1704604', callbackShortcode: '174379', manualTillEnabled: true }), false)
-assert.equal(matchesBranchTill({ configuredTill: '1704604', callbackShortcode: '1704604', manualTillEnabled: false }), false)
+assert.equal(acceptsBranchC2b({ configuredTill: 'display-till', configuredProviderIdentifier: 'api-id', callbackMerchantIdentifier: 'api-id', manualTillEnabled: true }), true)
+assert.equal(acceptsBranchC2b({ configuredTill: 'display-till', configuredProviderIdentifier: 'api-id', callbackMerchantIdentifier: 'foreign', manualTillEnabled: true }), false)
+assert.equal(acceptsBranchC2b({ configuredTill: 'display-till', configuredProviderIdentifier: 'api-id', callbackMerchantIdentifier: 'api-id', manualTillEnabled: false }), false)
 assert.equal(callbackAmountMatches('1500.00', 1500), true)
 assert.equal(callbackAmountMatches('1500.00', 1499), false)
 assert.equal(darajaBaseUrl('sandbox'), 'https://sandbox.safaricom.co.ke')
@@ -50,7 +50,8 @@ const merchantConfiguration = require('node:fs').readFileSync('lib/mpesa/merchan
 const proxy = require('node:fs').readFileSync('proxy.ts', 'utf8')
 assert.match(callbackRoute, /export async function POST/)
 assert.match(mpesaActions, /return \{ success: false as const, error: safeMpesaActionError\(error\) \}/)
-assert.match(merchantConfiguration, /MPESA_ENV[\s\S]*MPESA_TILL_NUMBER[\s\S]*MPESA_BUSINESS_SHORTCODE/)
+assert.match(merchantConfiguration, /MPESA_ENV[\s\S]*MPESA_TILL_NUMBER[\s\S]*MPESA_SHORTCODE/)
+assert.doesNotMatch(merchantConfiguration, /MPESA_BUSINESS_SHORTCODE/)
 assert.doesNotMatch(callbackRoute, /getAuthorizationContext|requirePermission|cookies\(/)
 assert.match(proxy, /matcher: \['\/dashboard\/:path\*'\]/)
 
@@ -76,15 +77,15 @@ async function testSandboxStkRequest() {
     process.env.MPESA_ENV = 'sandbox'
     process.env.MPESA_CONSUMER_KEY = 'sandbox-key-for-test'
     process.env.MPESA_CONSUMER_SECRET = 'sandbox-secret-for-test'
-    process.env.MPESA_BUSINESS_SHORTCODE = '174379'
-    delete process.env.MPESA_SHORTCODE
+    process.env.MPESA_SHORTCODE = '174379'
+    delete process.env.MPESA_BUSINESS_SHORTCODE
     process.env.MPESA_PASSKEY = 'sandbox-passkey-for-test'
     process.env.MPESA_CALLBACK_URL = 'https://sandbox-test.example/api/mpesa/callback'
     process.env.MPESA_CALLBACK_SECRET = 'sandbox-callback-secret-for-test'
     assert.deepEqual(mpesaConfigurationDiagnostic(), {
       environment: 'sandbox', consumerKeyConfigured: true, consumerSecretConfigured: true,
-      businessShortCodeConfigured: true, passkeyConfigured: true,
-      callbackUrlConfigured: true, callbackUrlPublicLooking: true,
+      shortcodeConfigured: true, tillConfigured: Boolean(process.env.MPESA_TILL_NUMBER), passkeyConfigured: true,
+      callbackUrlConfigured: true, callbackUrlPublicLooking: true, callbackSecretConfigured: true, productionEnabled: false,
     })
     global.fetch = (async (url: string | URL | Request, init?: RequestInit) => {
       calls.push({ url: String(url), init })

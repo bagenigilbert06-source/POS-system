@@ -1,6 +1,7 @@
 /** Pure guards shared by callback routing and test coverage. */
-export function matchesBranchTill(input: { configuredTill: string | null; callbackShortcode: string; manualTillEnabled: boolean }) {
-  return input.manualTillEnabled && Boolean(input.configuredTill) && input.configuredTill === input.callbackShortcode.trim()
+export function acceptsBranchC2b(input: { configuredTill: string | null; configuredProviderIdentifier: string; callbackMerchantIdentifier: string; manualTillEnabled: boolean }) {
+  return input.manualTillEnabled && Boolean(input.configuredTill) && Boolean(input.configuredProviderIdentifier) &&
+    input.configuredProviderIdentifier === input.callbackMerchantIdentifier.trim()
 }
 
 export function callbackAmountMatches(expected: string | number, received: string | number) {

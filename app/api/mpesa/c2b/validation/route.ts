@@ -4,7 +4,10 @@ import { db } from '@/lib/db'
 import { mpesaBusinessAccount, mpesaPaymentRequest } from '@/lib/db/schema'
 import { validCallbackToken } from '@/lib/mpesa/daraja'
 import { getBranchMpesaMerchant } from '@/lib/mpesa/merchant-configuration'
-import { matchesBranchTill } from '@/lib/mpesa/merchant-rules'
+import { acceptsBranchC2b } from '@/lib/mpesa/merchant-rules'
+
+export const dynamic = 'force-dynamic'
+export const runtime = 'nodejs'
 
 type C2bPayload = { TransAmount?: string | number; BillRefNumber?: string; BusinessShortCode?: string | number }
 
@@ -18,7 +21,7 @@ export async function POST(request: NextRequest) {
   const [account] = await db.select().from(mpesaBusinessAccount).where(and(eq(mpesaBusinessAccount.shortcode, shortcode), eq(mpesaBusinessAccount.active, true))).limit(1)
   if (!account) return NextResponse.json({ ResultCode: 1, ResultDesc: 'Unregistered business shortcode' })
   const merchant = await getBranchMpesaMerchant(account.organizationId, account.branchId)
-  if (!matchesBranchTill({ configuredTill: merchant?.tillNumber ?? null, callbackShortcode: shortcode, manualTillEnabled: Boolean(merchant?.manualTillEnabled) }))
+  if (!acceptsBranchC2b({ configuredTill: merchant?.tillNumber ?? null, configuredProviderIdentifier: account.shortcode, callbackMerchantIdentifier: shortcode, manualTillEnabled: Boolean(merchant?.manualTillEnabled) }))
     return NextResponse.json({ ResultCode: 1, ResultDesc: 'Merchant Till is not enabled' })
   if (!Number.isFinite(amount) || amount <= 0) return NextResponse.json({ ResultCode: 1, ResultDesc: 'Enter a valid amount' })
   if (account.accountType === 'till') return NextResponse.json({ ResultCode: 0, ResultDesc: 'Accepted' })

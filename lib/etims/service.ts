@@ -101,6 +101,24 @@ export async function queueEtimsInvoice(saleId: string) {
   }
 }
 
+/** Atomically creates the fiscal outbox alongside a financial transaction. */
+export async function queueEtimsInvoiceInTransaction(tx: Parameters<typeof allocateEtimsInvoiceNumber>[0] & Pick<typeof db, 'select' | 'insert'>, saleId: string) {
+  const [record] = await tx.select({ id: sale.id, orgId: sale.orgId, branchId: sale.branchId }).from(sale).where(eq(sale.id, saleId)).limit(1)
+  if (!record?.branchId) return { status: 'NOT_REQUIRED' as const }
+  const [config] = await tx.select().from(etimsConfiguration).where(and(
+    eq(etimsConfiguration.organizationId, record.orgId), eq(etimsConfiguration.branchId, record.branchId),
+  )).limit(1)
+  if (!config?.enabled || !config.invoiceSubmissionEnabled) return { status: 'NOT_REQUIRED' as const }
+  const idempotencyKey = `etims:invoice:${record.orgId}:${record.id}`
+  const allocated = await allocateEtimsInvoiceNumber(tx, { organizationId: record.orgId, branchId: record.branchId, provider: config.providerName, environment: config.environment })
+  await tx.insert(etimsSubmission).values({
+    id: generateId(), organizationId: record.orgId, branchId: record.branchId, saleId: record.id,
+    configurationId: config.id, status: 'PENDING', provider: config.providerName, environment: config.environment,
+    idempotencyKey, providerInvoiceNumber: allocated,
+  }).onConflictDoNothing({ target: etimsSubmission.saleId })
+  return { status: 'PENDING' as const }
+}
+
 /** Creates the durable outbox row and immediately attempts delivery.
  * Use this only from a worker or an explicit administrative retry, never from
  * the cashier checkout critical path. */

@@ -1,11 +1,14 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 
-const enabled = Boolean(process.env.DATABASE_URL && process.env.MPESA_INTEGRATION === '1')
+const enabled = Boolean(process.env.TEST_DATABASE_URL && process.env.MPESA_INTEGRATION === '1')
 
-test('reconciliation race is single-owner and idempotent', { skip: !enabled }, async () => {
-  const { reconcileIncomingMpesaPayment } = await import('../app/actions/mpesa.ts')
-  assert.equal(typeof reconcileIncomingMpesaPayment, 'function')
+test('reconciliation integration uses the explicit disposable PostgreSQL database', { skip: !enabled }, async () => {
+  assert.notEqual(process.env.TEST_DATABASE_URL, process.env.DATABASE_URL, 'TEST_DATABASE_URL must not be the application database')
+  const { Pool } = await import('pg')
+  const pool = new Pool({ connectionString: process.env.TEST_DATABASE_URL })
+  try { assert.equal((await pool.query('SELECT 1 AS ready')).rows[0].ready, 1) }
+  finally { await pool.end() }
 })
 
 test('ten replayed reconciliations produce one ownership effect', async () => {

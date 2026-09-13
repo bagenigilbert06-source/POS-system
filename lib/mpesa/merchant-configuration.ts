@@ -20,7 +20,7 @@ export async function getBranchMpesaMerchant(organizationId: string, branchId: s
   // real branch. Let the explicit sandbox environment configure that test
   // merchant while retaining the branch row for receipt/display metadata.
   const tillNumber = process.env.MPESA_TILL_NUMBER?.trim() || merchant?.tillNumber || null
-  const businessShortCode = (process.env.MPESA_BUSINESS_SHORTCODE || process.env.MPESA_SHORTCODE)?.trim() || merchant?.businessShortCode || null
+  const businessShortCode = process.env.MPESA_SHORTCODE?.trim() || merchant?.businessShortCode || null
   return {
     id: merchant?.id ?? `sandbox-${branchId}`,
     organizationId,
