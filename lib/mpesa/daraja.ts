@@ -92,16 +92,18 @@ export function friendlyMpesaFailure(resultCode: number, resultDescription?: str
   return 'Payment could not be completed. Please try again or choose another payment method.'
 }
 
-export function callbackAuthenticationToken() {
+export type MpesaCallbackPurpose = 'stk' | 'c2b-validation' | 'c2b-confirmation'
+
+export function callbackAuthenticationToken(purpose: MpesaCallbackPurpose = 'stk') {
   const secret = process.env.MPESA_CALLBACK_SECRET?.trim()
   if (!secret) return null
   // Daraja can only return the configured URL. Send a purpose-bound derived
   // bearer token, never the raw server secret itself.
-  return createHmac('sha256', secret).update('pesaby:daraja:stk-callback:v1').digest('base64url')
+  return createHmac('sha256', secret).update(`pesaby:daraja:${purpose}-callback:v1`).digest('base64url')
 }
 
-function callbackUrl(configuredUrl: string) {
-  const token = callbackAuthenticationToken()
+function callbackUrl(configuredUrl: string, purpose: MpesaCallbackPurpose = 'stk') {
+  const token = callbackAuthenticationToken(purpose)
   if (!token) return configuredUrl
   const url = new URL(configuredUrl)
   url.searchParams.set('token', token)
@@ -141,12 +143,12 @@ export async function requestStkPush(input: { phone: string; amount: number; acc
   return body as StkPushResponse
 }
 
-function c2bCallbackUrl(pathname: string) {
+function c2bCallbackUrl(pathname: string, purpose: Extract<MpesaCallbackPurpose, `c2b-${string}`>) {
   const config = configuration(false)
   const url = new URL(config.callbackUrl)
   url.pathname = pathname
   url.search = ''
-  return callbackUrl(url.toString())
+  return callbackUrl(url.toString(), purpose)
 }
 
 export function mpesaPaybillDetails() {
@@ -169,8 +171,8 @@ export async function registerC2bUrls() {
     body: JSON.stringify({
       ShortCode: config.shortcode,
       ResponseType: 'Completed',
-      ConfirmationURL: c2bCallbackUrl('/api/mpesa/c2b/confirmation'),
-      ValidationURL: c2bCallbackUrl('/api/mpesa/c2b/validation'),
+      ConfirmationURL: c2bCallbackUrl('/api/mpesa/c2b/confirmation', 'c2b-confirmation'),
+      ValidationURL: c2bCallbackUrl('/api/mpesa/c2b/validation', 'c2b-validation'),
     }),
   })
   const body = await response.json() as { ResponseCode?: string; ResponseDescription?: string; errorMessage?: string }
@@ -178,8 +180,8 @@ export async function registerC2bUrls() {
   return body
 }
 
-export function validCallbackToken(value: string | null) {
-  const expected = callbackAuthenticationToken()
+export function validCallbackToken(value: string | null, purpose: MpesaCallbackPurpose = 'stk') {
+  const expected = callbackAuthenticationToken(purpose)
   if (!expected) return false
   if (!value) return false
   const left = createHash('sha256').update(value).digest()

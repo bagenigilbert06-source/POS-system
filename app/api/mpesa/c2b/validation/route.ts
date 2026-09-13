@@ -12,7 +12,7 @@ export const runtime = 'nodejs'
 type C2bPayload = { TransAmount?: string | number; BillRefNumber?: string; BusinessShortCode?: string | number }
 
 export async function POST(request: NextRequest) {
-  if (!validCallbackToken(request.nextUrl.searchParams.get('token'))) return NextResponse.json({ ResultCode: 1, ResultDesc: 'Rejected' }, { status: 401 })
+  if (!validCallbackToken(request.nextUrl.searchParams.get('token'), 'c2b-validation')) return NextResponse.json({ ResultCode: 1, ResultDesc: 'Rejected' }, { status: 401 })
   let payload: C2bPayload
   try { payload = await request.json() as C2bPayload } catch { return NextResponse.json({ ResultCode: 1, ResultDesc: 'Invalid request' }) }
   const reference = String(payload.BillRefNumber || '').trim().toUpperCase()

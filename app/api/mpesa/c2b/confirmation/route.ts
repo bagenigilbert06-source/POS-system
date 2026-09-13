@@ -11,7 +11,7 @@ const rejected = (description: string, status = 400) => NextResponse.json({ Resu
 
 /** Persist first and acknowledge. Financial work is performed by the durable retry worker. */
 export async function POST(request: NextRequest) {
-  if (!validCallbackToken(request.nextUrl.searchParams.get('token'))) return rejected('Rejected', 401)
+  if (!validCallbackToken(request.nextUrl.searchParams.get('token'), 'c2b-confirmation')) return rejected('Rejected', 401)
   let payload: unknown
   try { payload = await request.json() } catch { return rejected('Invalid request') }
   try {

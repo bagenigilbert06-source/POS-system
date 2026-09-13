@@ -65,6 +65,13 @@ assert.notEqual(callbackToken, 'test-callback-secret')
 assert.equal(validCallbackToken(callbackToken), true)
 assert.equal(validCallbackToken('wrong-secret'), false)
 assert.equal(validCallbackToken(null), false)
+const validationToken = callbackAuthenticationToken('c2b-validation')
+const confirmationToken = callbackAuthenticationToken('c2b-confirmation')
+assert.ok(validationToken && confirmationToken)
+assert.notEqual(validationToken, confirmationToken)
+assert.equal(validCallbackToken(validationToken, 'c2b-validation'), true)
+assert.equal(validCallbackToken(validationToken, 'c2b-confirmation'), false)
+assert.equal(validCallbackToken(confirmationToken, 'c2b-confirmation'), true)
 process.env.MPESA_ENV = previousEnvironment
 process.env.MPESA_CALLBACK_SECRET = previousSecret
 
