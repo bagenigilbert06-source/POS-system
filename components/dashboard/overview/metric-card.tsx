@@ -1,7 +1,6 @@
 import Link from 'next/link';
 import type { ComponentType, SVGProps } from 'react';
 import { ArrowDown, ArrowUp, ArrowUpRight, Minus } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
@@ -45,7 +44,7 @@ function TrendLine({ trend }: { trend: MetricTrend }) {
   return (
     <p
       className={cn(
-        'flex min-h-5 items-center gap-1 text-xs font-medium',
+        'flex min-h-5 items-center gap-1 text-[0.7rem] font-medium',
         trend.direction === 'up' && 'text-[var(--dashboard-success)]',
         trend.direction === 'down' && 'text-[var(--dashboard-danger)]',
         trend.direction === 'neutral' && 'text-[var(--dashboard-muted)]'
@@ -87,37 +86,41 @@ export function MetricCard({
 }: MetricCardProps) {
   const compactValue = value.length > 16;
   const iconTone = warning
-    ? 'border-amber-500/25 bg-amber-500/10 text-amber-500'
+    ? 'border-amber-500/30 bg-amber-500/10 text-amber-600 shadow-[inset_0_1px_0_rgba(255,255,255,.08)] dark:text-amber-400'
     : healthy
-      ? 'border-emerald-500/25 bg-emerald-500/10 text-emerald-500'
-      : 'border-[var(--dashboard-border)] bg-[var(--dashboard-surface-subtle)] text-[var(--dashboard-muted)] group-hover:border-[var(--dashboard-accent-soft-border)] group-hover:text-[var(--dashboard-accent)]';
+      ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-600 shadow-[inset_0_1px_0_rgba(255,255,255,.08)] dark:text-emerald-400'
+      : trend?.direction === 'down'
+        ? 'border-red-500/30 bg-red-500/10 text-red-600 shadow-[inset_0_1px_0_rgba(255,255,255,.08)] dark:text-red-400'
+        : trend?.direction === 'up'
+          ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-600 shadow-[inset_0_1px_0_rgba(255,255,255,.08)] dark:text-emerald-400'
+          : 'border-[var(--dashboard-border)] bg-[var(--dashboard-surface-subtle)] text-[var(--dashboard-muted)] shadow-[inset_0_1px_0_rgba(255,255,255,.05)] group-hover:border-[var(--dashboard-accent-soft-border)] group-hover:text-[var(--dashboard-accent)]';
 
   const card = (
     <Card
       className={cn(
         'group relative flex h-full min-h-[164px] flex-col overflow-hidden rounded-xl border border-[var(--dashboard-border)] bg-[var(--dashboard-surface)] text-[var(--dashboard-text)] shadow-dark-sm transition-[border-color,box-shadow] duration-150',
-        href && 'hover:border-[var(--dashboard-accent-soft-border)]'
+        href && 'hover:border-[var(--dashboard-accent-soft-border)] hover:shadow-md'
       )}
     >
-      <CardHeader className="relative z-[1] flex-row items-start justify-between space-y-0 px-4 pb-0 pt-4">
+      <CardHeader className="relative z-[1] flex-row items-start justify-between space-y-0 px-4.5 pb-0 pt-4.5">
         {loading ? (
           <Skeleton className="h-4 w-28 bg-[var(--dashboard-surface-subtle)]" />
         ) : (
-          <p className="pt-0.5 text-[0.72rem] font-semibold text-[var(--dashboard-muted)]">
+          <p className="pt-0.5 text-[0.7rem] font-semibold tracking-[-0.01em] text-[var(--dashboard-muted)]">
             {title}
           </p>
         )}
         <span
           className={cn(
-            'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border transition-colors',
+            'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border transition-[border-color,background-color,transform] duration-150 group-hover:scale-[1.04]',
             iconTone
           )}
         >
-          <Icon className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" />
+          <Icon className="h-[1.05rem] w-[1.05rem]" strokeWidth={1.9} aria-hidden="true" />
         </span>
       </CardHeader>
 
-      <CardContent className="relative z-[1] flex flex-1 flex-col px-4 pb-4 pt-2">
+      <CardContent className="relative z-[1] flex flex-1 flex-col px-4.5 pb-4 pt-2.5">
         {loading ? (
           <>
             <Skeleton className="h-8 w-32 bg-[var(--dashboard-surface-subtle)]" />
@@ -129,7 +132,7 @@ export function MetricCard({
             <p
               className={cn(
                 'truncate font-semibold leading-[1.08] tracking-[-0.025em] tabular-nums',
-                compactValue ? 'text-[1.25rem]' : 'text-[1.5rem]'
+                compactValue ? 'text-[1.3rem]' : 'text-[1.55rem]'
               )}
               title={value}
             >
@@ -137,17 +140,24 @@ export function MetricCard({
             </p>
             <div className="mt-auto pt-3">
               {status ? (
-                <Badge
-                  variant="outline"
+                <span
                   className={cn(
-                    'h-5 rounded-md border px-2 text-[0.64rem] font-semibold shadow-none',
+                    'inline-flex min-h-5 items-center gap-1.5 text-[0.68rem] font-semibold',
                     warning
-                      ? 'border-[var(--dashboard-accent-soft-border)] bg-[var(--dashboard-accent-soft)] text-[var(--dashboard-accent)]'
-                      : 'border-[var(--dashboard-success-soft-border)] bg-[var(--dashboard-success-soft)] text-[var(--dashboard-success)]'
+                      ? 'text-[var(--dashboard-accent)]'
+                      : 'text-[var(--dashboard-success)]'
                   )}
                 >
+                  <span
+                    className={cn(
+                      'h-1.5 w-1.5 rounded-full',
+                      warning
+                        ? 'bg-[var(--dashboard-accent)]'
+                        : 'bg-[var(--dashboard-success)]'
+                    )}
+                  />
                   {status}
-                </Badge>
+                </span>
               ) : trend ? (
                 <TrendLine trend={trend} />
               ) : primaryMeta ? (
@@ -167,7 +177,7 @@ export function MetricCard({
             <Tooltip>
               <TooltipTrigger asChild>
                 <span
-                  className="absolute bottom-3.5 right-3.5 flex items-center gap-1 rounded-md px-1.5 py-1 text-[0.64rem] font-semibold text-[var(--dashboard-muted)] opacity-70 transition-colors group-hover:text-[var(--dashboard-accent)] group-hover:opacity-100 group-focus-within:text-[var(--dashboard-accent)] group-focus-within:opacity-100"
+                  className="absolute bottom-3 right-3.5 flex items-center gap-1 rounded-md px-1 py-1 text-[0.64rem] font-semibold text-[var(--dashboard-muted)] opacity-70 transition-colors group-hover:text-[var(--dashboard-accent)] group-hover:opacity-100 group-focus-within:text-[var(--dashboard-accent)] group-focus-within:opacity-100"
                   aria-hidden="true"
                 >
                   <span>{linkLabel}</span>

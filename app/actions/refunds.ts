@@ -27,7 +27,7 @@ import { getPosAuthorizationContext } from '@/lib/pos/pos-auth'
 import { revalidatePath } from 'next/cache'
 import { calculateRefundAmount, roundCurrency } from '@/lib/pos/refund-calculation'
 import { invalidateProductReadCache } from '@/lib/cache/redis-cache'
-import { applyInventoryMovement } from '@/lib/inventory/inventory-service'
+import { applyInventoryMovement, evaluateInventoryAvailability } from '@/lib/inventory/inventory-service'
 import { enqueueEtimsCreditNote } from '@/lib/etims/service'
 import { isPharmacyBusiness, planReturnedLotTrace } from '@/lib/pharmacy/rules'
 import { money } from '@/lib/rewards/rules'
@@ -225,7 +225,7 @@ export async function processRefund(data: {
 
       const returnedBaseQuantity = item.quantity * original.baseUnitQuantity
       if (cafeInventoryMode.get(original.productId) !== 'recipe' && cafeInventoryMode.get(original.productId) !== 'none')
-        await applyInventoryMovement(tx, { productId: original.productId, productName: original.productName, branchId: originalSale.branchId!, quantity: returnedBaseQuantity, type: 'return', referenceType: 'refund', referenceId: returnId, reason: `Refund: ${data.reason}`, userId, orgId })
+        await applyInventoryMovement(tx, { productId: original.productId, productName: original.productName, branchId: originalSale.branchId!, quantity: returnedBaseQuantity, type: 'return', referenceType: 'refund', referenceId: returnId, reason: `Refund: ${data.reason}`, userId, orgId, evaluateAlerts: !pharmacyWorkspace })
 
       if (pharmacyWorkspace) {
         await tx.update(inventoryBalance).set({
@@ -236,6 +236,7 @@ export async function processRefund(data: {
           eq(inventoryBalance.branchId, originalSale.branchId!),
           eq(inventoryBalance.orgId, orgId),
         ))
+        await evaluateInventoryAvailability(tx, { productId: original.productId, productName: original.productName, branchId: originalSale.branchId!, orgId })
 
         const originalAllocations = await tx.select().from(saleItemLotAllocation).where(and(
           eq(saleItemLotAllocation.organizationId, orgId),

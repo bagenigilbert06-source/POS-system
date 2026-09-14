@@ -4,12 +4,12 @@ import Image from 'next/image';
 import Link from 'next/link';
 import {
   ArrowUpRight,
-  CalendarDays,
   Package,
   ReceiptText,
   TriangleAlert,
 } from 'lucide-react';
 import { useMemo, useState } from 'react';
+import { DashboardPeriodSelect } from './dashboard-period-select';
 import type { DashboardOverview } from '@/lib/services/dashboard-overview-service';
 import type { ProductTerminology } from '@/lib/products/terminology';
 import { formatCurrency, formatNumber } from '@/lib/utils/format';
@@ -87,6 +87,7 @@ export function RetailActivityCards({
   terminology,
 }: RetailActivityCardsProps) {
   const [period, setPeriod] = useState<Period>(30);
+  const [periodOpen, setPeriodOpen] = useState(false);
   const topProducts = useMemo(() => {
     const from = periodStart(reportDate, period);
     const totals = new Map<
@@ -137,21 +138,19 @@ export function RetailActivityCards({
               Top Selling Products
             </h2>
           </div>
-          <label className="relative shrink-0">
-            <span className="sr-only">Sales period</span>
-            <CalendarDays className="pointer-events-none absolute left-2.5 top-1/2 h-3 w-3 -translate-y-1/2 text-[var(--dashboard-muted)]" />
-            <select
-              value={period}
-              onChange={(event) =>
-                setPeriod(Number(event.target.value) as Period)
-              }
-              className="h-8 rounded-md border border-[var(--dashboard-border)] bg-[var(--dashboard-surface)] pl-7 pr-7 text-[0.68rem] font-semibold text-[var(--dashboard-text)] outline-none"
-            >
-              <option value={1}>Today</option>
-              <option value={7}>7 days</option>
-              <option value={30}>30 days</option>
-            </select>
-          </label>
+          <DashboardPeriodSelect
+            value={period}
+            options={[
+              { value: 1 as Period, label: 'Today' },
+              { value: 7 as Period, label: '7 days' },
+              { value: 30 as Period, label: '30 days' },
+            ]}
+            open={periodOpen}
+            onOpenChange={setPeriodOpen}
+            onValueChange={setPeriod}
+            ariaLabel="Sales period"
+            minWidthClassName="min-w-[92px]"
+          />
         </header>
         {topProducts.length ? (
           <div className="px-5">

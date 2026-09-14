@@ -7,6 +7,7 @@ import { useMemo, useState } from 'react'
 import { cn } from '@/lib/utils'
 import { formatCurrency, formatNumber } from '@/lib/utils/format'
 import type { ProductTerminology } from '@/lib/products/terminology'
+import { DashboardPeriodSelect } from './dashboard-period-select'
 
 type Period = 1 | 7 | 30
 
@@ -64,7 +65,20 @@ export function TopSellingProductsCard({ currency, reportDate, sales, terminolog
           <p className="mt-0.5 text-xs text-[var(--dashboard-muted)]">Best performers by completed sales.</p>
         </div>
         <label className="sr-only" htmlFor="top-products-period">Top {terminology.pluralLower} period</label>
-        <div className="relative shrink-0">
+        <DashboardPeriodSelect
+          value={period}
+          options={[
+            { value: 1 as Period, label: 'Today' },
+            { value: 7 as Period, label: '7 days' },
+            { value: 30 as Period, label: '30 days' },
+          ]}
+          open={periodOpen}
+          onOpenChange={setPeriodOpen}
+          onValueChange={setPeriod}
+          ariaLabel={`Top ${terminology.pluralLower} period`}
+          minWidthClassName="min-w-[92px]"
+        />
+        <div className="hidden relative shrink-0">
           <button type="button" aria-haspopup="listbox" aria-expanded={periodOpen} aria-label={`Top ${terminology.pluralLower} period`} onClick={() => setPeriodOpen((open) => !open)} className="flex h-9 min-w-[88px] items-center justify-between gap-2 rounded-lg border border-[var(--dashboard-border)] bg-[var(--dashboard-surface-subtle)] px-2.5 text-[0.7rem] font-semibold text-[var(--dashboard-text)] outline-none transition-colors hover:border-[var(--dashboard-accent-soft-border)] hover:bg-[var(--dashboard-accent-soft)] focus:border-transparent focus:ring-0">
             {period === 1 ? 'Today' : period === 7 ? '7 days' : '30 days'}<span className="text-[var(--dashboard-muted)]">⌄</span>
           </button>

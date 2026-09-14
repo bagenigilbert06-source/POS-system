@@ -470,6 +470,78 @@ export const auditEvent = pgTable(
   })
 );
 
+/** Durable, server-only operational notification outbox. */
+export const notificationEvent = pgTable('notification_event', {
+  id: text('id').primaryKey(),
+  organizationId: text('organizationId').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  branchId: text('branchId').references(() => branch.id, { onDelete: 'cascade' }),
+  type: text('type').notNull(),
+  severity: text('severity').notNull(),
+  entityType: text('entityType').notNull(),
+  entityId: text('entityId'),
+  dedupeKey: text('dedupeKey').notNull(),
+  payload: json('payload').notNull().default({}),
+  materializedAt: timestamp('materializedAt'),
+  createdAt: timestamp('createdAt').notNull().defaultNow(),
+}, (table) => ({
+  dedupeUnique: uniqueIndex('notification_event_org_dedupe_unique').on(table.organizationId, table.dedupeKey),
+  pendingIndex: index('notification_event_org_created_idx').on(table.organizationId, table.createdAt),
+}));
+
+export const notificationDelivery = pgTable('notification_delivery', {
+  id: text('id').primaryKey(),
+  eventId: text('eventId').notNull().references(() => notificationEvent.id, { onDelete: 'cascade' }),
+  organizationId: text('organizationId').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  userId: text('userId').references(() => user.id, { onDelete: 'set null' }),
+  recipientEmail: text('recipientEmail').notNull(),
+  recipientName: text('recipientName'),
+  status: text('status').notNull().default('PENDING'),
+  attempts: integer('attempts').notNull().default(0),
+  leaseUntil: timestamp('leaseUntil'),
+  nextRetryAt: timestamp('nextRetryAt'),
+  providerMessageId: text('providerMessageId'),
+  lastError: text('lastError'),
+  sentAt: timestamp('sentAt'),
+  failedAt: timestamp('failedAt'),
+  createdAt: timestamp('createdAt').notNull().defaultNow(),
+  updatedAt: timestamp('updatedAt').notNull().defaultNow(),
+}, (table) => ({
+  eventRecipientUnique: uniqueIndex('notification_delivery_event_recipient_unique').on(table.eventId, table.recipientEmail),
+  dueIndex: index('notification_delivery_due_idx').on(table.status, table.nextRetryAt),
+  leaseIndex: index('notification_delivery_lease_idx').on(table.status, table.leaseUntil),
+}));
+
+export const notificationPreference = pgTable('notification_preference', {
+  id: text('id').primaryKey(),
+  organizationId: text('organizationId').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  branchId: text('branchId').references(() => branch.id, { onDelete: 'cascade' }),
+  role: text('role').notNull(),
+  type: text('type').notNull(),
+  enabled: boolean('enabled').notNull().default(true),
+  digestTime: text('digestTime').notNull().default('20:00'),
+  createdAt: timestamp('createdAt').notNull().defaultNow(),
+  updatedAt: timestamp('updatedAt').notNull().defaultNow(),
+}, (table) => ({
+  organizationScopeUnique: uniqueIndex('notification_preference_org_scope_unique').on(table.organizationId, table.role, table.type).where(sql`${table.branchId} is null`),
+  branchScopeUnique: uniqueIndex('notification_preference_branch_scope_unique').on(table.organizationId, table.branchId, table.role, table.type).where(sql`${table.branchId} is not null`),
+}));
+
+/** One row per branch product prevents repeated emails during one stock episode. */
+export const notificationAlertState = pgTable('notification_alert_state', {
+  id: text('id').primaryKey(),
+  organizationId: text('organizationId').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  branchId: text('branchId').notNull().references(() => branch.id, { onDelete: 'cascade' }),
+  productId: text('productId').notNull().references(() => product.id, { onDelete: 'cascade' }),
+  lowStockActive: boolean('lowStockActive').notNull().default(false),
+  outOfStockActive: boolean('outOfStockActive').notNull().default(false),
+  lowStockEpisode: integer('lowStockEpisode').notNull().default(0),
+  outOfStockEpisode: integer('outOfStockEpisode').notNull().default(0),
+  updatedAt: timestamp('updatedAt').notNull().defaultNow(),
+}, (table) => ({
+  productBranchUnique: uniqueIndex('notification_alert_state_product_branch_unique').on(table.productId, table.branchId),
+  organizationBranchIndex: index('notification_alert_state_org_branch_idx').on(table.organizationId, table.branchId),
+}));
+
 export const category = pgTable(
   'category',
   {

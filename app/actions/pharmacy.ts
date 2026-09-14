@@ -9,7 +9,7 @@ import { requirePermission } from '@/lib/auth/authorization'
 import { PermissionEnum } from '@/lib/types/permissions'
 import { isPharmacyBusiness, normalizeExpiryWarningDays, pharmacyExpiryState } from '@/lib/pharmacy/rules'
 import { WorkspaceService } from '@/lib/services/workspace-service'
-import { applyInventoryMovement } from '@/lib/inventory/inventory-service'
+import { applyInventoryMovement, evaluateInventoryAvailability } from '@/lib/inventory/inventory-service'
 import { generateId } from '@/lib/utils'
 
 async function pharmacyContext(permission: PermissionEnum) {
@@ -188,9 +188,10 @@ export async function updatePharmacyReturnDisposition(input: z.input<typeof retu
       await applyInventoryMovement(tx, {
         productId: item.productId, productName: item.productName, branchId: item.branchId, quantity: -quantity,
         type: data.decision === 'disposed' ? 'return_disposal' : 'supplier_return', referenceType: 'pharmacy_return',
-        referenceId: item.returnId, reason: data.reason, userId: authorization.userId, orgId,
+        referenceId: item.returnId, reason: data.reason, userId: authorization.userId, orgId, evaluateAlerts: false,
       })
     }
+    await evaluateInventoryAvailability(tx, { productId: item.productId, productName: item.productName, branchId: item.branchId, orgId })
     await tx.update(pharmacyReturnDisposition).set({ status: data.decision, notes: data.reason, supplierReturnReference: data.decision === 'supplier_return' ? data.supplierReference : null, supplierReturnStatus: data.decision === 'supplier_return' ? 'pending' : null, updatedAt: new Date() })
       .where(eq(pharmacyReturnDisposition.id, item.id))
     await tx.insert(auditEvent).values({
@@ -214,8 +215,9 @@ export async function settlePharmacySupplierReturn(input: z.input<typeof supplie
     if (!authorization.isOrganizationWide && !authorization.branchIds.includes(item.record.branchId)) throw new Error('This return is outside your assigned branches')
     if (data.status === 'rejected') {
       const quantity = Number(item.record.quantity)
-      await applyInventoryMovement(tx, { productId: item.record.productId, productName: item.productName, branchId: item.record.branchId, quantity, type: 'supplier_return_rejected', referenceType: 'pharmacy_return', referenceId: item.record.returnId, reason: data.notes, userId: authorization.userId, orgId })
+      await applyInventoryMovement(tx, { productId: item.record.productId, productName: item.productName, branchId: item.record.branchId, quantity, type: 'supplier_return_rejected', referenceType: 'pharmacy_return', referenceId: item.record.returnId, reason: data.notes, userId: authorization.userId, orgId, evaluateAlerts: false })
       await tx.update(inventoryBalance).set({ unavailable: sql`${inventoryBalance.unavailable} + ${quantity}`, updatedAt: new Date() }).where(and(eq(inventoryBalance.productId, item.record.productId), eq(inventoryBalance.branchId, item.record.branchId), eq(inventoryBalance.orgId, orgId)))
+      await evaluateInventoryAvailability(tx, { productId: item.record.productId, productName: item.productName, branchId: item.record.branchId, orgId })
       await tx.update(pharmacyReturnDisposition).set({ status: 'quarantined', supplierReturnStatus: 'rejected', supplierResolvedBy: authorization.userId, supplierResolvedAt: new Date(), notes: data.notes, updatedAt: new Date() }).where(eq(pharmacyReturnDisposition.id, item.record.id))
     } else {
       await tx.update(pharmacyReturnDisposition).set({ supplierReturnStatus: data.status, supplierCreditNote: data.creditNote || null, supplierResolvedBy: authorization.userId, supplierResolvedAt: new Date(), notes: data.notes, updatedAt: new Date() }).where(eq(pharmacyReturnDisposition.id, item.record.id))
@@ -249,18 +251,21 @@ export async function updatePharmacyBatchStatus(input: z.input<typeof batchStatu
       const [released] = await tx.update(inventoryBalance).set({ unavailable: sql`${inventoryBalance.unavailable} - ${quantity}`, updatedAt: new Date() })
         .where(and(eq(inventoryBalance.productId, lot.productId), eq(inventoryBalance.branchId, lot.branchId), eq(inventoryBalance.orgId, orgId), sql`${inventoryBalance.unavailable} >= ${quantity}`)).returning({ id: inventoryBalance.id })
       if (!released) throw new Error('Batch quarantine balance is inconsistent; review inventory before releasing it')
+      await evaluateInventoryAvailability(tx, { productId: lot.productId, productName: lot.productName, branchId: lot.branchId, orgId })
       await tx.update(inventoryLot).set({ status: 'available' }).where(eq(inventoryLot.id, lot.id))
     } else if (data.status === 'quarantined') {
       if (lot.status !== 'available') throw new Error('Only an available batch can be quarantined')
       const [quarantined] = await tx.update(inventoryBalance).set({ unavailable: sql`${inventoryBalance.unavailable} + ${quantity}`, updatedAt: new Date() })
         .where(and(eq(inventoryBalance.productId, lot.productId), eq(inventoryBalance.branchId, lot.branchId), eq(inventoryBalance.orgId, orgId))).returning({ id: inventoryBalance.id })
       if (!quarantined) throw new Error('Inventory balance is unavailable for this batch')
+      await evaluateInventoryAvailability(tx, { productId: lot.productId, productName: lot.productName, branchId: lot.branchId, orgId })
       await tx.update(inventoryLot).set({ status: 'quarantined' }).where(eq(inventoryLot.id, lot.id))
     } else {
       if (!['available', 'quarantined'].includes(lot.status)) throw new Error('This batch cannot be disposed from its current status')
       if (lot.status === 'quarantined') await tx.update(inventoryBalance).set({ unavailable: sql`${inventoryBalance.unavailable} - ${quantity}`, updatedAt: new Date() })
         .where(and(eq(inventoryBalance.productId, lot.productId), eq(inventoryBalance.branchId, lot.branchId), eq(inventoryBalance.orgId, orgId), sql`${inventoryBalance.unavailable} >= ${quantity}`))
-      if (quantity > 0) await applyInventoryMovement(tx, { productId: lot.productId, productName: lot.productName, branchId: lot.branchId, quantity: -quantity, type: 'expiry_disposal', referenceType: 'inventory_lot', referenceId: lot.id, reason: data.reason, userId: authorization.userId, orgId })
+      if (quantity > 0) await applyInventoryMovement(tx, { productId: lot.productId, productName: lot.productName, branchId: lot.branchId, quantity: -quantity, type: 'expiry_disposal', referenceType: 'inventory_lot', referenceId: lot.id, reason: data.reason, userId: authorization.userId, orgId, evaluateAlerts: lot.status !== 'quarantined' })
+      if (lot.status === 'quarantined') await evaluateInventoryAvailability(tx, { productId: lot.productId, productName: lot.productName, branchId: lot.branchId, orgId })
       await tx.update(inventoryLot).set({ quantity: '0', status: 'disposed' }).where(eq(inventoryLot.id, lot.id))
     }
     await tx.insert(auditEvent).values({ id: generateId(), organizationId: orgId, userId: authorization.userId, action: 'pharmacy.batch_status_changed', metadata: { lotId: lot.id, productId: lot.productId, branchId: lot.branchId, previousStatus: lot.status, nextStatus: data.status, quantity, reason: data.reason } })
@@ -278,8 +283,8 @@ export async function initiateMedicineRecall(input: z.input<typeof recallSchema>
   const { authorization, orgId } = await pharmacyContext(PermissionEnum.PHARMACY_RECALL_MANAGE)
   const recallId = generateId()
   await db.transaction(async (tx) => {
-    const [lot] = await tx.select({ id: inventoryLot.id, productId: inventoryLot.productId, branchId: inventoryLot.branchId, quantity: inventoryLot.quantity, status: inventoryLot.status })
-      .from(inventoryLot).innerJoin(pharmacyProduct, and(eq(pharmacyProduct.productId, inventoryLot.productId), eq(pharmacyProduct.organizationId, orgId)))
+    const [lot] = await tx.select({ id: inventoryLot.id, productId: inventoryLot.productId, productName: product.name, branchId: inventoryLot.branchId, quantity: inventoryLot.quantity, status: inventoryLot.status })
+      .from(inventoryLot).innerJoin(pharmacyProduct, and(eq(pharmacyProduct.productId, inventoryLot.productId), eq(pharmacyProduct.organizationId, orgId))).innerJoin(product, and(eq(product.id, inventoryLot.productId), eq(product.orgId, orgId)))
       .where(and(eq(inventoryLot.id, data.lotId), eq(inventoryLot.orgId, orgId))).limit(1).for('update')
     if (!lot) throw new Error('Medicine batch not found')
     if (!authorization.isOrganizationWide && !authorization.branchIds.includes(lot.branchId)) throw new Error('This batch is outside your assigned branches')
@@ -291,6 +296,7 @@ export async function initiateMedicineRecall(input: z.input<typeof recallSchema>
     if (lot.status === 'available' && quantity > 0) {
       await tx.update(inventoryBalance).set({ unavailable: sql`${inventoryBalance.unavailable} + ${quantity}`, updatedAt: new Date() })
         .where(and(eq(inventoryBalance.productId, lot.productId), eq(inventoryBalance.branchId, lot.branchId), eq(inventoryBalance.orgId, orgId)))
+      await evaluateInventoryAvailability(tx, { productId: lot.productId, productName: lot.productName, branchId: lot.branchId, orgId })
       await tx.update(inventoryLot).set({ status: 'recalled' }).where(eq(inventoryLot.id, lot.id))
     }
     await tx.insert(pharmacyMedicineRecall).values({ id: recallId, organizationId: orgId, branchId: lot.branchId, productId: lot.productId, lotId: lot.id, reference: data.reference, reason: data.reason, initiatedBy: authorization.userId })
@@ -318,10 +324,12 @@ export async function resolveMedicineRecall(input: z.input<typeof resolveRecallS
       const [balance] = await tx.update(inventoryBalance).set({ unavailable: sql`${inventoryBalance.unavailable} - ${quantity}`, updatedAt: new Date() })
         .where(and(eq(inventoryBalance.productId, record.recall.productId), eq(inventoryBalance.branchId, record.recall.branchId), eq(inventoryBalance.orgId, orgId), sql`${inventoryBalance.unavailable} >= ${quantity}`)).returning({ id: inventoryBalance.id })
       if (!balance) throw new Error('Recall quarantine balance is inconsistent')
+      await evaluateInventoryAvailability(tx, { productId: record.recall.productId, productName: record.productName, branchId: record.recall.branchId, orgId })
       await tx.update(inventoryLot).set({ status: 'available' }).where(eq(inventoryLot.id, record.recall.lotId))
     } else {
       if (quantity > 0) await applyInventoryMovement(tx, { productId: record.recall.productId, productName: record.productName, branchId: record.recall.branchId, quantity: -quantity, type: 'recall_disposal', referenceType: 'medicine_recall', referenceId: record.recall.id, reason: data.notes, userId: authorization.userId, orgId })
       await tx.update(inventoryBalance).set({ unavailable: sql`greatest(0, ${inventoryBalance.unavailable} - ${quantity})`, updatedAt: new Date() }).where(and(eq(inventoryBalance.productId, record.recall.productId), eq(inventoryBalance.branchId, record.recall.branchId), eq(inventoryBalance.orgId, orgId)))
+      await evaluateInventoryAvailability(tx, { productId: record.recall.productId, productName: record.productName, branchId: record.recall.branchId, orgId })
       await tx.update(inventoryLot).set({ status: 'disposed', quantity: '0' }).where(eq(inventoryLot.id, record.recall.lotId))
     }
     await tx.update(pharmacyMedicineRecall).set({ status: 'resolved', resolvedBy: authorization.userId, resolvedAt: new Date(), resolutionNotes: `${data.resolution}: ${data.notes}`, updatedAt: new Date() }).where(eq(pharmacyMedicineRecall.id, record.recall.id))

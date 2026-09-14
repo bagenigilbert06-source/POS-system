@@ -2,6 +2,7 @@ import { and, asc, eq, gt, inArray, isNull, or, sql } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { inventoryBalance, inventoryCostLayer, inventoryLot, inventorySerial, pharmacyProduct, product, stockMovement } from '@/lib/db/schema'
 import { generateId } from '@/lib/utils'
+import { evaluateInventoryAlerts, recordInventoryAlerts } from '@/lib/notifications/inventory-alerts'
 
 export type InventoryTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0]
 
@@ -19,6 +20,7 @@ type MovementInput = {
   unitCost?: number
   lotId?: string
   serialId?: string
+  evaluateAlerts?: boolean
 }
 
 async function ensureBalance(tx: InventoryTransaction, input: Pick<MovementInput, 'productId' | 'branchId' | 'orgId'>) {
@@ -32,6 +34,15 @@ async function synchronizeLegacyTotal(tx: InventoryTransaction, productId: strin
     .from(inventoryBalance).where(and(eq(inventoryBalance.productId, productId), eq(inventoryBalance.orgId, orgId)))
   await tx.update(product).set({ stock: Math.trunc(Number(total?.stock ?? 0)), updatedAt: new Date() })
     .where(and(eq(product.id, productId), eq(product.orgId, orgId)))
+}
+
+export async function evaluateInventoryAvailability(tx: InventoryTransaction, input: Pick<MovementInput, 'productId' | 'branchId' | 'orgId' | 'productName'>) {
+  const [row] = await tx.select({ onHand: inventoryBalance.onHand, reserved: inventoryBalance.reserved, unavailable: inventoryBalance.unavailable, reorderPoint: inventoryBalance.reorderPoint, minStock: product.minStock })
+    .from(inventoryBalance).innerJoin(product, and(eq(product.id, inventoryBalance.productId), eq(product.orgId, input.orgId)))
+    .where(and(eq(inventoryBalance.productId, input.productId), eq(inventoryBalance.branchId, input.branchId), eq(inventoryBalance.orgId, input.orgId))).limit(1)
+  if (!row) return
+  await evaluateInventoryAlerts(tx, { organizationId: input.orgId, branchId: input.branchId, productId: input.productId, productName: input.productName,
+    stockAfter: Number(row.onHand) - Number(row.reserved) - Number(row.unavailable), reorderPoint: Number(row.reorderPoint ?? row.minStock) })
 }
 
 /** Atomically moves available stock and writes the immutable ledger entry. */
@@ -85,6 +96,14 @@ export async function applyInventoryMovement(tx: InventoryTransaction, input: Mo
     userId: input.userId, orgId: input.orgId, unitCost: input.unitCost === undefined ? null : String(input.unitCost),
     lotId: input.lotId, serialId: input.serialId,
   })
+  const [item] = await tx.select({ onHand: inventoryBalance.onHand, reserved: inventoryBalance.reserved, unavailable: inventoryBalance.unavailable, reorderPoint: inventoryBalance.reorderPoint, minStock: product.minStock }).from(inventoryBalance)
+    .innerJoin(product, and(eq(product.id, inventoryBalance.productId), eq(product.orgId, input.orgId)))
+    .where(and(eq(inventoryBalance.productId, input.productId), eq(inventoryBalance.branchId, input.branchId), eq(inventoryBalance.orgId, input.orgId))).limit(1)
+  if (item && input.evaluateAlerts !== false) {
+    const availableAfter = Number(item.onHand) - Number(item.reserved) - Number(item.unavailable)
+    await recordInventoryAlerts(tx, { organizationId: input.orgId, branchId: input.branchId, productId: input.productId, productName: input.productName,
+      stockBefore: availableAfter - input.quantity, stockAfter: availableAfter, reorderPoint: Number(item.reorderPoint ?? item.minStock) })
+  }
   return { stockBefore: stockAfter - input.quantity, stockAfter, lotAllocations }
 }
 
@@ -106,6 +125,8 @@ export async function reserveInventory(tx: InventoryTransaction, input: { produc
     .where(and(eq(inventoryBalance.productId, input.productId), eq(inventoryBalance.branchId, input.branchId), eq(inventoryBalance.orgId, input.orgId), sql`${inventoryBalance.onHand} - ${inventoryBalance.reserved} - ${inventoryBalance.unavailable} >= ${input.quantity}`))
     .returning({ id: inventoryBalance.id })
   if (!reserved) throw new Error('Insufficient available stock to reserve')
+  const [item] = await tx.select({ name: product.name }).from(product).where(and(eq(product.id, input.productId), eq(product.orgId, input.orgId))).limit(1)
+  if (item) await evaluateInventoryAvailability(tx, { ...input, productName: item.name })
 }
 
 export async function releaseReservation(tx: InventoryTransaction, input: { productId: string; branchId: string; orgId: string; quantity: number }) {
@@ -113,6 +134,8 @@ export async function releaseReservation(tx: InventoryTransaction, input: { prod
     .where(and(eq(inventoryBalance.productId, input.productId), eq(inventoryBalance.branchId, input.branchId), eq(inventoryBalance.orgId, input.orgId), sql`${inventoryBalance.reserved} >= ${input.quantity}`))
     .returning({ id: inventoryBalance.id })
   if (!released) throw new Error('Reservation is no longer available')
+  const [item] = await tx.select({ name: product.name }).from(product).where(and(eq(product.id, input.productId), eq(product.orgId, input.orgId))).limit(1)
+  if (item) await evaluateInventoryAvailability(tx, { ...input, productName: item.name })
 }
 
 export async function adjustIncoming(tx: InventoryTransaction, input: { productId: string; branchId: string; orgId: string; quantity: number }) {

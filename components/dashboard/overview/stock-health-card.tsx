@@ -23,9 +23,9 @@ interface StockHealthCardProps {
 }
 
 const STATUS_COLORS = {
-  healthy: '#2f8f63',
-  low: '#d6a02e',
-  out: '#c9564a',
+  healthy: '#48b78a',
+  low: '#dfae48',
+  out: '#c97a72',
 };
 
 export function StockHealthCard({ stock }: StockHealthCardProps) {
@@ -34,7 +34,8 @@ export function StockHealthCard({ stock }: StockHealthCardProps) {
     config?.businessType,
     config?.businessCategory
   );
-  const [activeIndex, setActiveIndex] = useState<number | null>(null);
+  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
   const rows = useMemo(
     () =>
       [
@@ -63,11 +64,13 @@ export function StockHealthCard({ stock }: StockHealthCardProps) {
   const healthyPercentage = total
     ? Math.round((rows[0].value / total) * 100)
     : 0;
+  const activeIndex = hoveredIndex ?? selectedIndex;
   const activeRow = activeIndex === null ? undefined : rows[activeIndex];
   const centerPercentage =
     activeRow && total
       ? Math.round((activeRow.value / total) * 100)
       : healthyPercentage;
+  const centerColor = activeRow?.color ?? STATUS_COLORS.healthy;
 
   const status =
     stock.out > 0
@@ -89,7 +92,7 @@ export function StockHealthCard({ stock }: StockHealthCardProps) {
           };
 
   return (
-    <Card className="flex min-h-[354px] flex-col overflow-hidden rounded-xl border border-[var(--dashboard-border)] bg-[var(--dashboard-surface)] text-[var(--dashboard-text)] shadow-dark-sm">
+    <Card className="flex min-h-[320px] flex-col overflow-hidden rounded-xl border border-[var(--dashboard-border)] bg-[var(--dashboard-surface)] text-[var(--dashboard-text)] shadow-dark-sm">
       <div className="flex h-16 items-center justify-between gap-4 px-5">
         <div className="min-w-0">
           <h2 className="text-sm font-semibold tracking-[-0.015em] text-[var(--dashboard-text)]">
@@ -109,31 +112,44 @@ export function StockHealthCard({ stock }: StockHealthCardProps) {
       </div>
 
       {total > 0 ? (
-        <div className="flex flex-1 flex-col px-4 py-4">
-          <div className="grid flex-1 grid-cols-1 items-center gap-4 min-[420px]:grid-cols-[170px_minmax(0,1fr)]">
+        <div className="flex flex-1 flex-col px-5 py-3">
+          <div className="grid flex-1 grid-cols-1 items-center gap-5 min-[420px]:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
             <div className="flex min-w-0 flex-col items-center">
               <div
-                className="relative h-[156px] w-[156px]"
+                className="relative h-[136px] w-[136px]"
                 role="img"
                 aria-label={`${healthyPercentage}% of ${total} tracked ${terminology.pluralLower} are in stock`}
               >
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie
+                      data={[{ value: 1 }]}
+                      dataKey="value"
+                      innerRadius="80%"
+                      outerRadius="94%"
+                      fill="var(--dashboard-surface-subtle)"
+                      stroke="none"
+                      isAnimationActive={false}
+                    />
+                    <Pie
                       data={rows}
                       dataKey="value"
                       nameKey="label"
-                      innerRadius="72%"
-                      outerRadius="96%"
-                      paddingAngle={2.5}
-                      cornerRadius={4}
+                      innerRadius="80%"
+                      outerRadius="94%"
+                      paddingAngle={2}
+                      cornerRadius={2}
                       stroke="none"
                       isAnimationActive={false}
                     >
                       {rows.map((row) => (
                         <Cell
                           key={row.key}
-                          fill={row.color}
+                          fill={
+                            activeIndex === null || activeIndex === row.index
+                              ? row.color
+                              : 'var(--dashboard-surface-subtle)'
+                          }
                           opacity={
                             activeIndex === null || activeIndex === row.index
                               ? 1
@@ -144,18 +160,29 @@ export function StockHealthCard({ stock }: StockHealthCardProps) {
                             outline: 'none',
                             transition: 'opacity 150ms ease',
                           }}
-                          onMouseEnter={() => setActiveIndex(row.index)}
-                          onMouseLeave={() => setActiveIndex(null)}
+                          onMouseEnter={() => setHoveredIndex(row.index)}
+                          onMouseLeave={() => setHoveredIndex(null)}
+                          onClick={() =>
+                            setSelectedIndex((selected) =>
+                              selected === row.index ? null : row.index
+                            )
+                          }
                         />
                       ))}
                     </Pie>
                   </PieChart>
                 </ResponsiveContainer>
                 <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-                  <span className="text-xl font-bold tabular-nums text-[var(--dashboard-text)]">
+                  <span
+                    className="text-xl font-bold tabular-nums transition-colors duration-150"
+                    style={{ color: centerColor }}
+                  >
                     {centerPercentage}%
                   </span>
-                  <span className="mt-0.5 max-w-[90px] truncate text-[0.62rem] font-semibold uppercase tracking-[0.1em] text-[var(--dashboard-muted)]">
+                  <span
+                    className="mt-0.5 max-w-[90px] truncate text-[0.62rem] font-semibold uppercase tracking-[0.1em] transition-colors duration-150"
+                    style={{ color: centerColor }}
+                  >
                     {activeRow?.label ?? 'In stock'}
                   </span>
                 </div>
@@ -173,50 +200,97 @@ export function StockHealthCard({ stock }: StockHealthCardProps) {
                 const percentage = total
                   ? Math.round((row.value / total) * 100)
                   : 0;
-                const active = activeIndex === row.index;
+                const percentageLabel =
+                  row.value > 0 && percentage === 0 ? '<1%' : `${percentage}%`;
+                const highlighted = activeIndex === row.index;
                 return (
-                  <div
+                  <button
+                    type="button"
                     key={row.key}
-                    tabIndex={0}
-                    aria-label={`${row.label}, ${row.value} ${terminology.pluralLower}, ${percentage}%`}
-                    onMouseEnter={() => setActiveIndex(row.index)}
-                    onMouseLeave={() => setActiveIndex(null)}
-                    onFocus={() => setActiveIndex(row.index)}
-                    onBlur={() => setActiveIndex(null)}
-                    className={`grid grid-cols-[minmax(0,1fr)_2rem_2.5rem] items-center gap-2 rounded-lg px-2.5 py-2 outline-none transition-colors focus-visible:ring-2 focus-visible:ring-[var(--dashboard-accent-soft-border)] ${active ? 'bg-[var(--dashboard-surface-subtle)]' : ''}`}
+                    aria-label={`${row.label}, ${row.value} ${terminology.pluralLower}, ${percentageLabel}`}
+                    aria-pressed={selectedIndex === row.index}
+                    onMouseEnter={() => setHoveredIndex(row.index)}
+                    onMouseLeave={() => setHoveredIndex(null)}
+                    onFocus={() => setHoveredIndex(row.index)}
+                    onBlur={() => setHoveredIndex(null)}
+                    onClick={() =>
+                      setSelectedIndex((selected) =>
+                        selected === row.index ? null : row.index
+                      )
+                    }
+                    className="group grid h-9 w-full grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-x-4 border-0 bg-transparent px-0 text-left outline-none transition-colors focus-visible:ring-2 focus-visible:ring-[var(--dashboard-accent-soft-border)]"
                   >
                     <span className="flex min-w-0 items-center gap-2.5">
                       <span
                         className="h-2 w-2 shrink-0 rounded-full"
                         style={{ backgroundColor: row.color }}
                       />
-                      <span className="truncate text-xs font-semibold text-[var(--dashboard-text)]">
+                      <span
+                        className="truncate text-xs transition-colors duration-150"
+                        style={{
+                          color: highlighted
+                            ? row.color
+                            : 'var(--dashboard-text)',
+                        }}
+                      >
                         {row.label}
                       </span>
                     </span>
-                    <span className="text-right text-xs font-bold tabular-nums text-[var(--dashboard-text)]">
+                    <span
+                      className="min-w-[2rem] text-right text-xs font-bold tabular-nums transition-colors duration-150"
+                      style={{
+                        color: highlighted
+                          ? row.color
+                          : 'var(--dashboard-text)',
+                      }}
+                    >
                       {formatNumber(row.value)}
                     </span>
-                    <span className="text-right text-[0.68rem] font-medium tabular-nums text-[var(--dashboard-muted)]">
-                      {percentage}%
+                    <span
+                      className="min-w-[2.5rem] text-right text-[0.68rem] font-medium tabular-nums transition-colors duration-150"
+                      style={{
+                        color: highlighted
+                          ? row.color
+                          : 'var(--dashboard-muted)',
+                      }}
+                    >
+                      {percentageLabel}
                     </span>
-                  </div>
+                  </button>
                 );
               })}
             </div>
           </div>
 
-          <div
-            className={`mt-3 flex items-center gap-2.5 rounded-lg border px-3 py-2.5 text-xs font-semibold ${
-              status.tone === 'critical'
-                ? 'border-[#c9564a]/30 bg-[#c9564a]/10 text-[#e06b5f]'
-                : status.tone === 'warning'
-                  ? 'border-[#d6a02e]/30 bg-[#d6a02e]/10 text-[#d6a02e]'
-                  : 'border-[#2f8f63]/30 bg-[#2f8f63]/10 text-[#3aa474]'
-            }`}
-          >
-            <status.icon className="h-4 w-4 shrink-0" />
-            <span>{status.text}</span>
+          <div className="mt-2 flex items-center gap-2.5 border-t border-[var(--dashboard-border)] pt-2.5 text-xs font-semibold">
+            <status.icon
+              className={`h-4 w-4 shrink-0 ${
+                status.tone === 'critical'
+                  ? 'text-[#c97a72]'
+                  : status.tone === 'warning'
+                    ? 'text-[#dfae48]'
+                    : 'text-[#48b78a]'
+              }`}
+            />
+            <span
+              className={
+                status.tone === 'critical'
+                  ? 'text-[#c97a72]'
+                  : status.tone === 'warning'
+                    ? 'text-[#dfae48]'
+                    : 'text-[var(--dashboard-muted)]'
+              }
+            >
+              {status.text}
+            </span>
+            {(status.tone === 'critical' || status.tone === 'warning') && (
+              <Link
+                href="/dashboard/inventory"
+                className="ml-auto shrink-0 text-[var(--dashboard-muted)] transition-colors hover:text-[var(--dashboard-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--dashboard-accent)]"
+              >
+                Review stock →
+              </Link>
+            )}
           </div>
         </div>
       ) : (

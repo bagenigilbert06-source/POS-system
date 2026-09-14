@@ -14,6 +14,7 @@ import {
   Settings,
   ShieldCheck,
   UsersRound,
+  Bell,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -91,6 +92,11 @@ const sections: ReadonlyArray<{
         label: 'Integrations',
         href: '/dashboard/admin/integrations',
         icon: Activity,
+      },
+      {
+        label: 'Notifications',
+        href: '/dashboard/admin/notifications',
+        icon: Bell,
       },
       {
         label: 'Security',

@@ -1,0 +1,11 @@
+const escape = (value: unknown) => String(value ?? '').replace(/[&<>'"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[c]!)
+
+export function inventoryAlertEmail(input: { type: 'LOW_STOCK' | 'OUT_OF_STOCK'; organization: string; branch: string; product: string; available: number; reorderPoint: number; occurredAt: Date; dashboardUrl: string }) {
+  const critical = input.type === 'OUT_OF_STOCK', label = critical ? 'OUT OF STOCK' : 'LOW STOCK'
+  const subject = `${critical ? 'Out of Stock' : 'Low Stock Alert'} — ${input.branch}`
+  const text = `${label}\n\n${input.organization}\nBranch: ${input.branch}\nProduct: ${input.product}\nAvailable stock: ${input.available}\nReorder level: ${input.reorderPoint}\nTime: ${input.occurredAt.toISOString()}\n\n${critical ? 'Action required: replenish or review availability.' : 'Review this item for replenishment.'}\n${input.dashboardUrl}`
+  const rows = [['Business', input.organization], ['Branch', input.branch], ['Product', input.product], ['Available stock', input.available], ['Reorder level', input.reorderPoint], ['Status', label]]
+    .map(([key, value]) => `<tr><td style="padding:8px;color:#64748b">${escape(key)}</td><td style="padding:8px;text-align:right;font-weight:700">${escape(value)}</td></tr>`).join('')
+  const html = `<!doctype html><html><body style="margin:0;background:#f4f6f8;font-family:Arial,sans-serif;color:#0f172a"><table role="presentation" width="100%"><tr><td align="center" style="padding:28px 14px"><table role="presentation" width="100%" style="max-width:560px;background:white;border:1px solid #e2e8f0"><tr><td style="padding:22px;border-top:4px solid ${critical ? '#dc2626' : '#f4bd23'}"><strong style="font-size:21px">Pesaby</strong><h1 style="font-size:22px">${escape(subject)}</h1><table role="presentation" width="100%">${rows}</table><p>${critical ? 'Action required: replenish or review availability.' : 'Review this item for replenishment.'}</p><a href="${escape(input.dashboardUrl)}" style="display:block;padding:13px;background:#e42527;color:white;text-align:center;text-decoration:none;font-weight:700">View Inventory</a><p style="font-size:12px;color:#94a3b8">Recorded ${escape(input.occurredAt.toISOString())}</p></td></tr></table></td></tr></table></body></html>`
+  return { subject, text, html }
+}

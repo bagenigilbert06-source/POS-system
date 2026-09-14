@@ -11,6 +11,7 @@ import {
   YAxis,
 } from 'recharts';
 import { formatCurrency, formatNumber } from '@/lib/utils/format';
+import { DashboardPeriodSelect } from './dashboard-period-select';
 
 type SalesPoint = { date: string; revenue: number; transactions: number };
 type Range = 'today' | '7-days' | '30-days' | 'month';
@@ -152,20 +153,24 @@ export function SalesPerformanceCard({
       ? {
           text: 'No previous-period comparison',
           tone: 'text-[var(--dashboard-muted)]',
+          marker: 'bg-[var(--dashboard-muted)]',
         }
       : view.change > 0
         ? {
             text: `+${view.change.toFixed(1)}% vs previous period`,
             tone: 'text-[var(--dashboard-success)]',
+            marker: 'bg-[var(--dashboard-success)]',
           }
         : view.change < 0
           ? {
               text: `${view.change.toFixed(1)}% vs previous period`,
               tone: 'text-[var(--dashboard-danger)]',
+              marker: 'bg-[var(--dashboard-danger)]',
             }
           : {
               text: 'No change vs previous period',
               tone: 'text-[var(--dashboard-muted)]',
+              marker: 'bg-[var(--dashboard-muted)]',
             };
 
   return (
@@ -179,14 +184,23 @@ export function SalesPerformanceCard({
             Daily sales revenue for the selected period.
           </p>
         </div>
-        <div className="relative shrink-0">
+        <DashboardPeriodSelect
+          value={range}
+          options={RANGE_OPTIONS}
+          open={rangeOpen}
+          onOpenChange={setRangeOpen}
+          onValueChange={setRange}
+          ariaLabel="Revenue trend date range"
+          minWidthClassName="min-w-[110px]"
+        />
+        <div className="hidden relative shrink-0">
           <button
             type="button"
             aria-haspopup="listbox"
             aria-expanded={rangeOpen}
             aria-label="Revenue trend date range"
             onClick={() => setRangeOpen((open) => !open)}
-            className="flex h-8 min-w-[110px] items-center justify-between gap-2 rounded-lg border border-[var(--dashboard-border)] bg-[var(--dashboard-surface-subtle)] px-2.5 text-xs font-semibold text-[var(--dashboard-text)] outline-none transition-colors hover:border-[var(--dashboard-accent-soft-border)] hover:bg-[var(--dashboard-accent-soft)] focus:border-transparent focus:ring-0"
+            className="flex h-8 min-w-[110px] items-center justify-between gap-2 rounded-md border border-[var(--dashboard-border)] bg-transparent px-2.5 text-xs font-semibold text-[var(--dashboard-text)] outline-none transition-colors hover:border-[var(--dashboard-accent-soft-border)] hover:text-[var(--dashboard-accent)] focus-visible:ring-2 focus-visible:ring-[var(--dashboard-accent-soft-border)]"
           >
             {RANGE_OPTIONS.find((option) => option.value === range)?.label}
             <span className="text-[var(--dashboard-muted)]">⌄</span>
@@ -216,25 +230,24 @@ export function SalesPerformanceCard({
         </div>
       </div>
 
-      <div className="flex flex-1 flex-col px-5 pb-3 pt-3.5">
-        <div className="flex items-end justify-between gap-3">
+      <div className="flex flex-1 flex-col px-5 pb-3 pt-3">
+        <div className="flex min-h-[52px] flex-col justify-end">
           <div>
             <p className="text-[0.65rem] font-semibold uppercase tracking-[0.1em] text-[var(--dashboard-muted)]">
               Sales revenue
             </p>
-            <p className="mt-1 text-[1.25rem] font-semibold leading-none tracking-[-0.025em] tabular-nums text-[var(--dashboard-text)]">
+            <p className="mt-1 text-[1.4rem] font-semibold leading-none tracking-[-0.03em] tabular-nums text-[var(--dashboard-text)]">
               {formatCurrency(view.revenue, currency)}
             </p>
           </div>
-          <p
-            className={`pb-0.5 text-[0.68rem] font-semibold ${comparison.tone}`}
-          >
+          <p className={`mt-2 inline-flex items-center gap-1.5 text-[0.68rem] font-medium ${comparison.tone}`}>
+            <span className={`h-1.5 w-1.5 rounded-full ${comparison.marker}`} />
             {comparison.text}
           </p>
         </div>
 
         <div
-          className="mt-3 h-[126px] min-h-[126px] w-full"
+          className="mt-2.5 h-[130px] min-h-[130px] w-full"
           role="img"
           aria-label="Revenue trend over the selected period"
         >
@@ -243,10 +256,17 @@ export function SalesPerformanceCard({
               data={view.points}
               margin={{ top: 8, right: 4, bottom: 0, left: -18 }}
             >
+              <defs>
+                <linearGradient id="revenue-trend-fill" x1="0" x2="0" y1="0" y2="1">
+                  <stop offset="0%" stopColor="var(--dashboard-accent)" stopOpacity={0.2} />
+                  <stop offset="100%" stopColor="var(--dashboard-accent)" stopOpacity={0} />
+                </linearGradient>
+              </defs>
               <CartesianGrid
                 vertical={false}
                 stroke="var(--dashboard-chart-grid)"
-                strokeDasharray="3 4"
+                strokeDasharray="2 5"
+                opacity={0.7}
               />
               <XAxis
                 dataKey="label"
@@ -263,7 +283,7 @@ export function SalesPerformanceCard({
                 tickFormatter={(value) =>
                   compactCurrency(Number(value), currency)
                 }
-                tickCount={3}
+                tickCount={2}
               />
               <Tooltip
                 cursor={{
@@ -277,8 +297,8 @@ export function SalesPerformanceCard({
                 type="monotone"
                 dataKey="revenue"
                 stroke="var(--dashboard-accent)"
-                strokeWidth={2.5}
-                fill="var(--dashboard-accent-soft)"
+                strokeWidth={2}
+                fill="url(#revenue-trend-fill)"
                 activeDot={{
                   r: 4,
                   fill: 'var(--dashboard-accent)',
@@ -295,7 +315,7 @@ export function SalesPerformanceCard({
 
         <dl className="mt-auto grid grid-cols-3 divide-x divide-[var(--dashboard-border)] border-t border-[var(--dashboard-border)] pt-3">
           <div className="pr-3">
-            <dt className="text-[0.62rem] font-medium text-[var(--dashboard-muted)]">
+            <dt className="text-[0.62rem] font-semibold uppercase tracking-[0.06em] text-[var(--dashboard-muted)]">
               Revenue
             </dt>
             <dd className="mt-0.5 truncate text-xs font-bold tabular-nums text-[var(--dashboard-text)]">
@@ -303,7 +323,7 @@ export function SalesPerformanceCard({
             </dd>
           </div>
           <div className="px-3">
-            <dt className="text-[0.62rem] font-medium text-[var(--dashboard-muted)]">
+            <dt className="text-[0.62rem] font-semibold uppercase tracking-[0.06em] text-[var(--dashboard-muted)]">
               Completed sales
             </dt>
             <dd className="mt-0.5 text-xs font-bold tabular-nums text-[var(--dashboard-text)]">
@@ -311,7 +331,7 @@ export function SalesPerformanceCard({
             </dd>
           </div>
           <div className="pl-3">
-            <dt className="text-[0.62rem] font-medium text-[var(--dashboard-muted)]">
+            <dt className="text-[0.62rem] font-semibold uppercase tracking-[0.06em] text-[var(--dashboard-muted)]">
               Average transaction
             </dt>
             <dd className="mt-0.5 truncate text-xs font-bold tabular-nums text-[var(--dashboard-text)]">

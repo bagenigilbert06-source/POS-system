@@ -11,6 +11,7 @@ import {
 } from 'recharts';
 import { BarChart3, Clock3 } from 'lucide-react';
 import { formatCurrency, formatNumber } from '@/lib/utils/format';
+import { DashboardPeriodSelect } from './dashboard-period-select';
 
 type Period = 1 | 7 | 30;
 type HourlySale = {
@@ -169,7 +170,16 @@ export function BusiestHoursCard({
             </p>
           </div>
         </div>
-        <div className="relative shrink-0">
+        <DashboardPeriodSelect
+          value={period}
+          options={PERIOD_OPTIONS}
+          open={periodOpen}
+          onOpenChange={setPeriodOpen}
+          onValueChange={setPeriod}
+          ariaLabel="Busiest hours period"
+          minWidthClassName="min-w-[92px]"
+        />
+        <div className="hidden relative shrink-0">
           <button
             type="button"
             aria-haspopup="listbox"
