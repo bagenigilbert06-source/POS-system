@@ -9,6 +9,11 @@ import { sendEmail } from '@/lib/email/client';
 import { withDatabaseRetry } from '@/lib/db/retry';
 import { nextCookies } from 'better-auth/next-js';
 
+const configuredTrustedOrigins = (process.env.BETTER_AUTH_TRUSTED_ORIGINS ?? '')
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
 export const auth = betterAuth({
   database: pool,
   basePath: '/api/auth',
@@ -55,7 +60,11 @@ export const auth = betterAuth({
   trustedOrigins: [
     'http://localhost:3000',
     'http://127.0.0.1:3000',
+    'https://pesaby.com',
+    'https://www.pesaby.com',
+    'https://pesaby.vercel.app',
     ...(process.env.BETTER_AUTH_URL ? [process.env.BETTER_AUTH_URL] : []),
+    ...configuredTrustedOrigins,
     ...(process.env.V0_RUNTIME_URL ? [process.env.V0_RUNTIME_URL] : []),
     ...(process.env.VERCEL_URL ? [`https://${process.env.VERCEL_URL}`] : []),
     ...(process.env.VERCEL_PROJECT_PRODUCTION_URL
