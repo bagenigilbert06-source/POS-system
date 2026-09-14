@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { AlertCircle, Check, Eye, EyeOff, ShieldCheck } from 'lucide-react';
 import { LoadingSpinner as Loader2 } from '@/components/ui/page-loader';
@@ -19,7 +18,6 @@ type FieldErrors = Partial<Record<FieldName, string>>;
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export function AuthForm({ mode, compact = false, callbackURL }: AuthFormProps) {
-  const router = useRouter();
   const isSignUp = mode === 'sign-up';
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -124,7 +122,9 @@ export function AuthForm({ mode, compact = false, callbackURL }: AuthFormProps) 
 
         // The session cookie is complete at this point. Onboarding owns its
         // idempotent draft creation, so no extra request blocks navigation.
-        router.replace('/onboarding');
+        // A full navigation makes the newly-issued session cookie authoritative
+        // before any protected server component is requested.
+        window.location.replace('/onboarding');
         return;
       } else {
         const result = await authClient.signIn.email({
@@ -139,7 +139,9 @@ export function AuthForm({ mode, compact = false, callbackURL }: AuthFormProps) 
               : result.error.message
           );
         }
-        router.replace(callbackURL || '/auth/continue');
+        // Avoid reusing a prefetched unauthenticated route tree. The document
+        // request sees the new cookie and resolves the workspace destination.
+        window.location.replace(callbackURL || '/auth/continue');
         return;
       }
     } catch (err: unknown) {

@@ -31,6 +31,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { useWorkspace } from '@/lib/context/workspace-context';
 import { getProductTerminology } from '@/lib/products/terminology';
+import { notify } from '@/lib/notify';
 
 interface AppNavbarProps {
   userName?: string | null;
@@ -153,11 +154,18 @@ export function AppNavbar({
 
   const handleSignOut = async () => {
     try {
-      await authClient.signOut();
-    } finally {
+      const result = await authClient.signOut();
+      if (result.error) {
+        throw new Error(result.error.message || 'The sign-out request failed');
+      }
       clearStoredAuthState();
-      router.replace('/sign-in');
-      router.refresh();
+      // Only leave the dashboard after the server has invalidated the session.
+      // A full navigation also clears Next.js' authenticated route cache.
+      window.location.replace('/sign-in');
+    } catch {
+      notify.error('Could not sign out', {
+        description: 'Your session is still active. Please try again.',
+      });
     }
   };
 

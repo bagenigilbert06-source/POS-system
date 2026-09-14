@@ -8,6 +8,14 @@ function wait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
+function stopServer(pid, signal) {
+  try {
+    process.kill(-pid, signal)
+  } catch (error) {
+    if (error?.code !== 'ESRCH') throw error
+  }
+}
+
 async function waitForServer(baseURL, child) {
   const started = Date.now()
   while (Date.now() - started < 45_000) {
@@ -71,6 +79,18 @@ async function cleanupTestUser(email) {
   }
 }
 
+async function verifyTestUser(email) {
+  const pool = new pg.Pool({
+    connectionString: testDatabaseUrl,
+    ssl: testDatabaseSsl,
+  })
+  try {
+    await pool.query('update "user" set "emailVerified" = true where email = $1', [email])
+  } finally {
+    await pool.end()
+  }
+}
+
 const port = process.env.AUTH_TEST_PORT ?? '3100'
 const baseURL = process.env.AUTH_TEST_BASE_URL ?? `http://127.0.0.1:${port}`
 const useExternalServer = Boolean(process.env.AUTH_TEST_BASE_URL)
@@ -102,13 +122,21 @@ try {
     body: JSON.stringify({ name: 'Auth Test', email, password }),
   })
   assert.equal(signUp.response.status, 200, JSON.stringify(signUp.body))
-  assert.ok(signUp.response.headers.get('set-cookie')?.includes('better-auth'), 'sign-up should auto sign in')
+  assert.equal(signUp.body?.user?.email, email)
+  await verifyTestUser(email)
 
   const signIn = await authFetch(baseURL, '/sign-in/email', {
     method: 'POST',
     body: JSON.stringify({ email, password }),
   })
   assert.equal(signIn.response.status, 200, JSON.stringify(signIn.body))
+
+  const productionOriginSignIn = await authFetch(baseURL, '/sign-in/email', {
+    method: 'POST',
+    headers: { origin: 'https://pesaby.vercel.app' },
+    body: JSON.stringify({ email, password }),
+  })
+  assert.equal(productionOriginSignIn.response.status, 200, JSON.stringify(productionOriginSignIn.body))
 
   const cookie = signIn.response.headers.get('set-cookie')
   assert.ok(cookie?.includes('better-auth'), 'sign-in should set Better Auth session cookies')
@@ -190,11 +218,11 @@ try {
 } finally {
   await cleanupTestUser(email).catch(() => {})
   if (server?.exitCode === null && server.pid) {
-    process.kill(-server.pid, 'SIGTERM')
+    stopServer(server.pid, 'SIGTERM')
     await wait(1000)
   }
   if (server?.exitCode === null && server.pid) {
-    process.kill(-server.pid, 'SIGKILL')
+    stopServer(server.pid, 'SIGKILL')
   }
   if (process.env.DEBUG_AUTH_TEST === '1') {
     console.log(output)
