@@ -7,6 +7,7 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
+  Cell,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -230,13 +231,20 @@ export function OperatingChart({ data, currency }: OperatingChartProps) {
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart
                   data={chartData}
-                  margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
-                  barCategoryGap="28%"
+                  margin={{ top: 12, right: 8, left: 0, bottom: 0 }}
+                  barCategoryGap="22%"
                 >
+                  <defs>
+                    <linearGradient id="salesBarGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="var(--dashboard-accent-cta)" />
+                      <stop offset="100%" stopColor="var(--dashboard-accent)" />
+                    </linearGradient>
+                  </defs>
                   <CartesianGrid
                     vertical={false}
                     stroke="var(--dashboard-border)"
-                    strokeOpacity={0.5}
+                    strokeOpacity={0.65}
+                    strokeDasharray="3 5"
                   />
                   <XAxis
                     dataKey="label"
@@ -255,18 +263,22 @@ export function OperatingChart({ data, currency }: OperatingChartProps) {
                     tickFormatter={(value: number) => compact(value, currency)}
                   />
                   <Tooltip
-                    cursor={{ fill: 'var(--dashboard-accent-soft)' }}
+                    cursor={{ fill: 'var(--dashboard-accent-soft)', opacity: 0.45 }}
                     content={<PerformanceTooltip currency={currency} />}
                     isAnimationActive={false}
                   />
                   <Bar
                     dataKey="revenue"
                     name="Sales"
-                    fill="var(--dashboard-accent-cta)"
-                    radius={[5, 5, 0, 0]}
-                    maxBarSize={26}
+                    fill="url(#salesBarGradient)"
+                    radius={[6, 6, 2, 2]}
+                    maxBarSize={30}
                     isAnimationActive={false}
-                  />
+                  >
+                    {chartData.map((point) => (
+                      <Cell key={point.date} fill="url(#salesBarGradient)" />
+                    ))}
+                  </Bar>
                 </BarChart>
               </ResponsiveContainer>
             </div>
