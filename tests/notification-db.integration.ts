@@ -122,7 +122,7 @@ try {
   assert.equal(new Set(claims.map((item) => item?.id)).size, 2)
   await db.update(schema.notificationDelivery).set({ status: 'PENDING', attempts: 0, leaseUntil: null }).where(eq(schema.notificationDelivery.organizationId, orgId))
   const clock = () => claimTime
-  const outcomes = await processDueNotifications(10, async () => ({ providerMessageId: 'test-provider-id' }), clock)
+  const outcomes = await processDueNotifications(10, async () => ({ delivered: true, development: false, providerMessageId: 'test-provider-id' }), clock)
   assert.deepEqual(outcomes, ['SENT', 'SENT'])
   deliveries = await db.select().from(schema.notificationDelivery).where(eq(schema.notificationDelivery.organizationId, orgId))
   assert.ok(deliveries.every((item) => item.status === 'SENT' && item.providerMessageId === 'test-provider-id' && item.sentAt))
