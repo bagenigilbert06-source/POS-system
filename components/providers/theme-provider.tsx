@@ -31,12 +31,18 @@ const ThemeContext = createContext<ThemeContextValue>({
 });
 
 export function ThemeProvider({ children, ...props }: ThemeProviderProps) {
+  const defaultTheme: Theme =
+    props.defaultTheme === 'light' ||
+    props.defaultTheme === 'dark' ||
+    props.defaultTheme === 'system'
+      ? props.defaultTheme
+      : 'system';
   const [theme, setThemeState] = useState<Theme>(() => {
-    if (typeof window === 'undefined') return 'system';
+    if (typeof window === 'undefined') return defaultTheme;
     const stored = window.localStorage.getItem(props.storageKey || 'theme');
     return stored === 'light' || stored === 'dark' || stored === 'system'
       ? stored
-      : 'system';
+      : defaultTheme;
   });
   const [systemTheme, setSystemTheme] = useState<'light' | 'dark'>(() => {
     if (typeof window === 'undefined') return 'light';

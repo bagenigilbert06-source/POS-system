@@ -3,6 +3,19 @@ import './globals.css';
 import { ThemeProvider } from '@/components/providers/theme-provider';
 import { AppToaster } from '@/components/ui/app-toaster';
 
+const themeBootstrapScript = `
+(function () {
+  try {
+    var theme = localStorage.getItem('theme');
+    if (theme !== 'light' && theme !== 'dark' && theme !== 'system') theme = 'light';
+    var dark = theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    var root = document.documentElement;
+    root.classList.toggle('dark', dark);
+    root.dataset.pesabyTheme = dark ? 'dark' : 'light';
+    root.style.colorScheme = dark ? 'dark' : 'light';
+  } catch (_) {}
+})();`;
+
 export const metadata: Metadata = {
   title: {
     default: 'Pesaby — Business OS for Modern Commerce',
@@ -56,6 +69,9 @@ export default function RootLayout({
       data-scroll-behavior="smooth"
       className="bg-background"
     >
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeBootstrapScript }} />
+      </head>
       <body
         className="font-sans text-base antialiased"
         suppressHydrationWarning

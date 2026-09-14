@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { spawn } from 'node:child_process'
+import { spawn, spawnSync } from 'node:child_process'
 import { createRemoteJWKSet, jwtVerify } from 'jose'
 import pg from 'pg'
 import { testDatabaseUrl, testDatabaseSsl } from './test-database-env.mjs'
@@ -9,6 +9,10 @@ function wait(ms) {
 }
 
 function stopServer(pid, signal) {
+  if (process.platform === 'win32') {
+    spawnSync('taskkill', ['/pid', String(pid), '/T', '/F'], { stdio: 'ignore' })
+    return
+  }
   try {
     process.kill(-pid, signal)
   } catch (error) {
