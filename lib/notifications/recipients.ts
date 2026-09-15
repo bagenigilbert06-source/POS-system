@@ -39,7 +39,7 @@ export async function resolveNotificationRecipients(input: { organizationId: str
   const result = new Map<string, Recipient>()
   for (const row of rows) {
     const role = row.membershipRole === 'member' ? row.employeeRole : row.membershipRole
-    if (!role || !allowed.includes(role) || (role !== 'owner' && row.employeeStatus !== 'active') || !validEmail(row.email)) continue
+    if (!role || !allowed.includes(role) || (row.membershipRole === 'member' && row.employeeStatus !== 'active') || !validEmail(row.email)) continue
     if (input.branchId && ['inventory', 'store_manager'].includes(role)) {
       const membership = await db.select({ id: branchMembership.id }).from(branchMembership).where(and(eq(branchMembership.userId, row.userId), eq(branchMembership.branchId, input.branchId))).limit(1)
       if (!membership[0]) continue

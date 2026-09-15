@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import pg from 'pg'
 
+async function main() {
 const { db, pool } = await import('../lib/db')
 const schema = await import('../lib/db/schema')
 const { eq, and } = await import('drizzle-orm')
@@ -146,3 +147,9 @@ try {
   await admin.end()
   await pool.end()
 }
+}
+
+main().catch((error) => {
+  console.error(error)
+  process.exitCode = 1
+})
