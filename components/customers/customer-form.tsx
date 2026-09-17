@@ -322,17 +322,17 @@ export function CustomerForm({
               type="submit"
               disabled={loading}
               aria-busy={loading}
+              aria-label={loading ? 'Saving customer' : customer ? 'Save changes' : `Save ${person}`}
               className={cn(
-                'flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground',
-                'hover:bg-primary/90 disabled:opacity-60 disabled:cursor-not-allowed transition-colors'
+                'flex items-center justify-center rounded-md bg-primary text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60',
+                loading ? 'h-10 w-10 px-0' : 'gap-2 px-4 py-2'
               )}
             >
-              {loading && <Loader2 className="h-4 w-4 animate-spin" />}
-              {loading
-                ? 'Saving…'
-                : customer
-                  ? 'Save changes'
-                  : `Save ${person}`}
+              {loading ? (
+                <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+              ) : (
+                customer ? 'Save changes' : `Save ${person}`
+              )}
             </button>
           </div>
         </form>
