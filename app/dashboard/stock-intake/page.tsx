@@ -77,6 +77,7 @@ export default async function StockIntakePage() {
         canReceive={authorization.permissions.includes(
           PermissionEnum.INVENTORY_RECEIVE
         )}
+        canEditPricing={authorization.permissions.includes(PermissionEnum.CATALOG_EDIT)}
       />
     </div>
   );

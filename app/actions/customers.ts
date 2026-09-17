@@ -2,7 +2,7 @@
 
 import { auth } from '@/lib/auth'
 import { db } from '@/lib/db'
-import { customer, customerRewardAccount } from '@/lib/db/schema'
+import { auditEvent, customer, customerRewardAccount } from '@/lib/db/schema'
 import { and, desc, eq, ilike, or, sql } from 'drizzle-orm'
 import { headers } from 'next/headers'
 import { revalidatePath } from 'next/cache'
@@ -11,6 +11,9 @@ import { OrganizationService } from '@/lib/services/organization-service'
 import { WorkspaceService } from '@/lib/services/workspace-service'
 import { z } from 'zod'
 import { getPosAuthorizationContext } from '@/lib/pos/pos-auth'
+import { resolvePriceLevel } from '@/lib/pricing/price-levels'
+import { AuthorizationError, requirePermission } from '@/lib/auth/authorization'
+import { PermissionEnum } from '@/lib/types/permissions'
 
 async function getUserId() {
   const pos = await getPosAuthorizationContext()
@@ -29,6 +32,17 @@ async function getOrgId(userId: string) {
   const config = await WorkspaceService.getWorkspaceConfig(organization.id, userId)
   if (!config?.enabledModules.includes('customers')) throw new Error('Customers are not enabled for this workspace')
   return organization.id
+}
+
+async function requireCustomerMutationPermission(permission: PermissionEnum) {
+  const pos = await getPosAuthorizationContext()
+  const authorization = pos ?? await requirePermission(permission)
+  if (pos && !pos.permissions.includes(permission)) {
+    throw new AuthorizationError(`Missing permission: ${permission}`)
+  }
+  const config = await WorkspaceService.getWorkspaceConfig(authorization.organizationId, authorization.userId)
+  if (!config?.enabledModules.includes('customers')) throw new Error('Customers are not enabled for this workspace')
+  return authorization
 }
 
 export async function getCustomers(search?: string) {
@@ -70,6 +84,7 @@ const customerSchema = z.object({
   address: z.string().trim().max(300).optional(),
   kraPin: z.string().trim().toUpperCase().regex(/^[A-Z0-9]{5,20}$/, 'Enter a valid KRA PIN').optional().or(z.literal('')),
   customerType: z.enum(['individual', 'business']).default('individual'),
+  priceLevel: z.enum(['retail', 'wholesale']).default('retail'),
   vatRegistered: z.boolean().default(false),
 })
 
@@ -101,17 +116,19 @@ export async function createCustomer(data: {
   address?: string
   kraPin?: string
   customerType?: 'individual' | 'business'
+  priceLevel?: 'retail' | 'wholesale'
   vatRegistered?: boolean
 }) {
   const parsed = customerSchema.parse(data)
-  const userId = await getUserId()
-  const orgId = await getOrgId(userId)
+  const authorization = await requireCustomerMutationPermission(PermissionEnum.CUSTOMER_CREATE)
+  const { userId, organizationId: orgId } = authorization
   await assertCustomerIsUnique(orgId, parsed)
   const id = generateId()
   const createdAt = new Date()
   const phone = normalizedPhone(parsed.phone)
   const email = normalizedEmail(parsed.email)
-  await db.insert(customer).values({ id, ...parsed, email, phone, address: parsed.address || null, kraPin: parsed.kraPin || null, userId, orgId, createdAt })
+  const priceLevel = resolvePriceLevel(parsed)
+  await db.insert(customer).values({ id, ...parsed, priceLevel, email, phone, address: parsed.address || null, kraPin: parsed.kraPin || null, userId, orgId, createdAt })
   revalidatePath('/dashboard/customers')
   return {
     id,
@@ -121,6 +138,7 @@ export async function createCustomer(data: {
     address: parsed.address || null,
     kraPin: parsed.kraPin || null,
     customerType: parsed.customerType,
+    priceLevel,
     vatRegistered: parsed.vatRegistered,
     createdAt,
   }
@@ -128,11 +146,13 @@ export async function createCustomer(data: {
 
 export async function updateCustomer(
   id: string,
-  data: Partial<{ name: string; phone: string; email: string; address: string; kraPin: string; customerType: 'individual' | 'business'; vatRegistered: boolean }>
+  data: Partial<{ name: string; phone: string; email: string; address: string; kraPin: string; customerType: 'individual' | 'business'; priceLevel: 'retail' | 'wholesale'; vatRegistered: boolean }>
 ) {
   const parsed = customerSchema.partial().parse(data)
-  const userId = await getUserId()
-  const orgId = await getOrgId(userId)
+  const authorization = await requireCustomerMutationPermission(PermissionEnum.CUSTOMER_EDIT)
+  const { userId, organizationId: orgId } = authorization
+  const [current] = await db.select().from(customer).where(and(eq(customer.id, id), eq(customer.orgId, orgId))).limit(1)
+  if (!current) throw new Error('Customer not found')
   await assertCustomerIsUnique(orgId, parsed, id)
   const [updated] = await db
     .update(customer)
@@ -147,13 +167,31 @@ export async function updateCustomer(
     .where(and(eq(customer.id, id), eq(customer.orgId, orgId)))
     .returning()
   if (!updated) throw new Error('Customer not found')
+  if (parsed.customerType !== undefined && parsed.customerType !== current.customerType) {
+    await db.insert(auditEvent).values({
+      id: generateId(), organizationId: orgId, userId,
+      action: 'customer.type_changed',
+      metadata: {
+        customerId: id,
+        oldCustomerType: current.customerType,
+        newCustomerType: parsed.customerType,
+      },
+    })
+  }
+  if (parsed.priceLevel !== undefined && parsed.priceLevel !== current.priceLevel) {
+    await db.insert(auditEvent).values({
+      id: generateId(), organizationId: orgId, userId,
+      action: 'customer.price_level_changed',
+      metadata: { source: 'CUSTOMER_EDIT', customerId: id, oldPriceLevel: current.priceLevel, newPriceLevel: parsed.priceLevel },
+    })
+  }
   revalidatePath('/dashboard/customers')
   return updated
 }
 
 export async function deleteCustomer(id: string) {
-  const userId = await getUserId()
-  const orgId = await getOrgId(userId)
+  const authorization = await requireCustomerMutationPermission(PermissionEnum.CUSTOMER_DELETE)
+  const { organizationId: orgId } = authorization
   const deleted = await db
     .delete(customer)
     .where(and(eq(customer.id, id), eq(customer.orgId, orgId)))

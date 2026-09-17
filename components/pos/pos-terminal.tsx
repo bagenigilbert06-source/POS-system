@@ -63,6 +63,7 @@ import {
 import { formatCurrency, formatDateTime, normalizeBarcode } from '@/lib/utils';
 import { cn } from '@/lib/utils';
 import { getSellableCategoryData } from '@/lib/pos/category-filter';
+import { resolvePriceLevel, resolveUnitPrice } from '@/lib/pricing/price-levels';
 import {
   Plus,
   Minus,
@@ -720,6 +721,8 @@ export function POSTerminal({
   const [prescriptionExpiresAt, setPrescriptionExpiresAt] = useState('');
   const [pharmacyNotes, setPharmacyNotes] = useState('');
   const [customerMenuOpen, setCustomerMenuOpen] = useState(false);
+  const [customerSearch, setCustomerSearch] = useState('');
+  const [customerPriceFilter, setCustomerPriceFilter] = useState<'retail' | 'wholesale'>('retail');
   const [processing, setProcessing] = useState(false);
   const [receipt, setReceipt] = useState<ReceiptData | null>(null);
   const [showNewCustomer, setShowNewCustomer] = useState(false);
@@ -1546,8 +1549,10 @@ export function POSTerminal({
               `${item.productId}:${item.packageId ?? 'base'}:${(item.modifierOptionIds ?? []).slice().sort().join(',')}`) ===
             lineKey
         );
+        const priceLevel = resolvePriceLevel(availableCustomers.find((customer) => customer.id === selectedCustomer));
+        const resolved = resolveUnitPrice({ retailPrice: selectedPackage?.sellingPrice ?? product.sellingPrice, wholesalePrice: selectedPackage?.wholesalePrice ?? product.wholesalePrice, priceLevel });
         const price =
-          Number(selectedPackage?.sellingPrice ?? product.sellingPrice) +
+          resolved.unitPrice +
           selectedModifiers.reduce(
             (sum, option) => sum + option.priceAdjustment,
             0
@@ -1589,11 +1594,13 @@ export function POSTerminal({
             modifierOptionIds,
             modifierNames: selectedModifiers.map((option) => option.name),
             lineNotes: lineNotes?.trim() || undefined,
+            priceLevel: resolved.priceLevel,
+            retailUnitPrice: Number(selectedPackage?.sellingPrice ?? product.sellingPrice),
           },
         ];
       });
     },
-    [paymentMethod, mpesaStatus]
+    [paymentMethod, mpesaStatus, availableCustomers, selectedCustomer]
   );
 
   const startCafeItem = useCallback(
@@ -2089,6 +2096,19 @@ export function POSTerminal({
     setBonusToUse('');
     setRewardQuote(null);
   }, [selectedCustomer]);
+
+  useEffect(() => {
+    const requestedLevel = resolvePriceLevel(availableCustomers.find((customer) => customer.id === selectedCustomer));
+    setCart((current) => current.map((item) => {
+      const product = catalogProducts.find((entry) => entry.id === item.productId);
+      if (!product) return item;
+      const packageItem = item.packageId ? product.packages.find((entry) => entry.id === item.packageId) : null;
+      const resolved = resolveUnitPrice({ retailPrice: packageItem?.sellingPrice ?? product.sellingPrice, wholesalePrice: packageItem?.wholesalePrice ?? product.wholesalePrice, priceLevel: requestedLevel });
+      const modifierAdjustment = item.unitPrice - (item.retailUnitPrice ?? Number(product.sellingPrice));
+      const unitPrice = resolved.unitPrice + Math.max(0, modifierAdjustment);
+      return { ...item, unitPrice, totalPrice: unitPrice * item.quantity, priceLevel: resolved.priceLevel, retailUnitPrice: Number(packageItem?.sellingPrice ?? product.sellingPrice) };
+    }));
+  }, [selectedCustomer, availableCustomers, catalogProducts]);
 
   useEffect(() => {
     if (!selectedCustomer || cart.length === 0 || !isOnline) {
@@ -4056,6 +4076,7 @@ export function POSTerminal({
         address: customerAddress || null,
         kraPin: null,
         customerType: 'individual',
+        priceLevel: 'retail',
         vatRegistered: false,
         loyaltyPoints: 0,
         userId: '',
@@ -4109,6 +4130,7 @@ export function POSTerminal({
       rewardEarningRateSnapshot: null,
       rewardPointValueSnapshot: null,
       customerId: selectedCustomer || null,
+      priceLevel: resolvePriceLevel(activeCustomer),
       amountReceived:
         receipt.paymentMethod === 'cash'
           ? String(parseFloat(amountPaid || '0'))
@@ -4141,6 +4163,8 @@ export function POSTerminal({
         packageName: item.packageName ?? null,
         baseUnitQuantity: item.baseUnitQuantity ?? 1,
         unitPrice: item.unitPrice.toString(),
+        priceLevel: item.priceLevel ?? 'retail',
+        retailUnitPrice: (item.retailUnitPrice ?? item.unitPrice).toString(),
         totalPrice: item.totalPrice.toString(),
         unitCostAtSale: '0',
         totalCost: '0',
@@ -5417,9 +5441,14 @@ export function POSTerminal({
                   {customerMenuOpen && !mpesaLocksBasket && (
                     <div
                       role="listbox"
-                      className="absolute inset-x-0 top-full z-30 mt-1 max-h-56 overflow-y-auto rounded-md border border-[#e1e4e8] bg-white p-1 shadow-[0_4px_12px_rgba(16,24,40,0.08)] dark:border-white/10 dark:bg-[#1b1b1b]"
+                      className="absolute inset-x-0 top-full z-50 mt-1 rounded-md border border-[#e1e4e8] bg-white p-1 shadow-[0_4px_12px_rgba(16,24,40,0.08)] dark:border-white/10 dark:bg-[#1b1b1b]"
                     >
-                      <button
+                      <div className="space-y-1 border-b border-[#eef0f3] bg-white p-1 pb-2 dark:border-white/10 dark:bg-[#1b1b1b]">
+                        <input value={customerSearch} onChange={(e) => setCustomerSearch(e.target.value)} placeholder="Search customers..." className="h-8 w-full rounded border px-2 text-xs dark:bg-[#161616]" />
+                        <div className="flex w-fit items-center rounded-md bg-slate-100 p-0.5 dark:bg-white/10">{(['retail','wholesale'] as const).map((level) => <button key={level} type="button" onClick={() => setCustomerPriceFilter(level)} className={cn('h-6 rounded px-2.5 text-[9px] font-bold uppercase tracking-wide transition-colors', customerPriceFilter === level ? 'bg-[#ffd60a] text-black shadow-sm' : 'text-[#667085] hover:bg-white/70 dark:text-[#c9ced6] dark:hover:bg-white/10')}>{level}</button>)}</div>
+                      </div>
+                      <div className="max-h-36 overflow-y-auto overscroll-contain px-1 pt-1">
+                        {customerPriceFilter === 'retail' && <button
                         type="button"
                         role="option"
                         aria-selected={!selectedCustomer}
@@ -5434,9 +5463,9 @@ export function POSTerminal({
                             : 'text-[#344054] dark:text-[#e4e7ec]'
                         )}
                       >
-                        {cafeMode ? 'Walk-in guest' : 'Walk-in customer'}
-                      </button>
-                      {availableCustomers.map((customer) => (
+                        <span className="flex w-full items-center justify-between">{cafeMode ? 'Walk-in guest' : 'Walk-in customer'}<span className="text-[10px] font-semibold">RETAIL</span></span>
+                        </button>}
+                        {availableCustomers.filter((customer) => resolvePriceLevel(customer) === customerPriceFilter && (!customerSearch || [customer.name, customer.phone ?? ''].some((value) => value.toLowerCase().includes(customerSearch.toLowerCase())))).map((customer) => (
                         <button
                           key={customer.id}
                           type="button"
@@ -5453,10 +5482,10 @@ export function POSTerminal({
                               : 'text-[#344054] dark:text-[#e4e7ec]'
                           )}
                         >
-                          {customer.name}
-                          {customer.phone ? ' (' + customer.phone + ')' : ''}
+                          <span className="flex w-full items-center justify-between gap-2"><span className="min-w-0"><span className="block truncate">{customer.name}{customer.phone ? ' (' + customer.phone + ')' : ''}</span><span className="block text-[10px] capitalize text-muted-foreground">{customer.customerType} · {resolvePriceLevel(customer)}</span></span><span className="shrink-0 text-[10px] font-semibold">{resolvePriceLevel(customer).toUpperCase()}</span></span>
                         </button>
-                      ))}
+                        ))}
+                      </div>
                     </div>
                   )}
                 </div>
@@ -5486,6 +5515,7 @@ export function POSTerminal({
                     <X className="h-3 w-3" />
                   </button>
                   <p className="text-sm font-semibold">{activeCustomer.name}</p>
+                  <p className="mt-0.5 text-[10px] font-bold capitalize tracking-wide text-[#0f8b83]">{activeCustomer.customerType} · {resolvePriceLevel(activeCustomer)}</p>
                   <p className="mt-1 text-xs text-[#667085] dark:text-[#aeb4c0]">
                     Bonus:{' '}
                     <span className="font-semibold text-[#0f8b83]">

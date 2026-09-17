@@ -162,6 +162,7 @@ export function ProductForm({
     categoryId: product?.categoryId ?? initialCategoryId ?? '',
     buyingPrice: product?.buyingPrice ?? (isCafe ? '0' : ''),
     sellingPrice: product?.sellingPrice ?? '',
+    wholesalePrice: product?.wholesalePrice ?? '',
     stock: product?.stock ?? 0,
     minStock: product?.minStock ?? (isCafe ? 0 : 5),
     unit:
@@ -436,6 +437,7 @@ export function ProductForm({
         categoryId: form.categoryId || undefined,
         buyingPrice: parseFloat(String(form.buyingPrice)),
         sellingPrice: parseFloat(String(form.sellingPrice)),
+        wholesalePrice: form.wholesalePrice === '' ? (product ? null : undefined) : Number(form.wholesalePrice),
         ...(product ? {} : { stock: isPharmacy ? 0 : Number(form.stock) }),
         minStock: Number(form.minStock),
         unit: form.unit,
@@ -528,6 +530,9 @@ export function ProductForm({
   const selling = Number(form.sellingPrice) || 0;
   const margin = selling - buying;
   const grossMargin = getGrossMargin(selling, buying);
+  const wholesale = form.wholesalePrice === '' ? null : Number(form.wholesalePrice);
+  const wholesaleProfit = wholesale === null ? null : wholesale - buying;
+  const wholesaleMargin = wholesale === null ? null : getGrossMargin(wholesale, buying);
 
   const FieldLabel = ({
     children,
@@ -1470,15 +1475,15 @@ export function ProductForm({
                       )}
                     </div>
                     <div>
-                      <FieldLabel required>Selling price</FieldLabel>
+                      <FieldLabel required>Retail selling price</FieldLabel>
                       <p className="mb-1 text-xs text-muted-foreground">
                         {isPharmacy
                           ? 'How much the customer will pay for one selling unit.'
                           : isCafe
                             ? 'The base menu price. Size and modifier adjustments can be configured after saving.'
                             : isLiquor
-                              ? 'How much the customer will pay for one bottle or unit.'
-                              : 'How much the customer will pay for one selling unit.'}
+                              ? 'Normal selling price for walk-in and retail customers.'
+                              : 'Normal selling price for walk-in and retail customers.'}
                       </p>
                       <input
                         type="number"
@@ -1505,6 +1510,14 @@ export function ProductForm({
                         </p>
                       )}
                     </div>
+                    {!isCafe && (
+                      <div>
+                        <FieldLabel>Wholesale selling price</FieldLabel>
+                        <p className="mb-1 text-xs text-muted-foreground">Selling price for customers assigned Wholesale pricing. Empty falls back to Retail.</p>
+                        <input type="number" min="0" step="0.01" placeholder="Not configured" value={form.wholesalePrice} onChange={(e) => set('wholesalePrice', e.target.value)} className={inputCls} />
+                        {form.wholesalePrice !== '' && Number(form.wholesalePrice) >= Number(form.sellingPrice) && <p className="mt-1.5 text-xs text-amber-600">Wholesale price is not lower than the retail price. Please confirm this is intentional.</p>}
+                      </div>
+                    )}
                   </div>
                   <div className="mt-5 border-t pt-5">
                     <div>
@@ -1600,6 +1613,7 @@ export function ProductForm({
                         ? `Profit per ${form.unit}: ${formatCurrency(margin)} · Profit %: ${grossMargin.valid ? `${grossMargin.percent.toFixed(1)}%` : 'check cost price'}`
                         : `You will lose ${formatCurrency(Math.abs(margin))} each time this ${terminology.singularLower} is sold.`}
                     </p>
+                    {wholesaleProfit !== null && wholesaleMargin && <p className="mt-1 border-t pt-1 text-xs">Wholesale profit per {form.unit}: {formatCurrency(wholesaleProfit)} · Margin: {wholesaleMargin.valid ? `${wholesaleMargin.percent.toFixed(1)}%` : 'check cost price'}</p>}
                   </div>
                 </div>
               </section>

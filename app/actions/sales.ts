@@ -93,6 +93,7 @@ import {
 import { getFiscalReadiness } from '@/lib/etims/policy';
 import Decimal from 'decimal.js';
 import { maskAgeIdReference } from '@/lib/pos/age-verification';
+import { resolvePriceLevel, resolveUnitPrice, type PriceLevel } from '@/lib/pricing/price-levels';
 import { isCafeBusiness } from '@/lib/hospitality/rules';
 import {
   createCafeOrderForSale,
@@ -191,6 +192,8 @@ export type CartItem = {
   modifierOptionIds?: string[];
   modifierNames?: string[];
   lineNotes?: string;
+  priceLevel?: PriceLevel;
+  retailUnitPrice?: number;
 };
 
 const offlineMetadataSchema = z.object({
@@ -663,6 +666,8 @@ export async function createManualSale(
       productName: data.description,
       quantity: 1,
       unitPrice: String(data.amount),
+      priceLevel: 'retail',
+      retailUnitPrice: String(data.amount),
       totalPrice: String(total),
       userId,
       orgId,
@@ -902,6 +907,7 @@ export async function createSale(data: CreateSaleInput) {
       id: product.id,
       name: product.name,
       sellingPrice: product.sellingPrice,
+      wholesalePrice: product.wholesalePrice,
       categoryId: product.categoryId,
       active: product.isActive,
       requiresAgeVerification: product.requiresAgeVerification,
@@ -1049,6 +1055,13 @@ export async function createSale(data: CreateSaleInput) {
         )
     : [];
   const packagesById = new Map(packages.map((item) => [item.id, item]));
+  const [selectedCustomer] = data.customerId
+    ? await db.select({ id: customer.id, priceLevel: customer.priceLevel }).from(customer)
+        .where(and(eq(customer.id, data.customerId), eq(customer.orgId, orgId))).limit(1)
+    : [];
+  if (data.customerId && !selectedCustomer)
+    throw new Error('Customer is not available in this workspace');
+  const checkoutPriceLevel = resolvePriceLevel(selectedCustomer);
   const cafeConfiguration = cafeWorkspace
     ? await getCafeConfiguration(orgId)
     : null;
@@ -1095,9 +1108,12 @@ export async function createSale(data: CreateSaleInput) {
         (cafeLine.packageId ?? null) !== (line.packageId ?? null))
     )
       throw new Error('Café selections do not match the basket');
-    const unitPrice =
-      cafeLine?.unitPrice ??
-      Number(selectedPackage?.sellingPrice ?? catalogueItem.sellingPrice);
+    const resolvedPrice = resolveUnitPrice({
+      retailPrice: selectedPackage?.sellingPrice ?? catalogueItem.sellingPrice,
+      wholesalePrice: selectedPackage?.wholesalePrice ?? catalogueItem.wholesalePrice,
+      priceLevel: checkoutPriceLevel,
+    });
+    const unitPrice = cafeLine?.unitPrice ?? resolvedPrice.unitPrice;
     const baseUnitQuantity = selectedPackage?.baseUnitQuantity ?? 1;
     if (
       offline &&
@@ -1124,22 +1140,14 @@ export async function createSale(data: CreateSaleInput) {
       ),
       modifierNames: cafeLine?.modifiers.map((modifier) => modifier.optionName),
       lineNotes: cafeLine?.notes,
+      priceLevel: cafeLine ? 'retail' : resolvedPrice.priceLevel,
+      retailUnitPrice: Number(selectedPackage?.sellingPrice ?? catalogueItem.sellingPrice),
     });
   }
   const serverSubtotal = normalizedItems.reduce(
     (sum, line) => sum + line.totalPrice,
     0
   );
-
-  if (data.customerId) {
-    const [selectedCustomer] = await db
-      .select({ id: customer.id })
-      .from(customer)
-      .where(and(eq(customer.id, data.customerId), eq(customer.orgId, orgId)))
-      .limit(1);
-    if (!selectedCustomer)
-      throw new Error('Customer is not available in this workspace');
-  }
 
   // Load business settings for tax configuration
   const [settings] = await db
@@ -1482,6 +1490,7 @@ export async function createSale(data: CreateSaleInput) {
         id: saleId,
         receiptNo,
         customerId: data.customerId,
+        priceLevel: checkoutPriceLevel,
         subtotal: String(serverSubtotal),
         taxAmount: String(calculatedTax),
         discountAmount: String(data.discountAmount),
@@ -1607,6 +1616,8 @@ export async function createSale(data: CreateSaleInput) {
           packageName: item.packageName ?? null,
           baseUnitQuantity: item.baseUnitQuantity ?? 1,
           unitPrice: String(item.unitPrice),
+          priceLevel: item.priceLevel ?? 'retail',
+          retailUnitPrice: String(item.retailUnitPrice ?? item.unitPrice),
           totalPrice: String(item.totalPrice),
           unitCostAtSale: String(
             costBySaleItem.get(item.saleItemId)?.unitCost ?? 0

@@ -79,6 +79,7 @@ export default async function ProductsPage() {
       )}
       {authorization.permissions.includes(PermissionEnum.PRODUCT_CREATE) && (
           <div className="flex justify-end">
+            <Link href="/dashboard/products/price-book" className="mr-2 rounded-md border px-3 py-2 text-xs font-semibold hover:bg-muted">Price Book</Link>
             <Link
               href={pharmacy ? '/dashboard/products/import/pharmacy' : '/dashboard/products/import'}
               className="rounded-md border px-3 py-2 text-xs font-semibold hover:bg-muted"

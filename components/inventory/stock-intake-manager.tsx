@@ -26,6 +26,8 @@ type Product = {
   barcode: string | null;
   unit: string;
   buyingPrice: string;
+  sellingPrice: string;
+  wholesalePrice: string | null;
   trackingMode: string;
 };
 type Package = {
@@ -34,6 +36,8 @@ type Package = {
   name: string;
   baseUnitQuantity: number;
   barcode: string | null;
+  sellingPrice: string;
+  wholesalePrice: string | null;
 };
 type Balance = {
   productId: string;
@@ -71,6 +75,9 @@ type Line = {
   enteredUnit?: string;
   quantity: number;
   unitCost: string;
+  updateSellingPrices?: boolean;
+  retailPrice?: string;
+  wholesalePrice?: string;
 };
 
 export function StockIntakeManager({
@@ -83,6 +90,7 @@ export function StockIntakeManager({
   staff,
   currency,
   canReceive,
+  canEditPricing,
   cafeMode = false,
   hardwareMode = false,
 }: {
@@ -95,6 +103,7 @@ export function StockIntakeManager({
   staff: { id: string; name: string }[];
   currency: string;
   canReceive: boolean;
+  canEditPricing: boolean;
   cafeMode?: boolean;
   hardwareMode?: boolean;
 }) {
@@ -300,6 +309,9 @@ export function StockIntakeManager({
             enteredUnit: line.enteredUnit,
             quantity: line.quantity,
             unitCost: line.unitCost === '' ? undefined : Number(line.unitCost),
+            updateSellingPrices: line.updateSellingPrices,
+            retailPrice: line.updateSellingPrices && line.retailPrice !== '' ? Number(line.retailPrice) : undefined,
+            wholesalePrice: line.updateSellingPrices ? (line.wholesalePrice === '' ? null : Number(line.wholesalePrice)) : undefined,
           })),
         });
         notify.success(
@@ -629,7 +641,7 @@ export function StockIntakeManager({
             </div>
             {lineDetails.length ? (
               <div className="overflow-x-auto">
-                <table className="w-full min-w-[760px] text-left text-xs">
+                <table className="w-full min-w-[980px] text-left text-xs">
                   <thead className="bg-muted/30 uppercase text-muted-foreground">
                     <tr>
                       {[
@@ -642,6 +654,7 @@ export function StockIntakeManager({
                         'Quantity received',
                         'Unit',
                         'Unit cost',
+                        'Selling prices',
                         'Line value',
                         '',
                       ].map((label) => (
@@ -653,6 +666,7 @@ export function StockIntakeManager({
                   </thead>
                   <tbody className="divide-y">
                     {lineDetails.map((line) => {
+                      const priceTarget = line.selectedPackage ?? line.product;
                       const balance = balances
                         .filter(
                           (item) =>
@@ -752,6 +766,18 @@ export function StockIntakeManager({
                               placeholder={`Current: ${line.product.buyingPrice}`}
                               className="h-8 w-28"
                             />
+                          </td>
+                          <td className="px-3 py-3">
+                            {canEditPricing ? <div className="min-w-48 space-y-1.5">
+                              <label className="flex items-center gap-2 font-medium">
+                                <input type="checkbox" checked={line.updateSellingPrices ?? false} onChange={(event) => updateLine(line.productId, event.target.checked ? { updateSellingPrices: true, retailPrice: String(priceTarget.sellingPrice), wholesalePrice: priceTarget.wholesalePrice ?? '' } : { updateSellingPrices: false, retailPrice: undefined, wholesalePrice: undefined })}/>
+                                Update selling prices
+                              </label>
+                              {line.updateSellingPrices ? <div className="flex gap-1.5">
+                                <Input aria-label={`${line.product.name} new retail price`} type="number" min="0" step="0.01" value={line.retailPrice ?? ''} onChange={(event) => updateLine(line.productId, { retailPrice: event.target.value })} placeholder="Retail" className="h-8 w-24"/>
+                                <Input aria-label={`${line.product.name} new wholesale price`} type="number" min="0" step="0.01" value={line.wholesalePrice ?? ''} onChange={(event) => updateLine(line.productId, { wholesalePrice: event.target.value })} placeholder="Wholesale" className="h-8 w-24"/>
+                              </div> : <p className="text-[11px] text-muted-foreground">Retail {formatCurrency(Number(priceTarget.sellingPrice), currency)} · Wholesale {priceTarget.wholesalePrice === null ? 'not configured' : formatCurrency(Number(priceTarget.wholesalePrice), currency)}</p>}
+                            </div> : <p className="min-w-40 text-[11px] text-muted-foreground">Retail {formatCurrency(Number(priceTarget.sellingPrice), currency)} · Wholesale {priceTarget.wholesalePrice === null ? 'not configured' : formatCurrency(Number(priceTarget.wholesalePrice), currency)}</p>}
                           </td>
                           <td className="px-3 py-3 font-semibold tabular-nums">
                             {formatCurrency(line.total, currency)}

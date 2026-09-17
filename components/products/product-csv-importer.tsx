@@ -16,6 +16,7 @@ const headers = [
   'category',
   'costPrice',
   'sellingPrice',
+  'wholesalePrice',
   'openingStock',
   'ageRestricted',
 ];
@@ -27,6 +28,7 @@ const example = [
   'Whisky',
   '2376.27',
   '2800',
+  '2600',
   '12',
   'true',
 ];
@@ -116,6 +118,7 @@ export function ProductCsvImporter({
       category: categoryOverrides[Number(row.rowNumber)] || String(row.category),
       costPrice: String(row.costPrice),
       sellingPrice: String(row.sellingPrice),
+      wholesalePrice: String(row.wholesalePrice),
       openingStock: String(row.openingStock),
       ageRestricted: String(row.ageRestricted),
       isActive: String(row.isActive || ''),
@@ -209,7 +212,7 @@ export function ProductCsvImporter({
           <b>{parsed.rows.length}</b> rows ready for server-side preview.
         </p>
         <p className="mt-1 text-xs text-muted-foreground">
-          Required values: name, SKU and sellingPrice. Optional or derived: barcode, category, costPrice, openingStock (defaults to 0), ageRestricted and isActive.
+          Required values: name, SKU and sellingPrice (Retail). Wholesale price is optional; blank means not configured, never zero.
         </p>
       </section>
       {preview && (
@@ -219,7 +222,7 @@ export function ProductCsvImporter({
           </div>
           <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search product, SKU or barcode" className="mt-4 h-10 w-full max-w-sm rounded-md border bg-background px-3 text-sm" />
           <div className="mt-3 flex flex-wrap gap-2"><select value={bulkCategory} onChange={(event)=>setBulkCategory(event.target.value)} className="h-9 rounded-md border bg-background px-3 text-xs"><option value="">Bulk category for review rows</option>{categories.map((item)=><option key={item.id} value={item.name}>{item.name}</option>)}</select><button type="button" disabled={!bulkCategory} onClick={()=>setCategoryOverrides((current)=>({...current,...Object.fromEntries(preview.rows.filter((row)=>row.status==='REVIEW_REQUIRED').map((row)=>[row.rowNumber,bulkCategory]))}))} className="rounded-md border px-3 text-xs font-semibold disabled:opacity-40">Assign all review rows</button></div>
-          <div className="mt-4 max-h-[460px] overflow-auto rounded-lg border"><table className="w-full min-w-[900px] text-xs"><thead className="sticky top-0 bg-muted"><tr>{['Status','SKU','Product','Suggested category','Selling price','Barcode','Opening stock','Issue'].map((label) => <th key={label} className="px-3 py-2 text-left">{label}</th>)}</tr></thead><tbody>{preview.rows.filter((row) => (statusFilter === 'ALL' || row.status === statusFilter) && [row.name,row.sku,row.barcode ?? ''].some((value) => value.toLowerCase().includes(search.toLowerCase()))).map((row) => <tr key={row.rowNumber} className="border-t"><td className="px-3 py-2 font-semibold">{row.status.replace('_',' ')}</td><td className="px-3 py-2">{row.sku || '—'}</td><td className="px-3 py-2 font-medium">{row.name || '—'}</td><td className="px-3 py-2">{row.status === 'REVIEW_REQUIRED' ? <select value={categoryOverrides[row.rowNumber] || ''} onChange={(event) => setCategoryOverrides((current) => ({...current,[row.rowNumber]:event.target.value}))} className="h-8 rounded border bg-background px-2"><option value="">Unassigned</option>{categories.map((item) => <option key={item.id} value={item.name}>{item.name}</option>)}</select> : row.category || 'Unassigned'}</td><td className="px-3 py-2 tabular-nums">{row.sellingPrice ?? '—'}</td><td className="px-3 py-2">{row.barcode || '—'}</td><td className="px-3 py-2">{row.openingStock ?? '—'}</td><td className="max-w-xs px-3 py-2 text-muted-foreground">{row.issue || '—'}</td></tr>)}</tbody></table></div>
+          <div className="mt-4 max-h-[460px] overflow-auto rounded-lg border"><table className="w-full min-w-[960px] text-xs"><thead className="sticky top-0 bg-muted"><tr>{['Status','SKU','Product','Suggested category','Retail price','Wholesale price','Barcode','Opening stock','Issue'].map((label) => <th key={label} className="px-3 py-2 text-left">{label}</th>)}</tr></thead><tbody>{preview.rows.filter((row) => (statusFilter === 'ALL' || row.status === statusFilter) && [row.name,row.sku,row.barcode ?? ''].some((value) => value.toLowerCase().includes(search.toLowerCase()))).map((row) => <tr key={row.rowNumber} className="border-t"><td className="px-3 py-2 font-semibold">{row.status.replace('_',' ')}</td><td className="px-3 py-2">{row.sku || '—'}</td><td className="px-3 py-2 font-medium">{row.name || '—'}</td><td className="px-3 py-2">{row.status === 'REVIEW_REQUIRED' ? <select value={categoryOverrides[row.rowNumber] || ''} onChange={(event) => setCategoryOverrides((current) => ({...current,[row.rowNumber]:event.target.value}))} className="h-8 rounded border bg-background px-2"><option value="">Unassigned</option>{categories.map((item) => <option key={item.id} value={item.name}>{item.name}</option>)}</select> : row.category || 'Unassigned'}</td><td className="px-3 py-2 tabular-nums">{row.sellingPrice ?? '—'}</td><td className="px-3 py-2 tabular-nums">{row.wholesalePrice ?? 'Not configured'}</td><td className="px-3 py-2">{row.barcode || '—'}</td><td className="px-3 py-2">{row.openingStock ?? '—'}</td><td className="max-w-xs px-3 py-2 text-muted-foreground">{row.issue || '—'}</td></tr>)}</tbody></table></div>
           <button type="button" onClick={() => { const rows=preview.rows.filter((row)=>row.status!=='READY'); const safe=(value:string)=>/^[=+\-@]/.test(value)?`'${value}`:value; const csv=['row,product_code,name,selling_price,status,reason,suggested_category',...rows.map((row)=>[row.rowNumber,row.sku,row.name,row.sellingPrice??'',row.status,row.issue??'',row.category??''].map((value)=>`"${safe(String(value)).replace(/"/g,'""')}"`).join(','))].join('\n'); const url=URL.createObjectURL(new Blob([csv],{type:'text/csv'})); const link=document.createElement('a');link.href=url;link.download='product-import-issues.csv';link.click();URL.revokeObjectURL(url)}} className="mt-3 rounded-md border px-3 py-2 text-xs font-semibold">Download issues CSV</button>
           {preview.errors.length > 0 && (
             <div className="mt-3 max-h-56 space-y-1 overflow-auto rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-xs text-destructive">

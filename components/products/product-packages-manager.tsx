@@ -34,6 +34,7 @@ export function ProductPackagesManager({
       | 'custom',
     barcode: '',
     sellingPrice: '',
+    wholesalePrice: '',
     baseUnitQuantity: pharmacyMode || cafeMode ? '1' : '12',
     etimsItemCode: '',
     etimsUnitCode: '',
@@ -47,6 +48,7 @@ export function ProductPackagesManager({
         packageType: form.packageType,
         barcode: form.barcode || undefined,
         sellingPrice: Number(form.sellingPrice),
+        wholesalePrice: form.wholesalePrice === '' ? undefined : Number(form.wholesalePrice),
         baseUnitQuantity: Number(form.baseUnitQuantity),
         etimsItemCode: form.etimsItemCode || undefined,
         etimsUnitCode: form.etimsUnitCode || undefined,
@@ -61,6 +63,7 @@ export function ProductPackagesManager({
         packageType: pharmacyMode || cafeMode ? 'custom' : 'case',
         barcode: '',
         sellingPrice: '',
+        wholesalePrice: '',
         baseUnitQuantity: pharmacyMode || cafeMode ? '1' : '12',
         etimsItemCode: '',
         etimsUnitCode: '',
@@ -106,6 +109,7 @@ export function ProductPackagesManager({
                 </p>
                 <p className="mt-0.5 text-xs text-muted-foreground">
                   {formatCurrency(item.sellingPrice)}
+                  {item.wholesalePrice !== null ? ` · Wholesale ${formatCurrency(item.wholesalePrice)}` : ''}
                   {item.barcode ? ` · ${item.barcode}` : ''}
                 </p>
               </div>
@@ -196,7 +200,7 @@ export function ProductPackagesManager({
           />
         </label>
         <label className="text-xs font-semibold">
-          Selling price
+          Retail selling price
           <input
             type="number"
             min="0"
@@ -206,6 +210,12 @@ export function ProductPackagesManager({
             className="mt-1 h-10 w-full rounded-md border bg-background px-3 text-sm"
           />
         </label>
+        {!pharmacyMode && !cafeMode && <label className="text-xs font-semibold">
+          Wholesale selling price
+          <input type="number" min="0" step="0.01" value={form.wholesalePrice} onChange={(e) => setForm({ ...form, wholesalePrice: e.target.value })} placeholder="Not configured" className="mt-1 h-10 w-full rounded-md border bg-background px-3 text-sm" />
+          <span className="mt-1 block font-normal text-muted-foreground">Blank falls back to this package&apos;s Retail price.</span>
+          {form.wholesalePrice !== '' && Number(form.wholesalePrice) >= Number(form.sellingPrice) && <span className="mt-1 block font-normal text-amber-600">Wholesale is not lower than Retail. Confirm this is intentional.</span>}
+        </label>}
         <label className="text-xs font-semibold">
           Package barcode
           <input

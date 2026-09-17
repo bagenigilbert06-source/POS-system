@@ -14,6 +14,7 @@ import { applySaleRewards } from '@/lib/services/rewards-service'
 import { preTaxRewardAmount } from '@/lib/rewards/rules'
 import { isCafeBusiness } from '@/lib/hospitality/rules'
 import { createCafeOrderForSale, consumeCafeRecipeInventory, getCafeConfiguration, resolveCafeCheckout, type CafeCheckoutInput } from '@/lib/cafe/sale-service'
+import { resolvePriceLevel, resolveUnitPrice } from '@/lib/pricing/price-levels'
 
 export type MpesaCheckoutPayload = {
   items: Array<{ productId: string; quantity: number; packageId?: string }>
@@ -62,7 +63,7 @@ export async function finalizeConfirmedMpesaPayment(requestId: string) {
       pricesIncludeTax: businessSettings.pricesIncludeTax,
     }).from(businessSettings).where(eq(businessSettings.organizationId, intent.organizationId)).limit(1)
     const catalogue = await tx.select({
-      id: product.id, name: product.name, sellingPrice: product.sellingPrice, active: product.isActive, categoryId: product.categoryId, requiresAgeVerification: product.requiresAgeVerification,
+      id: product.id, name: product.name, sellingPrice: product.sellingPrice, wholesalePrice: product.wholesalePrice, active: product.isActive, categoryId: product.categoryId, requiresAgeVerification: product.requiresAgeVerification,
     }).from(product).where(and(eq(product.orgId, intent.organizationId), inArray(product.id, productIds)))
     const byId = new Map(catalogue.map((item) => [item.id, item]))
     const categoryIds = Array.from(new Set(catalogue.map((item) => item.categoryId).filter((value): value is string => Boolean(value))))
@@ -88,6 +89,11 @@ export async function finalizeConfirmedMpesaPayment(requestId: string) {
     const packageIds = checkout.items.map((line) => line.packageId).filter((value): value is string => Boolean(value))
     const packages = packageIds.length ? await tx.select().from(productPackage).where(and(eq(productPackage.organizationId, intent.organizationId), inArray(productPackage.id, packageIds), eq(productPackage.isActive, true))) : []
     const packageById = new Map(packages.map((item) => [item.id, item]))
+    const [ownedCustomer] = intent.customerId
+      ? await tx.select({ id: customer.id, priceLevel: customer.priceLevel }).from(customer).where(and(eq(customer.id, intent.customerId), eq(customer.orgId, intent.organizationId))).limit(1)
+      : []
+    if (intent.customerId && !ownedCustomer) throw new Error('Checkout customer is not in this organization')
+    const checkoutPriceLevel = resolvePriceLevel(ownedCustomer)
     const [workspace] = await tx.select({ businessType: organization.businessType, businessCategory: organization.businessCategory }).from(organization).where(eq(organization.id, intent.organizationId)).limit(1)
     const cafeWorkspace = Boolean(workspace && isCafeBusiness(workspace.businessType, workspace.businessCategory))
     if (checkout.cafe && !cafeWorkspace) throw new Error('Café order details are not valid for this workspace')
@@ -115,15 +121,10 @@ export async function finalizeConfirmedMpesaPayment(requestId: string) {
       if (line.packageId && (!selectedPackage || selectedPackage.productId !== line.productId)) throw new Error('A paid basket package is unavailable')
       const cafeLine = resolvedCafe?.lines[lineIndex]
       if (cafeLine && (cafeLine.productId !== line.productId || (cafeLine.packageId ?? null) !== (line.packageId ?? null))) throw new Error('Café selections do not match the paid basket')
-      const unitPrice = cafeLine?.unitPrice ?? Number(selectedPackage?.sellingPrice ?? item.sellingPrice)
-      return { ...line, productName: cafeLine?.displayName ?? (selectedPackage ? `${item.name} (${selectedPackage.name})` : item.name), packageName: selectedPackage?.name, baseUnitQuantity: selectedPackage?.baseUnitQuantity ?? 1, unitPrice, totalPrice: unitPrice * line.quantity, saleItemId: generateId() }
+      const resolvedPrice = resolveUnitPrice({ retailPrice: selectedPackage?.sellingPrice ?? item.sellingPrice, wholesalePrice: selectedPackage?.wholesalePrice ?? item.wholesalePrice, priceLevel: checkoutPriceLevel })
+      const unitPrice = cafeLine?.unitPrice ?? resolvedPrice.unitPrice
+      return { ...line, productName: cafeLine?.displayName ?? (selectedPackage ? `${item.name} (${selectedPackage.name})` : item.name), packageName: selectedPackage?.name, baseUnitQuantity: selectedPackage?.baseUnitQuantity ?? 1, unitPrice, retailUnitPrice: Number(selectedPackage?.sellingPrice ?? item.sellingPrice), priceLevel: cafeLine ? 'retail' : resolvedPrice.priceLevel, totalPrice: unitPrice * line.quantity, saleItemId: generateId() }
     })
-    if (intent.customerId) {
-      const [ownedCustomer] = await tx.select({ id: customer.id }).from(customer).where(and(
-        eq(customer.id, intent.customerId), eq(customer.orgId, intent.organizationId),
-      )).limit(1)
-      if (!ownedCustomer) throw new Error('Checkout customer is not in this organization')
-    }
     const subtotal = lines.reduce((sum, line) => sum + line.totalPrice, 0)
     const rate = settings?.taxEnabled ? Number(settings.taxRate || 0) / 100 : 0
     const tax = rate ? (settings?.pricesIncludeTax ? subtotal - subtotal / (1 + rate) : subtotal * rate) : 0
@@ -167,7 +168,7 @@ export async function finalizeConfirmedMpesaPayment(requestId: string) {
     }
 
     await tx.insert(sale).values({
-      id: saleId, receiptNo, customerId: intent.customerId, subtotal: String(subtotal), taxAmount: String(tax),
+      id: saleId, receiptNo, customerId: intent.customerId, priceLevel: checkoutPriceLevel, subtotal: String(subtotal), taxAmount: String(tax),
       discountAmount: String(checkout.discountAmount), shippingAmount: String(shippingAmount), roundingAmount: String(rounded.roundingAmount), total: String(rounded.amount),
       paymentMethod: 'mpesa', mpesaRef: intent.receiptNumber, ageVerified: Boolean(linkedAgeVerification),
       ageVerifiedAt: linkedAgeVerification ? new Date() : null, ageVerifiedBy: linkedAgeVerification ? intent.userId : null,
@@ -185,7 +186,7 @@ export async function finalizeConfirmedMpesaPayment(requestId: string) {
     await tx.insert(saleItem).values(lines.map((line) => ({
       id: line.saleItemId, saleId, productId: line.productId, productName: line.productName, quantity: line.quantity,
       packageId: line.packageId ?? null, packageName: line.packageName ?? null, baseUnitQuantity: line.baseUnitQuantity,
-      unitPrice: String(line.unitPrice), totalPrice: String(line.totalPrice), userId: intent.userId, orgId: intent.organizationId,
+      unitPrice: String(line.unitPrice), priceLevel: line.priceLevel, retailUnitPrice: String(line.retailUnitPrice), totalPrice: String(line.totalPrice), userId: intent.userId, orgId: intent.organizationId,
       unitCostAtSale: String(costBySaleItem.get(line.saleItemId)?.unitCost ?? 0), totalCost: String(costBySaleItem.get(line.saleItemId)?.totalCost ?? 0),
       rewardEligibleAmount: String(rewards?.lineEligibility.get(line.productId) ?? 0),
     })))

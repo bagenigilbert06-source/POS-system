@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { formatDate } from '@/lib/utils';
+import { cn, formatDate } from '@/lib/utils';
 import {
   Search,
   Plus,
@@ -72,6 +72,7 @@ export function CustomersClient({
   const router = useRouter();
   const [customers, setCustomers] = useState<CustomerListItem[]>(initialCustomers);
   const [search, setSearch] = useState('');
+  const [priceFilter, setPriceFilter] = useState<'all' | 'retail' | 'wholesale'>('all');
   const [deleteTarget, setDeleteTarget] = useState<CustomerListItem | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [debouncedSearch] = useDebounce(search, 250);
@@ -107,10 +108,11 @@ export function CustomersClient({
 
   const filtered = customers.filter(
     (c) =>
-      !debouncedSearch ||
-      c.name.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
-      (c.phone ?? '').includes(debouncedSearch) ||
-      (c.email ?? '').toLowerCase().includes(debouncedSearch.toLowerCase())
+      (priceFilter === 'all' || (!isOptimisticCustomer(c) ? c.priceLevel : 'retail') === priceFilter) &&
+      (!debouncedSearch ||
+        c.name.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+        (c.phone ?? '').includes(debouncedSearch) ||
+        (c.email ?? '').toLowerCase().includes(debouncedSearch.toLowerCase()))
   );
 
   const toTitleCase = (value: string) =>
@@ -187,6 +189,7 @@ export function CustomersClient({
             Showing {filtered.length} of {customers.length}{' '}
             {customers.length === 1 ? person : people}
           </span>
+          {!cafeMode && <div className="flex gap-1">{(['all','retail','wholesale'] as const).map((level) => <button key={level} type="button" onClick={() => setPriceFilter(level)} className={cn('rounded-md border px-2.5 py-1.5 text-[11px] font-semibold uppercase', priceFilter === level && 'border-primary bg-primary/10 text-primary')}>{level}</button>)}</div>}
           <Link
             href="/dashboard/customers/new"
             className="inline-flex h-10 flex-shrink-0 items-center justify-center gap-2 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-sm transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background"
@@ -243,6 +246,7 @@ export function CustomersClient({
                     <div className="min-w-0">
                       <p className="flex min-w-0 items-center gap-1.5 truncate text-sm font-medium text-foreground">
                         <span className="truncate">{displayName(c.name)}</span>
+                        {!cafeMode && <span className="shrink-0 rounded bg-slate-100 px-1.5 py-0.5 text-[9px] font-bold uppercase text-slate-600 dark:bg-white/10 dark:text-slate-300">{!isOptimisticCustomer(c) ? c.priceLevel : 'retail'}</span>}
                         {isMaskedName(c.name) && (
                           <Tooltip>
                             <TooltipTrigger asChild>

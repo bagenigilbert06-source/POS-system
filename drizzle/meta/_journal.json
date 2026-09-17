@@ -583,6 +583,7 @@
       "tag": "0077_mpesa_provider_event_worker",
       "breakpoints": true
     },
-    { "idx": 83, "version": "7", "when": 1789344000000, "tag": "0078_notification_foundation", "breakpoints": true }
+    { "idx": 83, "version": "7", "when": 1789344000000, "tag": "0078_notification_foundation", "breakpoints": true },
+    { "idx": 84, "version": "7", "when": 1789603200000, "tag": "0079_retail_wholesale_pricing", "breakpoints": true }
   ]
 }

@@ -36,6 +36,7 @@ export function CustomerForm({
     address: customer?.address ?? '',
     kraPin: customer?.kraPin ?? '',
     customerType: customer?.customerType ?? 'individual',
+    priceLevel: customer?.priceLevel ?? 'retail',
     vatRegistered: customer?.vatRegistered ?? false,
   });
 
@@ -68,6 +69,7 @@ export function CustomerForm({
       address: form.address || undefined,
       kraPin: form.kraPin || undefined,
       customerType: form.customerType as 'individual' | 'business',
+      priceLevel: form.priceLevel as 'retail' | 'wholesale',
       vatRegistered: form.vatRegistered,
     };
     try {
@@ -235,7 +237,16 @@ export function CustomerForm({
                   <option value="individual">Individual</option>
                   <option value="business">Business</option>
                 </select>
+                {!cafeMode && <p className="mt-1 text-xs text-muted-foreground">Customer type does not change selling prices.</p>}
               </div>
+              {!cafeMode && <div>
+                <label htmlFor="customer-price-level" className="mb-1.5 block text-sm font-medium">Price level</label>
+                <select id="customer-price-level" value={form.priceLevel} onChange={(e) => set('priceLevel', e.target.value)} className={inputCls}>
+                  <option value="retail">Retail</option>
+                  <option value="wholesale">Wholesale</option>
+                </select>
+                <p className="mt-1 text-xs text-muted-foreground">New customers default to Retail. Choose Wholesale explicitly.</p>
+              </div>}
               <div>
                 <label
                   htmlFor="customer-kra-pin"

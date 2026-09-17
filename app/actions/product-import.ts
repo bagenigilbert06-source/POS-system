@@ -18,12 +18,12 @@ import { PRODUCT_IMPORT_STATUSES, type ProductImportPreview, type ProductImportR
 const rawRowSchema = z.object({
   rowNumber: z.number().int().positive(),
   name: z.string(), sku: z.string(), barcode: z.string().optional(), category: z.string(),
-  costPrice: z.string(), sellingPrice: z.string(), openingStock: z.string(), ageRestricted: z.string(),
+  costPrice: z.string(), sellingPrice: z.string(), wholesalePrice: z.string().optional(), openingStock: z.string(), ageRestricted: z.string(),
   isActive: z.string().optional(),
 })
 const requestSchema = z.object({ branchId: z.string().min(1), rows: z.array(rawRowSchema).min(1).max(500) })
 type RawRow = z.infer<typeof rawRowSchema>
-type ValidRow = { rowNumber: number; name: string; sku: string; barcode: string | null; category: string; costPrice: number | null; sellingPrice: number; openingStock: number; ageRestricted: boolean; isActive: boolean }
+type ValidRow = { rowNumber: number; name: string; sku: string; barcode: string | null; category: string; costPrice: number | null; sellingPrice: number; wholesalePrice: number | null; openingStock: number; ageRestricted: boolean; isActive: boolean }
 
 const bool = (value: string) => {
   const normalized = value.trim().toLowerCase()
@@ -46,7 +46,7 @@ async function validate(input: z.infer<typeof requestSchema>) {
   const valid: ValidRow[] = []
   for (const raw of input.rows) {
     const name = raw.name.trim(), sku = raw.sku.trim().toUpperCase(), barcode = normalizeBarcode(raw.barcode || '') || null
-    const categoryName = classifyLiquorProduct(name) || raw.category.trim(), costPrice = raw.costPrice.trim() === '' ? null : decimal(raw.costPrice), sellingPrice = decimal(raw.sellingPrice), openingStock = raw.openingStock.trim() === '' ? 0 : decimal(raw.openingStock)
+    const categoryName = classifyLiquorProduct(name) || raw.category.trim(), costPrice = raw.costPrice.trim() === '' ? null : decimal(raw.costPrice), sellingPrice = decimal(raw.sellingPrice), wholesalePrice = !raw.wholesalePrice?.trim() ? null : decimal(raw.wholesalePrice), openingStock = raw.openingStock.trim() === '' ? 0 : decimal(raw.openingStock)
     const suppliedRestriction = raw.ageRestricted.trim() ? bool(raw.ageRestricted) : null, active = raw.isActive?.trim() ? bool(raw.isActive) : true
     if (NON_PRODUCT_LINE_PATTERN.test(name)) errors.push({ rowNumber: raw.rowNumber, message: 'Excluded: accounting/non-stock line.' })
     if (!name || name.length > 180) errors.push({ rowNumber: raw.rowNumber, message: 'Product name is required and must be 180 characters or fewer.' })
@@ -54,12 +54,13 @@ async function validate(input: z.infer<typeof requestSchema>) {
     if (categoryName.length > 80) errors.push({ rowNumber: raw.rowNumber, message: 'Category is invalid or too long.' })
     if (costPrice !== null && (!Number.isFinite(costPrice) || costPrice < 0)) errors.push({ rowNumber: raw.rowNumber, message: 'Cost price must be blank or a number of zero or greater.' })
     if (!Number.isFinite(sellingPrice) || sellingPrice < 0) errors.push({ rowNumber: raw.rowNumber, message: 'Selling price must be zero or greater.' })
+    if (wholesalePrice !== null && (!Number.isFinite(wholesalePrice) || wholesalePrice < 0)) errors.push({ rowNumber: raw.rowNumber, message: 'Wholesale price must be blank or a number of zero or greater.' })
     if (!Number.isInteger(openingStock) || openingStock < 0) errors.push({ rowNumber: raw.rowNumber, message: 'Opening stock must be a whole number of zero or greater.' })
     if (raw.ageRestricted.trim() && suppliedRestriction === null) errors.push({ rowNumber: raw.rowNumber, message: 'ageRestricted must be blank, true or false.' })
     if (active === null) errors.push({ rowNumber: raw.rowNumber, message: 'isActive must be true or false when supplied.' })
     if (costPrice !== null && Number.isFinite(costPrice) && Number.isFinite(sellingPrice) && sellingPrice < costPrice) errors.push({ rowNumber: raw.rowNumber, message: 'Selling price is below cost price.' })
     if (name && sku && Number.isFinite(sellingPrice) && Number.isInteger(openingStock) && openingStock >= 0 && (costPrice === null || Number.isFinite(costPrice)) && active !== null)
-      valid.push({ rowNumber: raw.rowNumber, name, sku, barcode, category: categoryName, costPrice, sellingPrice, openingStock, ageRestricted: suppliedRestriction ?? false, isActive: active })
+      valid.push({ rowNumber: raw.rowNumber, name, sku, barcode, category: categoryName, costPrice, sellingPrice, wholesalePrice, openingStock, ageRestricted: suppliedRestriction ?? false, isActive: active })
   }
   const duplicate = (value: string | null, field: 'SKU' | 'barcode') => valid.filter((row) => row[field === 'SKU' ? 'sku' : 'barcode'] === value).length > 1
   for (const row of valid) {
@@ -87,7 +88,7 @@ async function validate(input: z.infer<typeof requestSchema>) {
 export async function previewProductImport(input: z.input<typeof requestSchema>): Promise<ProductImportPreview> {
   const data = requestSchema.parse(input); const result = await validate(data)
   const validByRow = new Map(result.valid.map((row) => [row.rowNumber, row]))
-  const rows = data.rows.map((raw): ProductImportRow => { const ready = validByRow.get(raw.rowNumber); const issue = result.errors.find((item) => item.rowNumber === raw.rowNumber)?.message ?? null; const status: ProductImportStatus = ready ? 'READY' : issue?.startsWith('Excluded:') ? 'EXCLUDED' : issue?.includes('Duplicate') || issue?.includes('already exists') ? 'DUPLICATE' : issue?.includes('Category requires review') ? 'REVIEW_REQUIRED' : 'INVALID'; return { rowNumber: raw.rowNumber, sku: raw.sku.trim(), name: raw.name.trim(), category: ready?.category ?? raw.category.trim(), sellingPrice: Number.isFinite(decimal(raw.sellingPrice)) ? decimal(raw.sellingPrice) : null, barcode: normalizeBarcode(raw.barcode || '') || null, openingStock: raw.openingStock.trim() === '' ? 0 : Number.isFinite(decimal(raw.openingStock)) ? decimal(raw.openingStock) : null, status, issue } })
+  const rows = data.rows.map((raw): ProductImportRow => { const ready = validByRow.get(raw.rowNumber); const issue = result.errors.find((item) => item.rowNumber === raw.rowNumber)?.message ?? null; const status: ProductImportStatus = ready ? 'READY' : issue?.startsWith('Excluded:') ? 'EXCLUDED' : issue?.includes('Duplicate') || issue?.includes('already exists') ? 'DUPLICATE' : issue?.includes('Category requires review') ? 'REVIEW_REQUIRED' : 'INVALID'; return { rowNumber: raw.rowNumber, sku: raw.sku.trim(), name: raw.name.trim(), category: ready?.category ?? raw.category.trim(), sellingPrice: Number.isFinite(decimal(raw.sellingPrice)) ? decimal(raw.sellingPrice) : null, wholesalePrice: !raw.wholesalePrice?.trim() ? null : Number.isFinite(decimal(raw.wholesalePrice)) ? decimal(raw.wholesalePrice) : null, barcode: normalizeBarcode(raw.barcode || '') || null, openingStock: raw.openingStock.trim() === '' ? 0 : Number.isFinite(decimal(raw.openingStock)) ? decimal(raw.openingStock) : null, status, issue } })
   const counts = Object.fromEntries(PRODUCT_IMPORT_STATUSES.map((status) => [status, rows.filter((row) => row.status === status).length])) as Record<ProductImportStatus, number>
   return { totalRows: rows.length, validRows: counts.READY, invalidRows: counts.INVALID, warnings: result.valid.filter((row) => !row.barcode).map((row) => `Row ${row.rowNumber}: no barcode; it can be scanned and assigned later.`), errors: result.errors, rows, counts }
 }
@@ -101,7 +102,7 @@ export async function importProductsFromCsv(input: z.input<typeof requestSchema>
   await db.transaction(async (tx) => {
     for (const row of result.valid) {
       const id = generateId()
-      const inserted = await tx.insert(product).values({ id, name: row.name, sku: row.sku, barcode: row.barcode, categoryId: result.categoryByName.get(row.category.toLowerCase())!, buyingPrice: row.costPrice === null ? sql`NULL` : String(row.costPrice), sellingPrice: String(row.sellingPrice), minStock: 0, unit: 'pcs', requiresAgeVerification: row.ageRestricted, isActive: row.isActive, userId: result.auth.userId, orgId: result.auth.organizationId }).onConflictDoNothing().returning({ id: product.id })
+      const inserted = await tx.insert(product).values({ id, name: row.name, sku: row.sku, barcode: row.barcode, categoryId: result.categoryByName.get(row.category.toLowerCase())!, buyingPrice: row.costPrice === null ? sql`NULL` : String(row.costPrice), sellingPrice: String(row.sellingPrice), wholesalePrice: row.wholesalePrice === null ? null : String(row.wholesalePrice), minStock: 0, unit: 'pcs', requiresAgeVerification: row.ageRestricted, isActive: row.isActive, userId: result.auth.userId, orgId: result.auth.organizationId }).onConflictDoNothing().returning({ id: product.id })
       if (!inserted.length) { racedDuplicates += 1; continue }
       created += 1
       if (row.openingStock > 0 && row.costPrice !== null) {
@@ -109,7 +110,7 @@ export async function importProductsFromCsv(input: z.input<typeof requestSchema>
         await addCostLayer(tx, { productId: id, branchId: data.branchId, sourceType: 'product_import', sourceId: id, quantity: row.openingStock, unitCost: row.costPrice, orgId: result.auth.organizationId })
       }
     }
-    await tx.insert(auditEvent).values({ id: generateId(), organizationId: result.auth.organizationId, userId: result.auth.userId, action: 'products.csv_imported', metadata: { branchId: data.branchId, count: result.valid.length, rows: result.valid.map((row) => row.rowNumber) } })
+    await tx.insert(auditEvent).values({ id: generateId(), organizationId: result.auth.organizationId, userId: result.auth.userId, action: 'products.csv_imported', metadata: { source: 'BULK_IMPORT', branchId: data.branchId, count: result.valid.length, rows: result.valid.map((row) => ({ rowNumber: row.rowNumber, retailPrice: row.sellingPrice, wholesalePrice: row.wholesalePrice })) } })
   })
   await Promise.all([invalidateProductReadCache(result.auth.organizationId), invalidateCategoryCache(result.auth.organizationId)])
   revalidatePath('/dashboard/products'); revalidatePath('/dashboard/inventory'); revalidatePath('/dashboard/pos')

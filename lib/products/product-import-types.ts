@@ -14,6 +14,7 @@ export type ProductImportRow = {
   name: string
   category: string
   sellingPrice: number | null
+  wholesalePrice: number | null
   barcode: string | null
   openingStock: number | null
   status: ProductImportStatus

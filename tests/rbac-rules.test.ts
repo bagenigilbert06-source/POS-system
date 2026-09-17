@@ -72,6 +72,11 @@ assert.equal(
 );
 assert.equal(has(RoleEnum.CASHIER, PermissionEnum.CUSTOMER_VIEW), true, 'cashiers need customer lookup during checkout');
 assert.equal(has(RoleEnum.CASHIER, PermissionEnum.CUSTOMER_CREATE), true, 'cashiers need to add checkout customers');
+assert.equal(has(RoleEnum.CASHIER, PermissionEnum.CUSTOMER_EDIT), false, 'cashiers must not edit customer details or price levels');
+for (const role of [RoleEnum.OWNER, RoleEnum.ADMIN, RoleEnum.STORE_MANAGER]) {
+  assert.equal(has(role, PermissionEnum.CUSTOMER_CREATE), true, `${role} must be able to create customers`);
+  assert.equal(has(role, PermissionEnum.CUSTOMER_EDIT), true, `${role} must be able to edit customers and price levels`);
+}
 assert.equal(has(RoleEnum.CASHIER, PermissionEnum.ATTENDANCE_USE), true, 'cashiers must record their work time');
 assert.equal(has(RoleEnum.CASHIER, PermissionEnum.ATTENDANCE_VIEW_OWN), true, 'cashiers must review their own attendance');
 assert.equal(has(RoleEnum.CASHIER, PermissionEnum.ATTENDANCE_VIEW_ALL), false, 'cashiers must not see team attendance');

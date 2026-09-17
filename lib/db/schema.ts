@@ -589,6 +589,7 @@ export const product = pgTable(
       precision: 12,
       scale: 2,
     }).notNull(),
+    wholesalePrice: numeric('wholesalePrice', { precision: 12, scale: 2 }),
     stock: integer('stock').notNull().default(0),
     minStock: integer('minStock').notNull().default(5),
     unit: text('unit').notNull().default('pcs'),
@@ -695,6 +696,7 @@ export const productPackage = pgTable(
       precision: 12,
       scale: 2,
     }).notNull(),
+    wholesalePrice: numeric('wholesalePrice', { precision: 12, scale: 2 }),
     baseUnitQuantity: integer('baseUnitQuantity').notNull(),
     etimsItemCode: text('etimsItemCode'),
     etimsUnitCode: text('etimsUnitCode'),
@@ -773,6 +775,7 @@ export const customer = pgTable(
     address: text('address'),
     kraPin: text('kraPin'),
     customerType: text('customerType').notNull().default('individual'),
+    priceLevel: text('priceLevel').notNull().default('retail'),
     vatRegistered: boolean('vatRegistered').notNull().default(false),
     loyaltyPoints: integer('loyaltyPoints').notNull().default(0),
     userId: text('userId').notNull(),
@@ -1137,6 +1140,7 @@ export const sale = pgTable(
     id: text('id').primaryKey(),
     receiptNo: text('receiptNo').notNull(),
     customerId: text('customerId'),
+    priceLevel: text('priceLevel').notNull().default('retail'),
     subtotal: numeric('subtotal', { precision: 12, scale: 2 }).notNull(),
     taxAmount: numeric('taxAmount', { precision: 12, scale: 2 })
       .notNull()
@@ -1350,6 +1354,8 @@ export const saleItem = pgTable(
     packageName: text('packageName'),
     baseUnitQuantity: integer('baseUnitQuantity').notNull().default(1),
     unitPrice: numeric('unitPrice', { precision: 12, scale: 2 }).notNull(),
+    priceLevel: text('priceLevel').notNull().default('retail'),
+    retailUnitPrice: numeric('retailUnitPrice', { precision: 12, scale: 2 }),
     totalPrice: numeric('totalPrice', { precision: 12, scale: 2 }).notNull(),
     unitCostAtSale: numeric('unitCostAtSale', { precision: 12, scale: 4 })
       .notNull()

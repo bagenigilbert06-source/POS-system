@@ -26,6 +26,9 @@ const intakeSchema = z.object({
     enteredUnit: z.string().trim().max(30).optional(),
     quantity: z.coerce.number().positive().max(1_000_000),
     unitCost: z.coerce.number().nonnegative().max(1_000_000_000).optional(),
+    updateSellingPrices: z.boolean().optional(),
+    retailPrice: z.coerce.number().nonnegative().max(1_000_000_000).optional(),
+    wholesalePrice: z.number().nonnegative().max(1_000_000_000).nullable().optional(),
   })).min(1).max(100),
 })
 
@@ -43,7 +46,7 @@ export async function getStockIntakePageData() {
   const [intakes, branches, products, packages, balances] = await Promise.all([
     db.select().from(stockIntake).where(and(eq(stockIntake.orgId, orgId), intakeBranchScope)).orderBy(desc(stockIntake.receivedAt)).limit(200),
     db.select({ id: branch.id, name: branch.name, isMain: branch.isMain }).from(branch).where(and(eq(branch.organizationId, orgId), branchScope)).orderBy(desc(branch.isMain), branch.name),
-    db.select({ id: product.id, name: product.name, sku: product.sku, barcode: product.barcode, unit: product.unit, buyingPrice: product.buyingPrice, trackingMode: product.trackingMode }).from(product).where(and(eq(product.orgId, orgId), eq(product.isActive, true))).orderBy(product.name),
+    db.select({ id: product.id, name: product.name, sku: product.sku, barcode: product.barcode, unit: product.unit, buyingPrice: product.buyingPrice, sellingPrice: product.sellingPrice, wholesalePrice: product.wholesalePrice, trackingMode: product.trackingMode }).from(product).where(and(eq(product.orgId, orgId), eq(product.isActive, true))).orderBy(product.name),
     db.select().from(productPackage).where(and(eq(productPackage.organizationId, orgId), eq(productPackage.isActive, true))).orderBy(productPackage.baseUnitQuantity),
     db.select().from(inventoryBalance).where(eq(inventoryBalance.orgId, orgId)),
   ])
@@ -79,6 +82,7 @@ export async function confirmStockIntake(input: StockIntakeInput) {
   const data = intakeSchema.parse(input)
   const authorization = await requirePermission(PermissionEnum.INVENTORY_RECEIVE)
   const { organizationId: orgId, userId } = authorization
+  if (data.items.some((item) => item.updateSellingPrices)) await requirePermission(PermissionEnum.CATALOG_EDIT)
   if (!authorization.isOrganizationWide && !authorization.branchIds.includes(data.branchId)) throw new Error('You do not have access to this inventory location')
   if (data.receivedAt.getTime() > Date.now() + 5 * 60_000) throw new Error('Date received cannot be in the future')
   if (new Set(data.items.map((item) => item.productId)).size !== data.items.length) throw new Error('Add each stock item only once per intake')
@@ -100,6 +104,7 @@ export async function confirmStockIntake(input: StockIntakeInput) {
     const selectedPackage = line.packageId ? packageById.get(line.packageId) : null
     if (line.packageId && (!selectedPackage || selectedPackage.productId !== item.id)) throw new Error(`The selected package for ${item.name} is unavailable`)
     if (line.enteredUnit && selectedPackage) throw new Error(`Choose either a receiving unit or package for ${item.name}`)
+    if (line.updateSellingPrices && line.retailPrice === undefined) throw new Error(`Enter the new Retail selling price for ${item.name}`)
     const conversion = selectedPackage?.baseUnitQuantity ?? (line.enteredUnit ? convertCafeQuantityToBase({ quantity: 1, enteredUnit: line.enteredUnit, productBaseUnit: item.unit }) : 1)
     const baseQuantity = line.enteredUnit ? convertCafeQuantityToBase({ quantity: line.quantity, enteredUnit: line.enteredUnit, productBaseUnit: item.unit }) : line.quantity * conversion
     if (!Number.isSafeInteger(baseQuantity) || baseQuantity > 10_000_000) throw new Error(`The quantity for ${item.name} is too large`)
@@ -135,6 +140,13 @@ export async function confirmStockIntake(input: StockIntakeInput) {
         unitCost: String(line.unitCost), totalCost: String(line.totalCost), orgId,
       })
       if (line.unitCost !== Number(line.item.buyingPrice)) await tx.update(product).set({ buyingPrice: String(line.unitCost), updatedAt: new Date() }).where(and(eq(product.id, line.item.id), eq(product.orgId, orgId)))
+      if (line.updateSellingPrices) {
+        const target = line.selectedPackage ?? line.item
+        const values = { sellingPrice: String(line.retailPrice), wholesalePrice: line.wholesalePrice === undefined ? target.wholesalePrice : line.wholesalePrice === null ? null : String(line.wholesalePrice), updatedAt: new Date() }
+        if (line.selectedPackage) await tx.update(productPackage).set(values).where(and(eq(productPackage.id, line.selectedPackage.id), eq(productPackage.organizationId, orgId)))
+        else await tx.update(product).set(values).where(and(eq(product.id, line.item.id), eq(product.orgId, orgId)))
+        await tx.insert(auditEvent).values({ id: generateId(), organizationId: orgId, userId, action: 'product.pricing_updated', metadata: { source: 'STOCK_RECEIVING', productId: line.item.id, packageId: line.selectedPackage?.id ?? null, oldRetailPrice: target.sellingPrice, newRetailPrice: line.retailPrice, oldWholesalePrice: target.wholesalePrice, newWholesalePrice: line.wholesalePrice === undefined ? target.wholesalePrice : line.wholesalePrice } })
+      }
     }
     await tx.insert(auditEvent).values({ id: generateId(), organizationId: orgId, userId, action: 'inventory.stock_intake_confirmed', metadata: { intakeId, intakeNo, branchId: location.id, externalReference: data.externalReference || null, items: lines.map((line) => ({ productId: line.item.id, baseQuantity: line.baseQuantity, unitCost: line.unitCost })) } })
     return { id: intakeId, intakeNo, duplicate: false }

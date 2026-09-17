@@ -725,6 +725,7 @@ export async function createProduct(data: {
   categoryId?: string;
   buyingPrice: number;
   sellingPrice: number;
+  wholesalePrice?: number;
   stock: number;
   minStock: number;
   unit: string;
@@ -784,6 +785,8 @@ export async function createProduct(data: {
     );
   if (!Number.isFinite(data.sellingPrice) || data.sellingPrice < 0)
     throw new Error('Enter a valid selling price');
+  if (data.wholesalePrice !== undefined && (!Number.isFinite(data.wholesalePrice) || data.wholesalePrice < 0))
+    throw new Error('Wholesale price cannot be negative');
   if (!Number.isInteger(data.stock) || data.stock < 0)
     throw new Error('Opening stock must be a whole number of zero or more');
   if (!Number.isInteger(data.minStock) || data.minStock < 0)
@@ -884,6 +887,7 @@ export async function createProduct(data: {
       name: data.name.trim(),
       buyingPrice: String(data.buyingPrice),
       sellingPrice: String(data.sellingPrice),
+      wholesalePrice: data.wholesalePrice === undefined ? null : String(data.wholesalePrice),
       userId,
       orgId,
       trackingMode: pharmacyWorkspace ? 'lot' : safeData.trackingMode,
@@ -964,6 +968,7 @@ export async function updateProduct(
     categoryId: string;
     buyingPrice: number;
     sellingPrice: number;
+    wholesalePrice: number | null;
     minStock: number;
     unit: string;
     volume: number;
@@ -1029,6 +1034,8 @@ export async function updateProduct(
     (!Number.isFinite(data.sellingPrice) || data.sellingPrice < 0)
   )
     throw new Error('Enter a valid selling price');
+  if (data.wholesalePrice !== undefined && data.wholesalePrice !== null && (!Number.isFinite(data.wholesalePrice) || data.wholesalePrice < 0))
+    throw new Error('Wholesale price cannot be negative');
   if (
     data.minStock !== undefined &&
     (!Number.isInteger(data.minStock) || data.minStock < 0)
@@ -1065,6 +1072,7 @@ export async function updateProduct(
     .select({
       buyingPrice: product.buyingPrice,
       sellingPrice: product.sellingPrice,
+      wholesalePrice: product.wholesalePrice,
     })
     .from(product)
     .where(and(eq(product.id, id), eq(product.orgId, orgId)))
@@ -1137,6 +1145,9 @@ export async function updateProduct(
         ...(safeData.sellingPrice !== undefined
           ? { sellingPrice: String(safeData.sellingPrice) }
           : {}),
+        ...(safeData.wholesalePrice !== undefined
+          ? { wholesalePrice: safeData.wholesalePrice === null ? null : String(safeData.wholesalePrice) }
+          : {}),
         ...(safeData.etimsTaxRate !== undefined
           ? { etimsTaxRate: String(safeData.etimsTaxRate) }
           : {}),
@@ -1144,6 +1155,21 @@ export async function updateProduct(
         updatedAt: new Date(),
       } as any)
       .where(and(eq(product.id, id), eq(product.orgId, orgId)));
+    if (
+      (data.sellingPrice !== undefined && String(data.sellingPrice) !== String(current.sellingPrice)) ||
+      (data.wholesalePrice !== undefined && String(data.wholesalePrice ?? '') !== String(current.wholesalePrice ?? ''))
+    )
+      await tx.insert(auditEvent).values({
+        id: generateId(), organizationId: orgId, userId,
+        action: 'product.pricing_updated',
+        metadata: {
+          productId: id,
+          oldRetailPrice: current.sellingPrice,
+          newRetailPrice: data.sellingPrice === undefined ? current.sellingPrice : String(data.sellingPrice),
+          oldWholesalePrice: current.wholesalePrice,
+          newWholesalePrice: data.wholesalePrice === undefined ? current.wholesalePrice : data.wholesalePrice === null ? null : String(data.wholesalePrice),
+        },
+      });
     if (pharmacyWorkspace && pharmacyData)
       await tx
         .insert(pharmacyProduct)
@@ -1246,6 +1272,7 @@ export async function saveProductPackage(input: {
   packageType: 'six_pack' | 'twelve_pack' | 'case' | 'custom';
   barcode?: string;
   sellingPrice: number;
+  wholesalePrice?: number | null;
   baseUnitQuantity: number;
   etimsItemCode?: string;
   etimsUnitCode?: string;
@@ -1270,6 +1297,8 @@ export async function saveProductPackage(input: {
     );
   if (!Number.isFinite(input.sellingPrice) || input.sellingPrice <= 0)
     throw new Error('Package selling price must be greater than zero');
+  if (input.wholesalePrice !== undefined && input.wholesalePrice !== null && (!Number.isFinite(input.wholesalePrice) || input.wholesalePrice < 0))
+    throw new Error('Package wholesale price cannot be negative');
   const [validProduct] = await db
     .select({ id: product.id, barcode: product.barcode })
     .from(product)
@@ -1310,6 +1339,10 @@ export async function saveProductPackage(input: {
       );
   }
   const id = input.id || generateId();
+  const [previous] = input.id
+    ? await db.select({ sellingPrice: productPackage.sellingPrice, wholesalePrice: productPackage.wholesalePrice }).from(productPackage)
+        .where(and(eq(productPackage.id, input.id), eq(productPackage.organizationId, orgId), eq(productPackage.productId, input.productId))).limit(1)
+    : [];
   const values = {
     organizationId: orgId,
     productId: input.productId,
@@ -1317,6 +1350,7 @@ export async function saveProductPackage(input: {
     packageType: input.packageType,
     barcode,
     sellingPrice: String(input.sellingPrice),
+    wholesalePrice: input.wholesalePrice === undefined ? null : input.wholesalePrice === null ? null : String(input.wholesalePrice),
     baseUnitQuantity: input.baseUnitQuantity,
     etimsItemCode: input.etimsItemCode?.trim() || null,
     etimsUnitCode: input.etimsUnitCode?.trim() || null,
@@ -1348,6 +1382,10 @@ export async function saveProductPackage(input: {
       name,
       packageType: input.packageType,
       baseUnitQuantity: input.baseUnitQuantity,
+      oldRetailPrice: previous?.sellingPrice ?? null,
+      newRetailPrice: String(input.sellingPrice),
+      oldWholesalePrice: previous?.wholesalePrice ?? null,
+      newWholesalePrice: input.wholesalePrice === undefined || input.wholesalePrice === null ? null : String(input.wholesalePrice),
     },
   });
   await invalidateProductReadCache(orgId);
