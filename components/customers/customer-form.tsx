@@ -298,12 +298,7 @@ export function CustomerForm({
               className="hidden items-center gap-1.5 text-xs text-muted-foreground sm:flex"
               aria-live="polite"
             >
-              {loading ? (
-                <>
-                  <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
-                  Saving securely…
-                </>
-              ) : (
+              {!loading && (
                 <>
                   <Check className="h-3.5 w-3.5 text-[hsl(var(--success))]" />
                   Ready to use at the POS after saving.
